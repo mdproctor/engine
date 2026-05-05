@@ -170,3 +170,42 @@ Bridges casehub-work `WorkItemLifecycleEvent` CDI events to CaseHub `PlanItem` t
 - Set `quarkus.quartz.store-type=ram` and `quarkus.hibernate-orm.schema-management.strategy=drop-and-create`
 
 `callerRef` format: `case:{caseId}/pi:{planItemId}` — use `CallerRef.encode()` / `CallerRef.parse()`.
+
+## Git Workflow
+
+**Fork model (all casehubio ecosystem repos):**
+- `origin` → your fork (`mdproctor/<repo>`)
+- `upstream` → casehubio (`casehubio/<repo>`)
+- Work on a branch → push to `origin` → PR to `casehubio`
+- Repos with fork configured: engine, ledger, work, qhorus, claudony
+
+**Branch discipline:** Always cut feature branches from `upstream/main`, not local `main`.
+Verify before pushing: `git log upstream/main..branch` — should show only intended commits.
+
+**Merge policy:** Squash merges are disabled on all casehubio repos.
+Use rebase merge (preferred — linear history, all commits preserved) or merge commit.
+
+**Commit compaction:** Apply the squash policy before PRs — run `/git-squash` to review
+and squash docs/chore follow-ons into their feat commits.
+
+---
+
+## Work Tracking
+
+**Issue tracking:** enabled
+**GitHub repo:** casehubio/engine
+**Changelog:** GitHub Releases (run `gh release create --generate-notes` at milestones)
+
+**Automatic behaviours (Claude follows these at all times in this project):**
+- **Before implementation begins** — when the user says "implement", "start coding",
+  "execute the plan", "let's build", or similar: check if an active issue or epic
+  exists. If not, run issue-workflow Phase 1 to create one **before writing any code**.
+- **Before writing any code** — check if an issue exists for what's about to be
+  implemented. If not, draft one and assess epic placement (issue-workflow Phase 2)
+  before starting. Also check if the work spans multiple concerns.
+- **Before any commit** — run issue-workflow Phase 3 (via git-commit) to confirm
+  issue linkage and check for split candidates. This is a fallback — the issue
+  should already exist from before implementation began.
+- **All commits should reference an issue** — `Refs #N` (ongoing) or `Closes #N` (done).
+  If the user explicitly says to skip ("commit as is", "no issue"), ask once to confirm
+  before proceeding — it must be a deliberate choice, not a default.
