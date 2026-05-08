@@ -244,6 +244,18 @@ and squash docs/chore follow-ons into their feat commits.
 
 ---
 
+
+## Development Workflow
+
+Before designing: `superpowers:brainstorming`
+Before implementing: `superpowers:test-driven-development`
+Before committing: `superpowers:requesting-code-review`
+
+Living docs — check for drift after significant changes:
+- `docs/DESIGN.md`
+- `docs/adr/INDEX.md`
+- `docs/specs/`
+
 ## Work Tracking
 
 **Issue tracking:** enabled
