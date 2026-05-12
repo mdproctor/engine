@@ -16,6 +16,7 @@
 package io.casehub.api.model;
 
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.holder.WorkerFunctionHolder;
 import io.casehub.api.plan.PlanElement;
 import io.serverlessworkflow.api.types.Workflow;
@@ -47,6 +48,10 @@ public class Worker implements PlanElement {
 
   public Worker(String name, List<Capability> capabilities, File file) {
     this(name, capabilities, new WorkerFunctionHolder<>(file));
+  }
+
+  public Worker(String name, List<Capability> capabilities, Agent agent) {
+    this(name, capabilities, new WorkerFunctionHolder<>(agent));
   }
 
   private Worker(
@@ -134,6 +139,11 @@ public class Worker implements PlanElement {
 
     public Builder function(File file) {
       this.functionHolder = new WorkerFunctionHolder<>(file);
+      return this;
+    }
+
+    public Builder function(Agent agent) {
+      this.functionHolder = new WorkerFunctionHolder<>(agent);
       return this;
     }
 

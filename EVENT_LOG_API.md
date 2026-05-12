@@ -2,7 +2,7 @@
 
 ## Overview
 
-REST API endpoint для получения событий (EventLog) конкретного case с возможностью фильтрации по типам событий и типам потоков, отсортированных по порядковому номеру (seq).
+REST API endpoint for retrieving events (EventLog) of a specific case with the ability to filter by event types and stream types, sorted by sequence number (seq).
 
 ## Endpoint
 
@@ -12,19 +12,19 @@ GET /api/cases/{caseId}/events
 
 ### Path Parameters
 
-- `caseId` (UUID, required) - идентификатор case
+- `caseId` (UUID, required) - case identifier
 
 ### Query Parameters
 
-- `eventType` (string, optional, repeatable) - фильтр по типу события. Можно указать несколько значений.
-  - Допустимые значения: `CASE_STARTED`, `CASE_COMPLETED`, `CASE_FAULTED`, `CASE_CANCELLED`, `CASE_STATUS_CHANGED`, `TASK_CREATED`, `TASK_COMPLETED`, `TASK_FAILED`, `TASK_CANCELLED`, `WORKER_SCHEDULED`, `WORKER_EXECUTION_STARTED`, `WORKER_EXECUTION_COMPLETED`, `WORKER_EXECUTION_FAILED`, `WORK_SUBMITTED`, `WORK_COMPLETED`, `SIGNAL_RECEIVED`, `MILESTONE_REACHED`, `MILESTONE_ACTIVATED`, `MILESTONE_COMPLETED`, `MILESTONE_SLA_VIOLATED`, `GOAL_REACHED`, `SUBCASE_STARTED`, `SUBCASE_COMPLETED`
+- `eventType` (string, optional, repeatable) - filter by event type. Multiple values can be specified.
+  - Allowed values: `CASE_STARTED`, `CASE_COMPLETED`, `CASE_FAULTED`, `CASE_CANCELLED`, `CASE_STATUS_CHANGED`, `TASK_CREATED`, `TASK_COMPLETED`, `TASK_FAILED`, `TASK_CANCELLED`, `WORKER_SCHEDULED`, `WORKER_EXECUTION_STARTED`, `WORKER_EXECUTION_COMPLETED`, `WORKER_EXECUTION_FAILED`, `WORK_SUBMITTED`, `WORK_COMPLETED`, `SIGNAL_RECEIVED`, `MILESTONE_REACHED`, `MILESTONE_ACTIVATED`, `MILESTONE_COMPLETED`, `MILESTONE_SLA_VIOLATED`, `GOAL_REACHED`, `SUBCASE_STARTED`, `SUBCASE_COMPLETED`
 
-- `streamType` (string, optional, repeatable) - фильтр по типу потока. Можно указать несколько значений.
-  - Допустимые значения: `CASE`, `WORKER`, `TIMER`, `SYSTEM`
+- `streamType` (string, optional, repeatable) - filter by stream type. Multiple values can be specified.
+  - Allowed values: `CASE`, `WORKER`, `TIMER`, `SYSTEM`
 
 ## Response
 
-Массив объектов EventLogDTO, отсортированных по полю `seq` в порядке возрастания.
+Array of EventLogDTO objects sorted by `seq` field in ascending order.
 
 ### EventLogDTO Structure
 
@@ -44,25 +44,25 @@ GET /api/cases/{caseId}/events
 
 ## Examples
 
-### Получить все события case
+### Get all case events
 
 ```bash
 curl http://localhost:8080/api/cases/550e8400-e29b-41d4-a716-446655440000/events
 ```
 
-### Получить только события типа WORKER
+### Get only WORKER stream type events
 
 ```bash
 curl "http://localhost:8080/api/cases/550e8400-e29b-41d4-a716-446655440000/events?streamType=WORKER"
 ```
 
-### Получить события запуска и завершения worker'ов
+### Get worker execution started and completed events
 
 ```bash
 curl "http://localhost:8080/api/cases/550e8400-e29b-41d4-a716-446655440000/events?eventType=WORKER_EXECUTION_STARTED&eventType=WORKER_EXECUTION_COMPLETED"
 ```
 
-### Комбинированный фильтр: события CASE потока типа CASE_STARTED или CASE_COMPLETED
+### Combined filter: CASE stream events of type CASE_STARTED or CASE_COMPLETED
 
 ```bash
 curl "http://localhost:8080/api/cases/550e8400-e29b-41d4-a716-446655440000/events?streamType=CASE&eventType=CASE_STARTED&eventType=CASE_COMPLETED"
@@ -72,7 +72,7 @@ curl "http://localhost:8080/api/cases/550e8400-e29b-41d4-a716-446655440000/event
 
 ### Repository Layer
 
-Новый метод в `EventLogRepository`:
+New method in `EventLogRepository`:
 
 ```java
 Uni<List<EventLog>> findByCaseWithFilters(
@@ -82,17 +82,17 @@ Uni<List<EventLog>> findByCaseWithFilters(
 );
 ```
 
-- Если `eventTypes` или `streamTypes` равны `null` или пустым, соответствующий фильтр не применяется
-- Результаты всегда сортируются по `seq` в порядке возрастания
-- Реализовано в `JpaEventLogRepository` и `InMemoryEventLogRepository`
+- If `eventTypes` or `streamTypes` are `null` or empty, the corresponding filter is not applied
+- Results are always sorted by `seq` in ascending order
+- Implemented in `JpaEventLogRepository` and `InMemoryEventLogRepository`
 
 ### REST Layer
 
-- `EventLogResource` - JAX-RS ресурс
-- `EventLogDTO` - DTO для сериализации EventLog
+- `EventLogResource` - JAX-RS resource
+- `EventLogDTO` - DTO for EventLog serialization
 
 ## Testing
 
-Реализация протестирована в:
+Implementation is tested in:
 - `JpaEventLogRepositoryTest` (Hibernate persistence)
 - `InMemoryEventLogRepositoryTest` (in-memory persistence)

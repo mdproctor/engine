@@ -75,7 +75,8 @@
         <maven.deploy.skip>false</maven.deploy.skip>
 
         <version.com.squareup.okhttp3.mockwebserver>5.3.2</version.com.squareup.okhttp3.mockwebserver>
-        <version.io.quarkiverse.langchain4j>1.5.0</version.io.quarkiverse.langchain4j>
+        <version.io.quarkiverse.langchain4j>1.9.2</version.io.quarkiverse.langchain4j>
+        <version.dev.langchain4j>1.14.1</version.dev.langchain4j>
 
         <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
         <checkstyle.header.extensions>java</checkstyle.header.extensions>
@@ -155,20 +156,11 @@
                 <artifactId>zjsonpatch</artifactId>
                 <version>${version.io.fabric8.zjsonpatch}</version>
             </dependency>
-
-            <!-- test dependencies -->
             <dependency>
-                <groupId>io.quarkiverse.langchain4j</groupId>
-                <artifactId>quarkus-langchain4j-ollama</artifactId>
-                <version>${version.io.quarkiverse.langchain4j}</version>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j</artifactId>
+                <version>${version.dev.langchain4j}</version>
             </dependency>
-            <dependency>
-                <groupId>com.squareup.okhttp3</groupId>
-                <artifactId>mockwebserver</artifactId>
-                <version>${version.com.squareup.okhttp3.mockwebserver}</version>
-            </dependency>
-
-            <!-- casehubio ecosystem -->
             <dependency>
                 <groupId>io.casehub</groupId>
                 <artifactId>casehub-work-api</artifactId>
@@ -198,6 +190,50 @@
                 <groupId>io.casehub</groupId>
                 <artifactId>casehub-ledger-api</artifactId>
                 <version>${version.io.casehub.ledger}</version>
+            </dependency>
+
+            <!-- test dependencies -->
+            <dependency>
+                <groupId>io.quarkiverse.langchain4j</groupId>
+                <artifactId>quarkus-langchain4j-ollama</artifactId>
+                <scope>test</scope>
+                <version>${version.io.quarkiverse.langchain4j}</version>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-open-ai</artifactId>
+                <version>${version.dev.langchain4j}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-ollama</artifactId>
+                <version>${version.dev.langchain4j}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-anthropic</artifactId>
+                <version>${version.dev.langchain4j}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-mistral-ai</artifactId>
+                <version>${version.dev.langchain4j}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-google-ai-gemini</artifactId>
+                <version>${version.dev.langchain4j}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <scope>test</scope>
+                <version>${version.com.squareup.okhttp3.mockwebserver}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

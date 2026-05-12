@@ -25,6 +25,7 @@ import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
+import io.casehub.api.model.ai.Agent;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.engine.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.internal.history.EventLog;
@@ -148,9 +149,11 @@ class QuartzWorkerExecutionJob implements Job {
         outputData = workflow(workflow, inputData, workerContext, timeoutMs);
       } else if (worker.getFunction().getValue() instanceof Function function) {
         outputData = function(function, inputData, workerContext, timeoutMs);
+      } else if (worker.getFunction().getValue() instanceof Agent agent) {
+        outputData = agent(agent, inputData, workerContext, timeoutMs);
       } else {
         throw new RuntimeException(
-            "Worker function is not a workflow: "
+            "Worker function is not a workflow, function, or agent: "
                 + worker.getName()
                 + " "
                 + worker.getFunction().getValue().getClass().getCanonicalName());
@@ -199,6 +202,26 @@ class QuartzWorkerExecutionJob implements Job {
               WorkerExecutionContext.set(workerContext);
               try {
                 return function.apply(inputData);
+              } finally {
+                WorkerExecutionContext.clear();
+              }
+            });
+
+    return cf.get(timeoutMs, TimeUnit.MILLISECONDS);
+  }
+
+  private Map<String, Object> agent(
+      Agent agent, Map<String, Object> inputData, WorkerContext workerContext, int timeoutMs)
+      throws TimeoutException, InterruptedException, ExecutionException {
+
+    LOG.debugf("Executing agent with timeout: %d ms", timeoutMs);
+
+    CompletableFuture<Map<String, Object>> cf =
+        CompletableFuture.supplyAsync(
+            () -> {
+              WorkerExecutionContext.set(workerContext);
+              try {
+                return agent.execute(inputData);
               } finally {
                 WorkerExecutionContext.clear();
               }

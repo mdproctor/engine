@@ -174,7 +174,7 @@ Quartz fires job
       → load EventLog by ID
       → load CaseInstance (cache or restore)
       → resolve Worker and Capability from CaseDefinition
-      → execute worker function (Workflow or Function<Map,Map>)
+      → execute worker function (Workflow, Function<Map,Map>, or Agent)
       → publish WorkflowExecutionCompleted → WORKER_EXECUTION_FINISHED bus
   → WorkflowExecutionCompletedHandler.onWorkflowExecutionCompletedHandler()
       → snapshot CaseContext (before)
@@ -191,6 +191,63 @@ Quartz fires job
 **Conflict resolution on output:** Each output key is written through the `ContextDiffStrategy`-selected resolver configured on the binding (`LAST_WRITER_WINS` default, `FIRST_WRITER_WINS`, or `FAIL`).
 
 **Idempotency:** `WorkerScheduleEventHandler` holds a Vert.x local lock on `(caseId, workerId, inputDataHash)` and checks for existing `WORKER_SCHEDULED / WORKER_EXECUTION_STARTED / WORKER_EXECUTION_COMPLETED` events before submitting to Quartz. Duplicate `CONTEXT_CHANGED` events that arrive while a worker is in flight are silently dropped.
+
+## Worker Function Types
+
+Workers can be implemented using three function types:
+
+### Workflow
+
+Serverless Workflow execution via `io.serverlessworkflow.api.types.Workflow`. The workflow model is executed by `WorkflowExecutor` and returns a `WorkflowModel` containing the output state.
+
+### Function
+
+Java function with signature `Function<Map<String, Object>, Map<String, Object>>`. The function receives input data derived from the CaseContext via the capability's `inputSchema` and returns output data that is merged back via the `outputSchema`.
+
+### Agent
+
+AI-powered worker using LangChain4j models. Agents transform input data using JQ expressions, invoke an LLM with a system prompt, and transform the LLM response back to output data.
+
+**Agent architecture:**
+
+```
+CaseContext
+  → inputSchema (JQ) → transformed input
+  → system prompt + user message template
+  → ChatModel.chat(request)
+  → LLM response (JSON)
+  → outputSchema (JQ) → output data
+  → merge to CaseContext
+```
+
+**Key components:**
+- `Agent` — core execution class; applies JQ transformations, builds ChatRequest, invokes model
+- `ChatModelProvider` — SPI interface (ServiceLoader-based) for pluggable LLM backends
+- `ModelType` enum — OPENAI, OLLAMA, ANTHROPIC, MISTRAL_AI, GOOGLE_AI_GEMINI
+- `JqTransformer` — applies JQ expressions for input/output mapping
+- Provider implementations use reflection to avoid compile-time dependencies on vendor SDKs
+
+**Execution:**
+- Runs in `CompletableFuture.supplyAsync()` with timeout enforcement
+- `WorkerExecutionContext` thread-local is set before Agent.execute() and cleared in finally block
+- Same retry/failure semantics as Function and Workflow types
+
+**Builder API:**
+
+```java
+Agent agent = Agent.builder()
+    .systemPrompt("Analyze sentiment...")
+    .inputSchema("{ text: .text }")
+    .outputSchema("{ sentiment: .sentiment }")
+    .model(ModelType.OPENAI)  // or ChatModelProvider, or ChatModel
+    .build();
+
+Worker worker = Worker.builder()
+    .name("sentiment-analyzer")
+    .capabilities(capability)
+    .function(agent)
+    .build();
+```
 
 ## Failure and Retry Lifecycle
 
@@ -345,6 +402,12 @@ WorkerExecutionContext.current() ← accessed by the worker function at runtime
 **Causal chain:** When a worker completes, `CaseLedgerEventCapture` writes a `WORKER_EXECUTION_COMPLETED` ledger entry. The `WorkerSummary` for that worker carries this entry's UUID as `ledgerEntryId`. New workers set `causedByEntryId` on their own ledger entries to this value, completing the causal chain across workers on a case.
 
 **SPI placement rule:** Operational SPIs (worker provisioning, lifecycle, channels) go in `api/spi/`; persistence SPIs (`CaseMetaModelRepository`, etc.) go in `engine-model/spi/`.
+
+### AI Agent Dependencies
+
+The `api` module depends on `dev.langchain4j:langchain4j` (core) for the Agent worker type. Test scope includes provider implementations: `langchain4j-open-ai`, `langchain4j-ollama`, `langchain4j-anthropic`, `langchain4j-mistral-ai`, `langchain4j-google-ai-gemini`.
+
+Provider implementations use reflection to load vendor SDKs at runtime, avoiding compile-time dependencies. The `ChatModelProvider` SPI is registered via `META-INF/services/io.casehub.api.model.ai.ChatModelProvider`.
 
 ### SPI Call Sites
 
