@@ -1,0 +1,147 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.persistence.jpa;
+
+import io.casehub.api.model.OnThresholdReached;
+import io.casehub.engine.internal.model.SubCaseGroup;
+import io.casehub.engine.spi.SubCaseGroupRepository;
+import io.quarkus.hibernate.reactive.panache.Panache;
+import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Optional;
+import java.util.UUID;
+
+@ApplicationScoped
+public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
+
+  @Override
+  public Uni<SubCaseGroup> getOrCreate(
+      UUID parentCaseId,
+      String groupId,
+      int totalInGroup,
+      int requiredCount,
+      OnThresholdReached onThresholdReached) {
+    return Panache.withTransaction(
+        () ->
+            SubCaseGroupEntity.<SubCaseGroupEntity>find(
+                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                .firstResult()
+                .flatMap(
+                    existing -> {
+                      if (existing != null) return Uni.createFrom().item(toDomain(existing));
+                      SubCaseGroupEntity e = new SubCaseGroupEntity();
+                      e.parentCaseId = parentCaseId;
+                      e.groupId = groupId;
+                      e.instanceCount = totalInGroup;
+                      e.requiredCount = requiredCount;
+                      e.onThresholdReached =
+                          onThresholdReached != null ? onThresholdReached : OnThresholdReached.KEEP;
+                      return e.<SubCaseGroupEntity>persist().map(this::toDomain);
+                    }));
+  }
+
+  @Override
+  public Uni<SubCaseGroup> registerChild(UUID parentCaseId, String groupId, UUID childCaseId) {
+    return Panache.withTransaction(
+        () ->
+            SubCaseGroupEntity.<SubCaseGroupEntity>find(
+                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                .firstResult()
+                .flatMap(
+                    e -> {
+                      if (e == null)
+                        return Uni.createFrom()
+                            .failure(
+                                new IllegalStateException(
+                                    "Group not found: " + parentCaseId + ":" + groupId));
+                      e.childCaseIds.add(childCaseId);
+                      return Uni.createFrom().item(toDomain(e));
+                    }));
+  }
+
+  @Override
+  public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId) {
+    return Panache.withTransaction(
+        () ->
+            SubCaseGroupEntity.<SubCaseGroupEntity>find(
+                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                .firstResult()
+                .flatMap(
+                    e -> {
+                      if (e == null)
+                        return Uni.createFrom()
+                            .failure(
+                                new IllegalStateException(
+                                    "Group not found: " + parentCaseId + ":" + groupId));
+                      e.completedCount++;
+                      return Uni.createFrom().item(toDomain(e));
+                    }));
+  }
+
+  @Override
+  public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId) {
+    return Panache.withTransaction(
+        () ->
+            SubCaseGroupEntity.<SubCaseGroupEntity>find(
+                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                .firstResult()
+                .flatMap(
+                    e -> {
+                      if (e == null)
+                        return Uni.createFrom()
+                            .failure(
+                                new IllegalStateException(
+                                    "Group not found: " + parentCaseId + ":" + groupId));
+                      e.rejectedCount++;
+                      return Uni.createFrom().item(toDomain(e));
+                    }));
+  }
+
+  @Override
+  public Uni<Void> markPolicyTriggered(UUID parentCaseId, String groupId) {
+    return Panache.withTransaction(
+        () ->
+            SubCaseGroupEntity.<SubCaseGroupEntity>find(
+                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                .firstResult()
+                .flatMap(
+                    e -> {
+                      if (e != null) e.policyTriggered = true;
+                      return Uni.createFrom().voidItem();
+                    }));
+  }
+
+  @Override
+  public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId) {
+    return SubCaseGroupEntity.<SubCaseGroupEntity>find("?1 member of childCaseIds", childCaseId)
+        .firstResult()
+        .map(e -> Optional.ofNullable(e == null ? null : toDomain(e)));
+  }
+
+  private SubCaseGroup toDomain(SubCaseGroupEntity e) {
+    SubCaseGroup g = new SubCaseGroup();
+    g.setParentCaseId(e.parentCaseId);
+    g.setGroupId(e.groupId);
+    g.setInstanceCount(e.instanceCount);
+    g.setRequiredCount(e.requiredCount);
+    g.setCompletedCount(e.completedCount);
+    g.setRejectedCount(e.rejectedCount);
+    g.setPolicyTriggered(e.policyTriggered);
+    g.setOnThresholdReached(e.onThresholdReached);
+    if (e.childCaseIds != null) g.getChildCaseIds().addAll(e.childCaseIds);
+    return g;
+  }
+}
