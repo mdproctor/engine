@@ -17,16 +17,19 @@ package io.casehub.blackboard.subcase;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.DefaultSubCaseCompletionStrategy;
-import io.casehub.api.model.SubCaseCompletionStrategy;
+import io.casehub.api.model.OnThresholdReached;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.internal.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.history.EventLog;
 import io.casehub.engine.internal.model.CaseInstance;
+import io.casehub.engine.internal.model.GroupStatus;
+import io.casehub.engine.internal.model.SubCaseGroup;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.engine.spi.EventLogRepository;
+import io.casehub.engine.spi.SubCaseGroupRepository;
 import io.casehub.engine.spi.cache.CaseInstanceCache;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
@@ -42,7 +45,12 @@ import org.jboss.logging.Logger;
  * case (its UUID appears in a parent's SUBCASE_STARTED EventLog entry), updates the parent context
  * and resumes the parent if it was WAITING.
  *
- * <p>See casehubio/engine#195.
+ * <p>Grouped path: delegates to {@link SubCaseGroupRepository} and {@link SubCaseGroupPolicy} to
+ * track threshold progress. Resumes parent only when the group reaches COMPLETED threshold.
+ *
+ * <p>Ungrouped path: existing single-child completion behaviour — resumes parent immediately.
+ *
+ * <p>See casehubio/engine#112.
  */
 @ApplicationScoped
 public class SubCaseCompletionListener {
@@ -53,13 +61,14 @@ public class SubCaseCompletionListener {
   @Inject EventLogRepository eventLogRepository;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject CaseResumptionService caseResumptionService;
+  @Inject SubCaseGroupRepository subCaseGroupRepository;
+  @Inject CaseHubRuntime caseHubRuntime;
 
   public void onCaseLifecycle(@ObservesAsync CaseLifecycleEvent event) {
     if (!isTerminal(event.commandType())) return;
 
     UUID childCaseId = event.caseId();
 
-    // Find parent case via SUBCASE_STARTED entry (workerId = childCaseId)
     EventLog startedEntry =
         eventLogRepository
             .findByWorkerAndType(childCaseId.toString(), CaseHubEventType.SUBCASE_STARTED)
@@ -71,69 +80,180 @@ public class SubCaseCompletionListener {
 
     if (startedEntry == null) return;
 
+    String groupId =
+        startedEntry.getMetadata().has("groupId")
+            ? startedEntry.getMetadata().get("groupId").asText(null)
+            : null;
+
+    if (groupId != null) {
+      handleGroupedCompletion(childCaseId, event, startedEntry, groupId);
+    } else {
+      handleUngroupedCompletion(childCaseId, event, startedEntry);
+    }
+  }
+
+  private void handleGroupedCompletion(
+      UUID childCaseId, CaseLifecycleEvent event, EventLog startedEntry, String groupId) {
+    UUID parentCaseId = startedEntry.getCaseId();
+    CaseStatus childStatus =
+        event.caseStatus() != null ? CaseStatus.valueOf(event.caseStatus()) : CaseStatus.FAULTED;
+    boolean childCompleted = childStatus == CaseStatus.COMPLETED;
+
+    SubCaseGroup group;
+    if (childCompleted) {
+      group =
+          subCaseGroupRepository
+              .incrementCompleted(parentCaseId, groupId)
+              .await()
+              .atMost(Duration.ofSeconds(10));
+    } else {
+      group =
+          subCaseGroupRepository
+              .incrementRejected(parentCaseId, groupId)
+              .await()
+              .atMost(Duration.ofSeconds(10));
+    }
+
+    GroupStatus groupStatus = SubCaseGroupPolicy.evaluate(group);
+    if (groupStatus == null) return; // policyTriggered — already handled
+
+    LOG.infof(
+        "SubCaseGroup event: parentCaseId=%s groupId=%s status=%s completed=%d/%d",
+        parentCaseId, groupId, groupStatus, group.getCompletedCount(), group.getRequiredCount());
+
+    if (groupStatus == GroupStatus.COMPLETED || groupStatus == GroupStatus.REJECTED) {
+      subCaseGroupRepository
+          .markPolicyTriggered(parentCaseId, groupId)
+          .await()
+          .atMost(Duration.ofSeconds(10));
+
+      if (groupStatus == GroupStatus.COMPLETED) {
+        if (group.getOnThresholdReached() == OnThresholdReached.CANCEL) {
+          cancelRemainingChildren(group, childCaseId);
+        }
+
+        applyOutputMapping(startedEntry, childCaseId, parentCaseId);
+        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus);
+
+        CaseInstance parent = caseInstanceCache.get(parentCaseId);
+        if (parent == null) {
+          LOG.warnf(
+              "SubCaseCompletionListener: parent %s not in cache after group completed",
+              parentCaseId);
+          return;
+        }
+
+        caseResumptionService
+            .resumeIfWaiting(
+                parent,
+                groupId,
+                childCaseId.toString(),
+                Map.of(),
+                CaseHubEventType.SUBCASE_COMPLETED)
+            .await()
+            .atMost(Duration.ofSeconds(10));
+      } else {
+        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus);
+        LOG.warnf(
+            "SubCaseGroup REJECTED: parentCaseId=%s groupId=%s — threshold unreachable."
+                + " Parent remains WAITING.",
+            parentCaseId, groupId);
+      }
+    } else {
+      writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus);
+    }
+  }
+
+  private void handleUngroupedCompletion(
+      UUID childCaseId, CaseLifecycleEvent event, EventLog startedEntry) {
     UUID parentCaseId = startedEntry.getCaseId();
     String outputMapping =
         startedEntry.getMetadata().has("outputMapping")
             ? startedEntry.getMetadata().get("outputMapping").asText()
             : null;
 
-    CaseInstance parent = caseInstanceCache.get(parentCaseId);
-    if (parent == null) {
-      LOG.warnf("SubCaseCompletionListener: parent case %s not in cache", parentCaseId);
-      return;
-    }
-
-    // Load child's terminal status
     CaseStatus childStatus =
         event.caseStatus() != null ? CaseStatus.valueOf(event.caseStatus()) : CaseStatus.FAULTED;
 
-    // Apply outputMapping: evaluate against child's final context, merge result into parent
-    if (outputMapping != null) {
-      CaseInstance child = caseInstanceCache.get(childCaseId);
-      if (child != null) {
-        Map<String, Object> mapped = child.getCaseContext().evalObjectTemplate(outputMapping);
-        if (mapped != null) {
-          mapped.forEach((k, v) -> parent.getCaseContext().set(k, v));
-        }
-      } else {
-        LOG.warnf(
-            "SubCaseCompletionListener: child %s not in cache — outputMapping skipped",
-            childCaseId);
-      }
+    CaseInstance parent = caseInstanceCache.get(parentCaseId);
+    if (parent == null) {
+      LOG.warnf("SubCaseCompletionListener: parent %s not in cache", parentCaseId);
+      return;
     }
 
-    // Check completion strategy
-    SubCaseCompletionStrategy strategy = new DefaultSubCaseCompletionStrategy();
-    SubCaseCompletionStrategy.ItemStatus itemStatus = strategy.mapToStageItemStatus(childStatus);
+    if (outputMapping != null) {
+      applyOutputMappingToParent(childCaseId, parent, outputMapping);
+    }
+
     LOG.infof(
-        "SubCaseCompletionListener: child %s (%s) → parent %s itemStatus=%s",
-        childCaseId, childStatus, parentCaseId, itemStatus);
+        "SubCaseCompletionListener (ungrouped): child %s (%s) → parent %s",
+        childCaseId, childStatus, parentCaseId);
 
-    // Write SUBCASE_COMPLETED EventLog on parent
-    EventLog completedLog = new EventLog();
-    completedLog.setCaseId(parentCaseId);
-    completedLog.setWorkerId(childCaseId.toString());
-    completedLog.setEventType(CaseHubEventType.SUBCASE_COMPLETED);
-    completedLog.setStreamType(EventStreamType.CASE);
-    completedLog.setTimestamp(Instant.now());
-    ObjectNode meta = OBJECT_MAPPER.createObjectNode();
-    meta.put("childCaseId", childCaseId.toString());
-    meta.put("childFinalStatus", childStatus.name());
-    completedLog.setMetadata(meta);
+    writeCompletedLog(parentCaseId, childCaseId, null, null);
 
-    eventLogRepository.append(completedLog).await().atMost(Duration.ofSeconds(10));
-
-    // Resume parent
-    Map<String, Object> childOutput = Map.of();
     caseResumptionService
         .resumeIfWaiting(
             parent,
             childCaseId.toString(),
             childCaseId.toString(),
-            childOutput,
-            CaseHubEventType.WORK_COMPLETED)
+            Map.of(),
+            CaseHubEventType.SUBCASE_COMPLETED)
         .await()
         .atMost(Duration.ofSeconds(10));
+  }
+
+  private void applyOutputMapping(EventLog startedEntry, UUID childCaseId, UUID parentCaseId) {
+    String outputMapping =
+        startedEntry.getMetadata().has("outputMapping")
+            ? startedEntry.getMetadata().get("outputMapping").asText()
+            : null;
+    if (outputMapping == null) return;
+    CaseInstance parent = caseInstanceCache.get(parentCaseId);
+    if (parent != null) {
+      applyOutputMappingToParent(childCaseId, parent, outputMapping);
+    }
+  }
+
+  private void applyOutputMappingToParent(
+      UUID childCaseId, CaseInstance parent, String outputMapping) {
+    CaseInstance child = caseInstanceCache.get(childCaseId);
+    if (child != null) {
+      Map<String, Object> mapped = child.getCaseContext().evalObjectTemplate(outputMapping);
+      if (mapped != null) mapped.forEach((k, v) -> parent.getCaseContext().set(k, v));
+    } else {
+      LOG.warnf(
+          "SubCaseCompletionListener: child %s not in cache — outputMapping skipped", childCaseId);
+    }
+  }
+
+  private void cancelRemainingChildren(SubCaseGroup group, UUID justCompletedChildId) {
+    group.getChildCaseIds().stream()
+        .filter(id -> !id.equals(justCompletedChildId))
+        .forEach(
+            id -> {
+              try {
+                caseHubRuntime.cancelCase(id);
+              } catch (Exception e) {
+                LOG.warnf(
+                    "SubCaseCompletionListener: could not cancel child %s: %s", id, e.getMessage());
+              }
+            });
+  }
+
+  private void writeCompletedLog(
+      UUID parentCaseId, UUID childCaseId, String groupId, GroupStatus groupStatus) {
+    EventLog log = new EventLog();
+    log.setCaseId(parentCaseId);
+    log.setWorkerId(childCaseId.toString());
+    log.setEventType(CaseHubEventType.SUBCASE_COMPLETED);
+    log.setStreamType(EventStreamType.CASE);
+    log.setTimestamp(Instant.now());
+    ObjectNode meta = OBJECT_MAPPER.createObjectNode();
+    meta.put("childCaseId", childCaseId.toString());
+    if (groupId != null) meta.put("groupId", groupId);
+    if (groupStatus != null) meta.put("groupStatus", groupStatus.name());
+    log.setMetadata(meta);
+    eventLogRepository.append(log).await().atMost(Duration.ofSeconds(10));
   }
 
   private static boolean isTerminal(String commandType) {
