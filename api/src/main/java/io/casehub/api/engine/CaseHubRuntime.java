@@ -15,6 +15,7 @@
  */
 package io.casehub.api.engine;
 
+import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
@@ -30,6 +31,12 @@ public interface CaseHubRuntime {
   CompletionStage<UUID> startCase(CaseDefinition definition);
 
   CompletionStage<UUID> startCase(CaseDefinition definition, Map<String, Object> inputData);
+
+  CompletionStage<UUID> startCase(
+      CaseDefinition definition,
+      Map<String, Object> inputData,
+      UUID parentCaseId,
+      PropagationContext propagationContext);
 
   void signal(UUID caseId, String path, Object value);
 

@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.engine;
 
+import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.event.CaseEventLogRecord;
@@ -42,6 +43,16 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   @Override
   public CompletionStage<UUID> startCase(CaseDefinition definition, Map<String, Object> inputData) {
     return reactor.startCase(definition, new CaseContextImpl(inputData));
+  }
+
+  @Override
+  public CompletionStage<UUID> startCase(
+      CaseDefinition definition,
+      Map<String, Object> inputData,
+      UUID parentCaseId,
+      PropagationContext propagationContext) {
+    return reactor.startCase(
+        definition, new CaseContextImpl(inputData), parentCaseId, propagationContext);
   }
 
   @Override

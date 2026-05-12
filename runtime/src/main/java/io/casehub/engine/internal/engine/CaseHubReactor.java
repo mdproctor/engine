@@ -72,7 +72,23 @@ class CaseHubReactor {
   @Inject EventLogRepository eventLogRepository;
 
   CompletionStage<UUID> startCase(CaseDefinition definition, CaseContext context) {
-    return getCaseInstance(definition, context)
+    return startCaseInternal(definition, context, null, null);
+  }
+
+  CompletionStage<UUID> startCase(
+      CaseDefinition definition,
+      CaseContext context,
+      UUID parentCaseId,
+      PropagationContext propagationContext) {
+    return startCaseInternal(definition, context, parentCaseId, propagationContext);
+  }
+
+  private CompletionStage<UUID> startCaseInternal(
+      CaseDefinition definition,
+      CaseContext context,
+      UUID parentCaseId,
+      PropagationContext parentPropCtx) {
+    return buildInstance(definition, context, parentCaseId, parentPropCtx)
         .chain(
             instance -> {
               LOG.info("Case started with caseId: " + instance.getUuid());
@@ -90,19 +106,30 @@ class CaseHubReactor {
         .subscribeAsCompletionStage();
   }
 
-  private Uni<CaseInstance> getCaseInstance(CaseDefinition definition, CaseContext context) {
+  private Uni<CaseInstance> buildInstance(
+      CaseDefinition definition,
+      CaseContext context,
+      UUID parentCaseId,
+      PropagationContext parentPropCtx) {
     CaseMetaModel model = caseDefinitionRegistry.getCaseMetaModel(definition);
 
-    String traceId =
-        traceIdProvider
-            .currentTraceId()
-            .filter(id -> !id.isBlank())
-            .orElseGet(() -> UUID.randomUUID().toString());
+    PropagationContext propagationContext;
+    if (parentPropCtx != null) {
+      propagationContext = parentPropCtx.createChild();
+    } else {
+      String traceId =
+          traceIdProvider
+              .currentTraceId()
+              .filter(id -> !id.isBlank())
+              .orElseGet(() -> UUID.randomUUID().toString());
 
-    PropagationContext propagationContext =
-        maxDuration
-            .map(budget -> PropagationContext.createRoot(traceId, Map.<String, String>of(), budget))
-            .orElse(PropagationContext.createRoot(traceId));
+      propagationContext =
+          maxDuration
+              .map(
+                  budget ->
+                      PropagationContext.createRoot(traceId, Map.<String, String>of(), budget))
+              .orElse(PropagationContext.createRoot(traceId));
+    }
 
     CaseInstance instance = new CaseInstance();
     instance.setUuid(UUID.randomUUID());
@@ -111,6 +138,7 @@ class CaseHubReactor {
     instance.setState(CaseStatus.RUNNING);
     instance.setCaseContext(context);
     instance.setPropagationContext(propagationContext);
+    instance.setParentCaseId(parentCaseId);
 
     caseInstanceCache.put(instance);
     return caseInstanceRepository.save(instance);
