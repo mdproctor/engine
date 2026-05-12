@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.DefaultSubCaseCompletionStrategy;
+import io.casehub.api.model.OnThresholdReached;
 import io.casehub.api.model.SubCase;
 import io.casehub.api.model.SubCaseCompletionStrategy;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
@@ -126,5 +127,49 @@ class SubCaseTest {
             .build();
     assertThat(sc.inputMapping()).isEqualTo("{ id: .caseId }");
     assertThat(sc.outputMapping()).isEqualTo("{ result: .childResult }");
+  }
+
+  @Test
+  void groupId_and_totalInGroup_stored() {
+    SubCase sc =
+        SubCase.builder()
+            .namespace("ns")
+            .name("n")
+            .version("v")
+            .groupId("site-review")
+            .totalInGroup(3)
+            .requiredCount(2)
+            .onThresholdReached(OnThresholdReached.CANCEL)
+            .build();
+    assertThat(sc.groupId()).isEqualTo("site-review");
+    assertThat(sc.totalInGroup()).isEqualTo(3);
+    assertThat(sc.requiredCount()).isEqualTo(2);
+    assertThat(sc.onThresholdReached()).isEqualTo(OnThresholdReached.CANCEL);
+  }
+
+  @Test
+  void requiredCount_defaults_to_totalInGroup() {
+    SubCase sc =
+        SubCase.builder()
+            .namespace("ns")
+            .name("n")
+            .version("v")
+            .groupId("g")
+            .totalInGroup(3)
+            .build();
+    assertThat(sc.requiredCount()).isEqualTo(3);
+  }
+
+  @Test
+  void onThresholdReached_defaults_to_keep() {
+    SubCase sc =
+        SubCase.builder()
+            .namespace("ns")
+            .name("n")
+            .version("v")
+            .groupId("g")
+            .totalInGroup(2)
+            .build();
+    assertThat(sc.onThresholdReached()).isEqualTo(OnThresholdReached.KEEP);
   }
 }

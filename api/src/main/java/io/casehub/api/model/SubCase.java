@@ -19,7 +19,7 @@ import java.util.Objects;
 
 /**
  * Identifies a child case definition to launch as part of a Stage's work. SubCase binding wiring:
- * casehubio/engine#195.
+ * casehubio/engine#195. M-of-N coordination: casehubio/engine#112.
  */
 public class SubCase {
   private final String namespace;
@@ -29,6 +29,10 @@ public class SubCase {
   private final boolean waitForCompletion;
   private final String inputMapping;
   private final String outputMapping;
+  private final String groupId;
+  private final int totalInGroup;
+  private final int requiredCount;
+  private final OnThresholdReached onThresholdReached;
 
   private SubCase(Builder b) {
     this.namespace = Objects.requireNonNull(b.namespace, "namespace");
@@ -41,6 +45,11 @@ public class SubCase {
     this.waitForCompletion = b.waitForCompletion;
     this.inputMapping = b.inputMapping != null ? b.inputMapping : ".";
     this.outputMapping = b.outputMapping;
+    this.groupId = b.groupId;
+    this.totalInGroup = b.totalInGroup;
+    this.requiredCount = b.requiredCount > 0 ? b.requiredCount : b.totalInGroup;
+    this.onThresholdReached =
+        b.onThresholdReached != null ? b.onThresholdReached : OnThresholdReached.KEEP;
   }
 
   public String namespace() {
@@ -71,6 +80,22 @@ public class SubCase {
     return outputMapping;
   }
 
+  public String groupId() {
+    return groupId;
+  }
+
+  public int totalInGroup() {
+    return totalInGroup;
+  }
+
+  public int requiredCount() {
+    return requiredCount;
+  }
+
+  public OnThresholdReached onThresholdReached() {
+    return onThresholdReached;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -83,6 +108,10 @@ public class SubCase {
     private boolean waitForCompletion = true;
     private String inputMapping;
     private String outputMapping;
+    private String groupId;
+    private int totalInGroup = 0;
+    private int requiredCount = 0;
+    private OnThresholdReached onThresholdReached;
 
     public Builder namespace(String v) {
       namespace = v;
@@ -116,6 +145,26 @@ public class SubCase {
 
     public Builder outputMapping(String v) {
       outputMapping = v;
+      return this;
+    }
+
+    public Builder groupId(String v) {
+      groupId = v;
+      return this;
+    }
+
+    public Builder totalInGroup(int v) {
+      totalInGroup = v;
+      return this;
+    }
+
+    public Builder requiredCount(int v) {
+      requiredCount = v;
+      return this;
+    }
+
+    public Builder onThresholdReached(OnThresholdReached v) {
+      onThresholdReached = v;
       return this;
     }
 
