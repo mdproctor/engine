@@ -91,6 +91,16 @@ public class CaseInstance {
     this.parentPlanItemId = parentPlanItemId;
   }
 
+  private UUID parentCaseId;
+
+  public UUID getParentCaseId() {
+    return parentCaseId;
+  }
+
+  public void setParentCaseId(UUID parentCaseId) {
+    this.parentCaseId = parentCaseId;
+  }
+
   public CaseStatus getState() {
     return state;
   }
