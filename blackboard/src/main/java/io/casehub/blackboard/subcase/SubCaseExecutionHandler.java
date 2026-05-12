@@ -31,6 +31,7 @@ import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.casehub.engine.spi.CaseDefinitionRegistry;
 import io.casehub.engine.spi.CaseInstanceRepository;
 import io.casehub.engine.spi.EventLogRepository;
+import io.casehub.engine.spi.SubCaseGroupRepository;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -40,12 +41,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletionStage;
 import org.jboss.logging.Logger;
 
-/**
- * Consumes {@link EventBusAddresses#SUBCASE_SCHEDULE} events and spawns a child CaseInstance. When
- * {@code waitForCompletion=true}, transitions the parent case to WAITING.
- *
- * <p>See casehubio/engine#195.
- */
 @ApplicationScoped
 public class SubCaseExecutionHandler {
 
@@ -57,25 +52,24 @@ public class SubCaseExecutionHandler {
   @Inject CaseInstanceRepository caseInstanceRepository;
   @Inject EventLogRepository eventLogRepository;
   @Inject PendingWorkRegistry pendingWorkRegistry;
+  @Inject SubCaseGroupRepository subCaseGroupRepository;
 
   @ConsumeEvent(value = EventBusAddresses.SUBCASE_SCHEDULE, blocking = true)
   public Uni<Void> onSubCaseSchedule(SubCaseScheduleEvent event) {
     CaseInstance parent = event.parentInstance();
     SubCase subCase = event.subCase();
 
-    // Circular detection: reject if child definition matches parent
     CaseMetaModel parentMeta = parent.getCaseMetaModel();
     if (parentMeta != null
         && subCase.namespace().equals(parentMeta.getNamespace())
         && subCase.name().equals(parentMeta.getName())
         && subCase.version().equals(parentMeta.getVersion())) {
       LOG.errorf(
-          "SubCase circular dependency detected: case %s cannot spawn itself (%s/%s/%s)",
+          "SubCase circular dependency: case %s cannot spawn itself (%s/%s/%s)",
           parent.getUuid(), subCase.namespace(), subCase.name(), subCase.version());
       return Uni.createFrom().voidItem();
     }
 
-    // Resolve child CaseDefinition
     CaseMetaModel childMeta = new CaseMetaModel();
     childMeta.setNamespace(subCase.namespace());
     childMeta.setName(subCase.name());
@@ -89,39 +83,91 @@ public class SubCaseExecutionHandler {
       return Uni.createFrom().voidItem();
     }
 
-    // Start child case
     CompletionStage<UUID> childFuture =
-        caseHubRuntime.startCase(childDefinition, event.childInitialContext());
+        caseHubRuntime.startCase(
+            childDefinition,
+            event.childInitialContext(),
+            parent.getUuid(),
+            parent.getPropagationContext());
     UUID childCaseId = childFuture.toCompletableFuture().join();
 
     LOG.infof(
-        "SubCase spawned: parentCaseId=%s childCaseId=%s waitForCompletion=%s",
-        parent.getUuid(), childCaseId, subCase.waitForCompletion());
+        "SubCase spawned: parentCaseId=%s childCaseId=%s grouped=%s",
+        parent.getUuid(), childCaseId, subCase.groupId() != null);
 
-    // Write SUBCASE_STARTED EventLog on parent
-    EventLog startedLog = new EventLog();
-    startedLog.setCaseId(parent.getUuid());
-    startedLog.setWorkerId(childCaseId.toString());
-    startedLog.setEventType(CaseHubEventType.SUBCASE_STARTED);
-    startedLog.setStreamType(EventStreamType.CASE);
-    startedLog.setTimestamp(Instant.now());
+    if (subCase.groupId() != null) {
+      return handleGrouped(parent, subCase, childCaseId);
+    } else {
+      return handleUngrouped(parent, subCase, childCaseId);
+    }
+  }
+
+  private Uni<Void> handleGrouped(CaseInstance parent, SubCase subCase, UUID childCaseId) {
+    String groupId = subCase.groupId();
+
+    return subCaseGroupRepository
+        .getOrCreate(
+            parent.getUuid(),
+            groupId,
+            subCase.totalInGroup(),
+            subCase.requiredCount(),
+            subCase.onThresholdReached())
+        .flatMap(
+            group -> subCaseGroupRepository.registerChild(parent.getUuid(), groupId, childCaseId))
+        .flatMap(
+            group -> {
+              EventLog log = new EventLog();
+              log.setCaseId(parent.getUuid());
+              log.setWorkerId(childCaseId.toString());
+              log.setEventType(CaseHubEventType.SUBCASE_STARTED);
+              log.setStreamType(EventStreamType.CASE);
+              log.setTimestamp(Instant.now());
+              ObjectNode meta = OBJECT_MAPPER.createObjectNode();
+              meta.put("childCaseId", childCaseId.toString());
+              meta.put("groupId", groupId);
+              meta.put("waitForCompletion", true);
+              if (subCase.outputMapping() != null) {
+                meta.put("outputMapping", subCase.outputMapping());
+              }
+              log.setMetadata(meta);
+
+              boolean alreadyWaiting =
+                  parent.getState() == CaseStatus.WAITING
+                      && groupId.equals(parent.getWaitingForWorkId());
+              if (!alreadyWaiting) {
+                parent.setState(CaseStatus.WAITING);
+                parent.setWaitingForWorkId(groupId);
+                return caseInstanceRepository
+                    .updateStateAndAppendEvent(parent, log)
+                    .replaceWithVoid();
+              } else {
+                return eventLogRepository.append(log).replaceWithVoid();
+              }
+            });
+  }
+
+  private Uni<Void> handleUngrouped(CaseInstance parent, SubCase subCase, UUID childCaseId) {
+    EventLog log = new EventLog();
+    log.setCaseId(parent.getUuid());
+    log.setWorkerId(childCaseId.toString());
+    log.setEventType(CaseHubEventType.SUBCASE_STARTED);
+    log.setStreamType(EventStreamType.CASE);
+    log.setTimestamp(Instant.now());
     ObjectNode meta = OBJECT_MAPPER.createObjectNode();
     meta.put("childCaseId", childCaseId.toString());
     meta.put("waitForCompletion", subCase.waitForCompletion());
     if (subCase.outputMapping() != null) {
       meta.put("outputMapping", subCase.outputMapping());
     }
-    startedLog.setMetadata(meta);
+    log.setMetadata(meta);
 
     if (subCase.waitForCompletion()) {
       pendingWorkRegistry.register(childCaseId.toString());
       parent.setState(CaseStatus.WAITING);
       parent.setWaitingForWorkId(childCaseId.toString());
-      // updateStateAndAppendEvent atomically persists state + appends the EventLog — no separate
-      // append needed
-      return caseInstanceRepository.updateStateAndAppendEvent(parent, startedLog).replaceWithVoid();
+      return caseInstanceRepository.updateStateAndAppendEvent(parent, log).replaceWithVoid();
     } else {
-      return eventLogRepository.append(startedLog).replaceWithVoid();
+      return eventLogRepository.append(log).replaceWithVoid();
     }
   }
 }
