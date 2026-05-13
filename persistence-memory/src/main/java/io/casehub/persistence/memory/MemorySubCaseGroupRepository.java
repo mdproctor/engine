@@ -72,7 +72,7 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
       return Uni.createFrom().failure(new IllegalStateException("Group not found: " + k));
     }
     synchronized (g) {
-      g.getChildCaseIds().add(childCaseId);
+      g.addChildCaseId(childCaseId);
     }
     childIndex.put(childCaseId, k);
     return Uni.createFrom().item(g);
@@ -105,14 +105,14 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<Void> markPolicyTriggered(UUID parentCaseId, String groupId) {
+  public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId) {
     SubCaseGroup g = groups.get(key(parentCaseId, groupId));
-    if (g != null) {
-      synchronized (g) {
-        g.setPolicyTriggered(true);
-      }
+    if (g == null) return Uni.createFrom().item(false);
+    synchronized (g) {
+      if (g.isPolicyTriggered()) return Uni.createFrom().item(false);
+      g.setPolicyTriggered(true);
+      return Uni.createFrom().item(true);
     }
-    return Uni.createFrom().voidItem();
   }
 
   @Override

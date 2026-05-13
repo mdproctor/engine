@@ -122,10 +122,16 @@ public class SubCaseCompletionListener {
         parentCaseId, groupId, groupStatus, group.getCompletedCount(), group.getRequiredCount());
 
     if (groupStatus == GroupStatus.COMPLETED || groupStatus == GroupStatus.REJECTED) {
-      subCaseGroupRepository
-          .markPolicyTriggered(parentCaseId, groupId)
-          .await()
-          .atMost(Duration.ofSeconds(10));
+      boolean won =
+          subCaseGroupRepository
+              .markPolicyTriggered(parentCaseId, groupId)
+              .await()
+              .atMost(Duration.ofSeconds(10));
+
+      if (!won) {
+        // Another thread already handled this transition — skip
+        return;
+      }
 
       if (groupStatus == GroupStatus.COMPLETED) {
         if (group.getOnThresholdReached() == OnThresholdReached.CANCEL) {
@@ -153,11 +159,18 @@ public class SubCaseCompletionListener {
             .await()
             .atMost(Duration.ofSeconds(10));
       } else {
+        // REJECTED — threshold is unreachable; cancel the parent to prevent indefinite WAITING
         writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus);
         LOG.warnf(
-            "SubCaseGroup REJECTED: parentCaseId=%s groupId=%s — threshold unreachable."
-                + " Parent remains WAITING.",
+            "SubCaseGroup REJECTED: parentCaseId=%s groupId=%s — threshold unreachable. Cancelling parent case.",
             parentCaseId, groupId);
+        try {
+          caseHubRuntime.cancelCase(parentCaseId);
+        } catch (Exception e) {
+          LOG.errorf(
+              "SubCaseCompletionListener: failed to cancel parent %s after group rejection: %s",
+              parentCaseId, e.getMessage());
+        }
       }
     } else {
       writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus);

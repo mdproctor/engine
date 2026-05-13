@@ -105,6 +105,13 @@ public class SubCaseExecutionHandler {
   private Uni<Void> handleGrouped(CaseInstance parent, SubCase subCase, UUID childCaseId) {
     String groupId = subCase.groupId();
 
+    if (subCase.totalInGroup() <= 0) {
+      LOG.errorf(
+          "SubCaseExecutionHandler: grouped SubCase '%s' has invalid totalInGroup=%d — skipping spawn",
+          subCase.name(), subCase.totalInGroup());
+      return Uni.createFrom().voidItem();
+    }
+
     return subCaseGroupRepository
         .getOrCreate(
             parent.getUuid(),

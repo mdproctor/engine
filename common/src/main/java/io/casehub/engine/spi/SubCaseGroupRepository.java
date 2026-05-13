@@ -36,7 +36,8 @@ public interface SubCaseGroupRepository {
 
   Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId);
 
-  Uni<Void> markPolicyTriggered(UUID parentCaseId, String groupId);
+  /** Returns {@code true} if this call actually set the flag; {@code false} if already set. */
+  Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId);
 
   Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId);
 }

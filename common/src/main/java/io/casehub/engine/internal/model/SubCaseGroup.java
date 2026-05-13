@@ -96,6 +96,14 @@ public class SubCaseGroup {
   }
 
   public Set<UUID> getChildCaseIds() {
-    return childCaseIds;
+    return Set.copyOf(childCaseIds);
+  }
+
+  public void addChildCaseId(UUID id) {
+    childCaseIds.add(id);
+  }
+
+  public void addAllChildCaseIds(Set<UUID> ids) {
+    childCaseIds.addAll(ids);
   }
 }

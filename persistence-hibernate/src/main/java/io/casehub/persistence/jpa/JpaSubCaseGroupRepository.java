@@ -111,17 +111,14 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<Void> markPolicyTriggered(UUID parentCaseId, String groupId) {
+  public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId) {
     return Panache.withTransaction(
         () ->
-            SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
-                .firstResult()
-                .flatMap(
-                    e -> {
-                      if (e != null) e.policyTriggered = true;
-                      return Uni.createFrom().voidItem();
-                    }));
+            SubCaseGroupEntity.update(
+                    "policyTriggered = true WHERE parentCaseId = ?1 AND groupId = ?2 AND policyTriggered = false",
+                    parentCaseId,
+                    groupId)
+                .map(count -> count > 0));
   }
 
   @Override
@@ -141,7 +138,7 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
     g.setRejectedCount(e.rejectedCount);
     g.setPolicyTriggered(e.policyTriggered);
     g.setOnThresholdReached(e.onThresholdReached);
-    if (e.childCaseIds != null) g.getChildCaseIds().addAll(e.childCaseIds);
+    if (e.childCaseIds != null) g.addAllChildCaseIds(e.childCaseIds);
     return g;
   }
 }
