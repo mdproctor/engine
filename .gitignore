@@ -39,6 +39,9 @@ nb-configuration.xml
 # Local environment
 .env
 
+# jetbrains mcp
+.mcp.json
+
 # Leaked build artifacts (class files, JAR manifests, properties)
 /io/
 /META-INF/
