@@ -120,6 +120,27 @@ $defs:
           make local decisions, and perform work.
         items:
           $ref: "#/$defs/Worker"
+      _forceAgent:
+        description: "TEMPORARY: forces generation of Agent class"
+        $ref: "#/$defs/Agent"
+      _forceAgentModel:
+        description: "TEMPORARY: forces generation of AgentModel class"
+        $ref: "#/$defs/AgentModel"
+      _forceOpenAi:
+        description: "TEMPORARY: forces generation of OpenAiModel class"
+        $ref: "#/$defs/OpenAiModel"
+      _forceOllama:
+        description: "TEMPORARY: forces generation of OllamaModel class"
+        $ref: "#/$defs/OllamaModel"
+      _forceAnthropic:
+        description: "TEMPORARY: forces generation of AnthropicModel class"
+        $ref: "#/$defs/AnthropicModel"
+      _forceMistral:
+        description: "TEMPORARY: forces generation of MistralAiModel class"
+        $ref: "#/$defs/MistralAiModel"
+      _forceGoogleAi:
+        description: "TEMPORARY: forces generation of GoogleAiGeminiModel class"
+        $ref: "#/$defs/GoogleAiGeminiModel"
 
   Capability:
     description: >
@@ -418,3 +439,221 @@ $defs:
       - anyOf:
           - $ref: "https://raw.githubusercontent.com/serverlessworkflow/specification/main/schema/workflow.yaml"
           - type: string
+          - type: object
+            required: [ agent ]
+            properties:
+              agent:
+                $ref: "#/$defs/Agent"
+
+  Agent:
+    description: >
+      AI-powered worker using LangChain4j models. Agents transform input data
+      using JQ expressions, invoke an LLM with a system prompt, and transform
+      the LLM response back to output data.
+    type: object
+    required: [ systemPrompt, inputSchema, outputSchema, model ]
+    unevaluatedProperties: false
+    properties:
+      systemPrompt:
+        type: string
+        description: "System prompt sent to the LLM to define its behavior and context"
+      inputSchema:
+        type: string
+        description: "JQ expression to transform case context into agent input"
+      outputSchema:
+        type: string
+        description: "JQ expression to transform agent output back to case context"
+      userMessageTemplate:
+        type: string
+        description: "Optional template for the user message. Variables are substituted from transformed input."
+      model:
+        $ref: "#/$defs/AgentModel"
+
+  AgentModel:
+    description: "LLM provider configuration. Exactly one provider must be specified."
+    type: object
+    unevaluatedProperties: false
+    oneOf:
+      - required: [ openai ]
+      - required: [ ollama ]
+      - required: [ anthropic ]
+      - required: [ mistralAi ]
+      - required: [ googleAiGemini ]
+    properties:
+      openai:
+        $ref: "#/$defs/OpenAiModel"
+      ollama:
+        $ref: "#/$defs/OllamaModel"
+      anthropic:
+        $ref: "#/$defs/AnthropicModel"
+      mistralAi:
+        $ref: "#/$defs/MistralAiModel"
+      googleAiGemini:
+        $ref: "#/$defs/GoogleAiGeminiModel"
+
+  OpenAiModel:
+    type: object
+    required: [ modelName ]
+    unevaluatedProperties: false
+    properties:
+      apiKey:
+        type: string
+        description: "OpenAI API key (can use ${ENV_VAR} syntax)"
+      modelName:
+        type: string
+        description: "Model name (e.g., gpt-4, gpt-3.5-turbo)"
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 2.0
+        description: "Sampling temperature (0.0-2.0)"
+      maxTokens:
+        type: integer
+        minimum: 1
+        description: "Maximum tokens in the response"
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: "Nucleus sampling parameter"
+      frequencyPenalty:
+        type: number
+        minimum: -2.0
+        maximum: 2.0
+        description: "Frequency penalty (-2.0 to 2.0)"
+      presencePenalty:
+        type: number
+        minimum: -2.0
+        maximum: 2.0
+        description: "Presence penalty (-2.0 to 2.0)"
+      organizationId:
+        type: string
+        description: "OpenAI organization ID (optional)"
+      baseUrl:
+        type: string
+        description: "Custom base URL (default: https://api.openai.com/v1)"
+
+  OllamaModel:
+    type: object
+    required: [ baseUrl, modelName ]
+    unevaluatedProperties: false
+    properties:
+      baseUrl:
+        type: string
+        description: "Ollama server URL (e.g., http://localhost:11434)"
+      modelName:
+        type: string
+        description: "Model name (e.g., llama2, mistral)"
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 2.0
+        description: "Sampling temperature"
+      maxTokens:
+        type: integer
+        minimum: 1
+        description: "Maximum tokens in the response"
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: "Nucleus sampling parameter"
+      topK:
+        type: integer
+        minimum: 1
+        description: "Top-K sampling parameter"
+
+  AnthropicModel:
+    type: object
+    required: [ modelName ]
+    unevaluatedProperties: false
+    properties:
+      apiKey:
+        type: string
+        description: "Anthropic API key (can use ${ENV_VAR} syntax)"
+      modelName:
+        type: string
+        description: "Model name (e.g., claude-3-sonnet-20240229)"
+      version:
+        type: string
+        description: "API version (e.g., 2023-06-01)"
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: "Sampling temperature"
+      maxTokens:
+        type: integer
+        minimum: 1
+        description: "Maximum tokens in the response"
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: "Nucleus sampling parameter"
+      topK:
+        type: integer
+        minimum: 1
+        description: "Top-K sampling parameter"
+      baseUrl:
+        type: string
+        description: "Custom base URL (default: https://api.anthropic.com)"
+
+  MistralAiModel:
+    type: object
+    required: [ modelName ]
+    unevaluatedProperties: false
+    properties:
+      apiKey:
+        type: string
+        description: "Mistral AI API key (can use ${ENV_VAR} syntax)"
+      modelName:
+        type: string
+        description: "Model name (e.g., mistral-large-latest)"
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: "Sampling temperature"
+      maxTokens:
+        type: integer
+        minimum: 1
+        description: "Maximum tokens in the response"
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: "Nucleus sampling parameter"
+      baseUrl:
+        type: string
+        description: "Custom base URL (default: https://api.mistral.ai)"
+
+  GoogleAiGeminiModel:
+    type: object
+    required: [ modelName ]
+    unevaluatedProperties: false
+    properties:
+      apiKey:
+        type: string
+        description: "Google AI API key (can use ${ENV_VAR} syntax)"
+      modelName:
+        type: string
+        description: "Model name (e.g., gemini-pro)"
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: "Sampling temperature"
+      maxTokens:
+        type: integer
+        minimum: 1
+        description: "Maximum tokens in the response (called maxOutputTokens in Gemini)"
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+        description: "Nucleus sampling parameter"
+      topK:
+        type: integer
+        minimum: 1
+        description: "Top-K sampling parameter"

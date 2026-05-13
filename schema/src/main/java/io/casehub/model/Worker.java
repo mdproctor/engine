@@ -42,6 +42,9 @@ public class Worker {
    */
   private Object workflow;
 
+  /** AI Agent configuration */
+  private Agent agent;
+
   public String getName() {
     return name;
   }
@@ -112,5 +115,13 @@ public class Worker {
 
   public Workflow getWorkflowAsEmbedded() {
     return (Workflow) workflow;
+  }
+
+  public Agent getAgent() {
+    return agent;
+  }
+
+  public void setAgent(Agent agent) {
+    this.agent = agent;
   }
 }

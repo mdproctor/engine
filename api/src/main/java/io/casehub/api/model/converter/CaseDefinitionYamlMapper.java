@@ -92,7 +92,15 @@ public final class CaseDefinitionYamlMapper {
         List<Capability> workerCaps =
             sw.getCapabilities().stream().map(capabilityMap::get).collect(Collectors.toList());
 
-        Worker worker = new Worker(sw.getName(), workerCaps, sw.getWorkflowAsEmbedded());
+        Worker worker;
+        if (sw.getAgent() != null) {
+          // Convert agent from schema model to API model
+          io.casehub.api.model.ai.Agent apiAgent = AgentConverter.toApiAgent(sw.getAgent());
+          worker = new Worker(sw.getName(), workerCaps, apiAgent);
+        } else {
+          // Use workflow
+          worker = new Worker(sw.getName(), workerCaps, sw.getWorkflowAsEmbedded());
+        }
         worker.setDescription(sw.getDescription());
         def.getWorkers().add(worker);
       }

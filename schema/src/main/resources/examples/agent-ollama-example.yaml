@@ -1,0 +1,43 @@
+dsl: "0.1"
+namespace: example
+name: document-classification
+version: "1.0.0"
+title: "Document Classification with Ollama"
+
+spec:
+  capabilities:
+    - name: classifyDocument
+      inputSchema: "{ content: .document }"
+      outputSchema: "{ category: .category }"
+
+  workers:
+    - name: doc-classifier
+      capabilities:
+        - classifyDocument
+      agent:
+        systemPrompt: "Classify documents into categories: technical, business, or personal."
+        inputSchema: "{ content: .document }"
+        outputSchema: "{ category: .category }"
+        model:
+          ollama:
+            baseUrl: "http://localhost:11434"
+            modelName: "llama2"
+            temperature: 0.5
+            topK: 40
+
+  bindings:
+    - name: classify-on-upload
+      capability: classifyDocument
+      on:
+        contextChange:
+          filter: ".document != null and .category == null"
+
+  goals:
+    - name: classified
+      condition: ".category != null"
+      kind: success
+
+  completion:
+    success:
+      allOf:
+        - classified

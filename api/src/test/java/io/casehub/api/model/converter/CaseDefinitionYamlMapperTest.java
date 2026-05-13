@@ -25,6 +25,7 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -203,5 +204,45 @@ class CaseDefinitionYamlMapperTest {
     InputStream is = new ByteArrayInputStream(invalidYaml.getBytes(StandardCharsets.UTF_8));
 
     assertThatThrownBy(() -> CaseDefinitionYamlMapper.load(is)).isInstanceOf(IOException.class);
+  }
+
+  @Test
+  void load_workerWithAgent_convertsAgentToApiModel() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Agent Test
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: analyze
+              inputSchema: "{ text: .text }"
+              outputSchema: "{ result: .result }"
+          workers:
+            - name: analyzer-worker
+              capabilities:
+                - analyze
+              agent:
+                systemPrompt: "You are an analyzer"
+                inputSchema: "{ text: .text }"
+                outputSchema: "{ result: .result }"
+                model:
+                  openai:
+                    apiKey: "test-key"
+                    modelName: "gpt-4"
+                    temperature: 0.7
+        """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getWorkers()).hasSize(1);
+    Worker worker = def.getWorkers().get(0);
+    assertThat(worker.getName()).isEqualTo("analyzer-worker");
+    assertThat(worker.getFunction()).isNotNull();
+
+    // Verify that the agent was converted to API model (Agent is the value in the function holder)
+    Object value = worker.getFunction().getValue();
+    assertThat(value).isInstanceOf(Agent.class);
   }
 }

@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.JsonSerializer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializerProvider;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.casehub.model.Agent;
 import io.casehub.model.ExecutionPolicy;
 import io.casehub.model.Worker;
 import io.serverlessworkflow.api.WorkflowFormat;
@@ -89,6 +90,11 @@ public class WorkerMarshaller {
             gen.writeObjectField("schedule", workflow.getSchedule());
           }
         }
+      }
+
+      // Serialize agent field
+      if (value.getAgent() != null) {
+        gen.writeObjectField("agent", value.getAgent());
       }
 
       gen.writeEndObject();
@@ -157,6 +163,12 @@ public class WorkerMarshaller {
             WorkflowReader.readWorkflowFromString(
                 mapper.writeValueAsString(workflowFields), WorkflowFormat.YAML);
         worker.setWorkflow(workflow);
+      }
+
+      // Deserialize agent field
+      if (root.has("agent")) {
+        Agent agent = mapper.treeToValue(root.get("agent"), Agent.class);
+        worker.setAgent(agent);
       }
 
       return worker;
