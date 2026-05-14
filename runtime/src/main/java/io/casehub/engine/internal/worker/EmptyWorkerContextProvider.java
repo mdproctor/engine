@@ -31,7 +31,8 @@ import java.util.UUID;
 /**
  * Default WorkerContextProvider. Returns a minimal context with the task capability as the
  * description, prior-worker history omitted, and open channels populated from {@link
- * CaseChannelProvider#listChannels(UUID)}.
+ * CaseChannelProvider#listChannels(UUID)}. Active by default — replace with a real implementation
+ * when richer context is needed.
  */
 @DefaultBean
 @ApplicationScoped

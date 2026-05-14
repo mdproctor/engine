@@ -35,7 +35,7 @@ public class NoOpWorkerProvisioner implements WorkerProvisioner {
   @Override
   public Worker provision(Set<String> capabilities, ProvisionContext context) {
     throw new ProvisioningException(
-        "No WorkerProvisioner configured — add an @ApplicationScoped WorkerProvisioner implementation");
+        "No WorkerProvisioner configured — add an @ApplicationScoped @Priority(1) WorkerProvisioner implementation");
   }
 
   @Override
