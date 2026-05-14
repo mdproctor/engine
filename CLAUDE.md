@@ -103,9 +103,11 @@ Eight interfaces in `api/src/main/java/io/casehub/api/spi/` (four blocking + fou
 - `CaseChannelProvider` / `ReactiveCaseChannelProvider` — open/close/post to backend-agnostic channels. **`postToChannel` takes a 4th `MessageType` parameter** (from `casehub-qhorus-api`, managed in root `pom.xml`); the 3-arg overload is a `default` delegating with `null`. Call sites that know the intent pass `MessageType.COMMAND` etc. explicitly — `WorkerScheduleEventHandler.dispatchCommand` does this.
 - `WorkerContextProvider` / `ReactiveWorkerContextProvider` — build startup context from ledger lineage
 
-**Default implementations** in `engine/src/main/java/io/casehub/engine/internal/worker/`:
-- `NoOpWorkerProvisioner`, `NoOpWorkerStatusListener`, `NoOpCaseChannelProvider`, `EmptyWorkerContextProvider`
-- Four `@Alternative` reactive mirrors for optional reactive pipeline use
+**Default implementations** in `engine/src/main/java/io/casehub/engine/internal/worker/` and `diff/`:
+- `NoOpWorkerProvisioner`, `NoOpWorkerStatusListener`, `NoOpCaseChannelProvider`, `EmptyWorkerContextProvider`, `NoOpContextDiffStrategy`
+- Five `@DefaultBean` reactive mirrors: `NoOpReactiveWorkerProvisioner`, `NoOpReactiveCaseChannelProvider`, `NoOpReactiveWorkerStatusListener`, `EmptyReactiveWorkerContextProvider`
+
+All nine are `@DefaultBean @ApplicationScoped` (`io.quarkus.arc.DefaultBean`) — they yield automatically to any consumer-provided implementation without requiring `selected-alternatives` configuration. See protocol `PP-20260514-engine-spi-noops-defaultbean`.
 
 **SPI placement rule:** Operational SPIs (worker provisioning, lifecycle, channels) go in `api/spi/`; persistence SPIs (`CaseMetaModelRepository`, etc.) go in `casehub-engine-common/spi/`. This clarifies intent: operational SPIs are about external system integration; persistence SPIs are about data durability.
 
