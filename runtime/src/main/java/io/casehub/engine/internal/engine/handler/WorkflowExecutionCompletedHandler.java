@@ -185,10 +185,10 @@ public class WorkflowExecutionCompletedHandler {
     }
     List<Binding> bindings = definition.getBindings();
     for (Binding binding : bindings) {
-      if (binding.getCapability() == null) {
+      if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) {
         continue;
       }
-      String capabilityName = binding.getCapability().getName();
+      String capabilityName = ct.capability().getName();
       boolean workerMatchesCapability =
           worker.getCapabilities().stream().anyMatch(c -> c.getName().equals(capabilityName));
       if (workerMatchesCapability) {

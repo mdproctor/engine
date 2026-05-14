@@ -15,11 +15,16 @@
  */
 package io.casehub.workadapter;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
+import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.internal.event.EventBusAddresses;
+import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.utils.ReactiveUtils;
 import io.casehub.engine.spi.CaseInstanceRepository;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
@@ -31,6 +36,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
 import java.time.Duration;
+import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
@@ -48,6 +54,7 @@ public class WorkItemLifecycleAdapter {
 
   private static final Logger LOG = Logger.getLogger(WorkItemLifecycleAdapter.class);
   private static final Duration TIMEOUT = Duration.ofSeconds(5);
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Inject BlackboardRegistry registry;
 
@@ -99,6 +106,7 @@ public class WorkItemLifecycleAdapter {
                                 ref.caseId());
                             return;
                           }
+                          applyOutputMapping(item, workItem, instance);
                           eventBus.publish(
                               EventBusAddresses.CONTEXT_CHANGED,
                               new CaseContextChangedEvent(
@@ -106,6 +114,40 @@ public class WorkItemLifecycleAdapter {
                         }))
         .await()
         .atMost(TIMEOUT);
+  }
+
+  private void applyOutputMapping(PlanItem item, WorkItem workItem, CaseInstance instance) {
+    if (instance.getCaseContext() == null) {
+      LOG.warnf(
+          "CaseInstance %s has no CaseContext — outputMapping skipped for PlanItem %s",
+          instance.getUuid(), item.getPlanItemId());
+      return;
+    }
+    if (!(item.getTarget() instanceof HumanTaskTarget ht)) return;
+    if (ht.outputMapping() == null) return;
+    if (workItem.resolution == null) return;
+
+    if (!(ht.outputMapping() instanceof JQExpressionEvaluator jq)) {
+      LOG.warnf(
+          "Unsupported outputMapping evaluator type '%s' for PlanItem %s — skipping",
+          ht.outputMapping().getClass().getName(), item.getPlanItemId());
+      return;
+    }
+
+    try {
+      // Parse resolution JSON into a temporary context, then evaluate outputMapping
+      // against the resolution data (not the case context)
+      @SuppressWarnings("unchecked")
+      Map<String, Object> resolutionData = MAPPER.readValue(workItem.resolution, Map.class);
+      CaseContextImpl resolutionCtx = new CaseContextImpl(resolutionData);
+      Map<String, Object> updates = resolutionCtx.evalObjectTemplate(jq.expression());
+      instance.getCaseContext().setAll(updates);
+    } catch (Exception e) {
+      LOG.warnf(
+          e,
+          "outputMapping failed for PlanItem %s — CONTEXT_CHANGED fires without output update",
+          item.getPlanItemId());
+    }
   }
 
   /**

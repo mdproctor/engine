@@ -78,9 +78,13 @@ Context changes trigger binding evaluations. When a binding's condition is met, 
 
 ```
 CaseContext change
-  → CaseContextChangedEventHandler.publishWorkerSchedules()
-  → WorkBroker.apply(SelectionContext, CREATED, candidates, LeastLoadedStrategy)
-  → AssignmentDecision.assignTo(workerId)                [candidates found]
+  → CaseContextChangedEventHandler.publishByTarget()
+      CapabilityTarget → WorkBroker.apply(LeastLoadedStrategy) → WorkerScheduleEvent
+      SubCaseTarget    → SubCaseScheduleEvent
+      HumanTaskTarget  → inputMapping evaluated → HumanTaskScheduleEvent
+      ExtensionTarget  → warning log, no dispatch
+
+  [CapabilityTarget path]
   → WorkerScheduleEvent → WorkerScheduleEventHandler
       → WorkerContextProvider.buildContext()             [always called]
       → Quartz
@@ -143,13 +147,37 @@ A `Binding` with a `subCase` field (mutually exclusive with `capability`) spawns
 - `waitForCompletion` (default true): parent transitions to WAITING; resumes on child terminal
 
 **Engine wiring:**
-- `CaseContextChangedEventHandler` detects `binding.getSubCase() != null` and publishes `SubCaseScheduleEvent` (skips worker selection entirely)
+- `CaseContextChangedEventHandler` detects `binding.target() instanceof SubCaseTarget` and publishes `SubCaseScheduleEvent` (skips worker selection entirely)
 - `SubCaseExecutionHandler` (casehub-blackboard) consumes the event on a blocking worker thread, spawns child via `CaseHubRuntime`, writes `SUBCASE_STARTED` EventLog
 - `SubCaseCompletionListener` (casehub-blackboard) observes `CaseLifecycleEvent` terminal events, routes child completion back to parent via `CaseResumptionService`
 
 **EventLog entries:** `SUBCASE_STARTED` (on spawn, metadata: childCaseId, waitForCompletion), `SUBCASE_COMPLETED` (on child terminal, metadata: childCaseId, childFinalStatus)
 
 **Circular detection:** child definition matching parent definition is rejected with an error log — parent stays RUNNING.
+
+### HumanTaskBinding (casehub-engine-work-adapter)
+
+A `Binding` with a `HumanTaskTarget` routes to a human WorkItem in casehub-work when its trigger fires. Two creation modes:
+
+- **Inline** — self-contained task definition (`title`, `candidateGroups`, `expiresIn`)
+- **Template** — references a `WorkItemTemplate` by ID (pending casehubio/engine#255)
+
+**Engine wiring:**
+- `CaseContextChangedEventHandler` detects `binding.target() instanceof HumanTaskTarget`, evaluates `inputMapping` against `CaseContext`, and publishes `HumanTaskScheduleEvent` on `casehub.humantask.schedule`
+- `HumanTaskScheduleHandler` (work-adapter, `@ConsumeEvent(blocking=true)`) looks up the `PlanItem` by binding name via `CasePlanModel.getPlanItemByBindingName()`, marks it `RUNNING`, creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}`
+- `WorkItemLifecycleAdapter` extended: on WorkItem completion, evaluates `outputMapping` against the resolution JSON (not the CaseContext) and calls `CaseContext.setAll()` before firing `CONTEXT_CHANGED`
+
+**Data flow:**
+```
+CaseContext condition → HumanTaskScheduleEvent (inputData pre-evaluated)
+  → HumanTaskScheduleHandler: PlanItem.markRunning(), WorkItem.create(callerRef)
+  → Human acts → WorkItem COMPLETED
+  → WorkItemLifecycleEvent(callerRef)
+  → WorkItemLifecycleAdapter: PlanItem.markCompleted(), outputMapping → CaseContext
+  → CONTEXT_CHANGED → bindings re-evaluate
+```
+
+**callerRef format:** `case:{caseId}/pi:{planItemId}` — same format as the automated worker path.
 
 ### Durability (Orchestration Only)
 
@@ -527,7 +555,7 @@ Entries that exhaust max-attempts stay PENDING_REVIEW for manual triage.
 - ✅ Worker Provisioner SPI wiring — all 4 blocking SPIs integrated (Q2 2026)
 - ✅ `triggerChannelId` + `triggerCorrelationId` in `ProvisionContext` — causal linkage from Qhorus COMMAND to provisioning (engine#229, Q2 2026)
 - [ ] Thread Qhorus trigger context through CaseFile-update API into `ProvisionContext` (engine#231)
-- [ ] Human worker integration (Q2/Q3 2026)
+- [~] Human worker integration — inline `HumanTaskTarget` dispatch complete (engine#245); template mode pending (engine#255) (Q2/Q3 2026)
 - [ ] Escalation rules and thresholds (Q3 2026)
 
 **Medium term:**

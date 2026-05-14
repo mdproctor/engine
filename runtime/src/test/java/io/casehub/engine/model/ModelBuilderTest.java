@@ -249,7 +249,8 @@ class ModelBuilderTest {
           assertDoesNotThrow(
               () -> Binding.builder().name("on-event").capability(cap).on(trigger).build());
       assertEquals("on-event", binding.getName());
-      assertEquals(cap, binding.getCapability());
+      assertInstanceOf(io.casehub.api.model.CapabilityTarget.class, binding.target());
+      assertEquals(cap, ((io.casehub.api.model.CapabilityTarget) binding.target()).capability());
       assertEquals(trigger, binding.getOn());
       assertNull(binding.getWhen(), "when is optional, should default to null");
     }

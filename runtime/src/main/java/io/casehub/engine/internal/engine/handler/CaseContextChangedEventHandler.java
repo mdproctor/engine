@@ -21,21 +21,27 @@ import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
+import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.Goal;
+import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.ProvisionContext;
+import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
+import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.api.spi.WorkerProvisioner;
 import io.casehub.engine.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.GoalReachedEvent;
+import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.internal.event.MilestoneReachedEvent;
 import io.casehub.engine.internal.event.SubCaseScheduleEvent;
 import io.casehub.engine.internal.event.WorkerScheduleEvent;
@@ -139,11 +145,6 @@ public class CaseContextChangedEventHandler {
         continue;
       }
 
-      if (binding.getCapability() == null && binding.getSubCase() == null) {
-        LOG.warnf("Binding '%s' has neither capability nor subCase", binding.getName());
-        continue;
-      }
-
       eligible.add(binding);
     }
 
@@ -156,7 +157,7 @@ public class CaseContextChangedEventHandler {
             selected -> {
               List<Uni<Void>> unis = new ArrayList<>(selected.size());
               for (Binding b : selected) {
-                unis.add(publishWorkerSchedules(caseInstance, workers, b, b.getCapability()));
+                unis.add(publishByTarget(caseInstance, workers, b));
               }
               if (unis.isEmpty()) return Uni.createFrom().voidItem();
               return Uni.combine().all().unis(unis).discardItems();
@@ -202,13 +203,29 @@ public class CaseContextChangedEventHandler {
     return Uni.createFrom().voidItem();
   }
 
-  private Uni<Void> publishWorkerSchedules(
-      CaseInstance caseInstance, List<Worker> workers, Binding binding, Capability capability) {
-
-    // SubCase binding — spawn a child case instead of scheduling a worker
-    if (binding.getSubCase() != null) {
-      return publishSubCaseSchedule(caseInstance, binding);
+  private Uni<Void> publishByTarget(
+      CaseInstance caseInstance, List<Worker> workers, Binding binding) {
+    if (binding.target() instanceof CapabilityTarget ct) {
+      return publishWorkerSchedule(caseInstance, workers, binding, ct.capability());
+    } else if (binding.target() instanceof SubCaseTarget st) {
+      return publishSubCaseSchedule(caseInstance, st.subCase());
+    } else if (binding.target() instanceof HumanTaskTarget ht) {
+      return publishHumanTaskSchedule(caseInstance, binding, ht);
+    } else if (binding.target() instanceof ExtensionTarget et) {
+      LOG.warnf(
+          "No handler for ExtensionTarget %s on binding '%s'",
+          et.getClass().getName(), binding.getName());
+      return Uni.createFrom().voidItem();
+    } else {
+      LOG.errorf(
+          "Unknown BindingTarget type %s on binding '%s'",
+          binding.target().getClass().getName(), binding.getName());
+      return Uni.createFrom().voidItem();
     }
+  }
+
+  private Uni<Void> publishWorkerSchedule(
+      CaseInstance caseInstance, List<Worker> workers, Binding binding, Capability capability) {
 
     if (workers == null || workers.isEmpty()) {
       LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.getName());
@@ -290,6 +307,40 @@ public class CaseContextChangedEventHandler {
     return Uni.createFrom().voidItem();
   }
 
+  private Uni<Void> publishHumanTaskSchedule(
+      CaseInstance caseInstance, Binding binding, HumanTaskTarget target) {
+    Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
+
+    LOG.infof(
+        "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s",
+        caseInstance.getUuid(), binding.getName(), target.templateRef());
+
+    eventBus.publish(
+        EventBusAddresses.HUMAN_TASK_SCHEDULE,
+        new HumanTaskScheduleEvent(caseInstance.getUuid(), binding.getName(), target, inputData));
+
+    return Uni.createFrom().voidItem();
+  }
+
+  private Map<String, Object> evaluateInputMapping(
+      CaseInstance caseInstance, HumanTaskTarget target) {
+    if (target.inputMapping() == null) {
+      return Map.of();
+    }
+    if (target.inputMapping() instanceof JQExpressionEvaluator jq) {
+      try {
+        return caseInstance.getCaseContext().evalObjectTemplate(jq.expression());
+      } catch (Exception e) {
+        LOG.warnf(e, "inputMapping evaluation failed for HumanTaskTarget — using empty input");
+        return Map.of();
+      }
+    }
+    LOG.warnf(
+        "Unsupported inputMapping evaluator type '%s' — using empty input",
+        target.inputMapping().getClass().getName());
+    return Map.of();
+  }
+
   private void tryProvision(CaseInstance caseInstance, Capability capability) {
     Set<String> provisionerCaps = workerProvisioner.getCapabilities();
     if (!provisionerCaps.contains(capability.getName())) {
@@ -322,8 +373,8 @@ public class CaseContextChangedEventHandler {
     }
   }
 
-  private Uni<Void> publishSubCaseSchedule(CaseInstance caseInstance, Binding binding) {
-    io.casehub.api.model.SubCase subCase = binding.getSubCase();
+  private Uni<Void> publishSubCaseSchedule(
+      CaseInstance caseInstance, io.casehub.api.model.SubCase subCase) {
     Map<String, Object> childContext =
         caseInstance.getCaseContext().evalObjectTemplate(subCase.inputMapping());
 

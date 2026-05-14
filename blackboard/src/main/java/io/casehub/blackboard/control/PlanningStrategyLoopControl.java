@@ -110,7 +110,8 @@ public class PlanningStrategyLoopControl implements LoopControl {
     gatedEligible.forEach(
         binding -> {
           String workerName = resolveWorkerName(binding, ctx);
-          plan.addPlanItemIfAbsent(PlanItem.create(binding.getName(), workerName, 0));
+          plan.addPlanItemIfAbsent(
+              PlanItem.create(binding.getName(), workerName, 0, binding.target()));
         });
 
     return stageLifecycleEvaluator
@@ -124,8 +125,8 @@ public class PlanningStrategyLoopControl implements LoopControl {
    * worker list. Returns the capability name as fallback if no worker matches.
    */
   private String resolveWorkerName(Binding binding, PlanExecutionContext ctx) {
-    if (binding.getCapability() == null) return "unknown";
-    String capName = binding.getCapability().getName();
+    if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) return "unknown";
+    String capName = ct.capability().getName();
     List<Worker> matching =
         ctx.definition().getWorkers().stream()
             .filter(

@@ -15,6 +15,7 @@
  */
 package io.casehub.blackboard.plan;
 
+import io.casehub.api.model.BindingTarget;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -37,6 +38,7 @@ public class PlanItem implements Comparable<PlanItem> {
   private volatile PlanItemStatus status;
   private final Instant createdAt;
   private String parentStageId; // null means no parent stage
+  private final BindingTarget target;
 
   /** Lifecycle states. See casehubio/engine#76. */
   public enum PlanItemStatus {
@@ -47,7 +49,7 @@ public class PlanItem implements Comparable<PlanItem> {
     CANCELLED
   }
 
-  private PlanItem(String bindingName, String workerName, int priority) {
+  private PlanItem(String bindingName, String workerName, int priority, BindingTarget target) {
     this.planItemId = UUID.randomUUID().toString();
     this.bindingName = bindingName;
     this.workerName = workerName;
@@ -55,10 +57,16 @@ public class PlanItem implements Comparable<PlanItem> {
     this.status = PlanItemStatus.PENDING;
     this.createdAt = Instant.now();
     this.parentStageId = null;
+    this.target = target;
   }
 
   public static PlanItem create(String bindingName, String workerName, int priority) {
-    return new PlanItem(bindingName, workerName, priority);
+    return new PlanItem(bindingName, workerName, priority, null);
+  }
+
+  public static PlanItem create(
+      String bindingName, String workerName, int priority, BindingTarget target) {
+    return new PlanItem(bindingName, workerName, priority, target);
   }
 
   @Override
@@ -134,6 +142,10 @@ public class PlanItem implements Comparable<PlanItem> {
               + ")");
     }
     status = PlanItemStatus.CANCELLED;
+  }
+
+  public BindingTarget getTarget() {
+    return target;
   }
 
   public Instant getCreatedAt() {

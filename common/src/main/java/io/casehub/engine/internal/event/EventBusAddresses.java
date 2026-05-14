@@ -44,4 +44,6 @@ public final class EventBusAddresses {
   public static final String GOAL_REACHED = "casehub.goal.reached";
 
   public static final String SUBCASE_SCHEDULE = "casehub.subcase.schedule";
+
+  public static final String HUMAN_TASK_SCHEDULE = "casehub.humantask.schedule";
 }

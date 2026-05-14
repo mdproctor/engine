@@ -293,7 +293,11 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
     Map<String, Object> data = new HashMap<>();
     data.put("caseId", caseId.toString());
     data.put("bindingName", binding.getName());
-    data.put("capabilityName", binding.getCapability().getName());
+    if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) {
+      throw new IllegalStateException(
+          "Schedule-triggered binding '" + binding.getName() + "' must target a Capability");
+    }
+    data.put("capabilityName", ct.capability().getName());
     data.put("workerName", worker.getName());
     return data;
   }

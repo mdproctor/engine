@@ -21,16 +21,15 @@ import java.util.Objects;
 
 public class Binding {
 
-  private final Capability capability;
+  private final BindingTarget target;
   private final String name;
   private final Trigger on;
   private ExpressionEvaluator when;
   private String conflictResolverStrategy;
-  private SubCase subCase;
 
-  public Binding(String name, Capability capability, Trigger on) {
+  private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
-    this.capability = capability;
+    this.target = target;
     this.on = on;
   }
 
@@ -42,8 +41,8 @@ public class Binding {
     this.conflictResolverStrategy = conflictResolverStrategy;
   }
 
-  public Capability getCapability() {
-    return capability;
+  public BindingTarget target() {
+    return target;
   }
 
   public String getName() {
@@ -67,14 +66,6 @@ public class Binding {
     return conflictResolverStrategy;
   }
 
-  /**
-   * Returns the SubCase definition for this binding, or null if this binding targets a Capability.
-   * Exactly one of {@code capability} and {@code subCase} is non-null. See casehubio/engine#195.
-   */
-  public SubCase getSubCase() {
-    return subCase;
-  }
-
   public static Builder builder() {
     return new Builder();
   }
@@ -82,11 +73,10 @@ public class Binding {
   public static class Builder {
 
     private String name;
-    private Capability capability;
+    private BindingTarget target;
     private Trigger on;
     private ExpressionEvaluator when;
     private String conflictResolverStrategy;
-    private SubCase subCase;
 
     private Builder() {}
 
@@ -95,8 +85,27 @@ public class Binding {
       return this;
     }
 
+    /** Convenience method — wraps {@code capability} in a {@link CapabilityTarget}. */
     public Builder capability(Capability capability) {
-      this.capability = capability;
+      this.target = new CapabilityTarget(capability);
+      return this;
+    }
+
+    /** Convenience method — wraps {@code subCase} in a {@link SubCaseTarget}. */
+    public Builder subCase(SubCase subCase) {
+      this.target = new SubCaseTarget(subCase);
+      return this;
+    }
+
+    /** Sets a {@link HumanTaskTarget} directly. */
+    public Builder humanTask(HumanTaskTarget humanTask) {
+      this.target = humanTask;
+      return this;
+    }
+
+    /** Sets any {@link BindingTarget} directly. */
+    public Builder target(BindingTarget target) {
+      this.target = target;
       return this;
     }
 
@@ -120,26 +129,16 @@ public class Binding {
       return this;
     }
 
-    public Builder subCase(SubCase subCase) {
-      this.subCase = subCase;
-      return this;
-    }
-
     public Binding build() {
       Objects.requireNonNull(name);
-      if (capability == null && subCase == null) {
-        throw new IllegalStateException(
-            "Binding '" + name + "' must have either capability or subCase");
-      }
-      if (capability != null && subCase != null) {
-        throw new IllegalStateException(
-            "Binding '" + name + "' cannot have both capability and subCase");
-      }
       Objects.requireNonNull(on);
-      Binding b = new Binding(name, capability, on);
+      if (target == null) {
+        throw new IllegalStateException(
+            "Binding '" + name + "' must have a target (capability, subCase, or humanTask)");
+      }
+      Binding b = new Binding(name, target, on);
       b.setWhen(when);
       b.setConflictResolverStrategy(conflictResolverStrategy);
-      b.subCase = this.subCase;
       return b;
     }
   }

@@ -127,7 +127,9 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getBindings()).hasSize(1);
     Binding binding = def.getBindings().get(0);
     assertThat(binding.getName()).isEqualTo("validation-binding");
-    assertThat(binding.getCapability()).isEqualTo(cap);
+    assertThat(binding.target()).isInstanceOf(io.casehub.api.model.CapabilityTarget.class);
+    assertThat(((io.casehub.api.model.CapabilityTarget) binding.target()).capability())
+        .isEqualTo(cap);
     assertThat(binding.getOn()).isInstanceOf(ContextChangeTrigger.class);
     ContextChangeTrigger trigger = (ContextChangeTrigger) binding.getOn();
     assertThat(trigger.getFilter()).isInstanceOf(JQExpressionEvaluator.class);
@@ -183,12 +185,13 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getBindings()).hasSize(1);
     Binding binding = def.getBindings().get(0);
     assertThat(binding.getName()).isEqualTo("approval-binding");
-    assertThat(binding.getCapability()).isNull();
-    assertThat(binding.getSubCase()).isNotNull();
-    assertThat(binding.getSubCase().namespace()).isEqualTo("approvals");
-    assertThat(binding.getSubCase().name()).isEqualTo("manager-approval");
-    assertThat(binding.getSubCase().version()).isEqualTo("1.0.0");
-    assertThat(binding.getSubCase().waitForCompletion()).isTrue();
+    assertThat(binding.target()).isInstanceOf(io.casehub.api.model.SubCaseTarget.class);
+    io.casehub.api.model.SubCase subCase =
+        ((io.casehub.api.model.SubCaseTarget) binding.target()).subCase();
+    assertThat(subCase.namespace()).isEqualTo("approvals");
+    assertThat(subCase.name()).isEqualTo("manager-approval");
+    assertThat(subCase.version()).isEqualTo("1.0.0");
+    assertThat(subCase.waitForCompletion()).isTrue();
   }
 
   @Test

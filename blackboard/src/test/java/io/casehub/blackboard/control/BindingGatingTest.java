@@ -86,7 +86,7 @@ class BindingGatingTest {
   private Binding binding(String name) {
     Binding b = mock(Binding.class);
     when(b.getName()).thenReturn(name);
-    when(b.getCapability()).thenReturn(null);
+    when(b.target()).thenReturn(null);
     return b;
   }
 

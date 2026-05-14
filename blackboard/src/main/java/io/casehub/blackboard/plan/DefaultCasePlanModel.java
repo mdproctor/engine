@@ -99,6 +99,17 @@ public class DefaultCasePlanModel implements CasePlanModel {
   }
 
   @Override
+  public Optional<PlanItem> getPlanItemByBindingName(String bindingName) {
+    PlanItem item = activeByBinding.get(bindingName);
+    if (item == null) return Optional.empty();
+    PlanItem.PlanItemStatus status = item.getStatus();
+    if (status == PlanItem.PlanItemStatus.PENDING || status == PlanItem.PlanItemStatus.RUNNING) {
+      return Optional.of(item);
+    }
+    return Optional.empty();
+  }
+
+  @Override
   public boolean hasActivePlanItem(String bindingName) {
     PlanItem item = activeByBinding.get(bindingName);
     if (item == null) return false;

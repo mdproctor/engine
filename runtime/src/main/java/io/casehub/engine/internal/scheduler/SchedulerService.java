@@ -98,12 +98,16 @@ public class SchedulerService {
         continue;
       }
 
+      if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) {
+        LOG.warnf("Schedule binding '%s' has non-capability target — skipping", binding.getName());
+        continue;
+      }
       // Find worker that provides the capability
-      Worker worker = findWorkerForCapability(definition, binding.getCapability());
+      Worker worker = findWorkerForCapability(definition, ct.capability());
       if (worker == null) {
         LOG.warnf(
             "No worker found for capability '%s' in binding '%s', skipping",
-            binding.getCapability().getName(), binding.getName());
+            ct.capability().getName(), binding.getName());
         continue;
       }
 
@@ -242,7 +246,12 @@ public class SchedulerService {
     Map<String, Object> data = new HashMap<>();
     data.put("caseId", caseId.toString());
     data.put("bindingName", binding.getName());
-    data.put("capabilityName", binding.getCapability().getName());
+    if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) {
+      throw new IllegalStateException(
+          "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
+    }
+    String capabilityName = ct.capability().getName();
+    data.put("capabilityName", capabilityName);
     data.put("workerName", worker.getName());
     return data;
   }

@@ -18,6 +18,10 @@ package io.casehub.blackboard.plan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.casehub.api.model.BindingTarget;
+import io.casehub.api.model.Capability;
+import io.casehub.api.model.CapabilityTarget;
+import io.casehub.api.model.HumanTaskTarget;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -92,6 +96,32 @@ class PlanItemTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     item.markCancelled();
     assertThat(item.getStatus()).isEqualTo(PlanItem.PlanItemStatus.CANCELLED);
+  }
+
+  @Test
+  void create_withTarget_storesTarget() {
+    BindingTarget target = HumanTaskTarget.template("irb-review").build();
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 5, target);
+
+    assertThat(item.getTarget()).isSameAs(target);
+  }
+
+  @Test
+  void create_withoutTarget_targetIsNull() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 5);
+
+    assertThat(item.getTarget()).isNull();
+  }
+
+  @Test
+  void create_capabilityTarget_roundTrip() {
+    Capability cap =
+        Capability.builder().name("review").inputSchema("{}").outputSchema("{}").build();
+    CapabilityTarget target = new CapabilityTarget(cap);
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 5, target);
+
+    assertThat(item.getTarget()).isInstanceOf(CapabilityTarget.class);
+    assertThat(((CapabilityTarget) item.getTarget()).capability()).isSameAs(cap);
   }
 
   @Test

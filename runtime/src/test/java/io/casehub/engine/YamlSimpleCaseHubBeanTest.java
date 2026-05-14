@@ -74,7 +74,13 @@ public class YamlSimpleCaseHubBeanTest {
     // rules
     assertEquals(1, def.getBindings().size());
     assertEquals("trigger-on-processing-status", def.getBindings().get(0).getName());
-    assertEquals("processDocument", def.getBindings().get(0).getCapability().getName());
+    assertInstanceOf(
+        io.casehub.api.model.CapabilityTarget.class, def.getBindings().get(0).target());
+    assertEquals(
+        "processDocument",
+        ((io.casehub.api.model.CapabilityTarget) def.getBindings().get(0).target())
+            .capability()
+            .getName());
     assertInstanceOf(ContextChangeTrigger.class, def.getBindings().get(0).getOn());
     ContextChangeTrigger cct = (ContextChangeTrigger) def.getBindings().get(0).getOn();
     assertEquals(
