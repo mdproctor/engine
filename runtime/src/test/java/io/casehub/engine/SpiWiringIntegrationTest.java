@@ -59,8 +59,8 @@ import org.junit.jupiter.api.Test;
  * WorkerProvisioner are called at the correct lifecycle points by the engine. Refs
  * casehubio/engine#152, casehubio/engine#191, casehubio/engine#220.
  *
- * <p>SPI displacement is exercised via {@code @Alternative @Priority(1)} recording beans defined
- * as static inner classes below. These override the engine's {@code @DefaultBean} no-op defaults
+ * <p>SPI displacement is exercised via {@code @Alternative @Priority(1)} recording beans defined as
+ * static inner classes below. These override the engine's {@code @DefaultBean} no-op defaults
  * without requiring {@code quarkus.arc.selected-alternatives} configuration.
  */
 @QuarkusTest
