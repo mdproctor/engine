@@ -69,9 +69,9 @@ If a schema change is needed, update the `@Entity` class. Hibernate recreates th
 
 Domain objects and SPI interfaces live in `casehub-engine-common` (no Quarkus, no JPA):
 
-- `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`
+- `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`, `SubCaseGroup`
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/history/` — `EventLog`, `CaseHubEventType`, `EventStreamType`
-- `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `CaseInstanceRepository`, `EventLogRepository`
+- `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `CaseInstanceRepository`, `EventLogRepository`, `SubCaseGroupRepository`
 
 Both `engine` and both persistence modules depend on `casehub-engine-common`. Neither persistence module depends on `engine`.
 
@@ -149,7 +149,10 @@ TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl casehub-blackboard
 - Uses `casehub-persistence-memory` as a test dependency for in-memory SPI implementations
 - `src/test/resources/application.properties` sets `quarkus.http.test-port=0`, indexes the
   persistence-memory module via `quarkus.index-dependency`, and activates the in-memory
-  alternatives via `quarkus.arc.selected-alternatives`
+  alternatives via `quarkus.arc.selected-alternatives` (including `MemorySubCaseGroupRepository`)
+- `@ObservesAsync` CDI event delivery is **unreliable in `@QuarkusTest`** — observer methods
+  are silently never invoked. When testing observer logic, inject the listener bean and call the
+  observer method directly rather than relying on `Event.fireAsync()`.
 
 ## Quartz
 
