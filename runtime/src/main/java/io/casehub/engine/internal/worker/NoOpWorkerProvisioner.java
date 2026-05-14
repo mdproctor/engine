@@ -19,6 +19,7 @@ import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.Worker;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.WorkerProvisioner;
+import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Set;
 
@@ -27,6 +28,7 @@ import java.util.Set;
  * replace with a real implementation (e.g. Claudony's ClaudonyWorkerProvisioner) before
  * provisioning is needed.
  */
+@DefaultBean
 @ApplicationScoped
 public class NoOpWorkerProvisioner implements WorkerProvisioner {
 

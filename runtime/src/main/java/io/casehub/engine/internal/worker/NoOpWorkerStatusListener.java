@@ -17,10 +17,12 @@ package io.casehub.engine.internal.worker;
 
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 
 /** Default no-op WorkerStatusListener. Silently ignores all lifecycle events. */
+@DefaultBean
 @ApplicationScoped
 public class NoOpWorkerStatusListener implements WorkerStatusListener {
 

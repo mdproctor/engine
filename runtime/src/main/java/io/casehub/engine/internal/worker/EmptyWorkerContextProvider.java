@@ -21,6 +21,7 @@ import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.WorkerContextProvider;
+import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.List;
@@ -32,6 +33,7 @@ import java.util.UUID;
  * description, prior-worker history omitted, and open channels populated from {@link
  * CaseChannelProvider#listChannels(UUID)}.
  */
+@DefaultBean
 @ApplicationScoped
 public class EmptyWorkerContextProvider implements WorkerContextProvider {
 
