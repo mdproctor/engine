@@ -21,9 +21,9 @@ import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.spi.ReactiveCaseChannelProvider;
 import io.casehub.api.spi.ReactiveWorkerContextProvider;
+import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
@@ -32,11 +32,10 @@ import java.util.UUID;
 /**
  * Reactive default WorkerContextProvider. Returns a minimal context with the task capability as the
  * description, prior-worker history omitted, and open channels populated from {@link
- * ReactiveCaseChannelProvider#listChannels(UUID)}.
- *
- * <p>Marked {@code @Alternative} — not the primary bean.
+ * ReactiveCaseChannelProvider#listChannels(UUID)}. Active by default — replace with a real reactive
+ * implementation when richer context is needed.
  */
-@Alternative
+@DefaultBean
 @ApplicationScoped
 public class EmptyReactiveWorkerContextProvider implements ReactiveWorkerContextProvider {
 

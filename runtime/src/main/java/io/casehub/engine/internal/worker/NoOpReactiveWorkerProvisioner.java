@@ -19,20 +19,17 @@ import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.Worker;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
+import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import java.util.Set;
 
 /**
  * Reactive no-op WorkerProvisioner. Fails {@code provision} with {@link ProvisioningException} to
- * signal misconfiguration. All other operations complete with no side-effects.
- *
- * <p>Marked {@code @Alternative} so it does not conflict with the primary {@link
- * NoOpWorkerProvisioner} bean. Activate in a test or specific deployment profile by adding
- * {@code @Priority} or a Quarkus {@code @Startup} override.
+ * signal misconfiguration. All other operations complete with no side-effects. Active by default —
+ * replace with a real reactive implementation when the reactive pipeline is needed.
  */
-@Alternative
+@DefaultBean
 @ApplicationScoped
 public class NoOpReactiveWorkerProvisioner implements ReactiveWorkerProvisioner {
 

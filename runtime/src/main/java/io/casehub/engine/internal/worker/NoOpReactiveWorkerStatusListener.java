@@ -17,18 +17,16 @@ package io.casehub.engine.internal.worker;
 
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.spi.ReactiveWorkerStatusListener;
+import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import java.util.Map;
 
 /**
- * Reactive no-op WorkerStatusListener. Silently ignores all lifecycle events.
- *
- * <p>Marked {@code @Alternative} — not the primary bean. Activate explicitly when a reactive
- * listener is needed but no real implementation is registered.
+ * Reactive no-op WorkerStatusListener. Silently ignores all lifecycle events. Active by default —
+ * replace with a real reactive implementation to observe worker lifecycle events.
  */
-@Alternative
+@DefaultBean
 @ApplicationScoped
 public class NoOpReactiveWorkerStatusListener implements ReactiveWorkerStatusListener {
 

@@ -18,21 +18,19 @@ package io.casehub.engine.internal.worker;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.spi.ReactiveCaseChannelProvider;
 import io.casehub.qhorus.api.message.MessageType;
+import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
 /**
  * Reactive no-op CaseChannelProvider. Returns sentinel channels with {@code backendType = "none"}.
- * All write operations complete with no side-effects.
- *
- * <p>Marked {@code @Alternative} — not the primary bean. The sentinel channel carries {@code
- * backendType = "none"} so callers can detect that no real channel backend is configured.
+ * All write operations complete with no side-effects. Active by default — replace with a real
+ * reactive implementation when a channel backend is needed.
  */
-@Alternative
+@DefaultBean
 @ApplicationScoped
 public class NoOpReactiveCaseChannelProvider implements ReactiveCaseChannelProvider {
 
