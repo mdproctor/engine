@@ -187,12 +187,16 @@ is unavailable.
 
 ## casehub-work-adapter Module
 
-Bridges casehub-work `WorkItemLifecycleEvent` CDI events to CaseHub `PlanItem` transitions via `BlackboardRegistry`. Choreography path only — fires `CONTEXT_CHANGED` for engine re-evaluation.
+Two-way bridge between casehub-work and CaseHub plan items:
+- **Inbound** (`WorkItemLifecycleAdapter`) — translates terminal `WorkItemLifecycleEvent` CDI events to `PlanItem` transitions, evaluates `outputMapping` against the WorkItem resolution JSON, and fires `CONTEXT_CHANGED` for engine re-evaluation
+- **Outbound** (`HumanTaskScheduleHandler`) — consumes `HUMAN_TASK_SCHEDULE` event bus messages, looks up the `PlanItem` by binding name, marks it RUNNING, and creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}`
+
+`@ConsumeEvent` handlers that call `@Transactional` services must use `blocking = true` — without it, the transaction silently does not commit on the Vert.x IO thread (the WorkItem is never created, no error is thrown).
 
 **Test setup** (when depending on `casehub-work` full module):
 - Add `casehub-work-testing` test dep — provides `@Alternative @Priority` in-memory WorkItem stores
 - Add `quarkus-jdbc-h2` test dep — casehub-work JPA entities require a datasource even in tests
-- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos
+- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos, including `MemorySubCaseGroupRepository` — omitting it causes boot failure: `Unsatisfied dependency for SubCaseGroupRepository`
 - Add `@Alternative @Priority(1)` static inner class stub for `WorkloadProvider` — casehub-work ships `JpaWorkloadProvider` which clashes with `CasehubWorkloadProvider` from the engine
 - Set `quarkus.quartz.store-type=ram` and `quarkus.hibernate-orm.schema-management.strategy=drop-and-create`
 
