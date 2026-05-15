@@ -40,12 +40,26 @@ import java.util.stream.Collectors;
  *
  * <p>Reads YAML CaseDefinition files, deserializes to generated schema models (io.casehub.model.*),
  * and converts to API models (io.casehub.api.model.*).
+ *
+ * <p>Uses a default ObjectMapper with YAMLFactory. Runtime module can override via {@link
+ * #setObjectMapper(ObjectMapper)} to inject a CDI-managed instance.
  */
 public final class CaseDefinitionYamlMapper {
 
-  private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory());
+  private static ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
 
   private CaseDefinitionYamlMapper() {}
+
+  /**
+   * Sets the ObjectMapper to use for YAML parsing.
+   *
+   * <p>Intended for runtime module to inject CDI-managed ObjectMapper with config/secret support.
+   *
+   * @param mapper ObjectMapper instance (must use YAMLFactory)
+   */
+  public static void setObjectMapper(ObjectMapper mapper) {
+    yamlMapper = mapper;
+  }
 
   /**
    * Loads a CaseDefinition from a YAML InputStream.
@@ -59,7 +73,7 @@ public final class CaseDefinitionYamlMapper {
       throw new IllegalArgumentException("InputStream cannot be null");
     }
     io.casehub.model.CaseDefinition schema =
-        YAML_MAPPER.readValue(yamlStream, io.casehub.model.CaseDefinition.class);
+        yamlMapper.readValue(yamlStream, io.casehub.model.CaseDefinition.class);
     return convertToApiModel(schema);
   }
 

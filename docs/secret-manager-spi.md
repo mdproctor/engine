@@ -1,9 +1,35 @@
 # SecretManager SPI for K8s/Vault Integration
 
-**Status:** Proposal  
+**Status:** ~~Proposal~~ **Implemented (MVP)** ✅  
+**Version:** 0.1  
+**Implementation Date:** 2026-05-14  
 **Priority:** Medium  
-**Target:** Post-MVP  
-**Related:** AI Agent implementation (#244)
+**Target:** ~~Post-MVP~~ **Phase 1 Complete**  
+**Related:** AI Agent implementation (#244), Design Spec `docs/superpowers/specs/2026-05-14-config-secrets-design.md`
+
+---
+
+## Update
+
+**✅ MVP Implementation Complete**
+
+The SecretManager SPI has been implemented with:
+- ✅ `ConfigManager` and `SecretManager` interfaces
+- ✅ `QuarkusConfigManager` wrapping MicroProfile Config
+- ✅ `ConfigSecretManager` building nested maps from properties
+- ✅ Centralized ObjectMapper with JQ scope injection (placeholder)
+
+**See:** `docs/config-secrets-management.md` for complete user guide.
+
+**Remaining Work:**
+- [ ] Full JQ scope injection implementation (depends on understanding existing JQ evaluation)
+- [ ] Kubernetes SecretManager implementation (future)
+- [ ] HashiCorp Vault SecretManager implementation (future)
+- [ ] `use.secrets` declaration in YAML schema (future)
+
+---
+
+## Original Proposal
 
 ## Context
 

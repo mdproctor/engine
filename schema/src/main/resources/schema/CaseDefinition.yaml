@@ -498,7 +498,15 @@ $defs:
     properties:
       apiKey:
         type: string
-        description: "OpenAI API key (can use ${ENV_VAR} syntax)"
+        description: |
+          OpenAI API key.
+          Supports JQ expressions: "${$secret.openai.apiKey}"
+
+          Example configuration (application.properties):
+            openai.apiKey=sk-...
+            openai.organizationId=org-...
+
+          The secret is resolved at runtime during JQ expression evaluation.
       modelName:
         type: string
         description: "Model name (e.g., gpt-4, gpt-3.5-turbo)"
@@ -570,7 +578,14 @@ $defs:
     properties:
       apiKey:
         type: string
-        description: "Anthropic API key (can use ${ENV_VAR} syntax)"
+        description: |
+          Anthropic API key.
+          Supports JQ expressions: "${$secret.anthropic.apiKey}"
+
+          Example configuration (application.properties):
+            anthropic.apiKey=sk-ant-...
+
+          The secret is resolved at runtime during JQ expression evaluation.
       modelName:
         type: string
         description: "Model name (e.g., claude-3-sonnet-20240229)"
@@ -606,7 +621,14 @@ $defs:
     properties:
       apiKey:
         type: string
-        description: "Mistral AI API key (can use ${ENV_VAR} syntax)"
+        description: |
+          Mistral AI API key.
+          Supports JQ expressions: "${$secret.mistralai.apiKey}"
+
+          Example configuration (application.properties):
+            mistralai.apiKey=...
+
+          The secret is resolved at runtime during JQ expression evaluation.
       modelName:
         type: string
         description: "Model name (e.g., mistral-large-latest)"
@@ -635,7 +657,14 @@ $defs:
     properties:
       apiKey:
         type: string
-        description: "Google AI API key (can use ${ENV_VAR} syntax)"
+        description: |
+          Google AI API key.
+          Supports JQ expressions: "${$secret.googleai.apiKey}"
+
+          Example configuration (application.properties):
+            googleai.apiKey=...
+
+          The secret is resolved at runtime during JQ expression evaluation.
       modelName:
         type: string
         description: "Model name (e.g., gemini-pro)"
