@@ -24,6 +24,20 @@ All implementation work must be linked to a GitHub issue:
 
 ---
 
+## Routing
+
+| Artifact   | Destination | Notes |
+|------------|-------------|-------|
+| adr        | project     | lands in `docs/adr/` — promoted at epic close |
+| specs      | project     | lands in `docs/specs/` — promoted at epic close |
+| blog       | workspace   | staged here; published to mdproctor.github.io via publish-blog |
+| plans      | workspace   | stay in workspace permanently |
+| design     | workspace   | epic journal stays in workspace |
+| snapshots  | workspace   | stay in workspace permanently |
+| handover   | workspace   | |
+
+---
+
 ## Platform Context
 
 This repo is one component of the casehubio multi-repo platform. **Before implementing anything — any feature, SPI, data model, or abstraction — run the Platform Coherence Protocol.**
