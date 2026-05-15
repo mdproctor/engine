@@ -18,8 +18,6 @@ package io.casehub.engine.internal.diff;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.spi.ContextDiffStrategy;
 import io.fabric8.zjsonpatch.JsonDiff;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 
 /**
  * RFC 6902 JSON Patch {@link ContextDiffStrategy} using {@code zjsonpatch}.
@@ -28,17 +26,11 @@ import jakarta.enterprise.inject.Alternative;
  * Records changes at every affected path, including nested keys — more precise than {@link
  * TopLevelContextDiffStrategy} but less readable for humans.
  *
+ * <p>Active when {@code casehub.engine.diff-strategy=json-patch}.
+ *
  * <p>Useful as a foundation for future replay support (issues #10–#13).
- *
- * <p>Activate via:
- *
- * <pre>
- * quarkus.arc.selected-alternatives=io.casehub.engine.internal.diff.JsonPatchContextDiffStrategy
- * </pre>
  */
-@Alternative
-@ApplicationScoped
-public class JsonPatchContextDiffStrategy implements ContextDiffStrategy {
+class JsonPatchContextDiffStrategy implements ContextDiffStrategy {
 
   @Override
   public JsonNode compute(JsonNode before, JsonNode after) {

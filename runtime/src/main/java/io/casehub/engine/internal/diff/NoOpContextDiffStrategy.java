@@ -17,17 +17,14 @@ package io.casehub.engine.internal.diff;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.spi.ContextDiffStrategy;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 
 /**
  * No-op {@link ContextDiffStrategy}: skips diff computation entirely. {@code contextChanges} is
- * omitted from {@code WORKER_EXECUTION_COMPLETED} metadata. Active by default — replace with a real
- * implementation to enable context diffing.
+ * omitted from {@code WORKER_EXECUTION_COMPLETED} metadata.
+ *
+ * <p>Active when {@code casehub.engine.diff-strategy=none} (the default).
  */
-@DefaultBean
-@ApplicationScoped
-public class NoOpContextDiffStrategy implements ContextDiffStrategy {
+class NoOpContextDiffStrategy implements ContextDiffStrategy {
 
   @Override
   public JsonNode compute(JsonNode before, JsonNode after) {

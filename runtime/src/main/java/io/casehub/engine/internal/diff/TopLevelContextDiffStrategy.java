@@ -19,10 +19,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.spi.ContextDiffStrategy;
-import jakarta.enterprise.context.ApplicationScoped;
 
 /**
- * Default {@link ContextDiffStrategy}: records a before/after entry per changed top-level key.
+ * Top-level key {@link ContextDiffStrategy}: records a before/after entry per changed top-level
+ * key.
  *
  * <p>Output format per key:
  *
@@ -37,8 +37,7 @@ import jakarta.enterprise.context.ApplicationScoped;
  * whole-object before/after, not path-by-path. Use {@link JsonPatchContextDiffStrategy} for full
  * path precision.
  */
-@ApplicationScoped
-public class TopLevelContextDiffStrategy implements ContextDiffStrategy {
+class TopLevelContextDiffStrategy implements ContextDiffStrategy {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
