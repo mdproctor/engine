@@ -23,15 +23,18 @@ import com.fasterxml.jackson.databind.JsonNode;
  * <p>The result is stored as {@code contextChanges} in the {@code WORKER_EXECUTION_COMPLETED}
  * EventLog metadata. Return {@code null} to omit {@code contextChanges} entirely.
  *
- * <p>Three implementations are provided in the engine module:
+ * <p>Select a built-in implementation via:
+ *
+ * <pre>casehub.engine.diff-strategy=none|top-level|json-patch</pre>
  *
  * <ul>
- *   <li>{@code TopLevelContextDiffStrategy} — default; per-key before/after object
- *   <li>{@code JsonPatchContextDiffStrategy} — @Alternative; RFC 6902 array
- *   <li>{@code NoOpContextDiffStrategy} — @Alternative; returns null, no overhead
+ *   <li>{@code none} (default) — returns null; no diff overhead
+ *   <li>{@code top-level} — per-key before/after object
+ *   <li>{@code json-patch} — RFC 6902 patch array
  * </ul>
  *
- * Switch via {@code quarkus.arc.selected-alternatives} in {@code application.properties}.
+ * <p>A consumer {@code @ApplicationScoped} implementation of this interface takes priority over the
+ * config-selected built-in.
  */
 public interface ContextDiffStrategy {
 
