@@ -38,7 +38,7 @@ public class ObjectMapperInjector {
 
   @Inject @YamlMapper ObjectMapper yamlMapper;
 
-  //TODO this workaround must be fixed
+  // TODO this workaround must be fixed
   void onStartup(@Observes StartupEvent event) {
     CaseDefinitionYamlMapper.setObjectMapper(yamlMapper);
     LOG.info("Injected CDI ObjectMapper into CaseDefinitionYamlMapper");
