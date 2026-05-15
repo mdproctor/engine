@@ -20,7 +20,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.Binding;
+import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.ExtensionTarget;
+import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
@@ -185,7 +189,14 @@ public class WorkflowExecutionCompletedHandler {
     }
     List<Binding> bindings = definition.getBindings();
     for (Binding binding : bindings) {
-      if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) {
+      CapabilityTarget ct =
+          switch (binding.target()) {
+            case CapabilityTarget cap -> cap;
+            case SubCaseTarget st -> null;
+            case HumanTaskTarget ht -> null;
+            case ExtensionTarget et -> null;
+          };
+      if (ct == null) {
         continue;
       }
       String capabilityName = ct.capability().getName();

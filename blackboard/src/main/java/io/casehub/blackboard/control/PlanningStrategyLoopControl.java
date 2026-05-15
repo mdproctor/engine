@@ -18,6 +18,9 @@ package io.casehub.blackboard.control;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
+import io.casehub.api.model.ExtensionTarget;
+import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.Worker;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
@@ -125,30 +128,38 @@ public class PlanningStrategyLoopControl implements LoopControl {
    * worker list. Returns the capability name as fallback if no worker matches.
    */
   private String resolveWorkerName(Binding binding, PlanExecutionContext ctx) {
-    if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) return "unknown";
-    String capName = ct.capability().getName();
-    List<Worker> matching =
-        ctx.definition().getWorkers().stream()
-            .filter(
-                w ->
-                    w.getCapabilities() != null
-                        && w.getCapabilities().stream().anyMatch(c -> c.getName().equals(capName)))
-            .toList();
-    if (matching.size() > 1) {
-      LOG.warnf(
-          "Capability '%s' matched %d workers — only '%s' will be tracked for PlanItem completion. "
-              + "Workers [%s] will fire but their completion events will be silently ignored, "
-              + "leaving their PlanItems RUNNING indefinitely. "
-              + "Multi-worker fan-out requires per-worker PlanItems (casehubio/engine#82).",
-          capName,
-          matching.size(),
-          matching.get(0).getName(),
-          matching.stream()
-              .skip(1)
-              .map(Worker::getName)
-              .collect(java.util.stream.Collectors.joining(", ")));
-    }
-    return matching.isEmpty() ? capName : matching.get(0).getName();
+    return switch (binding.target()) {
+      case null -> "unknown";
+      case io.casehub.api.model.CapabilityTarget ct -> {
+        String capName = ct.capability().getName();
+        List<Worker> matching =
+            ctx.definition().getWorkers().stream()
+                .filter(
+                    w ->
+                        w.getCapabilities() != null
+                            && w.getCapabilities().stream()
+                                .anyMatch(c -> c.getName().equals(capName)))
+                .toList();
+        if (matching.size() > 1) {
+          LOG.warnf(
+              "Capability '%s' matched %d workers — only '%s' will be tracked for PlanItem completion. "
+                  + "Workers [%s] will fire but their completion events will be silently ignored, "
+                  + "leaving their PlanItems RUNNING indefinitely. "
+                  + "Multi-worker fan-out requires per-worker PlanItems (casehubio/engine#82).",
+              capName,
+              matching.size(),
+              matching.get(0).getName(),
+              matching.stream()
+                  .skip(1)
+                  .map(Worker::getName)
+                  .collect(java.util.stream.Collectors.joining(", ")));
+        }
+        yield matching.isEmpty() ? capName : matching.get(0).getName();
+      }
+      case SubCaseTarget st -> "unknown";
+      case HumanTaskTarget ht -> "unknown";
+      case ExtensionTarget et -> "unknown";
+    };
   }
 
   /**

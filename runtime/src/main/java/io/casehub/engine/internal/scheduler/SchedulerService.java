@@ -17,8 +17,11 @@ package io.casehub.engine.internal.scheduler;
 
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
+import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.ScheduleTrigger;
+import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.Worker;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.scheduler.ScheduleStrategy.CronSchedule;
@@ -98,8 +101,26 @@ public class SchedulerService {
         continue;
       }
 
-      if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) {
-        LOG.warnf("Schedule binding '%s' has non-capability target — skipping", binding.getName());
+      CapabilityTarget ct =
+          switch (binding.target()) {
+            case CapabilityTarget cap -> cap;
+            case SubCaseTarget st -> {
+              LOG.warnf(
+                  "Schedule binding '%s' has non-capability target — skipping", binding.getName());
+              yield null;
+            }
+            case io.casehub.api.model.HumanTaskTarget ht -> {
+              LOG.warnf(
+                  "Schedule binding '%s' has non-capability target — skipping", binding.getName());
+              yield null;
+            }
+            case ExtensionTarget et -> {
+              LOG.warnf(
+                  "Schedule binding '%s' has non-capability target — skipping", binding.getName());
+              yield null;
+            }
+          };
+      if (ct == null) {
         continue;
       }
       // Find worker that provides the capability
@@ -246,12 +267,21 @@ public class SchedulerService {
     Map<String, Object> data = new HashMap<>();
     data.put("caseId", caseId.toString());
     data.put("bindingName", binding.getName());
-    if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) {
-      throw new IllegalStateException(
-          "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
+    switch (binding.target()) {
+      case CapabilityTarget ct -> {
+        String capabilityName = ct.capability().getName();
+        data.put("capabilityName", capabilityName);
+      }
+      case SubCaseTarget ignored ->
+          throw new IllegalStateException(
+              "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
+      case io.casehub.api.model.HumanTaskTarget ignored ->
+          throw new IllegalStateException(
+              "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
+      case ExtensionTarget ignored ->
+          throw new IllegalStateException(
+              "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
     }
-    String capabilityName = ct.capability().getName();
-    data.put("capabilityName", capabilityName);
     data.put("workerName", worker.getName());
     return data;
   }
