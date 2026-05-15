@@ -21,7 +21,11 @@ import static org.quartz.TriggerBuilder.newTrigger;
 
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
+import io.casehub.api.model.CapabilityTarget;
+import io.casehub.api.model.ExtensionTarget;
+import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.ScheduleTrigger;
+import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.Worker;
 import io.casehub.engine.internal.history.EventLog;
 import io.casehub.engine.internal.model.CaseInstance;
@@ -293,11 +297,18 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
     Map<String, Object> data = new HashMap<>();
     data.put("caseId", caseId.toString());
     data.put("bindingName", binding.getName());
-    if (!(binding.target() instanceof io.casehub.api.model.CapabilityTarget ct)) {
-      throw new IllegalStateException(
-          "Schedule-triggered binding '" + binding.getName() + "' must target a Capability");
+    switch (binding.target()) {
+      case CapabilityTarget ct -> data.put("capabilityName", ct.capability().getName());
+      case SubCaseTarget ignored ->
+          throw new IllegalStateException(
+              "Schedule-triggered binding '" + binding.getName() + "' must target a Capability");
+      case HumanTaskTarget ignored ->
+          throw new IllegalStateException(
+              "Schedule-triggered binding '" + binding.getName() + "' must target a Capability");
+      case ExtensionTarget ignored ->
+          throw new IllegalStateException(
+              "Schedule-triggered binding '" + binding.getName() + "' must target a Capability");
     }
-    data.put("capabilityName", ct.capability().getName());
     data.put("workerName", worker.getName());
     return data;
   }

@@ -21,8 +21,8 @@ package io.casehub.api.model;
  * <p>Permits: {@link CapabilityTarget}, {@link SubCaseTarget}, {@link HumanTaskTarget}, {@link
  * ExtensionTarget}.
  *
- * <p>Java 21 note: when the platform migrates to Java 21, dispatch sites should use exhaustive
- * switch pattern matching instead of if-else instanceof chains — see casehubio/engine#254.
+ * <p>All dispatch sites use exhaustive switch pattern matching (Java 21), which provides
+ * compile-time guarantee that all sealed permits are handled.
  */
 public sealed interface BindingTarget
     permits CapabilityTarget, SubCaseTarget, HumanTaskTarget, ExtensionTarget {}

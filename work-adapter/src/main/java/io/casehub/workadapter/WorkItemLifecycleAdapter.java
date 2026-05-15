@@ -16,7 +16,10 @@
 package io.casehub.workadapter;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.model.CapabilityTarget;
+import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
@@ -123,7 +126,14 @@ public class WorkItemLifecycleAdapter {
           instance.getUuid(), item.getPlanItemId());
       return;
     }
-    if (!(item.getTarget() instanceof HumanTaskTarget ht)) return;
+    HumanTaskTarget ht =
+        switch (item.getTarget()) {
+          case HumanTaskTarget humanTaskTarget -> humanTaskTarget;
+          case CapabilityTarget ignored -> null;
+          case SubCaseTarget ignored -> null;
+          case ExtensionTarget ignored -> null;
+        };
+    if (ht == null) return;
     if (ht.outputMapping() == null) return;
     if (workItem.resolution == null) return;
 

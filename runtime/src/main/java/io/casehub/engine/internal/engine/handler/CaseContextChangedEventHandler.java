@@ -205,23 +205,18 @@ public class CaseContextChangedEventHandler {
 
   private Uni<Void> publishByTarget(
       CaseInstance caseInstance, List<Worker> workers, Binding binding) {
-    if (binding.target() instanceof CapabilityTarget ct) {
-      return publishWorkerSchedule(caseInstance, workers, binding, ct.capability());
-    } else if (binding.target() instanceof SubCaseTarget st) {
-      return publishSubCaseSchedule(caseInstance, st.subCase());
-    } else if (binding.target() instanceof HumanTaskTarget ht) {
-      return publishHumanTaskSchedule(caseInstance, binding, ht);
-    } else if (binding.target() instanceof ExtensionTarget et) {
-      LOG.warnf(
-          "No handler for ExtensionTarget %s on binding '%s'",
-          et.getClass().getName(), binding.getName());
-      return Uni.createFrom().voidItem();
-    } else {
-      LOG.errorf(
-          "Unknown BindingTarget type %s on binding '%s'",
-          binding.target().getClass().getName(), binding.getName());
-      return Uni.createFrom().voidItem();
-    }
+    return switch (binding.target()) {
+      case CapabilityTarget ct ->
+          publishWorkerSchedule(caseInstance, workers, binding, ct.capability());
+      case SubCaseTarget st -> publishSubCaseSchedule(caseInstance, st.subCase());
+      case HumanTaskTarget ht -> publishHumanTaskSchedule(caseInstance, binding, ht);
+      case ExtensionTarget et -> {
+        LOG.warnf(
+            "No handler for ExtensionTarget %s on binding '%s'",
+            et.getClass().getName(), binding.getName());
+        yield Uni.createFrom().voidItem();
+      }
+    };
   }
 
   private Uni<Void> publishWorkerSchedule(
