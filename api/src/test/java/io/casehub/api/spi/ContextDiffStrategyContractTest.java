@@ -26,12 +26,6 @@ class ContextDiffStrategyContractTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Test
-  void interface_hasComputeMethod() throws Exception {
-    assertThat(ContextDiffStrategy.class.getMethod("compute", JsonNode.class, JsonNode.class))
-        .isNotNull();
-  }
-
-  @Test
   void compute_returningNull_isValidNoOpContract() {
     ContextDiffStrategy noOp = (before, after) -> null;
     JsonNode node = MAPPER.createObjectNode();

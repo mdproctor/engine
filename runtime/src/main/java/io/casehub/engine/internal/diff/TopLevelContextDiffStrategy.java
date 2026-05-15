@@ -36,6 +36,8 @@ import io.casehub.api.spi.ContextDiffStrategy;
  * <p>Operates on top-level keys only. Nested changes within an object value are captured as a
  * whole-object before/after, not path-by-path. Use {@link JsonPatchContextDiffStrategy} for full
  * path precision.
+ *
+ * <p>Active when {@code casehub.engine.diff-strategy=top-level}.
  */
 class TopLevelContextDiffStrategy implements ContextDiffStrategy {
 
