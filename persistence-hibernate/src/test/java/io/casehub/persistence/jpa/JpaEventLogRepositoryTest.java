@@ -374,6 +374,26 @@ class JpaEventLogRepositoryTest {
     assertThat(result).hasSize(2);
   }
 
+  @Test
+  void findSubmittedWorkWithoutCompletion_excludesCompletedCorrelationKeys() {
+    UUID caseId = UUID.randomUUID();
+    String completedKey = "completed-" + UUID.randomUUID();
+    String pendingKey = "pending-" + UUID.randomUUID();
+
+    EventLog completedSubmission = workEvent(caseId, CaseHubEventType.WORK_SUBMITTED, completedKey);
+    EventLog completion = workEvent(caseId, CaseHubEventType.WORK_COMPLETED, completedKey);
+    EventLog pendingSubmission = workEvent(caseId, CaseHubEventType.WORK_SUBMITTED, pendingKey);
+
+    run(() -> repository.append(completedSubmission));
+    run(() -> repository.append(completion));
+    run(() -> repository.append(pendingSubmission));
+
+    List<String> result = run(repository::findSubmittedWorkWithoutCompletion);
+
+    assertThat(result).contains(pendingKey);
+    assertThat(result).doesNotContain(completedKey);
+  }
+
   private <T> T run(Supplier<Uni<T>> supplier) {
     try {
       return VertxContextSupport.subscribeAndAwait(supplier);
@@ -395,6 +415,13 @@ class JpaEventLogRepositoryTest {
     log.setEventType(eventType);
     log.setStreamType(EventStreamType.WORKER);
     log.setTimestamp(Instant.now());
+    return log;
+  }
+
+  private EventLog workEvent(UUID caseId, CaseHubEventType eventType, String correlationKey) {
+    EventLog log = event(caseId, null, eventType);
+    log.setStreamType(EventStreamType.CASE);
+    log.setMetadata(OBJECT_MAPPER.createObjectNode().put("correlationKey", correlationKey));
     return log;
   }
 

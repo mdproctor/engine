@@ -155,19 +155,44 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
     return withSafeContext(
         () ->
             Panache.withSession(
-                () ->
-                    EventLogEntity.<EventLogEntity>list(
-                            "eventType", CaseHubEventType.WORK_SUBMITTED)
-                        .map(
-                            submitted ->
-                                submitted.stream()
-                                    .map(
-                                        e ->
-                                            e.metadata != null
-                                                ? e.metadata.path("correlationKey").asText(null)
-                                                : null)
-                                    .filter(Objects::nonNull)
-                                    .toList())));
+                    () ->
+                        EventLogEntity.<EventLogEntity>list(
+                            "eventType", CaseHubEventType.WORK_SUBMITTED))
+                .chain(
+                    submitted ->
+                        Panache.withSession(
+                                () ->
+                                    EventLogEntity.<EventLogEntity>list(
+                                        "eventType", CaseHubEventType.WORK_COMPLETED))
+                            .map(
+                                completed -> {
+                                  var submittedKeys =
+                                      submitted.stream()
+                                          .map(
+                                              e ->
+                                                  e.metadata != null
+                                                      ? e.metadata
+                                                          .path("correlationKey")
+                                                          .asText(null)
+                                                      : null)
+                                          .filter(Objects::nonNull)
+                                          .collect(java.util.stream.Collectors.toSet());
+
+                                  var completedKeys =
+                                      completed.stream()
+                                          .map(
+                                              e ->
+                                                  e.metadata != null
+                                                      ? e.metadata
+                                                          .path("correlationKey")
+                                                          .asText(null)
+                                                      : null)
+                                          .filter(Objects::nonNull)
+                                          .collect(java.util.stream.Collectors.toSet());
+
+                                  submittedKeys.removeAll(completedKeys);
+                                  return new ArrayList<>(submittedKeys);
+                                })));
   }
 
   @Override
