@@ -140,6 +140,7 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                     EnumSet.of(
                         CaseHubEventType.CASE_STARTED,
                         CaseHubEventType.WORKER_EXECUTION_COMPLETED,
+                        CaseHubEventType.SUBCASE_COMPLETED,
                         CaseHubEventType.SIGNAL_RECEIVED,
                         CaseHubEventType.MILESTONE_ACTIVATED,
                         CaseHubEventType.MILESTONE_COMPLETED,
@@ -166,7 +167,8 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                   if (patch != null) {
                     caseContext.applyDiff(patch);
                   }
-                } else if (eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED) {
+                } else if (eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED
+                    || eventLog.getEventType() == CaseHubEventType.SUBCASE_COMPLETED) {
                   caseContext.setAll(payloadAsMap(eventLog.getPayload()));
                 } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_ACTIVATED) {
                   applyMilestoneActivatedEvent(caseContext, eventLog);

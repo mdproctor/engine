@@ -80,7 +80,7 @@ public class SubCaseOutputMappingRecoveryTest {
   }
 
   /**
-   * Demonstrates the bug: SubCase outputMapping data is lost after restart.
+   * Verifies that SubCase outputMapping data is preserved after restart.
    *
    * <p>Steps:
    *
@@ -89,14 +89,14 @@ public class SubCaseOutputMappingRecoveryTest {
    *   <li>Create child case with result data
    *   <li>Write SUBCASE_STARTED EventLog to parent
    *   <li>Apply outputMapping to parent context IN MEMORY (as SubCaseCompletionListener does)
-   *   <li>Write SUBCASE_COMPLETED EventLog WITHOUT payload (current buggy implementation)
+   *   <li>Write SUBCASE_COMPLETED EventLog WITH payload containing applied data
    *   <li>Clear cache (simulates JVM restart)
    *   <li>Load parent via recoveryService
-   *   <li>BUG: outputMapping data is LOST
+   *   <li>Verify: outputMapping data is correctly restored from SUBCASE_COMPLETED payload
    * </ol>
    */
   @Test
-  void subCaseOutputMapping_lostAfterRestart() {
+  void subCaseOutputMapping_preservedAfterRestart() {
     // 1. Create parent case
     final UUID parentId = createParentCase("ORDER-1");
 
@@ -117,8 +117,8 @@ public class SubCaseOutputMappingRecoveryTest {
     assertThat(parent.getCaseContext().get("approval")).isEqualTo("approved");
     assertThat(parent.getCaseContext().get("data")).isNotNull();
 
-    // 5. Write SUBCASE_COMPLETED WITHOUT payload (BUG!)
-    writeSubCaseCompletedEvent(parentId, childId, null);
+    // 5. Write SUBCASE_COMPLETED WITH payload (FIXED - now includes applied data)
+    writeSubCaseCompletedEvent(parentId, childId, mappedData);
 
     // 6. Clear cache (simulates JVM restart)
     caseInstanceCache.clear();
@@ -126,16 +126,16 @@ public class SubCaseOutputMappingRecoveryTest {
     // 7. Restore parent via recovery service
     CaseInstance restored = run(() -> recoveryService.loadOrRestoreCaseInstance(parentId));
 
-    // 8. BUG: outputMapping data is LOST!
+    // 8. Verify: outputMapping data is correctly restored!
     assertThat(restored.getCaseContext().get("orderId")).isEqualTo("ORDER-1");
 
     assertThat(restored.getCaseContext().get("approval"))
         .as("approval should be 'approved' from SubCase outputMapping")
-        .isEqualTo("approved"); // ← FAILS when bug exists: data lost!
+        .isEqualTo("approved");
 
     assertThat(restored.getCaseContext().get("data"))
         .as("data should be present from SubCase outputMapping")
-        .isNotNull(); // ← FAILS when bug exists: data lost!
+        .isNotNull();
   }
 
   /**
