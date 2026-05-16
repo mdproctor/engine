@@ -170,7 +170,13 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                 } else if (eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED) {
                   JsonNode contextChanges = getContextChanges(eventLog.getMetadata());
                   if (contextChanges != null) {
-                    caseContext.applyDiff(contextChanges);
+                    if (contextChanges.isArray()) {
+                      // JSON Patch format (JsonPatchContextDiffStrategy)
+                      caseContext.applyDiff(contextChanges);
+                    } else if (contextChanges.isObject()) {
+                      // TopLevel format (TopLevelContextDiffStrategy)
+                      applyTopLevelChanges(caseContext, contextChanges);
+                    }
                   } else {
                     caseContext.setAll(payloadAsMap(eventLog.getPayload()));
                   }
@@ -206,7 +212,11 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
   private JsonNode getContextChanges(JsonNode metadata) {
     if (metadata == null || metadata.isNull()) return null;
     JsonNode contextChanges = metadata.get("contextChanges");
-    return contextChanges != null && contextChanges.isArray() ? contextChanges : null;
+    // Support both JSON Patch (array) and TopLevel (object) formats
+    if (contextChanges != null && (contextChanges.isArray() || contextChanges.isObject())) {
+      return contextChanges;
+    }
+    return null;
   }
 
   private String executionKey(EventLog eventLog) {
@@ -283,5 +293,32 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
     return "COMPLETED".equals(lifecycleStatus)
         || "FAILED".equals(lifecycleStatus)
         || "CANCELLED".equals(lifecycleStatus);
+  }
+
+  /**
+   * Applies TopLevel format context changes: {"key": {"before": oldVal, "after": newVal}}
+   *
+   * <p>This format is produced by TopLevelContextDiffStrategy. Each field contains "before" and/or
+   * "after" nodes. Missing "after" means removal.
+   */
+  private void applyTopLevelChanges(CaseContext caseContext, JsonNode changes) {
+    changes
+        .fieldNames()
+        .forEachRemaining(
+            key -> {
+              JsonNode changeNode = changes.get(key);
+              if (changeNode == null || !changeNode.isObject()) {
+                return;
+              }
+              JsonNode afterNode = changeNode.get("after");
+              if (afterNode == null || afterNode.isNull()) {
+                // Removal
+                caseContext.set(key, null);
+              } else {
+                // Update/addition
+                Object value = OBJECT_MAPPER.convertValue(afterNode, Object.class);
+                caseContext.set(key, value);
+              }
+            });
   }
 }

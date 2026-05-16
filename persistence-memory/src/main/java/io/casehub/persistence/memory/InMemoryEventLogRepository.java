@@ -100,6 +100,7 @@ public class InMemoryEventLogRepository implements EventLogRepository {
                           || e.getEventType() == CaseHubEventType.WORKER_EXECUTION_STARTED
                           || e.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED)
               .filter(e -> after == null || e.getTimestamp().isAfter(after))
+              .sorted(Comparator.comparingLong(EventLog::getSeq))
               .toList();
       return Uni.createFrom().item(result);
     } finally {
@@ -174,30 +175,40 @@ public class InMemoryEventLogRepository implements EventLogRepository {
   public Uni<List<String>> findSubmittedWorkWithoutCompletion() {
     rwLock.readLock().lock();
     try {
-      Set<String> submitted =
+      // Track (caseId, correlationKey) pairs to prevent cross-case collision
+      record WorkKey(UUID caseId, String correlationKey) {}
+
+      Set<WorkKey> submitted =
           store.values().stream()
               .filter(e -> e.getEventType() == CaseHubEventType.WORK_SUBMITTED)
               .map(
-                  e ->
-                      e.getMetadata() != null
-                          ? e.getMetadata().path("correlationKey").asText(null)
-                          : null)
+                  e -> {
+                    if (e.getMetadata() == null || e.getCaseId() == null) {
+                      return null;
+                    }
+                    String key = e.getMetadata().path("correlationKey").asText(null);
+                    return key != null ? new WorkKey(e.getCaseId(), key) : null;
+                  })
               .filter(Objects::nonNull)
               .collect(Collectors.toSet());
 
-      Set<String> completed =
+      Set<WorkKey> completed =
           store.values().stream()
               .filter(e -> e.getEventType() == CaseHubEventType.WORK_COMPLETED)
               .map(
-                  e ->
-                      e.getMetadata() != null
-                          ? e.getMetadata().path("correlationKey").asText(null)
-                          : null)
+                  e -> {
+                    if (e.getMetadata() == null || e.getCaseId() == null) {
+                      return null;
+                    }
+                    String key = e.getMetadata().path("correlationKey").asText(null);
+                    return key != null ? new WorkKey(e.getCaseId(), key) : null;
+                  })
               .filter(Objects::nonNull)
               .collect(Collectors.toSet());
 
       submitted.removeAll(completed);
-      return Uni.createFrom().item(List.copyOf(submitted));
+      return Uni.createFrom()
+          .item(submitted.stream().map(WorkKey::correlationKey).collect(Collectors.toList()));
     } finally {
       rwLock.readLock().unlock();
     }

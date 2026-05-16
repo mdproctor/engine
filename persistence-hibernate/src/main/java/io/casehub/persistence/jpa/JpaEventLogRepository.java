@@ -76,7 +76,8 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                     () -> {
                       if (after == null) {
                         return EventLogEntity.<EventLogEntity>find(
-                                "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)",
+                                "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
+                                    + " order by seq asc",
                                 caseId,
                                 workerId,
                                 CaseHubEventType.WORKER_SCHEDULED,
@@ -86,7 +87,7 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                       } else {
                         return EventLogEntity.<EventLogEntity>find(
                                 "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
-                                    + " and timestamp > ?6",
+                                    + " and timestamp > ?6 order by seq asc",
                                 caseId,
                                 workerId,
                                 CaseHubEventType.WORKER_SCHEDULED,
@@ -166,32 +167,46 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                                         "eventType", CaseHubEventType.WORK_COMPLETED))
                             .map(
                                 completed -> {
+                                  // Track (caseId, correlationKey) pairs to prevent cross-case
+                                  // collision
+                                  record WorkKey(UUID caseId, String correlationKey) {}
+
                                   var submittedKeys =
                                       submitted.stream()
                                           .map(
-                                              e ->
-                                                  e.metadata != null
-                                                      ? e.metadata
-                                                          .path("correlationKey")
-                                                          .asText(null)
-                                                      : null)
+                                              e -> {
+                                                if (e.metadata == null || e.caseId == null) {
+                                                  return null;
+                                                }
+                                                String key =
+                                                    e.metadata.path("correlationKey").asText(null);
+                                                return key != null
+                                                    ? new WorkKey(e.caseId, key)
+                                                    : null;
+                                              })
                                           .filter(Objects::nonNull)
                                           .collect(java.util.stream.Collectors.toSet());
 
                                   var completedKeys =
                                       completed.stream()
                                           .map(
-                                              e ->
-                                                  e.metadata != null
-                                                      ? e.metadata
-                                                          .path("correlationKey")
-                                                          .asText(null)
-                                                      : null)
+                                              e -> {
+                                                if (e.metadata == null || e.caseId == null) {
+                                                  return null;
+                                                }
+                                                String key =
+                                                    e.metadata.path("correlationKey").asText(null);
+                                                return key != null
+                                                    ? new WorkKey(e.caseId, key)
+                                                    : null;
+                                              })
                                           .filter(Objects::nonNull)
                                           .collect(java.util.stream.Collectors.toSet());
 
                                   submittedKeys.removeAll(completedKeys);
-                                  return new ArrayList<>(submittedKeys);
+                                  return submittedKeys.stream()
+                                      .map(WorkKey::correlationKey)
+                                      .collect(java.util.stream.Collectors.toList());
                                 })));
   }
 
