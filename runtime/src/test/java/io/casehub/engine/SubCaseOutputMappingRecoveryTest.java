@@ -253,4 +253,135 @@ public class SubCaseOutputMappingRecoveryTest {
     instance.setCaseContext(new io.casehub.engine.internal.context.CaseContextImpl());
     return instance;
   }
+
+  /**
+   * Verifies that TopLevel contextChanges correctly handles key removal during recovery.
+   *
+   * <p>BUG: DefaultWorkerExecutionRecoveryService.applyTopLevelChanges() was doing {@code
+   * caseContext.set(key, null)} for removals, but CaseContextImpl.set(key, null) puts null into the
+   * map instead of removing the key. The fix is to use {@code caseContext.remove(key)}.
+   *
+   * <p>Steps:
+   *
+   * <ol>
+   *   <li>Create case with initial context: { orderId: "X", temp: "Y" }
+   *   <li>Write WORKER_EXECUTION_COMPLETED with TopLevel contextChanges removing "temp"
+   *   <li>Clear cache (simulates JVM restart)
+   *   <li>Load case via recoveryService
+   *   <li>Verify: "temp" key is absent (not null, but truly absent from context)
+   * </ol>
+   */
+  @Test
+  void topLevelContextChanges_keyRemoval_correctlyAppliedAfterRestart() {
+    // 1. Create case with initial context including a key that will be removed
+    final UUID caseId = createCaseWithInitialContext("ORDER-3", "initial-value");
+
+    // 2. Write WORKER_EXECUTION_COMPLETED with TopLevel contextChanges
+    // Format: { "temp": { "before": "initial-value" } } — no "after" means removal
+    EventLog workerEvent = new EventLog();
+    workerEvent.setCaseId(caseId);
+    workerEvent.setWorkerId("cleanup-worker");
+    workerEvent.setEventType(CaseHubEventType.WORKER_EXECUTION_COMPLETED);
+    workerEvent.setStreamType(EventStreamType.CASE);
+    workerEvent.setTimestamp(Instant.now());
+    workerEvent.setPayload(OBJECT_MAPPER.createObjectNode());
+
+    // TopLevel contextChanges format: removal has "before" but NO "after"
+    ObjectNode contextChanges = OBJECT_MAPPER.createObjectNode();
+    ObjectNode tempChange = OBJECT_MAPPER.createObjectNode();
+    tempChange.put("before", "initial-value"); // NO "after" field = removal
+    contextChanges.set("temp", tempChange);
+
+    ObjectNode metadata = OBJECT_MAPPER.createObjectNode();
+    metadata.set("contextChanges", contextChanges);
+    workerEvent.setMetadata(metadata);
+
+    run(() -> eventLogRepository.append(workerEvent));
+
+    // 3. Clear cache (simulates JVM restart)
+    caseInstanceCache.clear();
+
+    // 4. Restore case via recovery service
+    CaseInstance restored = run(() -> recoveryService.loadOrRestoreCaseInstance(caseId));
+
+    // 5. Verify: "temp" key is ABSENT (not null, truly absent)
+    assertThat(restored.getCaseContext().get("orderId")).isEqualTo("ORDER-3");
+    assertThat(restored.getCaseContext().contains("temp"))
+        .as("temp key should be absent after removal (not null, truly absent)")
+        .isFalse();
+    assertThat(restored.getCaseContext().get("temp"))
+        .as("temp value should be null when key is absent")
+        .isNull();
+  }
+
+  /** Additional test: TopLevel contextChanges with addition and update should work correctly. */
+  @Test
+  void topLevelContextChanges_additionAndUpdate_correctlyAppliedAfterRestart() {
+    // 1. Create case with initial context
+    final UUID caseId = createParentCase("ORDER-4");
+
+    // 2. Write WORKER_EXECUTION_COMPLETED with TopLevel contextChanges
+    // Addition: { "newKey": { "after": "new-value" } }
+    // Update: { "orderId": { "before": "ORDER-4", "after": "ORDER-4-UPDATED" } }
+    EventLog workerEvent = new EventLog();
+    workerEvent.setCaseId(caseId);
+    workerEvent.setWorkerId("update-worker");
+    workerEvent.setEventType(CaseHubEventType.WORKER_EXECUTION_COMPLETED);
+    workerEvent.setStreamType(EventStreamType.CASE);
+    workerEvent.setTimestamp(Instant.now());
+    workerEvent.setPayload(OBJECT_MAPPER.createObjectNode());
+
+    ObjectNode contextChanges = OBJECT_MAPPER.createObjectNode();
+
+    // Addition
+    ObjectNode newKeyChange = OBJECT_MAPPER.createObjectNode();
+    newKeyChange.put("after", "new-value");
+    contextChanges.set("newKey", newKeyChange);
+
+    // Update
+    ObjectNode orderIdChange = OBJECT_MAPPER.createObjectNode();
+    orderIdChange.put("before", "ORDER-4");
+    orderIdChange.put("after", "ORDER-4-UPDATED");
+    contextChanges.set("orderId", orderIdChange);
+
+    ObjectNode metadata = OBJECT_MAPPER.createObjectNode();
+    metadata.set("contextChanges", contextChanges);
+    workerEvent.setMetadata(metadata);
+
+    run(() -> eventLogRepository.append(workerEvent));
+
+    // 3. Clear cache
+    caseInstanceCache.clear();
+
+    // 4. Restore
+    CaseInstance restored = run(() -> recoveryService.loadOrRestoreCaseInstance(caseId));
+
+    // 5. Verify
+    assertThat(restored.getCaseContext().get("orderId"))
+        .as("orderId should be updated")
+        .isEqualTo("ORDER-4-UPDATED");
+    assertThat(restored.getCaseContext().get("newKey"))
+        .as("newKey should be added")
+        .isEqualTo("new-value");
+  }
+
+  private UUID createCaseWithInitialContext(String orderId, String tempValue) {
+    CaseInstance instance = newInstance(CaseStatus.RUNNING);
+    instance.getCaseContext().set("orderId", orderId);
+    instance.getCaseContext().set("temp", tempValue);
+    CaseInstance saved = run(() -> instanceRepository.save(instance));
+
+    // Write CASE_STARTED event
+    EventLog caseStarted = new EventLog();
+    caseStarted.setCaseId(saved.getUuid());
+    caseStarted.setEventType(CaseHubEventType.CASE_STARTED);
+    caseStarted.setStreamType(EventStreamType.CASE);
+    caseStarted.setTimestamp(Instant.now());
+    caseStarted.setPayload(
+        OBJECT_MAPPER.valueToTree(Map.of("orderId", orderId, "temp", tempValue)));
+    run(() -> eventLogRepository.append(caseStarted));
+
+    caseInstanceCache.put(saved);
+    return saved.getUuid();
+  }
 }

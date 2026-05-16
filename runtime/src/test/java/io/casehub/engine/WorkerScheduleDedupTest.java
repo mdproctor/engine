@@ -81,6 +81,7 @@ public class WorkerScheduleDedupTest {
 
     String executionIdempotency =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "dedup-worker",
             "dedupCapability",
             Map.of("documentId", "doc-completed", "status", "queued"));
@@ -130,6 +131,7 @@ public class WorkerScheduleDedupTest {
 
     String executionIdempotency =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "dedup-worker",
             "dedupCapability",
             Map.of("documentId", "doc-resubmit", "status", "queued"));
@@ -184,6 +186,7 @@ public class WorkerScheduleDedupTest {
 
     String executionIdempotency =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "dedup-worker",
             "dedupCapability",
             Map.of("documentId", "doc-recovery", "status", "queued"));

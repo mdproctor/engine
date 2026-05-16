@@ -37,7 +37,7 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
     EventLogEntity entity = toEntity(eventLog);
     return withSafeContext(
         () ->
-            Panache.withTransaction(() -> entity.persistAndFlush())
+            Panache.withTransaction(entity::persistAndFlush)
                 .invoke(
                     () -> {
                       eventLog.id = entity.id;
@@ -51,7 +51,7 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
     EventLogEntity entity = toEntity(eventLog);
     return withSafeContext(
         () ->
-            Panache.withTransaction(() -> entity.persistAndFlush())
+            Panache.withTransaction(entity::persistAndFlush)
                 .map(
                     v -> {
                       eventLog.id = entity.id;
@@ -76,7 +76,8 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                     () -> {
                       if (after == null) {
                         return EventLogEntity.<EventLogEntity>find(
-                                "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)",
+                                "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
+                                    + " order by seq asc",
                                 caseId,
                                 workerId,
                                 CaseHubEventType.WORKER_SCHEDULED,
@@ -86,7 +87,7 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                       } else {
                         return EventLogEntity.<EventLogEntity>find(
                                 "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
-                                    + " and timestamp > ?6",
+                                    + " and timestamp > ?6 order by seq asc",
                                 caseId,
                                 workerId,
                                 CaseHubEventType.WORKER_SCHEDULED,
@@ -166,6 +167,9 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                                         "eventType", CaseHubEventType.WORK_COMPLETED))
                             .map(
                                 completed -> {
+                                  // correlationKey now includes caseId (format:
+                                  // caseId:worker:capability:hash)
+                                  // No need for WorkKey workaround - keys are globally unique
                                   var submittedKeys =
                                       submitted.stream()
                                           .map(

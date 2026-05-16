@@ -100,6 +100,7 @@ public class InMemoryEventLogRepository implements EventLogRepository {
                           || e.getEventType() == CaseHubEventType.WORKER_EXECUTION_STARTED
                           || e.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED)
               .filter(e -> after == null || e.getTimestamp().isAfter(after))
+              .sorted(Comparator.comparingLong(EventLog::getSeq))
               .toList();
       return Uni.createFrom().item(result);
     } finally {
@@ -174,6 +175,8 @@ public class InMemoryEventLogRepository implements EventLogRepository {
   public Uni<List<String>> findSubmittedWorkWithoutCompletion() {
     rwLock.readLock().lock();
     try {
+      // correlationKey now includes caseId (format: caseId:worker:capability:hash)
+      // No need for WorkKey workaround - keys are globally unique
       Set<String> submitted =
           store.values().stream()
               .filter(e -> e.getEventType() == CaseHubEventType.WORK_SUBMITTED)

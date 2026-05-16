@@ -79,6 +79,7 @@ public class WorkerRecoveryTest {
                 "recoverCapability",
                 "inputDataHash",
                 WorkerExecutionKeys.inputDataHash(
+                    caseId,
                     "recovery-worker",
                     "recoverCapability",
                     Map.of("documentId", "doc-recovery", "status", "scheduled")))));

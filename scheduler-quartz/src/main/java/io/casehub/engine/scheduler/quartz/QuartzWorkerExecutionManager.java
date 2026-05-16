@@ -96,7 +96,8 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
       Map<String, Object> inputData) {
 
     String idempotency =
-        WorkerExecutionKeys.inputDataHash(worker.getName(), capability.getName(), inputData);
+        WorkerExecutionKeys.inputDataHash(
+            instance.getUuid(), worker.getName(), capability.getName(), inputData);
     String group = instance.getUuid().toString();
 
     return eventLogRepository
