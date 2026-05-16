@@ -25,11 +25,13 @@ import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.casehub.work.testing.InMemoryWorkItemStore;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
@@ -54,10 +56,12 @@ class HumanTaskScheduleHandlerTest {
   private PlanItem planItem;
 
   @BeforeEach
+  @Transactional
   void setUp() {
     if (workItemStore instanceof InMemoryWorkItemStore mem) {
       mem.clear();
     }
+    WorkItemTemplate.deleteAll();
     caseId = UUID.randomUUID();
     planItem = PlanItem.create("irb-binding", "unused-worker", 5);
     registry.getOrCreate(caseId).addPlanItem(planItem);
@@ -93,6 +97,125 @@ class HumanTaskScheduleHandlerTest {
     assertThat(created.title).isEqualTo("IRB Ethics Review");
   }
 
+  // ── Template mode ─────────────────────────────────────────────────────────
+
+  @Test
+  void templateMode_byUuid_createsWorkItem_andMarksPlanItemRunning() {
+    WorkItemTemplate tmpl = persistTemplate("IRB Ethics Review Template");
+
+    HumanTaskTarget target = HumanTaskTarget.template(tmpl.id.toString()).build();
+    eventBus.publish(
+        EventBusAddresses.HUMAN_TASK_SCHEDULE,
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
+
+    String expectedCallerRef = CallerRef.encode(caseId, planItem.getPlanItemId());
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+
+    WorkItem created =
+        workItemStore.scanAll().stream()
+            .filter(w -> expectedCallerRef.equals(w.callerRef))
+            .findFirst()
+            .orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.status).isEqualTo(WorkItemStatus.PENDING);
+    assertThat(created.title).isEqualTo("IRB Ethics Review Template");
+  }
+
+  @Test
+  void templateMode_byName_createsWorkItem_andMarksPlanItemRunning() {
+    persistTemplate("AML Suspicious Activity Review");
+
+    HumanTaskTarget target = HumanTaskTarget.template("AML Suspicious Activity Review").build();
+    eventBus.publish(
+        EventBusAddresses.HUMAN_TASK_SCHEDULE,
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+
+    assertThat(workItemStore.scanAll()).hasSize(1);
+    assertThat(workItemStore.scanAll().get(0).title).isEqualTo("AML Suspicious Activity Review");
+  }
+
+  @Test
+  void templateMode_withInputData_usesInputDataAsPayload() {
+    WorkItemTemplate tmpl = persistTemplate("Clinical Trial Consent");
+    tmpl.defaultPayload = "{\"type\":\"default\"}";
+
+    HumanTaskTarget target = HumanTaskTarget.template(tmpl.id.toString()).build();
+    eventBus.publish(
+        EventBusAddresses.HUMAN_TASK_SCHEDULE,
+        new HumanTaskScheduleEvent(
+            caseId, "irb-binding", target, Map.of("trialId", "T-99", "phase", "III")));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+
+    WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.payload).contains("trialId").contains("T-99");
+  }
+
+  @Test
+  void templateMode_emptyInputData_usesTemplateDefaultPayload() {
+    WorkItemTemplate tmpl = persistTemplate("Loan Approval", "{\"type\":\"loan\"}");
+
+    HumanTaskTarget target = HumanTaskTarget.template(tmpl.id.toString()).build();
+    eventBus.publish(
+        EventBusAddresses.HUMAN_TASK_SCHEDULE,
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+
+    WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.payload).isEqualTo("{\"type\":\"loan\"}");
+  }
+
+  @Test
+  void templateMode_templateNotFound_planItemStaysPending() {
+    HumanTaskTarget target = HumanTaskTarget.template(UUID.randomUUID().toString()).build();
+    eventBus.publish(
+        EventBusAddresses.HUMAN_TASK_SCHEDULE,
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
+
+    try {
+      Thread.sleep(300);
+    } catch (InterruptedException ignored) {
+    }
+    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.PENDING);
+    assertThat(workItemStore.scanAll()).isEmpty();
+  }
+
+  @Test
+  void templateMode_ambiguousName_planItemStaysPending() {
+    persistTemplate("Duplicate Name");
+    persistTemplate("Duplicate Name");
+
+    HumanTaskTarget target = HumanTaskTarget.template("Duplicate Name").build();
+    eventBus.publish(
+        EventBusAddresses.HUMAN_TASK_SCHEDULE,
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
+
+    try {
+      Thread.sleep(300);
+    } catch (InterruptedException ignored) {
+    }
+    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.PENDING);
+    assertThat(workItemStore.scanAll()).isEmpty();
+  }
+
   @Test
   void noPlanForCaseId_eventIgnored() {
     UUID unknownCaseId = UUID.randomUUID();
@@ -108,6 +231,21 @@ class HumanTaskScheduleHandlerTest {
     }
     assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
+  }
+
+  @Transactional
+  WorkItemTemplate persistTemplate(final String name) {
+    return persistTemplate(name, null);
+  }
+
+  @Transactional
+  WorkItemTemplate persistTemplate(final String name, final String defaultPayload) {
+    WorkItemTemplate t = new WorkItemTemplate();
+    t.name = name;
+    t.createdBy = "test";
+    t.defaultPayload = defaultPayload;
+    WorkItemTemplate.persist(t);
+    return t;
   }
 
   @Test

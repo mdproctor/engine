@@ -24,7 +24,9 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
+import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemService;
+import io.casehub.work.runtime.service.WorkItemTemplateService;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -52,6 +54,7 @@ public class HumanTaskScheduleHandler {
 
   @Inject BlackboardRegistry registry;
   @Inject WorkItemService workItemService;
+  @Inject WorkItemTemplateService workItemTemplateService;
 
   @ConsumeEvent(value = EventBusAddresses.HUMAN_TASK_SCHEDULE, blocking = true)
   public void onHumanTaskSchedule(HumanTaskScheduleEvent event) {
@@ -70,15 +73,29 @@ public class HumanTaskScheduleHandler {
       return;
     }
 
+    if (event.target().isTemplateMode()) {
+      handleTemplateMode(item, event);
+    } else {
+      handleInlineMode(item, event);
+    }
+  }
+
+  private void handleTemplateMode(PlanItem item, HumanTaskScheduleEvent event) {
     HumanTaskTarget target = event.target();
 
-    if (target.isTemplateMode()) {
-      // Template mode not yet implemented — leave PlanItem PENDING so binding stays eligible.
-      // Tracked in casehubio/engine#255. Do NOT call markRunning() here — that would strand the
-      // PlanItem in RUNNING state with no WorkItem to complete it.
+    WorkItemTemplate template;
+    try {
+      template = workItemTemplateService.findByRef(target.templateRef()).orElse(null);
+    } catch (IllegalStateException e) {
       LOG.warnf(
-          "HumanTaskTarget template mode not yet supported (templateRef=%s binding='%s' case=%s)"
-              + " — PlanItem left PENDING, binding remains eligible",
+          "Ambiguous templateRef '%s' for binding '%s' case %s: %s — PlanItem left PENDING",
+          target.templateRef(), event.bindingName(), event.caseId(), e.getMessage());
+      return;
+    }
+
+    if (template == null) {
+      LOG.warnf(
+          "No template found for ref '%s' binding '%s' case %s — PlanItem left PENDING",
           target.templateRef(), event.bindingName(), event.caseId());
       return;
     }
@@ -93,7 +110,28 @@ public class HumanTaskScheduleHandler {
     }
 
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
-    createInline(target, event.inputData(), callerRef);
+    workItemTemplateService.instantiate(
+        template,
+        target.title(),
+        null,
+        "casehub-engine",
+        callerRef,
+        serializePayload(event.inputData()));
+    LOG.infof("WorkItem created (template=%s) for binding callerRef=%s", template.id, callerRef);
+  }
+
+  private void handleInlineMode(PlanItem item, HumanTaskScheduleEvent event) {
+    try {
+      item.markRunning();
+    } catch (IllegalStateException e) {
+      LOG.warnf(
+          "Cannot mark PlanItem running for binding '%s' case %s: %s",
+          event.bindingName(), event.caseId(), e.getMessage());
+      return;
+    }
+
+    String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
+    createInline(event.target(), event.inputData(), callerRef);
   }
 
   private void createInline(
