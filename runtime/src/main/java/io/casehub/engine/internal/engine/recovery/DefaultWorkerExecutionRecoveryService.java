@@ -167,8 +167,14 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                   if (patch != null) {
                     caseContext.applyDiff(patch);
                   }
-                } else if (eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED
-                    || eventLog.getEventType() == CaseHubEventType.SUBCASE_COMPLETED) {
+                } else if (eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED) {
+                  JsonNode contextChanges = getContextChanges(eventLog.getMetadata());
+                  if (contextChanges != null) {
+                    caseContext.applyDiff(contextChanges);
+                  } else {
+                    caseContext.setAll(payloadAsMap(eventLog.getPayload()));
+                  }
+                } else if (eventLog.getEventType() == CaseHubEventType.SUBCASE_COMPLETED) {
                   caseContext.setAll(payloadAsMap(eventLog.getPayload()));
                 } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_ACTIVATED) {
                   applyMilestoneActivatedEvent(caseContext, eventLog);
@@ -195,6 +201,12 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
     if (payload == null || payload.isNull()) return null;
     JsonNode patch = payload.get("patch");
     return patch != null && patch.isArray() ? patch : null;
+  }
+
+  private JsonNode getContextChanges(JsonNode metadata) {
+    if (metadata == null || metadata.isNull()) return null;
+    JsonNode contextChanges = metadata.get("contextChanges");
+    return contextChanges != null && contextChanges.isArray() ? contextChanges : null;
   }
 
   private String executionKey(EventLog eventLog) {
