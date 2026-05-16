@@ -138,8 +138,9 @@ public class SubCaseCompletionListener {
           cancelRemainingChildren(group, childCaseId);
         }
 
-        applyOutputMapping(startedEntry, childCaseId, parentCaseId);
-        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus);
+        Map<String, Object> appliedData =
+            applyOutputMapping(startedEntry, childCaseId, parentCaseId);
+        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, appliedData);
 
         CaseInstance parent = caseInstanceCache.get(parentCaseId);
         if (parent == null) {
@@ -160,7 +161,7 @@ public class SubCaseCompletionListener {
             .atMost(Duration.ofSeconds(10));
       } else {
         // REJECTED — threshold is unreachable; cancel the parent to prevent indefinite WAITING
-        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus);
+        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null);
         LOG.warnf(
             "SubCaseGroup REJECTED: parentCaseId=%s groupId=%s — threshold unreachable. Cancelling parent case.",
             parentCaseId, groupId);
@@ -173,7 +174,7 @@ public class SubCaseCompletionListener {
         }
       }
     } else {
-      writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus);
+      writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null);
     }
   }
 
@@ -194,15 +195,16 @@ public class SubCaseCompletionListener {
       return;
     }
 
+    Map<String, Object> appliedData = null;
     if (outputMapping != null) {
-      applyOutputMappingToParent(childCaseId, parent, outputMapping);
+      appliedData = applyOutputMappingToParent(childCaseId, parent, outputMapping);
     }
 
     LOG.infof(
         "SubCaseCompletionListener (ungrouped): child %s (%s) → parent %s",
         childCaseId, childStatus, parentCaseId);
 
-    writeCompletedLog(parentCaseId, childCaseId, null, null);
+    writeCompletedLog(parentCaseId, childCaseId, null, null, appliedData);
 
     caseResumptionService
         .resumeIfWaiting(
@@ -215,28 +217,34 @@ public class SubCaseCompletionListener {
         .atMost(Duration.ofSeconds(10));
   }
 
-  private void applyOutputMapping(EventLog startedEntry, UUID childCaseId, UUID parentCaseId) {
+  private Map<String, Object> applyOutputMapping(
+      EventLog startedEntry, UUID childCaseId, UUID parentCaseId) {
     String outputMapping =
         startedEntry.getMetadata().has("outputMapping")
             ? startedEntry.getMetadata().get("outputMapping").asText()
             : null;
-    if (outputMapping == null) return;
+    if (outputMapping == null) return null;
     CaseInstance parent = caseInstanceCache.get(parentCaseId);
     if (parent != null) {
-      applyOutputMappingToParent(childCaseId, parent, outputMapping);
+      return applyOutputMappingToParent(childCaseId, parent, outputMapping);
     }
+    return null;
   }
 
-  private void applyOutputMappingToParent(
+  private Map<String, Object> applyOutputMappingToParent(
       UUID childCaseId, CaseInstance parent, String outputMapping) {
     CaseInstance child = caseInstanceCache.get(childCaseId);
     if (child != null) {
       Map<String, Object> mapped = child.getCaseContext().evalObjectTemplate(outputMapping);
-      if (mapped != null) mapped.forEach((k, v) -> parent.getCaseContext().set(k, v));
+      if (mapped != null) {
+        mapped.forEach((k, v) -> parent.getCaseContext().set(k, v));
+        return mapped;
+      }
     } else {
       LOG.warnf(
           "SubCaseCompletionListener: child %s not in cache — outputMapping skipped", childCaseId);
     }
+    return null;
   }
 
   private void cancelRemainingChildren(SubCaseGroup group, UUID justCompletedChildId) {
@@ -254,7 +262,11 @@ public class SubCaseCompletionListener {
   }
 
   private void writeCompletedLog(
-      UUID parentCaseId, UUID childCaseId, String groupId, GroupStatus groupStatus) {
+      UUID parentCaseId,
+      UUID childCaseId,
+      String groupId,
+      GroupStatus groupStatus,
+      Map<String, Object> appliedData) {
     EventLog log = new EventLog();
     log.setCaseId(parentCaseId);
     log.setWorkerId(childCaseId.toString());
@@ -266,6 +278,10 @@ public class SubCaseCompletionListener {
     if (groupId != null) meta.put("groupId", groupId);
     if (groupStatus != null) meta.put("groupStatus", groupStatus.name());
     log.setMetadata(meta);
+    // Save applied outputMapping data in payload for recovery after restart
+    if (appliedData != null && !appliedData.isEmpty()) {
+      log.setPayload(OBJECT_MAPPER.valueToTree(appliedData));
+    }
     eventLogRepository.append(log).await().atMost(Duration.ofSeconds(10));
   }
 

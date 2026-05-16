@@ -29,6 +29,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
@@ -140,5 +141,151 @@ class JpaCaseInstanceRepositoryTest {
     instance.setState(status);
     instance.setCaseMetaModel(meta);
     return instance;
+  }
+
+  // ========== Edge Case Tests ==========
+
+  @Test
+  void save_handlesNullParentCaseId() {
+    CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
+    instance.setParentCaseId(null); // NULL parent is valid for root cases
+
+    CaseInstance saved = run(() -> instanceRepository.save(instance));
+
+    assertThat(saved.id).isNotNull();
+    assertThat(saved.getParentCaseId()).isNull();
+  }
+
+  @Test
+  void save_handlesNonNullParentCaseId() {
+    UUID parentCaseId = UUID.randomUUID();
+    CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
+    instance.setParentCaseId(parentCaseId);
+
+    CaseInstance saved = run(() -> instanceRepository.save(instance));
+
+    assertThat(saved.id).isNotNull();
+    assertThat(saved.getParentCaseId()).isEqualTo(parentCaseId);
+  }
+
+  @Test
+  void update_preservesParentCaseId() {
+    UUID parentCaseId = UUID.randomUUID();
+    CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
+    instance.setParentCaseId(parentCaseId);
+    run(() -> instanceRepository.save(instance));
+
+    instance.setState(CaseStatus.COMPLETED);
+    run(() -> instanceRepository.update(instance));
+
+    CaseInstance reloaded = run(() -> instanceRepository.findByUuid(instance.getUuid()));
+    assertThat(reloaded.getState()).isEqualTo(CaseStatus.COMPLETED);
+    assertThat(reloaded.getParentCaseId()).isEqualTo(parentCaseId);
+  }
+
+  @Test
+  void update_canChangeMultipleFields() {
+    CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
+    run(() -> instanceRepository.save(instance));
+
+    UUID newParentCaseId = UUID.randomUUID();
+    instance.setState(CaseStatus.FAULTED);
+    instance.setParentCaseId(newParentCaseId);
+    run(() -> instanceRepository.update(instance));
+
+    CaseInstance reloaded = run(() -> instanceRepository.findByUuid(instance.getUuid()));
+    assertThat(reloaded.getState()).isEqualTo(CaseStatus.FAULTED);
+    assertThat(reloaded.getParentCaseId()).isEqualTo(newParentCaseId);
+  }
+
+  @Test
+  void findByUuid_returnsInstanceWithAllFields() {
+    UUID parentCaseId = UUID.randomUUID();
+    UUID instanceUuid = UUID.randomUUID();
+    CaseInstance instance = newInstance(savedMeta, CaseStatus.SUSPENDED);
+    instance.setUuid(instanceUuid);
+    instance.setParentCaseId(parentCaseId);
+    run(() -> instanceRepository.save(instance));
+
+    CaseInstance found = run(() -> instanceRepository.findByUuid(instanceUuid));
+
+    assertThat(found).isNotNull();
+    assertThat(found.getUuid()).isEqualTo(instanceUuid);
+    assertThat(found.getState()).isEqualTo(CaseStatus.SUSPENDED);
+    assertThat(found.getParentCaseId()).isEqualTo(parentCaseId);
+    assertThat(found.getCaseMetaModel()).isNotNull();
+    assertThat(found.getCaseMetaModel().getId()).isEqualTo(savedMeta.getId());
+  }
+
+  @Test
+  void updateStateAndAppendEvent_bothOperationsSucceed() {
+    CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
+    run(() -> instanceRepository.save(instance));
+
+    instance.setState(CaseStatus.COMPLETED);
+    io.casehub.engine.internal.history.EventLog eventLog =
+        new io.casehub.engine.internal.history.EventLog();
+    eventLog.setCaseId(instance.getUuid());
+    eventLog.setEventType(CaseHubEventType.CASE_COMPLETED);
+    eventLog.setStreamType(EventStreamType.CASE);
+    eventLog.setTimestamp(
+        java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
+
+    run(() -> instanceRepository.updateStateAndAppendEvent(instance, eventLog));
+
+    // Verify both operations persisted
+    CaseInstance updated = run(() -> instanceRepository.findByUuid(instance.getUuid()));
+    assertThat(updated.getState()).isEqualTo(CaseStatus.COMPLETED);
+
+    io.casehub.engine.internal.history.EventLog foundEvent =
+        run(() -> eventLogRepository.findById(eventLog.id));
+    assertThat(foundEvent).isNotNull();
+    assertThat(foundEvent.getEventType()).isEqualTo(CaseHubEventType.CASE_COMPLETED);
+  }
+
+  @Test
+  void save_withAllStates() {
+    for (CaseStatus status : CaseStatus.values()) {
+      String unique = UUID.randomUUID().toString().substring(0, 8);
+      CaseMetaModel meta = new CaseMetaModel();
+      meta.setName("state-test-" + unique);
+      meta.setNamespace("test-ns");
+      meta.setVersion("1.0");
+      CaseMetaModel savedMetaForStatus = run(() -> metaModelRepository.save(meta));
+
+      CaseInstance instance = newInstance(savedMetaForStatus, status);
+      CaseInstance saved = run(() -> instanceRepository.save(instance));
+
+      assertThat(saved.getState()).isEqualTo(status);
+    }
+  }
+
+  @Test
+  void findByUuid_concurrentReads() throws InterruptedException {
+    CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
+    run(() -> instanceRepository.save(instance));
+    final UUID uuid = instance.getUuid();
+
+    int threadCount = 5;
+    List<CaseInstance> results = new java.util.concurrent.CopyOnWriteArrayList<>();
+    List<Thread> threads = new java.util.ArrayList<>();
+
+    for (int i = 0; i < threadCount; i++) {
+      Thread t =
+          new Thread(
+              () -> {
+                CaseInstance found = run(() -> instanceRepository.findByUuid(uuid));
+                results.add(found);
+              });
+      threads.add(t);
+      t.start();
+    }
+
+    for (Thread t : threads) {
+      t.join();
+    }
+
+    assertThat(results).hasSize(threadCount);
+    assertThat(results).allMatch(r -> r != null && r.getUuid().equals(uuid));
   }
 }

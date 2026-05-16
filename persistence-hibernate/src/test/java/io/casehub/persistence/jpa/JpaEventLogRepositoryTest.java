@@ -27,6 +27,7 @@ import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -395,5 +396,164 @@ class JpaEventLogRepositoryTest {
     log.setStreamType(EventStreamType.WORKER);
     log.setTimestamp(Instant.now());
     return log;
+  }
+
+  // ========== Edge Case Tests ==========
+
+  @Test
+  void append_handlesNullPayload() {
+    UUID caseId = UUID.randomUUID();
+    EventLog log = event(caseId, "worker-null-payload", CaseHubEventType.WORKER_SCHEDULED);
+    log.setPayload(null);
+
+    run(() -> repository.append(log));
+
+    assertThat(log.id).isNotNull();
+    assertThat(log.getPayload()).isNull();
+  }
+
+  @Test
+  void append_handlesNullMetadata() {
+    UUID caseId = UUID.randomUUID();
+    EventLog log = event(caseId, "worker-null-meta", CaseHubEventType.WORKER_SCHEDULED);
+    log.setMetadata(null);
+
+    run(() -> repository.append(log));
+
+    assertThat(log.id).isNotNull();
+    assertThat(log.getMetadata()).isNull();
+  }
+
+  @Test
+  void append_handlesLargePayload() {
+    UUID caseId = UUID.randomUUID();
+    EventLog log = event(caseId, "worker-large", CaseHubEventType.WORKER_EXECUTION_COMPLETED);
+
+    // Create a large JSON payload (~100KB)
+    com.fasterxml.jackson.databind.node.ObjectNode largePayload = OBJECT_MAPPER.createObjectNode();
+    for (int i = 0; i < 1000; i++) {
+      largePayload.put("key" + i, "value".repeat(100));
+    }
+    log.setPayload(largePayload);
+
+    run(() -> repository.append(log));
+
+    EventLog found = run(() -> repository.findById(log.id));
+    assertThat(found).isNotNull();
+    assertThat(found.getPayload()).isNotNull();
+    assertThat(found.getPayload().get("key999").asText()).contains("value");
+  }
+
+  @Test
+  void append_concurrent_sequenceMonotonicallyIncreases() {
+    UUID caseId = UUID.randomUUID();
+    int threadCount = 10;
+    List<EventLog> logs = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    // Create events concurrently
+    List<Thread> threads = new ArrayList<>();
+    for (int i = 0; i < threadCount; i++) {
+      final int index = i;
+      Thread t =
+          new Thread(
+              () -> {
+                EventLog log =
+                    event(caseId, "worker-concurrent-" + index, CaseHubEventType.WORKER_SCHEDULED);
+                run(() -> repository.append(log));
+                logs.add(log);
+              });
+      threads.add(t);
+      t.start();
+    }
+
+    // Wait for all threads
+    threads.forEach(
+        t -> {
+          try {
+            t.join();
+          } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+          }
+        });
+
+    // Verify all sequences are unique and monotonically increasing
+    List<Long> sequences = logs.stream().map(EventLog::getSeq).sorted().toList();
+    assertThat(sequences).hasSize(threadCount);
+    assertThat(sequences).doesNotHaveDuplicates();
+    assertThat(sequences).isSorted();
+  }
+
+  @Test
+  void findByCaseWithFilters_performanceWithManyEvents() {
+    UUID caseId = UUID.randomUUID();
+    int eventCount = 100; // 100 events for reasonable test time
+    String suffix = UUID.randomUUID().toString().substring(0, 8);
+
+    // Insert many events
+    for (int i = 0; i < eventCount; i++) {
+      EventLog log =
+          event(caseId, "worker-perf-" + suffix + "-" + i, CaseHubEventType.WORKER_SCHEDULED);
+      run(() -> repository.append(log));
+    }
+
+    long startTime = System.currentTimeMillis();
+    List<EventLog> result = run(() -> repository.findByCaseWithFilters(caseId, null, null));
+    long duration = System.currentTimeMillis() - startTime;
+
+    assertThat(result).hasSizeGreaterThanOrEqualTo(eventCount);
+    assertThat(result.stream().map(EventLog::getSeq).toList()).isSorted();
+    assertThat(duration).isLessThan(5000); // Should complete in < 5 seconds
+  }
+
+  @Test
+  void append_withNullCaseId_fails() {
+    EventLog log = new EventLog();
+    log.setCaseId(null);
+    log.setWorkerId("worker-null-case");
+    log.setEventType(CaseHubEventType.WORKER_SCHEDULED);
+    log.setStreamType(EventStreamType.WORKER);
+    log.setTimestamp(Instant.now());
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.append(log)))
+        .isInstanceOf(Exception.class);
+  }
+
+  @Test
+  void append_withNullEventType_fails() {
+    EventLog log = new EventLog();
+    log.setCaseId(UUID.randomUUID());
+    log.setWorkerId("worker-null-type");
+    log.setEventType(null);
+    log.setStreamType(EventStreamType.WORKER);
+    log.setTimestamp(Instant.now());
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.append(log)))
+        .isInstanceOf(Exception.class);
+  }
+
+  @Test
+  void append_withNullStreamType_fails() {
+    EventLog log = new EventLog();
+    log.setCaseId(UUID.randomUUID());
+    log.setWorkerId("worker-null-stream");
+    log.setEventType(CaseHubEventType.WORKER_SCHEDULED);
+    log.setStreamType(null);
+    log.setTimestamp(Instant.now());
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.append(log)))
+        .isInstanceOf(Exception.class);
+  }
+
+  @Test
+  void append_withNullTimestamp_fails() {
+    EventLog log = new EventLog();
+    log.setCaseId(UUID.randomUUID());
+    log.setWorkerId("worker-null-timestamp");
+    log.setEventType(CaseHubEventType.WORKER_SCHEDULED);
+    log.setStreamType(EventStreamType.WORKER);
+    log.setTimestamp(null);
+
+    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.append(log)))
+        .isInstanceOf(Exception.class);
   }
 }
