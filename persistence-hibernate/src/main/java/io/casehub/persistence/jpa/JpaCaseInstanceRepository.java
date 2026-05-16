@@ -40,6 +40,7 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
                               CaseInstanceEntity entity = new CaseInstanceEntity();
                               entity.uuid = instance.getUuid();
                               entity.state = instance.getState();
+                              entity.parentCaseId = instance.getParentCaseId();
                               entity.parentPlanItemId = instance.getParentPlanItemId();
                               entity.waitingForWorkId = instance.getWaitingForWorkId();
                               if (instance.getCaseMetaModel() != null) {
@@ -68,6 +69,7 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
                         .invoke(
                             entity -> {
                               entity.state = instance.getState();
+                              entity.parentCaseId = instance.getParentCaseId();
                               entity.parentPlanItemId = instance.getParentPlanItemId();
                               entity.waitingForWorkId = instance.getWaitingForWorkId();
                             })
@@ -106,6 +108,7 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
                             .chain(
                                 entity -> {
                                   entity.state = instance.getState();
+                                  entity.parentCaseId = instance.getParentCaseId();
                                   entity.parentPlanItemId = instance.getParentPlanItemId();
                                   entity.waitingForWorkId = instance.getWaitingForWorkId();
                                   return Panache.getSession().chain(s -> s.merge(entity));
@@ -124,6 +127,7 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
     instance.id = entity.id;
     instance.setUuid(entity.uuid);
     instance.setState(entity.state);
+    instance.setParentCaseId(entity.parentCaseId);
     instance.setParentPlanItemId(entity.parentPlanItemId);
     instance.setWaitingForWorkId(entity.waitingForWorkId);
     if (entity.caseMetaModel != null) {
