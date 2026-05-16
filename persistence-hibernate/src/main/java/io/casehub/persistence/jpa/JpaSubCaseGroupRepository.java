@@ -123,9 +123,11 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
 
   @Override
   public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId) {
-    return SubCaseGroupEntity.<SubCaseGroupEntity>find("?1 member of childCaseIds", childCaseId)
-        .firstResult()
-        .map(e -> Optional.ofNullable(e == null ? null : toDomain(e)));
+    return Panache.withSession(
+        () ->
+            SubCaseGroupEntity.<SubCaseGroupEntity>find("?1 member of childCaseIds", childCaseId)
+                .firstResult()
+                .map(e -> Optional.ofNullable(e == null ? null : toDomain(e))));
   }
 
   private SubCaseGroup toDomain(SubCaseGroupEntity e) {
