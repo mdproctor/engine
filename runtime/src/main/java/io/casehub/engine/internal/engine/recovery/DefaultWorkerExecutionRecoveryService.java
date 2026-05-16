@@ -313,7 +313,7 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
               JsonNode afterNode = changeNode.get("after");
               if (afterNode == null || afterNode.isNull()) {
                 // Removal
-                caseContext.set(key, null);
+                caseContext.remove(key);
               } else {
                 // Update/addition
                 Object value = OBJECT_MAPPER.convertValue(afterNode, Object.class);
