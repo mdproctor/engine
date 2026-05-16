@@ -207,7 +207,9 @@ is unavailable.
 
 Two-way bridge between casehub-work and CaseHub plan items:
 - **Inbound** (`WorkItemLifecycleAdapter`) — translates terminal `WorkItemLifecycleEvent` CDI events to `PlanItem` transitions, evaluates `outputMapping` against the WorkItem resolution JSON, and fires `CONTEXT_CHANGED` for engine re-evaluation
-- **Outbound** (`HumanTaskScheduleHandler`) — consumes `HUMAN_TASK_SCHEDULE` event bus messages, looks up the `PlanItem` by binding name, marks it RUNNING, and creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}`
+- **Outbound** (`HumanTaskScheduleHandler`) — consumes `HUMAN_TASK_SCHEDULE` event bus messages, looks up the `PlanItem` by binding name, then:
+  - **Inline mode** (`HumanTaskTarget.inline()`): marks PlanItem RUNNING, creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}`
+  - **Template mode** (`HumanTaskTarget.template(ref)`): resolves `ref` (UUID or name) via `WorkItemTemplateService.findByRef`; ambiguous name (>1 match) or not-found → warn + leave PlanItem PENDING; on success marks PlanItem RUNNING, calls `WorkItemTemplateService.instantiate` with `target.title()` as titleOverride and serialized `inputData` as payloadOverride (honours `inputMapping` contract)
 
 `@ConsumeEvent` handlers that call `@Transactional` services must use `blocking = true` — without it, the transaction silently does not commit on the Vert.x IO thread (the WorkItem is never created, no error is thrown).
 
