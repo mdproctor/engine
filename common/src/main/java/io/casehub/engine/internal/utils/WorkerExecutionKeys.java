@@ -22,6 +22,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Map;
+import java.util.UUID;
 
 public final class WorkerExecutionKeys {
 
@@ -51,13 +52,33 @@ public final class WorkerExecutionKeys {
     }
   }
 
+  /**
+   * Generates a globally unique correlation key for orchestrated work, including caseId to prevent
+   * cross-case collisions.
+   *
+   * @param caseId the case UUID
+   * @param workerName the worker name
+   * @param capabilityName the capability name
+   * @param inputData the input data map
+   * @return correlation key in format: caseId:workerName:capabilityName:hash(inputData)
+   */
   public static String inputDataHash(
-      String workerName, String capabilityName, Map<String, Object> inputData) {
-    return inputDataHash(workerName, capabilityName, inputDataHash(inputData));
+      UUID caseId, String workerName, String capabilityName, Map<String, Object> inputData) {
+    return inputDataHash(caseId, workerName, capabilityName, inputDataHash(inputData));
   }
 
+  /**
+   * Generates a globally unique correlation key for orchestrated work, including caseId to prevent
+   * cross-case collisions.
+   *
+   * @param caseId the case UUID
+   * @param workerName the worker name
+   * @param capabilityName the capability name
+   * @param inputDataHash pre-computed hash of input data
+   * @return correlation key in format: caseId:workerName:capabilityName:inputDataHash
+   */
   public static String inputDataHash(
-      String workerName, String capabilityName, String inputDataHash) {
-    return workerName + ":" + capabilityName + ":" + inputDataHash;
+      UUID caseId, String workerName, String capabilityName, String inputDataHash) {
+    return caseId + ":" + workerName + ":" + capabilityName + ":" + inputDataHash;
   }
 }

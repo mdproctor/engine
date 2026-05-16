@@ -100,7 +100,7 @@ public class SignalPersistenceAndDedupTest {
   void duplicateSignalSchedulesWorkerOnceForSameInput() {
     UUID caseId = bean.startCase(Map.of("orderId", "order-dedup")).toCompletableFuture().join();
     Map<String, Object> payment = Map.of("amount", 100, "currency", "EUR");
-    String inputDataHash = inputDataHash(payment);
+    String inputDataHash = inputDataHash(caseId, payment);
 
     bean.signal(caseId, "payment", payment);
     bean.signal(caseId, "payment", payment);
@@ -134,8 +134,8 @@ public class SignalPersistenceAndDedupTest {
         bean.startCase(Map.of("orderId", "order-different-input")).toCompletableFuture().join();
     Map<String, Object> firstPayment = Map.of("amount", 100, "currency", "EUR");
     Map<String, Object> secondPayment = Map.of("amount", 200, "currency", "EUR");
-    String firstHash = inputDataHash(firstPayment);
-    String secondHash = inputDataHash(secondPayment);
+    String firstHash = inputDataHash(caseId, firstPayment);
+    String secondHash = inputDataHash(caseId, secondPayment);
 
     bean.signal(caseId, "payment", firstPayment);
 
@@ -189,7 +189,7 @@ public class SignalPersistenceAndDedupTest {
   void recoveryRestoresSignalStateFromWrappedPatchPayload() {
     UUID caseId = bean.startCase(Map.of("orderId", "order-recovery")).toCompletableFuture().join();
     Map<String, Object> payment = Map.of("amount", 420, "currency", "CAD");
-    String inputDataHash = inputDataHash(payment);
+    String inputDataHash = inputDataHash(caseId, payment);
 
     bean.signal(caseId, "payment", payment);
 
@@ -256,9 +256,9 @@ public class SignalPersistenceAndDedupTest {
         .atMost(SPI_TIMEOUT);
   }
 
-  private String inputDataHash(Map<String, Object> payment) {
+  private String inputDataHash(UUID caseId, Map<String, Object> payment) {
     return WorkerExecutionKeys.inputDataHash(
-        "payment-worker", "processPayment", Map.of("payment", payment));
+        caseId, "payment-worker", "processPayment", Map.of("payment", payment));
   }
 
   @ApplicationScoped

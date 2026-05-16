@@ -79,6 +79,7 @@ public class WorkerScheduleEventHandler {
     Worker worker = event.worker();
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
+            instance.getUuid(),
             worker.getName(),
             event.capability().getName(),
             instance.getCaseContext().evalObjectTemplate(event.capability().getInputSchema()));

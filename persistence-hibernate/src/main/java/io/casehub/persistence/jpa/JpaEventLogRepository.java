@@ -37,7 +37,7 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
     EventLogEntity entity = toEntity(eventLog);
     return withSafeContext(
         () ->
-            Panache.withTransaction(() -> entity.persistAndFlush())
+            Panache.withTransaction(entity::persistAndFlush)
                 .invoke(
                     () -> {
                       eventLog.id = entity.id;
@@ -51,7 +51,7 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
     EventLogEntity entity = toEntity(eventLog);
     return withSafeContext(
         () ->
-            Panache.withTransaction(() -> entity.persistAndFlush())
+            Panache.withTransaction(entity::persistAndFlush)
                 .map(
                     v -> {
                       eventLog.id = entity.id;
@@ -167,46 +167,35 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                                         "eventType", CaseHubEventType.WORK_COMPLETED))
                             .map(
                                 completed -> {
-                                  // Track (caseId, correlationKey) pairs to prevent cross-case
-                                  // collision
-                                  record WorkKey(UUID caseId, String correlationKey) {}
-
+                                  // correlationKey now includes caseId (format:
+                                  // caseId:worker:capability:hash)
+                                  // No need for WorkKey workaround - keys are globally unique
                                   var submittedKeys =
                                       submitted.stream()
                                           .map(
-                                              e -> {
-                                                if (e.metadata == null || e.caseId == null) {
-                                                  return null;
-                                                }
-                                                String key =
-                                                    e.metadata.path("correlationKey").asText(null);
-                                                return key != null
-                                                    ? new WorkKey(e.caseId, key)
-                                                    : null;
-                                              })
+                                              e ->
+                                                  e.metadata != null
+                                                      ? e.metadata
+                                                          .path("correlationKey")
+                                                          .asText(null)
+                                                      : null)
                                           .filter(Objects::nonNull)
                                           .collect(java.util.stream.Collectors.toSet());
 
                                   var completedKeys =
                                       completed.stream()
                                           .map(
-                                              e -> {
-                                                if (e.metadata == null || e.caseId == null) {
-                                                  return null;
-                                                }
-                                                String key =
-                                                    e.metadata.path("correlationKey").asText(null);
-                                                return key != null
-                                                    ? new WorkKey(e.caseId, key)
-                                                    : null;
-                                              })
+                                              e ->
+                                                  e.metadata != null
+                                                      ? e.metadata
+                                                          .path("correlationKey")
+                                                          .asText(null)
+                                                      : null)
                                           .filter(Objects::nonNull)
                                           .collect(java.util.stream.Collectors.toSet());
 
                                   submittedKeys.removeAll(completedKeys);
-                                  return submittedKeys.stream()
-                                      .map(WorkKey::correlationKey)
-                                      .collect(java.util.stream.Collectors.toList());
+                                  return new ArrayList<>(submittedKeys);
                                 })));
   }
 

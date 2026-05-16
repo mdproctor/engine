@@ -152,12 +152,13 @@ public class WorkOrchestrator {
       return failed;
     }
 
-    // 6. Build inputData and compute correlationKey
+    // 6. Build inputData and compute correlationKey (includes caseId to prevent cross-case
+    // collision)
     Map<String, Object> inputData =
         instance.getCaseContext().evalObjectTemplate(capability.getInputSchema());
     String correlationKey =
         WorkerExecutionKeys.inputDataHash(
-            selectedWorker.getName(), capability.getName(), inputData);
+            instance.getUuid(), selectedWorker.getName(), capability.getName(), inputData);
 
     // 7. Register future in PendingWorkRegistry
     CompletableFuture<WorkResult> future = pendingWorkRegistry.register(correlationKey);

@@ -98,6 +98,7 @@ public class WorkerIdempotencyTest {
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "idempotency-worker",
             "idempotencyCapability",
             Map.of("task", Map.of("op", "COMPUTE"), "taskId", taskId));
@@ -243,6 +244,7 @@ public class WorkerIdempotencyTest {
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "idempotency-worker",
             "idempotencyCapability",
             Map.of("task", Map.of("op", "VERIFY"), "taskId", taskId));
@@ -282,6 +284,7 @@ public class WorkerIdempotencyTest {
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "idempotency-worker",
             "idempotencyCapability",
             Map.of("task", Map.of("op", "EXPORT"), "taskId", taskId));
@@ -326,6 +329,7 @@ public class WorkerIdempotencyTest {
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "idempotency-worker",
             "idempotencyCapability",
             Map.of("task", Map.of("op", "VERIFY"), "taskId", taskId));
@@ -413,6 +417,7 @@ public class WorkerIdempotencyTest {
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "idempotency-worker",
             "idempotencyCapability",
             Map.of("task", Map.of("op", "PARALLEL"), "taskId", taskId));
@@ -480,6 +485,7 @@ public class WorkerIdempotencyTest {
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
+            caseId,
             "idempotency-worker",
             "idempotencyCapability",
             Map.of("task", Map.of("op", "RECOVER"), "taskId", taskId));
