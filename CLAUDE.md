@@ -213,6 +213,8 @@ Two-way bridge between casehub-work and CaseHub plan items:
 
 `@ConsumeEvent` handlers that call `@Transactional` services must use `blocking = true` — without it, the transaction silently does not commit on the Vert.x IO thread (the WorkItem is never created, no error is thrown).
 
+See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until all resolution steps succeed) and `PP-20260517-0093f8` (inputMapping output must reach WorkItem payload in all handler modes).
+
 **Test setup** (when depending on `casehub-work` full module):
 - Add `casehub-work-testing` test dep — provides `@Alternative @Priority` in-memory WorkItem stores
 - Add `quarkus-jdbc-h2` test dep — casehub-work JPA entities require a datasource even in tests
