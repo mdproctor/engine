@@ -1,0 +1,90 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.persistence.jpa;
+
+import io.casehub.engine.internal.model.PlanItemRecord;
+import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.spi.ReactivePlanItemStore;
+import io.quarkus.hibernate.reactive.panache.Panache;
+import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import java.util.stream.Collectors;
+
+@ApplicationScoped
+public class JpaReactivePlanItemStore extends AbstractJpaRepository
+    implements ReactivePlanItemStore {
+
+  @Override
+  public Uni<Void> save(
+      UUID caseId,
+      String planItemId,
+      String bindingName,
+      PlanItemStatus status,
+      Instant createdAt) {
+    return withSafeContext(
+        () ->
+            Panache.withTransaction(
+                () -> {
+                  PlanItemEntity e = new PlanItemEntity();
+                  e.caseId = caseId;
+                  e.planItemId = planItemId;
+                  e.bindingName = bindingName;
+                  e.status = status;
+                  e.createdAt = createdAt;
+                  return e.persist().replaceWithVoid();
+                }));
+  }
+
+  @Override
+  public Uni<Void> updateStatus(String planItemId, PlanItemStatus status) {
+    return withSafeContext(
+        () ->
+            Panache.withTransaction(
+                () ->
+                    PlanItemEntity.<PlanItemEntity>find("planItemId", planItemId)
+                        .firstResult()
+                        .invoke(
+                            e -> {
+                              if (e != null) e.status = status;
+                            })
+                        .replaceWithVoid()));
+  }
+
+  @Override
+  public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId) {
+    return withSafeContext(
+        () ->
+            Panache.withSession(
+                () ->
+                    PlanItemEntity.<PlanItemEntity>find("caseId", caseId)
+                        .list()
+                        .map(
+                            list ->
+                                list.stream()
+                                    .map(
+                                        e ->
+                                            new PlanItemRecord(
+                                                e.caseId,
+                                                e.planItemId,
+                                                e.bindingName,
+                                                e.status,
+                                                e.createdAt))
+                                    .collect(Collectors.toList()))));
+  }
+}
