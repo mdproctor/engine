@@ -23,6 +23,7 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.model.WorkItemTemplate;
@@ -84,8 +85,7 @@ class HumanTaskScheduleHandlerTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING));
 
     WorkItem created =
         workItemStore.scanAll().stream()
@@ -112,8 +112,7 @@ class HumanTaskScheduleHandlerTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING));
 
     WorkItem created =
         workItemStore.scanAll().stream()
@@ -136,8 +135,7 @@ class HumanTaskScheduleHandlerTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING));
 
     assertThat(workItemStore.scanAll()).hasSize(1);
     assertThat(workItemStore.scanAll().get(0).title).isEqualTo("AML Suspicious Activity Review");
@@ -156,8 +154,7 @@ class HumanTaskScheduleHandlerTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING));
 
     WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
     assertThat(created).isNotNull();
@@ -175,8 +172,7 @@ class HumanTaskScheduleHandlerTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING));
 
     WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
     assertThat(created).isNotNull();
@@ -194,7 +190,7 @@ class HumanTaskScheduleHandlerTest {
       Thread.sleep(300);
     } catch (InterruptedException ignored) {
     }
-    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.PENDING);
+    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
   }
 
@@ -212,7 +208,7 @@ class HumanTaskScheduleHandlerTest {
       Thread.sleep(300);
     } catch (InterruptedException ignored) {
     }
-    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.PENDING);
+    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
   }
 
@@ -229,7 +225,7 @@ class HumanTaskScheduleHandlerTest {
       Thread.sleep(300);
     } catch (InterruptedException ignored) {
     }
-    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.PENDING);
+    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
   }
 
@@ -260,7 +256,7 @@ class HumanTaskScheduleHandlerTest {
       Thread.sleep(300);
     } catch (InterruptedException ignored) {
     }
-    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.PENDING);
+    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
   }
 }
