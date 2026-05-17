@@ -65,10 +65,86 @@ properties:
     title: CaseHubMetadata
     description: Holds additional information about the CaseHub.
     additionalProperties: true
+  use:
+    $ref: "#/$defs/Use"
+    description: >
+      Declares external dependencies (secrets, config maps) required by this Case definition.
+      Secrets are validated at load time for fail-fast behavior.
+      ConfigMaps provide non-sensitive configuration accessible via ${$config.*} in JQ.
   spec:
     $ref: "#/$defs/CaseDefinitionSpec"
   required: [ dsl, namespace, name, version ]
 $defs:
+  Use:
+    type: object
+    description: >
+      External dependencies declaration (secrets and config maps).
+      Inspired by CNCF Serverless Workflow 'use' section.
+
+      Secrets are validated at load time via SecretManager.secret() for fail-fast behavior.
+      ConfigMaps are validated via ConfigManager for availability.
+    unevaluatedProperties: false
+    properties:
+      secrets:
+        type: array
+        description: >
+          Secret names required by this Case definition.
+          Validated at load time via SecretManager.secret().
+          Accessible in JQ expressions via ${$secret.{name}.{property}}
+
+          Example configuration (application.properties):
+            openai.apiKey=sk-...
+            openai.organizationId=org-...
+
+          Example usage in YAML:
+            use:
+              secrets:
+                - openai
+            spec:
+              workers:
+                - agent:
+                    model:
+                      openai:
+                        apiKey: "${$secret.openai.apiKey}"
+        items:
+          type: string
+          pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
+          minLength: 1
+          maxLength: 63
+        uniqueItems: true
+
+      configMaps:
+        type: array
+        description: >
+          Config map names required by this Case definition.
+          Validated at load time via ConfigManager - checks that properties with
+          {configMapName}. prefix exist.
+          Accessible in JQ expressions via ${$config.{name}.{property}}
+
+          ConfigMaps provide non-sensitive configuration data (timeouts, feature flags,
+          model parameters, etc.) as opposed to secrets (API keys, credentials).
+
+          Example configuration (application.properties):
+            app-config.timeout=5000
+            app-config.retries=3
+            feature-flags.analyticsEnabled=true
+
+          Example usage in YAML:
+            use:
+              configMaps:
+                - app-config
+                - feature-flags
+            spec:
+              bindings:
+                - when: "${$config.featureFlags.analyticsEnabled == 'true'}"
+                  capability: send-analytics
+        items:
+          type: string
+          pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
+          minLength: 1
+          maxLength: 63
+        uniqueItems: true
+
   CaseDefinitionSpec:
     type: object
     unevaluatedProperties: true
@@ -506,6 +582,11 @@ $defs:
             openai.apiKey=sk-...
             openai.organizationId=org-...
 
+          Declare the secret in use.secrets for fail-fast validation:
+            use:
+              secrets:
+                - openai
+
           The secret is resolved at runtime during JQ expression evaluation.
       modelName:
         type: string
@@ -585,6 +666,11 @@ $defs:
           Example configuration (application.properties):
             anthropic.apiKey=sk-ant-...
 
+          Declare the secret in use.secrets for fail-fast validation:
+            use:
+              secrets:
+                - anthropic
+
           The secret is resolved at runtime during JQ expression evaluation.
       modelName:
         type: string
@@ -628,6 +714,11 @@ $defs:
           Example configuration (application.properties):
             mistralai.apiKey=...
 
+          Declare the secret in use.secrets for fail-fast validation:
+            use:
+              secrets:
+                - mistralai
+
           The secret is resolved at runtime during JQ expression evaluation.
       modelName:
         type: string
@@ -663,6 +754,11 @@ $defs:
 
           Example configuration (application.properties):
             googleai.apiKey=...
+
+          Declare the secret in use.secrets for fail-fast validation:
+            use:
+              secrets:
+                - googleai
 
           The secret is resolved at runtime during JQ expression evaluation.
       modelName:

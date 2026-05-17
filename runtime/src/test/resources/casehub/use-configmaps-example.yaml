@@ -1,0 +1,89 @@
+dsl: "0.1"
+version: "1.0.0"
+name: Feature Flag Controlled Workflow
+namespace: test
+title: Example Case using configMaps for feature flags
+
+use:
+  secrets:
+    - database      # Database credentials
+  configMaps:
+    - feature-flags # Feature toggles
+    - app-config    # Application configuration
+    - model-routing # Model selection and routing
+
+spec:
+  capabilities:
+    - name: process-data
+      description: Process data with configurable behavior
+      inputSchema: "{ data: .context.data }"
+      outputSchema: "{ processed: .processed, metadata: .metadata }"
+
+    - name: store-result
+      description: Store processing result in database
+      inputSchema: "{ result: .processed }"
+      outputSchema: "{ stored: .stored }"
+
+  workers:
+    - name: data-processor
+      description: Configurable data processor
+      capabilities:
+        - process-data
+      do:
+        - setResult:
+            set:
+              processed:
+                timestamp: ${ now }
+                data: ${ .context.data }
+                featureEnabled: ${ $config.featureFlags.dataProcessing }
+              metadata:
+                timeout: ${ $config.appConfig.timeout | tonumber }
+                retries: ${ $config.appConfig.retries | tonumber }
+
+    - name: database-writer
+      description: Writes results to database
+      capabilities:
+        - store-result
+      do:
+        - setResult:
+            set:
+              stored: true
+              connection:
+                host: ${ $config.appConfig.database.host }
+                port: ${ $config.appConfig.database.port | tonumber }
+                # Credentials from secrets, not configs
+                username: ${ $secret.database.credentials.username }
+                password: ${ $secret.database.credentials.password }
+
+  bindings:
+    - name: process-if-enabled
+      capability: process-data
+      on:
+        contextChange:
+          filter: '(.status == "pending") and ($config.featureFlags.dataProcessing == "true")'
+
+    - name: store-if-analytics-enabled
+      capability: store-result
+      on:
+        contextChange:
+          filter: '(.processed != null) and ($config.featureFlags.analyticsEnabled == "true")'
+      when: "${.processed != null}"
+
+  milestones:
+    - name: dataProcessed
+      description: Data processing completed
+      condition: '.processed != null'
+
+    - name: resultStored
+      description: Result stored in database
+      condition: '.stored == true'
+
+  goals:
+    - name: processingComplete
+      description: Data processed and optionally stored
+      condition: '.processed != null'
+
+  completion:
+    success:
+      allOf:
+        - processingComplete
