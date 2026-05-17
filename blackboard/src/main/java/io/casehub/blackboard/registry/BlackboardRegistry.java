@@ -17,7 +17,9 @@ package io.casehub.blackboard.registry;
 
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
+import io.casehub.engine.spi.PlanItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -38,6 +40,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @ApplicationScoped
 public class BlackboardRegistry {
 
+  @Inject PlanItemStore planItemStore;
+
   // caseId → CasePlanModel
   private final ConcurrentHashMap<UUID, CasePlanModel> planModels = new ConcurrentHashMap<>();
 
@@ -54,7 +58,7 @@ public class BlackboardRegistry {
    * components should use {@link #get(UUID)}.
    */
   public CasePlanModel getOrCreate(UUID caseId) {
-    return planModels.computeIfAbsent(caseId, DefaultCasePlanModel::new);
+    return planModels.computeIfAbsent(caseId, id -> new DefaultCasePlanModel(id, planItemStore));
   }
 
   public Optional<CasePlanModel> get(UUID caseId) {
