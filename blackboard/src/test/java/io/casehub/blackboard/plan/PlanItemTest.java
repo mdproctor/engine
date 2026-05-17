@@ -22,6 +22,7 @@ import io.casehub.api.model.BindingTarget;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -52,14 +53,14 @@ class PlanItemTest {
   @Test
   void default_status_is_pending() {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
-    assertThat(item.getStatus()).isEqualTo(PlanItem.PlanItemStatus.PENDING);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.PENDING);
   }
 
   @Test
   void markRunning_from_pending_succeeds() {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     item.markRunning();
-    assertThat(item.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
   }
 
   @Test
@@ -74,7 +75,7 @@ class PlanItemTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     item.markRunning();
     item.markCompleted();
-    assertThat(item.getStatus()).isEqualTo(PlanItem.PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }
 
   @Test
@@ -88,14 +89,14 @@ class PlanItemTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     item.markRunning();
     item.markFaulted();
-    assertThat(item.getStatus()).isEqualTo(PlanItem.PlanItemStatus.FAULTED);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
 
   @Test
   void markCancelled_from_pending_succeeds() {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     item.markCancelled();
-    assertThat(item.getStatus()).isEqualTo(PlanItem.PlanItemStatus.CANCELLED);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.CANCELLED);
   }
 
   @Test

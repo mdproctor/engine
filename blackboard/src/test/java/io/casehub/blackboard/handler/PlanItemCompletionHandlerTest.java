@@ -31,6 +31,7 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.engine.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.internal.model.CaseInstance;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.Map;
 import java.util.UUID;
@@ -77,7 +78,7 @@ class PlanItemCompletionHandlerTest {
 
     handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
 
-    assertThat(item.getStatus()).isEqualTo(PlanItem.PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }
 
   @Test
