@@ -28,6 +28,17 @@
             <groupId>io.casehub</groupId>
             <artifactId>casehub-work</artifactId>
         </dependency>
+        <!--
+          casehub-work was compiled against json-schema-validator 1.5.x (which has
+          SpecVersion.VersionFlag). The Quarkus 3.x BOM forces 2.0.0, which dropped
+          SpecVersion in favour of Specification — causing NoClassDefFoundError at runtime.
+          Pin back to the version casehub-work was compiled against.
+        -->
+        <dependency>
+            <groupId>com.networknt</groupId>
+            <artifactId>json-schema-validator</artifactId>
+            <version>1.5.4</version>
+        </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>

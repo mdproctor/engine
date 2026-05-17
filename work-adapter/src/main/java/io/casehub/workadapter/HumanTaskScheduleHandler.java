@@ -23,6 +23,8 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
+import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.spi.PlanItemStore;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemService;
@@ -30,6 +32,7 @@ import io.casehub.work.runtime.service.WorkItemTemplateService;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.Map;
 import org.jboss.logging.Logger;
@@ -38,9 +41,15 @@ import org.jboss.logging.Logger;
  * Handles outbound human task creation when a {@link HumanTaskTarget} binding is selected.
  *
  * <p>Receives {@link HumanTaskScheduleEvent} from the engine event bus, looks up the {@link
- * PlanItem} in the {@link BlackboardRegistry} by binding name, marks it RUNNING, then creates a
- * {@link io.casehub.work.runtime.model.WorkItem} via {@link WorkItemService} (inline mode) or
- * {@link io.casehub.work.runtime.service.WorkItemTemplateService} (template mode).
+ * PlanItem} in the {@link BlackboardRegistry} by binding name, creates a {@link
+ * io.casehub.work.runtime.model.WorkItem} via {@link WorkItemService} (inline mode) or {@link
+ * io.casehub.work.runtime.service.WorkItemTemplateService} (template mode), persists the RUNNING
+ * status to {@link PlanItemStore}, then marks the in-memory PlanItem RUNNING.
+ *
+ * <p>All three steps — WorkItem creation, {@code planItemStore.updateStatus(RUNNING)}, and {@code
+ * item.markRunning()} — execute in a single {@code @Transactional} boundary. If WorkItem creation
+ * fails, the transaction rolls back and {@code markRunning()} is never called, leaving the PlanItem
+ * PENDING. Refs engine#273.
  *
  * <p>The {@code callerRef} encodes {@code case:{caseId}/pi:{planItemId}} so that {@link
  * WorkItemLifecycleAdapter} can route the completion event back to the correct case and plan item.
@@ -55,8 +64,10 @@ public class HumanTaskScheduleHandler {
   @Inject BlackboardRegistry registry;
   @Inject WorkItemService workItemService;
   @Inject WorkItemTemplateService workItemTemplateService;
+  @Inject PlanItemStore planItemStore;
 
   @ConsumeEvent(value = EventBusAddresses.HUMAN_TASK_SCHEDULE, blocking = true)
+  @Transactional
   public void onHumanTaskSchedule(HumanTaskScheduleEvent event) {
     CasePlanModel plan = registry.get(event.caseId()).orElse(null);
     if (plan == null) {
@@ -70,6 +81,13 @@ public class HumanTaskScheduleHandler {
     if (item == null) {
       LOG.warnf(
           "PlanItem for binding '%s' not found in case %s", event.bindingName(), event.caseId());
+      return;
+    }
+
+    if (item.getStatus() != PlanItemStatus.PENDING) {
+      LOG.warnf(
+          "PlanItem for binding '%s' case %s is not PENDING (status=%s) — skipping",
+          event.bindingName(), event.caseId(), item.getStatus());
       return;
     }
 
@@ -100,15 +118,6 @@ public class HumanTaskScheduleHandler {
       return;
     }
 
-    try {
-      item.markRunning();
-    } catch (IllegalStateException e) {
-      LOG.warnf(
-          "Cannot mark PlanItem running for binding '%s' case %s: %s",
-          event.bindingName(), event.caseId(), e.getMessage());
-      return;
-    }
-
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
     workItemTemplateService.instantiate(
         template,
@@ -117,21 +126,16 @@ public class HumanTaskScheduleHandler {
         "casehub-engine",
         callerRef,
         serializePayload(event.inputData()));
+    planItemStore.updateStatus(item.getPlanItemId(), PlanItemStatus.RUNNING);
+    item.markRunning();
     LOG.infof("WorkItem created (template=%s) for binding callerRef=%s", template.id, callerRef);
   }
 
   private void handleInlineMode(PlanItem item, HumanTaskScheduleEvent event) {
-    try {
-      item.markRunning();
-    } catch (IllegalStateException e) {
-      LOG.warnf(
-          "Cannot mark PlanItem running for binding '%s' case %s: %s",
-          event.bindingName(), event.caseId(), e.getMessage());
-      return;
-    }
-
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
     createInline(event.target(), event.inputData(), callerRef);
+    planItemStore.updateStatus(item.getPlanItemId(), PlanItemStatus.RUNNING);
+    item.markRunning();
   }
 
   private void createInline(
