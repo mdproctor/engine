@@ -18,6 +18,7 @@ package io.casehub.blackboard.plan;
 import io.casehub.api.model.SubCase;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -71,8 +72,8 @@ public class DefaultCasePlanModel implements CasePlanModel {
         item.getBindingName(),
         (k, existing) -> {
           if (existing != null) {
-            PlanItem.PlanItemStatus s = existing.getStatus();
-            if (s == PlanItem.PlanItemStatus.PENDING || s == PlanItem.PlanItemStatus.RUNNING) {
+            PlanItemStatus s = existing.getStatus();
+            if (s == PlanItemStatus.PENDING || s == PlanItemStatus.RUNNING) {
               return existing; // active item present — reject
             }
           }
@@ -102,8 +103,8 @@ public class DefaultCasePlanModel implements CasePlanModel {
   public Optional<PlanItem> getPlanItemByBindingName(String bindingName) {
     PlanItem item = activeByBinding.get(bindingName);
     if (item == null) return Optional.empty();
-    PlanItem.PlanItemStatus status = item.getStatus();
-    if (status == PlanItem.PlanItemStatus.PENDING || status == PlanItem.PlanItemStatus.RUNNING) {
+    PlanItemStatus status = item.getStatus();
+    if (status == PlanItemStatus.PENDING || status == PlanItemStatus.RUNNING) {
       return Optional.of(item);
     }
     return Optional.empty();
@@ -113,8 +114,8 @@ public class DefaultCasePlanModel implements CasePlanModel {
   public boolean hasActivePlanItem(String bindingName) {
     PlanItem item = activeByBinding.get(bindingName);
     if (item == null) return false;
-    PlanItem.PlanItemStatus status = item.getStatus();
-    if (status == PlanItem.PlanItemStatus.PENDING || status == PlanItem.PlanItemStatus.RUNNING) {
+    PlanItemStatus status = item.getStatus();
+    if (status == PlanItemStatus.PENDING || status == PlanItemStatus.RUNNING) {
       return true;
     }
     // Item exists but is terminal — clean up the stale entry
@@ -128,7 +129,7 @@ public class DefaultCasePlanModel implements CasePlanModel {
     // the explicit sort is required. RUNNING items remain in the queue (for observability via
     // itemsById) but are filtered here so only PENDING items appear on the returned agenda.
     return agenda.stream()
-        .filter(p -> p.getStatus() == PlanItem.PlanItemStatus.PENDING)
+        .filter(p -> p.getStatus() == PlanItemStatus.PENDING)
         .sorted()
         .collect(Collectors.toUnmodifiableList());
   }

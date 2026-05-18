@@ -23,6 +23,7 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.model.CaseInstance;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.engine.spi.CaseInstanceRepository;
 import io.casehub.work.api.WorkloadProvider;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
@@ -88,8 +89,7 @@ class WorkItemLifecycleAdapterTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.COMPLETED));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.COMPLETED));
   }
 
   @Test
@@ -98,8 +98,7 @@ class WorkItemLifecycleAdapterTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.FAULTED));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
   }
 
   @Test
@@ -108,8 +107,7 @@ class WorkItemLifecycleAdapterTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.FAULTED));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
   }
 
   @Test
@@ -118,8 +116,7 @@ class WorkItemLifecycleAdapterTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.FAULTED));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
   }
 
   @Test
@@ -128,8 +125,7 @@ class WorkItemLifecycleAdapterTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.CANCELLED));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.CANCELLED));
   }
 
   @Test
@@ -141,7 +137,7 @@ class WorkItemLifecycleAdapterTest {
       Thread.sleep(500);
     } catch (InterruptedException ignored) {
     }
-    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING);
+    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
   }
 
   @Test
@@ -158,7 +154,7 @@ class WorkItemLifecycleAdapterTest {
       Thread.sleep(500);
     } catch (InterruptedException ignored) {
     }
-    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING);
+    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
   }
 
   @Test
@@ -175,7 +171,7 @@ class WorkItemLifecycleAdapterTest {
       Thread.sleep(500);
     } catch (InterruptedException ignored) {
     }
-    assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.RUNNING);
+    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
   }
 
   @Test
@@ -198,7 +194,7 @@ class WorkItemLifecycleAdapterTest {
     await()
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(
-            () -> assertThat(htPlanItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.COMPLETED));
+            () -> assertThat(htPlanItem.getStatus()).isEqualTo(PlanItemStatus.COMPLETED));
 
     // CaseContext should be updated with outputMapping result
     await()
@@ -232,7 +228,7 @@ class WorkItemLifecycleAdapterTest {
     await()
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(
-            () -> assertThat(htPlanItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.COMPLETED));
+            () -> assertThat(htPlanItem.getStatus()).isEqualTo(PlanItemStatus.COMPLETED));
   }
 
   @Test
@@ -247,8 +243,7 @@ class WorkItemLifecycleAdapterTest {
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> assertThat(planItem.getStatus()).isEqualTo(PlanItem.PlanItemStatus.COMPLETED));
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.COMPLETED));
 
     CaseInstance after =
         caseInstanceRepository.findByUuid(caseId).await().atMost(Duration.ofSeconds(2));

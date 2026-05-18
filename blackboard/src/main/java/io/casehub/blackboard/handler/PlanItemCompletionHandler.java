@@ -24,6 +24,7 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.WorkflowExecutionCompleted;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -112,7 +113,7 @@ public class PlanItemCompletionHandler {
               .allMatch(
                   itemId ->
                       plan.getPlanItem(itemId)
-                          .map(pi -> pi.getStatus() == PlanItem.PlanItemStatus.COMPLETED)
+                          .map(pi -> pi.getStatus() == PlanItemStatus.COMPLETED)
                           .orElse(
                               false)); // unregistered item — treat as not done, blocks autocomplete
 

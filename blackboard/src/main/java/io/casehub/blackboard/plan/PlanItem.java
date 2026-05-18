@@ -16,6 +16,7 @@
 package io.casehub.blackboard.plan;
 
 import io.casehub.api.model.BindingTarget;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -39,15 +40,6 @@ public class PlanItem implements Comparable<PlanItem> {
   private final Instant createdAt;
   private String parentStageId; // null means no parent stage
   private final BindingTarget target;
-
-  /** Lifecycle states. See casehubio/engine#76. */
-  public enum PlanItemStatus {
-    PENDING,
-    RUNNING,
-    COMPLETED,
-    FAULTED,
-    CANCELLED
-  }
 
   private PlanItem(String bindingName, String workerName, int priority, BindingTarget target) {
     this.planItemId = UUID.randomUUID().toString();

@@ -267,4 +267,7 @@ class DefaultCasePlanModelTest {
         .isEmpty();
     assertThat(plan.get("count", Integer.class)).contains(42);
   }
+
+  // ---------------------------------------------------------------------------
+
 }
