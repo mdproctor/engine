@@ -22,6 +22,8 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.PredicateBasedCompletion;
+import io.casehub.engine.internal.config.ConfigManager;
+import io.casehub.engine.internal.config.SecretManager;
 import io.casehub.engine.internal.model.CaseMetaModel;
 import io.casehub.engine.internal.utils.ReactiveUtils;
 import io.casehub.engine.spi.CaseDefinitionRegistry;
@@ -63,10 +65,14 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
   @Inject ExpressionEngineRegistry expressionEngineRegistry;
 
+  @Inject SecretManager secretManager;
+
+  @Inject ConfigManager configManager;
+
   void onStart(@Observes @Priority(10) StartupEvent ev) {
     ReactiveUtils.runOnSafeVertxContext(vertx, this::registerKnownDefinitions)
         .await()
-        .atMost(Duration.ofSeconds(30));
+        .atMost(Duration.ofSeconds(30)); // TODO this timeout must be configurable
   }
 
   Uni<Void> registerKnownDefinitions() {
@@ -146,6 +152,9 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   }
 
   private void validateExpressions(CaseDefinition definition) {
+    // Validate use.secrets and use.configMaps (fail-fast)
+    validateDependencies(definition);
+
     if (definition.getBindings() != null) {
       for (Binding rule : definition.getBindings()) {
         if (rule.getOn() instanceof ContextChangeTrigger cct) {
@@ -171,6 +180,49 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
     }
     if (definition.getCompletion() instanceof PredicateBasedCompletion pbc) {
       expressionEngineRegistry.validate(pbc.getDoneWhen());
+    }
+  }
+
+  /**
+   * Validate use.secrets and use.configMaps declarations.
+   *
+   * <p>Fail-fast: throws IllegalArgumentException if any declared secret/configMap does not exist.
+   *
+   * @param definition case definition to validate
+   * @throws IllegalArgumentException if validation fails
+   */
+  private void validateDependencies(CaseDefinition definition) {
+    if (definition.getUse() == null) {
+      return;
+    }
+
+    // Validate secrets
+    if (definition.getUse().getSecrets() != null) {
+      for (String secretName : definition.getUse().getSecrets()) {
+        try {
+          secretManager.secret(secretName);
+        } catch (Exception e) {
+          throw new IllegalArgumentException(
+              "Secret '" + secretName + "' declared in use.secrets not found: " + e.getMessage(),
+              e);
+        }
+      }
+    }
+
+    // Validate config maps
+    if (definition.getUse().getConfigMaps() != null) {
+      for (String configMapName : definition.getUse().getConfigMaps()) {
+        try {
+          configManager.configMap(configMapName);
+        } catch (Exception e) {
+          throw new IllegalArgumentException(
+              "ConfigMap '"
+                  + configMapName
+                  + "' declared in use.configMaps not found: "
+                  + e.getMessage(),
+              e);
+        }
+      }
     }
   }
 }

@@ -81,6 +81,13 @@ public class MilestoneLifecycleManager {
         "CONTEXT_CHANGED received for case %s, state=%s",
         caseInstance.getUuid(), caseInstance.getState());
 
+    // Skip if no metamodel attached
+    if (caseMetaModel == null) {
+      LOG.debugf(
+          "Case %s has no CaseMetaModel, skipping milestone evaluation", caseInstance.getUuid());
+      return Uni.createFrom().voidItem();
+    }
+
     // Only evaluate milestones for RUNNING cases
     if (!caseInstance.getState().equals(CaseStatus.RUNNING)) {
       LOG.debugf("Case %s not RUNNING, skipping milestone evaluation", caseInstance.getUuid());

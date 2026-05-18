@@ -16,13 +16,15 @@
 package io.casehub.engine.internal.config;
 
 import java.util.Collection;
+import java.util.Map;
 import java.util.Optional;
 
 /**
  * Provides access to configuration properties.
  *
  * <p>Adapted from Serverless Workflow ConfigManager with Quarkus integration. Used programmatically
- * from Java code, NOT directly accessible from JQ expressions.
+ * from Java code, AND accessible from JQ expressions via {@code $config.{configMapName}.{property}}
+ * syntax.
  *
  * <p>Default implementation wraps MicroProfile Config API (application.properties, system
  * properties, environment variables, ConfigSources).
@@ -53,4 +55,28 @@ public interface ConfigManager {
    * @return iterable of property names
    */
   Iterable<String> names();
+
+  /**
+   * Resolve a config map by name.
+   *
+   * <p>Builds a nested map from all properties with {@code configMapName.} prefix.
+   *
+   * <p>Example:
+   *
+   * <pre>
+   * # application.properties
+   * app-config.timeout=5000
+   * app-config.retries=3
+   * app-config.database.host=localhost
+   *
+   * # JQ expression in YAML
+   * timeout: "${$config.\"app-config\".timeout}"  → resolves to "5000"
+   * </pre>
+   *
+   * @param configMapName config map identifier (e.g., "app-config", "feature-flags")
+   * @return map of config properties with nested structure (e.g., {timeout: "5000", database:
+   *     {host: "localhost"}})
+   * @throws ConfigMapNotFoundException if no properties with the prefix exist
+   */
+  Map<String, Object> configMap(String configMapName);
 }

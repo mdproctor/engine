@@ -16,10 +16,13 @@
 package io.casehub.engine.internal.config.impl;
 
 import io.casehub.engine.internal.config.ConfigManager;
+import io.casehub.engine.internal.config.ConfigMapNotFoundException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 import org.eclipse.microprofile.config.Config;
 
@@ -53,5 +56,41 @@ public class QuarkusConfigManager implements ConfigManager {
   @Override
   public Iterable<String> names() {
     return config.getPropertyNames();
+  }
+
+  @Override
+  public Map<String, Object> configMap(String configMapName) {
+    String prefix = configMapName + ".";
+    Map<String, Object> result = new HashMap<>();
+
+    for (String propName : names()) {
+      if (propName.startsWith(prefix)) {
+        String key = propName.substring(prefix.length());
+        config(propName, String.class).ifPresent(value -> putNested(result, key, value));
+      }
+    }
+
+    if (result.isEmpty()) {
+      throw new ConfigMapNotFoundException(configMapName);
+    }
+
+    return result;
+  }
+
+  /**
+   * Converts "database.host" -> nested map {database: {host: value}}.
+   *
+   * <p>Algorithm adapted from ConfigSecretManager.putNested().
+   */
+  private void putNested(Map<String, Object> map, String key, Object value) {
+    String[] parts = key.split("\\.", 2);
+    if (parts.length == 1) {
+      map.put(key, value);
+    } else {
+      @SuppressWarnings("unchecked")
+      Map<String, Object> nested =
+          (Map<String, Object>) map.computeIfAbsent(parts[0], k -> new HashMap<>());
+      putNested(nested, parts[1], value);
+    }
   }
 }

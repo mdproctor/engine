@@ -35,10 +35,10 @@ spec:
               processed:
                 timestamp: ${ now }
                 data: ${ .context.data }
-                featureEnabled: ${ $config.featureFlags.dataProcessing }
+                featureEnabled: ${ $config.\"feature-flags\".dataProcessing }
               metadata:
-                timeout: ${ $config.appConfig.timeout | tonumber }
-                retries: ${ $config.appConfig.retries | tonumber }
+                timeout: ${ $config.\"app-config\".timeout | tonumber }
+                retries: ${ $config.\"app-config\".retries | tonumber }
 
     - name: database-writer
       description: Writes results to database
@@ -49,8 +49,8 @@ spec:
             set:
               stored: true
               connection:
-                host: ${ $config.appConfig.database.host }
-                port: ${ $config.appConfig.database.port | tonumber }
+                host: ${ $config.\"app-config\".database.host }
+                port: ${ $config.\"app-config\".database.port | tonumber }
                 # Credentials from secrets, not configs
                 username: ${ $secret.database.credentials.username }
                 password: ${ $secret.database.credentials.password }
@@ -60,13 +60,13 @@ spec:
       capability: process-data
       on:
         contextChange:
-          filter: '(.status == "pending") and ($config.featureFlags.dataProcessing == "true")'
+          filter: '(.status == "pending") and ($config.\"feature-flags\".dataProcessing == "true")'
 
     - name: store-if-analytics-enabled
       capability: store-result
       on:
         contextChange:
-          filter: '(.processed != null) and ($config.featureFlags.analyticsEnabled == "true")'
+          filter: '(.processed != null) and ($config.\"feature-flags\".analyticsEnabled == "true")'
       when: "${.processed != null}"
 
   milestones:
