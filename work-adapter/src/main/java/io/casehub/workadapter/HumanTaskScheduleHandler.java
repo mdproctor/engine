@@ -46,7 +46,7 @@ import org.jboss.logging.Logger;
  * io.casehub.work.runtime.service.WorkItemTemplateService} (template mode), persists the RUNNING
  * status to {@link PlanItemStore}, then marks the in-memory PlanItem RUNNING.
  *
- * <p>All three steps — WorkItem creation, {@code planItemStore.updateStatus(RUNNING)}, and {@code
+ * <p>All three steps — WorkItem creation, {@code planItemStore.save(...RUNNING...)}, and {@code
  * item.markRunning()} — execute in a single {@code @Transactional} boundary. If WorkItem creation
  * fails, the transaction rolls back and {@code markRunning()} is never called, leaving the PlanItem
  * PENDING. Refs engine#273.
@@ -126,7 +126,12 @@ public class HumanTaskScheduleHandler {
         "casehub-engine",
         callerRef,
         serializePayload(event.inputData()));
-    planItemStore.updateStatus(item.getPlanItemId(), PlanItemStatus.RUNNING);
+    planItemStore.save(
+        event.caseId(),
+        item.getPlanItemId(),
+        item.getBindingName(),
+        PlanItemStatus.RUNNING,
+        item.getCreatedAt());
     item.markRunning();
     LOG.infof("WorkItem created (template=%s) for binding callerRef=%s", template.id, callerRef);
   }
@@ -134,7 +139,12 @@ public class HumanTaskScheduleHandler {
   private void handleInlineMode(PlanItem item, HumanTaskScheduleEvent event) {
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
     createInline(event.target(), event.inputData(), callerRef);
-    planItemStore.updateStatus(item.getPlanItemId(), PlanItemStatus.RUNNING);
+    planItemStore.save(
+        event.caseId(),
+        item.getPlanItemId(),
+        item.getBindingName(),
+        PlanItemStatus.RUNNING,
+        item.getCreatedAt());
     item.markRunning();
   }
 
@@ -164,8 +174,7 @@ public class HumanTaskScheduleHandler {
             null, // claimDeadlineBusinessHours
             null, // expiresAtBusinessHours
             null, // templateId
-            null, // permittedOutcomes
-            null); // excludedUsers
+            null); // permittedOutcomes
 
     workItemService.create(request);
     LOG.infof(

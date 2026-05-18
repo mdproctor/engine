@@ -23,6 +23,7 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
@@ -37,7 +38,12 @@ import java.util.UUID;
  * classpath contexts and never co-exist at runtime.
  */
 @Entity
-@Table(name = "plan_item")
+@Table(
+    name = "plan_item",
+    indexes = {
+      @Index(name = "idx_plan_item_plan_item_id", columnList = "plan_item_id"),
+      @Index(name = "idx_plan_item_case_id", columnList = "case_id")
+    })
 public class WorkAdapterPlanItemEntity {
 
   @Id

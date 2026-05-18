@@ -18,11 +18,6 @@ package io.casehub.blackboard.plan;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.blackboard.stage.Stage;
-import io.casehub.engine.internal.model.PlanItemRecord;
-import io.casehub.engine.internal.model.PlanItemStatus;
-import io.casehub.engine.spi.PlanItemStore;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -274,70 +269,5 @@ class DefaultCasePlanModelTest {
   }
 
   // ---------------------------------------------------------------------------
-  // PlanItemStore integration tests
-  // ---------------------------------------------------------------------------
 
-  static class RecordingPlanItemStore implements PlanItemStore {
-    final List<PlanItemRecord> saved = new ArrayList<>();
-
-    @Override
-    public void save(
-        UUID caseId,
-        String planItemId,
-        String bindingName,
-        PlanItemStatus status,
-        Instant createdAt) {
-      saved.add(new PlanItemRecord(caseId, planItemId, bindingName, status, createdAt));
-    }
-
-    @Override
-    public void updateStatus(String planItemId, PlanItemStatus status) {}
-
-    @Override
-    public List<PlanItemRecord> findByCaseId(UUID caseId) {
-      return saved;
-    }
-  }
-
-  @Test
-  void addPlanItem_saves_to_store() {
-    UUID caseId = UUID.randomUUID();
-    RecordingPlanItemStore store = new RecordingPlanItemStore();
-    DefaultCasePlanModel model = new DefaultCasePlanModel(caseId, store);
-
-    PlanItem item = PlanItem.create("my-binding", "my-worker", 5);
-    model.addPlanItem(item);
-
-    assertThat(store.saved).hasSize(1);
-    assertThat(store.saved.get(0).planItemId()).isEqualTo(item.getPlanItemId());
-    assertThat(store.saved.get(0).status()).isEqualTo(PlanItemStatus.PENDING);
-  }
-
-  @Test
-  void addPlanItemIfAbsent_saves_to_store_when_added() {
-    UUID caseId = UUID.randomUUID();
-    RecordingPlanItemStore store = new RecordingPlanItemStore();
-    DefaultCasePlanModel model = new DefaultCasePlanModel(caseId, store);
-
-    PlanItem item = PlanItem.create("my-binding", "my-worker", 5);
-    boolean added = model.addPlanItemIfAbsent(item);
-
-    assertThat(added).isTrue();
-    assertThat(store.saved).hasSize(1);
-  }
-
-  @Test
-  void addPlanItemIfAbsent_does_not_save_when_already_active() {
-    UUID caseId = UUID.randomUUID();
-    RecordingPlanItemStore store = new RecordingPlanItemStore();
-    DefaultCasePlanModel model = new DefaultCasePlanModel(caseId, store);
-
-    PlanItem item = PlanItem.create("my-binding", "my-worker", 5);
-    model.addPlanItem(item);
-    store.saved.clear();
-
-    boolean added = model.addPlanItemIfAbsent(PlanItem.create("my-binding", "my-worker", 5));
-    assertThat(added).isFalse();
-    assertThat(store.saved).isEmpty();
-  }
 }

@@ -19,7 +19,6 @@ import io.casehub.api.model.SubCase;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
 import io.casehub.engine.internal.model.PlanItemStatus;
-import io.casehub.engine.spi.PlanItemStore;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -38,7 +37,6 @@ import java.util.stream.Collectors;
 public class DefaultCasePlanModel implements CasePlanModel {
 
   private final UUID caseId;
-  private final PlanItemStore store;
   private final PriorityBlockingQueue<PlanItem> agenda = new PriorityBlockingQueue<>();
   private final ConcurrentHashMap<String, PlanItem> itemsById = new ConcurrentHashMap<>();
   // bindingName → PlanItem (only PENDING or RUNNING items) — fast O(1) duplicate-prevention lookup
@@ -51,18 +49,8 @@ public class DefaultCasePlanModel implements CasePlanModel {
   private volatile String focus;
   private volatile String focusRationale;
 
-  /** Full constructor — callers supply the {@link PlanItemStore} for durable status tracking. */
-  public DefaultCasePlanModel(UUID caseId, PlanItemStore store) {
-    this.caseId = caseId;
-    this.store = store;
-  }
-
-  /**
-   * Convenience constructor for tests and contexts where no durable store is needed. Uses a no-op
-   * in-memory-only store.
-   */
   public DefaultCasePlanModel(UUID caseId) {
-    this(caseId, new io.casehub.blackboard.store.NoOpPlanItemStore());
+    this.caseId = caseId;
   }
 
   @Override
@@ -75,12 +63,6 @@ public class DefaultCasePlanModel implements CasePlanModel {
     agenda.add(item);
     itemsById.put(item.getPlanItemId(), item);
     activeByBinding.put(item.getBindingName(), item);
-    store.save(
-        caseId,
-        item.getPlanItemId(),
-        item.getBindingName(),
-        PlanItemStatus.PENDING,
-        item.getCreatedAt());
   }
 
   @Override
@@ -100,14 +82,6 @@ public class DefaultCasePlanModel implements CasePlanModel {
           added[0] = true;
           return item;
         });
-    if (added[0]) {
-      store.save(
-          caseId,
-          item.getPlanItemId(),
-          item.getBindingName(),
-          PlanItemStatus.PENDING,
-          item.getCreatedAt());
-    }
     return added[0];
   }
 

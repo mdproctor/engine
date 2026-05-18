@@ -21,6 +21,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
@@ -28,7 +29,12 @@ import org.hibernate.annotations.DynamicUpdate;
 
 @Entity
 @DynamicUpdate
-@Table(name = "plan_item")
+@Table(
+    name = "plan_item",
+    indexes = {
+      @Index(name = "idx_plan_item_plan_item_id", columnList = "plan_item_id"),
+      @Index(name = "idx_plan_item_case_id", columnList = "case_id")
+    })
 public class PlanItemEntity extends PanacheEntity {
 
   @Column(name = "plan_item_id", nullable = false, unique = true, length = 36)

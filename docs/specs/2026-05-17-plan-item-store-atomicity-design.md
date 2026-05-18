@@ -18,29 +18,30 @@ The deeper issue: PlanItem status is purely in-memory, so it cannot participate 
 
 ## Design
 
-### 1. `PlanItemStore` and `ReactivePlanItemStore` SPIs
+### 1. `PlanItemStatus`, `PlanItemRecord`, `PlanItemStore`, `ReactivePlanItemStore`
 
-Two new SPI interfaces in the `blackboard` module (Tier 2 — CDI allowed, no JPA), following the ledger dual-variant pattern (`LedgerEntryRepository` + `ReactiveLedgerEntryRepository`).
+**`PlanItemStatus`** is a standalone enum in `casehub-engine-common` (`io.casehub.engine.internal.model`), extracted from the former nested `PlanItem.PlanItemStatus`. Placing it in `common` means the Store SPIs can reference it without depending on the `blackboard` module.
 
-**Blocking** — for the work-adapter and any blocking consumer:
+**`PlanItemRecord`** is a lightweight Java record (also in `common`) returned by `findByCaseId`:
 
 ```java
-// blackboard/src/main/java/io/casehub/blackboard/store/PlanItemStore.java
-public interface PlanItemStore {
-    void save(UUID caseId, PlanItem item);
-    void updateStatus(String planItemId, PlanItem.PlanItemStatus status);
-    List<PlanItem> findByCaseId(UUID caseId);
-}
+public record PlanItemRecord(UUID caseId, String planItemId, String bindingName,
+                              PlanItemStatus status, Instant createdAt) {}
 ```
 
-**Reactive** — for engine runtime handlers on Vert.x IO threads:
+**`PlanItemStore`** (blocking) and **`ReactivePlanItemStore`** (`Uni<>` mirror) are SPI interfaces in `casehub-engine-common` (`io.casehub.engine.spi`), following the ledger dual-variant pattern (`LedgerEntryRepository` + `ReactiveLedgerEntryRepository`):
 
 ```java
-// blackboard/src/main/java/io/casehub/blackboard/store/ReactivePlanItemStore.java
+public interface PlanItemStore {
+    void save(UUID caseId, String planItemId, String bindingName, PlanItemStatus status, Instant createdAt);
+    void updateStatus(String planItemId, PlanItemStatus status);
+    List<PlanItemRecord> findByCaseId(UUID caseId);
+}
+
 public interface ReactivePlanItemStore {
-    Uni<Void> save(UUID caseId, PlanItem item);
-    Uni<Void> updateStatus(String planItemId, PlanItem.PlanItemStatus status);
-    Uni<List<PlanItem>> findByCaseId(UUID caseId);
+    Uni<Void> save(UUID caseId, String planItemId, String bindingName, PlanItemStatus status, Instant createdAt);
+    Uni<Void> updateStatus(String planItemId, PlanItemStatus status);
+    Uni<List<PlanItemRecord>> findByCaseId(UUID caseId);
 }
 ```
 
@@ -48,27 +49,33 @@ public interface ReactivePlanItemStore {
 
 ### 2. Implementations
 
-**JPA — `persistence-hibernate` module:**
+**No-op defaults — `blackboard` module:**
 
-New `PlanItemEntity` JPA entity:
+`NoOpPlanItemStore` and `NoOpReactivePlanItemStore` are `@DefaultBean @ApplicationScoped` beans in the `blackboard` module. They yield automatically to any consumer-provided implementation (e.g. `JpaPlanItemStore` from work-adapter). When no real store is deployed, PlanItem status is tracked in-memory only.
 
-| Column | Type | Notes |
+**JPA reactive — `persistence-hibernate` module:**
+
+`PlanItemEntity` (`@Entity @Table(name="plan_item")`, extends reactive `PanacheEntity`) with indexed columns:
+
+| Column | Type | Index |
 |--------|------|-------|
-| `plan_item_id` | `VARCHAR(36)` | PK — UUID string from `PlanItem.getPlanItemId()` |
-| `case_id` | `UUID` | FK-like grouping key |
-| `binding_name` | `VARCHAR(255)` | |
-| `status` | `VARCHAR(50)` | Enum string (`PENDING`, `RUNNING`, etc.) |
-| `created_at` | `TIMESTAMP` | |
-
-`JpaPlanItemStore` — blocking, uses `EntityManager` directly (no Panache static methods; same pattern as `JpaLedgerEntryRepository`).
+| `plan_item_id` | `VARCHAR(36)`, unique | `idx_plan_item_plan_item_id` |
+| `case_id` | `UUID` | `idx_plan_item_case_id` |
+| `binding_name` | `VARCHAR(255)` | — |
+| `status` | `VARCHAR(50)`, enum | — |
+| `created_at` | `TIMESTAMP` | — |
 
 `JpaReactivePlanItemStore` — reactive, uses `Panache.withTransaction()` and `Uni<>`.
 
+**JPA blocking — `casehub-engine-work-adapter` module:**
+
+`WorkAdapterPlanItemEntity` maps to the same `plan_item` table using standard blocking JPA (`EntityManager`). Placed in `work-adapter` because it must share the blocking persistence unit with `WorkItemService` for writes to participate in the same JTA transaction.
+
+`JpaPlanItemStore` — `@ApplicationScoped`, injects `EntityManager`, `updateStatus()` uses `em.flush()` + JPQL bulk UPDATE + `em.clear()` to handle L1 cache/bulk-DML ordering.
+
 **In-memory — `persistence-memory` module:**
 
-`MemoryPlanItemStore` and `MemoryReactivePlanItemStore` — `@Alternative @Priority(1)`, backed by a `ConcurrentHashMap<String, PlanItem>` keyed by `planItemId`. The reactive variant wraps results with `Uni.createFrom().item()`. Activated in tests via `selected-alternatives`; no JPA or datasource required.
-
-The `BlackboardRegistry` is unchanged — it continues to hold live `PlanItem` objects. The store provides the durable backing record.
+`MemoryPlanItemStore` and `MemoryReactivePlanItemStore` — `@Alternative @ApplicationScoped`, backed by a `ConcurrentHashMap<String, PlanItemRecord>` keyed by `planItemId`. Activated in tests via `quarkus.arc.selected-alternatives`.
 
 ### 3. Handler wiring
 
@@ -77,23 +84,25 @@ The `BlackboardRegistry` is unchanged — it continues to hold live `PlanItem` o
 Execution order in both modes:
 
 ```
-1. Validate PlanItem is PENDING             ← in-memory guard; fast-fail before any DB work
-2. planItemStore.updateStatus(planItemId, RUNNING)   ← JPA write; joins handler @Transactional
-3. workItemService.create() or instantiate()          ← joins same @Transactional
-4. item.markRunning()                                 ← in-memory sync; only reached on clean commit
+1. Validate PlanItem is PENDING              ← in-memory guard; fast-fail before any DB work
+2. WorkItem creation (create or instantiate) ← joins handler @Transactional
+3. planItemStore.save(caseId, planItemId, bindingName, RUNNING, createdAt)
+                                             ← JPA write; joins same @Transactional
+4. item.markRunning()                        ← in-memory sync; only reached on clean commit
 ```
 
 If steps 2 or 3 throw, the transaction rolls back both DB writes atomically. `item.markRunning()` is never reached — PlanItem stays PENDING in memory and in the store. Protocol `PP-20260517-cbf836` is now enforced by the transaction boundary, not by convention.
 
-`@ConsumeEvent(blocking=true)` is already present on the handler. Adding `@Transactional` on a blocking worker thread is safe and consistent with CLAUDE.md conventions.
+`save()` is called with `RUNNING` status directly (not a two-step save-then-updateStatus), because the handler is the first point where the PlanItem's transition to RUNNING is safe to record — `addPlanItem()` runs on the reactive Vert.x IO thread and has no JTA context.
 
-**`DefaultCasePlanModel.addPlanItem()`** calls `planItemStore.save(caseId, item)` when a PlanItem first enters the system, so every PlanItem has a durable record from creation, not just from its first status transition.
-
-`DefaultCasePlanModel` takes `PlanItemStore` as a constructor argument. `BlackboardRegistry.getOrCreate()` injects `PlanItemStore` via CDI and passes it through `DefaultCasePlanModel`'s constructor.
+`@ConsumeEvent(blocking=true)` is already present on the handler. `@Transactional` on a blocking worker thread is safe and consistent with CLAUDE.md conventions.
 
 ### 4. Deferred
 
-**engine#274** — On restart, `BlackboardRegistry` should hydrate PlanItem status from `PlanItemStore.findByCaseId()` rather than starting all PlanItems as PENDING. Cases with RUNNING PlanItems but no matching WorkItem (zombie detection) should be flagged. Blocked on this issue.
+- **engine#274** — On restart, `BlackboardRegistry` should hydrate PlanItem status from `PlanItemStore.findByCaseId()`. Cases with RUNNING PlanItems but no matching WorkItem (zombie detection) should be flagged. Blocked on this issue.
+- **engine#279** — `JpaReactivePlanItemStore.updateStatus()` needs flush before find (reactive L1 cache concern).
+- **engine#280** — Contract test for `JpaReactivePlanItemStore`.
+- **engine#281** — `FailingWorkItemStore` test double leaks across all `@QuarkusTest` classes in work-adapter.
 
 ---
 
@@ -101,15 +110,17 @@ If steps 2 or 3 throw, the transaction rolls back both DB writes atomically. `it
 
 | Module | Change |
 |--------|--------|
-| `blackboard` | Add `PlanItemStore` + `ReactivePlanItemStore` interfaces; `DefaultCasePlanModel` takes `PlanItemStore` constructor arg |
-| `persistence-hibernate` | Add `PlanItemEntity`, `JpaPlanItemStore`, `JpaReactivePlanItemStore` |
-| `persistence-memory` | Add `MemoryPlanItemStore`, `MemoryReactivePlanItemStore` |
-| `casehub-work-adapter` | `HumanTaskScheduleHandler`: add `@Transactional`, inject `PlanItemStore`, invert execution order |
+| `casehub-engine-common` | Add `PlanItemStatus` enum, `PlanItemRecord` record, `PlanItemStore` + `ReactivePlanItemStore` SPI interfaces, `PlanItemStoreContractTest` (abstract) |
+| `blackboard` | Extract `PlanItemStatus` from `PlanItem`; add `NoOpPlanItemStore` + `NoOpReactivePlanItemStore` (`@DefaultBean`) |
+| `persistence-hibernate` | Add `PlanItemEntity`, `JpaReactivePlanItemStore` |
+| `persistence-memory` | Add `MemoryPlanItemStore`, `MemoryReactivePlanItemStore` (`@Alternative`) |
+| `casehub-engine-work-adapter` | Add `WorkAdapterPlanItemEntity`, `JpaPlanItemStore`; update `HumanTaskScheduleHandler` |
 
 ---
 
 ## Testing
 
-- `PlanItemStore` contract test (abstract test class, one concrete test per implementation)
-- `HumanTaskScheduleHandlerTest`: new case — WorkItem creation fails → PlanItem stays PENDING in memory and in store
-- Existing handler tests continue to pass unchanged
+- `PlanItemStoreContractTest` — abstract contract test in `casehub-engine-common`; `MemoryPlanItemStoreContractTest` is the concrete subclass
+- `JpaPlanItemStoreTest` — `@QuarkusTest` for the blocking JPA store in `work-adapter`
+- `HumanTaskScheduleHandlerTest`: new atomicity test — WorkItem creation fails → PlanItem stays PENDING in memory and store not updated to RUNNING
+- Existing handler tests updated to assert store state after success
