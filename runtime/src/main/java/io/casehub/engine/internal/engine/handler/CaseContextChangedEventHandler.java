@@ -33,11 +33,10 @@ import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.ProvisioningException;
-import io.casehub.api.spi.WorkerContextProvider;
-import io.casehub.api.spi.WorkerProvisioner;
+import io.casehub.api.spi.ReactiveWorkerContextProvider;
+import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.engine.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.GoalReachedEvent;
@@ -64,7 +63,6 @@ import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -86,9 +84,9 @@ public class CaseContextChangedEventHandler {
 
   @Inject WorkloadProvider workloadProvider;
 
-  @Inject WorkerProvisioner workerProvisioner;
+  @Inject ReactiveWorkerContextProvider reactiveWorkerContextProvider;
 
-  @Inject WorkerContextProvider workerContextProvider;
+  @Inject ReactiveWorkerProvisioner reactiveWorkerProvisioner;
 
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
   public Uni<Void> onCaseStateContextChangedEventHandler(CaseContextChangedEvent event) {
@@ -229,8 +227,7 @@ public class CaseContextChangedEventHandler {
 
     if (workers == null || workers.isEmpty()) {
       LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.getName());
-      tryProvision(caseInstance, capability);
-      return Uni.createFrom().voidItem();
+      return tryProvision(caseInstance, capability);
     }
 
     List<WorkerCandidate> candidates =
@@ -250,8 +247,7 @@ public class CaseContextChangedEventHandler {
       LOG.warnf(
           "No workers match capability '%s' for binding '%s'",
           capability.getName(), binding.getName());
-      tryProvision(caseInstance, capability);
-      return Uni.createFrom().voidItem();
+      return tryProvision(caseInstance, capability);
     }
 
     // requiredCapabilities is null: WorkerCandidate.of() creates candidates with an empty
@@ -341,36 +337,43 @@ public class CaseContextChangedEventHandler {
     return Map.of();
   }
 
-  private void tryProvision(CaseInstance caseInstance, Capability capability) {
-    Set<String> provisionerCaps = workerProvisioner.getCapabilities();
-    if (!provisionerCaps.contains(capability.getName())) {
-      return;
-    }
-    try {
-      Map<String, Object> inputData =
-          caseInstance.getCaseContext().evalObjectTemplate(capability.getInputSchema());
-      WorkRequest workRequest = WorkRequest.of(capability.getName(), inputData);
-      WorkerContext workerContext =
-          workerContextProvider.buildContext(null, caseInstance.getUuid(), workRequest);
-      ProvisionContext provisionContext =
-          new ProvisionContext(
-              caseInstance.getUuid(),
-              capability.getName(),
-              workerContext,
-              PropagationContext.createRoot(),
-              null, // triggerChannelId — see engine#231 to thread Qhorus trigger context through
-              null); // triggerCorrelationId — see engine#231
-      Worker provisioned = workerProvisioner.provision(provisionerCaps, provisionContext);
-      LOG.infof(
-          "WorkerProvisioner provisioned worker '%s' for capability '%s' on case %s",
-          provisioned.getName(), capability.getName(), caseInstance.getUuid());
-    } catch (ProvisioningException e) {
-      LOG.warnf(
-          e,
-          "WorkerProvisioner failed for capability '%s' on case %s — binding remains eligible",
-          capability.getName(),
-          caseInstance.getUuid());
-    }
+  private Uni<Void> tryProvision(CaseInstance caseInstance, Capability capability) {
+    return reactiveWorkerProvisioner
+        .getCapabilities()
+        .flatMap(
+            caps -> {
+              if (!caps.contains(capability.getName())) {
+                return Uni.createFrom().voidItem();
+              }
+              Map<String, Object> inputData =
+                  caseInstance.getCaseContext().evalObjectTemplate(capability.getInputSchema());
+              WorkRequest workRequest = WorkRequest.of(capability.getName(), inputData);
+              return reactiveWorkerContextProvider
+                  .buildContext(null, caseInstance.getUuid(), workRequest)
+                  .flatMap(
+                      workerContext -> {
+                        ProvisionContext provisionContext =
+                            new ProvisionContext(
+                                caseInstance.getUuid(),
+                                capability.getName(),
+                                workerContext,
+                                PropagationContext.createRoot(),
+                                null, // triggerChannelId — see engine#231 to thread Qhorus trigger
+                                // context through
+                                null); // triggerCorrelationId — see engine#231
+                        return reactiveWorkerProvisioner
+                            .provision(caps, provisionContext)
+                            .replaceWithVoid();
+                      });
+            })
+        .onFailure(ProvisioningException.class)
+        .invoke(
+            e ->
+                LOG.warnf(
+                    e,
+                    "WorkerProvisioner failed for capability '%s' on case %s — binding remains eligible",
+                    capability.getName(),
+                    caseInstance.getUuid()));
   }
 
   private Uni<Void> publishSubCaseSchedule(
