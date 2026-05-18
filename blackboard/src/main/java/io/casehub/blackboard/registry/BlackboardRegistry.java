@@ -58,7 +58,9 @@ public class BlackboardRegistry {
    * components should use {@link #get(UUID)}.
    */
   public CasePlanModel getOrCreate(UUID caseId) {
-    return planModels.computeIfAbsent(caseId, id -> new DefaultCasePlanModel(id, planItemStore));
+    PlanItemStore effective =
+        planItemStore != null ? planItemStore : new io.casehub.blackboard.store.NoOpPlanItemStore();
+    return planModels.computeIfAbsent(caseId, id -> new DefaultCasePlanModel(id, effective));
   }
 
   public Optional<CasePlanModel> get(UUID caseId) {

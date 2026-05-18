@@ -165,8 +165,7 @@ public class HumanTaskScheduleHandler {
             null, // expiresAtBusinessHours
             null, // templateId
             null, // permittedOutcomes
-            null, // inputDataSchema
-            null); // outputDataSchema
+            null); // excludedUsers
 
     workItemService.create(request);
     LOG.infof(
