@@ -83,9 +83,9 @@ If a schema change is needed, update the `@Entity` class. Hibernate recreates th
 
 Domain objects and SPI interfaces live in `casehub-engine-common` (no Quarkus, no JPA):
 
-- `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`, `SubCaseGroup`
+- `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`, `SubCaseGroup`, `PlanItemStatus` (enum), `PlanItemRecord` (read model)
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/history/` — `EventLog`, `CaseHubEventType`, `EventStreamType`
-- `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `CaseInstanceRepository`, `EventLogRepository`, `SubCaseGroupRepository`
+- `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `CaseInstanceRepository`, `EventLogRepository`, `SubCaseGroupRepository`, `PlanItemStore` (blocking), `ReactivePlanItemStore` (Uni<>)
 
 Both `engine` and both persistence modules depend on `casehub-engine-common`. Neither persistence module depends on `engine`.
 
@@ -208,12 +208,14 @@ is unavailable.
 Two-way bridge between casehub-work and CaseHub plan items:
 - **Inbound** (`WorkItemLifecycleAdapter`) — translates terminal `WorkItemLifecycleEvent` CDI events to `PlanItem` transitions, evaluates `outputMapping` against the WorkItem resolution JSON, and fires `CONTEXT_CHANGED` for engine re-evaluation
 - **Outbound** (`HumanTaskScheduleHandler`) — consumes `HUMAN_TASK_SCHEDULE` event bus messages, looks up the `PlanItem` by binding name, then:
-  - **Inline mode** (`HumanTaskTarget.inline()`): marks PlanItem RUNNING, creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}`
-  - **Template mode** (`HumanTaskTarget.template(ref)`): resolves `ref` (UUID or name) via `WorkItemTemplateService.findByRef`; ambiguous name (>1 match) or not-found → warn + leave PlanItem PENDING; on success marks PlanItem RUNNING, calls `WorkItemTemplateService.instantiate` with `target.title()` as titleOverride and serialized `inputData` as payloadOverride (honours `inputMapping` contract)
+  - **Inline mode** (`HumanTaskTarget.inline()`): creates a `WorkItem` via `WorkItemService`, then `planItemStore.save(RUNNING)`, then `item.markRunning()`
+  - **Template mode** (`HumanTaskTarget.template(ref)`): resolves `ref` (UUID or name) via `WorkItemTemplateService.findByRef`; ambiguous name (>1 match) or not-found → warn + leave PlanItem PENDING; on success calls `WorkItemTemplateService.instantiate` with `target.title()` as titleOverride and serialized `inputData` as payloadOverride (honours `inputMapping` contract), then `planItemStore.save(RUNNING)`, then `item.markRunning()`
+
+All three steps in each mode are inside `@Transactional` — if WorkItem creation fails the transaction rolls back and `markRunning()` is never called (PlanItem stays PENDING). `JpaPlanItemStore` + `WorkAdapterPlanItemEntity` live in `work-adapter` (blocking JPA, shares casehub-work datasource). `MemoryPlanItemStore` (in `casehub-engine-persistence-memory`) must be in `selected-alternatives` for work-adapter tests.
 
 `@ConsumeEvent` handlers that call `@Transactional` services must use `blocking = true` — without it, the transaction silently does not commit on the Vert.x IO thread (the WorkItem is never created, no error is thrown).
 
-See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until all resolution steps succeed) and `PP-20260517-0093f8` (inputMapping output must reach WorkItem payload in all handler modes).
+See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until all resolution steps succeed), `PP-20260517-0093f8` (inputMapping output must reach WorkItem payload in all handler modes), and `PP-20260518-78f8b7` (PlanItemStore.save() must be called from a blocking @Transactional context).
 
 **Test setup** (when depending on `casehub-work` full module):
 - Add `casehub-work-testing` test dep — provides `@Alternative @Priority` in-memory WorkItem stores
