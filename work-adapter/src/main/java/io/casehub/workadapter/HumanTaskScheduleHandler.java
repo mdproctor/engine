@@ -180,7 +180,12 @@ public class HumanTaskScheduleHandler {
             null, // confidenceScore
             callerRef,
             null, // claimDeadlineBusinessHours
-            null); // expiresAtBusinessHours
+            null, // expiresAtBusinessHours
+            null, // templateId
+            null, // permittedOutcomes
+            null, // inputDataSchema
+            null, // outputDataSchema
+            null); // excludedUsers
 
     workItemService.create(request);
     LOG.infof(
