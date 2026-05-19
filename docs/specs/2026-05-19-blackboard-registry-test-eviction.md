@@ -1,4 +1,4 @@
-# Spec: BlackboardRegistry Test Eviction (engine#292)
+# Spec: BlackboardRegistry Consolidation and Test Eviction (engine#292)
 
 **Date:** 2026-05-19
 **Issue:** casehubio/engine#292
@@ -7,59 +7,104 @@
 
 ## Problem
 
-`BlackboardRegistry` is an `@ApplicationScoped` singleton backed by three
-`ConcurrentHashMap` structures. Three `@QuarkusTest` classes in `work-adapter`
-call `registry.getOrCreate(caseId)` in `@BeforeEach` to set up test state, but
-never call `registry.evict(caseId)` afterwards. Entries accumulate across all
-test methods in a session.
+`BlackboardRegistry` maintains three separate `ConcurrentHashMap` structures all
+keyed by the same `UUID caseId`:
 
-Currently harmless — each test generates a fresh `UUID.randomUUID()` — but the
-asymmetry between "clear WorkItemStore/PlanItemStore" and "never clear registry"
-is a latent pollution trap.
+```java
+ConcurrentHashMap<UUID, CasePlanModel>                       planModels
+ConcurrentHashMap<UUID, ConcurrentHashMap<String, String>>   completionIndex
+Set<UUID>                                                    configured
+```
 
-`BlackboardRegistry.evict(UUID)` already exists and removes all three maps for
-the given caseId. The `CaseEvictionHandler` fires it automatically on terminal
-case status — but the affected tests drive the registry directly without
-starting a case lifecycle, so the handler never fires.
+This creates two problems:
 
-The blackboard integration tests (`BasicBlackboardTest` etc.) are **not
-affected** — they start real cases via `CaseHub` beans and `CaseEvictionHandler`
-cleans up automatically when the case terminates.
+1. **Data model incoherence** — three independent maps track facets of the same
+   per-case state. `evict()` removes from all three sequentially, with a race
+   window between removes where another thread could observe partial state.
 
----
-
-## Affected Classes
-
-| File | Module |
-|------|--------|
-| `work-adapter/src/test/java/io/casehub/workadapter/HumanTaskScheduleHandlerTest.java` | `casehub-engine-work-adapter` |
-| `work-adapter/src/test/java/io/casehub/workadapter/HumanTaskScheduleHandlerAtomicityTest.java` | `casehub-engine-work-adapter` |
-| `work-adapter/src/test/java/io/casehub/workadapter/WorkItemLifecycleAdapterTest.java` | `casehub-engine-work-adapter` |
+2. **Test pollution** — three `@QuarkusTest` classes in `work-adapter` call
+   `registry.getOrCreate(caseId)` in `@BeforeEach` but never call
+   `registry.evict(caseId)` afterwards. Entries accumulate across test methods.
 
 ---
 
 ## Design
 
-Add an `@AfterEach tearDown()` method to each of the three affected test
-classes:
+### Part 1 — Internal consolidation of `BlackboardRegistry`
+
+Replace the three maps with a single `ConcurrentHashMap<UUID, CaseEntry>` where
+`CaseEntry` is a private static final class holding all per-case state:
 
 ```java
-@AfterEach
-void tearDown() {
-  registry.evict(caseId);
+private static final class CaseEntry {
+  final CasePlanModel planModel;
+  final ConcurrentHashMap<String, String> completionIndex = new ConcurrentHashMap<>();
+  final AtomicBoolean configured = new AtomicBoolean(false);
+
+  CaseEntry(UUID caseId) {
+    this.planModel = new DefaultCasePlanModel(caseId);
+  }
+}
+
+private final ConcurrentHashMap<UUID, CaseEntry> entries = new ConcurrentHashMap<>();
+
+private CaseEntry entryFor(UUID caseId) {
+  return entries.computeIfAbsent(caseId, CaseEntry::new);
 }
 ```
 
-No changes to `BlackboardRegistry`, no new API, no other files.
+Public API is **unchanged** — all six methods keep identical signatures:
 
-`HumanTaskScheduleHandlerAtomicityTest.setUp()` is `@Transactional`; the new
-`tearDown()` does not need to be — `evict()` is a pure in-memory operation.
+```java
+public CasePlanModel getOrCreate(UUID caseId) {
+  return entryFor(caseId).planModel;
+}
+
+public Optional<CasePlanModel> get(UUID caseId) {
+  CaseEntry e = entries.get(caseId);
+  return e == null ? Optional.empty() : Optional.of(e.planModel);
+}
+
+public void indexWorkerForCompletion(UUID caseId, String workerName, String planItemId) {
+  entryFor(caseId).completionIndex.put(workerName, planItemId);
+}
+
+public Optional<String> getPlanItemId(UUID caseId, String workerName) {
+  CaseEntry e = entries.get(caseId);
+  return e == null ? Optional.empty() : Optional.ofNullable(e.completionIndex.get(workerName));
+}
+
+public boolean markConfigured(UUID caseId) {
+  return entryFor(caseId).configured.compareAndSet(false, true);
+}
+
+public void evict(UUID caseId) {
+  entries.remove(caseId);   // single atomic remove — no race window
+}
+```
+
+No callers change. `CaseEvictionHandler`, `PlanningStrategyLoopControl`, and
+`PlanItemCompletionHandler` are unaffected.
+
+### Part 2 — `@AfterEach` eviction in three test classes
+
+Add `@AfterEach void tearDown() { registry.evict(caseId); }` to each of:
+
+| File |
+|------|
+| `work-adapter/src/test/.../HumanTaskScheduleHandlerTest.java` |
+| `work-adapter/src/test/.../HumanTaskScheduleHandlerAtomicityTest.java` |
+| `work-adapter/src/test/.../WorkItemLifecycleAdapterTest.java` |
+
+`tearDown()` does not need `@Transactional` — `evict()` is a pure in-memory
+operation.
 
 ---
 
-## Out of scope
+## Not in scope
 
-- Blackboard integration tests — handled by `CaseEvictionHandler` automatically.
-- Unit tests that instantiate `new BlackboardRegistry()` — no shared state.
-- Adding a `clear()` method to `BlackboardRegistry` — `evict(caseId)` is
-  sufficient and already exists.
+- Blackboard integration tests — `CaseEvictionHandler` handles cleanup via the
+  case lifecycle automatically when cases reach terminal state.
+- Unit tests that instantiate `new BlackboardRegistry()` in `@BeforeEach` — no
+  shared singleton, no accumulation.
+- Adding a `clear()` blast method — `evict(caseId)` is sufficient.
