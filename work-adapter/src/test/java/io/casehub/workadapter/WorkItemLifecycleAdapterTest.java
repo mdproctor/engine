@@ -40,6 +40,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -81,6 +82,11 @@ class WorkItemLifecycleAdapterTest {
     instance.setState(io.casehub.api.model.CaseStatus.RUNNING);
     instance.setCaseContext(new CaseContextImpl(Map.of("stage", "review")));
     caseInstanceRepository.save(instance).await().atMost(Duration.ofSeconds(5));
+  }
+
+  @AfterEach
+  void tearDown() {
+    registry.evict(caseId);
   }
 
   @Test
