@@ -28,6 +28,7 @@ public class CaseDefinition {
   private final String version;
   private String title;
   private String summary;
+  private Use use;
   private final List<Capability> capabilities;
   private final List<Worker> workers;
   private final List<Binding> bindings;
@@ -80,6 +81,14 @@ public class CaseDefinition {
 
   public void setSummary(String summary) {
     this.summary = summary;
+  }
+
+  public Use getUse() {
+    return use;
+  }
+
+  public void setUse(Use use) {
+    this.use = use;
   }
 
   public List<Capability> getCapabilities() {
