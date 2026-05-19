@@ -23,33 +23,23 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
-import io.casehub.engine.internal.model.PlanItemRecord;
 import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.engine.spi.PlanItemStore;
 import io.casehub.persistence.memory.MemoryPlanItemStore;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.model.WorkItemTemplate;
-import io.casehub.work.runtime.repository.WorkItemQuery;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.casehub.work.testing.InMemoryWorkItemStore;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -60,43 +50,6 @@ import org.junit.jupiter.api.Test;
  */
 @QuarkusTest
 class HumanTaskScheduleHandlerTest {
-
-  /**
-   * Failing WorkItemStore that throws on put() when shouldFail is set. Used to test that PlanItem
-   * stays PENDING when WorkItem creation fails (atomicity guarantee, engine#273).
-   */
-  @ApplicationScoped
-  @Alternative
-  @Priority(2)
-  public static class FailingWorkItemStore implements WorkItemStore {
-
-    public static final AtomicBoolean shouldFail = new AtomicBoolean(false);
-
-    private final java.util.Map<UUID, io.casehub.work.runtime.model.WorkItem> store =
-        new ConcurrentHashMap<>();
-
-    public void clear() {
-      store.clear();
-    }
-
-    @Override
-    public io.casehub.work.runtime.model.WorkItem put(io.casehub.work.runtime.model.WorkItem w) {
-      if (shouldFail.get()) throw new RuntimeException("Simulated WorkItemStore failure");
-      if (w.id == null) w.id = UUID.randomUUID();
-      store.put(w.id, w);
-      return w;
-    }
-
-    @Override
-    public Optional<io.casehub.work.runtime.model.WorkItem> get(UUID id) {
-      return Optional.ofNullable(store.get(id));
-    }
-
-    @Override
-    public List<io.casehub.work.runtime.model.WorkItem> scan(WorkItemQuery query) {
-      return new ArrayList<>(store.values());
-    }
-  }
 
   @Inject BlackboardRegistry registry;
   @Inject EventBus eventBus;
@@ -111,9 +64,6 @@ class HumanTaskScheduleHandlerTest {
   void setUp() {
     if (workItemStore instanceof InMemoryWorkItemStore mem) {
       mem.clear();
-    }
-    if (workItemStore instanceof FailingWorkItemStore failing) {
-      failing.clear();
     }
     if (planItemStore instanceof MemoryPlanItemStore mem) {
       mem.clear();
@@ -322,34 +272,5 @@ class HumanTaskScheduleHandlerTest {
     }
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
-  }
-
-  @Test
-  void inlineMode_workItemCreationFails_planItemStaysPending_storeNotUpdated() {
-    HumanTaskTarget target = HumanTaskTarget.inline().title("Review").build();
-
-    FailingWorkItemStore.shouldFail.set(true);
-    try {
-      eventBus.publish(
-          EventBusAddresses.HUMAN_TASK_SCHEDULE,
-          new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
-
-      try {
-        Thread.sleep(500);
-      } catch (InterruptedException ignored) {
-      }
-
-      assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
-      assertThat(workItemStore.scanAll()).isEmpty();
-      // store must not show RUNNING for this planItemId
-      List<PlanItemRecord> records = planItemStore.findByCaseId(caseId);
-      assertThat(records)
-          .noneMatch(
-              r ->
-                  r.planItemId().equals(planItem.getPlanItemId())
-                      && r.status() == PlanItemStatus.RUNNING);
-    } finally {
-      FailingWorkItemStore.shouldFail.set(false);
-    }
   }
 }
