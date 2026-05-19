@@ -44,6 +44,8 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -76,6 +78,7 @@ class HumanTaskScheduleHandlerAtomicityTest {
   public static class FailingWorkItemStore implements WorkItemStore {
 
     public static final AtomicBoolean shouldFail = new AtomicBoolean(false);
+    public static volatile CountDownLatch putAttemptLatch = new CountDownLatch(1);
 
     private final java.util.Map<UUID, io.casehub.work.runtime.model.WorkItem> store =
         new ConcurrentHashMap<>();
@@ -86,6 +89,7 @@ class HumanTaskScheduleHandlerAtomicityTest {
 
     @Override
     public io.casehub.work.runtime.model.WorkItem put(io.casehub.work.runtime.model.WorkItem w) {
+      putAttemptLatch.countDown(); // signal that handler reached put() before any throw
       if (shouldFail.get()) throw new RuntimeException("Simulated WorkItemStore failure");
       if (w.id == null) w.id = UUID.randomUUID();
       store.put(w.id, w);
@@ -114,10 +118,11 @@ class HumanTaskScheduleHandlerAtomicityTest {
   @BeforeEach
   @Transactional
   void setUp() {
-    if (workItemStore instanceof FailingWorkItemStore failing) {
-      failing.clear();
-      FailingWorkItemStore.shouldFail.set(false);
-    }
+    assertThat(workItemStore).isInstanceOf(FailingWorkItemStore.class);
+    FailingWorkItemStore failing = (FailingWorkItemStore) workItemStore;
+    failing.clear();
+    FailingWorkItemStore.shouldFail.set(false);
+    FailingWorkItemStore.putAttemptLatch = new CountDownLatch(1);
     if (planItemStore instanceof MemoryPlanItemStore mem) {
       mem.clear();
     }
@@ -137,9 +142,12 @@ class HumanTaskScheduleHandlerAtomicityTest {
           new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
 
       try {
-        Thread.sleep(300);
-      } catch (InterruptedException ignored) {
+        assertThat(FailingWorkItemStore.putAttemptLatch.await(5, TimeUnit.SECONDS))
+            .as("Handler must attempt WorkItemStore.put() within 5 seconds")
+            .isTrue();
+      } catch (InterruptedException e) {
         Thread.currentThread().interrupt();
+        throw new RuntimeException("Interrupted waiting for put() attempt", e);
       }
 
       assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
