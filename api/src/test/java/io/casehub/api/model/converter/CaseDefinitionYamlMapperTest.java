@@ -23,6 +23,7 @@ import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
+import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.ai.Agent;
@@ -31,6 +32,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import org.junit.jupiter.api.Test;
 
 class CaseDefinitionYamlMapperTest {
@@ -247,5 +249,133 @@ class CaseDefinitionYamlMapperTest {
     // Verify that the agent was converted to API model (Agent is the value in the function holder)
     Object value = worker.getFunction().getValue();
     assertThat(value).isInstanceOf(Agent.class);
+  }
+
+  @Test
+  void humanTaskBinding_inline_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Human Task Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: approval
+              on: { contextChange: {} }
+              humanTask:
+                title: "PR approval required"
+                outputMapping: "{ approval: { status: .decision } }"
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getBindings()).hasSize(1);
+    Binding binding = def.getBindings().get(0);
+    assertThat(binding.getName()).isEqualTo("approval");
+    assertThat(binding.target()).isInstanceOf(HumanTaskTarget.class);
+
+    HumanTaskTarget ht = (HumanTaskTarget) binding.target();
+    assertThat(ht.isTemplateMode()).isFalse();
+    assertThat(ht.title()).isEqualTo("PR approval required");
+    assertThat(ht.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.outputMapping()).expression())
+        .isEqualTo("{ approval: { status: .decision } }");
+    assertThat(ht.inputMapping()).isNull();
+    assertThat(ht.candidateGroups()).isNull();
+    assertThat(ht.expiresIn()).isNull();
+  }
+
+  @Test
+  void humanTaskBinding_template_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Template Task Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: review
+              on: { contextChange: {} }
+              humanTask:
+                templateRef: "senior-review"
+                outputMapping: "{ review: .outcome }"
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    assertThat(ht.isTemplateMode()).isTrue();
+    assertThat(ht.templateRef()).isEqualTo("senior-review");
+    assertThat(ht.title()).isNull();
+    assertThat(ht.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.outputMapping()).expression())
+        .isEqualTo("{ review: .outcome }");
+  }
+
+  @Test
+  void humanTaskBinding_withAllOptionalFields_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Full Human Task Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: full-approval
+              on: { contextChange: {} }
+              humanTask:
+                title: "Full approval task"
+                inputMapping: "{ pr: .pr }"
+                outputMapping: "{ approval: .decision }"
+                candidateGroups:
+                  - architects
+                  - seniors
+                candidateUsers:
+                  - alice
+                expiresIn: "PT24H"
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    assertThat(ht.candidateGroups()).containsExactlyInAnyOrder("architects", "seniors");
+    assertThat(ht.candidateUsers()).containsExactlyInAnyOrder("alice");
+    assertThat(ht.expiresIn()).isEqualTo(Duration.parse("PT24H"));
+    assertThat(ht.inputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.inputMapping()).expression()).isEqualTo("{ pr: .pr }");
+    assertThat(((JQExpressionEvaluator) ht.outputMapping()).expression())
+        .isEqualTo("{ approval: .decision }");
+  }
+
+  @Test
+  void humanTaskBinding_emptyCandidateLists_treatedAsNotSet() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Empty Lists Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: approval
+              on: { contextChange: {} }
+              humanTask:
+                title: "Approval"
+                candidateGroups: []
+                candidateUsers: []
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    assertThat(ht.candidateGroups()).isNull();
+    assertThat(ht.candidateUsers()).isNull();
   }
 }

@@ -240,6 +240,43 @@ $defs:
       outputSchema:
         { type: string, description: "JQ producing capability output" }
 
+  HumanTask:
+    type: object
+    description: >-
+      A binding target that creates a WorkItem in casehub-work and resumes the case
+      when the WorkItem reaches a terminal state. Inline mode requires title;
+      template mode requires templateRef. The two modes are mutually exclusive.
+    unevaluatedProperties: false
+    oneOf:
+      - required: [ title ]
+        not: { required: [ templateRef ] }
+      - required: [ templateRef ]
+        not: { required: [ title ] }
+    properties:
+      title:
+        type: string
+        description: "WorkItem title — inline mode"
+      templateRef:
+        type: string
+        description: "WorkItemTemplate reference (UUID or name) — template mode"
+      inputMapping:
+        type: string
+        description: "JQ expression: case context → WorkItem payload"
+      outputMapping:
+        type: string
+        description: "JQ expression: WorkItem resolution → case context updates"
+      candidateGroups:
+        type: array
+        items: { type: string }
+        description: "Groups eligible to claim this WorkItem"
+      candidateUsers:
+        type: array
+        items: { type: string }
+        description: "Users eligible to claim this WorkItem"
+      expiresIn:
+        type: string
+        description: "ISO 8601 duration after which the WorkItem expires (e.g. PT24H)"
+
   Binding:
     type: object
     required: [ on ]
@@ -247,16 +284,20 @@ $defs:
     oneOf:
       - required: [ capability ]
         not:
-          required: [ subCase ]
+          required: [ subCase, humanTask ]
       - required: [ subCase ]
         not:
-          required: [ capability ]
+          required: [ capability, humanTask ]
+      - required: [ humanTask ]
+        not:
+          required: [ capability, subCase ]
     properties:
       name: { type: string }
       on: { $ref: "#/$defs/Trigger" }
       when: { type: string, description: "JQ over context and/or event" }
       capability: { type: string }
       subCase: { $ref: "#/$defs/SubCase" }
+      humanTask: { $ref: "#/$defs/HumanTask" }
       conflictResolverStrategy:
         type: string
         enum: [ LAST_WRITER_WINS, FIRST_WRITER_WINS, FAIL ]
