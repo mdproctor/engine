@@ -84,3 +84,23 @@ CREATE TABLE IF NOT EXISTS subcase_group_children (
 
 CREATE INDEX IF NOT EXISTS idx_subcase_group_parent ON subcase_group(parent_case_id);
 CREATE INDEX IF NOT EXISTS idx_subcase_group_children_group ON subcase_group_children(group_entity_id);
+
+-- Add plan_item table for reactive PlanItemStore implementation
+-- Sequence follows Hibernate 6 default naming: {table_name}_SEQ (lowercased by PostgreSQL)
+CREATE SEQUENCE IF NOT EXISTS plan_item_seq START WITH 1 INCREMENT BY 50;
+
+-- Stores plan item state and binding information
+CREATE TABLE IF NOT EXISTS plan_item (
+                                         id              BIGINT       NOT NULL DEFAULT nextval('plan_item_seq'),
+    plan_item_id    VARCHAR(36)  NOT NULL,
+    case_id         UUID         NOT NULL,
+    binding_name    VARCHAR(255) NOT NULL,
+    status          VARCHAR(50)  NOT NULL,
+    created_at      TIMESTAMP    NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_plan_item_plan_item_id
+    UNIQUE (plan_item_id)
+    );
+
+CREATE INDEX IF NOT EXISTS idx_plan_item_plan_item_id ON plan_item(plan_item_id);
+CREATE INDEX IF NOT EXISTS idx_plan_item_case_id ON plan_item(case_id);

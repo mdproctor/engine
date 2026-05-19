@@ -25,6 +25,7 @@ import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.engine.spi.PlanItemStore;
+import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.service.WorkItemService;
@@ -35,14 +36,15 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.Map;
+import java.util.UUID;
 import org.jboss.logging.Logger;
 
 /**
  * Handles outbound human task creation when a {@link HumanTaskTarget} binding is selected.
  *
  * <p>Receives {@link HumanTaskScheduleEvent} from the engine event bus, looks up the {@link
- * PlanItem} in the {@link BlackboardRegistry} by binding name, creates a {@link
- * io.casehub.work.runtime.model.WorkItem} via {@link WorkItemService} (inline mode) or {@link
+ * PlanItem} in the {@link BlackboardRegistry} by binding name, creates a {@link WorkItem} via
+ * {@link WorkItemService} (inline mode) or {@link
  * io.casehub.work.runtime.service.WorkItemTemplateService} (template mode), persists the RUNNING
  * status to {@link PlanItemStore}, then marks the in-memory PlanItem RUNNING.
  *
@@ -101,15 +103,18 @@ public class HumanTaskScheduleHandler {
   private void handleTemplateMode(PlanItem item, HumanTaskScheduleEvent event) {
     HumanTaskTarget target = event.target();
 
-    WorkItemTemplate template;
+    // Parse templateRef as UUID
+    UUID templateId;
     try {
-      template = workItemTemplateService.findByRef(target.templateRef()).orElse(null);
-    } catch (IllegalStateException e) {
+      templateId = UUID.fromString(target.templateRef());
+    } catch (IllegalArgumentException e) {
       LOG.warnf(
-          "Ambiguous templateRef '%s' for binding '%s' case %s: %s — PlanItem left PENDING",
-          target.templateRef(), event.bindingName(), event.caseId(), e.getMessage());
+          "templateRef '%s' is not a valid UUID for binding '%s' case %s — PlanItem left PENDING",
+          target.templateRef(), event.bindingName(), event.caseId());
       return;
     }
+
+    WorkItemTemplate template = workItemTemplateService.findById(templateId).orElse(null);
 
     if (template == null) {
       LOG.warnf(
@@ -119,13 +124,16 @@ public class HumanTaskScheduleHandler {
     }
 
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
-    workItemTemplateService.instantiate(
-        template,
-        target.title(),
-        null,
-        "casehub-engine",
-        callerRef,
-        serializePayload(event.inputData()));
+    WorkItem workItem =
+        workItemTemplateService.instantiate(template, target.title(), callerRef, "casehub-engine");
+
+    // Set callerRef and payload manually (not handled by instantiate method)
+    workItem.callerRef = callerRef;
+    if (event.inputData() != null && !event.inputData().isEmpty()) {
+      workItem.payload = serializePayload(event.inputData());
+    }
+    workItem.persist();
+
     planItemStore.save(
         event.caseId(),
         item.getPlanItemId(),
@@ -172,9 +180,7 @@ public class HumanTaskScheduleHandler {
             null, // confidenceScore
             callerRef,
             null, // claimDeadlineBusinessHours
-            null, // expiresAtBusinessHours
-            null, // templateId
-            null); // permittedOutcomes
+            null); // expiresAtBusinessHours
 
     workItemService.create(request);
     LOG.infof(
