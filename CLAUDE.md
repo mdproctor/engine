@@ -94,6 +94,10 @@ Both `engine` and both persistence modules depend on `casehub-engine-common`. Ne
 
 Modules needing in-memory tests add `casehub-persistence-memory` as a test dependency and activate the implementations via `quarkus.arc.selected-alternatives` in `src/test/resources/application.properties` — no Docker required.
 
+**SPI contract tests:** Abstract contract tests live in `casehub-engine-common/src/test` (e.g. `PlanItemStoreContractTest`, `ReactivePlanItemStoreContractTest`). Modules that provide concrete implementations extend the abstract class. To access these test-only classes, add `casehub-engine-common` with `<type>test-jar</type>` and `<scope>test</scope>` — see `persistence-hibernate/pom.xml` and `persistence-memory/pom.xml` for the pattern.
+
+**`JpaReactivePlanItemStore.updateStatus` flush requirement:** JPQL queries bypass the first-level cache. If `save()` and `updateStatus()` run in the same transaction, the entity from `save()` may not be in the database yet. `updateStatus()` calls `session.flush()` before issuing the JPQL UPDATE to ensure the entity is visible. Same pattern as the blocking `JpaPlanItemStore.updateStatus()`.
+
 **casehub-ledger on test classpath:** If `casehub-ledger` is a transitive dependency (via `engine`), its JPA entities appear in `@QuarkusTest` contexts and require a datasource even in in-memory test suites. Fix: add `quarkus-jdbc-h2` + `casehub-ledger` as test dependencies, then in the module's test `application.properties`:
 ```properties
 quarkus.datasource.db-kind=h2
