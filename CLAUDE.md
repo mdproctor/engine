@@ -175,6 +175,12 @@ TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl casehub-blackboard
 - `@ObservesAsync` CDI event delivery is **unreliable in `@QuarkusTest`** — observer methods
   are silently never invoked. When testing observer logic, inject the listener bean and call the
   observer method directly rather than relying on `Event.fireAsync()`.
+- `@ConsumeEvent` (Vert.x event bus) handlers are async — `eventBus.publish()` is fire-and-forget,
+  so tests that call `publish()` require `Awaitility.await()` or `Thread.sleep()` to bridge the
+  async gap. Prefer injecting the handler bean and calling the `@ConsumeEvent` method directly;
+  `@Transactional` is enforced by the CDI proxy identically to production. Keep one wiring test
+  per handler that uses `eventBus.publish()` + `await()` to confirm `@ConsumeEvent` routing.
+  See `HumanTaskScheduleHandlerTest` (engine#290).
 
 ## Quartz
 
