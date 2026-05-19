@@ -47,6 +47,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -129,6 +130,11 @@ class HumanTaskScheduleHandlerAtomicityTest {
     caseId = UUID.randomUUID();
     planItem = PlanItem.create("irb-binding", "unused-worker", 5);
     registry.getOrCreate(caseId).addPlanItem(planItem);
+  }
+
+  @AfterEach
+  void tearDown() {
+    registry.evict(caseId);
   }
 
   @Test

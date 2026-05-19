@@ -84,6 +84,7 @@ class BlackboardRegistryTest {
 
   @Test
   void markConfigured_returnsFalseOnSubsequentCall() {
+    registry.getOrCreate(caseId);
     registry.markConfigured(caseId);
     assertThat(registry.markConfigured(caseId)).isFalse();
   }

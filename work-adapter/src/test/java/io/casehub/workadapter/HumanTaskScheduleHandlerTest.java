@@ -40,6 +40,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -76,6 +77,11 @@ class HumanTaskScheduleHandlerTest {
     caseId = UUID.randomUUID();
     planItem = PlanItem.create("irb-binding", "unused-worker", 5);
     registry.getOrCreate(caseId).addPlanItem(planItem);
+  }
+
+  @AfterEach
+  void tearDown() {
+    registry.evict(caseId);
   }
 
   // ── Wiring ────────────────────────────────────────────────────────────────
