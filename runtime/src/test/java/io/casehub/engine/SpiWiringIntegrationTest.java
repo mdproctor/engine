@@ -33,12 +33,14 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.ProvisioningException;
+import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.api.spi.WorkerProvisioner;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.spi.cache.CaseInstanceCache;
 import io.casehub.qhorus.api.message.MessageType;
 import io.quarkus.test.junit.QuarkusTest;
+import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -455,6 +457,44 @@ class SpiWiringIntegrationTest {
     @Override
     public Set<String> getCapabilities() {
       return Set.of("external-task");
+    }
+  }
+
+  @Alternative
+  @Priority(1)
+  @ApplicationScoped
+  public static class RecordingReactiveWorkerProvisioner implements ReactiveWorkerProvisioner {
+
+    @Override
+    public Uni<Worker> provision(Set<String> capabilities, ProvisionContext context) {
+      RecordingWorkerProvisioner.lastProvisionContext = context;
+      if (RecordingWorkerProvisioner.shouldThrow.get()) {
+        return Uni.createFrom()
+            .failure(
+                new ProvisioningException(
+                    "RecordingReactiveWorkerProvisioner: intentional failure for test"));
+      }
+      Capability cap =
+          Capability.builder().name("external-task").inputSchema("{}").outputSchema("{}").build();
+      Worker worker =
+          Worker.builder()
+              .name("provisioned-worker-" + UUID.randomUUID())
+              .capabilities(cap)
+              .function(
+                  (java.util.function.Function<Map<String, Object>, Map<String, Object>>)
+                      i -> Map.of())
+              .build();
+      return Uni.createFrom().item(worker);
+    }
+
+    @Override
+    public Uni<Void> terminate(String workerId) {
+      return Uni.createFrom().voidItem();
+    }
+
+    @Override
+    public Uni<Set<String>> getCapabilities() {
+      return Uni.createFrom().item(Set.of("external-task"));
     }
   }
 

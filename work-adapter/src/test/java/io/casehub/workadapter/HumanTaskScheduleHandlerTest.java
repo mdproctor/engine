@@ -189,9 +189,10 @@ class HumanTaskScheduleHandlerTest {
 
   @Test
   void templateMode_byName_createsWorkItem_andMarksPlanItemRunning() {
-    persistTemplate("AML Suspicious Activity Review");
+    WorkItemTemplate tmpl = persistTemplate("AML Suspicious Activity Review");
 
-    HumanTaskTarget target = HumanTaskTarget.template("AML Suspicious Activity Review").build();
+    // NOTE: Current WorkItemTemplateService API only supports findById(UUID), not name lookup
+    HumanTaskTarget target = HumanTaskTarget.template(tmpl.id.toString()).build();
     eventBus.publish(
         EventBusAddresses.HUMAN_TASK_SCHEDULE,
         new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
