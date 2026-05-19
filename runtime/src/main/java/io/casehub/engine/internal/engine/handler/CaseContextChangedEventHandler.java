@@ -257,6 +257,7 @@ public class CaseContextChangedEventHandler {
             null,
             null,
             null,
+            null,
             null);
 
     AssignmentDecision decision =
