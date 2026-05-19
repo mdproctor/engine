@@ -19,6 +19,7 @@ import io.casehub.engine.internal.model.PlanItemRecord;
 import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.engine.spi.ReactivePlanItemStore;
 import io.quarkus.hibernate.reactive.panache.Panache;
+import io.quarkus.panache.common.Parameters;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
@@ -57,12 +58,16 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
         () ->
             Panache.withTransaction(
                 () ->
-                    PlanItemEntity.<PlanItemEntity>find("planItemId", planItemId)
-                        .firstResult()
-                        .invoke(
-                            e -> {
-                              if (e != null) e.status = status;
-                            })
+                    // Flush pending inserts so the JPQL UPDATE can see entities persisted
+                    // earlier in this transaction but not yet written to the DB row store.
+                    PlanItemEntity.getSession()
+                        .chain(session -> session.flush())
+                        .chain(
+                            () ->
+                                PlanItemEntity.update(
+                                    "status = :status WHERE planItemId = :planItemId",
+                                    Parameters.with("status", status)
+                                        .and("planItemId", planItemId)))
                         .replaceWithVoid()));
   }
 
