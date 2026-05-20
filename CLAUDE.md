@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+**Name:** casehub-engine
+
 ## Project Type
 
 **Type:** java
