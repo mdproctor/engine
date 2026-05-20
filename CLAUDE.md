@@ -32,9 +32,28 @@ All implementation work must be linked to a GitHub issue:
 | specs      | project     | lands in `docs/specs/` — promoted at epic close |
 | blog       | workspace   | staged here; published to mdproctor.github.io via publish-blog |
 | plans      | workspace   | stay in workspace permanently |
-| design     | workspace   | epic journal stays in workspace |
+| design journal | workspace | JOURNAL.md (epic artifact) stays in workspace permanently |
+| DESIGN.md  | project     | canonical design doc — `docs/DESIGN.md` in the project repo |
 | snapshots  | workspace   | stay in workspace permanently |
 | handover   | workspace   | |
+
+---
+
+## Document Locations
+
+Key documents and where to find them. Skills must use these paths — never guess.
+
+| Document | Repo | Path |
+|----------|------|------|
+| DESIGN.md | project | `docs/DESIGN.md` |
+| ADR index | project | `docs/adr/INDEX.md` |
+| Protocol index | parent | `docs/protocols/casehub/FOUNDATION-INDEX.md` |
+| Platform architecture | parent (remote) | `https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md` |
+| This repo's deep-dive | parent (remote) | `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-engine.md` |
+| HANDOFF.md | workspace | `HANDOFF.md` (root) |
+| Blog entries | workspace | `blog/` |
+| Plans | workspace | `plans/` |
+| Epic journal | workspace | `design/JOURNAL.md` |
 
 ---
 
