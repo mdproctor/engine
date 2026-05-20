@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.event;
 
 import io.casehub.api.model.HumanTaskTarget;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -26,8 +27,16 @@ import java.util.UUID;
  * <p>{@code inputData} is pre-evaluated by {@code CaseContextChangedEventHandler} before publishing
  * — consumers receive the resolved payload, not the raw expression.
  *
+ * <p>{@code caseBudgetDeadline} is the case-level PropagationContext deadline, or {@code null} if
+ * no budget was set. The handler uses this to bound WorkItem {@code expiresAt} so a WorkItem cannot
+ * outlive its parent case. See casehubio/parent#6.
+ *
  * <p>The binding name is the stable key for plan item lookup in the blackboard registry. See
  * engine#245.
  */
 public record HumanTaskScheduleEvent(
-    UUID caseId, String bindingName, HumanTaskTarget target, Map<String, Object> inputData) {}
+    UUID caseId,
+    String bindingName,
+    HumanTaskTarget target,
+    Map<String, Object> inputData,
+    Instant caseBudgetDeadline) {}
