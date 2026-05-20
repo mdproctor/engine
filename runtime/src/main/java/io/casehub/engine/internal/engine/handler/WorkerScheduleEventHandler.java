@@ -44,6 +44,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -210,16 +211,17 @@ public class WorkerScheduleEventHandler {
       Long eventLogId) {
     CaseChannel channel =
         caseChannelProvider.openChannel(instance.getUuid(), "worker:" + worker.getName());
-    Map<String, Object> command =
-        Map.of(
-            "type",
-            "COMMAND",
-            "capability",
-            capability.getName(),
-            "correlationId",
-            String.valueOf(eventLogId),
-            "input",
-            inputData);
+    Map<String, Object> command = new HashMap<>();
+    command.put("type", "COMMAND");
+    command.put("capability", capability.getName());
+    command.put("correlationId", String.valueOf(eventLogId));
+    command.put("input", inputData);
+    instance
+        .getPropagationContext()
+        .getDeadline()
+        // ISO-8601 via Instant.toString(); consumer must use Instant.parse() to handle
+        // optional sub-second precision (e.g. "...00Z" vs "...00.123Z")
+        .ifPresent(d -> command.put("deadline", d.toString()));
     caseChannelProvider.postToChannel(
         channel,
         "casehub-engine:orchestrator",

@@ -34,8 +34,15 @@ public interface WorkflowExecutor {
   /**
    * Execute a workflow with the given input data.
    *
+   * <p>{@code inputData} is {@code Map<String, Object>} at this layer because it is
+   * post-evaluation data — the result of applying {@code inputMapping} expressions against
+   * {@link io.casehub.api.context.CaseContext}. This is the correct type at the
+   * engine-internal layer. Public entry points ({@link io.casehub.api.engine.CaseHub#startCase}
+   * and {@link io.casehub.api.engine.CaseHubRuntime#startCase}) should accept {@code Object}
+   * to align with {@code Flow.instance(Object)} — tracked in casehubio/engine#302.
+   *
    * @param workflow the workflow definition
-   * @param inputData the input data for the workflow instance
+   * @param inputData post-evaluated case input; always a Map at this layer
    * @return CompletableFuture containing the workflow execution result
    */
   CompletableFuture<WorkflowModel> execute(Workflow workflow, Map<String, Object> inputData);
