@@ -141,7 +141,7 @@ To add a new operational SPI: define the interface in `api/spi/`, add a `@Defaul
 | `WorkerStatusListener.onWorkerCompleted` | `WorkflowExecutionCompletedHandler` | Worker function returns |
 | `WorkerStatusListener.onWorkerStalled` | `WorkerRetriesExhaustedEventHandler` | All retries exhausted |
 | `CaseChannelProvider.openChannel` | `CaseStartedEventHandler` | Case starts |
-| `CaseChannelProvider.openChannel` + `postToChannel(..., MessageType.COMMAND)` | `WorkerScheduleEventHandler.dispatchCommand` | Worker scheduled — opens channel, posts COMMAND |
+| `CaseChannelProvider.openChannel` + `postToChannel(..., MessageType.COMMAND)` | `WorkerScheduleEventHandler.dispatchCommand` | Worker scheduled — opens channel, posts COMMAND. Content fields: `type`, `capability`, `correlationId`, `input`, `deadline` (optional ISO-8601 `Instant` — present when `PropagationContext` has a deadline, absent otherwise) |
 | `CaseChannelProvider.closeChannel` | `CaseStatusChangedHandler` | Case reaches terminal state |
 | `WorkerContextProvider.buildContext` | `WorkerScheduleEventHandler` | Before Quartz job is submitted (timing contract) |
 | `WorkerContextProvider.buildContext` + `WorkerExecutionContext.set` | `QuartzWorkerExecutionJob` | Immediately before worker function — sets thread-local with channels |

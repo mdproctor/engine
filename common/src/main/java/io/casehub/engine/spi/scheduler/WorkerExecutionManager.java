@@ -24,6 +24,16 @@ import java.util.Map;
 
 public interface WorkerExecutionManager {
 
+  /**
+   * Submit a worker for execution.
+   *
+   * <p>{@code inputData} is {@code Map<String, Object>} at this layer because it is
+   * post-evaluation data — the result of applying {@code inputMapping} expressions against
+   * {@link io.casehub.api.context.CaseContext}. This is the correct type at the
+   * engine-internal layer. Public entry points ({@link io.casehub.api.engine.CaseHub#startCase}
+   * and {@link io.casehub.api.engine.CaseHubRuntime#startCase}) should accept {@code Object}
+   * to align with {@code Flow.instance(Object)} — tracked in casehubio/engine#302.
+   */
   Uni<Void> submit(
       Long eventLogId,
       CaseInstance instance,
