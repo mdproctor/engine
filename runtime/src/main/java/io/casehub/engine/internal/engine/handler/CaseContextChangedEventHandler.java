@@ -302,14 +302,19 @@ public class CaseContextChangedEventHandler {
   private Uni<Void> publishHumanTaskSchedule(
       CaseInstance caseInstance, Binding binding, HumanTaskTarget target) {
     Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
+    java.time.Instant caseBudgetDeadline =
+        java.util.Optional.ofNullable(caseInstance.getPropagationContext())
+            .flatMap(PropagationContext::getDeadline)
+            .orElse(null);
 
     LOG.infof(
-        "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s",
-        caseInstance.getUuid(), binding.getName(), target.templateRef());
+        "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s deadline=%s",
+        caseInstance.getUuid(), binding.getName(), target.templateRef(), caseBudgetDeadline);
 
     eventBus.publish(
         EventBusAddresses.HUMAN_TASK_SCHEDULE,
-        new HumanTaskScheduleEvent(caseInstance.getUuid(), binding.getName(), target, inputData));
+        new HumanTaskScheduleEvent(
+            caseInstance.getUuid(), binding.getName(), target, inputData, caseBudgetDeadline));
 
     return Uni.createFrom().voidItem();
   }
