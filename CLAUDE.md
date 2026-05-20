@@ -41,19 +41,19 @@ All implementation work must be linked to a GitHub issue:
 
 ## Document Locations
 
-Key documents and where to find them. Skills must use these paths — never guess.
+Key documents and where to find them. All paths are relative — no absolute paths.
+Convention: `proj/` in workspace reaches the project repo; `wksp/` in the project repo reaches the workspace.
 
-| Document | Repo | Path |
-|----------|------|------|
-| DESIGN.md | project | `docs/DESIGN.md` |
-| ADR index | project | `docs/adr/INDEX.md` |
-| Protocol index | parent | `docs/protocols/casehub/FOUNDATION-INDEX.md` |
-| Platform architecture | parent (remote) | `https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md` |
-| This repo's deep-dive | parent (remote) | `https://raw.githubusercontent.com/casehubio/parent/main/docs/repos/casehub-engine.md` |
-| HANDOFF.md | workspace | `HANDOFF.md` (root) |
-| Blog entries | workspace | `blog/` |
-| Plans | workspace | `plans/` |
-| Epic journal | workspace | `design/JOURNAL.md` |
+| Document | Path from project root | Path from workspace root |
+|----------|----------------------|------------------------|
+| DESIGN.md | `docs/DESIGN.md` | `proj/docs/DESIGN.md` |
+| ADR index | `docs/adr/INDEX.md` | `proj/docs/adr/INDEX.md` |
+| HANDOFF.md | `wksp/HANDOFF.md` | `HANDOFF.md` |
+| Blog entries | `wksp/blog/` | `blog/` |
+| Plans | `wksp/plans/` | `plans/` |
+| Epic journal | `wksp/design/JOURNAL.md` | `design/JOURNAL.md` |
+| Platform architecture | remote: `https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md` | — |
+| Protocol index | remote: `https://raw.githubusercontent.com/casehubio/parent/main/docs/protocols/casehub/FOUNDATION-INDEX.md` | — |
 
 ---
 
