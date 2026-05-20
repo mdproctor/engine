@@ -194,7 +194,13 @@ public final class CaseDefinitionYamlMapper {
       io.casehub.api.model.SubCase subCase = convertSubCase(schemaBinding.getSubCase());
       builder.subCase(subCase);
     } else if (schemaBinding.getHumanTask() != null) {
-      builder.humanTask(convertHumanTask(schemaBinding.getHumanTask()));
+      try {
+        builder.humanTask(convertHumanTask(schemaBinding.getHumanTask()));
+      } catch (IllegalStateException | IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+            "Binding '" + schemaBinding.getName() + "' has invalid humanTask: " + e.getMessage(),
+            e);
+      }
     } else {
       throw new IllegalArgumentException(
           "Binding '" + schemaBinding.getName() + "' must have capability, subCase, or humanTask");
