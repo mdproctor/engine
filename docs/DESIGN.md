@@ -444,7 +444,7 @@ All engine SPI call sites, in lifecycle order:
 | SPI method / action | Called in | When |
 |---|---|---|
 | `CaseChannelProvider.openChannel` | `CaseStartedEventHandler.onCaseStarted` | Case transitions to RUNNING |
-| `CaseChannelProvider.openChannel` + `postToChannel(..., MessageType.COMMAND)` | `WorkerScheduleEventHandler.dispatchCommand` | Worker scheduled — opens worker-specific channel, posts Qhorus COMMAND with explicit `MessageType` |
+| `CaseChannelProvider.openChannel` + `postToChannel(..., MessageType.COMMAND)` | `WorkerScheduleEventHandler.dispatchCommand` | Worker scheduled — opens worker-specific channel, posts Qhorus COMMAND. Content fields: `type`, `capability`, `correlationId`, `input`, `deadline` (optional ISO-8601 Instant — present when `PropagationContext` has a budget, absent otherwise; consumed by claudony to bound Qhorus Commitment `expiresAt`) |
 | `WorkerContextProvider.buildContext` | `WorkerScheduleEventHandler.onWorkerScheduleEventHandler` | Before Quartz job is submitted (timing contract) |
 | `WorkerProvisioner.provision` | `CaseContextChangedEventHandler.tryProvision` | No pre-defined workers match capability AND provisioner advertises it |
 | `WorkerStatusListener.onWorkerStarted` | `WorkerExecutionJobListener.jobToBeExecuted` | Quartz job begins execution |
@@ -452,6 +452,8 @@ All engine SPI call sites, in lifecycle order:
 | `WorkerStatusListener.onWorkerCompleted` | `WorkflowExecutionCompletedHandler` | Worker function returns successfully |
 | `WorkerStatusListener.onWorkerStalled` | `WorkerRetriesExhaustedEventHandler` | All retries exhausted; case transitions to FAULTED |
 | `CaseChannelProvider.closeChannel` | `CaseStatusChangedHandler` | Case reaches terminal state (COMPLETED / FAULTED / CANCELLED) |
+
+**COMMAND content schema:** The `dispatchCommand` content JSON is the only channel through which the engine can pass runtime context to consumers (e.g. claudony) — consumers have no direct access to `CaseInstance` or `PropagationContext`. The schema is currently a raw `Map`; typed formalisation is tracked in engine#301.
 
 `WorkerProvisioner.provision()` is guarded by `getCapabilities()` — the no-op default returns empty set, so it is never called unless a real provisioner is wired in. `ProvisioningException` is caught and logged; the binding stays eligible for the next tick.
 
