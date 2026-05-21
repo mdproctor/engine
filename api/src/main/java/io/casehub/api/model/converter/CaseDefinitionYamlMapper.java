@@ -33,6 +33,7 @@ import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -284,6 +285,11 @@ public final class CaseDefinitionYamlMapper {
   }
 
   private static HumanTaskTarget convertHumanTask(io.casehub.model.HumanTask schema) {
+    if (schema.getTitle() != null && schema.getTemplateRef() != null) {
+      throw new IllegalArgumentException(
+          "humanTask cannot specify both title and templateRef"
+              + " - use inline mode (title) or template mode (templateRef), not both");
+    }
     HumanTaskTarget.Builder builder =
         schema.getTemplateRef() != null
             ? HumanTaskTarget.template(schema.getTemplateRef())
@@ -302,7 +308,21 @@ public final class CaseDefinitionYamlMapper {
       builder.candidateUsers(new LinkedHashSet<>(schema.getCandidateUsers()));
     }
     if (schema.getExpiresIn() != null) {
-      builder.expiresIn(Duration.parse(schema.getExpiresIn()));
+      Duration duration;
+      try {
+        duration = Duration.parse(schema.getExpiresIn());
+      } catch (DateTimeParseException e) {
+        throw new IllegalArgumentException(
+            "invalid expiresIn '"
+                + schema.getExpiresIn()
+                + "' - must be ISO-8601 duration (e.g. PT24H, PT1H30M)",
+            e);
+      }
+      if (duration.isNegative() || duration.isZero()) {
+        throw new IllegalArgumentException(
+            "expiresIn must be positive, got '" + schema.getExpiresIn() + "'");
+      }
+      builder.expiresIn(duration);
     }
     return builder.build();
   }
