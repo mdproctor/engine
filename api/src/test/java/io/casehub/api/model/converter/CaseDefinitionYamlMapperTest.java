@@ -378,4 +378,104 @@ class CaseDefinitionYamlMapperTest {
     assertThat(ht.candidateGroups()).isNull();
     assertThat(ht.candidateUsers()).isNull();
   }
+
+  @Test
+  void humanTaskBinding_withBothTitleAndTemplateRef_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Conflict Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: conflict-binding
+              on: { contextChange: {} }
+              humanTask:
+                title: "Inline title"
+                templateRef: "some-template"
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("conflict-binding")
+        .hasMessageContaining("cannot specify both");
+  }
+
+  @Test
+  void humanTaskBinding_withInvalidExpiresInFormat_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Bad Expires Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: expires-binding
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+                expiresIn: "1h"
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("expires-binding")
+        .hasMessageContaining("1h");
+  }
+
+  @Test
+  void humanTaskBinding_withNonPositiveExpiresIn_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Zero Expires Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: zero-binding
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+                expiresIn: "PT0S"
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("zero-binding")
+        .hasMessageContaining("must be positive");
+  }
+
+  @Test
+  void humanTaskBinding_withNegativeExpiresIn_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Negative Expires Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: negative-binding
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+                expiresIn: "PT-1H"
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("negative-binding")
+        .hasMessageContaining("must be positive");
+  }
 }
