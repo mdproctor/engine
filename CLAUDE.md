@@ -253,11 +253,13 @@ All three steps in each mode are inside `@Transactional` — if WorkItem creatio
 See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until all resolution steps succeed), `PP-20260517-0093f8` (inputMapping output must reach WorkItem payload in all handler modes), and `PP-20260518-78f8b7` (PlanItemStore.save() must be called from a blocking @Transactional context).
 
 **Test setup** (when depending on `casehub-work` full module):
-- Add `casehub-work-testing` test dep — provides `@Alternative @Priority` in-memory WorkItem stores
+- Add `casehub-work-testing` test dep — provides `InMemoryWorkItemStore @Alternative @Priority(1)`
 - Add `quarkus-jdbc-h2` test dep — casehub-work JPA entities require a datasource even in tests
-- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos, including `MemorySubCaseGroupRepository` — omitting it causes boot failure: `Unsatisfied dependency for SubCaseGroupRepository`
+- Add `quarkus.arc.exclude-types=io.casehub.work.runtime.repository.jpa.JpaWorkItemStore` to `application.properties` — `@Alternative @Priority(1)` from an external jar does NOT automatically override a non-alternative `@ApplicationScoped` bean in Quarkus ARC 3.x; excluding the JPA store is required for `InMemoryWorkItemStore` to resolve correctly
+- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos AND `io.casehub.work.testing.InMemoryWorkItemStore` — omitting it causes boot failure: `Unsatisfied dependency for SubCaseGroupRepository`
 - Add `@Alternative @Priority(1)` static inner class stub for `WorkloadProvider` — casehub-work ships `JpaWorkloadProvider` which clashes with `CasehubWorkloadProvider` from the engine
 - Set `quarkus.quartz.store-type=ram` and `quarkus.hibernate-orm.schema-management.strategy=drop-and-create`
+- `QuarkusTestProfile.getEnabledAlternatives()` **replaces** (not appends to) `quarkus.arc.selected-alternatives` — any profile using this method must re-declare all globally required alternatives, including persistence-memory repos and `InMemoryWorkItemStore`
 
 `callerRef` format: `case:{caseId}/pi:{planItemId}` — use `CallerRef.encode()` / `CallerRef.parse()`.
 
