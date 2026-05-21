@@ -142,5 +142,6 @@ New protocol `jq-evaluation-canonical.md` in `casehub/` protocols:
 
 ## Out of Scope (filed separately)
 
-- Replacing `JqTransformer` entirely with `JQEvaluator` injection into `Agent`/`AgentBuilder` — requires structural change to the api model layer; tracked as a follow-on issue
-- `ExpressionEvaluatorFactory` in `CaseDefinitionYamlMapper` — tracked in engine#280
+- **engine#317** — Extract `JQEvaluator` to `casehub-platform` (Foundation tier). `JQEvaluator` currently lives at the wrong tier; `casehub-work` cannot consume it and rolls its own. Engine#314 proceeds with `JQEvaluator` in-place as an interim step; #317 is the platform extraction.
+- **engine#316** — Replace `JqTransformer` with `JQEvaluator` injection in `Agent`/`AgentBuilder`; requires structural change to the api model layer.
+- **engine#280** — `ExpressionEvaluatorFactory` in `CaseDefinitionYamlMapper`.
