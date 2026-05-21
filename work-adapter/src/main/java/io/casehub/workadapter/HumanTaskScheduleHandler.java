@@ -86,9 +86,11 @@ public class HumanTaskScheduleHandler {
       return;
     }
 
-    if (item.getStatus() != PlanItemStatus.PENDING) {
+    // Accept PENDING or RUNNING — PlanningStrategyLoopControl marks the PlanItem RUNNING
+    // before publishing this event (engine#312). Only skip on terminal states.
+    if (item.getStatus() != PlanItemStatus.PENDING && item.getStatus() != PlanItemStatus.RUNNING) {
       LOG.warnf(
-          "PlanItem for binding '%s' case %s is not PENDING (status=%s) — skipping",
+          "PlanItem for binding '%s' case %s is terminal (status=%s) — skipping",
           event.bindingName(), event.caseId(), item.getStatus());
       return;
     }
@@ -140,7 +142,9 @@ public class HumanTaskScheduleHandler {
         item.getBindingName(),
         PlanItemStatus.RUNNING,
         item.getCreatedAt());
-    item.markRunning();
+    if (item.getStatus() == PlanItemStatus.PENDING) {
+      item.markRunning();
+    }
     LOG.infof("WorkItem created (template=%s) for binding callerRef=%s", template.id, callerRef);
   }
 
@@ -153,25 +157,31 @@ public class HumanTaskScheduleHandler {
         item.getBindingName(),
         PlanItemStatus.RUNNING,
         item.getCreatedAt());
-    item.markRunning();
+    if (item.getStatus() == PlanItemStatus.PENDING) {
+      item.markRunning();
+    }
   }
 
   private void createInline(
-      HumanTaskTarget target, Map<String, Object> inputData, String callerRef,
+      HumanTaskTarget target,
+      Map<String, Object> inputData,
+      String callerRef,
       Instant caseBudgetDeadline) {
     String payload = serializePayload(inputData);
-    Instant taskDeadline = target.expiresIn() != null ? Instant.now().plus(target.expiresIn()) : null;
+    Instant taskDeadline =
+        target.expiresIn() != null ? Instant.now().plus(target.expiresIn()) : null;
     Instant effectiveDeadline = earliestOf(taskDeadline, caseBudgetDeadline);
 
-    WorkItemCreateRequest request = WorkItemCreateRequest.builder()
-        .title(target.title())
-        .candidateGroups(candidateGroupsCsv(target))
-        .candidateUsers(candidateUsersCsv(target))
-        .createdBy("casehub-engine")
-        .payload(payload)
-        .expiresAt(effectiveDeadline)
-        .callerRef(callerRef)
-        .build();
+    WorkItemCreateRequest request =
+        WorkItemCreateRequest.builder()
+            .title(target.title())
+            .candidateGroups(candidateGroupsCsv(target))
+            .candidateUsers(candidateUsersCsv(target))
+            .createdBy("casehub-engine")
+            .payload(payload)
+            .expiresAt(effectiveDeadline)
+            .callerRef(callerRef)
+            .build();
 
     workItemService.create(request);
     LOG.infof(

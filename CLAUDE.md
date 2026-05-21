@@ -22,7 +22,7 @@ All implementation work must be linked to a GitHub issue:
 - Phase 2 (Task Intake): Detect cross-cutting concerns and suggest breaking into separate issues
 - Phase 3 (Pre-Commit): Verify issue linkage; suggest commit splits when staged changes span multiple concerns
 
-**Repository:** treblereel/casehub-engine
+**Repository:** casehubio/engine
 
 ---
 
