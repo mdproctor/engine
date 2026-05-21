@@ -25,7 +25,11 @@ import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.internal.model.PlanItemRecord;
 import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.engine.spi.PlanItemStore;
+import io.casehub.persistence.memory.InMemoryCaseInstanceRepository;
+import io.casehub.persistence.memory.InMemoryCaseMetaModelRepository;
+import io.casehub.persistence.memory.InMemoryEventLogRepository;
 import io.casehub.persistence.memory.MemoryPlanItemStore;
+import io.casehub.persistence.memory.MemorySubCaseGroupRepository;
 import io.casehub.work.runtime.repository.WorkItemQuery;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.quarkus.test.junit.QuarkusTest;
@@ -65,7 +69,17 @@ class HumanTaskScheduleHandlerAtomicityTest {
   public static class Profile implements QuarkusTestProfile {
     @Override
     public Set<Class<?>> getEnabledAlternatives() {
-      return Set.of(FailingWorkItemStore.class);
+      // getEnabledAlternatives() replaces quarkus.arc.selected-alternatives — must include all
+      // alternatives required for deployment, not just the ones specific to this test.
+      return Set.of(
+          FailingWorkItemStore.class,
+          InMemoryCaseInstanceRepository.class,
+          InMemoryCaseMetaModelRepository.class,
+          InMemoryEventLogRepository.class,
+          MemorySubCaseGroupRepository.class,
+          MemoryPlanItemStore.class,
+          NoOpLedgerEntryRepository.class,
+          NoOpReactiveLedgerEntryRepository.class);
     }
   }
 

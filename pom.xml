@@ -235,6 +235,17 @@
                 <scope>test</scope>
                 <version>${version.com.squareup.okhttp3.mockwebserver}</version>
             </dependency>
+            <!--
+              casehub-work was compiled against json-schema-validator 1.5.x (which has
+              SpecVersion.VersionFlag). The Quarkus BOM forces 2.0.0, which renamed the class,
+              causing NoClassDefFoundError at runtime. Pin to the version casehub-work requires
+              until casehub-work is upgraded to the 2.0.0 API.
+            -->
+            <dependency>
+                <groupId>com.networknt</groupId>
+                <artifactId>json-schema-validator</artifactId>
+                <version>1.5.4</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
