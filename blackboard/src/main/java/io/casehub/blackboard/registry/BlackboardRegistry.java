@@ -19,13 +19,16 @@ import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Shared registry of per-case {@link CasePlanModel} instances and the worker-name-to-PlanItemId
  * completion index.
+ *
+ * <p>All per-case state is co-located in a single {@link CaseEntry}, making eviction atomic — one
+ * map removal instead of three. See casehubio/engine#292.
  *
  * <p>Injected by both {@link io.casehub.blackboard.control.PlanningStrategyLoopControl} (which
  * writes entries on Binding selection) and {@link
@@ -38,15 +41,21 @@ import java.util.concurrent.ConcurrentHashMap;
 @ApplicationScoped
 public class BlackboardRegistry {
 
-  // caseId → CasePlanModel
-  private final ConcurrentHashMap<UUID, CasePlanModel> planModels = new ConcurrentHashMap<>();
+  private static final class CaseEntry {
+    final CasePlanModel planModel;
+    final ConcurrentHashMap<String, String> completionIndex = new ConcurrentHashMap<>();
+    final AtomicBoolean configured = new AtomicBoolean(false);
 
-  // caseId → (workerName → planItemId)
-  private final ConcurrentHashMap<UUID, ConcurrentHashMap<String, String>> completionIndex =
-      new ConcurrentHashMap<>();
+    CaseEntry(UUID caseId) {
+      this.planModel = new DefaultCasePlanModel(caseId);
+    }
+  }
 
-  // caseIds that have already been configured by BlackboardPlanConfigurer(s)
-  private final Set<UUID> configured = ConcurrentHashMap.newKeySet();
+  private final ConcurrentHashMap<UUID, CaseEntry> entries = new ConcurrentHashMap<>();
+
+  private CaseEntry entryFor(UUID caseId) {
+    return entries.computeIfAbsent(caseId, CaseEntry::new);
+  }
 
   /**
    * Returns the {@link CasePlanModel} for the given case, creating it if absent. Only {@link
@@ -54,22 +63,24 @@ public class BlackboardRegistry {
    * components should use {@link #get(UUID)}.
    */
   public CasePlanModel getOrCreate(UUID caseId) {
-    return planModels.computeIfAbsent(caseId, DefaultCasePlanModel::new);
+    return entryFor(caseId).planModel;
   }
 
   public Optional<CasePlanModel> get(UUID caseId) {
-    return Optional.ofNullable(planModels.get(caseId));
+    CaseEntry e = entries.get(caseId);
+    return e == null ? Optional.empty() : Optional.of(e.planModel);
   }
 
   public void indexWorkerForCompletion(UUID caseId, String workerName, String planItemId) {
-    completionIndex
-        .computeIfAbsent(caseId, k -> new ConcurrentHashMap<>())
-        .put(workerName, planItemId);
+    CaseEntry e = entries.get(caseId);
+    if (e != null) {
+      e.completionIndex.put(workerName, planItemId);
+    }
   }
 
   public Optional<String> getPlanItemId(UUID caseId, String workerName) {
-    ConcurrentHashMap<String, String> index = completionIndex.get(caseId);
-    return index == null ? Optional.empty() : Optional.ofNullable(index.get(workerName));
+    CaseEntry e = entries.get(caseId);
+    return e == null ? Optional.empty() : Optional.ofNullable(e.completionIndex.get(workerName));
   }
 
   /**
@@ -79,18 +90,17 @@ public class BlackboardRegistry {
    * guarantees configurers are invoked exactly once per case instance.
    */
   public boolean markConfigured(UUID caseId) {
-    return configured.add(caseId);
+    CaseEntry e = entries.get(caseId);
+    return e != null && e.configured.compareAndSet(false, true);
   }
 
   /**
-   * Evicts the plan model, completion index, and configured marker for a completed or terminated
-   * case. Call when a case reaches a terminal state to prevent unbounded memory growth. See
-   * casehubio/engine#84 for the persistence SPI that will eventually replace this in-memory
-   * registry.
+   * Atomically evicts the plan model, completion index, and configured marker for a completed or
+   * terminated case. Single map removal — no race window between partial removes. Call when a case
+   * reaches a terminal state to prevent unbounded memory growth. See casehubio/engine#84 for the
+   * persistence SPI that will eventually replace this in-memory registry.
    */
   public void evict(UUID caseId) {
-    planModels.remove(caseId);
-    completionIndex.remove(caseId);
-    configured.remove(caseId);
+    entries.remove(caseId);
   }
 }
