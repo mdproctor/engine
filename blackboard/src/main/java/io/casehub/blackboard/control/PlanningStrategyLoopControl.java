@@ -18,6 +18,7 @@ package io.casehub.blackboard.control;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
+import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.SubCaseTarget;
@@ -165,10 +166,24 @@ public class PlanningStrategyLoopControl implements LoopControl {
 
   /**
    * For each selected Binding, marks its PlanItem RUNNING and registers the worker-name →
-   * planItemId mapping for completion tracking.
+   * planItemId mapping for completion tracking — but only for CapabilityTarget bindings.
+   *
+   * <p>HumanTaskTarget, SubCaseTarget, and ExtensionTarget bindings are skipped here because the
+   * handler that processes the dispatched event owns the RUNNING transition for those target types:
+   * the transition must not happen until the handler has successfully completed its work (WorkItem
+   * creation, subcase start, etc.). Protocol PP-20260517-cbf836 — PlanItem must not be marked
+   * RUNNING until all resolution steps succeed. Refs engine#312.
    */
   private void indexSelectedForCompletion(UUID caseId, List<Binding> selected, CasePlanModel plan) {
     for (Binding binding : selected) {
+      switch (binding.target()) {
+        case CapabilityTarget ignored -> {
+          /* only capability bindings — proceed below */
+        }
+        default -> {
+          continue;
+        } // handler owns the RUNNING transition for all other target types
+      }
       plan.getAgenda().stream()
           .filter(
               pi ->

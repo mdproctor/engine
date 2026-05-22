@@ -86,11 +86,9 @@ public class HumanTaskScheduleHandler {
       return;
     }
 
-    // Accept PENDING or RUNNING — PlanningStrategyLoopControl marks the PlanItem RUNNING
-    // before publishing this event (engine#312). Only skip on terminal states.
-    if (item.getStatus() != PlanItemStatus.PENDING && item.getStatus() != PlanItemStatus.RUNNING) {
+    if (item.getStatus() != PlanItemStatus.PENDING) {
       LOG.warnf(
-          "PlanItem for binding '%s' case %s is terminal (status=%s) — skipping",
+          "PlanItem for binding '%s' case %s is not PENDING (status=%s) — skipping",
           event.bindingName(), event.caseId(), item.getStatus());
       return;
     }
@@ -142,9 +140,7 @@ public class HumanTaskScheduleHandler {
         item.getBindingName(),
         PlanItemStatus.RUNNING,
         item.getCreatedAt());
-    if (item.getStatus() == PlanItemStatus.PENDING) {
-      item.markRunning();
-    }
+    item.markRunning();
     LOG.infof("WorkItem created (template=%s) for binding callerRef=%s", template.id, callerRef);
   }
 
@@ -157,9 +153,7 @@ public class HumanTaskScheduleHandler {
         item.getBindingName(),
         PlanItemStatus.RUNNING,
         item.getCreatedAt());
-    if (item.getStatus() == PlanItemStatus.PENDING) {
-      item.markRunning();
-    }
+    item.markRunning();
   }
 
   private void createInline(
