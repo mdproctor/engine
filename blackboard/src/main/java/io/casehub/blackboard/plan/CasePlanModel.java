@@ -45,15 +45,14 @@ public interface CasePlanModel {
   Optional<PlanItem> getPlanItem(String planItemId);
 
   /**
-   * Returns the most recently created PENDING or RUNNING PlanItem for the given binding name, or
-   * empty if none exists. Used by HumanTaskScheduleHandler to locate the plan item created by the
-   * planning loop before marking it RUNNING.
+   * Returns the active PlanItem (PENDING, RUNNING, or DELEGATED) for the given binding name, or
+   * empty if none exists. Used by handlers to locate the PlanItem before a state transition.
    */
   Optional<PlanItem> getPlanItemByBindingName(String bindingName);
 
   /**
-   * Returns true if there is already a PENDING or RUNNING PlanItem for the given binding name. Used
-   * to prevent duplicate scheduling.
+   * Returns true if there is already an active PlanItem (PENDING, RUNNING, or DELEGATED) for the
+   * given binding name. Used to prevent duplicate scheduling.
    */
   boolean hasActivePlanItem(String bindingName);
 

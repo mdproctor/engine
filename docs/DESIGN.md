@@ -148,12 +148,14 @@ A `Binding` with a `subCase` field (mutually exclusive with `capability`) spawns
 
 **Engine wiring:**
 - `CaseContextChangedEventHandler` detects `binding.target() instanceof SubCaseTarget` and publishes `SubCaseScheduleEvent` (skips worker selection entirely)
-- `SubCaseExecutionHandler` (casehub-blackboard) consumes the event on a blocking worker thread, spawns child via `CaseHubRuntime`, writes `SUBCASE_STARTED` EventLog
-- `SubCaseCompletionListener` (casehub-blackboard) observes `CaseLifecycleEvent` terminal events, routes child completion back to parent via `CaseResumptionService`
+- `SubCaseExecutionHandler` (casehub-blackboard) consumes the event on a blocking worker thread, spawns child via `CaseHubRuntime`, transitions the PlanItem to `DELEGATED` (engine is idle; waiting for child signal), indexes `childCaseId → planItemId` for completion routing, writes `SUBCASE_STARTED` EventLog. Error paths (circular dependency, missing definition, spawn failure) fault the PlanItem; stuck PlanItems prevent re-scheduling.
+- `SubCaseCompletionService` (casehub-blackboard) resumes the parent case then publishes `SubCaseExecutionCompleted`; `PlanItemCompletionHandler` consumes this and marks the PlanItem `COMPLETED`, triggering stage autocomplete on the same path as worker completion.
+
+**`PlanItemStatus` for non-capability bindings:** `DELEGATED` (not `RUNNING`) is the correct active state for SubCase, HumanTask, and Extension PlanItems. `RUNNING` is reserved for CapabilityTarget bindings where a Quartz thread is actively executing.
 
 **EventLog entries:** `SUBCASE_STARTED` (on spawn, metadata: childCaseId, waitForCompletion), `SUBCASE_COMPLETED` (on child terminal, metadata: childCaseId, childFinalStatus)
 
-**Circular detection:** child definition matching parent definition is rejected with an error log — parent stays RUNNING.
+**Circular detection:** child definition matching parent definition is rejected with an error log — PlanItem is faulted.
 
 ### HumanTaskBinding (casehub-engine-work-adapter)
 
@@ -164,13 +166,13 @@ A `Binding` with a `HumanTaskTarget` routes to a human WorkItem in casehub-work 
 
 **Engine wiring:**
 - `CaseContextChangedEventHandler` detects `binding.target() instanceof HumanTaskTarget`, evaluates `inputMapping` against `CaseContext`, and publishes `HumanTaskScheduleEvent` on `casehub.humantask.schedule`
-- `HumanTaskScheduleHandler` (work-adapter, `@ConsumeEvent(blocking=true)`) looks up the `PlanItem` by binding name via `CasePlanModel.getPlanItemByBindingName()`, marks it `RUNNING`, creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}`
+- `HumanTaskScheduleHandler` (work-adapter, `@ConsumeEvent(blocking=true)`) looks up the `PlanItem` by binding name via `CasePlanModel.getPlanItemByBindingName()`, marks it `DELEGATED` (control passed to human actor — not `RUNNING`, which is reserved for Quartz-executed CapabilityTarget workers), creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}`
 - `WorkItemLifecycleAdapter` extended: on WorkItem completion, evaluates `outputMapping` against the resolution JSON (not the CaseContext) and calls `CaseContext.setAll()` before firing `CONTEXT_CHANGED`
 
 **Data flow:**
 ```
 CaseContext condition → HumanTaskScheduleEvent (inputData pre-evaluated)
-  → HumanTaskScheduleHandler: PlanItem.markRunning(), WorkItem.create(callerRef)
+  → HumanTaskScheduleHandler: PlanItem.markDelegated(), WorkItem.create(callerRef)
   → Human acts → WorkItem COMPLETED
   → WorkItemLifecycleEvent(callerRef)
   → WorkItemLifecycleAdapter: PlanItem.markCompleted(), outputMapping → CaseContext

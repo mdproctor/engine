@@ -114,6 +114,31 @@ class CaseChannelProviderContractTest {
     assertThatNoException().isThrownBy(() -> provider.closeChannel(unknown));
   }
 
+  /**
+   * CONTRACT: openChannel must be idempotent (get-or-create semantics). Calling it more than once
+   * for the same caseId + purpose must not throw and must return a usable channel. This is required
+   * because WorkerScheduleEventHandler calls openChannel on every worker dispatch, and the case
+   * channel was already opened by CaseStartedEventHandler. Real implementations (e.g. Qhorus) must
+   * enforce this contract. See casehubio/engine#323.
+   */
+  @Test
+  void openChannel_repeated_calls_same_caseId_and_purpose_are_idempotent() {
+    CaseChannelProvider provider = new NoOpStub();
+    UUID caseId = UUID.randomUUID();
+
+    CaseChannel first = provider.openChannel(caseId, "worker:my-worker");
+    CaseChannel second = provider.openChannel(caseId, "worker:my-worker");
+
+    assertThat(first).isNotNull();
+    assertThat(second).isNotNull();
+    // Both channels must be usable for posting without exception
+    assertThatNoException()
+        .isThrownBy(
+            () ->
+                provider.postToChannel(
+                    second, "casehub-engine:orchestrator", "cmd", MessageType.COMMAND));
+  }
+
   static class NoOpStub implements CaseChannelProvider {
     @Override
     public CaseChannel openChannel(UUID caseId, String purpose) {

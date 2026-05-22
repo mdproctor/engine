@@ -31,6 +31,7 @@ import java.util.UUID;
  *
  * @param caseId the case the PlanItem belongs to
  * @param planItemId the exact PlanItem id that just completed
- * @param workerName the worker whose execution produced the completion
+ * @param trackingKey the external identifier that triggered completion (workerName for
+ *     CapabilityTarget; childCaseId string for SubCaseTarget)
  */
-public record PlanItemCompletedEvent(UUID caseId, String planItemId, String workerName) {}
+public record PlanItemCompletedEvent(UUID caseId, String planItemId, String trackingKey) {}

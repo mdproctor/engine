@@ -18,6 +18,7 @@ package io.casehub.blackboard.handler;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.PlanItemCompletedEvent;
 import io.casehub.blackboard.event.StageCompletedEvent;
+import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
@@ -31,6 +32,8 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
@@ -55,6 +58,9 @@ public class PlanItemCompletionHandler {
 
   private static final Logger LOG = Logger.getLogger(PlanItemCompletionHandler.class);
 
+  private static final Set<PlanItemStatus> COMPLETABLE =
+      EnumSet.of(PlanItemStatus.RUNNING, PlanItemStatus.DELEGATED);
+
   private final BlackboardRegistry registry;
   private final EventBus eventBus;
   private final Event<PlanItemCompletedEvent> planItemCompletedEvents;
@@ -71,33 +77,42 @@ public class PlanItemCompletionHandler {
 
   @ConsumeEvent(EventBusAddresses.WORKER_EXECUTION_FINISHED)
   public Uni<Void> onWorkerFinished(WorkflowExecutionCompleted event) {
-    UUID caseId = event.caseInstance().getUuid();
-    String workerName = event.worker().getName();
+    return completePlanItemByKey(event.caseInstance().getUuid(), event.worker().getName());
+  }
 
+  @ConsumeEvent(BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED)
+  public Uni<Void> onSubCaseFinished(SubCaseExecutionCompleted event) {
+    return completePlanItemByKey(event.parentCaseId(), event.childCaseId().toString());
+  }
+
+  private Uni<Void> completePlanItemByKey(UUID caseId, String trackingKey) {
     CasePlanModel plan = registry.get(caseId).orElse(null);
     if (plan == null) return Uni.createFrom().voidItem();
 
-    String planItemId = registry.getPlanItemId(caseId, workerName).orElse(null);
+    String planItemId = registry.getPlanItemId(caseId, trackingKey).orElse(null);
     if (planItemId == null) {
       LOG.debugf(
-          "No PlanItem indexed for worker '%s' in case %s — pure choreography or already evicted",
-          workerName, caseId);
+          "No PlanItem indexed for key '%s' in case %s — pure choreography or already evicted",
+          trackingKey, caseId);
       return Uni.createFrom().voidItem();
     }
 
     plan.getPlanItem(planItemId)
         .ifPresent(
             item -> {
+              if (!COMPLETABLE.contains(item.getStatus())) {
+                LOG.debugf(
+                    "PlanItem %s for key '%s' in case %s has status %s — not completable, skipping",
+                    planItemId, trackingKey, caseId, item.getStatus());
+                return;
+              }
               item.markCompleted();
-              // activeByBinding self-cleans lazily in hasActivePlanItem() when it encounters a
-              // terminal item — so hasActivePlanItem("binding-x") returns false immediately after
-              // markCompleted(). itemsById retains completed items for post-completion
-              // observability (e.g. integration-test assertions on PlanItem status).
+              // activeByBinding self-cleans lazily in hasActivePlanItem() — completed items remain
+              // in itemsById for post-completion observability.
               evaluateStageAutocomplete(caseId, plan, planItemId);
-              // Fire after markCompleted() — observers see the exact planItemId that completed,
-              // not the current completionIndex which may have been overwritten by a re-trigger.
+              // Fire after markCompleted() so observers see the exact planItemId that completed.
               planItemCompletedEvents.fireAsync(
-                  new PlanItemCompletedEvent(caseId, planItemId, workerName));
+                  new PlanItemCompletedEvent(caseId, planItemId, trackingKey));
             });
 
     return Uni.createFrom().voidItem();

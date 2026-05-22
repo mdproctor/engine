@@ -30,7 +30,13 @@ import java.util.UUID;
 public interface CaseChannelProvider {
 
   /**
-   * Open a new channel for the given case.
+   * Open or retrieve a channel for the given case and purpose.
+   *
+   * <p><strong>Idempotency contract:</strong> calling this method more than once with the same
+   * {@code caseId} and {@code purpose} must not throw and must return a usable channel. The engine
+   * calls {@code openChannel} on every worker dispatch event ({@code WorkerScheduleEventHandler})
+   * and also at case start ({@code CaseStartedEventHandler}). Implementations must treat this as
+   * get-or-create, not unconditional create. See casehubio/engine#323.
    *
    * @param caseId the case instance ID
    * @param purpose human-readable description of the channel's purpose

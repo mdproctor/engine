@@ -214,7 +214,7 @@ public class CaseContextChangedEventHandler {
     return switch (binding.target()) {
       case CapabilityTarget ct ->
           publishWorkerSchedule(caseInstance, workers, binding, ct.capability());
-      case SubCaseTarget st -> publishSubCaseSchedule(caseInstance, st.subCase());
+      case SubCaseTarget st -> publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
       case HumanTaskTarget ht -> publishHumanTaskSchedule(caseInstance, binding, ht);
       case ExtensionTarget et -> {
         LOG.warnf(
@@ -393,13 +393,14 @@ public class CaseContextChangedEventHandler {
   }
 
   private Uni<Void> publishSubCaseSchedule(
-      CaseInstance caseInstance, io.casehub.api.model.SubCase subCase) {
+      CaseInstance caseInstance, io.casehub.api.model.SubCase subCase, String bindingName) {
     Map<String, Object> childContext =
         evalJqAsMap(caseInstance.getCaseContext().asJsonNode(), subCase.inputMapping());
 
     LOG.infof(
-        "Publishing SubCaseScheduleEvent: parentCaseId=%s subCase=%s/%s/%s waitForCompletion=%s",
+        "Publishing SubCaseScheduleEvent: parentCaseId=%s binding=%s subCase=%s/%s/%s waitForCompletion=%s",
         caseInstance.getUuid(),
+        bindingName,
         subCase.namespace(),
         subCase.name(),
         subCase.version(),
@@ -407,7 +408,7 @@ public class CaseContextChangedEventHandler {
 
     eventBus.publish(
         EventBusAddresses.SUBCASE_SCHEDULE,
-        new SubCaseScheduleEvent(caseInstance, subCase, childContext));
+        new SubCaseScheduleEvent(caseInstance, subCase, childContext, bindingName));
 
     return Uni.createFrom().voidItem();
   }

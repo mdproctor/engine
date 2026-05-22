@@ -23,17 +23,22 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.blackboard.event.BlackboardEventBusAddresses;
+import io.casehub.blackboard.event.SubCaseExecutionCompleted;
+import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.internal.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.history.EventLog;
 import io.casehub.engine.internal.jq.JQEvaluator;
 import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.model.GroupStatus;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.engine.internal.model.SubCaseGroup;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.engine.spi.EventLogRepository;
 import io.casehub.engine.spi.SubCaseGroupRepository;
 import io.casehub.engine.spi.cache.CaseInstanceCache;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
@@ -50,9 +55,11 @@ import org.jboss.logging.Logger;
  * <p>Grouped path: delegates to {@link SubCaseGroupRepository} and {@link SubCaseGroupPolicy} to
  * track threshold progress. Resumes parent only when the group reaches COMPLETED threshold.
  *
- * <p>Ungrouped path: single-child completion — resumes parent immediately.
+ * <p>After resuming the parent, publishes {@link SubCaseExecutionCompleted} on the event bus so
+ * {@link io.casehub.blackboard.handler.PlanItemCompletionHandler} can mark the SubCase PlanItem
+ * COMPLETED and evaluate stage autocomplete.
  *
- * <p>See casehubio/engine#112, engine#252.
+ * <p>See casehubio/engine#112, engine#252, engine#322.
  */
 @ApplicationScoped
 public class SubCaseCompletionService {
@@ -61,12 +68,34 @@ public class SubCaseCompletionService {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
-  @Inject EventLogRepository eventLogRepository;
-  @Inject JQEvaluator jqEvaluator;
-  @Inject CaseInstanceCache caseInstanceCache;
-  @Inject CaseResumptionService caseResumptionService;
-  @Inject SubCaseGroupRepository subCaseGroupRepository;
-  @Inject CaseHubRuntime caseHubRuntime;
+  private final EventLogRepository eventLogRepository;
+  private final JQEvaluator jqEvaluator;
+  private final CaseInstanceCache caseInstanceCache;
+  private final CaseResumptionService caseResumptionService;
+  private final SubCaseGroupRepository subCaseGroupRepository;
+  private final CaseHubRuntime caseHubRuntime;
+  private final EventBus eventBus;
+  private final BlackboardRegistry registry;
+
+  @Inject
+  public SubCaseCompletionService(
+      EventLogRepository eventLogRepository,
+      JQEvaluator jqEvaluator,
+      CaseInstanceCache caseInstanceCache,
+      CaseResumptionService caseResumptionService,
+      SubCaseGroupRepository subCaseGroupRepository,
+      CaseHubRuntime caseHubRuntime,
+      EventBus eventBus,
+      BlackboardRegistry registry) {
+    this.eventLogRepository = eventLogRepository;
+    this.jqEvaluator = jqEvaluator;
+    this.caseInstanceCache = caseInstanceCache;
+    this.caseResumptionService = caseResumptionService;
+    this.subCaseGroupRepository = subCaseGroupRepository;
+    this.caseHubRuntime = caseHubRuntime;
+    this.eventBus = eventBus;
+    this.registry = registry;
+  }
 
   public void handleCompletion(CaseLifecycleEvent event) {
     if (!isTerminal(event.commandType())) return;
@@ -133,7 +162,6 @@ public class SubCaseCompletionService {
               .atMost(Duration.ofSeconds(10));
 
       if (!won) {
-        // Another thread already handled this transition — skip
         return;
       }
 
@@ -163,8 +191,17 @@ public class SubCaseCompletionService {
                 CaseHubEventType.SUBCASE_COMPLETED)
             .await()
             .atMost(Duration.ofSeconds(10));
+
+        // Notify PlanItemCompletionHandler so it can mark the SubCase PlanItem COMPLETED
+        // and evaluate stage autocomplete. childCaseId is the completion tracking key.
+        eventBus.publish(
+            BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED,
+            new SubCaseExecutionCompleted(parentCaseId, childCaseId));
+
       } else {
-        // REJECTED — threshold is unreachable; cancel the parent to prevent indefinite WAITING
+        // REJECTED — threshold is unreachable; cancel parent to prevent indefinite WAITING.
+        // Cancel the PlanItem first so it is in a terminal state before the registry is evicted.
+        cancelPlanItemOnRejected(parentCaseId, childCaseId);
         writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null);
         LOG.warnf(
             "SubCaseGroup REJECTED: parentCaseId=%s groupId=%s — threshold unreachable. Cancelling parent case.",
@@ -219,6 +256,34 @@ public class SubCaseCompletionService {
             CaseHubEventType.SUBCASE_COMPLETED)
         .await()
         .atMost(Duration.ofSeconds(10));
+
+    // Notify PlanItemCompletionHandler so it can mark the SubCase PlanItem COMPLETED and evaluate
+    // stage autocomplete. For fire-and-forget subcases (waitForCompletion=false), the PlanItem was
+    // already marked COMPLETED synchronously by SubCaseExecutionHandler when the child was spawned.
+    // In that case PlanItemCompletionHandler will find the status not in COMPLETABLE and log a
+    // debug
+    // line — harmless, no transition occurs.
+    eventBus.publish(
+        BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED,
+        new SubCaseExecutionCompleted(parentCaseId, childCaseId));
+  }
+
+  /**
+   * Cancels the SubCase PlanItem in the BlackboardRegistry when a grouped SubCase group is REJECTED
+   * (threshold unreachable). Called before the parent case is cancelled and the registry is
+   * evicted, so the terminal state is observable for the eviction window.
+   */
+  void cancelPlanItemOnRejected(UUID parentCaseId, UUID childCaseId) {
+    registry
+        .getPlanItemId(parentCaseId, childCaseId.toString())
+        .flatMap(
+            planItemId -> registry.get(parentCaseId).flatMap(plan -> plan.getPlanItem(planItemId)))
+        .filter(
+            pi ->
+                pi.getStatus() != PlanItemStatus.COMPLETED
+                    && pi.getStatus() != PlanItemStatus.FAULTED
+                    && pi.getStatus() != PlanItemStatus.CANCELLED)
+        .ifPresent(pi -> pi.markCancelled());
   }
 
   private Map<String, Object> applyOutputMapping(
@@ -287,7 +352,6 @@ public class SubCaseCompletionService {
     if (groupId != null) meta.put("groupId", groupId);
     if (groupStatus != null) meta.put("groupStatus", groupStatus.name());
     log.setMetadata(meta);
-    // Save applied outputMapping data in payload for recovery after restart
     if (appliedData != null && !appliedData.isEmpty()) {
       log.setPayload(OBJECT_MAPPER.valueToTree(appliedData));
     }

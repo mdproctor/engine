@@ -88,7 +88,7 @@ public class PlanItem implements Comparable<PlanItem> {
     return status;
   }
 
-  /** Transitions PENDING → RUNNING. Throws if not currently PENDING. */
+  /** Transitions PENDING → RUNNING. For CapabilityTarget only — a Quartz job is executing. */
   public void markRunning() {
     if (status != PlanItemStatus.PENDING) {
       throw new IllegalStateException(
@@ -97,16 +97,28 @@ public class PlanItem implements Comparable<PlanItem> {
     status = PlanItemStatus.RUNNING;
   }
 
-  /** Transitions RUNNING → COMPLETED. Throws if not currently RUNNING. */
+  /**
+   * Transitions PENDING → DELEGATED. For SubCaseTarget, HumanTaskTarget, ExtensionTarget — control
+   * has passed to an external actor and the engine is waiting for a completion signal.
+   */
+  public void markDelegated() {
+    if (status != PlanItemStatus.PENDING) {
+      throw new IllegalStateException(
+          "Cannot transition to DELEGATED from " + status + " (planItemId=" + planItemId + ")");
+    }
+    status = PlanItemStatus.DELEGATED;
+  }
+
+  /** Transitions RUNNING or DELEGATED → COMPLETED. */
   public void markCompleted() {
-    if (status != PlanItemStatus.RUNNING) {
+    if (status != PlanItemStatus.RUNNING && status != PlanItemStatus.DELEGATED) {
       throw new IllegalStateException(
           "Cannot transition to COMPLETED from " + status + " (planItemId=" + planItemId + ")");
     }
     status = PlanItemStatus.COMPLETED;
   }
 
-  /** Transitions to FAULTED from PENDING or RUNNING. Throws if already terminal. */
+  /** Transitions to FAULTED from PENDING, RUNNING, or DELEGATED. Throws if already terminal. */
   public void markFaulted() {
     if (status == PlanItemStatus.COMPLETED
         || status == PlanItemStatus.FAULTED
@@ -121,7 +133,7 @@ public class PlanItem implements Comparable<PlanItem> {
     status = PlanItemStatus.FAULTED;
   }
 
-  /** Cancels from PENDING or RUNNING. Throws if already terminal. */
+  /** Cancels from PENDING, RUNNING, or DELEGATED. Throws if already terminal. */
   public void markCancelled() {
     if (status == PlanItemStatus.COMPLETED
         || status == PlanItemStatus.FAULTED

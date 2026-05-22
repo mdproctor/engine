@@ -180,7 +180,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
         case CapabilityTarget ignored -> {
           /* only capability bindings — proceed below */
         }
-        default -> {
+        case null, default -> {
           continue;
         } // handler owns the RUNNING transition for all other target types
       }
@@ -193,7 +193,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
           .ifPresent(
               pi -> {
                 pi.markRunning();
-                registry.indexWorkerForCompletion(caseId, pi.getWorkerName(), pi.getPlanItemId());
+                registry.indexForCompletion(caseId, pi.getWorkerName(), pi.getPlanItemId());
               });
     }
   }

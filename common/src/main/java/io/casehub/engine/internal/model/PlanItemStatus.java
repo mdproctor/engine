@@ -15,10 +15,18 @@
  */
 package io.casehub.engine.internal.model;
 
-/** Lifecycle states for a {@link io.casehub.blackboard.plan.PlanItem}. */
+/**
+ * Lifecycle states for a {@link io.casehub.blackboard.plan.PlanItem}.
+ *
+ * <p>RUNNING: a Quartz job is actively executing this binding (CapabilityTarget only). DELEGATED:
+ * control has passed to an external actor (SubCase, HumanTask, Extension) and the engine is waiting
+ * for a completion signal. These two active states are semantically distinct — consumers and LLMs
+ * must not conflate "local computation running" with "waiting for external actor".
+ */
 public enum PlanItemStatus {
   PENDING,
   RUNNING,
+  DELEGATED,
   COMPLETED,
   FAULTED,
   CANCELLED

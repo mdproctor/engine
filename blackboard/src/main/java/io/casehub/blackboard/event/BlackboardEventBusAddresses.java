@@ -25,4 +25,8 @@ public final class BlackboardEventBusAddresses {
   public static final String STAGE_ACTIVATED = "casehub.blackboard.stage.activated";
   public static final String STAGE_COMPLETED = "casehub.blackboard.stage.completed";
   public static final String STAGE_TERMINATED = "casehub.blackboard.stage.terminated";
+
+  /** Published by SubCaseCompletionService when a child case terminates and the parent resumes. */
+  public static final String SUBCASE_EXECUTION_COMPLETED =
+      "casehub.blackboard.subcase.execution.completed";
 }

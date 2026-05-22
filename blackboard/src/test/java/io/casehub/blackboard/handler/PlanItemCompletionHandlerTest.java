@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.Worker;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
+import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
@@ -74,7 +75,7 @@ class PlanItemCompletionHandlerTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
-    registry.indexWorkerForCompletion(caseId, "worker-a", item.getPlanItemId());
+    registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
 
@@ -91,7 +92,7 @@ class PlanItemCompletionHandlerTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
-    registry.indexWorkerForCompletion(caseId, "worker-a", item.getPlanItemId());
+    registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     Stage stage = Stage.alwaysActivate("intake");
     stage.addPlanItem(item.getPlanItemId());
@@ -112,7 +113,7 @@ class PlanItemCompletionHandlerTest {
     plan.addPlanItem(item1);
     plan.addPlanItem(item2);
     item1.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
-    registry.indexWorkerForCompletion(caseId, "worker-a", item1.getPlanItemId());
+    registry.indexForCompletion(caseId, "worker-a", item1.getPlanItemId());
 
     Stage stage = Stage.alwaysActivate("intake");
     stage.addPlanItem(item1.getPlanItemId());
@@ -133,7 +134,7 @@ class PlanItemCompletionHandlerTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
-    registry.indexWorkerForCompletion(caseId, "worker-a", item.getPlanItemId());
+    registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
 
@@ -147,7 +148,7 @@ class PlanItemCompletionHandlerTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
-    registry.indexWorkerForCompletion(caseId, "worker-a", item.getPlanItemId());
+    registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     Stage stage = Stage.alwaysActivate("intake");
     stage.addRequiredItem("non-existent-id"); // not in plan
@@ -167,7 +168,7 @@ class PlanItemCompletionHandlerTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
-    registry.indexWorkerForCompletion(caseId, "worker-a", item.getPlanItemId());
+    registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     Stage stage = Stage.alwaysActivate("intake").withAutocomplete(false);
     stage.addRequiredItem(item.getPlanItemId());
@@ -178,5 +179,71 @@ class PlanItemCompletionHandlerTest {
 
     assertThat(stage.isTerminal()).isFalse();
     verifyNoInteractions(mockBus);
+  }
+
+  // --- SubCase completion path ---
+
+  @Test
+  void marks_subcase_plan_item_completed_on_subcase_execution_completed() {
+    PlanItem item = PlanItem.create("subcase-binding", "unknown", 0);
+    plan.addPlanItem(item);
+    item.markDelegated();
+    UUID childCaseId = UUID.randomUUID();
+    registry.indexForCompletion(caseId, childCaseId.toString(), item.getPlanItemId());
+
+    handler
+        .onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId))
+        .await()
+        .indefinitely();
+
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+  }
+
+  @Test
+  void subcase_completion_triggers_stage_autocomplete() {
+    PlanItem item = PlanItem.create("subcase-binding", "unknown", 0);
+    plan.addPlanItem(item);
+    item.markDelegated();
+    UUID childCaseId = UUID.randomUUID();
+    registry.indexForCompletion(caseId, childCaseId.toString(), item.getPlanItemId());
+
+    Stage stage = Stage.alwaysActivate("intake");
+    stage.addPlanItem(item.getPlanItemId());
+    stage.addRequiredItem(item.getPlanItemId());
+    stage.activate();
+    plan.addStage(stage);
+
+    handler
+        .onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId))
+        .await()
+        .indefinitely();
+
+    assertThat(stage.isTerminal()).isTrue();
+    verify(mockBus).publish(eq(BlackboardEventBusAddresses.STAGE_COMPLETED), any());
+  }
+
+  @Test
+  void subcase_completion_unknown_tracking_key_does_not_throw() {
+    handler
+        .onSubCaseFinished(new SubCaseExecutionCompleted(caseId, UUID.randomUUID()))
+        .await()
+        .indefinitely();
+  }
+
+  @Test
+  void mofn_grouped_subcase_any_child_routes_to_same_plan_item() {
+    PlanItem item = PlanItem.create("subcase-group", "unknown", 0);
+    plan.addPlanItem(item);
+    item.markDelegated();
+    UUID child1 = UUID.randomUUID();
+    UUID child2 = UUID.randomUUID();
+    // Both children indexed to the same planItemId (M-of-N pattern)
+    registry.indexForCompletion(caseId, child1.toString(), item.getPlanItemId());
+    registry.indexForCompletion(caseId, child2.toString(), item.getPlanItemId());
+
+    // Completion arrives for child2 (threshold-triggering child)
+    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, child2)).await().indefinitely();
+
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }
 }

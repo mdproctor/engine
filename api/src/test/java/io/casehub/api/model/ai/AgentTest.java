@@ -15,11 +15,8 @@
  */
 package io.casehub.api.model.ai;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -61,8 +58,8 @@ class AgentTest {
 
     Map<String, Object> result = agent.execute(Map.of("question", "what?"));
 
-    assertEquals(42, result.get("value"));
-    assertNull(result.get("extra"));
+    assertThat(result.get("value")).isEqualTo(42);
+    assertThat(result).doesNotContainKey("extra");
   }
 
   @Test
@@ -89,41 +86,38 @@ class AgentTest {
     agent.execute(Map.of("documentId", "doc-1", "extra", "ignored"));
 
     ChatRequest request = capturedRequest.get();
-    assertNotNull(request);
+    assertThat(request).isNotNull();
 
     SystemMessage systemMsg = (SystemMessage) request.messages().get(0);
-    assertEquals("System instruction here.", systemMsg.text());
+    assertThat(systemMsg.text()).isEqualTo("System instruction here.");
 
     UserMessage userMsg = (UserMessage) request.messages().get(1);
     Map<String, Object> sentMap = MAPPER.readValue(userMsg.singleText(), MAP_TYPE);
-    assertEquals("doc-1", sentMap.get("documentId"));
-    assertNull(sentMap.get("extra"));
+    assertThat(sentMap.get("documentId")).isEqualTo("doc-1");
+    assertThat(sentMap).doesNotContainKey("extra");
   }
 
   @Test
   void builderThrowsWhenSystemPromptMissing() {
-    IllegalStateException ex =
-        assertThrows(
-            IllegalStateException.class,
+    assertThatThrownBy(
             () ->
                 Agent.builder()
                     .inputSchema(".")
                     .outputSchema(".")
                     .model(fixedResponseModel("{}"))
-                    .build());
-    assertTrue(ex.getMessage().contains("systemPrompt"));
+                    .build())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("systemPrompt");
   }
 
   // inputSchema and outputSchema are now optional — see AgentBuilderTest for the new API.
 
   @Test
   void builderThrowsWhenModelMissing() {
-    IllegalStateException ex =
-        assertThrows(
-            IllegalStateException.class,
-            () ->
-                Agent.builder().systemPrompt("prompt").inputSchema(".").outputSchema(".").build());
-    assertTrue(ex.getMessage().contains("model"));
+    assertThatThrownBy(
+            () -> Agent.builder().systemPrompt("prompt").inputSchema(".").outputSchema(".").build())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("model");
   }
 
   @Test
@@ -136,7 +130,8 @@ class AgentTest {
             .model(fixedResponseModel("this is not json"))
             .build();
 
-    assertThrows(AgentException.class, () -> agent.execute(Map.of("key", "value")));
+    assertThatThrownBy(() -> agent.execute(Map.of("key", "value")))
+        .isInstanceOf(AgentException.class);
   }
 
   @Test
@@ -163,7 +158,7 @@ class AgentTest {
     agent.execute(Map.of("q", "What is Dev Services?", "v", "3.x"));
 
     UserMessage userMsg = (UserMessage) capturedRequest.get().messages().get(1);
-    assertEquals("Answer about Quarkus 3.x: What is Dev Services?", userMsg.singleText());
+    assertThat(userMsg.singleText()).isEqualTo("Answer about Quarkus 3.x: What is Dev Services?");
   }
 
   @Test
@@ -190,8 +185,7 @@ class AgentTest {
 
     UserMessage userMsg = (UserMessage) capturedRequest.get().messages().get(1);
     String userText = userMsg.singleText();
-    assertTrue(userText.contains("What is CDI?"));
-    assertTrue(userText.startsWith("{"));
+    assertThat(userText).contains("What is CDI?").startsWith("{");
   }
 
   @Test
@@ -205,7 +199,7 @@ class AgentTest {
             .model(fixedResponseModel("{\"answer\": \"ok\"}"))
             .build();
 
-    assertThrows(AgentException.class, () -> agent.execute(Map.of("q", "test")));
+    assertThatThrownBy(() -> agent.execute(Map.of("q", "test"))).isInstanceOf(AgentException.class);
   }
 
   @Test
@@ -242,6 +236,6 @@ class AgentTest {
             .build();
 
     agent.execute(Map.of("key", "value"));
-    assertNotNull(capturedRequest.get());
+    assertThat(capturedRequest.get()).isNotNull();
   }
 }

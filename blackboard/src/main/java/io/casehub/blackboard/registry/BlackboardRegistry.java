@@ -71,7 +71,7 @@ public class BlackboardRegistry {
     return e == null ? Optional.empty() : Optional.of(e.planModel);
   }
 
-  public void indexWorkerForCompletion(UUID caseId, String workerName, String planItemId) {
+  public void indexForCompletion(UUID caseId, String workerName, String planItemId) {
     CaseEntry e = entries.get(caseId);
     if (e != null) {
       e.completionIndex.put(workerName, planItemId);

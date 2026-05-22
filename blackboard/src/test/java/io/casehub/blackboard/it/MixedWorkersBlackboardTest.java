@@ -104,7 +104,7 @@ class MixedWorkersBlackboardTest {
 
     void onPlanItemCompleted(@ObservesAsync PlanItemCompletedEvent event) {
       futures
-          .computeIfAbsent(key(event.caseId(), event.workerName()), k -> new CompletableFuture<>())
+          .computeIfAbsent(key(event.caseId(), event.trackingKey()), k -> new CompletableFuture<>())
           .complete(event.planItemId());
     }
 

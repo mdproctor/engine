@@ -73,7 +73,9 @@ public class DefaultCasePlanModel implements CasePlanModel {
         (k, existing) -> {
           if (existing != null) {
             PlanItemStatus s = existing.getStatus();
-            if (s == PlanItemStatus.PENDING || s == PlanItemStatus.RUNNING) {
+            if (s == PlanItemStatus.PENDING
+                || s == PlanItemStatus.RUNNING
+                || s == PlanItemStatus.DELEGATED) {
               return existing; // active item present — reject
             }
           }
@@ -104,7 +106,9 @@ public class DefaultCasePlanModel implements CasePlanModel {
     PlanItem item = activeByBinding.get(bindingName);
     if (item == null) return Optional.empty();
     PlanItemStatus status = item.getStatus();
-    if (status == PlanItemStatus.PENDING || status == PlanItemStatus.RUNNING) {
+    if (status == PlanItemStatus.PENDING
+        || status == PlanItemStatus.RUNNING
+        || status == PlanItemStatus.DELEGATED) {
       return Optional.of(item);
     }
     return Optional.empty();
@@ -115,7 +119,9 @@ public class DefaultCasePlanModel implements CasePlanModel {
     PlanItem item = activeByBinding.get(bindingName);
     if (item == null) return false;
     PlanItemStatus status = item.getStatus();
-    if (status == PlanItemStatus.PENDING || status == PlanItemStatus.RUNNING) {
+    if (status == PlanItemStatus.PENDING
+        || status == PlanItemStatus.RUNNING
+        || status == PlanItemStatus.DELEGATED) {
       return true;
     }
     // Item exists but is terminal — clean up the stale entry

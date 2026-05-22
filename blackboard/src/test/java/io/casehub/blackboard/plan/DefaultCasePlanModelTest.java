@@ -268,6 +268,52 @@ class DefaultCasePlanModelTest {
     assertThat(plan.get("count", Integer.class)).contains(42);
   }
 
+  // --- DELEGATED state integration in plan model ---
+
+  @Test
+  void addPlanItemIfAbsent_returns_false_when_delegated_item_exists() {
+    // A DELEGATED item is active — must block duplicate scheduling
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    plan.addPlanItemIfAbsent(item);
+    item.markDelegated();
+    PlanItem second = PlanItem.create("binding-a", "unknown", 0);
+    assertThat(plan.addPlanItemIfAbsent(second))
+        .as("DELEGATED item must block new PlanItem for same binding")
+        .isFalse();
+  }
+
+  @Test
+  void getPlanItemByBindingName_returns_delegated_item() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    plan.addPlanItem(item);
+    item.markDelegated();
+    assertThat(plan.getPlanItemByBindingName("binding-a"))
+        .as("DELEGATED item must be findable by binding name")
+        .contains(item);
+  }
+
+  @Test
+  void hasActivePlanItem_returns_true_for_delegated() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    plan.addPlanItem(item);
+    item.markDelegated();
+    assertThat(plan.hasActivePlanItem("binding-a"))
+        .as("DELEGATED item counts as active — must block re-trigger")
+        .isTrue();
+  }
+
+  @Test
+  void agenda_excludes_delegated_items() {
+    PlanItem pending = PlanItem.create("b-pending", "unknown", 0);
+    PlanItem delegated = PlanItem.create("b-delegated", "unknown", 0);
+    plan.addPlanItem(pending);
+    plan.addPlanItem(delegated);
+    delegated.markDelegated();
+
+    List<PlanItem> agenda = plan.getAgenda();
+    assertThat(agenda).containsExactly(pending);
+  }
+
   // ---------------------------------------------------------------------------
 
 }

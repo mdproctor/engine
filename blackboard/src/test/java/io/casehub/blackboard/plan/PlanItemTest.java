@@ -132,4 +132,59 @@ class PlanItemTest {
         .as("PlanItem.status must be volatile for cross-thread visibility")
         .isTrue();
   }
+
+  // --- DELEGATED state ---
+
+  @Test
+  void markDelegated_from_pending_transitions_to_delegated() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+  }
+
+  @Test
+  void markDelegated_from_running_throws() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    item.markRunning();
+    assertThatThrownBy(item::markDelegated).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markDelegated_from_delegated_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    assertThatThrownBy(item::markDelegated).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markCompleted_from_delegated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    item.markCompleted();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+  }
+
+  @Test
+  void markFaulted_from_delegated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    item.markFaulted();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+  }
+
+  @Test
+  void markCancelled_from_delegated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    item.markCancelled();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.CANCELLED);
+  }
+
+  @Test
+  void markFaulted_from_pending_succeeds() {
+    // Pre-dispatch errors (spawn failure, guard block) must fault without prior RUNNING/DELEGATED.
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markFaulted();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+  }
 }

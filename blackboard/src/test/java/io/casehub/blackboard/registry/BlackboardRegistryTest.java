@@ -58,11 +58,34 @@ class BlackboardRegistryTest {
   }
 
   @Test
-  void indexWorkerForCompletion_andGetPlanItemId_roundTrip() {
+  void indexForCompletion_andGetPlanItemId_roundTrip_withWorkerName() {
     registry.getOrCreate(caseId);
     String planItemId = UUID.randomUUID().toString();
-    registry.indexWorkerForCompletion(caseId, "worker-a", planItemId);
+    registry.indexForCompletion(caseId, "worker-a", planItemId);
     assertThat(registry.getPlanItemId(caseId, "worker-a")).contains(planItemId);
+  }
+
+  @Test
+  void indexForCompletion_andGetPlanItemId_roundTrip_withChildCaseId() {
+    // SubCaseTarget tracking: childCaseId is the key, not a workerName
+    registry.getOrCreate(caseId);
+    String planItemId = UUID.randomUUID().toString();
+    String childCaseId = UUID.randomUUID().toString();
+    registry.indexForCompletion(caseId, childCaseId, planItemId);
+    assertThat(registry.getPlanItemId(caseId, childCaseId)).contains(planItemId);
+  }
+
+  @Test
+  void indexForCompletion_multipleChildCaseIds_allPointToSamePlanItem() {
+    // M-of-N grouped SubCase: all children index to the same planItemId
+    registry.getOrCreate(caseId);
+    String planItemId = UUID.randomUUID().toString();
+    String child1 = UUID.randomUUID().toString();
+    String child2 = UUID.randomUUID().toString();
+    registry.indexForCompletion(caseId, child1, planItemId);
+    registry.indexForCompletion(caseId, child2, planItemId);
+    assertThat(registry.getPlanItemId(caseId, child1)).contains(planItemId);
+    assertThat(registry.getPlanItemId(caseId, child2)).contains(planItemId);
   }
 
   @Test
@@ -71,9 +94,9 @@ class BlackboardRegistryTest {
   }
 
   @Test
-  void getPlanItemId_returnsEmptyForUnknownWorker() {
+  void getPlanItemId_returnsEmptyForUnknownKey() {
     registry.getOrCreate(caseId);
-    assertThat(registry.getPlanItemId(caseId, "unknown-worker")).isEmpty();
+    assertThat(registry.getPlanItemId(caseId, "unknown-key")).isEmpty();
   }
 
   @Test
@@ -92,7 +115,7 @@ class BlackboardRegistryTest {
   @Test
   void evict_removesAllState() {
     registry.getOrCreate(caseId);
-    registry.indexWorkerForCompletion(caseId, "worker-a", "plan-item-1");
+    registry.indexForCompletion(caseId, "worker-a", "plan-item-1");
     registry.markConfigured(caseId);
 
     registry.evict(caseId);
@@ -119,9 +142,9 @@ class BlackboardRegistryTest {
   }
 
   @Test
-  void indexWorkerForCompletion_noOpWhenCaseNotPresent() {
+  void indexForCompletion_noOpWhenCaseNotPresent() {
     UUID unknownId = UUID.randomUUID();
-    registry.indexWorkerForCompletion(unknownId, "worker-a", "plan-item-1");
+    registry.indexForCompletion(unknownId, "worker-a", "plan-item-1");
     // no entry created as a side-effect
     assertThat(registry.get(unknownId)).isEmpty();
     assertThat(registry.getPlanItemId(unknownId, "worker-a")).isEmpty();

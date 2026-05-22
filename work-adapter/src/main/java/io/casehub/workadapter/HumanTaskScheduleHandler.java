@@ -45,13 +45,13 @@ import org.jboss.logging.Logger;
  * <p>Receives {@link HumanTaskScheduleEvent} from the engine event bus, looks up the {@link
  * PlanItem} in the {@link BlackboardRegistry} by binding name, creates a {@link WorkItem} via
  * {@link WorkItemService} (inline mode) or {@link
- * io.casehub.work.runtime.service.WorkItemTemplateService} (template mode), persists the RUNNING
- * status to {@link PlanItemStore}, then marks the in-memory PlanItem RUNNING.
+ * io.casehub.work.runtime.service.WorkItemTemplateService} (template mode), persists the DELEGATED
+ * status to {@link PlanItemStore}, then marks the in-memory PlanItem DELEGATED.
  *
- * <p>All three steps — WorkItem creation, {@code planItemStore.save(...RUNNING...)}, and {@code
- * item.markRunning()} — execute in a single {@code @Transactional} boundary. If WorkItem creation
- * fails, the transaction rolls back and {@code markRunning()} is never called, leaving the PlanItem
- * PENDING. Refs engine#273.
+ * <p>All three steps — WorkItem creation, {@code planItemStore.save(...DELEGATED...)}, and {@code
+ * item.markDelegated()} — execute in a single {@code @Transactional} boundary. If WorkItem creation
+ * fails, the transaction rolls back and {@code markDelegated()} is never called, leaving the
+ * PlanItem PENDING. Refs engine#273.
  *
  * <p>The {@code callerRef} encodes {@code case:{caseId}/pi:{planItemId}} so that {@link
  * WorkItemLifecycleAdapter} can route the completion event back to the correct case and plan item.
@@ -138,9 +138,9 @@ public class HumanTaskScheduleHandler {
         event.caseId(),
         item.getPlanItemId(),
         item.getBindingName(),
-        PlanItemStatus.RUNNING,
+        PlanItemStatus.DELEGATED,
         item.getCreatedAt());
-    item.markRunning();
+    item.markDelegated();
     LOG.infof("WorkItem created (template=%s) for binding callerRef=%s", template.id, callerRef);
   }
 
@@ -151,9 +151,9 @@ public class HumanTaskScheduleHandler {
         event.caseId(),
         item.getPlanItemId(),
         item.getBindingName(),
-        PlanItemStatus.RUNNING,
+        PlanItemStatus.DELEGATED,
         item.getCreatedAt());
-    item.markRunning();
+    item.markDelegated();
   }
 
   private void createInline(

@@ -22,11 +22,14 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.SubCase;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.blackboard.plan.PlanItem;
+import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.SubCaseScheduleEvent;
 import io.casehub.engine.internal.history.EventLog;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.model.CaseMetaModel;
+import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.casehub.engine.spi.CaseDefinitionRegistry;
 import io.casehub.engine.spi.CaseInstanceRepository;
@@ -47,17 +50,37 @@ public class SubCaseExecutionHandler {
   private static final Logger LOG = Logger.getLogger(SubCaseExecutionHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject CaseHubRuntime caseHubRuntime;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject CaseInstanceRepository caseInstanceRepository;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject PendingWorkRegistry pendingWorkRegistry;
-  @Inject SubCaseGroupRepository subCaseGroupRepository;
+  private final CaseHubRuntime caseHubRuntime;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final EventLogRepository eventLogRepository;
+  private final PendingWorkRegistry pendingWorkRegistry;
+  private final SubCaseGroupRepository subCaseGroupRepository;
+  private final BlackboardRegistry registry;
+
+  @Inject
+  public SubCaseExecutionHandler(
+      CaseHubRuntime caseHubRuntime,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      CaseInstanceRepository caseInstanceRepository,
+      EventLogRepository eventLogRepository,
+      PendingWorkRegistry pendingWorkRegistry,
+      SubCaseGroupRepository subCaseGroupRepository,
+      BlackboardRegistry registry) {
+    this.caseHubRuntime = caseHubRuntime;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.eventLogRepository = eventLogRepository;
+    this.pendingWorkRegistry = pendingWorkRegistry;
+    this.subCaseGroupRepository = subCaseGroupRepository;
+    this.registry = registry;
+  }
 
   @ConsumeEvent(value = EventBusAddresses.SUBCASE_SCHEDULE, blocking = true)
   public Uni<Void> onSubCaseSchedule(SubCaseScheduleEvent event) {
     CaseInstance parent = event.parentInstance();
     SubCase subCase = event.subCase();
+    String bindingName = event.bindingName();
 
     CaseMetaModel parentMeta = parent.getCaseMetaModel();
     if (parentMeta != null
@@ -67,6 +90,7 @@ public class SubCaseExecutionHandler {
       LOG.errorf(
           "SubCase circular dependency: case %s cannot spawn itself (%s/%s/%s)",
           parent.getUuid(), subCase.namespace(), subCase.name(), subCase.version());
+      faultPlanItem(parent.getUuid(), bindingName);
       return Uni.createFrom().voidItem();
     }
 
@@ -80,35 +104,82 @@ public class SubCaseExecutionHandler {
       LOG.errorf(
           "SubCaseExecutionHandler: no CaseDefinition for %s/%s/%s",
           subCase.namespace(), subCase.name(), subCase.version());
+      faultPlanItem(parent.getUuid(), bindingName);
       return Uni.createFrom().voidItem();
     }
 
-    CompletionStage<UUID> childFuture =
-        caseHubRuntime.startCase(
-            childDefinition,
-            event.childInitialContext(),
-            parent.getUuid(),
-            parent.getPropagationContext());
-    UUID childCaseId = childFuture.toCompletableFuture().join();
+    UUID childCaseId;
+    try {
+      CompletionStage<UUID> childFuture =
+          caseHubRuntime.startCase(
+              childDefinition,
+              event.childInitialContext(),
+              parent.getUuid(),
+              parent.getPropagationContext());
+      childCaseId = childFuture.toCompletableFuture().join();
+    } catch (Exception e) {
+      LOG.errorf(
+          e,
+          "SubCaseExecutionHandler: startCase failed for binding '%s' on case %s",
+          bindingName,
+          parent.getUuid());
+      faultPlanItem(parent.getUuid(), bindingName);
+      return Uni.createFrom().voidItem();
+    }
 
     LOG.infof(
-        "SubCase spawned: parentCaseId=%s childCaseId=%s grouped=%s",
-        parent.getUuid(), childCaseId, subCase.groupId() != null);
+        "SubCase spawned: parentCaseId=%s childCaseId=%s binding=%s grouped=%s",
+        parent.getUuid(), childCaseId, bindingName, subCase.groupId() != null);
+
+    // Mark the PlanItem DELEGATED (first spawn only) and register childCaseId as tracking key.
+    // For M-of-N subsequent spawns, the item is already DELEGATED — skip markDelegated() but
+    // still index the new childCaseId so any completing child routes to the same PlanItem.
+    delegatePlanItem(parent.getUuid(), bindingName, childCaseId, subCase.waitForCompletion());
 
     if (subCase.groupId() != null) {
-      return handleGrouped(parent, subCase, childCaseId);
+      return handleGrouped(parent, subCase, childCaseId, bindingName);
     } else {
       return handleUngrouped(parent, subCase, childCaseId);
     }
   }
 
-  private Uni<Void> handleGrouped(CaseInstance parent, SubCase subCase, UUID childCaseId) {
+  private void delegatePlanItem(
+      UUID parentCaseId, String bindingName, UUID childCaseId, boolean waitForCompletion) {
+    registry
+        .get(parentCaseId)
+        .flatMap(plan -> plan.getPlanItemByBindingName(bindingName))
+        .ifPresent(
+            pi -> {
+              if (pi.getStatus() == PlanItemStatus.PENDING) {
+                pi.markDelegated();
+              }
+              // Index ALL spawns → same planItemId (M-of-N: any completing child routes here)
+              registry.indexForCompletion(parentCaseId, childCaseId.toString(), pi.getPlanItemId());
+
+              // Fire-and-forget: completes immediately after spawning — no completion event needed.
+              if (!waitForCompletion && pi.getStatus() == PlanItemStatus.DELEGATED) {
+                pi.markCompleted();
+              }
+            });
+  }
+
+  private void faultPlanItem(UUID parentCaseId, String bindingName) {
+    // getPlanItemByBindingName only returns PENDING/RUNNING/DELEGATED — all safe to fault
+    registry
+        .get(parentCaseId)
+        .flatMap(plan -> plan.getPlanItemByBindingName(bindingName))
+        .ifPresent(PlanItem::markFaulted);
+  }
+
+  private Uni<Void> handleGrouped(
+      CaseInstance parent, SubCase subCase, UUID childCaseId, String bindingName) {
     String groupId = subCase.groupId();
 
     if (subCase.totalInGroup() <= 0) {
       LOG.errorf(
-          "SubCaseExecutionHandler: grouped SubCase '%s' has invalid totalInGroup=%d — skipping spawn",
-          subCase.name(), subCase.totalInGroup());
+          "SubCaseExecutionHandler: grouped SubCase binding '%s' has invalid totalInGroup=%d",
+          bindingName, subCase.totalInGroup());
+      faultPlanItem(parent.getUuid(), bindingName);
       return Uni.createFrom().voidItem();
     }
 
