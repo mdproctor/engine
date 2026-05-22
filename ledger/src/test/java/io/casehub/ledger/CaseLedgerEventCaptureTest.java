@@ -18,11 +18,11 @@ package io.casehub.ledger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.internal.event.CaseLifecycleEvent;
-import io.casehub.ledger.api.model.ActorType;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.repository.CaseLedgerEntryRepository;
 import io.casehub.ledger.runtime.service.LedgerVerificationService;
+import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;

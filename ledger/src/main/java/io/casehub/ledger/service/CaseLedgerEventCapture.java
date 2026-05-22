@@ -16,11 +16,11 @@
 package io.casehub.ledger.service;
 
 import io.casehub.engine.internal.event.CaseLifecycleEvent;
-import io.casehub.ledger.api.model.ActorType;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.repository.CaseLedgerEntryRepository;
 import io.casehub.ledger.runtime.config.LedgerConfig;
+import io.casehub.platform.api.identity.ActorType;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
