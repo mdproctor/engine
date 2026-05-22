@@ -55,7 +55,7 @@ Convention: `proj/` in workspace reaches the project repo; `wksp/` in the projec
 | Plans | `wksp/plans/` | `plans/` |
 | Epic journal | `wksp/design/JOURNAL.md` | `design/JOURNAL.md` |
 | Platform architecture | remote: `https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md` | — |
-| Protocol index | remote: `https://raw.githubusercontent.com/casehubio/parent/main/docs/protocols/casehub/FOUNDATION-INDEX.md` | — |
+| Protocol index | remote: `https://raw.githubusercontent.com/casehubio/garden/main/docs/protocols/casehub/FOUNDATION-INDEX.md` | — |
 
 ---
 
