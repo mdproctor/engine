@@ -129,7 +129,7 @@ public class WorkOrchestrator {
 
     // 3. Build SelectionContext and call WorkBroker
     SelectionContext context =
-        new SelectionContext(null, null, capability.getName(), null, null, null, null);
+        new SelectionContext(null, null, capability.getName(), null, null, null, null, null);
     AssignmentDecision decision =
         workBroker.apply(context, AssignmentTrigger.CREATED, candidates, selectionStrategy);
 
