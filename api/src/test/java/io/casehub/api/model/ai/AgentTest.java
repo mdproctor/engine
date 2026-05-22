@@ -114,33 +114,7 @@ class AgentTest {
     assertTrue(ex.getMessage().contains("systemPrompt"));
   }
 
-  @Test
-  void builderThrowsWhenInputSchemaMissing() {
-    IllegalStateException ex =
-        assertThrows(
-            IllegalStateException.class,
-            () ->
-                Agent.builder()
-                    .systemPrompt("prompt")
-                    .outputSchema(".")
-                    .model(fixedResponseModel("{}"))
-                    .build());
-    assertTrue(ex.getMessage().contains("inputSchema"));
-  }
-
-  @Test
-  void builderThrowsWhenOutputSchemaMissing() {
-    IllegalStateException ex =
-        assertThrows(
-            IllegalStateException.class,
-            () ->
-                Agent.builder()
-                    .systemPrompt("prompt")
-                    .inputSchema(".")
-                    .model(fixedResponseModel("{}"))
-                    .build());
-    assertTrue(ex.getMessage().contains("outputSchema"));
-  }
+  // inputSchema and outputSchema are now optional — see AgentBuilderTest for the new API.
 
   @Test
   void builderThrowsWhenModelMissing() {

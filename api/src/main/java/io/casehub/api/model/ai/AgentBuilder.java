@@ -15,6 +15,7 @@
  */
 package io.casehub.api.model.ai;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import dev.langchain4j.internal.JsonSchemaElementUtils;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.json.JsonArraySchema;
@@ -25,12 +26,15 @@ import dev.langchain4j.model.chat.request.json.JsonStringSchema;
 import java.util.Collection;
 import java.util.Objects;
 import java.util.ServiceLoader;
+import java.util.function.UnaryOperator;
 
 public final class AgentBuilder {
 
   private String systemPrompt;
   private String inputSchema;
   private String outputSchema;
+  private UnaryOperator<JsonNode> inputTransformerFn;
+  private UnaryOperator<JsonNode> outputTransformerFn;
   private String userMessageTemplate;
   private ModelType modelType;
   private ChatModel model;
@@ -51,6 +55,18 @@ public final class AgentBuilder {
 
   public AgentBuilder outputSchema(String jqExpression) {
     this.outputSchema = jqExpression;
+    return this;
+  }
+
+  /** Supply a custom input transformer instead of a jq expression string. */
+  public AgentBuilder inputTransformer(final UnaryOperator<JsonNode> fn) {
+    this.inputTransformerFn = Objects.requireNonNull(fn, "inputTransformer must not be null");
+    return this;
+  }
+
+  /** Supply a custom output transformer instead of a jq expression string. */
+  public AgentBuilder outputTransformer(final UnaryOperator<JsonNode> fn) {
+    this.outputTransformerFn = Objects.requireNonNull(fn, "outputTransformer must not be null");
     return this;
   }
 
@@ -97,8 +113,6 @@ public final class AgentBuilder {
 
   public Agent build() {
     if (systemPrompt == null) throw new IllegalStateException("systemPrompt is required");
-    if (inputSchema == null) throw new IllegalStateException("inputSchema is required");
-    if (outputSchema == null) throw new IllegalStateException("outputSchema is required");
 
     ChatModel resolvedModel = model;
     if (resolvedModel == null && chatModelProvider != null) {
@@ -116,11 +130,27 @@ public final class AgentBuilder {
               .get();
     }
 
+    if (inputSchema != null && inputTransformerFn != null)
+      throw new IllegalStateException(
+          "Cannot set both inputSchema and inputTransformer — choose one");
+    if (outputSchema != null && outputTransformerFn != null)
+      throw new IllegalStateException(
+          "Cannot set both outputSchema and outputTransformer — choose one");
+
+    final UnaryOperator<JsonNode> resolvedInput =
+        inputSchema != null
+            ? new JqTransformer(inputSchema)::apply
+            : (inputTransformerFn != null ? inputTransformerFn : UnaryOperator.identity());
+    final UnaryOperator<JsonNode> resolvedOutput =
+        outputSchema != null
+            ? new JqTransformer(outputSchema)::apply
+            : (outputTransformerFn != null ? outputTransformerFn : UnaryOperator.identity());
+
     return new Agent(
         systemPrompt,
         userMessageTemplate,
-        new JqTransformer(inputSchema),
-        new JqTransformer(outputSchema),
+        resolvedInput,
+        resolvedOutput,
         resolvedModel,
         responseSchema);
   }

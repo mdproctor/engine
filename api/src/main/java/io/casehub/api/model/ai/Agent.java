@@ -29,6 +29,7 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.input.PromptTemplate;
 import java.util.List;
 import java.util.Map;
+import java.util.function.UnaryOperator;
 
 public final class Agent {
 
@@ -37,16 +38,16 @@ public final class Agent {
 
   private final String systemPrompt;
   private final String userMessageTemplate;
-  private final JqTransformer inputTransformer;
-  private final JqTransformer outputTransformer;
+  private final UnaryOperator<JsonNode> inputTransformer;
+  private final UnaryOperator<JsonNode> outputTransformer;
   private final ChatModel model;
   private final JsonSchema responseSchema;
 
   Agent(
       String systemPrompt,
       String userMessageTemplate,
-      JqTransformer inputTransformer,
-      JqTransformer outputTransformer,
+      UnaryOperator<JsonNode> inputTransformer,
+      UnaryOperator<JsonNode> outputTransformer,
       ChatModel model,
       JsonSchema responseSchema) {
     this.systemPrompt = systemPrompt;
