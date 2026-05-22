@@ -32,9 +32,28 @@ All implementation work must be linked to a GitHub issue:
 | specs      | project     | lands in `docs/specs/` — promoted at epic close |
 | blog       | workspace   | staged here; published to mdproctor.github.io via publish-blog |
 | plans      | workspace   | stay in workspace permanently |
-| design     | workspace   | epic journal stays in workspace |
+| design journal | workspace | JOURNAL.md (epic artifact) stays in workspace permanently |
+| DESIGN.md  | project     | canonical design doc — `docs/DESIGN.md` in the project repo |
 | snapshots  | workspace   | stay in workspace permanently |
 | handover   | workspace   | |
+
+---
+
+## Document Locations
+
+Key documents and where to find them. All paths are relative — no absolute paths.
+Convention: `proj/` in workspace reaches the project repo; `wksp/` in the project repo reaches the workspace.
+
+| Document | Path from project root | Path from workspace root |
+|----------|----------------------|------------------------|
+| DESIGN.md | `docs/DESIGN.md` | `proj/docs/DESIGN.md` |
+| ADR index | `docs/adr/INDEX.md` | `proj/docs/adr/INDEX.md` |
+| HANDOFF.md | `wksp/HANDOFF.md` | `HANDOFF.md` |
+| Blog entries | `wksp/blog/` | `blog/` |
+| Plans | `wksp/plans/` | `plans/` |
+| Epic journal | `wksp/design/JOURNAL.md` | `design/JOURNAL.md` |
+| Platform architecture | remote: `https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md` | — |
+| Protocol index | remote: `https://raw.githubusercontent.com/casehubio/parent/main/docs/protocols/casehub/FOUNDATION-INDEX.md` | — |
 
 ---
 
@@ -214,6 +233,10 @@ file search). Verify both are responsive at session start; stop and report to th
 is unavailable.
 
 ## casehub-work-adapter Module
+
+Activated by adding `casehub-engine-work-adapter` to the consumer's classpath (transitively brings `casehub-engine-blackboard`). Required for any runtime that uses `humanTask` YAML bindings — without it, `HumanTaskScheduleEvent` is published but never handled and WorkItems are never created.
+
+**YAML DSL:** `humanTask` is a first-class binding target type in `CaseDefinition.yaml` (alongside `capability` and `subCase`). `CaseDefinitionYamlMapper` converts it to `HumanTaskTarget`. Inline mode requires `title`; template mode requires `templateRef`. Both modes support `outputMapping`, `inputMapping`, `candidateGroups`, `candidateUsers`, and `expiresIn`.
 
 Two-way bridge between casehub-work and CaseHub plan items:
 - **Inbound** (`WorkItemLifecycleAdapter`) — translates terminal `WorkItemLifecycleEvent` CDI events to `PlanItem` transitions, evaluates `outputMapping` against the WorkItem resolution JSON, and fires `CONTEXT_CHANGED` for engine re-evaluation

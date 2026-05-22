@@ -26,11 +26,14 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
+import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.Duration;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -175,7 +178,7 @@ public final class CaseDefinitionYamlMapper {
 
     Binding.Builder builder = Binding.builder().name(schemaBinding.getName()).on(trigger);
 
-    // Either capability OR subCase (mutually exclusive)
+    // Either capability OR subCase OR humanTask (mutually exclusive)
     if (schemaBinding.getCapability() != null) {
       Capability cap = capabilityMap.get(schemaBinding.getCapability());
       if (cap == null) {
@@ -190,9 +193,17 @@ public final class CaseDefinitionYamlMapper {
     } else if (schemaBinding.getSubCase() != null) {
       io.casehub.api.model.SubCase subCase = convertSubCase(schemaBinding.getSubCase());
       builder.subCase(subCase);
+    } else if (schemaBinding.getHumanTask() != null) {
+      try {
+        builder.humanTask(convertHumanTask(schemaBinding.getHumanTask()));
+      } catch (IllegalStateException | IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+            "Binding '" + schemaBinding.getName() + "' has invalid humanTask: " + e.getMessage(),
+            e);
+      }
     } else {
       throw new IllegalArgumentException(
-          "Binding '" + schemaBinding.getName() + "' must have either capability or subCase");
+          "Binding '" + schemaBinding.getName() + "' must have capability, subCase, or humanTask");
     }
 
     // Optional fields
@@ -270,5 +281,29 @@ public final class CaseDefinitionYamlMapper {
     }
 
     return null;
+  }
+
+  private static HumanTaskTarget convertHumanTask(io.casehub.model.HumanTask schema) {
+    HumanTaskTarget.Builder builder =
+        schema.getTemplateRef() != null
+            ? HumanTaskTarget.template(schema.getTemplateRef())
+            : HumanTaskTarget.inline().title(schema.getTitle());
+
+    if (schema.getInputMapping() != null) {
+      builder.inputMapping(schema.getInputMapping());
+    }
+    if (schema.getOutputMapping() != null) {
+      builder.outputMapping(schema.getOutputMapping());
+    }
+    if (schema.getCandidateGroups() != null && !schema.getCandidateGroups().isEmpty()) {
+      builder.candidateGroups(new LinkedHashSet<>(schema.getCandidateGroups()));
+    }
+    if (schema.getCandidateUsers() != null && !schema.getCandidateUsers().isEmpty()) {
+      builder.candidateUsers(new LinkedHashSet<>(schema.getCandidateUsers()));
+    }
+    if (schema.getExpiresIn() != null) {
+      builder.expiresIn(Duration.parse(schema.getExpiresIn()));
+    }
+    return builder.build();
   }
 }
