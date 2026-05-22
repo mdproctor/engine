@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.internal.config.impl;
 
-import io.casehub.engine.internal.config.ConfigManager;
-import io.casehub.engine.internal.config.SecretManager;
-import io.casehub.engine.internal.config.SecretNotFoundException;
+import io.casehub.platform.api.expression.ConfigManager;
+import io.casehub.platform.api.expression.SecretManager;
+import io.casehub.platform.api.expression.SecretNotFoundException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.HashMap;

@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.config.impl;
 
-import io.casehub.engine.internal.config.ConfigManager;
-import io.casehub.engine.internal.config.ConfigMapNotFoundException;
+import io.casehub.platform.api.expression.ConfigManager;
+import io.casehub.platform.api.expression.ConfigMapNotFoundException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Collection;

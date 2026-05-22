@@ -47,6 +47,14 @@
             <groupId>io.serverlessworkflow</groupId>
             <artifactId>serverlessworkflow-impl-core</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-expression</artifactId>
+        </dependency>
         <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>

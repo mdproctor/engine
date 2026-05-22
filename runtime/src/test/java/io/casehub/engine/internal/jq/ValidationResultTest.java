@@ -16,11 +16,12 @@
 package io.casehub.engine.internal.jq;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.BooleanNode;
+import io.casehub.platform.expression.ValidationResult;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -54,10 +55,10 @@ class ValidationResultTest {
     }
 
     @Test
-    @DisplayName("error result output is null")
-    void error_outputIsNull() {
+    @DisplayName("error result output is empty list")
+    void error_outputIsEmpty() {
       final var result = ValidationResult.error("some error");
-      assertNull(result.output());
+      assertTrue(result.output().isEmpty());
     }
 
     @Test
@@ -68,11 +69,9 @@ class ValidationResultTest {
     }
 
     @Test
-    @DisplayName("error result with null message does not throw")
-    void error_nullMessageDoesNotThrow() {
-      final var result = ValidationResult.error(null);
-      assertFalse(result.ok());
-      assertFalse(result.isTrue());
+    @DisplayName("error result with null message throws IllegalArgumentException")
+    void error_nullMessageThrows() {
+      assertThrows(IllegalArgumentException.class, () -> ValidationResult.error(null));
     }
   }
 

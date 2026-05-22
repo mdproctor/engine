@@ -17,6 +17,7 @@ package io.casehub.engine.internal.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.platform.api.expression.ConfigManager;
 import java.util.Collection;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;

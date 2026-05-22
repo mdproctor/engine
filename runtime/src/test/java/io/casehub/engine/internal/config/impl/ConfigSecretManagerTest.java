@@ -18,8 +18,8 @@ package io.casehub.engine.internal.config.impl;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.casehub.engine.internal.config.SecretManager;
-import io.casehub.engine.internal.config.SecretNotFoundException;
+import io.casehub.platform.api.expression.SecretManager;
+import io.casehub.platform.api.expression.SecretNotFoundException;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;

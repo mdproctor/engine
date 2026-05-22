@@ -15,6 +15,9 @@
  */
 package io.casehub.engine.internal.config;
 
+import io.casehub.platform.api.expression.ConfigManager;
+import io.casehub.platform.api.expression.SecretManager;
+
 /**
  * Holder for ConfigManager and SecretManager instances.
  *

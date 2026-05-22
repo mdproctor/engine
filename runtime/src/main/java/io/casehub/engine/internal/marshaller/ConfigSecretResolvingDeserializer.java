@@ -19,7 +19,7 @@ import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.deser.std.StdScalarDeserializer;
 import io.casehub.engine.internal.config.ConfigContext;
-import io.casehub.engine.internal.config.SecretNotFoundException;
+import io.casehub.platform.api.expression.SecretNotFoundException;
 import java.io.IOException;
 import java.util.Map;
 import java.util.regex.Matcher;

@@ -107,11 +107,11 @@ Domain objects, SPI interfaces, and shared CDI infrastructure live in `casehub-e
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`, `SubCaseGroup`, `PlanItemStatus` (enum), `PlanItemRecord` (read model)
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/history/` — `EventLog`, `CaseHubEventType`, `EventStreamType`
 - `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `CaseInstanceRepository`, `EventLogRepository`, `SubCaseGroupRepository`, `PlanItemStore` (blocking), `ReactivePlanItemStore` (Uni<>)
-- `casehub-engine-common/src/main/java/io/casehub/engine/internal/jq/` — `JQEvaluator` (@ApplicationScoped), `ValidationResult` — canonical jq evaluation; lives here so `scheduler-quartz` can inject it without circular dependency. See protocol `PP-20260522-jq-evaluation-canonical`. Follow-on platform extraction tracked in engine#317.
+- `JQEvaluator` and `ValidationResult` — now in `casehub-platform-expression` (`io.casehub.platform.expression`). Engine consumers import from there. See protocol `PP-20260522-jq-evaluation-canonical`.
 
 Both `engine` and both persistence modules depend on `casehub-engine-common`. Neither persistence module depends on `engine`. `scheduler-quartz` also depends on `casehub-engine-common` directly.
 
-**Test classpath note:** `casehub-engine-common` must be added to `quarkus.index-dependency` in any test `application.properties` that needs `JQEvaluator` discovered as a CDI bean — it is a library JAR, not a Quarkus application module.
+**Test classpath note:** `casehub-platform-expression` must be added to `quarkus.index-dependency` in any test `application.properties` that needs `JQEvaluator` discovered as a CDI bean — it is a library JAR, not a Quarkus application module.
 
 **Production implementation:** `casehub-persistence-hibernate` (JPA/Panache, PostgreSQL)
 **Test implementation:** `casehub-persistence-memory` (in-memory, thread-safe)

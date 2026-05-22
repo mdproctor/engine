@@ -18,6 +18,8 @@ package io.casehub.engine.internal.config;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.casehub.platform.api.expression.SecretManager;
+import io.casehub.platform.api.expression.SecretNotFoundException;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
