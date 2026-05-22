@@ -18,7 +18,9 @@ package io.casehub.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHub;
+import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseChannel;
@@ -45,6 +47,7 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -69,6 +72,7 @@ import org.junit.jupiter.api.Test;
 class SpiWiringIntegrationTest {
 
   @Inject SimpleCaseHubBean simpleCaseHubBean;
+  @Inject CaseHubRuntime runtime;
   @Inject CaseFaultedStateTest.AlwaysFailingCaseHubBean alwaysFailingBean;
   @Inject ProvisionerTriggerCaseHubBean provisionerTriggerBean;
   @Inject RecordingContextCaseHubBean recordingContextBean;
@@ -206,6 +210,44 @@ class SpiWiringIntegrationTest {
         .as("COMMAND sender must identify casehub-engine as the orchestrator")
         .anyMatch(f -> f.startsWith("casehub-engine:orchestrator"));
     assertThat(RecordingCaseChannelProvider.postedTypes).contains(MessageType.COMMAND);
+  }
+
+  @Test
+  void commandContent_includesDeadline_whenCaseHasDeadline() {
+    final PropagationContext ctx = PropagationContext.createRoot(Map.of(), Duration.ofHours(1));
+    runtime.startCase(
+        simpleCaseHubBean.getDefinition(),
+        Map.of("documentId", "doc-dl-1", "status", "processing"),
+        null,
+        ctx);
+
+    await()
+        .atMost(15, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(RecordingCaseChannelProvider.postedContents)
+                    .as("COMMAND content must include deadline when case has a budget")
+                    .anyMatch(c -> c.contains("\"deadline\":")));
+  }
+
+  @Test
+  void commandContent_omitsDeadline_whenCaseHasNoDeadline() {
+    simpleCaseHubBean
+        .startCase(Map.of("documentId", "doc-nodl-1", "status", "processing"))
+        .toCompletableFuture()
+        .join();
+
+    await()
+        .atMost(15, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(RecordingCaseChannelProvider.postedContents)
+                    .anyMatch(c -> c.contains("\"type\":\"COMMAND\"")));
+
+    assertThat(RecordingCaseChannelProvider.postedContents)
+        .filteredOn(c -> c.contains("\"type\":\"COMMAND\"") && c.contains("doc-nodl-1"))
+        .as("COMMAND content must not include deadline when no budget was set")
+        .noneMatch(c -> c.contains("\"deadline\""));
   }
 
   // ------------------------------------------------------------------ //

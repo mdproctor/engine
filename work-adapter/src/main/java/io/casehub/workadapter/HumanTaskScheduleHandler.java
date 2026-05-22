@@ -146,7 +146,7 @@ public class HumanTaskScheduleHandler {
 
   private void handleInlineMode(PlanItem item, HumanTaskScheduleEvent event) {
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
-    createInline(event.target(), event.inputData(), callerRef);
+    createInline(event.target(), event.inputData(), callerRef, event.caseBudgetDeadline());
     planItemStore.save(
         event.caseId(),
         item.getPlanItemId(),
@@ -157,39 +157,32 @@ public class HumanTaskScheduleHandler {
   }
 
   private void createInline(
-      HumanTaskTarget target, Map<String, Object> inputData, String callerRef) {
+      HumanTaskTarget target, Map<String, Object> inputData, String callerRef,
+      Instant caseBudgetDeadline) {
     String payload = serializePayload(inputData);
+    Instant taskDeadline = target.expiresIn() != null ? Instant.now().plus(target.expiresIn()) : null;
+    Instant effectiveDeadline = earliestOf(taskDeadline, caseBudgetDeadline);
 
-    WorkItemCreateRequest request =
-        new WorkItemCreateRequest(
-            target.title(),
-            null, // description
-            null, // category
-            null, // formKey
-            null, // priority — plain string on HumanTaskTarget, not WorkItemPriority
-            null, // assigneeId
-            candidateGroupsCsv(target),
-            candidateUsersCsv(target),
-            null, // requiredCapabilities
-            "casehub-engine",
-            payload,
-            null, // claimDeadline — use config default
-            target.expiresIn() != null ? Instant.now().plus(target.expiresIn()) : null,
-            null, // followUpDate
-            null, // labels
-            null, // confidenceScore
-            callerRef,
-            null, // claimDeadlineBusinessHours
-            null, // expiresAtBusinessHours
-            null, // templateId
-            null, // permittedOutcomes
-            null, // inputDataSchema
-            null, // outputDataSchema
-            null); // excludedUsers
+    WorkItemCreateRequest request = WorkItemCreateRequest.builder()
+        .title(target.title())
+        .candidateGroups(candidateGroupsCsv(target))
+        .candidateUsers(candidateUsersCsv(target))
+        .createdBy("casehub-engine")
+        .payload(payload)
+        .expiresAt(effectiveDeadline)
+        .callerRef(callerRef)
+        .build();
 
     workItemService.create(request);
     LOG.infof(
-        "WorkItem created (inline) for binding callerRef=%s title='%s'", callerRef, target.title());
+        "WorkItem created (inline) for binding callerRef=%s title='%s' expiresAt=%s",
+        callerRef, target.title(), effectiveDeadline);
+  }
+
+  private static Instant earliestOf(Instant a, Instant b) {
+    if (a == null) return b;
+    if (b == null) return a;
+    return a.isBefore(b) ? a : b;
   }
 
   private String serializePayload(Map<String, Object> inputData) {

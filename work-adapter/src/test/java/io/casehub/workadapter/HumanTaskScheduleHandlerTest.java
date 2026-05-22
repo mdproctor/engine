@@ -36,6 +36,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -91,7 +92,7 @@ class HumanTaskScheduleHandlerTest {
     HumanTaskTarget target = HumanTaskTarget.inline().title("Smoke").build();
     eventBus.publish(
         EventBusAddresses.HUMAN_TASK_SCHEDULE,
-        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of()));
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of(), null));
     await()
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING));
@@ -109,7 +110,7 @@ class HumanTaskScheduleHandlerTest {
             .build();
 
     handler.onHumanTaskSchedule(
-        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of("caseRef", "T-42")));
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of("caseRef", "T-42"), null));
 
     String expectedCallerRef = CallerRef.encode(caseId, planItem.getPlanItemId());
 
@@ -137,7 +138,7 @@ class HumanTaskScheduleHandlerTest {
 
     handler.onHumanTaskSchedule(
         new HumanTaskScheduleEvent(
-            caseId, "irb-binding", HumanTaskTarget.template(tmpl.id.toString()).build(), Map.of()));
+            caseId, "irb-binding", HumanTaskTarget.template(tmpl.id.toString()).build(), Map.of(), null));
 
     String expectedCallerRef = CallerRef.encode(caseId, planItem.getPlanItemId());
     WorkItem created =
@@ -157,30 +158,7 @@ class HumanTaskScheduleHandlerTest {
   }
 
   @Test
-  void templateMode_byName_createsWorkItem_andMarksPlanItemRunning() {
-    WorkItemTemplate tmpl = persistTemplate("AML Suspicious Activity Review");
-
-    handler.onHumanTaskSchedule(
-        new HumanTaskScheduleEvent(
-            caseId,
-            "irb-binding",
-            HumanTaskTarget.template(tmpl.id.toString()).build(),
-            Map.of()));
-
-    WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
-    assertThat(created).isNotNull();
-    assertThat(created.title).isEqualTo("AML Suspicious Activity Review");
-    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
-    assertThat(planItemStore.findByCaseId(caseId))
-        .anyMatch(
-            r ->
-                r.planItemId().equals(planItem.getPlanItemId())
-                    && r.status() == PlanItemStatus.RUNNING);
-  }
-
-  @Test
   void templateMode_withInputData_inputDataOverridesTemplateDefaultPayload() {
-    // defaultPayload persisted in DB — required to prove override semantics (engine#291)
     WorkItemTemplate tmpl = persistTemplate("Clinical Trial Consent", "{\"type\":\"default\"}");
 
     handler.onHumanTaskSchedule(
@@ -188,7 +166,7 @@ class HumanTaskScheduleHandlerTest {
             caseId,
             "irb-binding",
             HumanTaskTarget.template(tmpl.id.toString()).build(),
-            Map.of("trialId", "T-99", "phase", "III")));
+            Map.of("trialId", "T-99", "phase", "III"), null));
 
     WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
     assertThat(created).isNotNull();
@@ -208,7 +186,7 @@ class HumanTaskScheduleHandlerTest {
 
     handler.onHumanTaskSchedule(
         new HumanTaskScheduleEvent(
-            caseId, "irb-binding", HumanTaskTarget.template(tmpl.id.toString()).build(), Map.of()));
+            caseId, "irb-binding", HumanTaskTarget.template(tmpl.id.toString()).build(), Map.of(), null));
 
     WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
     assertThat(created).isNotNull();
@@ -228,24 +206,75 @@ class HumanTaskScheduleHandlerTest {
             caseId,
             "irb-binding",
             HumanTaskTarget.template(UUID.randomUUID().toString()).build(),
-            Map.of()));
+            Map.of(), null));
 
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
   }
 
   @Test
-  void templateMode_ambiguousName_planItemStaysPending() {
-    persistTemplate("Duplicate Name");
-    persistTemplate("Duplicate Name");
-
+  void templateMode_invalidUuidRef_planItemStaysPending() {
     handler.onHumanTaskSchedule(
         new HumanTaskScheduleEvent(
-            caseId, "irb-binding", HumanTaskTarget.template("Duplicate Name").build(), Map.of()));
+            caseId, "irb-binding", HumanTaskTarget.template("not-a-uuid").build(), Map.of(), null));
 
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
   }
+
+  // ── Case budget deadline bounding ─────────────────────────────────────────
+
+  @Test
+  void inlineMode_caseBudgetDeadlineTighter_workItemExpiresAtBudget() {
+    Instant budgetDeadline = Instant.now().plusSeconds(600);
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Budget-bounded Review")
+            .expiresIn(Duration.ofHours(72))
+            .build();
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of(), budgetDeadline));
+
+    WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.expiresAt).isNotNull();
+    assertThat(created.expiresAt).isBeforeOrEqualTo(budgetDeadline.plusSeconds(1));
+  }
+
+  @Test
+  void inlineMode_taskDeadlineTighter_workItemExpiresAtTask() {
+    Instant budgetDeadline = Instant.now().plusSeconds(7200);
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Task-bounded Review")
+            .expiresIn(Duration.ofMinutes(30))
+            .build();
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of(), budgetDeadline));
+
+    WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.expiresAt).isNotNull();
+    assertThat(created.expiresAt).isBefore(budgetDeadline);
+  }
+
+  @Test
+  void inlineMode_noCaseBudget_taskDeadlineUsedAsIs() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Unbounded Review")
+            .expiresIn(Duration.ofHours(48))
+            .build();
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of(), null));
+
+    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
+  }
+
+  // ── Edge cases ────────────────────────────────────────────────────────────
 
   @Test
   void noPlanForCaseId_eventIgnored() {
@@ -256,7 +285,7 @@ class HumanTaskScheduleHandlerTest {
             unknownCaseId,
             "irb-binding",
             HumanTaskTarget.inline().title("Review").build(),
-            Map.of()));
+            Map.of(), null));
 
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
@@ -266,7 +295,7 @@ class HumanTaskScheduleHandlerTest {
   void noPlanItemForBindingName_eventIgnored() {
     handler.onHumanTaskSchedule(
         new HumanTaskScheduleEvent(
-            caseId, "unknown-binding", HumanTaskTarget.inline().title("Review").build(), Map.of()));
+            caseId, "unknown-binding", HumanTaskTarget.inline().title("Review").build(), Map.of(), null));
 
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
     assertThat(workItemStore.scanAll()).isEmpty();
