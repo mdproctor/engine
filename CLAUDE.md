@@ -1,6 +1,7 @@
 # CLAUDE.md
 
 **Name:** casehub-engine
+**Workspace:** `/Users/mdproctor/claude/public/casehub/engine`
 
 ## Project Type
 
