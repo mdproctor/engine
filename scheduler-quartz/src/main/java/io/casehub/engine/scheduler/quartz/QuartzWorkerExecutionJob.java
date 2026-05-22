@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
-import static io.casehub.engine.internal.context.ContextUtils.evalObjectTemplate;
 import static io.casehub.engine.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
@@ -29,6 +29,8 @@ import io.casehub.api.model.ai.Agent;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.engine.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.internal.history.EventLog;
+import io.casehub.engine.internal.jq.JQEvaluator;
+import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.utils.ReactiveUtils;
 import io.casehub.engine.internal.worker.WorkflowExecutor;
@@ -75,8 +77,11 @@ class QuartzWorkerExecutionJob implements Job {
   @Inject WorkerExecutionConfig executionConfig;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   private static final Logger LOG = Logger.getLogger(QuartzWorkerExecutionJob.class);
+
+  @Inject JQEvaluator jqEvaluator;
 
   @Override
   public void execute(JobExecutionContext executionContext) throws JobExecutionException {
@@ -168,8 +173,7 @@ class QuartzWorkerExecutionJob implements Job {
       throw new JobExecutionException("Worker execution failed: " + worker.getName(), e.getCause());
     }
 
-    Map<String, Object> toContextOutputData =
-        evalObjectTemplate(outputData, capability.getOutputSchema());
+    Map<String, Object> toContextOutputData = evalJqAsMap(outputData, capability.getOutputSchema());
 
     WorkflowExecutionCompleted event =
         new WorkflowExecutionCompleted(instance, worker, inputDataHash, toContextOutputData);
@@ -228,6 +232,18 @@ class QuartzWorkerExecutionJob implements Job {
             });
 
     return cf.get(timeoutMs, TimeUnit.MILLISECONDS);
+  }
+
+  private Map<String, Object> evalJqAsMap(Map<String, Object> data, String expression) {
+    if (expression == null || expression.isBlank()) return data;
+    try {
+      ValidationResult vr = jqEvaluator.eval(expression, OBJECT_MAPPER.valueToTree(data));
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return data;
+      return OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
+    } catch (Exception e) {
+      LOG.warnf(e, "outputSchema jq evaluation failed — returning raw output data");
+      return data;
+    }
   }
 
   private Uni<EventLog> findEventLog(String eventLogId) {

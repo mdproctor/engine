@@ -55,7 +55,7 @@ Convention: `proj/` in workspace reaches the project repo; `wksp/` in the projec
 | Plans | `wksp/plans/` | `plans/` |
 | Epic journal | `wksp/design/JOURNAL.md` | `design/JOURNAL.md` |
 | Platform architecture | remote: `https://raw.githubusercontent.com/casehubio/parent/main/docs/PLATFORM.md` | — |
-| Protocol index | remote: `https://raw.githubusercontent.com/casehubio/parent/main/docs/protocols/casehub/FOUNDATION-INDEX.md` | — |
+| Protocol index | remote: `https://raw.githubusercontent.com/casehubio/garden/main/docs/protocols/casehub/FOUNDATION-INDEX.md` | — |
 
 ---
 
@@ -102,13 +102,16 @@ If a schema change is needed, update the `@Entity` class. Hibernate recreates th
 
 ## Persistence Architecture
 
-Domain objects and SPI interfaces live in `casehub-engine-common` (no Quarkus, no JPA):
+Domain objects, SPI interfaces, and shared CDI infrastructure live in `casehub-engine-common` (no JPA):
 
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`, `SubCaseGroup`, `PlanItemStatus` (enum), `PlanItemRecord` (read model)
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/history/` — `EventLog`, `CaseHubEventType`, `EventStreamType`
 - `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `CaseInstanceRepository`, `EventLogRepository`, `SubCaseGroupRepository`, `PlanItemStore` (blocking), `ReactivePlanItemStore` (Uni<>)
+- `casehub-engine-common/src/main/java/io/casehub/engine/internal/jq/` — `JQEvaluator` (@ApplicationScoped), `ValidationResult` — canonical jq evaluation; lives here so `scheduler-quartz` can inject it without circular dependency. See protocol `PP-20260522-jq-evaluation-canonical`. Follow-on platform extraction tracked in engine#317.
 
-Both `engine` and both persistence modules depend on `casehub-engine-common`. Neither persistence module depends on `engine`.
+Both `engine` and both persistence modules depend on `casehub-engine-common`. Neither persistence module depends on `engine`. `scheduler-quartz` also depends on `casehub-engine-common` directly.
+
+**Test classpath note:** `casehub-engine-common` must be added to `quarkus.index-dependency` in any test `application.properties` that needs `JQEvaluator` discovered as a CDI bean — it is a library JAR, not a Quarkus application module.
 
 **Production implementation:** `casehub-persistence-hibernate` (JPA/Panache, PostgreSQL)
 **Test implementation:** `casehub-persistence-memory` (in-memory, thread-safe)

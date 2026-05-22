@@ -31,6 +31,8 @@ import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.Worker;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
 import io.casehub.engine.internal.event.WorkerScheduleEvent;
+import io.casehub.engine.internal.jq.JQEvaluator;
+import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.model.CaseMetaModel;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
@@ -44,6 +46,7 @@ import io.casehub.work.core.strategy.LeastLoadedStrategy;
 import io.casehub.work.core.strategy.WorkBroker;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -61,6 +64,7 @@ class WorkOrchestratorTest {
   private CaseInstanceRepository caseInstanceRepository;
   private EventLogRepository eventLogRepository;
   private CaseInstanceCache cache;
+  private JQEvaluator jqEvaluator;
   private WorkOrchestrator orchestrator;
 
   @BeforeEach
@@ -74,11 +78,18 @@ class WorkOrchestratorTest {
     caseInstanceRepository = mock(CaseInstanceRepository.class);
     eventLogRepository = mock(EventLogRepository.class);
     cache = new CaseInstanceCacheImpl();
+    jqEvaluator = mock(JQEvaluator.class);
 
     when(workloadProvider.getActiveWorkCount(any())).thenReturn(0);
     when(caseInstanceRepository.updateStateAndAppendEvent(any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
     when(eventLogRepository.appendAndReturnId(any())).thenReturn(Uni.createFrom().item(1L));
+    when(jqEvaluator.eval(any(), any()))
+        .thenReturn(
+            ValidationResult.ok(
+                List.of(
+                    (com.fasterxml.jackson.databind.JsonNode)
+                        new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode())));
 
     orchestrator =
         new WorkOrchestrator(
@@ -89,7 +100,8 @@ class WorkOrchestratorTest {
             registry,
             caseDefinitionRegistry,
             caseInstanceRepository,
-            eventLogRepository);
+            eventLogRepository,
+            jqEvaluator);
   }
 
   // ---- happy path -----------------------------------------------------------
@@ -194,7 +206,8 @@ class WorkOrchestratorTest {
     instance.setState(CaseStatus.RUNNING);
     instance.setCaseMetaModel(metaModel);
     CaseContext ctx = mock(CaseContext.class);
-    when(ctx.evalObjectTemplate(any())).thenReturn(Map.of());
+    when(ctx.asJsonNode())
+        .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode());
     instance.setCaseContext(ctx);
     return instance;
   }

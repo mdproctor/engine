@@ -238,6 +238,46 @@ class WorkItemLifecycleAdapterTest {
   }
 
   @Test
+  void workItemCompleted_withNestedOutputMapping_producesNestedMap() {
+    // engine#314: { outer: { inner: .path } } must produce a nested Map, not a String literal
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Approval")
+            .outputMapping("{ humanApproval: { status: .decision } }")
+            .build();
+    PlanItem htPlanItem = PlanItem.create("nested-mapping-binding", "ht-worker", 10, target);
+    htPlanItem.markRunning();
+    registry.getOrCreate(caseId).addPlanItem(htPlanItem);
+
+    WorkItem workItem = new WorkItem();
+    workItem.id = UUID.randomUUID();
+    workItem.status = WorkItemStatus.COMPLETED;
+    workItem.callerRef = CallerRef.encode(caseId, htPlanItem.getPlanItemId());
+    workItem.resolution = "{ \"decision\": \"approved\" }";
+
+    lifecycleEvents.fireAsync(
+        WorkItemLifecycleEvent.of("workitem.completed", workItem, "system", null));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(htPlanItem.getStatus()).isEqualTo(PlanItemStatus.COMPLETED));
+
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              CaseInstance updated =
+                  caseInstanceRepository.findByUuid(caseId).await().atMost(Duration.ofSeconds(2));
+              Object humanApproval = updated.getCaseContext().get("humanApproval");
+              assertThat(humanApproval).isInstanceOf(Map.class);
+              @SuppressWarnings("unchecked")
+              Map<String, Object> approvalMap = (Map<String, Object>) humanApproval;
+              assertThat(approvalMap).containsEntry("status", "approved");
+            });
+  }
+
+  @Test
   void workItemCompleted_noTarget_noContextUpdate() {
     // PlanItem with no target (no outputMapping) — baseline: existing context unchanged
     CaseInstance before =

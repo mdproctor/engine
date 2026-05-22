@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
  * CaseContextImplApplyDiffTest}.
  *
  * <p>Focused on: set/get, typed accessors, compareAndSet, update, merge, getPath/setPath,
- * computeIfAbsent, putIfAbsent, getAll/setAll, clear, evalObjectTemplate, version semantics.
+ * computeIfAbsent, putIfAbsent, getAll/setAll, clear, version semantics.
  */
 @DisplayName("StateContextImpl")
 class CaseContextImplTest {
@@ -759,115 +759,6 @@ class CaseContextImplTest {
       final var data = ctx.getData();
       data.put("k", "modified");
       assertEquals("v", ctx.getString("k"), "getData must return a defensive copy");
-    }
-  }
-
-  // ================================================================== //
-  //  evalObjectTemplate                                                 //
-  // ================================================================== //
-
-  @Nested
-  @DisplayName("evalObjectTemplate")
-  class EvalObjectTemplateTests {
-
-    @Test
-    @DisplayName("extracts single field via path expression")
-    void singleField_extracted() {
-      final var ctx = new CaseContextImpl(Map.of("documentId", "doc-123", "status", "active"));
-      final var result = ctx.evalObjectTemplate("{ documentId: .documentId }");
-      assertEquals("doc-123", result.get("documentId"));
-      assertFalse(result.containsKey("status"), "only requested field should be present");
-    }
-
-    @Test
-    @DisplayName("extracts multiple fields")
-    void multipleFields_extracted() {
-      final var ctx = new CaseContextImpl(Map.of("id", "x1", "status", "ok", "extra", "ignored"));
-      final var result = ctx.evalObjectTemplate("{ id: .id, status: .status }");
-      assertEquals("x1", result.get("id"));
-      assertEquals("ok", result.get("status"));
-      assertFalse(result.containsKey("extra"));
-    }
-
-    @Test
-    @DisplayName("dot expression maps to whole context snapshot")
-    void dotExpression_wholeContext() {
-      final var ctx = new CaseContextImpl(Map.of("a", "1"));
-      final var result = ctx.evalObjectTemplate("{ all: . }");
-      assertNotNull(result.get("all"));
-    }
-
-    @Test
-    @DisplayName("absent path produces null value for the key")
-    void absentPath_nullValue() {
-      final var ctx = new CaseContextImpl(Map.of("a", "1"));
-      final var result = ctx.evalObjectTemplate("{ missing: .nonExistent }");
-      assertTrue(result.containsKey("missing"), "key must still be present");
-      assertNull(result.get("missing"), "value for absent path must be null");
-    }
-
-    @Test
-    @DisplayName("JSON literal value is included directly")
-    void jsonLiteralValue_included() {
-      final var ctx = new CaseContextImpl(Map.of("a", "1"));
-      final var result = ctx.evalObjectTemplate("{ fixed: \"hello\" }");
-      assertEquals("hello", result.get("fixed"));
-    }
-
-    @Test
-    @DisplayName("null template returns empty map")
-    void nullTemplate_returnsEmpty() {
-      final var ctx = new CaseContextImpl(Map.of("a", "1"));
-      assertTrue(ctx.evalObjectTemplate(null).isEmpty());
-    }
-
-    @Test
-    @DisplayName("blank template returns empty map")
-    void blankTemplate_returnsEmpty() {
-      final var ctx = new CaseContextImpl(Map.of("a", "1"));
-      assertTrue(ctx.evalObjectTemplate("   ").isEmpty());
-    }
-
-    @Test
-    @DisplayName("empty braces {} returns empty map")
-    void emptyBraces_returnsEmpty() {
-      final var ctx = new CaseContextImpl(Map.of("a", "1"));
-      assertTrue(ctx.evalObjectTemplate("{}").isEmpty());
-    }
-
-    @Test
-    @DisplayName("template not wrapped with braces throws IllegalArgumentException")
-    void unwrappedTemplate_throws() {
-      final var ctx = new CaseContextImpl(Map.of("a", "1"));
-      assertThrows(
-          IllegalArgumentException.class,
-          () -> ctx.evalObjectTemplate("id: .id"),
-          "template must be wrapped in { }");
-    }
-
-    @Test
-    @DisplayName("nested path extracts from nested structure")
-    void nestedPath_extracted() {
-      final var ctx = new CaseContextImpl();
-      ctx.setPath("doc.id", "doc-42");
-      final var result = ctx.evalObjectTemplate("{ docId: .doc }");
-      assertNotNull(result.get("docId"), "nested extraction should work via . path to top key");
-    }
-
-    @Test
-    @DisplayName("boolean literal value in template")
-    void booleanLiteral_included() {
-      final var ctx = new CaseContextImpl();
-      final var result = ctx.evalObjectTemplate("{ flag: true }");
-      assertEquals(true, result.get("flag"));
-    }
-
-    @Test
-    @DisplayName("numeric literal value in template")
-    void numericLiteral_included() {
-      final var ctx = new CaseContextImpl();
-      final var result = ctx.evalObjectTemplate("{ count: 42 }");
-      assertEquals(42, result.get("count"));
     }
   }
 
