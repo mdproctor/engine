@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.Capability;
@@ -30,6 +31,8 @@ import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.internal.history.EventLog;
+import io.casehub.engine.internal.jq.JQEvaluator;
+import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.spi.EventLogRepository;
@@ -56,6 +59,7 @@ public class WorkerScheduleEventHandler {
 
   private static final Logger LOG = Logger.getLogger(WorkerScheduleEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject Vertx vertx;
 
@@ -71,6 +75,8 @@ public class WorkerScheduleEventHandler {
 
   @Inject EventLogRepository eventLogRepository;
 
+  @Inject JQEvaluator jqEvaluator;
+
   @ConfigProperty(name = "casehub.idempotency.window")
   Optional<Duration> idempotencyWindow;
 
@@ -78,12 +84,14 @@ public class WorkerScheduleEventHandler {
   public Uni<Void> onWorkerScheduleEventHandler(WorkerScheduleEvent event) {
     CaseInstance instance = event.caseInstance();
     Worker worker = event.worker();
+    Capability capability = event.capability();
+
+    Map<String, Object> inputData =
+        evalJqAsMap(instance.getCaseContext().asJsonNode(), capability.getInputSchema());
+
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
-            instance.getUuid(),
-            worker.getName(),
-            event.capability().getName(),
-            instance.getCaseContext().evalObjectTemplate(event.capability().getInputSchema()));
+            instance.getUuid(), worker.getName(), capability.getName(), inputData);
 
     if (workerExecutionGuard.isBlocked(worker.getName(), instance.getUuid())) {
       LOG.warnf(
@@ -94,10 +102,6 @@ public class WorkerScheduleEventHandler {
           new WorkerRetriesExhaustedEvent(instance.getUuid(), worker.getName(), inputDataHash));
       return Uni.createFrom().voidItem();
     }
-    Capability capability = event.capability();
-
-    Map<String, Object> inputData =
-        instance.getCaseContext().evalObjectTemplate(capability.getInputSchema());
 
     workerContextProvider.buildContext(
         worker.getName(), instance.getUuid(), WorkRequest.of(capability.getName(), inputData));
@@ -273,5 +277,17 @@ public class WorkerScheduleEventHandler {
   private enum ScheduleActionType {
     SKIP,
     CREATE_NEW
+  }
+
+  private Map<String, Object> evalJqAsMap(JsonNode context, String expression) {
+    if (expression == null || expression.isBlank()) return Map.of();
+    try {
+      ValidationResult vr = jqEvaluator.eval(expression, context);
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return Map.of();
+      return OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
+    } catch (Exception e) {
+      LOG.warnf(e, "jq evaluation failed for expression '%s'", expression);
+      return Map.of();
+    }
   }
 }

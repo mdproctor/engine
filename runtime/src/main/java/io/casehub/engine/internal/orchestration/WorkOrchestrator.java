@@ -15,6 +15,8 @@
  */
 package io.casehub.engine.internal.orchestration;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
@@ -27,6 +29,8 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.internal.history.EventLog;
+import io.casehub.engine.internal.jq.JQEvaluator;
+import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
@@ -64,6 +68,7 @@ public class WorkOrchestrator {
 
   private static final Logger LOG = Logger.getLogger(WorkOrchestrator.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   private final WorkBroker workBroker;
   private final LeastLoadedStrategy selectionStrategy;
@@ -73,6 +78,7 @@ public class WorkOrchestrator {
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final CaseInstanceRepository caseInstanceRepository;
   private final EventLogRepository eventLogRepository;
+  private final JQEvaluator jqEvaluator;
 
   @Inject
   public WorkOrchestrator(
@@ -83,7 +89,8 @@ public class WorkOrchestrator {
       PendingWorkRegistry pendingWorkRegistry,
       CaseDefinitionRegistry caseDefinitionRegistry,
       CaseInstanceRepository caseInstanceRepository,
-      EventLogRepository eventLogRepository) {
+      EventLogRepository eventLogRepository,
+      JQEvaluator jqEvaluator) {
     this.workBroker = workBroker;
     this.selectionStrategy = selectionStrategy;
     this.workloadProvider = workloadProvider;
@@ -92,6 +99,7 @@ public class WorkOrchestrator {
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.caseInstanceRepository = caseInstanceRepository;
     this.eventLogRepository = eventLogRepository;
+    this.jqEvaluator = jqEvaluator;
   }
 
   /**
@@ -155,7 +163,7 @@ public class WorkOrchestrator {
     // 6. Build inputData and compute correlationKey (includes caseId to prevent cross-case
     // collision)
     Map<String, Object> inputData =
-        instance.getCaseContext().evalObjectTemplate(capability.getInputSchema());
+        evalJqAsMap(instance.getCaseContext().asJsonNode(), capability.getInputSchema());
     String correlationKey =
         WorkerExecutionKeys.inputDataHash(
             instance.getUuid(), selectedWorker.getName(), capability.getName(), inputData);
@@ -283,5 +291,17 @@ public class WorkOrchestrator {
             .put("newStatus", newStatus.name())
             .put("waitingForWorkId", instance.getWaitingForWorkId()));
     return log;
+  }
+
+  private Map<String, Object> evalJqAsMap(JsonNode context, String expression) {
+    if (expression == null || expression.isBlank()) return Map.of();
+    try {
+      ValidationResult vr = jqEvaluator.eval(expression, context);
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return Map.of();
+      return OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
+    } catch (Exception e) {
+      LOG.warnf(e, "jq evaluation failed for expression '%s'", expression);
+      return Map.of();
+    }
   }
 }

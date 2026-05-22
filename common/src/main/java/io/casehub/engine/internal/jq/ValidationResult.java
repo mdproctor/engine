@@ -20,11 +20,11 @@ import java.util.List;
 
 public record ValidationResult(boolean ok, String error, List<JsonNode> output) {
 
-  static ValidationResult ok(List<JsonNode> out) {
+  public static ValidationResult ok(List<JsonNode> out) {
     return new ValidationResult(true, null, out);
   }
 
-  static ValidationResult error(String msg) {
+  public static ValidationResult error(String msg) {
     return new ValidationResult(false, msg, null);
   }
 

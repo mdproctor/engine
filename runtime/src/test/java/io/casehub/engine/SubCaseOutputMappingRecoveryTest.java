@@ -23,6 +23,8 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.internal.history.EventLog;
+import io.casehub.engine.internal.jq.JQEvaluator;
+import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.model.CaseMetaModel;
 import io.casehub.engine.spi.CaseInstanceRepository;
@@ -66,6 +68,7 @@ public class SubCaseOutputMappingRecoveryTest {
   @Inject EventLogRepository eventLogRepository;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject WorkerExecutionRecoveryService recoveryService;
+  @Inject JQEvaluator jqEvaluator;
 
   private CaseMetaModel savedMeta;
 
@@ -110,7 +113,14 @@ public class SubCaseOutputMappingRecoveryTest {
     // 4. Apply outputMapping to parent IN MEMORY (simulating SubCaseCompletionListener)
     CaseInstance child = caseInstanceCache.get(childId);
     CaseInstance parent = caseInstanceCache.get(parentId);
-    Map<String, Object> mappedData = child.getCaseContext().evalObjectTemplate(outputMapping);
+    ValidationResult vr = jqEvaluator.eval(outputMapping, child.getCaseContext().asJsonNode());
+    Map<String, Object> mappedData =
+        vr.ok() && vr.output() != null && !vr.output().isEmpty()
+            ? new com.fasterxml.jackson.databind.ObjectMapper()
+                .convertValue(
+                    vr.output().get(0),
+                    new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {})
+            : Map.of();
     mappedData.forEach((k, v) -> parent.getCaseContext().set(k, v));
 
     // Verify data was applied in memory

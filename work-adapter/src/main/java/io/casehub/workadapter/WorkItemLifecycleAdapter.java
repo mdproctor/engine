@@ -15,6 +15,8 @@
  */
 package io.casehub.workadapter;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.ExtensionTarget;
@@ -24,21 +26,21 @@ import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.internal.event.EventBusAddresses;
+import io.casehub.engine.internal.jq.JQEvaluator;
+import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.internal.utils.ReactiveUtils;
 import io.casehub.engine.spi.CaseInstanceRepository;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
-import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
@@ -58,6 +60,7 @@ public class WorkItemLifecycleAdapter {
   private static final Logger LOG = Logger.getLogger(WorkItemLifecycleAdapter.class);
   private static final Duration TIMEOUT = Duration.ofSeconds(5);
   private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject BlackboardRegistry registry;
 
@@ -65,9 +68,9 @@ public class WorkItemLifecycleAdapter {
 
   @Inject EventBus eventBus;
 
-  @Inject Vertx vertx;
+  @Inject JQEvaluator jqEvaluator;
 
-  void onWorkItemLifecycle(@ObservesAsync WorkItemLifecycleEvent event) {
+  public void onWorkItemLifecycle(@ObservesAsync WorkItemLifecycleEvent event) {
     WorkItemStatus status = event.status();
     if (status != WorkItemStatus.COMPLETED
         && status != WorkItemStatus.REJECTED
@@ -96,27 +99,20 @@ public class WorkItemLifecycleAdapter {
 
     if (!applyStatus(item, status)) return;
 
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx,
-            () ->
-                caseInstanceRepository
-                    .findByUuid(ref.caseId())
-                    .invoke(
-                        instance -> {
-                          if (instance == null) {
-                            LOG.warnf(
-                                "CaseInstance not found for caseId=%s — cannot fire CONTEXT_CHANGED",
-                                ref.caseId());
-                            return;
-                          }
-                          applyOutputMapping(item, workItem, instance);
-                          eventBus.publish(
-                              EventBusAddresses.CONTEXT_CHANGED,
-                              new CaseContextChangedEvent(
-                                  instance, instance.getCaseContext().asJsonNode()));
-                        }))
-        .await()
-        .atMost(TIMEOUT);
+    // Use Uni.await() directly — safe from a CDI managed executor thread (non-Vert.x).
+    // runOnSafeVertxContext was removed because it reliably times out in complex Quarkus
+    // deployments with many event-bus subscribers (engine#316).
+    CaseInstance instance = caseInstanceRepository.findByUuid(ref.caseId()).await().atMost(TIMEOUT);
+
+    if (instance == null) {
+      LOG.warnf("CaseInstance not found for caseId=%s — cannot fire CONTEXT_CHANGED", ref.caseId());
+      return;
+    }
+
+    applyOutputMapping(item, workItem, instance);
+    eventBus.publish(
+        EventBusAddresses.CONTEXT_CHANGED,
+        new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
   }
 
   private void applyOutputMapping(PlanItem item, WorkItem workItem, CaseInstance instance) {
@@ -145,12 +141,16 @@ public class WorkItemLifecycleAdapter {
     }
 
     try {
-      // Parse resolution JSON into a temporary context, then evaluate outputMapping
-      // against the resolution data (not the case context)
-      @SuppressWarnings("unchecked")
-      Map<String, Object> resolutionData = MAPPER.readValue(workItem.resolution, Map.class);
-      CaseContextImpl resolutionCtx = new CaseContextImpl(resolutionData);
-      Map<String, Object> updates = resolutionCtx.evalObjectTemplate(jq.expression());
+      JsonNode resolutionNode = MAPPER.readTree(workItem.resolution);
+      ValidationResult vr = jqEvaluator.eval(jq.expression(), resolutionNode);
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
+        LOG.warnf(
+            "outputMapping jq expression returned no result for PlanItem %s: %s",
+            item.getPlanItemId(), vr.error());
+        return;
+      }
+      List<JsonNode> output = vr.output();
+      Map<String, Object> updates = MAPPER.convertValue(output.get(0), MAP_TYPE);
       instance.getCaseContext().setAll(updates);
     } catch (Exception e) {
       LOG.warnf(

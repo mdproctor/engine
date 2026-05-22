@@ -15,6 +15,7 @@
  */
 package io.casehub.blackboard.subcase;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.engine.CaseHubRuntime;
@@ -24,6 +25,8 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.internal.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.history.EventLog;
+import io.casehub.engine.internal.jq.JQEvaluator;
+import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.model.GroupStatus;
 import io.casehub.engine.internal.model.SubCaseGroup;
@@ -56,8 +59,10 @@ public class SubCaseCompletionService {
 
   private static final Logger LOG = Logger.getLogger(SubCaseCompletionService.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject EventLogRepository eventLogRepository;
+  @Inject JQEvaluator jqEvaluator;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject CaseResumptionService caseResumptionService;
   @Inject SubCaseGroupRepository subCaseGroupRepository;
@@ -234,10 +239,15 @@ public class SubCaseCompletionService {
       UUID childCaseId, CaseInstance parent, String outputMapping) {
     CaseInstance child = caseInstanceCache.get(childCaseId);
     if (child != null) {
-      Map<String, Object> mapped = child.getCaseContext().evalObjectTemplate(outputMapping);
-      if (mapped != null) {
+      try {
+        ValidationResult vr = jqEvaluator.eval(outputMapping, child.getCaseContext().asJsonNode());
+        if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return null;
+        Map<String, Object> mapped = OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
         mapped.forEach((k, v) -> parent.getCaseContext().set(k, v));
         return mapped;
+      } catch (Exception e) {
+        LOG.warnf(e, "outputMapping evaluation failed for child case %s", childCaseId);
+        return null;
       }
     } else {
       LOG.warnf(

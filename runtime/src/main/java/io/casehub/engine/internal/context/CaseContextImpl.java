@@ -106,7 +106,9 @@ public class CaseContextImpl implements CaseContext {
     lock.readLock().lock();
     try {
       Object value = data.get(key);
-      if (value == null) return null;
+      if (value == null) {
+        return null;
+      }
       if (type.isInstance(value)) {
         return type.cast(value);
       }
@@ -211,32 +213,48 @@ public class CaseContextImpl implements CaseContext {
   @Override
   public Integer getInt(String key) {
     Object v = get(key);
-    if (v == null) return null;
-    if (v instanceof Number n) return n.intValue();
+    if (v == null) {
+      return null;
+    }
+    if (v instanceof Number n) {
+      return n.intValue();
+    }
     return Integer.parseInt(v.toString());
   }
 
   @Override
   public Long getLong(String key) {
     Object v = get(key);
-    if (v == null) return null;
-    if (v instanceof Number n) return n.longValue();
+    if (v == null) {
+      return null;
+    }
+    if (v instanceof Number n) {
+      return n.longValue();
+    }
     return Long.parseLong(v.toString());
   }
 
   @Override
   public Double getDouble(String key) {
     Object v = get(key);
-    if (v == null) return null;
-    if (v instanceof Number n) return n.doubleValue();
+    if (v == null) {
+      return null;
+    }
+    if (v instanceof Number n) {
+      return n.doubleValue();
+    }
     return Double.parseDouble(v.toString());
   }
 
   @Override
   public Boolean getBoolean(String key) {
     Object v = get(key);
-    if (v == null) return null;
-    if (v instanceof Boolean b) return b;
+    if (v == null) {
+      return null;
+    }
+    if (v instanceof Boolean b) {
+      return b;
+    }
     return Boolean.parseBoolean(v.toString());
   }
 
@@ -245,7 +263,9 @@ public class CaseContextImpl implements CaseContext {
     lock.readLock().lock();
     try {
       Object v = data.get(key);
-      if (v == null) return null;
+      if (v == null) {
+        return null;
+      }
       if (v instanceof List<?> list) {
         return list.stream().map(item -> mapper.convertValue(item, elementType)).toList();
       }
@@ -282,7 +302,9 @@ public class CaseContextImpl implements CaseContext {
       } else {
         return null;
       }
-      if (current == null) return null;
+      if (current == null) {
+        return null;
+      }
     }
     return current;
   }
@@ -357,7 +379,9 @@ public class CaseContextImpl implements CaseContext {
 
   @Override
   public CaseContext setAll(Map<String, Object> values) {
-    if (values == null || values.isEmpty()) return this;
+    if (values == null || values.isEmpty()) {
+      return this;
+    }
     lock.writeLock().lock();
     try {
       boolean changed = false;
@@ -477,7 +501,9 @@ public class CaseContextImpl implements CaseContext {
 
   @Override
   public CaseContext merge(CaseContext other) {
-    if (other == null) return this;
+    if (other == null) {
+      return this;
+    }
     lock.writeLock().lock();
     try {
       Map<String, Object> otherData = other.getData();
@@ -579,8 +605,12 @@ public class CaseContextImpl implements CaseContext {
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) return true;
-    if (!(o instanceof CaseContextImpl that)) return false;
+    if (this == o) {
+      return true;
+    }
+    if (!(o instanceof CaseContextImpl that)) {
+      return false;
+    }
     Map<String, Object> thisData = this.getData();
     Map<String, Object> thatData = that.getData();
     return thisData.equals(thatData);
@@ -594,173 +624,5 @@ public class CaseContextImpl implements CaseContext {
     } finally {
       lock.readLock().unlock();
     }
-  }
-
-  public Map<String, Object> evalObjectTemplate(String template) {
-    if (template == null) return Map.of();
-    String s = template.trim();
-    if (s.isEmpty()) return Map.of();
-
-    if (!(s.startsWith("{") && s.endsWith("}"))) {
-      throw new IllegalArgumentException("Object template must be wrapped with { }: " + template);
-    }
-
-    String body = s.substring(1, s.length() - 1).trim();
-    if (body.isEmpty()) return Map.of();
-
-    lock.readLock().lock();
-    try {
-      LinkedHashMap<String, Object> out = new LinkedHashMap<>();
-      for (String entry : splitTopLevel(body, ',')) {
-        String e = entry.trim();
-        if (e.isEmpty()) continue;
-
-        int colon = indexOfTopLevel(e, ':');
-        if (colon < 0) {
-          throw new IllegalArgumentException("Invalid entry (missing ':'): " + e);
-        }
-
-        String rawKey = e.substring(0, colon).trim();
-        String rawVal = e.substring(colon + 1).trim();
-
-        String key = parseKey(rawKey);
-        Object val = evalValue(rawVal);
-
-        out.put(key, val);
-      }
-      return out;
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  /** Supports: .path, ".", JSON literals ("s", 1, 1.2, true/false, null) */
-  private Object evalValue(String expr) {
-    if (expr == null) return null;
-    String v = expr.trim();
-    if (v.isEmpty()) return null;
-
-    // JQ-like path: .a.b.c
-    if (v.startsWith(".")) {
-      if (v.equals(".")) {
-        return new LinkedHashMap<>(data); // whole context snapshot (shallow)
-      }
-      String path = v.substring(1); // remove leading dot
-      return getPathInternal(path);
-    }
-
-    // JSON literal (string/number/bool/null)
-    // Let Jackson parse it when possible (e.g. "x", 1, true, null)
-    try {
-      // readValue expects valid JSON token; this works for "str", 123, true, null, 12.3
-      return mapper.readValue(v, Object.class);
-    } catch (Exception ignore) {
-      // fallback: treat as bare string
-      return v;
-    }
-  }
-
-  private String parseKey(String rawKey) {
-    String k = rawKey.trim();
-    if (k.isEmpty()) throw new IllegalArgumentException("Empty key in object template");
-
-    // allow quoted keys: "documentId": .documentId
-    if ((k.startsWith("\"") && k.endsWith("\"")) || (k.startsWith("'") && k.endsWith("'"))) {
-      // normalize to JSON double quotes for parsing
-      String json =
-          k.startsWith("'")
-              ? "\"" + k.substring(1, k.length() - 1).replace("\"", "\\\"") + "\""
-              : k;
-      try {
-        return mapper.readValue(json, String.class);
-      } catch (Exception e) {
-        throw new IllegalArgumentException("Invalid quoted key: " + rawKey, e);
-      }
-    }
-
-    // unquoted identifier
-    return k;
-  }
-
-  /** Split by delimiter at top-level, respecting quotes and nested {}[]() */
-  private List<String> splitTopLevel(String s, char delimiter) {
-    List<String> parts = new ArrayList<>();
-    StringBuilder cur = new StringBuilder();
-
-    int depth = 0;
-    boolean inStr = false;
-    char strQuote = 0;
-    boolean esc = false;
-
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-
-      if (inStr) {
-        cur.append(c);
-        if (esc) {
-          esc = false;
-        } else if (c == '\\') {
-          esc = true;
-        } else if (c == strQuote) {
-          inStr = false;
-          strQuote = 0;
-        }
-        continue;
-      }
-
-      if (c == '"' || c == '\'') {
-        inStr = true;
-        strQuote = c;
-        cur.append(c);
-        continue;
-      }
-
-      if (c == '{' || c == '[' || c == '(') depth++;
-      else if (c == '}' || c == ']' || c == ')') depth = Math.max(0, depth - 1);
-
-      if (depth == 0 && c == delimiter) {
-        parts.add(cur.toString());
-        cur.setLength(0);
-      } else {
-        cur.append(c);
-      }
-    }
-
-    parts.add(cur.toString());
-    return parts;
-  }
-
-  /** Find first char at top-level (not inside quotes/nesting) */
-  private int indexOfTopLevel(String s, char ch) {
-    int depth = 0;
-    boolean inStr = false;
-    char strQuote = 0;
-    boolean esc = false;
-
-    for (int i = 0; i < s.length(); i++) {
-      char c = s.charAt(i);
-
-      if (inStr) {
-        if (esc) esc = false;
-        else if (c == '\\') esc = true;
-        else if (c == strQuote) {
-          inStr = false;
-          strQuote = 0;
-        }
-        continue;
-      }
-
-      if (c == '"' || c == '\'') {
-        inStr = true;
-        strQuote = c;
-        continue;
-      }
-
-      if (c == '{' || c == '[' || c == '(') depth++;
-      else if (c == '}' || c == ']' || c == ')') depth = Math.max(0, depth - 1);
-
-      if (depth == 0 && c == ch) return i;
-    }
-    return -1;
   }
 }

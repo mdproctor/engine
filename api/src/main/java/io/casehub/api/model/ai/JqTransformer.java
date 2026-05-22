@@ -26,12 +26,14 @@ import net.thisptr.jackson.jq.exception.JsonQueryException;
 
 public final class JqTransformer {
 
+  // scope is fully populated in the constructor and never mutated after — safe for concurrent apply() calls
+  private final Scope scope;
   private final JsonQuery query;
 
   public JqTransformer(String jqExpression) {
     try {
-      Scope initScope = Scope.newEmptyScope();
-      BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, initScope);
+      this.scope = Scope.newEmptyScope();
+      BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, this.scope);
       this.query = JsonQuery.compile(jqExpression, Versions.JQ_1_6);
     } catch (JsonQueryException e) {
       throw new IllegalArgumentException("Invalid jq expression: " + jqExpression, e);
@@ -41,9 +43,7 @@ public final class JqTransformer {
   public JsonNode apply(JsonNode input) {
     List<JsonNode> results = new ArrayList<>();
     try {
-      Scope callScope = Scope.newEmptyScope();
-      BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, callScope);
-      query.apply(callScope, input, results::add);
+      query.apply(scope, input, results::add);
     } catch (JsonQueryException e) {
       throw new AgentException("jq transformation failed", e);
     }

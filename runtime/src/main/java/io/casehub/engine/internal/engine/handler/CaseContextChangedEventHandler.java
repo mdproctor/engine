@@ -15,7 +15,9 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
@@ -44,6 +46,8 @@ import io.casehub.engine.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.internal.event.MilestoneReachedEvent;
 import io.casehub.engine.internal.event.SubCaseScheduleEvent;
 import io.casehub.engine.internal.event.WorkerScheduleEvent;
+import io.casehub.engine.internal.jq.JQEvaluator;
+import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.model.CaseMetaModel;
 import io.casehub.engine.spi.CaseDefinitionRegistry;
@@ -69,8 +73,12 @@ import org.jboss.logging.Logger;
 public class CaseContextChangedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(CaseContextChangedEventHandler.class);
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject EventBus eventBus;
+
+  @Inject JQEvaluator jqEvaluator;
 
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 
@@ -326,7 +334,13 @@ public class CaseContextChangedEventHandler {
     }
     if (target.inputMapping() instanceof JQExpressionEvaluator jq) {
       try {
-        return caseInstance.getCaseContext().evalObjectTemplate(jq.expression());
+        ValidationResult vr =
+            jqEvaluator.eval(jq.expression(), caseInstance.getCaseContext().asJsonNode());
+        if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
+          LOG.warnf("inputMapping evaluation failed for HumanTaskTarget: %s", vr.error());
+          return Map.of();
+        }
+        return MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
       } catch (Exception e) {
         LOG.warnf(e, "inputMapping evaluation failed for HumanTaskTarget — using empty input");
         return Map.of();
@@ -347,7 +361,8 @@ public class CaseContextChangedEventHandler {
                 return Uni.createFrom().voidItem();
               }
               Map<String, Object> inputData =
-                  caseInstance.getCaseContext().evalObjectTemplate(capability.getInputSchema());
+                  evalJqAsMap(
+                      caseInstance.getCaseContext().asJsonNode(), capability.getInputSchema());
               WorkRequest workRequest = WorkRequest.of(capability.getName(), inputData);
               return reactiveWorkerContextProvider
                   .buildContext(null, caseInstance.getUuid(), workRequest)
@@ -380,7 +395,7 @@ public class CaseContextChangedEventHandler {
   private Uni<Void> publishSubCaseSchedule(
       CaseInstance caseInstance, io.casehub.api.model.SubCase subCase) {
     Map<String, Object> childContext =
-        caseInstance.getCaseContext().evalObjectTemplate(subCase.inputMapping());
+        evalJqAsMap(caseInstance.getCaseContext().asJsonNode(), subCase.inputMapping());
 
     LOG.infof(
         "Publishing SubCaseScheduleEvent: parentCaseId=%s subCase=%s/%s/%s waitForCompletion=%s",
@@ -395,5 +410,17 @@ public class CaseContextChangedEventHandler {
         new SubCaseScheduleEvent(caseInstance, subCase, childContext));
 
     return Uni.createFrom().voidItem();
+  }
+
+  private Map<String, Object> evalJqAsMap(JsonNode context, String expression) {
+    if (expression == null || expression.isBlank()) return Map.of();
+    try {
+      ValidationResult vr = jqEvaluator.eval(expression, context);
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return Map.of();
+      return MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
+    } catch (Exception e) {
+      LOG.warnf(e, "jq evaluation failed for expression '%s'", expression);
+      return Map.of();
+    }
   }
 }
