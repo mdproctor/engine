@@ -437,6 +437,10 @@ The `api` module depends on `dev.langchain4j:langchain4j` (core) for the Agent w
 
 Provider implementations use reflection to load vendor SDKs at runtime, avoiding compile-time dependencies. The `ChatModelProvider` SPI is registered via `META-INF/services/io.casehub.api.model.ai.ChatModelProvider`.
 
+### Platform Expression Dependencies
+
+The `casehub-engine-common` module depends on `casehub-platform-expression` and `casehub-platform-api` for JQ evaluation and configuration management. `JQEvaluator` and `ValidationResult` live in `io.casehub.platform.expression`; `SecretManager`, `ConfigManager`, and their exception types live in `io.casehub.platform.api.expression`. Engine implementations (`QuarkusConfigManager`, `ConfigSecretManager`) remain in the engine runtime as plain `@ApplicationScoped` beans — they displace the platform's `@DefaultBean` mocks automatically without `selected-alternatives` configuration. `ConfigContext` (the internal holder interface) remains in `casehub-engine-common`. Any `@QuarkusTest` that injects `JQEvaluator` must list `casehub-platform-expression` in `quarkus.index-dependency`.
+
 ### SPI Call Sites
 
 All engine SPI call sites, in lifecycle order:
