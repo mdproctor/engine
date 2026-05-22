@@ -303,6 +303,27 @@ class HumanTaskScheduleHandlerTest {
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
+  @Test
+  void inlineMode_skipsWorkItemCreation_whenPlanItemAlreadyRunning() {
+    // The handler guard (!= PENDING) protects against duplicate event delivery —
+    // at-least-once event bus semantics mean the same HumanTaskScheduleEvent could
+    // theoretically be dispatched twice. A RUNNING PlanItem means WorkItem was already
+    // created; the handler must be a no-op in that case.
+    planItem.markRunning();
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(
+            caseId,
+            "irb-binding",
+            HumanTaskTarget.inline().title("Review").build(),
+            Map.of(),
+            null));
+
+    assertThat(workItemStore.scanAll())
+        .as("handler must not create a WorkItem when PlanItem is already RUNNING")
+        .isEmpty();
+  }
+
   @Transactional
   WorkItemTemplate persistTemplate(final String name) {
     return persistTemplate(name, null);

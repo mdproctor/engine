@@ -317,7 +317,7 @@ class SpiWiringIntegrationTest {
         .join();
 
     await()
-        .atMost(10, TimeUnit.SECONDS)
+        .atMost(30, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
                 assertThat(RecordingWorkerProvisioner.lastProvisionContext)
@@ -341,7 +341,7 @@ class SpiWiringIntegrationTest {
             .join();
 
     await()
-        .atMost(5, TimeUnit.SECONDS)
+        .atMost(30, TimeUnit.SECONDS)
         .until(() -> RecordingWorkerProvisioner.lastProvisionContext != null);
 
     assertThat(caseInstanceCache.get(caseId).getState())

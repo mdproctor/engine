@@ -26,7 +26,8 @@ import net.thisptr.jackson.jq.exception.JsonQueryException;
 
 public final class JqTransformer {
 
-  // scope is fully populated in the constructor and never mutated after — safe for concurrent apply() calls
+  // scope is fully populated in the constructor and never mutated after — safe for concurrent
+  // apply() calls
   private final Scope scope;
   private final JsonQuery query;
 
