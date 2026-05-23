@@ -65,6 +65,12 @@
             <artifactId>awaitility</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-ledger-memory</artifactId>
+            <version>${version.io.casehub.ledger}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>
