@@ -161,12 +161,12 @@ A `Binding` with a `subCase` field (mutually exclusive with `capability`) spawns
 
 A `Binding` with a `HumanTaskTarget` routes to a human WorkItem in casehub-work when its trigger fires. Two creation modes:
 
-- **Inline** — self-contained task definition (`title`, `candidateGroups`, `expiresIn`)
-- **Template** — references a `WorkItemTemplate` by ID (pending casehubio/engine#255)
+- **Inline** — self-contained task definition (`title`, `candidateGroups`, `expiresIn`, `scope`)
+- **Template** — references a `WorkItemTemplate` by ID; `scope` set manually on the WorkItem
 
 **Engine wiring:**
 - `CaseContextChangedEventHandler` detects `binding.target() instanceof HumanTaskTarget`, evaluates `inputMapping` against `CaseContext`, and publishes `HumanTaskScheduleEvent` on `casehub.humantask.schedule`
-- `HumanTaskScheduleHandler` (work-adapter, `@ConsumeEvent(blocking=true)`) looks up the `PlanItem` by binding name via `CasePlanModel.getPlanItemByBindingName()`, marks it `DELEGATED` (control passed to human actor — not `RUNNING`, which is reserved for Quartz-executed CapabilityTarget workers), creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}`
+- `HumanTaskScheduleHandler` (work-adapter, `@ConsumeEvent(blocking=true)`) looks up the `PlanItem` by binding name via `CasePlanModel.getPlanItemByBindingName()`, marks it `DELEGATED` (control passed to human actor — not `RUNNING`, which is reserved for Quartz-executed CapabilityTarget workers), creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}` and `scope = target.scope()`
 - `WorkItemLifecycleAdapter` extended: on WorkItem completion, evaluates `outputMapping` against the resolution JSON (not the CaseContext) and calls `CaseContext.setAll()` before firing `CONTEXT_CHANGED`
 
 **Data flow:**
