@@ -29,6 +29,9 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.Worker;
+import io.casehub.eidos.api.AgentDescriptor;
+import io.casehub.eidos.api.CapabilityHealth;
+import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
 import io.casehub.engine.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.internal.jq.JQEvaluator;
@@ -41,6 +44,7 @@ import io.casehub.engine.spi.CaseInstanceRepository;
 import io.casehub.engine.spi.EventLogRepository;
 import io.casehub.engine.spi.cache.CaseInstanceCache;
 import io.casehub.work.api.AssignmentDecision;
+import io.casehub.work.api.WorkerCandidate;
 import io.casehub.work.api.WorkloadProvider;
 import io.casehub.work.core.strategy.LeastLoadedStrategy;
 import io.casehub.work.core.strategy.WorkBroker;
@@ -65,6 +69,7 @@ class WorkOrchestratorTest {
   private EventLogRepository eventLogRepository;
   private CaseInstanceCache cache;
   private JQEvaluator jqEvaluator;
+  private CapabilityHealth capabilityHealth;
   private WorkOrchestrator orchestrator;
 
   @BeforeEach
@@ -79,7 +84,10 @@ class WorkOrchestratorTest {
     eventLogRepository = mock(EventLogRepository.class);
     cache = new CaseInstanceCacheImpl();
     jqEvaluator = mock(JQEvaluator.class);
+    capabilityHealth = mock(CapabilityHealth.class);
 
+    when(capabilityHealth.probe(any(), any(), any()))
+        .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
     when(workloadProvider.getActiveWorkCount(any())).thenReturn(0);
     when(caseInstanceRepository.updateStateAndAppendEvent(any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
@@ -101,7 +109,8 @@ class WorkOrchestratorTest {
             caseDefinitionRegistry,
             caseInstanceRepository,
             eventLogRepository,
-            jqEvaluator);
+            jqEvaluator,
+            capabilityHealth);
   }
 
   // ---- happy path -----------------------------------------------------------
@@ -172,7 +181,135 @@ class WorkOrchestratorTest {
     assertThat(future.isCompletedExceptionally()).isTrue();
   }
 
+  // ---- capability health probe -----------------------------------------------
+
+  private static final AgentDescriptor AGENT_DESCRIPTOR =
+      new AgentDescriptor(
+          "agent-1",
+          "TestAgent",
+          "1.0",
+          "openai",
+          "gpt-4",
+          "4-turbo",
+          null,
+          null,
+          null,
+          null,
+          "review",
+          List.of(),
+          null,
+          null,
+          null,
+          "casehubio");
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void probe_unavailable_workerExcludedFromCandidates() {
+    when(capabilityHealth.probe(any(), any(), any()))
+        .thenReturn(new CapabilityStatus.Unavailable("model offline"));
+    when(workBroker.apply(any(), any(), any(), any())).thenReturn(AssignmentDecision.noChange());
+
+    CaseInstance instance = runningInstanceWithAgentWorker("analyse");
+    cache.put(instance);
+
+    orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
+
+    org.mockito.ArgumentCaptor<List<WorkerCandidate>> captor =
+        org.mockito.ArgumentCaptor.forClass(List.class);
+    verify(workBroker).apply(any(), any(), captor.capture(), any());
+    assertThat(captor.getValue()).isEmpty();
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void probe_epistemicallyWeak_workerKeptInCandidates() {
+    when(capabilityHealth.probe(any(), any(), any()))
+        .thenReturn(new CapabilityStatus.EpistemicallyWeak("rust", 0.25));
+    when(workBroker.apply(any(), any(), any(), any()))
+        .thenReturn(AssignmentDecision.assignTo("agent-worker"));
+
+    CaseInstance instance = runningInstanceWithAgentWorker("analyse");
+    cache.put(instance);
+
+    orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
+
+    org.mockito.ArgumentCaptor<List<WorkerCandidate>> captor =
+        org.mockito.ArgumentCaptor.forClass(List.class);
+    verify(workBroker).apply(any(), any(), captor.capture(), any());
+    assertThat(captor.getValue()).hasSize(1);
+    assertThat(captor.getValue().get(0).id()).isEqualTo("agent-worker");
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void probe_allUnavailable_emptyCandidateList() {
+    when(capabilityHealth.probe(any(), any(), any()))
+        .thenReturn(new CapabilityStatus.Unavailable("all offline"));
+    when(workBroker.apply(any(), any(), any(), any())).thenReturn(AssignmentDecision.noChange());
+
+    CaseInstance instance = runningInstanceWithAgentWorker("analyse");
+    cache.put(instance);
+
+    orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
+
+    org.mockito.ArgumentCaptor<List<WorkerCandidate>> captor =
+        org.mockito.ArgumentCaptor.forClass(List.class);
+    verify(workBroker).apply(any(), any(), captor.capture(), any());
+    assertThat(captor.getValue()).isEmpty();
+  }
+
+  @Test
+  void probe_noDescriptor_probeSkipped() {
+    CaseInstance instance = runningInstance("analyse");
+    cache.put(instance);
+    when(workBroker.apply(any(), any(), any(), any()))
+        .thenReturn(AssignmentDecision.assignTo("analyst-worker"));
+
+    orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
+
+    verify(capabilityHealth, never()).probe(any(), any(), any());
+  }
+
   // ---- helper ---------------------------------------------------------------
+
+  private CaseInstance runningInstanceWithAgentWorker(String capabilityName) {
+    Capability capability =
+        Capability.builder()
+            .name(capabilityName)
+            .inputSchema("{ doc: .doc }")
+            .outputSchema("{ result: .result }")
+            .build();
+
+    Worker worker =
+        Worker.builder()
+            .name("agent-worker")
+            .capabilities(capability)
+            .function(input -> Map.of("result", "done"))
+            .agentDescriptor(AGENT_DESCRIPTOR)
+            .build();
+
+    CaseDefinition definition =
+        CaseDefinition.builder()
+            .namespace("test-orch")
+            .name("Orchestration Test Case")
+            .version("1.0.0")
+            .capabilities(capability)
+            .workers(worker)
+            .build();
+
+    CaseMetaModel metaModel = mock(CaseMetaModel.class);
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
+
+    CaseInstance instance = new CaseInstance();
+    instance.setUuid(UUID.randomUUID());
+    instance.setState(CaseStatus.RUNNING);
+    instance.setCaseMetaModel(metaModel);
+    CaseContext ctx = mock(CaseContext.class);
+    when(ctx.asJsonNode())
+        .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode());
+    instance.setCaseContext(ctx);
+    return instance;
+  }
 
   private CaseInstance runningInstance(String capabilityName) {
     Capability capability =

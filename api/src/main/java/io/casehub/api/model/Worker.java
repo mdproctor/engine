@@ -19,6 +19,7 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.holder.WorkerFunctionHolder;
 import io.casehub.api.plan.PlanElement;
+import io.casehub.eidos.api.AgentDescriptor;
 import io.serverlessworkflow.api.types.Workflow;
 import java.io.File;
 import java.util.Arrays;
@@ -34,6 +35,7 @@ public class Worker implements PlanElement {
   private final WorkerFunctionHolder<?> functionHolder;
   private ExecutionPolicy executionPolicy;
   private String description;
+  private AgentDescriptor agentDescriptor;
 
   public Worker(
       String name,
@@ -98,6 +100,14 @@ public class Worker implements PlanElement {
     return functionHolder;
   }
 
+  public AgentDescriptor agentDescriptor() {
+    return agentDescriptor;
+  }
+
+  public boolean hasDescriptor() {
+    return agentDescriptor != null;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -109,6 +119,7 @@ public class Worker implements PlanElement {
     private WorkerFunctionHolder<?> functionHolder;
     private ExecutionPolicy executionPolicy;
     private String description;
+    private AgentDescriptor agentDescriptor;
 
     private Builder() {}
 
@@ -157,6 +168,11 @@ public class Worker implements PlanElement {
       return this;
     }
 
+    public Builder agentDescriptor(AgentDescriptor agentDescriptor) {
+      this.agentDescriptor = agentDescriptor;
+      return this;
+    }
+
     public Worker build() {
       Worker worker =
           new Worker(
@@ -167,6 +183,7 @@ public class Worker implements PlanElement {
         worker.setExecutionPolicy(executionPolicy);
       }
       worker.setDescription(description);
+      worker.agentDescriptor = agentDescriptor;
       return worker;
     }
   }

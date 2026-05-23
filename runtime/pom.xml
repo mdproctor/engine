@@ -36,6 +36,10 @@
             <artifactId>casehub-engine-schema</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-eidos-api</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>io.quarkus</groupId>

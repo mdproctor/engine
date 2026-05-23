@@ -26,6 +26,9 @@ import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.eidos.api.CapabilityHealth;
+import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
+import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
 import io.casehub.engine.internal.event.EventBusAddresses;
 import io.casehub.engine.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.internal.history.EventLog;
@@ -79,6 +82,7 @@ public class WorkOrchestrator {
   private final CaseInstanceRepository caseInstanceRepository;
   private final EventLogRepository eventLogRepository;
   private final JQEvaluator jqEvaluator;
+  private final CapabilityHealth capabilityHealth;
 
   @Inject
   public WorkOrchestrator(
@@ -90,7 +94,8 @@ public class WorkOrchestrator {
       CaseDefinitionRegistry caseDefinitionRegistry,
       CaseInstanceRepository caseInstanceRepository,
       EventLogRepository eventLogRepository,
-      JQEvaluator jqEvaluator) {
+      JQEvaluator jqEvaluator,
+      CapabilityHealth capabilityHealth) {
     this.workBroker = workBroker;
     this.selectionStrategy = selectionStrategy;
     this.workloadProvider = workloadProvider;
@@ -100,6 +105,7 @@ public class WorkOrchestrator {
     this.caseInstanceRepository = caseInstanceRepository;
     this.eventLogRepository = eventLogRepository;
     this.jqEvaluator = jqEvaluator;
+    this.capabilityHealth = capabilityHealth;
   }
 
   /**
@@ -244,11 +250,34 @@ public class WorkOrchestrator {
       }
       boolean hasCapability =
           worker.getCapabilities().stream().anyMatch(c -> c.getName().equals(capabilityName));
-      if (hasCapability) {
-        int workload = workloadProvider.getActiveWorkCount(worker.getName());
-        candidates.add(
-            new WorkerCandidate(worker.getName(), java.util.Set.of(capabilityName), workload));
+      if (!hasCapability) {
+        continue;
       }
+
+      if (worker.hasDescriptor()) {
+        CapabilityStatus status =
+            capabilityHealth.probe(worker.agentDescriptor(), capabilityName, ProbeContext.of(null));
+        if (status instanceof CapabilityStatus.Unavailable u) {
+          LOG.warnf(
+              "Worker '%s' unavailable for capability '%s': %s — excluded",
+              worker.getName(), capabilityName, u.reason());
+          continue;
+        }
+        if (status instanceof CapabilityStatus.EpistemicallyWeak ew) {
+          LOG.infof(
+              "Worker '%s' epistemically weak for '%s' (domain=%s, confidence=%.2f) — kept, preference demotion not yet implemented",
+              worker.getName(), capabilityName, ew.domain(), ew.confidence());
+        }
+        if (status instanceof CapabilityStatus.Degraded d) {
+          LOG.debugf(
+              "Worker '%s' degraded for '%s': %s — %s",
+              worker.getName(), capabilityName, d.reason(), d.detail());
+        }
+      }
+
+      int workload = workloadProvider.getActiveWorkCount(worker.getName());
+      candidates.add(
+          new WorkerCandidate(worker.getName(), java.util.Set.of(capabilityName), workload));
     }
     return candidates;
   }

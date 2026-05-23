@@ -252,6 +252,11 @@
                 <version>${version.io.casehub}</version>
                 <scope>test</scope>
             </dependency>
+            <dependency>
+                <groupId>io.casehub</groupId>
+                <artifactId>casehub-eidos-api</artifactId>
+                <version>${version.io.casehub}</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
