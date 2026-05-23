@@ -321,14 +321,11 @@ class CaseLedgerEventCaptureTest {
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              final List<CaseLedgerEntry> entries = repository.findByCaseId(caseId);
-              assertThat(entries).hasSize(1);
-              assertThat(verificationService.verify(caseId))
-                  .as("Merkle chain must be intact after a single event")
-                  .isTrue();
-            });
+        .untilAsserted(() -> assertThat(repository.findByCaseId(caseId)).hasSize(1));
+
+    assertThat(verificationService.verify(caseId))
+        .as("Merkle chain must be intact after a single event")
+        .isTrue();
   }
 
   @Test
@@ -355,12 +352,10 @@ class CaseLedgerEventCaptureTest {
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(repository.findByCaseId(caseId)).hasSize(3);
-              assertThat(verificationService.verify(caseId))
-                  .as("Merkle chain must be intact after three events")
-                  .isTrue();
-            });
+        .untilAsserted(() -> assertThat(repository.findByCaseId(caseId)).hasSize(3));
+
+    assertThat(verificationService.verify(caseId))
+        .as("Merkle chain must be intact after three events")
+        .isTrue();
   }
 }
