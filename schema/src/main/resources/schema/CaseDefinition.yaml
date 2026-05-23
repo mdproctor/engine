@@ -265,6 +265,12 @@ $defs:
       outputMapping:
         type: string
         description: "JQ expression: WorkItem resolution → case context updates"
+      scope:
+        type: string
+        description: >-
+          Hierarchical scope path for SLA preference resolution
+          (e.g. "casehubio/devtown/pr-review"). Null resolves preferences at root scope.
+          Follow the platform convention: org / app / case-type.
       candidateGroups:
         type: array
         items: { type: string }

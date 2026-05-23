@@ -455,6 +455,55 @@ class CaseDefinitionYamlMapperTest {
   }
 
   @Test
+  void humanTaskBinding_withScope_scopePropagatedToTarget() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Scoped HumanTask Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: irb-review
+              on: { contextChange: {} }
+              humanTask:
+                title: "IRB Ethics Review"
+                scope: "casehubio/clinical/adverse-event"
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    Binding binding = def.getBindings().get(0);
+    HumanTaskTarget target = (HumanTaskTarget) binding.target();
+    assertThat(target.scope()).isEqualTo("casehubio/clinical/adverse-event");
+  }
+
+  @Test
+  void humanTaskBinding_withoutScope_scopeIsNull() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Unscoped HumanTask Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: irb-review
+              on: { contextChange: {} }
+              humanTask:
+                title: "IRB Ethics Review"
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    Binding binding = def.getBindings().get(0);
+    HumanTaskTarget target = (HumanTaskTarget) binding.target();
+    assertThat(target.scope()).isNull();
+  }
+
+  @Test
   void humanTaskBinding_withNegativeExpiresIn_throwsIllegalArgument() {
     String yaml =
         """

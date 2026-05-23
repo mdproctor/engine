@@ -151,6 +151,11 @@ public class CaseContextChangedEventHandler {
         continue;
       }
 
+      if (binding.getWhen() != null
+          && !expressionEngineRegistry.evaluate(binding.getWhen(), contextSnapshot)) {
+        continue;
+      }
+
       eligible.add(binding);
     }
 
@@ -214,7 +219,8 @@ public class CaseContextChangedEventHandler {
     return switch (binding.target()) {
       case CapabilityTarget ct ->
           publishWorkerSchedule(caseInstance, workers, binding, ct.capability());
-      case SubCaseTarget st -> publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
+      case SubCaseTarget st ->
+          publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
       case HumanTaskTarget ht -> publishHumanTaskSchedule(caseInstance, binding, ht);
       case ExtensionTarget et -> {
         LOG.warnf(

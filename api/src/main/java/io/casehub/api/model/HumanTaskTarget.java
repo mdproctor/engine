@@ -44,6 +44,7 @@ public final class HumanTaskTarget implements BindingTarget {
   private final String priority;
   private final ExpressionEvaluator inputMapping;
   private final ExpressionEvaluator outputMapping;
+  private final String scope;
 
   private HumanTaskTarget(Builder builder) {
     this.templateRef = builder.templateRef;
@@ -54,6 +55,7 @@ public final class HumanTaskTarget implements BindingTarget {
     this.priority = builder.priority;
     this.inputMapping = builder.inputMapping;
     this.outputMapping = builder.outputMapping;
+    this.scope = builder.scope;
   }
 
   /**
@@ -107,6 +109,15 @@ public final class HumanTaskTarget implements BindingTarget {
     return outputMapping;
   }
 
+  /**
+   * Hierarchical scope path for SLA preference resolution (e.g. {@code
+   * "casehubio/devtown/pr-review"}). Null means unscoped; the work expiry service falls back to
+   * root scope.
+   */
+  public String scope() {
+    return scope;
+  }
+
   public static final class Builder {
 
     private final String templateRef;
@@ -117,6 +128,7 @@ public final class HumanTaskTarget implements BindingTarget {
     private String priority;
     private ExpressionEvaluator inputMapping;
     private ExpressionEvaluator outputMapping;
+    private String scope;
 
     private Builder(String templateRef) {
       this.templateRef = templateRef;
@@ -164,6 +176,11 @@ public final class HumanTaskTarget implements BindingTarget {
 
     public Builder outputMapping(ExpressionEvaluator evaluator) {
       this.outputMapping = evaluator;
+      return this;
+    }
+
+    public Builder scope(String scope) {
+      this.scope = scope;
       return this;
     }
 

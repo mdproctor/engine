@@ -127,4 +127,28 @@ class HumanTaskTargetTest {
     HumanTaskTarget target = HumanTaskTarget.template("t1").build();
     assertThat(target).isInstanceOf(BindingTarget.class);
   }
+
+  @Test
+  void scope_storedAndReturned() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").scope("casehubio/devtown/pr-review").build();
+
+    assertThat(target.scope()).isEqualTo("casehubio/devtown/pr-review");
+  }
+
+  @Test
+  void scope_nullByDefault() {
+    HumanTaskTarget target = HumanTaskTarget.template("t1").build();
+
+    assertThat(target.scope()).isNull();
+  }
+
+  @Test
+  void scope_templateMode_storedAndReturned() {
+    HumanTaskTarget target =
+        HumanTaskTarget.template("irb-template").scope("casehubio/clinical/adverse-event").build();
+
+    assertThat(target.scope()).isEqualTo("casehubio/clinical/adverse-event");
+    assertThat(target.isTemplateMode()).isTrue();
+  }
 }

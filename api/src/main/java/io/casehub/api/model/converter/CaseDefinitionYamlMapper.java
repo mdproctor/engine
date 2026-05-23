@@ -307,6 +307,9 @@ public final class CaseDefinitionYamlMapper {
     if (schema.getCandidateUsers() != null && !schema.getCandidateUsers().isEmpty()) {
       builder.candidateUsers(new LinkedHashSet<>(schema.getCandidateUsers()));
     }
+    if (schema.getScope() != null) {
+      builder.scope(schema.getScope());
+    }
     if (schema.getExpiresIn() != null) {
       Duration duration;
       try {

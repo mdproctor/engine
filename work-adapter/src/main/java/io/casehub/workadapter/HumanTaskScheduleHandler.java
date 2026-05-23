@@ -127,8 +127,9 @@ public class HumanTaskScheduleHandler {
     WorkItem workItem =
         workItemTemplateService.instantiate(template, target.title(), callerRef, "casehub-engine");
 
-    // Set callerRef and payload manually (not handled by instantiate method)
+    // Set callerRef, scope, and payload manually (not handled by instantiate method)
     workItem.callerRef = callerRef;
+    workItem.scope = target.scope();
     if (event.inputData() != null && !event.inputData().isEmpty()) {
       workItem.payload = serializePayload(event.inputData());
     }
@@ -175,6 +176,7 @@ public class HumanTaskScheduleHandler {
             .payload(payload)
             .expiresAt(effectiveDeadline)
             .callerRef(callerRef)
+            .scope(target.scope())
             .build();
 
     workItemService.create(request);
