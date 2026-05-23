@@ -42,10 +42,16 @@ class CaseChannelProviderContractTest {
   }
 
   @Test
-  void interface_hasPostToChannelMethodWithType() throws Exception {
+  void interface_hasPostToChannelMethodWithAllParams() throws Exception {
     assertThat(
             CaseChannelProvider.class.getMethod(
-                "postToChannel", CaseChannel.class, String.class, String.class, MessageType.class))
+                "postToChannel",
+                CaseChannel.class,
+                String.class,
+                String.class,
+                MessageType.class,
+                String.class,
+                String.class))
         .isNotNull();
   }
 
@@ -83,14 +89,20 @@ class CaseChannelProviderContractTest {
         .isThrownBy(
             () ->
                 provider.postToChannel(
-                    ch, "casehub-engine:orchestrator", "cmd", MessageType.COMMAND));
+                    ch,
+                    "casehub-engine:orchestrator",
+                    "cmd",
+                    MessageType.COMMAND,
+                    "corr-1",
+                    "2026-06-01T00:00:00Z"));
   }
 
   @Test
-  void noOp_postToChannel_withNullType_isNoOp() {
+  void noOp_postToChannel_withNullParams_isNoOp() {
     CaseChannelProvider provider = new NoOpStub();
     CaseChannel ch = provider.openChannel(UUID.randomUUID(), "p");
-    assertThatNoException().isThrownBy(() -> provider.postToChannel(ch, "system", "msg", null));
+    assertThatNoException()
+        .isThrownBy(() -> provider.postToChannel(ch, "system", "msg", null, null, null));
   }
 
   @Test
@@ -136,7 +148,7 @@ class CaseChannelProviderContractTest {
         .isThrownBy(
             () ->
                 provider.postToChannel(
-                    second, "casehub-engine:orchestrator", "cmd", MessageType.COMMAND));
+                    second, "casehub-engine:orchestrator", "cmd", MessageType.COMMAND, null, null));
   }
 
   static class NoOpStub implements CaseChannelProvider {
@@ -146,7 +158,13 @@ class CaseChannelProviderContractTest {
     }
 
     @Override
-    public void postToChannel(CaseChannel ch, String from, String content, MessageType type) {}
+    public void postToChannel(
+        CaseChannel ch,
+        String from,
+        String content,
+        MessageType type,
+        String correlationId,
+        String deadline) {}
 
     @Override
     public void closeChannel(CaseChannel ch) {}

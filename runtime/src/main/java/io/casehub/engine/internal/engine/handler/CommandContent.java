@@ -26,9 +26,9 @@ import java.util.Map;
  * the case has a PropagationContext deadline). The deadline field is omitted from serialized JSON
  * when null to preserve existing wire format compatibility.
  *
- * <p>Consumer: Claudony's {@code ClaudonyReactiveCaseChannelProvider} receives this as a JSON
- * string via {@code postToChannel} and extracts correlationId and deadline to open a Qhorus
- * Commitment. See casehubio/engine#323 for the channel lifecycle contract question.
+ * <p>Consumer: Claudony's {@code ClaudonyReactiveCaseChannelProvider} receives {@code
+ * correlationId} and {@code deadline} as direct SPI parameters (since engine#343 / claudony#135).
+ * The {@code CommandContent} JSON still carries both fields for the worker agent to read.
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
 record CommandContent(

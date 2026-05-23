@@ -38,7 +38,13 @@ public class NoOpCaseChannelProvider implements CaseChannelProvider {
   }
 
   @Override
-  public void postToChannel(CaseChannel channel, String from, String content, MessageType type) {
+  public void postToChannel(
+      CaseChannel channel,
+      String from,
+      String content,
+      MessageType type,
+      String correlationId,
+      String deadline) {
     // intentional no-op
   }
 

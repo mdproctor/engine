@@ -222,7 +222,12 @@ public class WorkerScheduleEventHandler {
         new CommandContent(
             "COMMAND", capability.getName(), String.valueOf(eventLogId), inputData, deadline);
     caseChannelProvider.postToChannel(
-        channel, "casehub-engine:orchestrator", serialize(command), MessageType.COMMAND);
+        channel,
+        "casehub-engine:orchestrator",
+        serialize(command),
+        MessageType.COMMAND,
+        String.valueOf(eventLogId),
+        deadline);
     LOG.debugf(
         "COMMAND dispatched: caseId=%s worker=%s capability=%s correlationId=%d",
         instance.getUuid(), worker.getName(), capability.getName(), eventLogId);

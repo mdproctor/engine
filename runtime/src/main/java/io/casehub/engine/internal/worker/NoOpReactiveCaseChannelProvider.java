@@ -42,7 +42,12 @@ public class NoOpReactiveCaseChannelProvider implements ReactiveCaseChannelProvi
 
   @Override
   public Uni<Void> postToChannel(
-      CaseChannel channel, String from, String content, MessageType type) {
+      CaseChannel channel,
+      String from,
+      String content,
+      MessageType type,
+      String correlationId,
+      String deadline) {
     return Uni.createFrom().voidItem();
   }
 

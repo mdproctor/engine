@@ -46,13 +46,23 @@ public interface ReactiveCaseChannelProvider {
    * @param content message content
    * @param type the intent type of the message (e.g. {@link MessageType#COMMAND}); {@code null} if
    *     unspecified
+   * @param correlationId correlation identifier for causal linkage (e.g. eventLogId); {@code null}
+   *     if unspecified
+   * @param deadline ISO-8601 deadline for temporal obligation tracking; {@code null} if no deadline
    * @return a {@code Uni} completing with {@code null} on success
    */
-  Uni<Void> postToChannel(CaseChannel channel, String from, String content, MessageType type);
+  Uni<Void> postToChannel(
+      CaseChannel channel,
+      String from,
+      String content,
+      MessageType type,
+      String correlationId,
+      String deadline);
 
   /**
    * Post a message to a channel. Delegates to {@link #postToChannel(CaseChannel, String, String,
-   * MessageType)} with {@code type = null}.
+   * MessageType, String, String)} with {@code type}, {@code correlationId}, and {@code deadline}
+   * all {@code null}.
    *
    * @param channel the channel reference returned by {@link #openChannel}
    * @param from sender identity (worker ID or "human")
@@ -60,7 +70,7 @@ public interface ReactiveCaseChannelProvider {
    * @return a {@code Uni} completing with {@code null} on success
    */
   default Uni<Void> postToChannel(CaseChannel channel, String from, String content) {
-    return postToChannel(channel, from, content, null);
+    return postToChannel(channel, from, content, null, null, null);
   }
 
   /**

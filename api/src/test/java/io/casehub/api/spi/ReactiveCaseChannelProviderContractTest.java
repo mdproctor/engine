@@ -37,10 +37,16 @@ class ReactiveCaseChannelProviderContractTest {
   }
 
   @Test
-  void interface_hasPostToChannelMethodWithType() throws Exception {
+  void interface_hasPostToChannelMethodWithAllParams() throws Exception {
     assertThat(
             ReactiveCaseChannelProvider.class.getMethod(
-                "postToChannel", CaseChannel.class, String.class, String.class, MessageType.class))
+                "postToChannel",
+                CaseChannel.class,
+                String.class,
+                String.class,
+                MessageType.class,
+                String.class,
+                String.class))
         .isNotNull();
   }
 
@@ -69,17 +75,28 @@ class ReactiveCaseChannelProviderContractTest {
         .isThrownBy(
             () ->
                 provider
-                    .postToChannel(ch, "casehub-engine:orchestrator", "cmd", MessageType.COMMAND)
+                    .postToChannel(
+                        ch,
+                        "casehub-engine:orchestrator",
+                        "cmd",
+                        MessageType.COMMAND,
+                        "corr-1",
+                        "2026-06-01T00:00:00Z")
                     .await()
                     .indefinitely());
   }
 
   @Test
-  void noOp_postToChannel_withNullType_completesSuccessfully() {
+  void noOp_postToChannel_withNullParams_completesSuccessfully() {
     ReactiveCaseChannelProvider provider = new NoOpStub();
     CaseChannel ch = provider.openChannel(UUID.randomUUID(), "p").await().indefinitely();
     assertThatNoException()
-        .isThrownBy(() -> provider.postToChannel(ch, "system", "msg", null).await().indefinitely());
+        .isThrownBy(
+            () ->
+                provider
+                    .postToChannel(ch, "system", "msg", null, null, null)
+                    .await()
+                    .indefinitely());
   }
 
   @Test
@@ -107,7 +124,12 @@ class ReactiveCaseChannelProviderContractTest {
 
     @Override
     public Uni<Void> postToChannel(
-        CaseChannel channel, String from, String content, MessageType type) {
+        CaseChannel channel,
+        String from,
+        String content,
+        MessageType type,
+        String correlationId,
+        String deadline) {
       return Uni.createFrom().voidItem();
     }
 

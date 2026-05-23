@@ -418,6 +418,8 @@ class SpiWiringIntegrationTest {
     static final List<String> postedContents = new CopyOnWriteArrayList<>();
     static final List<String> postedFroms = new CopyOnWriteArrayList<>();
     static final List<MessageType> postedTypes = new CopyOnWriteArrayList<>();
+    static final List<String> postedCorrelationIds = new CopyOnWriteArrayList<>();
+    static final List<String> postedDeadlines = new CopyOnWriteArrayList<>();
     private final Map<UUID, List<CaseChannel>> openChannels = new ConcurrentHashMap<>();
 
     static void reset() {
@@ -426,6 +428,8 @@ class SpiWiringIntegrationTest {
       postedContents.clear();
       postedFroms.clear();
       postedTypes.clear();
+      postedCorrelationIds.clear();
+      postedDeadlines.clear();
     }
 
     @Override
@@ -438,10 +442,18 @@ class SpiWiringIntegrationTest {
     }
 
     @Override
-    public void postToChannel(CaseChannel channel, String from, String content, MessageType type) {
+    public void postToChannel(
+        CaseChannel channel,
+        String from,
+        String content,
+        MessageType type,
+        String correlationId,
+        String deadline) {
       postedFroms.add(from);
       postedContents.add(content);
       postedTypes.add(type);
+      if (correlationId != null) postedCorrelationIds.add(correlationId);
+      if (deadline != null) postedDeadlines.add(deadline);
     }
 
     @Override
