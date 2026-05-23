@@ -79,7 +79,9 @@ class HumanTaskScheduleHandlerAtomicityTest {
           MemorySubCaseGroupRepository.class,
           MemoryPlanItemStore.class,
           NoOpLedgerEntryRepository.class,
-          NoOpReactiveLedgerEntryRepository.class);
+          NoOpReactiveLedgerEntryRepository.class,
+          StubWorkloadProvider.class,
+          NoOpPreferenceProvider.class);
     }
   }
 
