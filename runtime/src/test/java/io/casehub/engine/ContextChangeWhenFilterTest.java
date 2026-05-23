@@ -112,10 +112,18 @@ class ContextChangeWhenFilterTest {
     static final AtomicInteger ungardedWorkerCount = new AtomicInteger(0);
 
     private final Capability guardedCap =
-        Capability.builder().name("guarded-work").outputSchema("{ guardedRan: true }").build();
+        Capability.builder()
+            .name("guarded-work")
+            .inputSchema("{ flag: .flag }")
+            .outputSchema("{ guardedRan: true }")
+            .build();
 
     private final Capability finishCap =
-        Capability.builder().name("finish").outputSchema("{ done: true }").build();
+        Capability.builder()
+            .name("finish")
+            .inputSchema("{ flag: .flag }")
+            .outputSchema("{ done: true }")
+            .build();
 
     private final Goal goal =
         Goal.builder().name("done").condition(".done == true").kind(GoalKind.SUCCESS).build();
