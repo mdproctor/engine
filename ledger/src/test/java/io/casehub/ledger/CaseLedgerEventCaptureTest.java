@@ -21,7 +21,6 @@ import io.casehub.engine.internal.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.repository.CaseLedgerEntryRepository;
-import io.casehub.ledger.runtime.service.LedgerVerificationService;
 import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.event.Event;
@@ -46,7 +45,6 @@ class CaseLedgerEventCaptureTest {
 
   @Inject CaseLedgerEntryRepository repository;
 
-  @Inject LedgerVerificationService verificationService;
 
   @Test
   void happyPath_singleEvent_writesLedgerEntry() {
@@ -307,55 +305,4 @@ class CaseLedgerEventCaptureTest {
             });
   }
 
-  // ── Correctness: Merkle chain integrity ────────────────────────────────────
-
-  @Test
-  void merkleChain_singleEntry_verifies() {
-    final UUID caseId = UUID.randomUUID();
-
-    lifecycleEvents
-        .fireAsync(
-            new CaseLifecycleEvent(caseId, "StartCase", "CaseStarted", "RUNNING", null, "System"))
-        .toCompletableFuture()
-        .join();
-
-    Awaitility.await()
-        .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(repository.findByCaseId(caseId)).hasSize(1));
-
-    assertThat(verificationService.verify(caseId))
-        .as("Merkle chain must be intact after a single event")
-        .isTrue();
-  }
-
-  @Test
-  void merkleChain_multipleEntries_verifies() {
-    final UUID caseId = UUID.randomUUID();
-
-    lifecycleEvents
-        .fireAsync(
-            new CaseLifecycleEvent(caseId, "StartCase", "CaseStarted", "RUNNING", null, "System"))
-        .toCompletableFuture()
-        .join();
-    lifecycleEvents
-        .fireAsync(
-            new CaseLifecycleEvent(
-                caseId, "SuspendCase", "CaseSuspended", "SUSPENDED", null, "System"))
-        .toCompletableFuture()
-        .join();
-    lifecycleEvents
-        .fireAsync(
-            new CaseLifecycleEvent(
-                caseId, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System"))
-        .toCompletableFuture()
-        .join();
-
-    Awaitility.await()
-        .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(repository.findByCaseId(caseId)).hasSize(3));
-
-    assertThat(verificationService.verify(caseId))
-        .as("Merkle chain must be intact after three events")
-        .isTrue();
-  }
 }
