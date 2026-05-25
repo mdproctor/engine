@@ -5,7 +5,7 @@
 **Implementation Date:** 2026-05-14  
 **Priority:** Medium  
 **Target:** ~~Post-MVP~~ **Phase 1 Complete**  
-**Related:** AI Agent implementation (#244), Design Spec `docs/superpowers/specs/2026-05-14-config-secrets-design.md`, Agent Model Spec `docs/specs/2026-05-25-agent-worker-ai-model-design.md`
+**Related:** AI Agent implementation (#244), Design Spec `docs/specs/2026-05-14-config-secrets-design.md`, Agent Model Spec `docs/specs/2026-05-25-agent-worker-ai-model-design.md`
 
 ---
 
