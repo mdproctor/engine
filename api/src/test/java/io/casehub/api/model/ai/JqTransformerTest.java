@@ -56,4 +56,30 @@ class JqTransformerTest {
     assertThrows(
         IllegalArgumentException.class, () -> new JqTransformer("this is not valid jq !!!"));
   }
+
+  @Test
+  void emptyResult_throwsAgentException() {
+    JqTransformer transformer = new JqTransformer("empty");
+    JsonNode input = mapper.createObjectNode().put("key", "value");
+
+    assertThrows(AgentException.class, () -> transformer.apply(input));
+  }
+
+  @Test
+  void runtimeJqError_throwsAgentException() {
+    JqTransformer transformer = new JqTransformer(".foo | .bar");
+    JsonNode input = mapper.createObjectNode().put("foo", "not-an-object");
+
+    assertThrows(AgentException.class, () -> transformer.apply(input));
+  }
+
+  @Test
+  void multipleResults_returnsFirst() {
+    JqTransformer transformer = new JqTransformer(".[]");
+    JsonNode input = mapper.createArrayNode().add("first").add("second").add("third");
+
+    JsonNode result = transformer.apply(input);
+
+    assertEquals("first", result.asText());
+  }
 }
