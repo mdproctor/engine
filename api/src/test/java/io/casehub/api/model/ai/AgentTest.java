@@ -238,4 +238,54 @@ class AgentTest {
     agent.execute(Map.of("key", "value"));
     assertThat(capturedRequest.get()).isNotNull();
   }
+
+  @Test
+  void executeThrowsWhenInputTransformerFails() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("test")
+            .inputTransformer(
+                node -> {
+                  throw new RuntimeException("input transform failed");
+                })
+            .outputSchema(".")
+            .model(fixedResponseModel("{\"result\": \"ok\"}"))
+            .build();
+
+    assertThatThrownBy(() -> agent.execute(Map.of("key", "value")))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("input transform failed");
+  }
+
+  @Test
+  void executeThrowsWhenOutputTransformerFails() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("test")
+            .inputSchema(".")
+            .outputTransformer(
+                node -> {
+                  throw new RuntimeException("output transform failed");
+                })
+            .model(fixedResponseModel("{\"result\": \"ok\"}"))
+            .build();
+
+    assertThatThrownBy(() -> agent.execute(Map.of("key", "value")))
+        .isInstanceOf(RuntimeException.class)
+        .hasMessageContaining("output transform failed");
+  }
+
+  @Test
+  void executeThrowsWhenLlmReturnsEmptyString() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("test")
+            .inputSchema(".")
+            .outputSchema(".")
+            .model(fixedResponseModel(""))
+            .build();
+
+    assertThatThrownBy(() -> agent.execute(Map.of("key", "value")))
+        .isInstanceOf(AgentException.class);
+  }
 }
