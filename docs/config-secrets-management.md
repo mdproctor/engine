@@ -114,6 +114,50 @@ Nested structure:
 }
 ```
 
+## Agent Provider Secret Conventions
+
+Each LLM provider follows a naming convention for secrets:
+
+| Provider | Secret name | Fields | Notes |
+|----------|-------------|--------|-------|
+| OpenAI | `openai` | `apiKey`, `organizationId` | `organizationId` is optional |
+| Anthropic | `anthropic` | `apiKey` | |
+| Mistral AI | `mistralai` | `apiKey` | |
+| Google AI Gemini | `googleai` | `apiKey` | |
+| Ollama | — | N/A | Local deployment, no authentication required |
+
+**Example: multi-provider case definition**
+
+```yaml
+use:
+  secrets:
+    - openai
+    - anthropic
+
+spec:
+  workers:
+    - name: primary-analyzer
+      agent:
+        model:
+          openai:
+            apiKey: "${$secret.openai.apiKey}"
+            modelName: "gpt-4"
+    - name: fallback-analyzer
+      agent:
+        model:
+          anthropic:
+            apiKey: "${$secret.anthropic.apiKey}"
+            modelName: "claude-3-sonnet-20240229"
+```
+
+**Numeric coercion:** Fields sourced from configMaps that expect numeric types require
+`| tonumber` in the JQ expression:
+
+```yaml
+temperature: "${$config.\"model-params\".temperature | tonumber}"
+maxTokens: "${$config.\"model-params\".maxTokens | tonumber}"
+```
+
 ---
 
 ## Programmatic Access
