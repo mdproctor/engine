@@ -114,5 +114,6 @@ Monitor these logs to identify workers that consistently hit timeout limits and 
 
 - **Workflow workers**: Timeout applies to the entire serverless workflow execution
 - **Function workers**: Timeout applies to the Java function execution
+- **Agent workers**: Timeout applies to the entire LLM round-trip, including network latency and model inference time. The agent function runs inside `CompletableFuture.supplyAsync()` with `orTimeout(timeoutMs, MILLISECONDS)`. `TimeoutException` triggers the standard worker retry/stall mechanism.
 - **Thread safety**: Function workers execute in a separate thread pool to enable timeout enforcement
 - **Interruption**: When timeout occurs, the worker thread receives an interrupt signal (but may not immediately stop if the code doesn't check interruption status)
