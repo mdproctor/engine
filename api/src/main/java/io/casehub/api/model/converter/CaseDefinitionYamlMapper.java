@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.time.format.DateTimeParseException;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -94,7 +95,7 @@ public final class CaseDefinitionYamlMapper {
     def.setTitle(schema.getTitle());
 
     // Convert capabilities
-    Map<String, Capability> capabilityMap = new java.util.LinkedHashMap<>();
+    Map<String, Capability> capabilityMap = new LinkedHashMap<>();
     if (schema.getSpec().getCapabilities() != null) {
       for (io.casehub.model.Capability sc : schema.getSpec().getCapabilities()) {
         Capability cap = new Capability(sc.getName(), sc.getInputSchema(), sc.getOutputSchema());
@@ -146,11 +147,14 @@ public final class CaseDefinitionYamlMapper {
     }
 
     // Convert goals
-    Map<String, Goal> goalMap = new java.util.LinkedHashMap<>();
+    Map<String, Goal> goalMap = new LinkedHashMap<>();
     if (schema.getSpec().getGoals() != null) {
       for (io.casehub.model.Goal sg : schema.getSpec().getGoals()) {
         Goal goal =
-            new Goal(sg.getName(), new JQExpressionEvaluator(sg.getCondition()), GoalKind.SUCCESS);
+            new Goal(
+                sg.getName(),
+                new JQExpressionEvaluator(sg.getCondition()),
+                GoalKind.fromValue(sg.getKind().value()));
         goal.setDescription(sg.getDescription());
         goalMap.put(sg.getName(), goal);
         def.getGoals().add(goal);

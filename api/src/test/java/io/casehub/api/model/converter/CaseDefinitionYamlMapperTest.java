@@ -23,6 +23,8 @@ import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
+import io.casehub.api.model.GoalBasedCompletion;
+import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.Worker;
@@ -155,6 +157,7 @@ class CaseDefinitionYamlMapperTest {
     assertThat(goal.getCondition()).isInstanceOf(JQExpressionEvaluator.class);
     JQExpressionEvaluator goalCondition = (JQExpressionEvaluator) goal.getCondition();
     assertThat(goalCondition.expression()).isEqualTo(".processed == true");
+    assertThat(goal.getKind()).isEqualTo(GoalKind.SUCCESS);
     assertThat(goal.getDescription()).isEqualTo("Processing goal");
 
     // Completion
@@ -526,5 +529,48 @@ class CaseDefinitionYamlMapperTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("negative-binding")
         .hasMessageContaining("must be positive");
+  }
+
+  @Test
+  void load_failureGoalAndCompletionFailure_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Failure Goal Test
+        version: 1.0.0
+        spec:
+          goals:
+            - name: pr-approved
+              kind: success
+              condition: '.approval.status == "approved"'
+            - name: pr-sla-breached
+              kind: failure
+              condition: '.humanApproval.status == "sla-breach"'
+          completion:
+            success:
+              allOf:
+                - pr-approved
+            failure:
+              anyOf:
+                - pr-sla-breached
+        """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getGoals()).hasSize(2);
+
+    Goal successGoal = def.getGoals().get(0);
+    assertThat(successGoal.getName()).isEqualTo("pr-approved");
+    assertThat(successGoal.getKind()).isEqualTo(GoalKind.SUCCESS);
+
+    Goal failureGoal = def.getGoals().get(1);
+    assertThat(failureGoal.getName()).isEqualTo("pr-sla-breached");
+    assertThat(failureGoal.getKind()).isEqualTo(GoalKind.FAILURE);
+
+    assertThat(def.getCompletion()).isInstanceOf(GoalBasedCompletion.class);
+    GoalBasedCompletion completion = (GoalBasedCompletion) def.getCompletion();
+    assertThat(completion.getSuccess()).isNotNull();
+    assertThat(completion.getFailure()).isNotNull();
   }
 }
