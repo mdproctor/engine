@@ -5,7 +5,7 @@
 **Implementation Date:** 2026-05-14  
 **Priority:** Medium  
 **Target:** ~~Post-MVP~~ **Phase 1 Complete**  
-**Related:** AI Agent implementation (#244), Design Spec `docs/superpowers/specs/2026-05-14-config-secrets-design.md`
+**Related:** AI Agent implementation (#244), Design Spec `docs/specs/2026-05-14-config-secrets-design.md`, Agent Model Spec `docs/specs/2026-05-25-agent-worker-ai-model-design.md`
 
 ---
 
@@ -268,12 +268,12 @@ Serverless Workflow has a mature implementation:
 
 ## Implementation Plan
 
-### Phase 1: SPI Foundation
-- [ ] Define `SecretManager` interface in `api/src/main/java/io/casehub/api/spi/`
-- [ ] Implement `SystemPropertySecretManager` (default, current behavior)
-- [ ] Update `EnvironmentPlaceholderResolver` to support `$secret.*` syntax
-- [ ] Add secret validation at YAML load time
-- [ ] Tests for SPI contract
+### Phase 1: SPI Foundation ✅
+- [x] Define `SecretManager` interface — implemented as `ConfigSecretManager` in `runtime/`
+- [x] Implement config-backed secret resolution (MicroProfile Config)
+- [x] Support `$secret.*` syntax in YAML placeholders
+- [x] Secret validation at YAML load time via `use.secrets` declaration
+- [x] Tests for SPI contract
 
 ### Phase 2: Kubernetes Integration
 - [ ] New module: `casehub-secrets-kubernetes`
@@ -345,7 +345,8 @@ Serverless Workflow has a mature implementation:
 
 ## Related Work
 
-- Current implementation: AI Agent YAML schema (PR #244) - no secret resolution
+- AI Agent YAML schema (PR #244) — secret resolution implemented via `${$secret.*}` syntax
+- Agent model architecture: `docs/specs/2026-05-25-agent-worker-ai-model-design.md`
 - Target deployment: Kubernetes, microservices architecture
 - Inspiration: Serverless Workflow `SecretManager` SPI
 - Similar: Spring Cloud Config, Quarkus Vault extension

@@ -180,6 +180,23 @@ To add a new operational SPI: define the interface in `api/spi/`, add a `@Defaul
 
 **To test SPI wiring:** use `@Alternative @Priority(1) @ApplicationScoped` static inner classes in `@QuarkusTest` with `static` recording fields reset in `@BeforeEach`. This activates the recording bean globally across the test suite without Mockito. See `SpiWiringIntegrationTest` for the pattern. To test provisioner wiring, define a `CaseHub` subclass with a capability binding and no workers — the engine will fall through to `tryProvision()`.
 
+## Agent Worker AI Model
+
+AI agent workers live in `api/src/main/java/io/casehub/api/model/ai/`:
+
+- `Agent` — immutable execution unit; holds systemPrompt, transformers, ChatModel, optional responseSchema
+- `AgentBuilder` — fluent builder; JQ string mode (`inputSchema(String)`) or lambda mode (`inputTransformer(UnaryOperator<JsonNode>)`) for transformers; mutually exclusive per direction
+- `ChatModelProvider` — SPI interface; implementations use reflection (`Class.forName`) to avoid compile-time LLM SDK dependencies
+- `ModelType` — enum: OPENAI, OLLAMA, ANTHROPIC, MISTRAL, GOOGLE_AI_GEMINI
+- `JqTransformer` — standalone JQ evaluator (jackson-jq 1.6); thread-safe after construction
+- `AgentException` — unchecked exception for agent failures (invalid JSON, JQ errors, template errors)
+
+Provider implementations in sub-packages (`openai/`, `anthropic/`, `mistral/`, `gemini/`, `ollama/`) use `ServiceLoader` for discovery and reflection-based builder construction.
+
+`AgentConverter` (`api/.../converter/AgentConverter.java`) bridges jsonschema2pojo schema models (`io.casehub.model.Agent`) to API `Agent` instances. Called by `CaseDefinitionYamlMapper` when a worker has an `agent` YAML block.
+
+**Test pattern:** Mock `ChatModel` via package-private `AgentBuilder.model(ChatModel)` for unit tests. For `@QuarkusTest` integration tests, define inner `CaseHub` subclasses with mock `ChatModelProvider` returning canned JSON. No Mockito needed — use anonymous `ChatModel` implementations.
+
 ## casehub-blackboard Module
 
 Optional CMMN/Blackboard orchestration layer. Activated via CDI `@Alternative @Priority(10)` when on the classpath.

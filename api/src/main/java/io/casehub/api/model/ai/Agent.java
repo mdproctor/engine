@@ -87,6 +87,10 @@ public final class Agent {
     ChatResponse response = model.chat(request);
     String responseText = response.aiMessage().text();
 
+    if (responseText == null || responseText.isEmpty()) {
+      throw new AgentException("LLM returned empty response");
+    }
+
     JsonNode responseJson;
     try {
       responseJson = MAPPER.readTree(responseText);

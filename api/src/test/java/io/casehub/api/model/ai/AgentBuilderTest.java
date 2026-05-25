@@ -24,10 +24,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
+import dev.langchain4j.model.chat.request.ResponseFormatType;
+import dev.langchain4j.model.chat.request.json.JsonObjectSchema;
+import dev.langchain4j.model.chat.request.json.JsonSchema;
+import dev.langchain4j.model.chat.request.json.JsonStringSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.output.FinishReason;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 import org.junit.jupiter.api.Test;
 
@@ -180,5 +185,62 @@ class AgentBuilderTest {
                     .outputSchema(".")
                     .model(stubModel("{\"answer\": \"yes\"}"))
                     .build());
+  }
+
+  // ── responseSchema support ─────────────────────────────────────────────
+
+  @Test
+  void agentBuilder_sets_response_schema_from_json_schema() {
+    final JsonSchema schema =
+        JsonSchema.builder()
+            .name("TestResponse")
+            .rootElement(
+                JsonObjectSchema.builder()
+                    .addProperty("result", new JsonStringSchema())
+                    .required("result")
+                    .build())
+            .build();
+
+    final AtomicReference<ChatRequest> captured = new AtomicReference<>();
+    final ChatModel capturingModel =
+        new ChatModel() {
+          @Override
+          public ChatResponse doChat(final ChatRequest request) {
+            captured.set(request);
+            return ChatResponse.builder()
+                .aiMessage(AiMessage.from("{\"result\": \"ok\"}"))
+                .finishReason(FinishReason.STOP)
+                .build();
+          }
+        };
+
+    final Agent agent =
+        Agent.builder()
+            .systemPrompt("You are a helpful assistant.")
+            .responseSchema(schema)
+            .model(capturingModel)
+            .build();
+
+    agent.execute(Map.of("key", "value"));
+
+    assertThat(captured.get().responseFormat()).isNotNull();
+    assertThat(captured.get().responseFormat().type()).isEqualTo(ResponseFormatType.JSON);
+    assertThat(captured.get().responseFormat().jsonSchema()).isEqualTo(schema);
+  }
+
+  @Test
+  void agentBuilder_sets_response_schema_from_class() {
+    final Agent agent =
+        Agent.builder()
+            .systemPrompt("You are a helpful assistant.")
+            .responseSchema(TestRecord.class)
+            .model(stubModel("{\"value\": \"hello\"}"))
+            .build();
+
+    assertThat(agent).isNotNull();
+  }
+
+  static class TestRecord {
+    public String value;
   }
 }
