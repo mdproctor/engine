@@ -220,6 +220,17 @@ Quartz fires job
 
 **Conflict resolution on output:** Each output key is written through the `ContextDiffStrategy`-selected resolver configured on the binding (`LAST_WRITER_WINS` default, `FIRST_WRITER_WINS`, or `FAIL`).
 
+**Agent execution path:** When `WorkerFunctionHolder` wraps an `Agent`, the Quartz job
+executes `agent.execute(inputData)` inside `CompletableFuture.supplyAsync()` with
+`orTimeout(timeoutMs, MILLISECONDS)`. The agent execution flow is:
+1. Input data → `inputTransformer` (JQ expression or lambda) → transformed JSON
+2. If `userMessageTemplate` is set: apply `PromptTemplate` substitution; otherwise use JSON as-is
+3. Build `ChatRequest` with `SystemMessage`, `UserMessage`, and optional `responseSchema`
+4. `ChatModel.chat(request)` → parse response text as JSON
+5. Response JSON → `outputTransformer` → output `Map<String, Object>`
+`AgentException` is thrown if the LLM returns invalid JSON, if a JQ transformation fails,
+or if template substitution fails.
+
 **Idempotency:** `WorkerScheduleEventHandler` holds a Vert.x local lock on `(caseId, workerId, inputDataHash)` and checks for existing `WORKER_SCHEDULED / WORKER_EXECUTION_STARTED / WORKER_EXECUTION_COMPLETED` events before submitting to Quartz. Duplicate `CONTEXT_CHANGED` events that arrive while a worker is in flight are silently dropped.
 
 ## Worker Function Types
@@ -256,6 +267,19 @@ CaseContext
 - `ModelType` enum — OPENAI, OLLAMA, ANTHROPIC, MISTRAL_AI, GOOGLE_AI_GEMINI
 - `JqTransformer` — applies JQ expressions for input/output mapping
 - Provider implementations use reflection to avoid compile-time dependencies on vendor SDKs
+- `AgentConverter` — bridges jsonschema2pojo schema models (`io.casehub.model.Agent`) to API
+  `Agent` instances. Dispatches to provider-specific builders based on which `AgentModel`
+  field is non-null (openai, anthropic, mistral, gemini, ollama).
+- `AgentException` — unchecked exception for agent failures: invalid JSON from LLM, JQ
+  transformation errors, template substitution errors
+- `userMessageTemplate` — optional LangChain4j `PromptTemplate` with `{{variable}}` syntax;
+  applied after input transformation. When absent, transformed JSON is sent as user message.
+- `responseSchema` — optional structured output schema. Builder accepts `JsonSchema` directly
+  or `Class<?>` (auto-generates schema; collections wrap in `JsonArraySchema`, non-objects
+  wrap in `JsonObjectSchema` with `"value"` property).
+
+**Health integration:** Workers may carry an optional `AgentDescriptor` (from `casehub-eidos-api`)
+for `CapabilityHealth` probing at dispatch time. See `docs/specs/2026-05-23-capability-health-design.md`.
 
 **Execution:**
 - Runs in `CompletableFuture.supplyAsync()` with timeout enforcement
@@ -438,6 +462,10 @@ WorkerExecutionContext.current() ← accessed by the worker function at runtime
 The `api` module depends on `dev.langchain4j:langchain4j` (core) for the Agent worker type. Test scope includes provider implementations: `langchain4j-open-ai`, `langchain4j-ollama`, `langchain4j-anthropic`, `langchain4j-mistral-ai`, `langchain4j-google-ai-gemini`.
 
 Provider implementations use reflection to load vendor SDKs at runtime, avoiding compile-time dependencies. The `ChatModelProvider` SPI is registered via `META-INF/services/io.casehub.api.model.ai.ChatModelProvider`.
+
+`casehub-eidos-api` is an optional compile dependency of `casehub-engine-api` — provides
+`AgentDescriptor` for workers that need health probing. When absent, `NoOpCapabilityHealth`
+returns `Ready` for all probes.
 
 ### SPI Call Sites
 
