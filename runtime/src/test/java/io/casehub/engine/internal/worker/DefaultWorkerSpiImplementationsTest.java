@@ -30,6 +30,9 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.ReactiveCaseChannelProvider;
+import io.casehub.eidos.api.AgentDescriptor;
+import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
+import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Map;
@@ -330,5 +333,32 @@ class DefaultWorkerSpiImplementationsTest {
             .await()
             .indefinitely();
     assertThat(ctx.channels()).containsExactly(channel);
+  }
+
+  // --- NoOpCapabilityHealth ---
+
+  @Test
+  void noOpCapabilityHealth_probe_returnsReady() {
+    var health = new NoOpCapabilityHealth();
+    var descriptor =
+        new AgentDescriptor(
+            "agent-1",
+            "Test",
+            "1.0",
+            "openai",
+            "gpt-4",
+            "4-turbo",
+            null,
+            null,
+            null,
+            null,
+            "review",
+            List.of(),
+            null,
+            null,
+            null,
+            "casehubio");
+    CapabilityStatus status = health.probe(descriptor, "code-review", ProbeContext.of(null));
+    assertThat(status).isInstanceOf(CapabilityStatus.Ready.class);
   }
 }
