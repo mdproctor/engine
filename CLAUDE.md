@@ -224,6 +224,11 @@ TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl casehub-blackboard
   per handler that uses `eventBus.publish()` + `await()` to confirm `@ConsumeEvent` routing.
   See `HumanTaskScheduleHandlerTest` (engine#290).
 
+**Key blackboard handlers:**
+- `PlanItemCompletionHandler` — marks PlanItems COMPLETED on `WORKER_EXECUTION_FINISHED` and `SUBCASE_EXECUTION_COMPLETED`; delegates stage autocomplete to `StageAutocompleteEvaluator`
+- `WorkerRetryExhaustionHandler` — marks CapabilityTarget PlanItems FAULTED on `WORKER_RETRIES_EXHAUSTED` (both guard-blocked and Quartz-exhausted paths); delegates stage autocomplete to `StageAutocompleteEvaluator`. Refs engine#331.
+- `StageAutocompleteEvaluator` — evaluates stage autocomplete after any PlanItem terminal transition; fires `STAGE_COMPLETED` when all required items are terminal (COMPLETED, REJECTED, FAULTED, or CANCELLED). See ADR-0002 for the semantic decision on FAULTED/REJECTED triggering autocomplete.
+
 ## Quartz
 
 Use RAM store — no JDBC store, no Quartz tables:
@@ -262,7 +267,7 @@ Activated by adding `casehub-engine-work-adapter` to the consumer's classpath (t
 **YAML DSL:** `humanTask` is a first-class binding target type in `CaseDefinition.yaml` (alongside `capability` and `subCase`). `CaseDefinitionYamlMapper` converts it to `HumanTaskTarget`. Inline mode requires `title`; template mode requires `templateRef`. Both modes support `outputMapping`, `inputMapping`, `candidateGroups`, `candidateUsers`, `expiresIn`, and `scope` (hierarchical path for SLA preference resolution, e.g. `"casehubio/devtown/pr-review"`).
 
 Two-way bridge between casehub-work and CaseHub plan items:
-- **Inbound** (`WorkItemLifecycleAdapter`) — translates `WorkItemLifecycleEvent` CDI events (COMPLETED, REJECTED, CANCELLED, EXPIRED — not ESCALATED, which is non-terminal) to `PlanItem` transitions, evaluates `outputMapping` against the WorkItem resolution JSON, and fires `CONTEXT_CHANGED` for engine re-evaluation. Also observes `WorkItemGroupLifecycleEvent` for M-of-N SpawnGroup outcomes (COMPLETED → `PlanItem.markCompleted()`; REJECTED → `PlanItem.markFaulted()`). ESCALATED is intentionally excluded — the WorkItem re-enters PENDING with new candidate groups; the PlanItem stays in its current state until the WorkItem reaches a true terminal status.
+- **Inbound** (`WorkItemLifecycleAdapter`) — translates `WorkItemLifecycleEvent` CDI events (COMPLETED, REJECTED, CANCELLED, EXPIRED — not ESCALATED, which is non-terminal) to `PlanItem` transitions, evaluates `outputMapping` against the WorkItem resolution JSON, and fires `CONTEXT_CHANGED` for engine re-evaluation. Terminal status mapping: COMPLETED → `markCompleted()`; REJECTED → `markRejected()` (intentional human refusal — PlanItem must be DELEGATED); EXPIRED → `markFaulted()` (deadline failure); CANCELLED → `markCancelled()`. Also observes `WorkItemGroupLifecycleEvent` for M-of-N SpawnGroup outcomes (COMPLETED → `PlanItem.markCompleted()`; REJECTED → `PlanItem.markRejected()`). ESCALATED is intentionally excluded — the WorkItem re-enters PENDING with new candidate groups; the PlanItem stays in its current state until the WorkItem reaches a true terminal status. Refs engine#338.
 - **Outbound** (`HumanTaskScheduleHandler`) — consumes `HUMAN_TASK_SCHEDULE` event bus messages, looks up the `PlanItem` by binding name, then:
   - **Inline mode** (`HumanTaskTarget.inline()`): creates a `WorkItem` via `WorkItemService`, then `planItemStore.save(DELEGATED)`, then `item.markDelegated()`
   - **Template mode** (`HumanTaskTarget.template(ref)`): parses `ref` as UUID and resolves via `WorkItemTemplateService.findById`; invalid UUID or not-found → warn + leave PlanItem PENDING; on success calls `WorkItemTemplateService.instantiate(template, titleOverride, assigneeId, createdBy)` with `target.title()` as titleOverride, `null` as assigneeId, and `"casehub-engine"` as createdBy, then manually sets `workItem.callerRef`, `workItem.scope`, and `workItem.payload` (serialized `inputData`, honours `inputMapping` contract), persists with `workItem.persist()`, then `planItemStore.save(DELEGATED)`, then `item.markDelegated()`
