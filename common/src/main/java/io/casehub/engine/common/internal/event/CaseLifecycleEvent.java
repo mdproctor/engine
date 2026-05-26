@@ -30,6 +30,9 @@ import java.util.UUID;
  * @param caseStatus snapshot of CaseStatus at transition time; null for non-status events
  * @param actorId the initiating actor; null for system-triggered events
  * @param actorRole the actor's role in this transition; null when not applicable
+ * @param traceId the W3C trace ID captured synchronously from the originating thread before {@code
+ *     fireAsync()} — null when no OTel span is active at the fire-site. Pre-populating here
+ *     bypasses the {@code @ObservesAsync} thread boundary where OTel context is lost.
  */
 public record CaseLifecycleEvent(
     UUID caseId,
@@ -37,4 +40,5 @@ public record CaseLifecycleEvent(
     String eventType,
     String caseStatus,
     String actorId,
-    String actorRole) {}
+    String actorRole,
+    String traceId) {}

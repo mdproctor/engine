@@ -17,9 +17,9 @@ package io.casehub.blackboard.handler;
 
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.event.WorkerRetriesExhaustedEvent;
-import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

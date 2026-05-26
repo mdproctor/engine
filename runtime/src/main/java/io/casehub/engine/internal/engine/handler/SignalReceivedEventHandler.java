@@ -30,6 +30,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.Vertx;
@@ -64,6 +65,8 @@ public class SignalReceivedEventHandler {
 
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
 
+  @Inject LedgerTraceIdProvider traceIdProvider;
+
   @ConsumeEvent(value = EventBusAddresses.SIGNAL_RECEIVED)
   public Uni<Void> onSignalReceived(SignalReceivedEvent event) {
     CaseInstance cached = caseInstanceCache.get(event.caseId());
@@ -77,17 +80,17 @@ public class SignalReceivedEventHandler {
   }
 
   private Uni<Void> applySignal(CaseInstance instance, SignalReceivedEvent event) {
-    // One lock per (caseId, path): concurrent signals to the same field are serialized so that
-    // the second signal always sees the context state written by the first one.
+    // Capture traceId synchronously before the async chain — the OTel ThreadLocal is intact here.
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
     String lockKey = "signal:" + instance.getUuid() + ":" + event.path();
     return vertx
         .sharedData()
         .getLocalLock(lockKey)
-        .chain(lock -> applySignalUnderLock(instance, event, lock));
+        .chain(lock -> applySignalUnderLock(instance, event, lock, traceId));
   }
 
   private Uni<Void> applySignalUnderLock(
-      CaseInstance instance, SignalReceivedEvent event, Lock lock) {
+      CaseInstance instance, SignalReceivedEvent event, Lock lock, String traceId) {
     Optional<JsonNode> maybeDiff;
     try {
       maybeDiff = instance.getCaseContext().applyAndDiff(event.path(), event.value());
@@ -121,7 +124,8 @@ public class SignalReceivedEventHandler {
                       "SignalReceived",
                       instance.getState().name(),
                       null,
-                      "System"));
+                      "System",
+                      traceId));
             })
         .replaceWithVoid()
         .onFailure()

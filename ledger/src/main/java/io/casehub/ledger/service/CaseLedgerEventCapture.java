@@ -68,9 +68,12 @@ public class CaseLedgerEventCapture {
     entry.actorId = event.actorId() != null ? event.actorId() : "system";
     entry.actorType = deriveActorType(event.actorId());
     entry.actorRole = event.actorRole() != null ? event.actorRole() : "System";
-    // Set before hash computation — @PrePersist runs too late for canonical form
-    // Set before save() — @PrePersist runs too late for the canonical leaf hash.
+    // Set before save() — @PrePersist runs too late for canonical form and leaf hash.
     entry.occurredAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
+    // Pre-populate traceId from the event. TraceIdEnricher (@PrePersist via LedgerTraceListener)
+    // guards: if traceId != null it does nothing. Without this, the @ObservesAsync thread boundary
+    // severs OTel ThreadLocal context and traceId is always null. Refs engine#342.
+    entry.traceId = event.traceId();
 
     // save() handles digest computation and Merkle frontier update internally.
     ledgerRepo.save(entry);

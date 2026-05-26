@@ -37,6 +37,7 @@ import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -75,6 +76,8 @@ class QuartzWorkerExecutionJobListener implements JobListener {
 
   @Inject EventLogRepository eventLogRepository;
 
+  @Inject LedgerTraceIdProvider traceIdProvider;
+
   private static final Logger LOG = Logger.getLogger(QuartzWorkerExecutionJobListener.class);
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -103,7 +106,8 @@ class QuartzWorkerExecutionJobListener implements JobListener {
             "WorkerExecutionStarted",
             null,
             workerId,
-            "WORKER"));
+            "WORKER",
+            traceIdProvider.currentTraceId().orElse(null)));
 
     EventLog eventLog =
         createEventLog(

@@ -28,6 +28,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.internal.scheduler.SchedulerService;
+import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -57,8 +58,11 @@ public class CaseStatusChangedHandler {
 
   @Inject CaseChannelProvider caseChannelProvider;
 
+  @Inject LedgerTraceIdProvider traceIdProvider;
+
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED)
   public Uni<Void> onCaseStatusChangedHandler(CaseStatusChanged event) {
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.instance();
     final CaseStatus newState = CaseStatus.valueOf(event.newStatus());
     final String oldStatus = event.oldStatus();
@@ -112,7 +116,8 @@ public class CaseStatusChangedHandler {
                       resolveEventType(newState),
                       newState.name(),
                       null,
-                      "System"));
+                      "System",
+                      traceId));
             });
   }
 

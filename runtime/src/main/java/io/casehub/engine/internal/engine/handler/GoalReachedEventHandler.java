@@ -33,6 +33,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -58,10 +59,13 @@ public class GoalReachedEventHandler {
 
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
 
+  @Inject LedgerTraceIdProvider traceIdProvider;
+
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   @ConsumeEvent(value = EventBusAddresses.GOAL_REACHED)
   public Uni<Void> onGoalReachedEventHandler(GoalReachedEvent event) {
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.caseInstance();
     CaseDefinition definition =
         caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
@@ -91,7 +95,8 @@ public class GoalReachedEventHandler {
                         "GoalReached",
                         caseInstance.getState().name(),
                         null,
-                        "System")))
+                        "System",
+                        traceId)))
         .chain(() -> evaluateCompletion(caseInstance, definition.getCompletion()));
   }
 
