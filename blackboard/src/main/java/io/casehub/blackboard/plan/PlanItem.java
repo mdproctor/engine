@@ -16,7 +16,7 @@
 package io.casehub.blackboard.plan;
 
 import io.casehub.api.model.BindingTarget;
-import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;

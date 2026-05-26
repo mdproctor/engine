@@ -16,8 +16,8 @@
 package io.casehub.blackboard.handler;
 
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.event.MilestoneReachedEvent;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.MilestoneReachedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -17,8 +17,8 @@ package io.casehub.workadapter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.engine.internal.model.PlanItemRecord;
-import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;

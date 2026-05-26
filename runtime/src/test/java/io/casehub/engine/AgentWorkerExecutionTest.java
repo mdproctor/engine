@@ -38,7 +38,7 @@ import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.api.model.ai.ModelType;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
-import io.casehub.engine.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

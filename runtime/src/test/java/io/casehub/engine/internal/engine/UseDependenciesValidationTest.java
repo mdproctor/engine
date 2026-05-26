@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.Use;
-import io.casehub.engine.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;

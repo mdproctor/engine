@@ -22,8 +22,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
+import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.engine.spi.ExpressionEngineRegistry;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.util.Map;

@@ -22,8 +22,8 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.model.Milestone;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.internal.event.MilestoneReachedEvent;
-import io.casehub.engine.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.event.MilestoneReachedEvent;
+import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 

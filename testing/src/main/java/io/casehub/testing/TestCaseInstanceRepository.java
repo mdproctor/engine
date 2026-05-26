@@ -15,15 +15,13 @@
  */
 package io.casehub.testing;
 
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.persistence.memory.InMemoryCaseInstanceRepository;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-/**
- * Auto-selected in-memory {@link io.casehub.engine.spi.CaseInstanceRepository} for
- * {@code @QuarkusTest}.
- */
+/** Auto-selected in-memory {@link CaseInstanceRepository} for {@code @QuarkusTest}. */
 @Alternative
 @Priority(1)
 @ApplicationScoped

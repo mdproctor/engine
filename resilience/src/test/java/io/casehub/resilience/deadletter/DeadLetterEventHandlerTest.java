@@ -18,8 +18,8 @@ package io.casehub.resilience.deadletter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.casehub.engine.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.event.WorkerRetriesExhaustedEvent;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;

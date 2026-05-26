@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.internal.config.impl;
 
-import io.casehub.engine.internal.config.ConfigContext;
-import io.casehub.engine.internal.config.ConfigManager;
-import io.casehub.engine.internal.config.SecretManager;
+import io.casehub.engine.common.internal.config.ConfigContext;
+import io.casehub.engine.common.internal.config.ConfigManager;
+import io.casehub.engine.common.internal.config.SecretManager;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 

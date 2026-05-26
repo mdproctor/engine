@@ -15,8 +15,9 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.engine.spi.scheduler.WorkerExecutionManager;
+import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.work.api.WorkloadProvider;
+import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -28,6 +29,7 @@ import org.jboss.logging.Logger;
  * <p>Used by {@link io.casehub.work.core.strategy.LeastLoadedStrategy} to prefer workers with fewer
  * in-flight tasks.
  */
+@DefaultBean
 @ApplicationScoped
 public class CasehubWorkloadProvider implements WorkloadProvider {
 

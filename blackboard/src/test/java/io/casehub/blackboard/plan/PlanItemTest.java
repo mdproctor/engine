@@ -22,7 +22,7 @@ import io.casehub.api.model.BindingTarget;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.HumanTaskTarget;
-import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;

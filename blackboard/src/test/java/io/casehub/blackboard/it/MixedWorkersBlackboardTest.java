@@ -25,7 +25,7 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
 import io.casehub.blackboard.event.PlanItemCompletedEvent;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;

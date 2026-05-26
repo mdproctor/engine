@@ -15,7 +15,7 @@
  */
 package io.casehub.ledger.service;
 
-import io.casehub.engine.internal.event.CaseLifecycleEvent;
+import io.casehub.engine.common.internal.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.repository.CaseLedgerEntryRepository;

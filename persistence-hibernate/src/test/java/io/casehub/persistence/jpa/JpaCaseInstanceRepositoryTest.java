@@ -20,11 +20,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.internal.model.CaseMetaModel;
-import io.casehub.engine.spi.CaseInstanceRepository;
-import io.casehub.engine.spi.CaseMetaModelRepository;
-import io.casehub.engine.spi.EventLogRepository;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
@@ -92,8 +93,7 @@ class JpaCaseInstanceRepositoryTest {
     run(() -> instanceRepository.save(instance));
 
     instance.setState(CaseStatus.FAULTED);
-    io.casehub.engine.internal.history.EventLog eventLog =
-        new io.casehub.engine.internal.history.EventLog();
+    EventLog eventLog = new EventLog();
     eventLog.setCaseId(instance.getUuid());
     eventLog.setEventType(CaseHubEventType.CASE_FAULTED);
     eventLog.setStreamType(EventStreamType.CASE);
@@ -107,8 +107,7 @@ class JpaCaseInstanceRepositoryTest {
     assertThat(eventLog.id).isNotNull();
     assertThat(eventLog.getSeq()).isNotNull();
 
-    io.casehub.engine.internal.history.EventLog found =
-        run(() -> eventLogRepository.findById(eventLog.id));
+    EventLog found = run(() -> eventLogRepository.findById(eventLog.id));
     assertThat(found).isNotNull();
     assertThat(found.getEventType()).isEqualTo(CaseHubEventType.CASE_FAULTED);
   }
@@ -223,8 +222,7 @@ class JpaCaseInstanceRepositoryTest {
     run(() -> instanceRepository.save(instance));
 
     instance.setState(CaseStatus.COMPLETED);
-    io.casehub.engine.internal.history.EventLog eventLog =
-        new io.casehub.engine.internal.history.EventLog();
+    EventLog eventLog = new EventLog();
     eventLog.setCaseId(instance.getUuid());
     eventLog.setEventType(CaseHubEventType.CASE_COMPLETED);
     eventLog.setStreamType(EventStreamType.CASE);
@@ -237,8 +235,7 @@ class JpaCaseInstanceRepositoryTest {
     CaseInstance updated = run(() -> instanceRepository.findByUuid(instance.getUuid()));
     assertThat(updated.getState()).isEqualTo(CaseStatus.COMPLETED);
 
-    io.casehub.engine.internal.history.EventLog foundEvent =
-        run(() -> eventLogRepository.findById(eventLog.id));
+    EventLog foundEvent = run(() -> eventLogRepository.findById(eventLog.id));
     assertThat(foundEvent).isNotNull();
     assertThat(foundEvent.getEventType()).isEqualTo(CaseHubEventType.CASE_COMPLETED);
   }

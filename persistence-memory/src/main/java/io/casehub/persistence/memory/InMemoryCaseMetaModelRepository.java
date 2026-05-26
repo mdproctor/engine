@@ -15,8 +15,8 @@
  */
 package io.casehub.persistence.memory;
 
-import io.casehub.engine.internal.model.CaseMetaModel;
-import io.casehub.engine.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;

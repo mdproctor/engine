@@ -16,8 +16,8 @@
 package io.casehub.persistence.memory;
 
 import io.casehub.api.model.OnThresholdReached;
-import io.casehub.engine.internal.model.SubCaseGroup;
-import io.casehub.engine.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.internal.model.SubCaseGroup;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;

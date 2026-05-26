@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.engine.cache;
 
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;

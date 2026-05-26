@@ -15,10 +15,10 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.casehub.engine.internal.history.EventLog;
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.internal.model.CaseMetaModel;
-import io.casehub.engine.spi.CaseInstanceRepository;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

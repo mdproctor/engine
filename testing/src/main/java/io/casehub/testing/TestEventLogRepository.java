@@ -15,15 +15,13 @@
  */
 package io.casehub.testing;
 
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.persistence.memory.InMemoryEventLogRepository;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-/**
- * Auto-selected in-memory {@link io.casehub.engine.spi.EventLogRepository} for
- * {@code @QuarkusTest}.
- */
+/** Auto-selected in-memory {@link EventLogRepository} for {@code @QuarkusTest}. */
 @Alternative
 @Priority(1)
 @ApplicationScoped

@@ -16,7 +16,7 @@
 package io.casehub.engine.internal.work;
 
 import io.casehub.api.model.WorkResult;
-import io.casehub.engine.spi.EventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;

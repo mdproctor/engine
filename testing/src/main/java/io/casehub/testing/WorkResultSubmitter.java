@@ -16,10 +16,10 @@
 package io.casehub.testing;
 
 import io.casehub.api.model.Worker;
-import io.casehub.engine.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.event.WorkflowExecutionCompleted;
-import io.casehub.engine.spi.CaseDefinitionRegistry;
-import io.casehub.engine.spi.CaseInstanceRepository;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -15,8 +15,8 @@
  */
 package io.casehub.persistence.memory;
 
-import io.casehub.engine.spi.PlanItemStore;
-import io.casehub.engine.spi.PlanItemStoreContractTest;
+import io.casehub.engine.common.spi.PlanItemStore;
+import io.casehub.engine.common.spi.PlanItemStoreContractTest;
 
 class MemoryPlanItemStoreContractTest extends PlanItemStoreContractTest {
 

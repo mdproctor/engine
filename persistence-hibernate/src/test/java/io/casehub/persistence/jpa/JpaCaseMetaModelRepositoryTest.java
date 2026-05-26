@@ -18,8 +18,8 @@ package io.casehub.persistence.jpa;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.engine.internal.model.CaseMetaModel;
-import io.casehub.engine.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;

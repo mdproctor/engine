@@ -17,7 +17,7 @@ package io.casehub.persistence.memory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.engine.internal.model.CaseMetaModel;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

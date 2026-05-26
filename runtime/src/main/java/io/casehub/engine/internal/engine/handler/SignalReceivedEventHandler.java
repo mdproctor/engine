@@ -15,21 +15,21 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
-import static io.casehub.engine.internal.event.EventBusAddresses.CONTEXT_CHANGED;
+import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.internal.event.CaseLifecycleEvent;
-import io.casehub.engine.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.event.SignalReceivedEvent;
-import io.casehub.engine.internal.history.EventLog;
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.spi.EventLogRepository;
-import io.casehub.engine.spi.cache.CaseInstanceCache;
-import io.casehub.engine.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
+import io.casehub.engine.common.internal.event.CaseLifecycleEvent;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.SignalReceivedEvent;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.Vertx;
