@@ -158,7 +158,7 @@ public class WorkItemLifecycleAdapter {
     try {
       switch (status) {
         case COMPLETED -> item.markCompleted();
-        case REJECTED -> item.markFaulted();
+        case REJECTED -> item.markRejected();
         default -> {
           return false;
         }
@@ -225,8 +225,9 @@ public class WorkItemLifecycleAdapter {
     try {
       switch (status) {
         case COMPLETED -> item.markCompleted();
+        case REJECTED -> item.markRejected();
+        case EXPIRED -> item.markFaulted();
         case CANCELLED -> item.markCancelled();
-        case REJECTED, EXPIRED -> item.markFaulted();
         default -> {
           return false;
         }

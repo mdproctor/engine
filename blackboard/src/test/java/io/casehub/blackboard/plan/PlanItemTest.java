@@ -187,4 +187,49 @@ class PlanItemTest {
     item.markFaulted();
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
+
+  // --- REJECTED state ---
+
+  @Test
+  void markRejected_from_delegated_transitions_to_rejected() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    item.markRejected();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.REJECTED);
+  }
+
+  @Test
+  void markRejected_from_pending_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markRejected_from_running_throws() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    item.markRunning();
+    assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markRejected_from_completed_throws() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    item.markRunning();
+    item.markCompleted();
+    assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markRejected_from_faulted_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markFaulted();
+    assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markRejected_from_cancelled_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markCancelled();
+    assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
+  }
 }

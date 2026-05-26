@@ -24,6 +24,7 @@ public class Binding {
 
   @JsonProperty("target")
   private final BindingTarget target;
+
   private final String name;
   private final Trigger on;
   private ExpressionEvaluator when;

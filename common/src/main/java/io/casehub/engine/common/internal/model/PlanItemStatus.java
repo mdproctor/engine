@@ -22,6 +22,10 @@ package io.casehub.engine.common.internal.model;
  * control has passed to an external actor (SubCase, HumanTask, Extension) and the engine is waiting
  * for a completion signal. These two active states are semantically distinct — consumers and LLMs
  * must not conflate "local computation running" with "waiting for external actor".
+ *
+ * <p>REJECTED: an external actor explicitly refused the work (human task refusal or M-of-N group
+ * threshold failure). Distinct from FAULTED (computation or timeout failure). Stored as STRING in
+ * JPA — ordinal safety is not a concern.
  */
 public enum PlanItemStatus {
   PENDING,
@@ -29,5 +33,6 @@ public enum PlanItemStatus {
   DELEGATED,
   COMPLETED,
   FAULTED,
+  REJECTED,
   CANCELLED
 }

@@ -122,6 +122,7 @@ public class PlanItem implements Comparable<PlanItem> {
   public void markFaulted() {
     if (status == PlanItemStatus.COMPLETED
         || status == PlanItemStatus.FAULTED
+        || status == PlanItemStatus.REJECTED
         || status == PlanItemStatus.CANCELLED) {
       throw new IllegalStateException(
           "Cannot fault a terminal PlanItem (status="
@@ -133,10 +134,28 @@ public class PlanItem implements Comparable<PlanItem> {
     status = PlanItemStatus.FAULTED;
   }
 
+  /**
+   * Transitions DELEGATED → REJECTED.
+   *
+   * <p>DELEGATED-only: only human task refusals ({@code WorkItemStatus.REJECTED}) and M-of-N group
+   * threshold failures ({@code GroupStatus.REJECTED} on human task SpawnGroups) reach this path.
+   * CapabilityTarget PlanItems are always RUNNING — they fault via retry exhaustion, never via
+   * rejection. If a group-of-capability-targets path is added in future, this guard must be
+   * revisited to allow RUNNING → REJECTED.
+   */
+  public void markRejected() {
+    if (status != PlanItemStatus.DELEGATED) {
+      throw new IllegalStateException(
+          "Cannot transition to REJECTED from " + status + " (planItemId=" + planItemId + ")");
+    }
+    status = PlanItemStatus.REJECTED;
+  }
+
   /** Cancels from PENDING, RUNNING, or DELEGATED. Throws if already terminal. */
   public void markCancelled() {
     if (status == PlanItemStatus.COMPLETED
         || status == PlanItemStatus.FAULTED
+        || status == PlanItemStatus.REJECTED
         || status == PlanItemStatus.CANCELLED) {
       throw new IllegalStateException(
           "Cannot cancel a terminal PlanItem (status="

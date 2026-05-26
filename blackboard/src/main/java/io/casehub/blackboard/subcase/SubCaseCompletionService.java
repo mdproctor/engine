@@ -272,6 +272,11 @@ public class SubCaseCompletionService {
    * Cancels the SubCase PlanItem in the BlackboardRegistry when a grouped SubCase group is REJECTED
    * (threshold unreachable). Called before the parent case is cancelled and the registry is
    * evicted, so the terminal state is observable for the eviction window.
+   *
+   * <p>Uses {@code markCancelled()} rather than {@code markRejected()} intentionally: the PlanItem
+   * is being administratively stopped as part of case cancellation, not because an external actor
+   * refused it. The group's child SubCases may have faulted or been cancelled — the group threshold
+   * being unreachable is a structural failure, not a refusal. {@code CANCELLED} is correct here.
    */
   void cancelPlanItemOnRejected(UUID parentCaseId, UUID childCaseId) {
     registry
@@ -282,6 +287,7 @@ public class SubCaseCompletionService {
             pi ->
                 pi.getStatus() != PlanItemStatus.COMPLETED
                     && pi.getStatus() != PlanItemStatus.FAULTED
+                    && pi.getStatus() != PlanItemStatus.REJECTED
                     && pi.getStatus() != PlanItemStatus.CANCELLED)
         .ifPresent(pi -> pi.markCancelled());
   }

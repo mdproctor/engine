@@ -18,9 +18,13 @@ package io.casehub.blackboard.event;
 import java.util.UUID;
 
 /**
- * CDI event fired after a {@link io.casehub.blackboard.plan.PlanItem} is marked COMPLETED in the
- * BlackboardRegistry. Fired via {@code Event.fireAsync()} from {@link
+ * CDI event fired after a {@link io.casehub.blackboard.plan.PlanItem} is marked {@code COMPLETED}
+ * (successful outcome only). Fired via {@code Event.fireAsync()} from {@link
  * io.casehub.blackboard.handler.PlanItemCompletionHandler}.
+ *
+ * <p><strong>Contract:</strong> This event fires only on {@code COMPLETED} terminal state. Faulted,
+ * rejected, and cancelled PlanItems do NOT emit this event — observers must not assume every
+ * terminal transition produces one.
  *
  * <p>By the time observers receive this event, the specific {@code planItemId} is guaranteed to
  * have COMPLETED status in the registry — no polling required.
