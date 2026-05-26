@@ -18,15 +18,17 @@ package io.casehub.engine.internal.engine;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
+import io.casehub.api.model.CaseStatus;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
 /**
- * Default {@link LoopControl} — fires all eligible dispatch rules concurrently.
+ * Default {@link LoopControl} — fires all eligible dispatch rules concurrently for RUNNING cases.
  *
  * <p>Pure choreography: every rule whose trigger condition matched is scheduled for execution
- * without deliberate ordering or prioritisation. Replace this bean via
+ * without deliberate ordering or prioritisation. Returns an empty list for all non-RUNNING states
+ * (WAITING, SUSPENDED, terminal) — no dedup mechanism exists in this path. Replace this bean via
  * {@code @Alternative @Priority} to introduce a planning strategy or sequential execution model.
  */
 @ApplicationScoped
@@ -35,6 +37,9 @@ public class ChoreographyLoopControl implements LoopControl {
   @Override
   public Uni<List<Binding>> select(
       final PlanExecutionContext context, final List<Binding> eligible) {
+    if (context.caseStatus() != CaseStatus.RUNNING) {
+      return Uni.createFrom().item(List.of());
+    }
     return Uni.createFrom().item(eligible);
   }
 }

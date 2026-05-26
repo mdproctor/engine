@@ -99,10 +99,17 @@ public class CaseContextChangedEventHandler {
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
   public Uni<Void> onCaseStateContextChangedEventHandler(CaseContextChangedEvent event) {
     CaseInstance caseInstance = event.instance();
-    JsonNode contextSnapshot = event.contextSnapshot();
-    if (!caseInstance.getState().equals(CaseStatus.RUNNING)) {
+    CaseStatus state = caseInstance.getState();
+
+    // RUNNING and WAITING cases react to CONTEXT_CHANGED.
+    // LoopControl handles binding dispatch per state (WAITING allowed when blackboard active).
+    // SUSPENDED cases are paused by admin action; terminal cases (COMPLETED, FAULTED, CANCELLED)
+    // are done — milestones, goals, and bindings must not evaluate for either.
+    if (state != CaseStatus.RUNNING && state != CaseStatus.WAITING) {
       return Uni.createFrom().voidItem();
     }
+
+    JsonNode contextSnapshot = event.contextSnapshot();
 
     CaseMetaModel caseMetaModel = caseInstance.getCaseMetaModel();
     CaseDefinition caseefinition =
@@ -160,7 +167,11 @@ public class CaseContextChangedEventHandler {
     }
 
     PlanExecutionContext planCtx =
-        new PlanExecutionContext(caseInstance.getUuid(), definition, caseInstance.getCaseContext());
+        new PlanExecutionContext(
+            caseInstance.getUuid(),
+            definition,
+            caseInstance.getCaseContext(),
+            caseInstance.getState());
 
     return loopControl
         .select(planCtx, eligible)

@@ -49,7 +49,9 @@ class StageLifecycleEvaluatorTest {
     UUID caseId = UUID.randomUUID();
     plan = new DefaultCasePlanModel(caseId);
     CaseContext mockCtx = mock(CaseContext.class);
-    ctx = new PlanExecutionContext(caseId, mock(CaseDefinition.class), mockCtx);
+    ctx =
+        new PlanExecutionContext(
+            caseId, mock(CaseDefinition.class), mockCtx, io.casehub.api.model.CaseStatus.RUNNING);
   }
 
   @Test

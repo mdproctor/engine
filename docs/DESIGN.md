@@ -27,7 +27,7 @@ Manages storage and retrieval of domain objects. Uses JPA/Panache for production
 
 Orchestrates case execution via:
 
-- **`CaseContextChangedEventHandler`** — watches for context changes, evaluates bindings, triggers choreography
+- **`CaseContextChangedEventHandler`** — watches for context changes, evaluates bindings for RUNNING and WAITING cases, delegates dispatch eligibility to `LoopControl`. `PlanningStrategyLoopControl` (blackboard active) accepts WAITING via PlanItem-based dedup; `ChoreographyLoopControl` restricts to RUNNING (no PlanItem tracking).
 - **`WorkerScheduleEventHandler`** — calls `WorkerContextProvider.buildContext()` (timing contract), schedules work in Quartz via `QuartzWorkerExecutionJob` which re-calls `buildContext` and sets `WorkerExecutionContext` for the worker function
 - **`WorkflowExecutionCompletedHandler`** — processes work completion, resumes WAITING cases
 - **`EventLog`** — persistent audit trail of all decisions and state changes
@@ -100,6 +100,7 @@ CaseContext change
 - Bindings are passive (triggered by context change), not imperative.
 - Worker order emerges from dependency, not direction.
 - All capable workers compete for selection; LeastLoadedStrategy picks the least-loaded.
+- WAITING cases (blackboard active) also receive CONTEXT_CHANGED — PlanItem dedup in `PlanningStrategyLoopControl` prevents re-dispatch of in-flight bindings; external signals (Qhorus human messages, `CaseHubRuntime.signal()`) can unblock a WAITING case.
 
 ### Orchestration (Explicit Work Submission)
 
@@ -167,7 +168,7 @@ A `Binding` with a `HumanTaskTarget` routes to a human WorkItem in casehub-work 
 **Engine wiring:**
 - `CaseContextChangedEventHandler` detects `binding.target() instanceof HumanTaskTarget`, evaluates `inputMapping` against `CaseContext`, and publishes `HumanTaskScheduleEvent` on `casehub.humantask.schedule`
 - `HumanTaskScheduleHandler` (work-adapter, `@ConsumeEvent(blocking=true)`) looks up the `PlanItem` by binding name via `CasePlanModel.getPlanItemByBindingName()`, marks it `DELEGATED` (control passed to human actor — not `RUNNING`, which is reserved for Quartz-executed CapabilityTarget workers), creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}` and `scope = target.scope()`
-- `WorkItemLifecycleAdapter` extended: on WorkItem completion, evaluates `outputMapping` against the resolution JSON (not the CaseContext) and calls `CaseContext.setAll()` before firing `CONTEXT_CHANGED`
+- `WorkItemLifecycleAdapter`: on WorkItem completion (COMPLETED, REJECTED, CANCELLED, EXPIRED — ESCALATED excluded as non-terminal), evaluates `outputMapping` and fires `CONTEXT_CHANGED`. Also observes `WorkItemGroupLifecycleEvent` for M-of-N SpawnGroup outcomes.
 
 **Data flow:**
 ```
@@ -402,7 +403,7 @@ PENDING (case created, not yet started)
     → CANCELLED (case cancelled explicitly)
 ```
 
-Only orchestration transitions a case to WAITING. Choreography keeps the case RUNNING unless an error occurs.
+Only orchestration transitions a case to WAITING. Choreography keeps the case RUNNING unless an error occurs. WAITING cases process CONTEXT_CHANGED when the blackboard is active — external signals (Qhorus human messages via `QhorusMessageSignalBridge`, explicit `CaseHubRuntime.signal()` calls) can reach a WAITING case and trigger binding re-evaluation without manually resuming it.
 
 ## Dependencies and SPI
 
@@ -433,6 +434,8 @@ Four dual-stack SPI interfaces (blocking + reactive) enable external systems to 
 - `ProvisionContext` — input to `WorkerProvisioner.provision()`, contains the work request and case metadata. Fields: `caseId`, `taskType`, `workerContext` (nullable), `propagationContext`, `triggerChannelId` (nullable String — Qhorus channel ID of the COMMAND that triggered provisioning), `triggerCorrelationId` (nullable String — Qhorus correlation ID). Engine-internal call sites pass `null` for both trigger fields until engine#231 threads Qhorus trigger context through the CaseFile-update API
 
 **Channel layering:** casehub-engine does not own the Channel concept — that belongs to Qhorus. `CaseChannelProvider` is a thin bridge associating channels with case lifecycle: open on case start, close on terminal state, post for worker messages. Backend variety (Qhorus, Slack, WhatsApp, DB) is entirely a Qhorus concern — zero engine changes when a new backend is added. See casehubio/qhorus#131 for the generalised Channel design and casehubio/engine#220 for the SPI contract.
+
+**`QhorusMessageSignalBridge`** (engine runtime) — CDI `@ObservesAsync MessageReceivedEvent` observer that bridges commitment-resolving Qhorus messages (RESPONSE, DONE, DECLINE, FAILURE) on `case-{caseId}/{purpose}` channels to `CaseHubRuntime.signal()`. Writes the message payload to `context["channelMessage"]`; case definitions react via `contextChange(".channelMessage")`. Channel naming convention is defined by `CaseChannel.CASE_CHANNEL_PREFIX` and `CaseChannel.channelName()` in `api/model/`. See protocol `PP-20260526-case-channel-message-signal`.
 
 **`casehub-qhorus-api` dependency:** The `api` module depends on `casehub-qhorus-api` (managed in root `pom.xml`) to import `MessageType` for the `postToChannel` signature. `MessageType` encodes the intent of a channel message at the protocol level (e.g. `COMMAND`, `RESPONSE`). See engine#230 for the longer-term plan to extract `MessageType` to a dedicated protocol artifact.
 

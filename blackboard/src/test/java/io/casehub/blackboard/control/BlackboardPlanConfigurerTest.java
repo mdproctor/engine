@@ -42,7 +42,10 @@ class BlackboardPlanConfigurerTest {
     CasePlanModel plan = new DefaultCasePlanModel(UUID.randomUUID());
     PlanExecutionContext ctx =
         new PlanExecutionContext(
-            UUID.randomUUID(), mock(CaseDefinition.class), mock(CaseContext.class));
+            UUID.randomUUID(),
+            mock(CaseDefinition.class),
+            mock(CaseContext.class),
+            io.casehub.api.model.CaseStatus.RUNNING);
     c.configure(plan, ctx);
     assertThat(captured[0]).isSameAs(plan);
   }

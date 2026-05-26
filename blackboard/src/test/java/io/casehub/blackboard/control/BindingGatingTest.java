@@ -25,6 +25,7 @@ import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
+import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.smallrye.mutiny.Uni;
@@ -79,7 +80,9 @@ class BindingGatingTest {
     caseId = UUID.randomUUID();
     CaseDefinition def = mock(CaseDefinition.class);
     when(def.getWorkers()).thenReturn(List.of());
-    ctx = new PlanExecutionContext(caseId, def, mock(CaseContext.class));
+    ctx =
+        new PlanExecutionContext(
+            caseId, def, mock(CaseContext.class), io.casehub.api.model.CaseStatus.RUNNING);
   }
 
   /** Creates a minimal mock Binding with the given name and no capability. */
@@ -220,5 +223,127 @@ class BindingGatingTest {
     assertThat(result.stream().map(Binding::getName))
         .as("builder-declared binding must pass when stage is ACTIVE")
         .contains("design-b");
+  }
+
+  // ------------------------------------------------------------------ //
+  // Case state handling — WAITING allowed, SUSPENDED/terminal blocked   //
+  // ------------------------------------------------------------------ //
+
+  @Test
+  void suspendedCase_returnsEmptyList() {
+    PlanExecutionContext suspended =
+        new PlanExecutionContext(
+            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.SUSPENDED);
+    Binding b = binding("any-b");
+
+    List<Binding> result = loopControl.select(suspended, List.of(b)).await().indefinitely();
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void completedCase_returnsEmptyList() {
+    PlanExecutionContext completed =
+        new PlanExecutionContext(
+            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.COMPLETED);
+    Binding b = binding("any-b");
+
+    List<Binding> result = loopControl.select(completed, List.of(b)).await().indefinitely();
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void waitingCase_pendingPlanItem_isDispatched() {
+    // WAITING case: binding has a PENDING PlanItem (never dispatched) → should fire
+    Binding b = binding("fresh-b");
+    PlanExecutionContext waiting =
+        new PlanExecutionContext(
+            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.WAITING);
+
+    // No PlanItem created yet — first time this binding is eligible
+    List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
+
+    assertThat(result.stream().map(Binding::getName))
+        .as("WAITING case must dispatch bindings with no existing PlanItem")
+        .contains("fresh-b");
+  }
+
+  @Test
+  void waitingCase_runningPlanItem_isFiltered() {
+    // WAITING case: binding already has a RUNNING PlanItem → must not re-dispatch
+    Binding b = binding("active-b");
+    PlanExecutionContext waiting =
+        new PlanExecutionContext(
+            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.WAITING);
+
+    // Pre-populate a RUNNING PlanItem for this binding
+    PlanItem item = PlanItem.create("active-b", "some-worker", 0);
+    item.markRunning();
+    plan().addPlanItem(item);
+
+    List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
+
+    assertThat(result.stream().map(Binding::getName))
+        .as("WAITING case must not re-dispatch a binding whose PlanItem is already RUNNING")
+        .doesNotContain("active-b");
+  }
+
+  @Test
+  void waitingCase_delegatedPlanItem_isFiltered() {
+    // WAITING case: HumanTask already DELEGATED → must not re-dispatch
+    Binding b = binding("delegated-b");
+    PlanExecutionContext waiting =
+        new PlanExecutionContext(
+            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.WAITING);
+
+    PlanItem item = PlanItem.create("delegated-b", "ht-worker", 0);
+    item.markDelegated();
+    plan().addPlanItem(item);
+
+    List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
+
+    assertThat(result.stream().map(Binding::getName))
+        .as("WAITING case must not re-dispatch a binding whose PlanItem is DELEGATED")
+        .doesNotContain("delegated-b");
+  }
+
+  @Test
+  void waitingCase_completedPlanItem_canReDispatch() {
+    // WAITING case: a COMPLETED binding CAN re-dispatch when its trigger fires again.
+    // addPlanItemIfAbsent replaces COMPLETED items with a new PENDING PlanItem — intentional,
+    // same binding can fire multiple times if conditions are met again.
+    // Only IN-FLIGHT (RUNNING, DELEGATED) items are blocked from re-dispatch.
+    Binding b = binding("done-b");
+    PlanExecutionContext waiting =
+        new PlanExecutionContext(
+            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.WAITING);
+
+    PlanItem item = PlanItem.create("done-b", "some-worker", 0);
+    item.markRunning();
+    item.markCompleted();
+    plan().addPlanItem(item);
+
+    List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
+
+    assertThat(result.stream().map(Binding::getName))
+        .as("COMPLETED binding may re-dispatch if trigger conditions are met again")
+        .contains("done-b");
+  }
+
+  @Test
+  void runningCase_runningPlanItem_isAlsoFiltered() {
+    // filterToDispatchable benefits RUNNING cases too — prevents re-dispatch of in-flight bindings
+    Binding b = binding("in-flight-b");
+
+    PlanItem item = PlanItem.create("in-flight-b", "some-worker", 0);
+    item.markRunning();
+    plan().addPlanItem(item);
+
+    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+
+    assertThat(result.stream().map(Binding::getName))
+        .as("RUNNING case must not re-dispatch a binding whose PlanItem is already RUNNING")
+        .doesNotContain("in-flight-b");
   }
 }

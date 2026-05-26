@@ -38,7 +38,10 @@ public abstract class PlanningStrategyContractTest {
 
   private PlanExecutionContext ctx() {
     return new PlanExecutionContext(
-        UUID.randomUUID(), mock(CaseDefinition.class), mock(CaseContext.class));
+        UUID.randomUUID(),
+        mock(CaseDefinition.class),
+        mock(CaseContext.class),
+        io.casehub.api.model.CaseStatus.RUNNING);
   }
 
   @Test

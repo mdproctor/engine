@@ -19,6 +19,7 @@ import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
+import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.SubCaseTarget;
@@ -73,6 +74,10 @@ public class PlanningStrategyLoopControl implements LoopControl {
 
   @Override
   public Uni<List<Binding>> select(PlanExecutionContext ctx, List<Binding> eligible) {
+    CaseStatus status = ctx.caseStatus();
+    if (status != CaseStatus.RUNNING && status != CaseStatus.WAITING) {
+      return Uni.createFrom().item(List.of());
+    }
     UUID caseId = ctx.caseId();
     CasePlanModel plan = registry.getOrCreate(caseId);
 
@@ -122,7 +127,28 @@ public class PlanningStrategyLoopControl implements LoopControl {
     return stageLifecycleEvaluator
         .evaluate(plan, ctx)
         .chain(() -> planningStrategy.select(plan, ctx, gatedEligible))
-        .invoke(selected -> indexSelectedForCompletion(caseId, selected, plan));
+        .map(selected -> filterToDispatchable(plan, selected))
+        .invoke(dispatchable -> indexSelectedForCompletion(caseId, dispatchable, plan));
+  }
+
+  /**
+   * Filters out bindings whose PlanItems are already dispatched (RUNNING, DELEGATED, COMPLETED,
+   * FAULTED, CANCELLED). Only PENDING PlanItems (first dispatch) are returned. This prevents
+   * re-dispatch of in-flight or completed bindings on repeated CONTEXT_CHANGED evaluations,
+   * regardless of whether the case is RUNNING or WAITING.
+   *
+   * <p>Pre-existing timing race (engine#364): a second CONTEXT_CHANGED arriving before a
+   * HumanTask/SubCase handler marks its PlanItem DELEGATED will find it still PENDING and
+   * re-dispatch. This filter prevents re-dispatch *after* the handler runs, not *before*.
+   */
+  private List<Binding> filterToDispatchable(CasePlanModel plan, List<Binding> selected) {
+    return selected.stream()
+        .filter(
+            b ->
+                plan.getPlanItemByBindingName(b.getName())
+                    .map(pi -> pi.getStatus() == PlanItemStatus.PENDING)
+                    .orElse(true))
+        .toList();
   }
 
   /**

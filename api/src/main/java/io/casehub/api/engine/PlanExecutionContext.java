@@ -17,12 +17,13 @@ package io.casehub.api.engine;
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.CaseStatus;
 import java.util.UUID;
 
 /**
- * Context passed to {@link LoopControl#select} — carries case identity alongside {@link
- * CaseContext}, enabling implementations to look up plan models and stage hierarchies without
- * requiring access to internal engine structures.
+ * Context passed to {@link LoopControl#select} — carries case identity, definition, context, and
+ * current {@link CaseStatus}, enabling LoopControl implementations to decide both which bindings to
+ * fire and whether to evaluate at all for the given case state.
  */
 public record PlanExecutionContext(
-    UUID caseId, CaseDefinition definition, CaseContext caseContext) {}
+    UUID caseId, CaseDefinition definition, CaseContext caseContext, CaseStatus caseStatus) {}

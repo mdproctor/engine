@@ -32,6 +32,8 @@ import io.casehub.engine.internal.jq.JQEvaluator;
 import io.casehub.engine.internal.jq.ValidationResult;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.spi.CaseInstanceRepository;
+import io.casehub.work.api.GroupStatus;
+import io.casehub.work.api.WorkItemGroupLifecycleEvent;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
@@ -45,14 +47,19 @@ import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
- * Translates terminal quarkus-work {@link WorkItemLifecycleEvent}s into CaseHub PlanItem
- * transitions and fires {@code CONTEXT_CHANGED} to trigger engine re-evaluation.
+ * Translates terminal quarkus-work {@link WorkItemLifecycleEvent}s and M-of-N {@link
+ * WorkItemGroupLifecycleEvent}s into CaseHub PlanItem transitions and fires {@code CONTEXT_CHANGED}
+ * to trigger engine re-evaluation.
  *
  * <p>Choreography path: the engine's binding evaluator picks up the next step automatically once
  * the PlanItem status changes and the context-changed signal arrives. Refs casehubio/work#136.
  *
  * <p>Only processes events whose {@code callerRef} matches the CaseHub format {@code
  * case:{caseId}/pi:{planItemId}} — other WorkItems are ignored.
+ *
+ * <p>ESCALATED is intentionally excluded from the terminal status filter: the WorkItem returns to
+ * PENDING with new candidate groups and remains active. The PlanItem stays in its current state and
+ * will transition when the WorkItem reaches a true terminal state. Refs engine#338.
  */
 @ApplicationScoped
 public class WorkItemLifecycleAdapter {
@@ -75,8 +82,7 @@ public class WorkItemLifecycleAdapter {
     if (status != WorkItemStatus.COMPLETED
         && status != WorkItemStatus.REJECTED
         && status != WorkItemStatus.CANCELLED
-        && status != WorkItemStatus.EXPIRED
-        && status != WorkItemStatus.ESCALATED) return;
+        && status != WorkItemStatus.EXPIRED) return;
 
     if (!(event.source() instanceof WorkItem workItem)) return;
 
@@ -113,6 +119,57 @@ public class WorkItemLifecycleAdapter {
     eventBus.publish(
         EventBusAddresses.CONTEXT_CHANGED,
         new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+  }
+
+  public void onWorkItemGroupLifecycle(@ObservesAsync WorkItemGroupLifecycleEvent event) {
+    GroupStatus status = event.groupStatus();
+    if (status != GroupStatus.COMPLETED && status != GroupStatus.REJECTED) return;
+
+    CallerRef ref = CallerRef.parse(event.callerRef());
+    if (ref == null) return;
+
+    CasePlanModel plan = registry.get(ref.caseId()).orElse(null);
+    if (plan == null) {
+      LOG.debugf("No CasePlanModel for caseId=%s — group outcome ignored", ref.caseId());
+      return;
+    }
+
+    PlanItem item = plan.getPlanItem(ref.planItemId()).orElse(null);
+    if (item == null) {
+      LOG.warnf(
+          "PlanItem %s not found in case %s for group outcome", ref.planItemId(), ref.caseId());
+      return;
+    }
+
+    if (!applyGroupStatus(item, status)) return;
+
+    CaseInstance instance = caseInstanceRepository.findByUuid(ref.caseId()).await().atMost(TIMEOUT);
+    if (instance == null) {
+      LOG.warnf("CaseInstance not found for caseId=%s — cannot fire CONTEXT_CHANGED", ref.caseId());
+      return;
+    }
+
+    eventBus.publish(
+        EventBusAddresses.CONTEXT_CHANGED,
+        new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+  }
+
+  private boolean applyGroupStatus(PlanItem item, GroupStatus status) {
+    try {
+      switch (status) {
+        case COMPLETED -> item.markCompleted();
+        case REJECTED -> item.markFaulted();
+        default -> {
+          return false;
+        }
+      }
+      return true;
+    } catch (IllegalStateException e) {
+      LOG.warnf(
+          "Cannot transition PlanItem %s (current=%s) for GroupStatus %s: %s",
+          item.getPlanItemId(), item.getStatus(), status, e.getMessage());
+      return false;
+    }
   }
 
   private void applyOutputMapping(PlanItem item, WorkItem workItem, CaseInstance instance) {
@@ -169,7 +226,7 @@ public class WorkItemLifecycleAdapter {
       switch (status) {
         case COMPLETED -> item.markCompleted();
         case CANCELLED -> item.markCancelled();
-        case REJECTED, EXPIRED, ESCALATED -> item.markFaulted();
+        case REJECTED, EXPIRED -> item.markFaulted();
         default -> {
           return false;
         }

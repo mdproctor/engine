@@ -25,6 +25,8 @@ import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.model.CaseInstance;
 import io.casehub.engine.internal.model.PlanItemStatus;
 import io.casehub.engine.spi.CaseInstanceRepository;
+import io.casehub.work.api.GroupStatus;
+import io.casehub.work.api.WorkItemGroupLifecycleEvent;
 import io.casehub.work.api.WorkloadProvider;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItem;
@@ -63,6 +65,8 @@ class WorkItemLifecycleAdapterTest {
   @Inject CaseInstanceRepository caseInstanceRepository;
 
   @Inject Event<WorkItemLifecycleEvent> lifecycleEvents;
+
+  @Inject Event<WorkItemGroupLifecycleEvent> groupLifecycleEvents;
 
   private UUID caseId;
   private String planItemId;
@@ -117,12 +121,20 @@ class WorkItemLifecycleAdapterTest {
   }
 
   @Test
-  void workItemEscalated_marksPlanItemFaulted() {
+  void workItemEscalated_planItemUnchanged() {
+    // ESCALATED is not terminal — WorkItem re-enters PENDING with new candidate groups.
+    // The adapter ignores the ESCALATED event; PlanItem retains its current status.
+    // The PlanItem will transition when the WorkItem reaches a true terminal state.
     lifecycleEvents.fireAsync(buildEvent(WorkItemStatus.ESCALATED, null));
 
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
+    // Give the async observer time to run if it were going to
+    try {
+      Thread.sleep(500);
+    } catch (InterruptedException ignored) {
+    }
+    assertThat(planItem.getStatus())
+        .as("ESCALATED must be ignored — PlanItem stays in its current status (RUNNING)")
+        .isEqualTo(PlanItemStatus.RUNNING);
   }
 
   @Test
@@ -296,6 +308,61 @@ class WorkItemLifecycleAdapterTest {
     assertThat(after.getCaseContext().getData()).isEqualTo(originalData);
   }
 
+  @Test
+  void workItemGroupCompleted_marksPlanItemCompleted() {
+    groupLifecycleEvents.fireAsync(buildGroupEvent(GroupStatus.COMPLETED));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.COMPLETED));
+  }
+
+  @Test
+  void workItemGroupRejected_marksPlanItemFaulted() {
+    groupLifecycleEvents.fireAsync(buildGroupEvent(GroupStatus.REJECTED));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
+  }
+
+  @Test
+  void workItemGroupInProgress_isIgnored() {
+    groupLifecycleEvents.fireAsync(buildGroupEvent(GroupStatus.IN_PROGRESS));
+
+    try {
+      Thread.sleep(500);
+    } catch (InterruptedException ignored) {
+    }
+    assertThat(planItem.getStatus())
+        .as("IN_PROGRESS group event must not change PlanItem status")
+        .isEqualTo(PlanItemStatus.RUNNING);
+  }
+
+  @Test
+  void workItemGroupCompleted_unknownCallerRef_isIgnored() {
+    WorkItemGroupLifecycleEvent event =
+        WorkItemGroupLifecycleEvent.of(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            3,
+            2,
+            2,
+            0,
+            GroupStatus.COMPLETED,
+            "some-other-system:xyz");
+
+    groupLifecycleEvents.fireAsync(event);
+
+    try {
+      Thread.sleep(500);
+    } catch (InterruptedException ignored) {
+    }
+    assertThat(planItem.getStatus())
+        .as("Unknown callerRef must be ignored for group events")
+        .isEqualTo(PlanItemStatus.RUNNING);
+  }
+
   private WorkItemLifecycleEvent buildEvent(WorkItemStatus status, String resolution) {
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
@@ -304,5 +371,17 @@ class WorkItemLifecycleAdapterTest {
     workItem.resolution = resolution;
     return WorkItemLifecycleEvent.of(
         "workitem." + status.name().toLowerCase(), workItem, "system", null);
+  }
+
+  private WorkItemGroupLifecycleEvent buildGroupEvent(GroupStatus status) {
+    return WorkItemGroupLifecycleEvent.of(
+        UUID.randomUUID(),
+        UUID.randomUUID(),
+        3,
+        2,
+        2,
+        0,
+        status,
+        CallerRef.encode(caseId, planItemId));
   }
 }

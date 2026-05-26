@@ -16,6 +16,7 @@
 package io.casehub.api.model;
 
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Opaque reference to a communication channel for workers on a case.
@@ -24,11 +25,27 @@ import java.util.Map;
  * {@code properties} with Qhorus-specific metadata (e.g. endpoint URL). The {@code properties} map
  * is always immutable.
  *
+ * <p>Channel names follow the convention {@code "case-{caseId}/{purpose}"} — use {@link
+ * #channelName(UUID, String)} to construct and {@link #CASE_CHANNEL_PREFIX} to identify them. Both
+ * the {@code CaseChannelProvider} implementation and the signal bridge rely on this format;
+ * changing it here propagates to both.
+ *
  * @throws IllegalArgumentException if id or backendType is blank, or if properties contains null
  *     values
  */
 public record CaseChannel(
     String id, String name, String purpose, String backendType, Map<String, Object> properties) {
+
+  /** Prefix shared by all case-scoped Qhorus channel names. */
+  public static final String CASE_CHANNEL_PREFIX = "case-";
+
+  /**
+   * Constructs the canonical channel name for a case and purpose. Format: {@code
+   * "case-{caseId}/{purpose}"}.
+   */
+  public static String channelName(UUID caseId, String purpose) {
+    return CASE_CHANNEL_PREFIX + caseId + "/" + purpose;
+  }
 
   public CaseChannel {
     if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
