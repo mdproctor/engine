@@ -61,7 +61,7 @@ jobs:
           github.event_name == 'workflow_dispatch' ||
           github.event_name == 'repository_dispatch') && success()
         run: |
-          for repo in flow; do
+          for repo in flow openclaw; do
             gh api repos/casehubio/$repo/dispatches \
               -f event_type=upstream-published \
               -f client_payload[source]="${GITHUB_REPOSITORY}" \

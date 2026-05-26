@@ -52,7 +52,7 @@ public class CaseStartedEventHandler {
 
   @Inject CaseChannelProvider caseChannelProvider;
 
-  @ConsumeEvent(value = EventBusAddresses.CASE_STARTED)
+  @ConsumeEvent(value = EventBusAddresses.CASE_STARTED, blocking = true)
   public Uni<Void> onCaseStarted(CaseStartedEvent event) {
     final CaseInstance instance = event.instance();
     final JsonNode contextSnapshot = instance.getCaseContext().asJsonNode();
