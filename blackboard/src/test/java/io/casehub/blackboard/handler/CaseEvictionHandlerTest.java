@@ -21,8 +21,8 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.CaseStatus;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.internal.event.CaseStatusChanged;
-import io.casehub.engine.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.event.CaseStatusChanged;
+import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 

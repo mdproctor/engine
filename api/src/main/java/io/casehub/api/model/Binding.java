@@ -15,12 +15,14 @@
  */
 package io.casehub.api.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.util.Objects;
 
 public class Binding {
 
+  @JsonProperty("target")
   private final BindingTarget target;
   private final String name;
   private final Trigger on;

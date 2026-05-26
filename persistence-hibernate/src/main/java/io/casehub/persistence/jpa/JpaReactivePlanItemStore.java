@@ -15,9 +15,9 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.casehub.engine.internal.model.PlanItemRecord;
-import io.casehub.engine.internal.model.PlanItemStatus;
-import io.casehub.engine.spi.ReactivePlanItemStore;
+import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.ReactivePlanItemStore;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.panache.common.Parameters;
 import io.smallrye.mutiny.Uni;

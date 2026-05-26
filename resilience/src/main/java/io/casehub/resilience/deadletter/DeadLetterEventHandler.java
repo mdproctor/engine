@@ -15,8 +15,8 @@
  */
 package io.casehub.resilience.deadletter;
 
-import io.casehub.engine.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.event.WorkerRetriesExhaustedEvent;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

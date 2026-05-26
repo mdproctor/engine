@@ -17,8 +17,8 @@ package io.casehub.blackboard.handler;
 
 import io.casehub.api.model.CaseStatus;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.internal.event.CaseStatusChanged;
-import io.casehub.engine.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.CaseStatusChanged;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

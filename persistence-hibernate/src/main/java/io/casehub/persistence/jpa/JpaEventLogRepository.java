@@ -17,8 +17,8 @@ package io.casehub.persistence.jpa;
 
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.internal.history.EventLog;
-import io.casehub.engine.spi.EventLogRepository;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

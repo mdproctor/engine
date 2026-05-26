@@ -25,12 +25,12 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.engine.common.internal.event.CaseStatusChanged;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
-import io.casehub.engine.internal.event.CaseStatusChanged;
-import io.casehub.engine.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.spi.CaseInstanceRepository;
-import io.casehub.engine.spi.cache.CaseInstanceCache;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Duration;

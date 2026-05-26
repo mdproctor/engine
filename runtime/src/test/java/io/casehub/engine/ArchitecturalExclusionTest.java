@@ -18,6 +18,8 @@ package io.casehub.engine;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.event.CaseHubEventType;
+import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
+import io.casehub.engine.common.internal.history.EventLog;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -29,8 +31,8 @@ import org.junit.jupiter.api.Test;
  *
  * <ul>
  *   <li>NotificationService → Vert.x EventBus ({@code eventBus.publish()} / {@code @ConsumeEvent})
- *   <li>CaseFileItemEvent → {@link io.casehub.engine.internal.event.CaseContextChangedEvent}
- *   <li>CaseFileContribution → {@link io.casehub.engine.internal.history.EventLog}
+ *   <li>CaseFileItemEvent → {@link CaseContextChangedEvent}
+ *   <li>CaseFileContribution → {@link EventLog}
  *   <li>TaskLifecycleEvent → {@link CaseHubEventType} entries
  *   <li>AutonomousMonitoringWorker pattern → {@link io.casehub.api.engine.CaseHubRuntime#signal}
  * </ul>

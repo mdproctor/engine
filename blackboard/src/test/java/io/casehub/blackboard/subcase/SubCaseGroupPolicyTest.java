@@ -18,8 +18,8 @@ package io.casehub.blackboard.subcase;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.OnThresholdReached;
-import io.casehub.engine.internal.model.GroupStatus;
-import io.casehub.engine.internal.model.SubCaseGroup;
+import io.casehub.engine.common.internal.model.GroupStatus;
+import io.casehub.engine.common.internal.model.SubCaseGroup;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 

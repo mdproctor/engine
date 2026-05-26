@@ -15,9 +15,9 @@
  */
 package io.casehub.persistence.memory;
 
-import io.casehub.engine.internal.model.PlanItemRecord;
-import io.casehub.engine.internal.model.PlanItemStatus;
-import io.casehub.engine.spi.PlanItemStore;
+import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.PlanItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import java.time.Instant;

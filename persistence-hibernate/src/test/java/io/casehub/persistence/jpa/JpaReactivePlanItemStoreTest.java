@@ -15,8 +15,8 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.casehub.engine.spi.ReactivePlanItemStore;
-import io.casehub.engine.spi.ReactivePlanItemStoreContractTest;
+import io.casehub.engine.common.spi.ReactivePlanItemStore;
+import io.casehub.engine.common.spi.ReactivePlanItemStoreContractTest;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;

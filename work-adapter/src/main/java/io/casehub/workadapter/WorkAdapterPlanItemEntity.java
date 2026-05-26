@@ -15,7 +15,8 @@
  */
 package io.casehub.workadapter;
 
-import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.PlanItemStore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -29,7 +30,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Blocking JPA entity for {@link io.casehub.engine.spi.PlanItemStore} in the work-adapter context.
+ * Blocking JPA entity for {@link PlanItemStore} in the work-adapter context.
  *
  * <p>Maps to the same {@code plan_item} table as {@code PlanItemEntity} in {@code
  * casehub-persistence-hibernate}, but uses standard blocking JPA (no Panache reactive) so writes

@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.internal.engine;
 
-import static io.casehub.engine.internal.event.EventBusAddresses.CASE_STARTED;
-import static io.casehub.engine.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
-import static io.casehub.engine.internal.event.EventBusAddresses.SIGNAL_RECEIVED;
+import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STARTED;
+import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
+import static io.casehub.engine.common.internal.event.EventBusAddresses.SIGNAL_RECEIVED;
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
@@ -25,16 +25,16 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.internal.event.CaseStartedEvent;
-import io.casehub.engine.internal.event.CaseStatusChanged;
-import io.casehub.engine.internal.event.SignalReceivedEvent;
-import io.casehub.engine.internal.history.EventLog;
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.internal.model.CaseMetaModel;
-import io.casehub.engine.spi.CaseDefinitionRegistry;
-import io.casehub.engine.spi.CaseInstanceRepository;
-import io.casehub.engine.spi.EventLogRepository;
-import io.casehub.engine.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.internal.event.CaseStartedEvent;
+import io.casehub.engine.common.internal.event.CaseStatusChanged;
+import io.casehub.engine.common.internal.event.SignalReceivedEvent;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;

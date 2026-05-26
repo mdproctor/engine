@@ -17,7 +17,7 @@ package io.casehub.engine.internal.config.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.engine.internal.config.ConfigContext;
+import io.casehub.engine.common.internal.config.ConfigContext;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;

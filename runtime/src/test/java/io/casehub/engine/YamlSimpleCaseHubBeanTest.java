@@ -26,7 +26,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
-import io.casehub.engine.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
 import io.serverlessworkflow.api.types.Workflow;
 import jakarta.inject.Inject;

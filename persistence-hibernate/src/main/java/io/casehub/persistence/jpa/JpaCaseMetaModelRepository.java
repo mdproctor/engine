@@ -15,8 +15,8 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.casehub.engine.internal.model.CaseMetaModel;
-import io.casehub.engine.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

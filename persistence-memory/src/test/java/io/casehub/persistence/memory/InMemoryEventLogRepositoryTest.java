@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.internal.history.EventLog;
+import io.casehub.engine.common.internal.history.EventLog;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;

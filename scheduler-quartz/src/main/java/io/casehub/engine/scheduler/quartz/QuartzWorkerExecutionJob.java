@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
-import static io.casehub.engine.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
+import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,16 +27,16 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.spi.WorkerContextProvider;
-import io.casehub.engine.internal.event.WorkflowExecutionCompleted;
-import io.casehub.engine.internal.history.EventLog;
-import io.casehub.engine.internal.jq.JQEvaluator;
-import io.casehub.engine.internal.jq.ValidationResult;
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.internal.utils.ReactiveUtils;
-import io.casehub.engine.internal.worker.WorkflowExecutor;
-import io.casehub.engine.spi.CaseDefinitionRegistry;
-import io.casehub.engine.spi.EventLogRepository;
-import io.casehub.engine.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.jq.JQEvaluator;
+import io.casehub.engine.common.internal.jq.ValidationResult;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.utils.ReactiveUtils;
+import io.casehub.engine.common.internal.worker.WorkflowExecutor;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowModel;
 import io.smallrye.mutiny.Uni;

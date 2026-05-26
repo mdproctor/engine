@@ -27,7 +27,7 @@ import io.casehub.api.model.Worker;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;

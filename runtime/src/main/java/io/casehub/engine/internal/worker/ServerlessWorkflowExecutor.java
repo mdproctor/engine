@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.worker;
 
+import io.casehub.engine.common.internal.worker.WorkflowExecutor;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
 import io.serverlessworkflow.impl.WorkflowModel;

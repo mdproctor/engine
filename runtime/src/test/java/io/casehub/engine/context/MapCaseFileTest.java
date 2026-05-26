@@ -18,6 +18,7 @@ package io.casehub.engine.context;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.context.CaseContext;
+import io.casehub.engine.internal.context.MapCaseFile;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;

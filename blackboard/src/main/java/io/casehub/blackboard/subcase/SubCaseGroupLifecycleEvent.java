@@ -15,7 +15,7 @@
  */
 package io.casehub.blackboard.subcase;
 
-import io.casehub.engine.internal.model.GroupStatus;
+import io.casehub.engine.common.internal.model.GroupStatus;
 import java.util.UUID;
 
 public record SubCaseGroupLifecycleEvent(

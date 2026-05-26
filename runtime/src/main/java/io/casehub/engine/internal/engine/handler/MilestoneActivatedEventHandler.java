@@ -16,7 +16,7 @@
 package io.casehub.engine.internal.engine.handler;
 
 import static io.casehub.api.model.event.CaseHubEventType.MILESTONE_ACTIVATED;
-import static io.casehub.engine.internal.event.EventBusAddresses.CONTEXT_CHANGED;
+import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,16 +25,16 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SlaStatus;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.event.MilestoneActivatedEvent;
-import io.casehub.engine.internal.history.EventLog;
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.internal.scheduler.JobIdentifier;
-import io.casehub.engine.internal.scheduler.ScheduleStrategy.FixedAtSchedule;
-import io.casehub.engine.internal.scheduler.ScheduledJobRequest;
-import io.casehub.engine.spi.EventLogRepository;
-import io.casehub.engine.spi.scheduler.JobScheduler;
+import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.scheduler.JobIdentifier;
+import io.casehub.engine.common.internal.scheduler.ScheduleStrategy.FixedAtSchedule;
+import io.casehub.engine.common.internal.scheduler.ScheduledJobRequest;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;

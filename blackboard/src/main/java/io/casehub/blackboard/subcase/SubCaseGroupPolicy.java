@@ -15,8 +15,8 @@
  */
 package io.casehub.blackboard.subcase;
 
-import io.casehub.engine.internal.model.GroupStatus;
-import io.casehub.engine.internal.model.SubCaseGroup;
+import io.casehub.engine.common.internal.model.GroupStatus;
+import io.casehub.engine.common.internal.model.SubCaseGroup;
 
 public final class SubCaseGroupPolicy {
 

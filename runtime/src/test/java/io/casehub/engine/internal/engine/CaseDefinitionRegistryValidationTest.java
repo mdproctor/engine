@@ -26,7 +26,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
-import io.casehub.engine.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.time.Duration;

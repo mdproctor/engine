@@ -15,7 +15,7 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.casehub.engine.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

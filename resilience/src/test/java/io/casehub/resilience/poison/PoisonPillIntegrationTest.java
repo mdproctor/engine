@@ -30,7 +30,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.Worker;
-import io.casehub.engine.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

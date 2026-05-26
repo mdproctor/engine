@@ -24,9 +24,13 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SlaStatus;
 import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.engine.internal.model.CaseInstance;
-import io.casehub.engine.spi.cache.CaseInstanceCache;
-import io.casehub.engine.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -46,7 +50,7 @@ class MilestoneLifecycleTest {
   @Inject SlaIdempotencyTestBean slaIdempotencyBean;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject WorkerExecutionRecoveryService recoveryService;
-  @Inject io.casehub.engine.spi.EventLogRepository eventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject io.vertx.mutiny.core.eventbus.EventBus eventBus;
 
   @Test
@@ -216,7 +220,7 @@ class MilestoneLifecycleTest {
     Thread.sleep(5000);
 
     // Verify no SLA_VIOLATED event
-    java.util.List<io.casehub.engine.internal.history.EventLog> slaEvents =
+    java.util.List<EventLog> slaEvents =
         eventLogRepository
             .findByCaseAndTypes(
                 caseId, java.util.EnumSet.of(CaseHubEventType.MILESTONE_SLA_VIOLATED))
@@ -233,9 +237,8 @@ class MilestoneLifecycleTest {
     // Publish context changed event to trigger milestone evaluation
     com.fasterxml.jackson.databind.JsonNode contextSnapshot =
         instance.getCaseContext().asJsonNode();
-    io.casehub.engine.internal.event.CaseContextChangedEvent event =
-        new io.casehub.engine.internal.event.CaseContextChangedEvent(instance, contextSnapshot);
-    eventBus.publish(io.casehub.engine.internal.event.EventBusAddresses.CONTEXT_CHANGED, event);
+    CaseContextChangedEvent event = new CaseContextChangedEvent(instance, contextSnapshot);
+    eventBus.publish(EventBusAddresses.CONTEXT_CHANGED, event);
   }
 
   @SuppressWarnings("unchecked")

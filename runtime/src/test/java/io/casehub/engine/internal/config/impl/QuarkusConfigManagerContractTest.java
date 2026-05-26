@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.config.impl;
 
-import io.casehub.engine.internal.config.ConfigManager;
-import io.casehub.engine.internal.config.ConfigManagerContractTest;
+import io.casehub.engine.common.config.ConfigManagerContractTest;
+import io.casehub.engine.common.internal.config.ConfigManager;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;

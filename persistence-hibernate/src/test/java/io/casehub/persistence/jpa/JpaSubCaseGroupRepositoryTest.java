@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.OnThresholdReached;
-import io.casehub.engine.internal.model.SubCaseGroup;
-import io.casehub.engine.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.internal.model.SubCaseGroup;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
