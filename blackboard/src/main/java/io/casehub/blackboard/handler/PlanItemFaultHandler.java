@@ -38,7 +38,6 @@ import org.jboss.logging.Logger;
  * eventBus.publish()} — fan-out. Coexists with {@link
  * io.casehub.engine.internal.engine.handler.WorkerRetriesExhaustedEventHandler} which handles the
  * CaseInstance-level FAULTED transition.
- *
  */
 @ApplicationScoped
 public class PlanItemFaultHandler {

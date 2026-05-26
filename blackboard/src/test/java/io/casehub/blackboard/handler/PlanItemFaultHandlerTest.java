@@ -23,9 +23,8 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.internal.model.PlanItemStatus;
-import java.util.UUID;
-
 import jakarta.enterprise.event.Event;
+import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
