@@ -74,20 +74,35 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
 
   @Override
   public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId) {
+    // Atomic JPQL increment — avoids read-modify-write race under PostgreSQL READ COMMITTED.
+    // The returned SubCaseGroup reflects DB state at SELECT time; may include concurrent
+    // increments.
+    // SubCaseGroupPolicy.evaluate() reads counts and handles any total correctly. Refs engine#248.
     return Panache.withTransaction(
         () ->
-            SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
-                .firstResult()
-                .flatMap(
-                    e -> {
-                      if (e == null)
+            SubCaseGroupEntity.update(
+                    "completedCount = completedCount + 1 WHERE parentCaseId = ?1 AND groupId = ?2",
+                    parentCaseId,
+                    groupId)
+                .chain(
+                    count -> {
+                      if (count == 0)
                         return Uni.createFrom()
                             .failure(
                                 new IllegalStateException(
                                     "Group not found: " + parentCaseId + ":" + groupId));
-                      e.completedCount++;
-                      return Uni.createFrom().item(toDomain(e));
+                      return SubCaseGroupEntity.<SubCaseGroupEntity>find(
+                              "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                          .firstResult()
+                          .onItem()
+                          .ifNotNull()
+                          .transform(this::toDomain)
+                          .onItem()
+                          .ifNull()
+                          .failWith(
+                              () ->
+                                  new IllegalStateException(
+                                      "Group vanished after increment: " + parentCaseId));
                     }));
   }
 
@@ -95,18 +110,29 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
   public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId) {
     return Panache.withTransaction(
         () ->
-            SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
-                .firstResult()
-                .flatMap(
-                    e -> {
-                      if (e == null)
+            SubCaseGroupEntity.update(
+                    "rejectedCount = rejectedCount + 1 WHERE parentCaseId = ?1 AND groupId = ?2",
+                    parentCaseId,
+                    groupId)
+                .chain(
+                    count -> {
+                      if (count == 0)
                         return Uni.createFrom()
                             .failure(
                                 new IllegalStateException(
                                     "Group not found: " + parentCaseId + ":" + groupId));
-                      e.rejectedCount++;
-                      return Uni.createFrom().item(toDomain(e));
+                      return SubCaseGroupEntity.<SubCaseGroupEntity>find(
+                              "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                          .firstResult()
+                          .onItem()
+                          .ifNotNull()
+                          .transform(this::toDomain)
+                          .onItem()
+                          .ifNull()
+                          .failWith(
+                              () ->
+                                  new IllegalStateException(
+                                      "Group vanished after increment: " + parentCaseId));
                     }));
   }
 
