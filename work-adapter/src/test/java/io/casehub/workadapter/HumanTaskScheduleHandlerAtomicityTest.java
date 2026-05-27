@@ -80,7 +80,6 @@ class HumanTaskScheduleHandlerAtomicityTest {
           MemoryPlanItemStore.class,
           NoOpLedgerEntryRepository.class,
           NoOpReactiveLedgerEntryRepository.class,
-          StubWorkloadProvider.class,
           NoOpPreferenceProvider.class);
     }
   }

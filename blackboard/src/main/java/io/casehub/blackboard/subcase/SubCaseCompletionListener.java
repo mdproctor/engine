@@ -15,7 +15,7 @@
  */
 package io.casehub.blackboard.subcase;
 
-import io.casehub.engine.common.internal.event.CaseLifecycleEvent;
+import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;

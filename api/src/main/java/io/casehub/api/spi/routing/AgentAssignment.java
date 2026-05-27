@@ -13,21 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.resilience;
+package io.casehub.api.spi.routing;
 
-import io.casehub.work.api.WorkloadProvider;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
+/**
+ * Result of {@link AgentRoutingStrategy#select}. A null {@code workerId} signals that no suitable
+ * candidate was found — use {@link #noOp()} to construct and {@link #isNoOp()} to check.
+ *
+ * @param workerId the selected worker name, or null when no worker qualifies
+ */
+public record AgentAssignment(String workerId) {
 
-/** Resolves CasehubWorkloadProvider vs JpaWorkloadProvider ambiguity in tests. */
-@Alternative
-@Priority(1)
-@ApplicationScoped
-public class StubWorkloadProvider implements WorkloadProvider {
+  /** Sentinel indicating no worker was selected. */
+  public static AgentAssignment noOp() {
+    return new AgentAssignment(null);
+  }
 
-  @Override
-  public int getActiveWorkCount(String workerId) {
-    return 0;
+  /** True when no worker was selected. */
+  public boolean isNoOp() {
+    return workerId == null;
   }
 }

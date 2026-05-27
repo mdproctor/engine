@@ -49,7 +49,7 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class WorkItemLifecycleAdapterTest {
 
-  /** Resolves the CasehubWorkloadProvider vs JpaWorkloadProvider ambiguity in tests. */
+  /** Overrides JpaWorkloadProvider for test isolation — returns zero active work count. */
   @Alternative
   @Priority(1)
   @ApplicationScoped

@@ -13,21 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.workadapter;
+package io.casehub.ledger.routing;
 
-import io.casehub.work.api.WorkloadProvider;
-import jakarta.annotation.Priority;
+import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 
-/** Resolves CasehubWorkloadProvider vs JpaWorkloadProvider ambiguity in tests. */
-@Alternative
-@Priority(1)
+/**
+ * Default {@link TrustRoutingPolicyProvider} — returns {@link TrustRoutingPolicy#DEFAULT} for all
+ * capabilities. Yields to any deployment-specific {@code @Alternative @Priority(1)} provider.
+ */
+@DefaultBean
 @ApplicationScoped
-public class StubWorkloadProvider implements WorkloadProvider {
+public class DefaultTrustRoutingPolicyProvider implements TrustRoutingPolicyProvider {
 
   @Override
-  public int getActiveWorkCount(String workerId) {
-    return 0;
+  public TrustRoutingPolicy forCapability(final String capabilityName) {
+    return TrustRoutingPolicy.DEFAULT;
   }
 }

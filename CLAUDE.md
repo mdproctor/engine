@@ -283,7 +283,7 @@ See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until al
 - Add `quarkus-jdbc-h2` test dep — casehub-work JPA entities require a datasource even in tests
 - Add `quarkus.arc.exclude-types=io.casehub.work.runtime.repository.jpa.JpaWorkItemStore` to `application.properties` — `@Alternative @Priority(1)` from an external jar does NOT automatically override a non-alternative `@ApplicationScoped` bean in Quarkus ARC 3.x; excluding the JPA store is required for `InMemoryWorkItemStore` to resolve correctly
 - Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos AND `io.casehub.work.testing.InMemoryWorkItemStore` — omitting it causes boot failure: `Unsatisfied dependency for SubCaseGroupRepository`
-- Add `@Alternative @Priority(1)` static inner class stub for `WorkloadProvider` — casehub-work ships `JpaWorkloadProvider` which clashes with `CasehubWorkloadProvider` from the engine
+- Add `@Alternative @Priority(1)` static inner class stub for `WorkloadProvider` — casehub-work ships `JpaWorkloadProvider` which would query the database for work counts; a zero-returning stub isolates tests from DB queries. (engine#337 removed `CasehubWorkloadProvider` — no CDI ambiguity exists, but the stub is still good test hygiene)
 - Set `quarkus.quartz.store-type=ram` and `quarkus.hibernate-orm.schema-management.strategy=drop-and-create`
 - `QuarkusTestProfile.getEnabledAlternatives()` **replaces** (not appends to) `quarkus.arc.selected-alternatives` — any profile using this method must re-declare all globally required alternatives, including persistence-memory repos and `InMemoryWorkItemStore`
 

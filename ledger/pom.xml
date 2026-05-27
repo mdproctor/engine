@@ -18,10 +18,16 @@
     </properties>
 
     <dependencies>
-        <!-- CaseLifecycleEvent lives in engine-model (no CDI beans — safe as compile dep) -->
+        <!-- CaseLifecycleEvent lives in engine-common (no CDI beans — safe as compile dep) -->
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-engine-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- AgentRoutingStrategy SPI — TrustWeightedAgentStrategy implements it -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-api</artifactId>
             <version>${project.version}</version>
         </dependency>
 
@@ -69,6 +75,11 @@
             <groupId>io.casehub</groupId>
             <artifactId>casehub-ledger-memory</artifactId>
             <version>${version.io.casehub.ledger}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
