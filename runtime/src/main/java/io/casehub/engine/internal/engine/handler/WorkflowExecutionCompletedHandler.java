@@ -40,6 +40,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.internal.work.CaseResumptionService;
+import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -65,12 +66,14 @@ public class WorkflowExecutionCompletedHandler {
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject CaseResumptionService caseResumptionService;
   @Inject WorkerStatusListener workerStatusListener;
+  @Inject LedgerTraceIdProvider traceIdProvider;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED)
   public Uni<Void> onWorkflowExecutionCompletedHandler(WorkflowExecutionCompleted event) {
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.caseInstance();
     final Worker worker = event.worker();
     final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
@@ -109,7 +112,8 @@ public class WorkflowExecutionCompletedHandler {
                         "WorkerExecutionCompleted",
                         caseInstance.getState().name(),
                         worker.getName(),
-                        "WORKER")))
+                        "WORKER",
+                        traceId)))
         .invoke(
             () ->
                 eventBus.publish(

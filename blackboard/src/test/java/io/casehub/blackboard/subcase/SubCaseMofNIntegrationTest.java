@@ -89,10 +89,10 @@ class SubCaseMofNIntegrationTest {
     // CDI @ObservesAsync delivery which is unreliable in the test context.
     CaseLifecycleEvent completedEvent0 =
         new CaseLifecycleEvent(
-            childIds.get(0), "CompleteCase", "CaseCompleted", "COMPLETED", null, "System");
+            childIds.get(0), "CompleteCase", "CaseCompleted", "COMPLETED", null, "System", null);
     CaseLifecycleEvent completedEvent1 =
         new CaseLifecycleEvent(
-            childIds.get(1), "CompleteCase", "CaseCompleted", "COMPLETED", null, "System");
+            childIds.get(1), "CompleteCase", "CaseCompleted", "COMPLETED", null, "System", null);
 
     subCaseCompletionListener.onCaseLifecycle(completedEvent0);
     subCaseCompletionListener.onCaseLifecycle(completedEvent1);

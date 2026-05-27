@@ -26,6 +26,7 @@ import io.casehub.engine.common.internal.event.MilestoneReachedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -43,8 +44,11 @@ public class MilestoneReachedEventHandler {
 
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
 
+  @Inject LedgerTraceIdProvider traceIdProvider;
+
   @ConsumeEvent(value = EventBusAddresses.MILESTONE_REACHED)
   public Uni<Void> onMilestoneReachedEventHandler(MilestoneReachedEvent event) {
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.caseInstance();
     final Milestone milestone = event.milestone();
 
@@ -70,6 +74,7 @@ public class MilestoneReachedEventHandler {
                         "MilestoneReached",
                         caseInstance.getState().name(),
                         null,
-                        "System")));
+                        "System",
+                        traceId)));
   }
 }

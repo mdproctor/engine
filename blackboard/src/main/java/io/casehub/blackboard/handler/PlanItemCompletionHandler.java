@@ -17,12 +17,10 @@ package io.casehub.blackboard.handler;
 
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.PlanItemCompletedEvent;
-import io.casehub.blackboard.event.StageCompletedEvent;
 import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.blackboard.stage.Stage;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
@@ -64,15 +62,18 @@ public class PlanItemCompletionHandler {
   private final BlackboardRegistry registry;
   private final EventBus eventBus;
   private final Event<PlanItemCompletedEvent> planItemCompletedEvents;
+  private final StageAutocompleteEvaluator stageAutocompleteEvaluator;
 
   @Inject
   public PlanItemCompletionHandler(
       BlackboardRegistry registry,
       EventBus eventBus,
-      Event<PlanItemCompletedEvent> planItemCompletedEvents) {
+      Event<PlanItemCompletedEvent> planItemCompletedEvents,
+      StageAutocompleteEvaluator stageAutocompleteEvaluator) {
     this.registry = registry;
     this.eventBus = eventBus;
     this.planItemCompletedEvents = planItemCompletedEvents;
+    this.stageAutocompleteEvaluator = stageAutocompleteEvaluator;
   }
 
   @ConsumeEvent(EventBusAddresses.WORKER_EXECUTION_FINISHED)
@@ -109,34 +110,12 @@ public class PlanItemCompletionHandler {
               item.markCompleted();
               // activeByBinding self-cleans lazily in hasActivePlanItem() — completed items remain
               // in itemsById for post-completion observability.
-              evaluateStageAutocomplete(caseId, plan, planItemId);
+              stageAutocompleteEvaluator.evaluate(caseId, plan, planItemId);
               // Fire after markCompleted() so observers see the exact planItemId that completed.
               planItemCompletedEvents.fireAsync(
                   new PlanItemCompletedEvent(caseId, planItemId, trackingKey));
             });
 
     return Uni.createFrom().voidItem();
-  }
-
-  private void evaluateStageAutocomplete(UUID caseId, CasePlanModel plan, String completedItemId) {
-    for (Stage stage : plan.getActiveStages()) {
-      if (!stage.isAutocomplete()) continue;
-      if (!stage.getRequiredItemIds().contains(completedItemId)) continue;
-
-      boolean allDone =
-          stage.getRequiredItemIds().stream()
-              .allMatch(
-                  itemId ->
-                      plan.getPlanItem(itemId)
-                          .map(pi -> pi.getStatus() == PlanItemStatus.COMPLETED)
-                          .orElse(
-                              false)); // unregistered item — treat as not done, blocks autocomplete
-
-      if (allDone) {
-        stage.complete();
-        eventBus.publish(
-            BlackboardEventBusAddresses.STAGE_COMPLETED, new StageCompletedEvent(caseId, stage));
-      }
-    }
   }
 }

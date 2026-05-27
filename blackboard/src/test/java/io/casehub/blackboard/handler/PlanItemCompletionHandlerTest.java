@@ -57,7 +57,10 @@ class PlanItemCompletionHandlerTest {
     mockBus = mock(EventBus.class);
     handler =
         new PlanItemCompletionHandler(
-            registry, mockBus, mock(jakarta.enterprise.event.Event.class));
+            registry,
+            mockBus,
+            mock(jakarta.enterprise.event.Event.class),
+            new StageAutocompleteEvaluator(mockBus));
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId);
   }

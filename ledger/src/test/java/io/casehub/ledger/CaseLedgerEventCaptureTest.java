@@ -53,7 +53,8 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(caseId, "StartCase", "CaseStarted", "RUNNING", null, "System"));
+        new CaseLifecycleEvent(
+            caseId, "StartCase", "CaseStarted", "RUNNING", null, "System", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -82,18 +83,20 @@ class CaseLedgerEventCaptureTest {
     // In production, the engine processes one case event at a time — concurrency doesn't arise.
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(caseId, "StartCase", "CaseStarted", "RUNNING", null, "System"))
+            new CaseLifecycleEvent(
+                caseId, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, "SuspendCase", "CaseSuspended", "SUSPENDED", null, "System"))
+                caseId, "SuspendCase", "CaseSuspended", "SUSPENDED", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(caseId, "ResumeCase", "CaseResumed", "RUNNING", null, "System"))
+            new CaseLifecycleEvent(
+                caseId, "ResumeCase", "CaseResumed", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
 
@@ -116,18 +119,20 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(caseA, "StartCase", "CaseStarted", "RUNNING", null, "System"))
-        .toCompletableFuture()
-        .join();
-    lifecycleEvents
-        .fireAsync(
-            new CaseLifecycleEvent(caseB, "StartCase", "CaseStarted", "RUNNING", null, "System"))
+            new CaseLifecycleEvent(
+                caseA, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseA, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System"))
+                caseB, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+        .toCompletableFuture()
+        .join();
+    lifecycleEvents
+        .fireAsync(
+            new CaseLifecycleEvent(
+                caseA, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System", null))
         .toCompletableFuture()
         .join();
 
@@ -153,7 +158,8 @@ class CaseLedgerEventCaptureTest {
             "CaseStarted",
             "RUNNING",
             "claude:casehub-agent@v1",
-            "Orchestrator"));
+            "Orchestrator",
+            null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -173,7 +179,7 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
-            caseId, "SuspendCase", "CaseSuspended", "SUSPENDED", "alice", "Administrator"));
+            caseId, "SuspendCase", "CaseSuspended", "SUSPENDED", "alice", "Administrator", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -190,7 +196,8 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(caseId, "StartCase", "CaseStarted", "RUNNING", null, "System"));
+        new CaseLifecycleEvent(
+            caseId, "StartCase", "CaseStarted", "RUNNING", null, "System", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -209,13 +216,14 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(caseId, "StartCase", "CaseStarted", "RUNNING", null, "System"))
+            new CaseLifecycleEvent(
+                caseId, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System"))
+                caseId, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System", null))
         .toCompletableFuture()
         .join();
 
@@ -235,7 +243,7 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(caseId, "SignalCase", "SignalReceived", null, null, "System"));
+        new CaseLifecycleEvent(caseId, "SignalCase", "SignalReceived", null, null, "System", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -266,7 +274,7 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
-            caseId, "ExecuteWorker", "WorkerExecutionStarted", null, workerId, "WORKER"));
+            caseId, "ExecuteWorker", "WorkerExecutionStarted", null, workerId, "WORKER", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -290,7 +298,13 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
-            caseId, "ExecuteWorker", "WorkerExecutionCompleted", "RUNNING", workerId, "WORKER"));
+            caseId,
+            "ExecuteWorker",
+            "WorkerExecutionCompleted",
+            "RUNNING",
+            workerId,
+            "WORKER",
+            null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -315,7 +329,8 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(caseId, "StartCase", "CaseStarted", "RUNNING", null, "System"))
+            new CaseLifecycleEvent(
+                caseId, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
 
@@ -334,19 +349,20 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(caseId, "StartCase", "CaseStarted", "RUNNING", null, "System"))
+            new CaseLifecycleEvent(
+                caseId, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, "SuspendCase", "CaseSuspended", "SUSPENDED", null, "System"))
+                caseId, "SuspendCase", "CaseSuspended", "SUSPENDED", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System"))
+                caseId, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System", null))
         .toCompletableFuture()
         .join();
 
@@ -357,5 +373,54 @@ class CaseLedgerEventCaptureTest {
     assertThat(verificationService.verify(caseId))
         .as("Merkle chain must be intact after three events")
         .isTrue();
+  }
+
+  @Test
+  void traceId_on_event_is_propagated_to_ledger_entry() {
+    // fireAsync() is mandatory — fire() would keep OTel context on the calling thread, defeating
+    // the purpose. The bug is that @ObservesAsync severs thread-local OTel context.
+    // This test verifies that carrying traceId explicitly through the event record fixes it.
+    final UUID caseId = UUID.randomUUID();
+    final String expectedTraceId = "4bf92f3577b34da6a3ce929d0e0e4736";
+
+    lifecycleEvents
+        .fireAsync(
+            new CaseLifecycleEvent(
+                caseId, "StartCase", "CaseStarted", "RUNNING", null, "System", expectedTraceId))
+        .toCompletableFuture()
+        .join();
+
+    Awaitility.await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              final List<CaseLedgerEntry> entries = repository.findByCaseId(caseId);
+              assertThat(entries).hasSize(1);
+              assertThat(entries.get(0).traceId)
+                  .as("traceId must be propagated from CaseLifecycleEvent to the ledger entry")
+                  .isEqualTo(expectedTraceId);
+            });
+  }
+
+  @Test
+  void null_traceId_on_event_leaves_entry_traceId_null() {
+    final UUID caseId = UUID.randomUUID();
+
+    lifecycleEvents
+        .fireAsync(
+            new CaseLifecycleEvent(
+                caseId, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+        .toCompletableFuture()
+        .join();
+
+    Awaitility.await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              final List<CaseLedgerEntry> entries = repository.findByCaseId(caseId);
+              assertThat(entries).hasSize(1);
+              // null traceId — TraceIdEnricher will also find nothing; entry stays null
+              assertThat(entries.get(0).traceId).isNull();
+            });
   }
 }

@@ -103,21 +103,45 @@ class WorkItemLifecycleAdapterTest {
   }
 
   @Test
-  void workItemRejected_marksPlanItemFaulted() {
-    lifecycleEvents.fireAsync(buildEvent(WorkItemStatus.REJECTED, null));
+  void workItemRejected_marksPlanItemRejected() {
+    // Human task refusal — PlanItem must be DELEGATED (human task lifecycle)
+    PlanItem delegatedItem = PlanItem.create("review-ht", "ht-worker", 10);
+    delegatedItem.markDelegated();
+    registry.getOrCreate(caseId).addPlanItem(delegatedItem);
+    String delegatedItemId = delegatedItem.getPlanItemId();
+
+    WorkItem workItem = new WorkItem();
+    workItem.id = UUID.randomUUID();
+    workItem.status = WorkItemStatus.REJECTED;
+    workItem.callerRef = CallerRef.encode(caseId, delegatedItemId);
+    lifecycleEvents.fireAsync(
+        WorkItemLifecycleEvent.of("workitem.rejected", workItem, "system", null));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
+        .untilAsserted(
+            () -> assertThat(delegatedItem.getStatus()).isEqualTo(PlanItemStatus.REJECTED));
   }
 
   @Test
   void workItemExpired_marksPlanItemFaulted() {
-    lifecycleEvents.fireAsync(buildEvent(WorkItemStatus.EXPIRED, null));
+    // Deadline expiry — a time-based failure, maps to FAULTED
+    PlanItem delegatedItem = PlanItem.create("review-ht-expired", "ht-worker", 10);
+    delegatedItem.markDelegated();
+    registry.getOrCreate(caseId).addPlanItem(delegatedItem);
+    String delegatedItemId = delegatedItem.getPlanItemId();
+
+    WorkItem workItem = new WorkItem();
+    workItem.id = UUID.randomUUID();
+    workItem.status = WorkItemStatus.EXPIRED;
+    workItem.callerRef = CallerRef.encode(caseId, delegatedItemId);
+    lifecycleEvents.fireAsync(
+        WorkItemLifecycleEvent.of("workitem.expired", workItem, "system", null));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
+        .untilAsserted(
+            () -> assertThat(delegatedItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
   }
 
   @Test
@@ -318,12 +342,28 @@ class WorkItemLifecycleAdapterTest {
   }
 
   @Test
-  void workItemGroupRejected_marksPlanItemFaulted() {
-    groupLifecycleEvents.fireAsync(buildGroupEvent(GroupStatus.REJECTED));
+  void workItemGroupRejected_marksPlanItemRejected() {
+    // Group threshold unreachable — group PlanItems are always DELEGATED (HumanTask SpawnGroup)
+    PlanItem delegatedItem = PlanItem.create("group-binding", "group-worker", 10);
+    delegatedItem.markDelegated();
+    registry.getOrCreate(caseId).addPlanItem(delegatedItem);
+    String delegatedItemId = delegatedItem.getPlanItemId();
+
+    groupLifecycleEvents.fireAsync(
+        WorkItemGroupLifecycleEvent.of(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            3,
+            2,
+            0,
+            3,
+            GroupStatus.REJECTED,
+            CallerRef.encode(caseId, delegatedItemId)));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
+        .untilAsserted(
+            () -> assertThat(delegatedItem.getStatus()).isEqualTo(PlanItemStatus.REJECTED));
   }
 
   @Test
