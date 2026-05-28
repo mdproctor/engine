@@ -70,45 +70,60 @@ An optional module that writes an immutable, hash-chained audit record for every
 
 ## Execution Models
 
-casehub-engine is a **hybrid choreography+orchestration engine**. Both models share the same worker selection infrastructure (`WorkBroker`, `WorkerSelectionStrategy`, `WorkloadProvider`) and the same Quartz execution layer.
+casehub-engine is a **hybrid choreography+orchestration engine**. Both models share the same worker selection infrastructure (`AgentRoutingStrategy` SPI, `AgentCandidateFactory`) and the same Quartz execution layer.
 
 ### Choreography (Binding-Driven)
 
-Context changes trigger binding evaluations. When a binding's condition is met, `CaseContextChangedEventHandler` builds a `WorkerCandidate` list from capable workers, calls `WorkBroker.apply()` with `LeastLoadedStrategy`, and publishes a `WorkerScheduleEvent` for the selected worker. If no pre-defined workers match a capability, the engine calls `tryProvision()` to attempt dynamic provisioning via the registered `WorkerProvisioner` SPI. The case remains `RUNNING` throughout.
+Context changes trigger binding evaluations. When a binding's condition is met, `CaseContextChangedEventHandler` builds an `AgentCandidate` list (via `AgentCandidateFactory`) from capable workers, then calls `AgentRoutingStrategy.select()` which returns `Uni<AgentAssignment>`. The result is a sealed type with three outcomes. If no pre-defined workers match a capability, the engine calls `tryProvision()` to attempt dynamic provisioning via the registered `WorkerProvisioner` SPI. The case remains `RUNNING` throughout.
 
 ```
 CaseContext change
   → CaseContextChangedEventHandler.publishByTarget()
-      CapabilityTarget → WorkBroker.apply(LeastLoadedStrategy) → WorkerScheduleEvent
+      CapabilityTarget → AgentRoutingStrategy.select(ctx, candidates) → Uni<AgentAssignment>
+                           Assigned(workerId)        → WorkerScheduleEvent
+                           Unresolvable()            → tryProvision()
+                           EscalateToOversight(cap)  → AgentRoutingEscalationEvent
+                                                          → AgentRoutingEscalationHandler
+                                                          → QUERY posted to oversight channel
       SubCaseTarget    → SubCaseScheduleEvent
       HumanTaskTarget  → inputMapping evaluated → HumanTaskScheduleEvent
       ExtensionTarget  → warning log, no dispatch
 
-  [CapabilityTarget path]
+  [Assigned path]
   → WorkerScheduleEvent → WorkerScheduleEventHandler
       → WorkerContextProvider.buildContext()             [always called]
       → Quartz
   → WorkflowExecutionCompleted → CaseContext updated → next binding fires
 
-  → tryProvision(caseInstance, capability)               [no candidates]
+  [Unresolvable path]
+  → tryProvision(caseInstance, capability)
       → WorkerProvisioner.provision() if capability advertised
       → ProvisioningException caught; binding stays eligible
+
+  [EscalateToOversight path — trust-maturity-model.md Phase 2]
+  → AgentRoutingEscalationHandler: QUERY to oversight channel
+  → PlanItem stays PENDING awaiting human routing decision (engine#383)
 ```
 
+**AgentAssignment sealed type** (from `casehub-engine-api`):
+- `Assigned(workerId)` — a specific worker was selected
+- `Unresolvable()` — no candidates passed trust filters (below threshold, not borderline)
+- `EscalateToOversight(capabilityName)` — all trust-eligible candidates are borderline; human oversight required
+
 **Semantics:**
-- No case suspension. Work flows continuously.
+- No case suspension. Work flows continuously (except escalation, which parks pending human decision).
 - Bindings are passive (triggered by context change), not imperative.
 - Worker order emerges from dependency, not direction.
-- All capable workers compete for selection; LeastLoadedStrategy picks the least-loaded.
+- All capable workers compete for selection; routing strategy selects the best candidate.
 - WAITING cases (blackboard active) also receive CONTEXT_CHANGED — PlanItem dedup in `PlanningStrategyLoopControl` prevents re-dispatch of in-flight bindings; external signals (Qhorus human messages, `CaseHubRuntime.signal()`) can unblock a WAITING case.
 
 ### Orchestration (Explicit Work Submission)
 
-`WorkOrchestrator.submit(CaseInstance, WorkRequest)` selects a worker via `WorkBroker`, publishes a `WorkerScheduleEvent`, and returns a `CompletionStage<WorkResult>`. `WorkOrchestrator.submitAndWait()` additionally suspends the case to `WAITING`; `WorkflowExecutionCompletedHandler` resumes it when the matching worker completes.
+`WorkOrchestrator.submit(CaseInstance, WorkRequest)` selects a worker via `AgentRoutingStrategy.select()` (blocking `await().indefinitely()` — not on Vert.x IO thread), publishes a `WorkerScheduleEvent`, and returns a `CompletionStage<WorkResult>`. `WorkOrchestrator.submitAndWait()` additionally suspends the case to `WAITING`; `WorkflowExecutionCompletedHandler` resumes it when the matching worker completes. On `EscalateToOversight`, the future completes exceptionally and an `AgentRoutingEscalationEvent` is published.
 
 ```
 WorkOrchestrator.submitAndWait(instance, request)
-  → WorkBroker selects worker
+  → AgentRoutingStrategy.select(ctx, candidates).await().indefinitely()
   → WORK_SUBMITTED written to EventLog (durable)
   → case transitions to WAITING, waitingForWorkId persisted
   → WorkerScheduleEvent → Quartz executes worker
@@ -124,18 +139,22 @@ WorkOrchestrator.submitAndWait(instance, request)
 - Optionally transitions the case to WAITING (for critical milestones).
 - Survives JVM restart: correlation key persists, futures re-registered on startup.
 
-### Worker Selection (Shared Infrastructure)
+### Agent Routing (Shared Infrastructure)
 
 | Component | Role |
 |---|---|
-| `WorkBroker` (quarkus-work-core) | Trigger gate + capability filter + strategy dispatch |
-| `LeastLoadedStrategy` (quarkus-work-core) | Selects worker with fewest active Quartz jobs |
-| `CasehubWorkloadProvider` | Counts active Quartz jobs per worker name |
-| `NoOpWorkerRegistry` (quarkus-work-core) | Group resolution (no-op; workers come from CaseDefinition) |
+| `AgentRoutingStrategy` (casehub-engine-api SPI) | Selects worker from pre-filtered candidates; returns `Uni<AgentAssignment>` |
+| `LeastLoadedAgentStrategy` (casehub-engine, `@DefaultBean`) | Selects worker with fewest active Quartz jobs |
+| `TrustWeightedAgentStrategy` (casehub-engine-ledger, `@Alternative @Priority(1)`) | Four-phase trust maturity model; escalates when all candidates borderline |
+| `SemanticAgentRoutingStrategy` (casehub-engine-ai, `@Alternative @Priority(2)`, optional) | Trust filtering + embedding-based re-ranking of QUALIFIED candidates |
+| `TrustCandidateClassifier` (casehub-engine-ledger, `@ApplicationScoped`) | Shared CDI bean; classifies candidates by phase (BOOTSTRAP/QUALIFIED/BORDERLINE/EXCLUDED_PHASE2B/EXCLUDED_PHASE3) |
+| `AgentCandidateFactory` (casehub-engine, static) | Builds `AgentCandidate` list from workers; health-probed; shared by both handlers |
+| `AgentRoutingEscalationHandler` (casehub-engine, `@ConsumeEvent(blocking=true)`) | Posts QUERY to oversight channel when all candidates are borderline |
 
-All selection paths converge on `WorkBroker.apply()`:
-- **Input:** `SelectionContext` (workload type, filters), `AssignmentTrigger` (CREATED), `WorkerCandidate` list (capability-filtered workers with load counts), `WorkerSelectionStrategy` (LeastLoadedStrategy)
-- **Output:** `AssignmentDecision` (either `assignTo(workerId)` or `noChange()`)
+All selection paths pass through `AgentRoutingStrategy.select(AgentRoutingContext, List<AgentCandidate>)`:
+- **Input:** `AgentRoutingContext` (caseId, capabilityName, caseContext as JsonNode), pre-filtered `AgentCandidate` list (capability-matched, health-probed, Unavailable excluded)
+- **Output:** `Uni<AgentAssignment>` — sealed type: `Assigned(workerId)`, `Unresolvable()`, or `EscalateToOversight(capabilityName)`
+- **AgentEmbeddingProvider SPI** (casehub-engine-ai): blocking embed() called on worker pool; no `@DefaultBean` — startup fails if module present without a provider (engine#381 tracks LangChain4j impl)
 
 ### SubCaseBinding (casehub-blackboard)
 

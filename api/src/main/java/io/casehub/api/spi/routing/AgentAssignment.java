@@ -16,20 +16,47 @@
 package io.casehub.api.spi.routing;
 
 /**
- * Result of {@link AgentRoutingStrategy#select}. A null {@code workerId} signals that no suitable
- * candidate was found — use {@link #noOp()} to construct and {@link #isNoOp()} to check.
+ * Result of {@link AgentRoutingStrategy#select}. A sealed type with three distinct outcomes:
  *
- * @param workerId the selected worker name, or null when no worker qualifies
+ * <ul>
+ *   <li>{@link Assigned} — a specific worker was selected
+ *   <li>{@link Unresolvable} — no candidate passed trust filters (none were borderline)
+ *   <li>{@link EscalateToOversight} — all trust-eligible candidates are borderline; human oversight
+ *       is required per trust-maturity-model.md Phase 2
+ * </ul>
+ *
+ * <p>Callers must switch exhaustively on the sealed type. The previous {@code isNoOp()} pattern is
+ * removed — the three outcomes are semantically distinct and the engine's response to each differs.
  */
-public record AgentAssignment(String workerId) {
+public sealed interface AgentAssignment
+    permits AgentAssignment.Assigned,
+        AgentAssignment.Unresolvable,
+        AgentAssignment.EscalateToOversight {
 
-  /** Sentinel indicating no worker was selected. */
-  public static AgentAssignment noOp() {
-    return new AgentAssignment(null);
+  /** A specific worker was selected for the capability. */
+  record Assigned(String workerId) implements AgentAssignment {}
+
+  /**
+   * No candidate passed trust filters. None were borderline — the pool simply lacks qualified
+   * agents. Engine falls to {@code tryProvision()}.
+   */
+  record Unresolvable() implements AgentAssignment {}
+
+  /**
+   * All trust-eligible candidates are borderline (score within {@code borderlineMargin} of {@code
+   * threshold}). Engine must route to human oversight per trust-maturity-model.md Phase 2.
+   */
+  record EscalateToOversight(String capabilityName) implements AgentAssignment {}
+
+  static AgentAssignment assign(final String workerId) {
+    return new Assigned(workerId);
   }
 
-  /** True when no worker was selected. */
-  public boolean isNoOp() {
-    return workerId == null;
+  static AgentAssignment unresolvable() {
+    return new Unresolvable();
+  }
+
+  static AgentAssignment escalate(final String capabilityName) {
+    return new EscalateToOversight(capabilityName);
   }
 }

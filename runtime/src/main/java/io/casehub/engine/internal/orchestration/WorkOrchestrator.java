@@ -28,12 +28,10 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
-import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.eidos.api.CapabilityHealth;
-import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
-import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
+import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -45,18 +43,16 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.engine.internal.routing.AgentCandidateFactory;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
-import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
 /**
@@ -140,27 +136,54 @@ public class WorkOrchestrator {
 
     // 2. Build AgentCandidate list — health-probed, Unavailable workers excluded
     final List<AgentCandidate> candidates =
-        buildCandidates(instance, definition.getWorkers(), capability);
+        AgentCandidateFactory.buildCandidates(
+            instance, definition.getWorkers(), capability, executionManager, capabilityHealth);
 
-    // 3. Route via AgentRoutingStrategy
+    // 3. Route via AgentRoutingStrategy (blocking await — not on Vert.x IO thread)
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(instance.getUuid(), capability.getName());
-    final AgentAssignment assignment = agentRoutingStrategy.select(ctx, candidates);
+        new AgentRoutingContext(
+            instance.getUuid(), capability.getName(), instance.getCaseContext().asJsonNode());
+    final AgentAssignment assignment =
+        agentRoutingStrategy.select(ctx, candidates).await().indefinitely();
 
-    if (assignment.isNoOp()) {
-      final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
-      failed.completeExceptionally(
-          new IllegalStateException("No worker available for capability: " + capability.getName()));
-      return failed;
+    switch (assignment) {
+      case AgentAssignment.Unresolvable() -> {
+        final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
+        failed.completeExceptionally(
+            new IllegalStateException(
+                "No qualified agent for capability: " + capability.getName()));
+        return failed;
+      }
+      case AgentAssignment.EscalateToOversight e -> {
+        LOG.infof(
+            "Agent routing escalated to oversight for capability '%s' caseId=%s",
+            capability.getName(), instance.getUuid());
+        eventBus.publish(
+            EventBusAddresses.AGENT_ROUTING_ESCALATION,
+            new AgentRoutingEscalationEvent(
+                instance.getUuid(), e.capabilityName(), "(direct-orchestration)"));
+        final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
+        failed.completeExceptionally(
+            new IllegalStateException(
+                "Agent routing escalated to human oversight for capability: "
+                    + capability.getName()
+                    + ". A QUERY has been posted to the oversight channel."));
+        return failed;
+      }
+      case AgentAssignment.Assigned ignored -> {
+        /* fall through — handled below */
+      }
     }
 
-    // 4. Resolve the selected Worker object
-    final Worker selectedWorker = findWorker(definition, assignment.workerId());
+    // 4. Resolve the selected Worker object — assignment is Assigned; exhaustive switch guarantees
+    // it
+    final AgentAssignment.Assigned assigned = (AgentAssignment.Assigned) assignment;
+    final Worker selectedWorker = findWorker(definition, assigned.workerId());
     if (selectedWorker == null) {
       final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
       failed.completeExceptionally(
           new IllegalStateException(
-              "Selected worker not found in definition: " + assignment.workerId()));
+              "Selected worker not found in definition: " + assigned.workerId()));
       return failed;
     }
 
@@ -224,62 +247,6 @@ public class WorkOrchestrator {
         waitMode);
 
     return future;
-  }
-
-  private List<AgentCandidate> buildCandidates(
-      final CaseInstance instance, final List<Worker> workers, final Capability capability) {
-    if (workers == null) return List.of();
-    final List<AgentCandidate> candidates = new ArrayList<>();
-    for (final Worker w : workers) {
-      if (w.getCapabilities() == null) continue;
-      final boolean hasCapability =
-          w.getCapabilities().stream().anyMatch(c -> c.getName().equals(capability.getName()));
-      if (!hasCapability) continue;
-
-      final CapabilityStatus status =
-          w.hasDescriptor()
-              ? capabilityHealth.probe(
-                  w.agentDescriptor(),
-                  capability.getName(),
-                  // Pass caseId for future per-case health context (engine#376)
-                  ProbeContext.of(instance.getUuid().toString()))
-              : new CapabilityHealth.CapabilityStatus.Ready();
-
-      if (status instanceof CapabilityStatus.Unavailable u) {
-        LOG.warnf(
-            "Worker '%s' unavailable for capability '%s': %s — excluded",
-            w.getName(), capability.getName(), u.reason());
-        continue;
-      }
-
-      if (status instanceof CapabilityStatus.EpistemicallyWeak ew) {
-        LOG.infof(
-            "Worker '%s' epistemically weak for '%s' (domain=%s, confidence=%.2f) — kept",
-            w.getName(), capability.getName(), ew.domain(), ew.confidence());
-      }
-      if (status instanceof CapabilityStatus.Degraded d) {
-        LOG.debugf(
-            "Worker '%s' degraded for '%s': %s — %s",
-            w.getName(), capability.getName(), d.reason(), d.detail());
-      }
-
-      final AgentHealth health =
-          switch (status) {
-            case CapabilityStatus.EpistemicallyWeak ew -> AgentHealth.EPISTEMICALLY_WEAK;
-            case CapabilityStatus.Degraded d -> AgentHealth.DEGRADED;
-            default -> AgentHealth.READY;
-          };
-
-      final Set<String> capabilities =
-          w.getCapabilities().stream()
-              .map(Capability::getName)
-              .collect(Collectors.toUnmodifiableSet());
-
-      candidates.add(
-          new AgentCandidate(
-              w.getName(), capabilities, executionManager.getActiveWorkCount(w.getName()), health));
-    }
-    return candidates;
   }
 
   private Capability findCapability(final CaseDefinition definition, final String capabilityName) {

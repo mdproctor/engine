@@ -41,12 +41,10 @@ import io.casehub.api.spi.ReactiveWorkerContextProvider;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
-import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.eidos.api.CapabilityHealth;
-import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
-import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
+import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.GoalReachedEvent;
@@ -61,6 +59,7 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.engine.internal.routing.AgentCandidateFactory;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -69,8 +68,6 @@ import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -257,7 +254,9 @@ public class CaseContextChangedEventHandler {
       return tryProvision(caseInstance, capability);
     }
 
-    final List<AgentCandidate> candidates = buildCandidates(caseInstance, workers, capability);
+    final List<AgentCandidate> candidates =
+        AgentCandidateFactory.buildCandidates(
+            caseInstance, workers, capability, executionManager, capabilityHealth);
 
     if (candidates.isEmpty()) {
       LOG.warnf(
@@ -267,32 +266,48 @@ public class CaseContextChangedEventHandler {
     }
 
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(caseInstance.getUuid(), capability.getName());
-    final AgentAssignment assignment = agentRoutingStrategy.select(ctx, candidates);
+        new AgentRoutingContext(
+            caseInstance.getUuid(),
+            capability.getName(),
+            caseInstance.getCaseContext().asJsonNode());
 
-    if (assignment.isNoOp()) {
-      LOG.warnf(
-          "AgentRoutingStrategy returned no assignment for capability '%s' binding '%s'",
-          capability.getName(), binding.getName());
-      return Uni.createFrom().voidItem();
-    }
+    return agentRoutingStrategy
+        .select(ctx, candidates)
+        .chain(
+            assignment ->
+                switch (assignment) {
+                  case AgentAssignment.Assigned a ->
+                      scheduleWorker(caseInstance, workers, binding, capability, a.workerId());
+                  case AgentAssignment.Unresolvable() -> {
+                    LOG.warnf(
+                        "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
+                        capability.getName(), binding.getName());
+                    yield tryProvision(caseInstance, capability);
+                  }
+                  case AgentAssignment.EscalateToOversight e ->
+                      handleEscalation(caseInstance, e, binding);
+                });
+  }
+
+  private Uni<Void> scheduleWorker(
+      final CaseInstance caseInstance,
+      final List<Worker> workers,
+      final Binding binding,
+      final Capability capability,
+      final String workerId) {
 
     final Worker selectedWorker =
-        workers.stream()
-            .filter(w -> w.getName().equals(assignment.workerId()))
-            .findFirst()
-            .orElse(null);
+        workers.stream().filter(w -> w.getName().equals(workerId)).findFirst().orElse(null);
 
     if (selectedWorker == null) {
       LOG.errorf(
-          "Strategy selected worker '%s' but it was not found in the case definition",
-          assignment.workerId());
+          "Strategy selected worker '%s' but it was not found in the case definition", workerId);
       return Uni.createFrom().voidItem();
     }
 
     LOG.infof(
         "Agent selected: worker='%s' capability='%s' binding='%s'",
-        assignment.workerId(), capability.getName(), binding.getName());
+        workerId, capability.getName(), binding.getName());
 
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
@@ -301,48 +316,22 @@ public class CaseContextChangedEventHandler {
     return Uni.createFrom().voidItem();
   }
 
-  private List<AgentCandidate> buildCandidates(
-      final CaseInstance caseInstance, final List<Worker> workers, final Capability capability) {
-    final List<AgentCandidate> candidates = new ArrayList<>();
-    for (final Worker w : workers) {
-      if (w.getCapabilities() == null) continue;
-      final boolean hasCapability =
-          w.getCapabilities().stream().anyMatch(c -> c.getName().equals(capability.getName()));
-      if (!hasCapability) continue;
+  private Uni<Void> handleEscalation(
+      final CaseInstance caseInstance,
+      final AgentAssignment.EscalateToOversight escalation,
+      final Binding binding) {
 
-      final CapabilityStatus status =
-          w.hasDescriptor()
-              ? capabilityHealth.probe(
-                  w.agentDescriptor(),
-                  capability.getName(),
-                  // Pass caseId for future per-case health context (engine#376)
-                  ProbeContext.of(caseInstance.getUuid().toString()))
-              : new CapabilityHealth.CapabilityStatus.Ready();
+    LOG.infof(
+        "Agent routing escalation: all candidates borderline for capability '%s' binding '%s'"
+            + " caseId=%s — publishing escalation event",
+        escalation.capabilityName(), binding.getName(), caseInstance.getUuid());
 
-      if (status instanceof CapabilityStatus.Unavailable u) {
-        LOG.warnf(
-            "Worker '%s' unavailable for capability '%s': %s — excluded",
-            w.getName(), capability.getName(), u.reason());
-        continue;
-      }
+    eventBus.publish(
+        EventBusAddresses.AGENT_ROUTING_ESCALATION,
+        new AgentRoutingEscalationEvent(
+            caseInstance.getUuid(), escalation.capabilityName(), binding.getName()));
 
-      final AgentHealth health =
-          switch (status) {
-            case CapabilityStatus.EpistemicallyWeak ew -> AgentHealth.EPISTEMICALLY_WEAK;
-            case CapabilityStatus.Degraded d -> AgentHealth.DEGRADED;
-            default -> AgentHealth.READY;
-          };
-
-      final Set<String> capabilities =
-          w.getCapabilities().stream()
-              .map(Capability::getName)
-              .collect(Collectors.toUnmodifiableSet());
-
-      candidates.add(
-          new AgentCandidate(
-              w.getName(), capabilities, executionManager.getActiveWorkCount(w.getName()), health));
-    }
-    return candidates;
+    return Uni.createFrom().voidItem();
   }
 
   private Uni<Void> publishHumanTaskSchedule(

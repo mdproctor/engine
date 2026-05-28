@@ -15,6 +15,7 @@
  */
 package io.casehub.api.spi.routing;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import java.util.UUID;
 
 /**
@@ -23,10 +24,14 @@ import java.util.UUID;
  * <p>{@code caseId} is included per the {@code spi-case-id-parameter.md} protocol — it enables a
  * future {@code PerCaseDynamicAgentRoutingStrategy} to dispatch per-case without call-site changes.
  *
- * <p>{@code caseContext} is intentionally omitted here. Semantic routing (engine#376) will add
- * {@code JsonNode caseContext} when {@code SemanticAgentRoutingStrategy} is implemented.
+ * <p>{@code caseContext} is the full case context map serialized as a {@link JsonNode}. Semantic
+ * routing strategies (e.g. {@code SemanticAgentRoutingStrategy}) extract a text summary via a
+ * configurable JQ expression before embedding. Strategies that do not use the context may ignore
+ * it.
  *
  * @param caseId the case instance UUID
  * @param capabilityName the capability being routed — used for trust score lookups and filtering
+ * @param caseContext the current case context as a JSON node; may be {@code NullNode} when the case
+ *     has no context
  */
-public record AgentRoutingContext(UUID caseId, String capabilityName) {}
+public record AgentRoutingContext(UUID caseId, String capabilityName, JsonNode caseContext) {}

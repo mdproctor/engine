@@ -17,11 +17,13 @@ package io.casehub.api.spi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.node.NullNode;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -30,45 +32,39 @@ import org.junit.jupiter.api.Test;
 class AgentRoutingStrategyContractTest {
 
   @Test
-  void interface_hasSelectMethod() throws Exception {
-    assertThat(
-            AgentRoutingStrategy.class.getMethod("select", AgentRoutingContext.class, List.class))
-        .isNotNull();
+  void interface_hasSelectMethod_returningUni() throws Exception {
+    final var method =
+        AgentRoutingStrategy.class.getMethod("select", AgentRoutingContext.class, List.class);
+    assertThat(method).isNotNull();
+    assertThat(method.getReturnType()).isEqualTo(Uni.class);
   }
 
   @Test
-  void agentAssignment_noOp_isNoOp() {
-    assertThat(AgentAssignment.noOp().isNoOp()).isTrue();
+  void interface_isNotAnnotatedFunctional() {
+    assertThat(AgentRoutingStrategy.class.isAnnotationPresent(FunctionalInterface.class)).isFalse();
   }
 
   @Test
-  void agentAssignment_withWorkerId_isNotNoOp() {
-    assertThat(new AgentAssignment("worker-1").isNoOp()).isFalse();
-  }
-
-  @Test
-  void agentAssignment_noOp_workerIdIsNull() {
-    assertThat(AgentAssignment.noOp().workerId()).isNull();
-  }
-
-  @Test
-  void agentRoutingContext_exposesFields() {
+  void agentRoutingContext_exposesAllThreeFields() {
     final UUID caseId = UUID.randomUUID();
-    final AgentRoutingContext ctx = new AgentRoutingContext(caseId, "data-analysis");
+    final var caseContext = NullNode.instance;
+    final AgentRoutingContext ctx = new AgentRoutingContext(caseId, "data-analysis", caseContext);
 
     assertThat(ctx.caseId()).isEqualTo(caseId);
     assertThat(ctx.capabilityName()).isEqualTo("data-analysis");
+    assertThat(ctx.caseContext()).isSameAs(caseContext);
   }
 
   @Test
-  void agentCandidate_exposesFields() {
+  void agentCandidate_exposesAllFiveFields() {
     final AgentCandidate candidate =
-        new AgentCandidate("agent-1", Set.of("research", "analysis"), 2, AgentHealth.READY);
+        new AgentCandidate("agent-1", Set.of("research", "analysis"), 2, AgentHealth.READY, null);
 
     assertThat(candidate.workerId()).isEqualTo("agent-1");
     assertThat(candidate.capabilities()).containsExactlyInAnyOrder("research", "analysis");
     assertThat(candidate.runningJobs()).isEqualTo(2);
     assertThat(candidate.health()).isEqualTo(AgentHealth.READY);
+    assertThat(candidate.agentDescriptor()).isNull();
   }
 
   @Test
@@ -79,28 +75,47 @@ class AgentRoutingStrategyContractTest {
   }
 
   @Test
-  void anonymousImplementation_compilesAndSelectsCorrectly() {
+  void implementation_canReturnAssigned() {
     final AgentRoutingStrategy strategy =
         (ctx, candidates) ->
             candidates.isEmpty()
-                ? AgentAssignment.noOp()
-                : new AgentAssignment(candidates.get(0).workerId());
+                ? Uni.createFrom().item(AgentAssignment.unresolvable())
+                : Uni.createFrom().item(AgentAssignment.assign(candidates.get(0).workerId()));
 
     final UUID caseId = UUID.randomUUID();
-    final AgentRoutingContext ctx = new AgentRoutingContext(caseId, "research");
+    final AgentRoutingContext ctx = new AgentRoutingContext(caseId, "research", NullNode.instance);
     final AgentCandidate candidate =
-        new AgentCandidate("agent-x", Set.of("research"), 0, AgentHealth.READY);
+        new AgentCandidate("agent-x", Set.of("research"), 0, AgentHealth.READY, null);
 
-    final AgentAssignment result = strategy.select(ctx, List.of(candidate));
+    final AgentAssignment result = strategy.select(ctx, List.of(candidate)).await().indefinitely();
 
-    assertThat(result.workerId()).isEqualTo("agent-x");
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-x");
   }
 
   @Test
-  void anonymousImplementation_emptyCandidates_returnsNoOp() {
-    final AgentRoutingStrategy strategy = (ctx, candidates) -> AgentAssignment.noOp();
-    final AgentRoutingContext ctx = new AgentRoutingContext(UUID.randomUUID(), "research");
+  void implementation_emptyCandidates_returnsUnresolvable() {
+    final AgentRoutingStrategy strategy =
+        (ctx, candidates) -> Uni.createFrom().item(AgentAssignment.unresolvable());
+    final AgentRoutingContext ctx =
+        new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance);
 
-    assertThat(strategy.select(ctx, List.of()).isNoOp()).isTrue();
+    final AgentAssignment result = strategy.select(ctx, List.of()).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.Unresolvable.class);
+  }
+
+  @Test
+  void implementation_canReturnEscalateToOversight() {
+    final AgentRoutingStrategy strategy =
+        (ctx, candidates) -> Uni.createFrom().item(AgentAssignment.escalate(ctx.capabilityName()));
+    final AgentRoutingContext ctx =
+        new AgentRoutingContext(UUID.randomUUID(), "sensitive-review", NullNode.instance);
+
+    final AgentAssignment result = strategy.select(ctx, List.of()).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
+    assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName())
+        .isEqualTo("sensitive-review");
   }
 }

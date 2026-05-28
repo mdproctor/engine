@@ -15,16 +15,22 @@
  */
 package io.casehub.api.spi.routing;
 
+import io.smallrye.mutiny.Uni;
 import java.util.List;
 
 /**
  * Engine-owned SPI for agent worker selection. Replaces the borrowed {@code
- * WorkerSelectionStrategy} from casehub-work, which was designed for human task routing and carried
- * semantics incompatible with agent scheduling (WorkItem counts, claim-first model, null-padded
- * SelectionContext).
+ * WorkerSelectionStrategy} from casehub-work.
  *
  * <p>Implement as {@code @ApplicationScoped @Alternative @Priority(N)} where N > 0 to override
  * {@link io.casehub.engine.internal.routing.LeastLoadedAgentStrategy}. Higher priority wins.
+ *
+ * <p>Implementations that do only in-memory work (e.g. trust scoring against a local cache) should
+ * return {@code Uni.createFrom().item(result)}. Implementations that make blocking calls (e.g. an
+ * embedding service) must return a reactive chain that executes on a worker thread — never blocking
+ * the Vert.x IO thread.
+ *
+ * <p>Implementations MUST be thread-safe — {@code select()} may be called concurrently.
  *
  * <p>Known implementations:
  *
@@ -32,9 +38,11 @@ import java.util.List;
  *   <li>{@code LeastLoadedAgentStrategy} — {@code @DefaultBean}, prefers fewest running Quartz jobs
  *   <li>{@code TrustWeightedAgentStrategy} — {@code @Alternative @Priority(1)}, trust maturity
  *       model
+ *   <li>{@code SemanticAgentRoutingStrategy} — {@code @Alternative @Priority(2)}, optional module
+ *       {@code casehub-engine-ai}, embedding-based semantic re-ranking over trust-qualified
+ *       candidates
  * </ul>
  */
-@FunctionalInterface
 public interface AgentRoutingStrategy {
 
   /**
@@ -44,9 +52,10 @@ public interface AgentRoutingStrategy {
    * EPISTEMICALLY_WEAK} and {@code DEGRADED} workers are included — implementations may apply
    * preference demotion via {@link AgentCandidate#health()}.
    *
-   * @param context routing context carrying caseId and capabilityName
+   * @param context routing context carrying caseId, capabilityName, and caseContext
    * @param candidates non-empty list of eligible candidates (filtered, health-probed)
-   * @return assignment decision; use {@link AgentAssignment#noOp()} when no candidate qualifies
+   * @return a {@code Uni} resolving to one of: {@link AgentAssignment.Assigned}, {@link
+   *     AgentAssignment.Unresolvable}, or {@link AgentAssignment.EscalateToOversight}
    */
-  AgentAssignment select(AgentRoutingContext context, List<AgentCandidate> candidates);
+  Uni<AgentAssignment> select(AgentRoutingContext context, List<AgentCandidate> candidates);
 }

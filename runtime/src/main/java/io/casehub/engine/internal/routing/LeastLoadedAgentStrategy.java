@@ -20,6 +20,7 @@ import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.quarkus.arc.DefaultBean;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Comparator;
 import java.util.List;
@@ -37,11 +38,13 @@ import java.util.List;
 public class LeastLoadedAgentStrategy implements AgentRoutingStrategy {
 
   @Override
-  public AgentAssignment select(
+  public Uni<AgentAssignment> select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
-    return candidates.stream()
-        .min(Comparator.comparingInt(AgentCandidate::runningJobs))
-        .map(c -> new AgentAssignment(c.workerId()))
-        .orElse(AgentAssignment.noOp());
+    final AgentAssignment result =
+        candidates.stream()
+            .min(Comparator.comparingInt(AgentCandidate::runningJobs))
+            .map(c -> AgentAssignment.assign(c.workerId()))
+            .orElse(AgentAssignment.unresolvable());
+    return Uni.createFrom().item(result);
   }
 }

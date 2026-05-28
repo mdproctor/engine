@@ -47,6 +47,17 @@ public record CaseChannel(
     return CASE_CHANNEL_PREFIX + caseId + "/" + purpose;
   }
 
+  /**
+   * Constructs the canonical oversight channel name for a case. Equivalent to {@code
+   * channelName(caseId, "oversight")}.
+   *
+   * <p>Oversight channels carry human governance decisions. See protocol {@code
+   * qhorus-per-entity-governance-channels.md}.
+   */
+  public static String oversightChannelName(final UUID caseId) {
+    return channelName(caseId, "oversight");
+  }
+
   public CaseChannel {
     if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
     if (backendType == null || backendType.isBlank())

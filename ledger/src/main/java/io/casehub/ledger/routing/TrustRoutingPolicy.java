@@ -39,4 +39,29 @@ public record TrustRoutingPolicy(
   /** Conservative defaults: 0.7 threshold, 10 observations, 0.1 margin, 60% trust blend. */
   public static final TrustRoutingPolicy DEFAULT =
       new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of());
+
+  /** True when an agent lacks sufficient decision history for trust-based routing (Phase 0/1). */
+  public boolean isBootstrap(final int decisionCount) {
+    return decisionCount < minimumObservations;
+  }
+
+  /**
+   * True when the trust score is within {@code borderlineMargin} of {@code threshold}.
+   *
+   * <p>A borderline candidate is NOT qualified for assignment. Borderline is a distinct Phase 2a
+   * state that triggers human oversight when all candidates are in this state.
+   */
+  public boolean isBorderline(final double score) {
+    return Math.abs(score - threshold) <= borderlineMargin;
+  }
+
+  /**
+   * True when the score exceeds the threshold and is not borderline.
+   *
+   * <p>This is a Phase 2 first-pass check only — Phase 3 quality floors may still exclude a
+   * candidate that passes this check. Do not interpret as "ready to assign".
+   */
+  public boolean passesThresholdCheck(final double score) {
+    return score >= threshold && !isBorderline(score);
+  }
 }

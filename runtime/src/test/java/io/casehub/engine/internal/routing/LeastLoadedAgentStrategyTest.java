@@ -17,6 +17,7 @@ package io.casehub.engine.internal.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.fasterxml.jackson.databind.node.NullNode;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
@@ -35,57 +36,63 @@ class LeastLoadedAgentStrategyTest {
   @BeforeEach
   void setUp() {
     strategy = new LeastLoadedAgentStrategy();
-    ctx = new AgentRoutingContext(UUID.randomUUID(), "data-analysis");
+    ctx = new AgentRoutingContext(UUID.randomUUID(), "data-analysis", NullNode.instance);
   }
 
   @Test
-  void emptyCandidates_returnsNoOp() {
-    assertThat(strategy.select(ctx, List.of()).isNoOp()).isTrue();
+  void emptyCandidates_returnsUnresolvable() {
+    assertThat(strategy.select(ctx, List.of()).await().indefinitely())
+        .isInstanceOf(AgentAssignment.Unresolvable.class);
   }
 
   @Test
   void singleCandidate_isSelected() {
-    final AgentCandidate only = candidate("agent-1", 3);
-    final AgentAssignment result = strategy.select(ctx, List.of(only));
-    assertThat(result.workerId()).isEqualTo("agent-1");
+    final AgentAssignment result =
+        strategy.select(ctx, List.of(candidate("agent-1", 3))).await().indefinitely();
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-1");
   }
 
   @Test
   void selectsLeastLoaded_byRunningJobs() {
-    final AgentCandidate busy = candidate("agent-busy", 5);
-    final AgentCandidate idle = candidate("agent-idle", 0);
-    final AgentCandidate mid = candidate("agent-mid", 2);
-
-    final AgentAssignment result = strategy.select(ctx, List.of(busy, mid, idle));
-    assertThat(result.workerId()).isEqualTo("agent-idle");
+    final AgentAssignment result =
+        strategy
+            .select(
+                ctx,
+                List.of(
+                    candidate("agent-busy", 5),
+                    candidate("agent-mid", 2),
+                    candidate("agent-idle", 0)))
+            .await()
+            .indefinitely();
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-idle");
   }
 
   @Test
   void tie_firstInListWins() {
-    // deterministic tiebreaker: list order
-    final AgentCandidate first = candidate("agent-a", 2);
-    final AgentCandidate second = candidate("agent-b", 2);
-
-    final AgentAssignment result = strategy.select(ctx, List.of(first, second));
-    assertThat(result.workerId()).isEqualTo("agent-a");
+    final AgentAssignment result =
+        strategy
+            .select(ctx, List.of(candidate("agent-a", 2), candidate("agent-b", 2)))
+            .await()
+            .indefinitely();
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-a");
   }
 
   @Test
   void healthDoesNotAffectSelection_leastLoadedWinsRegardlessOfHealth() {
-    // LeastLoadedAgentStrategy ignores health — TrustWeightedAgentStrategy handles demotion
-    final AgentCandidate readyBusy = candidate("ready-busy", 5, AgentHealth.READY);
-    final AgentCandidate weakIdle = candidate("weak-idle", 0, AgentHealth.EPISTEMICALLY_WEAK);
-
-    final AgentAssignment result = strategy.select(ctx, List.of(readyBusy, weakIdle));
-    assertThat(result.workerId()).isEqualTo("weak-idle");
-  }
-
-  @Test
-  void zeroJobs_idle_isPreferred() {
-    final AgentCandidate oneJob = candidate("one", 1);
-    final AgentCandidate zeroJobs = candidate("zero", 0);
-
-    assertThat(strategy.select(ctx, List.of(oneJob, zeroJobs)).workerId()).isEqualTo("zero");
+    final AgentAssignment result =
+        strategy
+            .select(
+                ctx,
+                List.of(
+                    candidate("ready-busy", 5, AgentHealth.READY),
+                    candidate("weak-idle", 0, AgentHealth.EPISTEMICALLY_WEAK)))
+            .await()
+            .indefinitely();
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("weak-idle");
   }
 
   private static AgentCandidate candidate(final String workerId, final int jobs) {
@@ -94,6 +101,6 @@ class LeastLoadedAgentStrategyTest {
 
   private static AgentCandidate candidate(
       final String workerId, final int jobs, final AgentHealth health) {
-    return new AgentCandidate(workerId, Set.of("data-analysis"), jobs, health);
+    return new AgentCandidate(workerId, Set.of("data-analysis"), jobs, health, null);
   }
 }

@@ -9,78 +9,66 @@
         <version>0.2-SNAPSHOT</version>
     </parent>
 
-    <artifactId>casehub-engine-ledger</artifactId>
-    <name>Case Hub :: Ledger</name>
-    <description>Optional immutable audit ledger — hash-chained case lifecycle entries via casehub-ledger</description>
+    <artifactId>casehub-engine-ai</artifactId>
+    <name>Case Hub :: Engine AI</name>
+    <description>Optional semantic agent routing — embedding-based candidate selection using trust + semantic similarity.
+        Requires an AgentEmbeddingProvider implementation. Without one, CDI fails at startup with an
+        unsatisfied dependency error.</description>
 
     <properties>
-        <maven.deploy.skip>false</maven.deploy.skip>
+        <!-- Not published — no stable AgentEmbeddingProvider ships with this module.
+             engine#381 tracks a LangChain4j-backed implementation in a downstream module. -->
+        <maven.deploy.skip>true</maven.deploy.skip>
     </properties>
 
     <dependencies>
-        <!-- CaseLifecycleEvent lives in engine-common (no CDI beans — safe as compile dep) -->
-        <dependency>
-            <groupId>io.casehub</groupId>
-            <artifactId>casehub-engine-common</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <!-- AgentRoutingStrategy SPI — TrustWeightedAgentStrategy implements it -->
+        <!-- AgentRoutingStrategy SPI and AgentRoutingContext/AgentCandidate -->
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-engine-api</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- AgentDescriptor — AgentCandidate carries it; optional in api, required here -->
+        <!-- TrustCandidateClassifier + TrustScoreCache + TrustRoutingPolicyProvider -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-ledger</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- JQEvaluator for caseContext summarization -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <!-- AgentDescriptor and AgentCapability for vocabulary extraction -->
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-eidos-api</artifactId>
-            <optional>true</optional>
         </dependency>
 
-        <dependency>
-            <groupId>io.casehub</groupId>
-            <artifactId>casehub-ledger</artifactId>
-        </dependency>
-
-        <!-- CDI + JPA (blocking) for EntityManager -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-hibernate-orm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-flyway</artifactId>
+            <groupId>org.eclipse.microprofile.config</groupId>
+            <artifactId>microprofile-config-api</artifactId>
         </dependency>
 
         <!-- Test -->
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-junit5</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-h2</artifactId>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.casehub</groupId>
-            <artifactId>casehub-ledger-memory</artifactId>
-            <version>${version.io.casehub.ledger}</version>
             <scope>test</scope>
         </dependency>
         <dependency>
