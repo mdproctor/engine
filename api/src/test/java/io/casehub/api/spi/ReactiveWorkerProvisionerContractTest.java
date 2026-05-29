@@ -21,7 +21,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.ProvisionContext;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
@@ -83,7 +82,7 @@ class ReactiveWorkerProvisionerContractTest {
   static class NoOpStub implements ReactiveWorkerProvisioner {
 
     @Override
-    public Uni<Worker> provision(Set<String> capabilities, ProvisionContext context) {
+    public Uni<ProvisionResult> provision(Set<String> capabilities, ProvisionContext context) {
       return Uni.createFrom().failure(new ProvisioningException("NoOp"));
     }
 

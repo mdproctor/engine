@@ -16,7 +16,6 @@
 package io.casehub.api.spi;
 
 import io.casehub.api.model.ProvisionContext;
-import io.casehub.api.model.Worker;
 import io.smallrye.mutiny.Uni;
 import java.util.Set;
 
@@ -30,14 +29,14 @@ import java.util.Set;
 public interface ReactiveWorkerProvisioner {
 
   /**
-   * Provision a new worker with the given capabilities.
+   * Provision a new worker reactively.
    *
-   * @param capabilities required capability set for the PlanItem
+   * @param capabilities required capability set
    * @param context case context, pre-built worker context, and propagation
-   * @return a {@code Uni} emitting the registered {@link Worker}, or failing with {@link
+   * @return {@code Uni} emitting the provisioning outcome on success, or failing with {@link
    *     ProvisioningException}
    */
-  Uni<Worker> provision(Set<String> capabilities, ProvisionContext context);
+  Uni<ProvisionResult> provision(Set<String> capabilities, ProvisionContext context);
 
   /**
    * Terminate a previously provisioned worker. No-op if the worker is unknown.

@@ -21,7 +21,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.ProvisionContext;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
 import java.util.List;
 import java.util.Map;
@@ -82,7 +81,7 @@ class WorkerProvisionerContractTest {
 
   static class NoOpStub implements WorkerProvisioner {
     @Override
-    public Worker provision(Set<String> capabilities, ProvisionContext context) {
+    public ProvisionResult provision(Set<String> capabilities, ProvisionContext context) {
       throw new ProvisioningException("NoOp — no provisioner configured");
     }
 

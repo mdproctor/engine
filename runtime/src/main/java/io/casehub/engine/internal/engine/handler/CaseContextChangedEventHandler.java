@@ -58,12 +58,15 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ExpressionEngineRegistry;
+import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
+import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
@@ -96,6 +99,10 @@ public class CaseContextChangedEventHandler {
   @Inject ReactiveWorkerContextProvider reactiveWorkerContextProvider;
 
   @Inject ReactiveWorkerProvisioner reactiveWorkerProvisioner;
+
+  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
+
+  @Inject LedgerTraceIdProvider traceIdProvider;
 
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
   public Uni<Void> onCaseStateContextChangedEventHandler(final CaseContextChangedEvent event) {
@@ -380,6 +387,7 @@ public class CaseContextChangedEventHandler {
   }
 
   private Uni<Void> tryProvision(final CaseInstance caseInstance, final Capability capability) {
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
     return reactiveWorkerProvisioner
         .getCapabilities()
         .flatMap(
@@ -405,6 +413,17 @@ public class CaseContextChangedEventHandler {
                                 null); // triggerCorrelationId — see engine#231
                         return reactiveWorkerProvisioner
                             .provision(caps, provisionContext)
+                            .invoke(
+                                result ->
+                                    lifecycleEvents.fireAsync(
+                                        new CaseLifecycleEvent(
+                                            caseInstance.getUuid(),
+                                            "ProvisionWorker",
+                                            "WorkerStarted",
+                                            caseInstance.getState().name(),
+                                            null,
+                                            "System",
+                                            traceId)))
                             .replaceWithVoid();
                       });
             })

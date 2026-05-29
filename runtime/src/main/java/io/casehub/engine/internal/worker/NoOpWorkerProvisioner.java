@@ -16,7 +16,7 @@
 package io.casehub.engine.internal.worker;
 
 import io.casehub.api.model.ProvisionContext;
-import io.casehub.api.model.Worker;
+import io.casehub.api.spi.ProvisionResult;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.WorkerProvisioner;
 import io.quarkus.arc.DefaultBean;
@@ -33,7 +33,7 @@ import java.util.Set;
 public class NoOpWorkerProvisioner implements WorkerProvisioner {
 
   @Override
-  public Worker provision(Set<String> capabilities, ProvisionContext context) {
+  public ProvisionResult provision(Set<String> capabilities, ProvisionContext context) {
     throw new ProvisioningException(
         "No WorkerProvisioner configured — add an @ApplicationScoped @Priority(1) WorkerProvisioner implementation");
   }

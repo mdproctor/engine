@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine.handler;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -80,6 +81,12 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Mock ReactiveWorkerContextProvider reactiveWorkerContextProvider;
   @Mock ReactiveWorkerProvisioner reactiveWorkerProvisioner;
 
+  @Mock
+  jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseLifecycleEvent>
+      lifecycleEvents;
+
+  @Mock io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider;
+
   @InjectMocks CaseContextChangedEventHandler handler;
 
   private CaseInstance caseInstance;
@@ -137,6 +144,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     caseInstance.setCaseContext(ctx);
 
     when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(binding)));
+    when(traceIdProvider.currentTraceId()).thenReturn(java.util.Optional.empty());
   }
 
   @Test
@@ -189,5 +197,44 @@ class CaseContextChangedEventHandlerRoutingTest {
     verify(eventBus)
         .publish(
             eq(EventBusAddresses.AGENT_ROUTING_ESCALATION), any(AgentRoutingEscalationEvent.class));
+  }
+
+  @Test
+  void tryProvision_provisionerHasCapability_firesWorkerStartedLifecycleEvent() {
+    when(agentRoutingStrategy.select(any(), any()))
+        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable()));
+    when(reactiveWorkerProvisioner.getCapabilities())
+        .thenReturn(Uni.createFrom().item(java.util.Set.of("research")));
+    when(reactiveWorkerContextProvider.buildContext(any(), any(), any()))
+        .thenReturn(
+            Uni.createFrom()
+                .item(
+                    new io.casehub.api.model.WorkerContext(
+                        "desc",
+                        null,
+                        null,
+                        java.util.List.of(),
+                        io.casehub.api.context.PropagationContext.createRoot(),
+                        java.util.Map.of())));
+    when(reactiveWorkerProvisioner.provision(any(), any()))
+        .thenReturn(Uni.createFrom().item(io.casehub.api.spi.ProvisionResult.empty()));
+
+    handler
+        .onCaseStateContextChangedEventHandler(
+            new CaseContextChangedEvent(caseInstance, NullNode.instance))
+        .await()
+        .indefinitely();
+
+    verify(lifecycleEvents)
+        .fireAsync(
+            argThat(
+                e ->
+                    caseInstance.getUuid().equals(e.caseId())
+                        && "WorkerStarted".equals(e.eventType())
+                        && "ProvisionWorker".equals(e.commandType())
+                        && "RUNNING".equals(e.caseStatus())
+                        && "System".equals(e.actorRole())));
+    verify(eventBus, never())
+        .publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
   }
 }

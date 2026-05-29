@@ -16,7 +16,6 @@
 package io.casehub.api.spi;
 
 import io.casehub.api.model.ProvisionContext;
-import io.casehub.api.model.Worker;
 import java.util.Set;
 
 /**
@@ -36,10 +35,10 @@ public interface WorkerProvisioner {
    *
    * @param capabilities required capability set for the PlanItem
    * @param context case context, pre-built worker context, and propagation
-   * @return the registered Worker
+   * @return the provisioning outcome, including optional causal ledger entry linkage
    * @throws ProvisioningException if the worker cannot be started
    */
-  Worker provision(Set<String> capabilities, ProvisionContext context);
+  ProvisionResult provision(Set<String> capabilities, ProvisionContext context);
 
   /**
    * Terminate a previously provisioned worker. No-op if the worker is unknown.

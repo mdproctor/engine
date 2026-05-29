@@ -170,9 +170,12 @@ To add a new operational SPI: define the interface in `api/spi/`, add a `@Defaul
 | `CaseChannelProvider.closeChannel` | `CaseStatusChangedHandler` | Case reaches terminal state |
 | `WorkerContextProvider.buildContext` | `WorkerScheduleEventHandler` | Before Quartz job is submitted (timing contract) |
 | `WorkerContextProvider.buildContext` + `WorkerExecutionContext.set` | `QuartzWorkerExecutionJob` | Immediately before worker function — sets thread-local with channels |
+| `ReactiveWorkerProvisioner.provision` (→ `ProvisionResult`) + `CaseLifecycleEvent("WorkerStarted")` | `CaseContextChangedEventHandler.tryProvision` | Successful external provisioning — fires `WorkerStarted` (commandType `ProvisionWorker`) after provisioner returns |
 | `WorkerProvisioner.provision` | `CaseContextChangedEventHandler.tryProvision` | No pre-defined workers match capability |
 
 `WorkerProvisioner.provision()` is called only when `workerProvisioner.getCapabilities()` contains the required capability. `ProvisioningException` is caught and logged; the binding stays eligible for the next context-change tick. The no-op default returns empty capabilities, so it is never called unless a real provisioner is wired in.
+
+**`WorkerProvisioner.provision()` returns `ProvisionResult`** (blocking) / `Uni<ProvisionResult>` (reactive). `ProvisionResult(UUID causedByEntryId)` carries the ledger entry ID of the Qhorus COMMAND that triggered provisioning for causal audit linkage. Provisioner implementations that cannot resolve a causal entry return `ProvisionResult.empty()`. No-op defaults still throw `ProvisioningException` on `provision()`. `ProvisionResult` lives in `api/src/main/java/io/casehub/api/spi/ProvisionResult.java`. See protocol `PP-20260529-bcbbb5`. Claudony wiring tracked in claudony#140.
 
 **`ProvisionContext` fields:** `caseId`, `taskType`, `workerContext` (nullable), `propagationContext`, `triggerChannelId` (nullable String), `triggerCorrelationId` (nullable String). The trigger fields carry the Qhorus channel ID and correlation ID of the COMMAND that caused provisioning — allowing provisioner implementations to establish causal linkage in the ledger. Engine-internal call sites pass `null` for both until engine#231 threads Qhorus trigger context through the CaseFile-update API.
 

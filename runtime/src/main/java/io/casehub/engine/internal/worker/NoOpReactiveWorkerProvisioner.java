@@ -16,7 +16,7 @@
 package io.casehub.engine.internal.worker;
 
 import io.casehub.api.model.ProvisionContext;
-import io.casehub.api.model.Worker;
+import io.casehub.api.spi.ProvisionResult;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.quarkus.arc.DefaultBean;
@@ -34,7 +34,7 @@ import java.util.Set;
 public class NoOpReactiveWorkerProvisioner implements ReactiveWorkerProvisioner {
 
   @Override
-  public Uni<Worker> provision(Set<String> capabilities, ProvisionContext context) {
+  public Uni<ProvisionResult> provision(Set<String> capabilities, ProvisionContext context) {
     return Uni.createFrom()
         .failure(
             new ProvisioningException(
