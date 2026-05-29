@@ -130,7 +130,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
                 scored.add(new ScoredCandidate(cc, score(cc, queryVector, policy)));
               }
 
-              return TrustCandidateClassifier.decide(classified, scored, context.capabilityName());
+              return classifier.decide(classified, scored, context.capabilityName());
             });
   }
 

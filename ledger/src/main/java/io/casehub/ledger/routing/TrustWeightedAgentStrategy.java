@@ -89,8 +89,7 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
       scored.add(new ScoredCandidate(cc, score(cc, policy)));
     }
 
-    return Uni.createFrom()
-        .item(TrustCandidateClassifier.decide(classified, scored, context.capabilityName()));
+    return Uni.createFrom().item(classifier.decide(classified, scored, context.capabilityName()));
   }
 
   private double score(final ClassifiedCandidate cc, final TrustRoutingPolicy policy) {

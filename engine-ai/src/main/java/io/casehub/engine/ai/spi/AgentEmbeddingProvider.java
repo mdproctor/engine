@@ -46,7 +46,8 @@ public interface AgentEmbeddingProvider {
    *
    * @param a first vector
    * @param b second vector; must be the same length as {@code a}
-   * @return similarity in [-1, 1]; {@code 0.0} if either vector is the zero vector
+   * @return cosine similarity in [-1, 1]; {@code 0.0} for zero vectors (cosine similarity undefined
+   *     for zero vectors — sentinel avoids NaN at call sites)
    */
   static double cosineSimilarity(final float[] a, final float[] b) {
     double dot = 0.0;

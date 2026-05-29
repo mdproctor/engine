@@ -156,8 +156,7 @@ class TrustCandidateClassifierTest {
     final ClassifiedCandidate cand = classified("worker-1", Phase.QUALIFIED, 0.85, 1.0);
     final ScoredCandidate scored = new ScoredCandidate(cand, 0.75);
 
-    final AgentAssignment result =
-        TrustCandidateClassifier.decide(List.of(cand), List.of(scored), CAP);
+    final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
     assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
     assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("worker-1");
@@ -168,8 +167,7 @@ class TrustCandidateClassifierTest {
     final ClassifiedCandidate cand = classified("worker-1", Phase.BORDERLINE, 0.65, 1.0);
     final ScoredCandidate scored = new ScoredCandidate(cand, 0.0);
 
-    final AgentAssignment result =
-        TrustCandidateClassifier.decide(List.of(cand), List.of(scored), CAP);
+    final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
     assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
     assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName()).isEqualTo(CAP);
@@ -180,8 +178,7 @@ class TrustCandidateClassifierTest {
     final ClassifiedCandidate cand = classified("worker-1", Phase.EXCLUDED_PHASE2B, 0.5, 1.0);
     final ScoredCandidate scored = new ScoredCandidate(cand, 0.0);
 
-    final AgentAssignment result =
-        TrustCandidateClassifier.decide(List.of(cand), List.of(scored), CAP);
+    final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
     assertThat(result).isInstanceOf(AgentAssignment.Unresolvable.class);
   }
@@ -193,23 +190,21 @@ class TrustCandidateClassifierTest {
     final List<ScoredCandidate> scored =
         List.of(new ScoredCandidate(border, 0.0), new ScoredCandidate(excluded, 0.0));
 
-    final AgentAssignment result =
-        TrustCandidateClassifier.decide(List.of(border, excluded), scored, CAP);
+    final AgentAssignment result = classifier.decide(List.of(border, excluded), scored, CAP);
 
     assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
   }
 
   @Test
   void decide_bootstrapCandidateWins_returnsAssigned() {
-    final ClassifiedCandidate bootstrap = classified("w1", Phase.BOOTSTRAP, Double.NaN, 0.5);
+    final ClassifiedCandidate bootstrap = bootstrap("w1", 0.5);
     final ClassifiedCandidate borderline = classified("w2", Phase.BORDERLINE, 0.65, 1.0);
     final List<ScoredCandidate> scored =
         List.of(
             new ScoredCandidate(bootstrap, 0.5), // availability score > 0
             new ScoredCandidate(borderline, 0.0)); // excluded
 
-    final AgentAssignment result =
-        TrustCandidateClassifier.decide(List.of(bootstrap, borderline), scored, CAP);
+    final AgentAssignment result = classifier.decide(List.of(bootstrap, borderline), scored, CAP);
 
     assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
     assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("w1");
@@ -223,8 +218,12 @@ class TrustCandidateClassifierTest {
 
   private static ClassifiedCandidate classified(
       final String workerId, final Phase phase, final double trustScore, final double workload) {
-    final OptionalDouble ts =
-        Double.isNaN(trustScore) ? OptionalDouble.empty() : OptionalDouble.of(trustScore);
-    return new ClassifiedCandidate(candidate(workerId, 0), phase, ts, workload);
+    return new ClassifiedCandidate(
+        candidate(workerId, 0), phase, OptionalDouble.of(trustScore), workload);
+  }
+
+  private static ClassifiedCandidate bootstrap(final String workerId, final double workload) {
+    return new ClassifiedCandidate(
+        candidate(workerId, 0), Phase.BOOTSTRAP, OptionalDouble.empty(), workload);
   }
 }

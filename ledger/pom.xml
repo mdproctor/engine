@@ -30,7 +30,11 @@
             <artifactId>casehub-engine-api</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- AgentDescriptor — AgentCandidate carries it; optional in api, required here -->
+        <!-- Required: casehub-engine-api declares casehub-eidos-api as optional, so it does not
+             propagate. AgentCandidate carries AgentDescriptor as a field; javac must resolve
+             AgentDescriptor to compile any code that accepts AgentCandidate. Kept optional here
+             for the same reason — consumers that use AgentCandidate-accepting APIs (e.g.
+             TrustCandidateClassifier) must also declare casehub-eidos-api explicitly. -->
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-eidos-api</artifactId>

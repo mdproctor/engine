@@ -153,7 +153,7 @@ public class TrustCandidateClassifier {
    *   <li>All scored 0.0 AND no BORDERLINE → {@link AgentAssignment#unresolvable()}
    * </ul>
    */
-  public static AgentAssignment decide(
+  public AgentAssignment decide(
       final List<ClassifiedCandidate> classified,
       final List<ScoredCandidate> scored,
       final String capabilityName) {
