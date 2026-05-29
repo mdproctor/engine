@@ -98,6 +98,8 @@ public class CaseStatusChangedHandler {
             })
         .invoke(
             () -> {
+              // Fire-and-forget: downstream event bus consumers (CASE_COMPLETED, CASE_FAULTED,
+              // CONTEXT_CHANGED) do not need to complete before this handler returns.
               String eventBusAddress = resolveStateAsString(newState);
               if (eventBusAddress != null) {
                 eventBus.publish(eventBusAddress, caseInstance);
@@ -109,15 +111,35 @@ public class CaseStatusChangedHandler {
                     new CaseContextChangedEvent(
                         caseInstance, caseInstance.getCaseContext().asJsonNode()));
               }
-              lifecycleEvents.fireAsync(
-                  new CaseLifecycleEvent(
-                      caseInstance.getUuid(),
-                      resolveCommandType(newState),
-                      resolveEventType(newState),
-                      newState.name(),
-                      null,
-                      "System",
-                      traceId));
+            })
+        .chain(
+            () -> {
+              // Await CDI event delivery so @ObservesAsync observers run before this handler's
+              // Uni completes. Failure is logged and recovered — observer errors must not fail
+              // case completion (engine#393).
+              return Uni.createFrom()
+                  .completionStage(
+                      () ->
+                          lifecycleEvents.fireAsync(
+                              new CaseLifecycleEvent(
+                                  caseInstance.getUuid(),
+                                  resolveCommandType(newState),
+                                  resolveEventType(newState),
+                                  newState.name(),
+                                  null,
+                                  "System",
+                                  traceId)))
+                  .onFailure()
+                  .recoverWithItem(
+                      t -> {
+                        LOG.warnf(
+                            t,
+                            "CaseLifecycleEvent observer failed for caseId=%s event=%s",
+                            caseInstance.getUuid(),
+                            resolveEventType(newState));
+                        return null;
+                      })
+                  .replaceWithVoid();
             });
   }
 
