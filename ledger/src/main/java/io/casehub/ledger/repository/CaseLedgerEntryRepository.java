@@ -16,6 +16,7 @@
 package io.casehub.ledger.repository;
 
 import io.casehub.ledger.model.CaseLedgerEntry;
+import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.runtime.repository.jpa.JpaLedgerEntryRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -44,6 +45,17 @@ public class CaseLedgerEntryRepository extends JpaLedgerEntryRepository {
         .createQuery(
             "SELECT e FROM CaseLedgerEntry e WHERE e.subjectId = :caseId ORDER BY e.sequenceNumber ASC",
             CaseLedgerEntry.class)
+        .setParameter("caseId", caseId)
+        .getResultList();
+  }
+
+  /** All worker decision entries for the given case, ordered by sequence number ascending. */
+  @Transactional
+  public List<WorkerDecisionEntry> findWorkerDecisionsByCaseId(final UUID caseId) {
+    return caseEm
+        .createQuery(
+            "SELECT e FROM WorkerDecisionEntry e WHERE e.caseId = :caseId ORDER BY e.sequenceNumber ASC",
+            WorkerDecisionEntry.class)
         .setParameter("caseId", caseId)
         .getResultList();
   }

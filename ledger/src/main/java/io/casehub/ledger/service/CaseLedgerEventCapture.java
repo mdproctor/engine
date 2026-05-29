@@ -54,8 +54,11 @@ public class CaseLedgerEventCapture {
       return;
     }
 
+    // findLatestBySubjectId spans all LedgerEntry subtypes (CaseLedgerEntry, WorkerDecisionEntry,
+    // etc.) for the same subjectId. Using the narrow findLatestByCaseId here would miss
+    // WorkerDecisionEntry records and produce duplicate sequence numbers.
     final int seq =
-        ledgerRepo.findLatestByCaseId(event.caseId()).map(e -> e.sequenceNumber + 1).orElse(1);
+        ledgerRepo.findLatestBySubjectId(event.caseId()).map(e -> e.sequenceNumber + 1).orElse(1);
 
     final CaseLedgerEntry entry = new CaseLedgerEntry();
     entry.caseId = event.caseId();

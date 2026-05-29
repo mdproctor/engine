@@ -22,9 +22,6 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.ExtensionTarget;
-import io.casehub.api.model.HumanTaskTarget;
-import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
@@ -39,6 +36,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
@@ -48,7 +46,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
@@ -61,6 +58,7 @@ public class WorkflowExecutionCompletedHandler {
 
   @Inject EventBus eventBus;
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
+  @Inject Event<WorkerDecisionEvent> workerDecisionEvents;
   @Inject ContextDiffStrategy contextDiffStrategy;
   @Inject EventLogRepository eventLogRepository;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
@@ -111,8 +109,19 @@ public class WorkflowExecutionCompletedHandler {
                         "ExecuteWorker",
                         "WorkerExecutionCompleted",
                         caseInstance.getState().name(),
+                        // "system" — the engine applied the worker's output; the worker's decision
+                        // record is written separately as WorkerDecisionEntry via
+                        // WorkerDecisionEvent
+                        "system",
+                        "SYSTEM",
+                        traceId)))
+        .invoke(
+            () ->
+                workerDecisionEvents.fireAsync(
+                    new WorkerDecisionEvent(
+                        caseInstance.getUuid(),
                         worker.getName(),
-                        "WORKER",
+                        extractCapabilityTag(caseInstance, worker),
                         traceId)))
         .invoke(
             () ->
@@ -179,38 +188,39 @@ public class WorkflowExecutionCompletedHandler {
   }
 
   /**
-   * Finds the conflict resolver strategy for the given worker by looking up the binding whose
-   * capability matches one of the worker's capabilities. Returns null if no binding is found
-   * (default: LAST_WRITER_WINS).
+   * Returns the first binding with a {@link CapabilityTarget} whose capability name matches one of
+   * the worker's declared capabilities. Returns null if the definition is absent or no binding
+   * matches.
    */
-  private String resolveConflictStrategy(CaseInstance caseInstance, Worker worker) {
-    CaseDefinition definition =
+  private Binding findMatchingCapabilityBinding(
+      final CaseInstance caseInstance, final Worker worker) {
+    final CaseDefinition definition =
         caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
     if (definition == null
         || definition.getBindings() == null
         || worker.getCapabilities() == null) {
       return null;
     }
-    List<Binding> bindings = definition.getBindings();
-    for (Binding binding : bindings) {
-      CapabilityTarget ct =
-          switch (binding.target()) {
-            case CapabilityTarget cap -> cap;
-            case SubCaseTarget st -> null;
-            case HumanTaskTarget ht -> null;
-            case ExtensionTarget et -> null;
-          };
-      if (ct == null) {
+    for (final Binding binding : definition.getBindings()) {
+      if (!(binding.target() instanceof CapabilityTarget ct)) {
         continue;
       }
-      String capabilityName = ct.capability().getName();
-      boolean workerMatchesCapability =
-          worker.getCapabilities().stream().anyMatch(c -> c.getName().equals(capabilityName));
-      if (workerMatchesCapability) {
-        return binding.getConflictResolverStrategy();
+      final String capabilityName = ct.capability().getName();
+      if (worker.getCapabilities().stream().anyMatch(c -> c.getName().equals(capabilityName))) {
+        return binding;
       }
     }
     return null;
+  }
+
+  private String extractCapabilityTag(final CaseInstance caseInstance, final Worker worker) {
+    final Binding binding = findMatchingCapabilityBinding(caseInstance, worker);
+    return binding != null ? ((CapabilityTarget) binding.target()).capability().getName() : null;
+  }
+
+  private String resolveConflictStrategy(final CaseInstance caseInstance, final Worker worker) {
+    final Binding binding = findMatchingCapabilityBinding(caseInstance, worker);
+    return binding != null ? binding.getConflictResolverStrategy() : null;
   }
 
   /**

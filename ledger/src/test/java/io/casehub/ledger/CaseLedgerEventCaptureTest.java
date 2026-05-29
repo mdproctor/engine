@@ -292,9 +292,11 @@ class CaseLedgerEventCaptureTest {
   }
 
   @Test
-  void workerExecutionCompleted_writesLedgerEntry_withWorkerIdAsActorId() {
+  void workerExecutionCompleted_writesLedgerEntry_withSystemAsActorId() {
+    // WorkflowExecutionCompletedHandler fires CaseLifecycleEvent with actorId="system" — the engine
+    // is the actor applying the worker's output. The worker's decision record is written separately
+    // as WorkerDecisionEntry via WorkerDecisionEvent (see WorkerDecisionEventCaptureTest).
     final UUID caseId = UUID.randomUUID();
-    final String workerId = "analyst-worker";
 
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
@@ -302,8 +304,8 @@ class CaseLedgerEventCaptureTest {
             "ExecuteWorker",
             "WorkerExecutionCompleted",
             "RUNNING",
-            workerId,
-            "WORKER",
+            "system",
+            "SYSTEM",
             null));
 
     Awaitility.await()
@@ -316,8 +318,9 @@ class CaseLedgerEventCaptureTest {
               assertThat(entry.commandType).isEqualTo("ExecuteWorker");
               assertThat(entry.eventType).isEqualTo("WorkerExecutionCompleted");
               assertThat(entry.caseStatus).isEqualTo("RUNNING");
-              assertThat(entry.actorId).isEqualTo(workerId);
-              assertThat(entry.actorRole).isEqualTo("WORKER");
+              assertThat(entry.actorId).isEqualTo("system");
+              assertThat(entry.actorType).isEqualTo(ActorType.SYSTEM);
+              assertThat(entry.actorRole).isEqualTo("SYSTEM");
             });
   }
 
