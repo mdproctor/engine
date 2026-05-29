@@ -74,6 +74,7 @@ class SemanticAgentRoutingStrategyTest {
             cache,
             policyProvider,
             embeddingProvider,
+            new EmbeddingCache(100),
             jqEvaluator,
             0.4,
             ".");

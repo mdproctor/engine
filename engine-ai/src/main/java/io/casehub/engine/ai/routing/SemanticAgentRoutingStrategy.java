@@ -81,6 +81,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
   private final TrustScoreCache cache;
   private final TrustRoutingPolicyProvider policyProvider;
   private final AgentEmbeddingProvider embeddingProvider;
+  private final EmbeddingCache embeddingCache;
   private final JQEvaluator jqEvaluator;
   private final double semanticWeight;
   private final String contextSummaryJq;
@@ -91,6 +92,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
       final TrustScoreCache cache,
       final TrustRoutingPolicyProvider policyProvider,
       final AgentEmbeddingProvider embeddingProvider,
+      final EmbeddingCache embeddingCache,
       final JQEvaluator jqEvaluator,
       @ConfigProperty(name = "casehub.engine.ai.semantic-weight", defaultValue = "0.4")
           final double semanticWeight,
@@ -100,6 +102,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
     this.cache = cache;
     this.policyProvider = policyProvider;
     this.embeddingProvider = embeddingProvider;
+    this.embeddingCache = embeddingCache;
     this.jqEvaluator = jqEvaluator;
     this.semanticWeight = semanticWeight;
     this.contextSummaryJq = contextSummaryJq;
@@ -123,7 +126,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
             ignored -> {
               final String queryText =
                   extractQueryText(context.caseContext(), context.capabilityName());
-              final float[] queryVector = embeddingProvider.embed(queryText);
+              final float[] queryVector = embeddingCache.getOrCompute(queryText, embeddingProvider);
 
               final List<ScoredCandidate> scored = new ArrayList<>(classified.size());
               for (final ClassifiedCandidate cc : classified) {
@@ -145,7 +148,8 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
           yield cc.workloadScore();
         }
         final float[] docVector =
-            embeddingProvider.embed(buildVocabularyText(cc.candidate().agentDescriptor()));
+            embeddingCache.getOrCompute(
+                buildVocabularyText(cc.candidate().agentDescriptor()), embeddingProvider);
         final double semantic = AgentEmbeddingProvider.cosineSimilarity(queryVector, docVector);
         final double trust = cc.trustScore().getAsDouble();
         final double trustBlend =
