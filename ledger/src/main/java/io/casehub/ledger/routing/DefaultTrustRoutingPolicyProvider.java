@@ -19,15 +19,17 @@ import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 
 /**
- * Default {@link TrustRoutingPolicyProvider} — returns {@link TrustRoutingPolicy#DEFAULT} for all
- * capabilities. Yields to any deployment-specific {@code @Alternative @Priority(1)} provider.
+ * Default {@link io.casehub.api.spi.routing.TrustRoutingPolicyProvider} — returns {@link
+ * io.casehub.api.spi.routing.TrustRoutingPolicy#DEFAULT} for all capabilities. Yields to any
+ * deployment-specific {@code @Alternative @Priority(1)} provider.
  */
 @DefaultBean
 @ApplicationScoped
-public class DefaultTrustRoutingPolicyProvider implements TrustRoutingPolicyProvider {
+public class DefaultTrustRoutingPolicyProvider
+    implements io.casehub.api.spi.routing.TrustRoutingPolicyProvider {
 
   @Override
-  public TrustRoutingPolicy forCapability(final String capabilityName) {
-    return TrustRoutingPolicy.DEFAULT;
+  public io.casehub.api.spi.routing.TrustRoutingPolicy forCapability(final String capabilityName) {
+    return io.casehub.api.spi.routing.TrustRoutingPolicy.DEFAULT;
   }
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.ledger.routing;
+package io.casehub.api.spi.routing;
 
 /**
  * SPI for resolving the routing policy to apply for a given capability.
@@ -22,13 +22,14 @@ package io.casehub.ledger.routing;
  * per-capability policies. For example, devtown's {@code DevtownCapabilityRegistry} can implement
  * this interface to expose its per-capability routing configuration.
  *
- * <p>The default implementation returns {@link TrustRoutingPolicy#DEFAULT} for all capabilities.
+ * <p>The default implementation returns {@link
+ * io.casehub.api.spi.routing.TrustRoutingPolicy#DEFAULT} for all capabilities.
  */
 public interface TrustRoutingPolicyProvider {
 
   /**
    * Return the routing policy for the given capability name. Never returns null — use {@link
-   * TrustRoutingPolicy#DEFAULT} as the fallback.
+   * io.casehub.api.spi.routing.TrustRoutingPolicy#DEFAULT} as the fallback.
    */
-  TrustRoutingPolicy forCapability(String capabilityName);
+  io.casehub.api.spi.routing.TrustRoutingPolicy forCapability(String capabilityName);
 }

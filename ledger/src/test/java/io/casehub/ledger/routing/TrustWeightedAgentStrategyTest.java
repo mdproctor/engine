@@ -25,6 +25,8 @@ import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
+import io.casehub.api.spi.routing.TrustRoutingPolicy;
+import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;

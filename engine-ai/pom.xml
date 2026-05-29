@@ -28,7 +28,7 @@
             <artifactId>casehub-engine-api</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <!-- TrustCandidateClassifier + TrustScoreCache + TrustRoutingPolicyProvider -->
+        <!-- TrustCandidateClassifier + TrustScoreCache (ledger runtime; TrustRoutingPolicy + TrustRoutingPolicyProvider now in casehub-engine-api) -->
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-engine-ledger</artifactId>

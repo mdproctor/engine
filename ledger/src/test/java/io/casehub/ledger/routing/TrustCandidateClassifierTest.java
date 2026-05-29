@@ -39,8 +39,8 @@ class TrustCandidateClassifierTest {
   private TrustCandidateClassifier classifier;
 
   // threshold=0.7, minimumObservations=5, borderlineMargin=0.1
-  private static final TrustRoutingPolicy POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of());
+  private static final io.casehub.api.spi.routing.TrustRoutingPolicy POLICY =
+      new io.casehub.api.spi.routing.TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of());
   private static final String CAP = "research";
 
   @BeforeEach
@@ -107,8 +107,9 @@ class TrustCandidateClassifierTest {
 
   @Test
   void classify_qualityFloorFailed_isExcludedPhase3() {
-    final TrustRoutingPolicy policyWithFloor =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75));
+    final io.casehub.api.spi.routing.TrustRoutingPolicy policyWithFloor =
+        new io.casehub.api.spi.routing.TrustRoutingPolicy(
+            0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75));
 
     when(cache.getCapabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.85));
     when(cache.getDecisionCount("a", CAP)).thenReturn(10);
@@ -137,8 +138,9 @@ class TrustCandidateClassifierTest {
 
   @Test
   void classify_qualityFloorMissing_isQualified() {
-    final TrustRoutingPolicy policyWithFloor =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75));
+    final io.casehub.api.spi.routing.TrustRoutingPolicy policyWithFloor =
+        new io.casehub.api.spi.routing.TrustRoutingPolicy(
+            0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75));
     when(cache.getCapabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.85));
     when(cache.getDecisionCount("a", CAP)).thenReturn(10);
     // no dimension data → graceful; not penalised

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.ledger.routing;
+package io.casehub.api.spi.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,8 +23,8 @@ import org.junit.jupiter.api.Test;
 class TrustRoutingPolicyTest {
 
   // threshold=0.7, minimumObservations=5, borderlineMargin=0.1
-  private static final TrustRoutingPolicy POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of());
+  private static final io.casehub.api.spi.routing.TrustRoutingPolicy POLICY =
+      new io.casehub.api.spi.routing.TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of());
 
   // ---- isBootstrap --------------------------------------------------------
 

@@ -17,6 +17,7 @@ package io.casehub.ledger.routing;
 
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
+import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
 import java.util.List;

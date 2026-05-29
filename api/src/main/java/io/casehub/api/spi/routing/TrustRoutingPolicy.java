@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.ledger.routing;
+package io.casehub.api.spi.routing;
 
 import java.util.Map;
 
