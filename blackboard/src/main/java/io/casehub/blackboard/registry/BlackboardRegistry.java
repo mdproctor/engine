@@ -17,7 +17,11 @@ package io.casehub.blackboard.registry;
 
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
+import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.spi.PlanItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,13 +34,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>All per-case state is co-located in a single {@link CaseEntry}, making eviction atomic — one
  * map removal instead of three. See casehubio/engine#292.
  *
- * <p>Injected by both {@link io.casehub.blackboard.control.PlanningStrategyLoopControl} (which
- * writes entries on Binding selection) and {@link
- * io.casehub.blackboard.handler.PlanItemCompletionHandler} (which reads entries on worker
- * completion). See casehubio/engine#76.
- *
- * <p>State is in-memory and transient — rebuilt from EventLog on engine recovery. Persistence SPI
- * deferred to casehubio/engine#84.
+ * <p>On first {@link #get} miss after a JVM restart, DELEGATED PlanItems are lazily restored from
+ * PlanItemStore so completion handlers can find their PlanItems without any startup ordering
+ * constraint. RUNNING items and completionIndex are not persisted — Quartz-only case recovery is a
+ * separate concern. See casehubio/engine#274.
  */
 @ApplicationScoped
 public class BlackboardRegistry {
@@ -52,10 +53,9 @@ public class BlackboardRegistry {
   }
 
   private final ConcurrentHashMap<UUID, CaseEntry> entries = new ConcurrentHashMap<>();
+  private final PlanItemRestorer restorer = new PlanItemRestorer();
 
-  private CaseEntry entryFor(UUID caseId) {
-    return entries.computeIfAbsent(caseId, CaseEntry::new);
-  }
+  @Inject PlanItemStore planItemStore;
 
   /**
    * Returns the {@link CasePlanModel} for the given case, creating it if absent. Only {@link
@@ -63,12 +63,32 @@ public class BlackboardRegistry {
    * components should use {@link #get(UUID)}.
    */
   public CasePlanModel getOrCreate(UUID caseId) {
-    return entryFor(caseId).planModel;
+    return entries.computeIfAbsent(caseId, CaseEntry::new).planModel;
   }
 
+  /**
+   * Returns the {@link CasePlanModel} for the given case, or empty if absent.
+   *
+   * <p>On miss: queries PlanItemStore for DELEGATED records and hydrates the registry before
+   * returning. Two concurrent misses for the same case each query the store; the loser finds the
+   * entry already populated and re-applies restorePlanItem() (idempotent — same planItemId, same
+   * data). The cost is at most one duplicate DB call per concurrent miss, acceptable post-restart.
+   *
+   * <p>If planItemStore is null (unit tests that construct BlackboardRegistry directly without
+   * CDI), returns empty immediately without attempting hydration.
+   */
   public Optional<CasePlanModel> get(UUID caseId) {
     CaseEntry e = entries.get(caseId);
-    return e == null ? Optional.empty() : Optional.of(e.planModel);
+    if (e != null) return Optional.of(e.planModel);
+
+    if (planItemStore == null) return Optional.empty();
+
+    List<PlanItemRecord> records = planItemStore.findDelegated(caseId);
+    if (records.isEmpty()) return Optional.empty();
+
+    CaseEntry hydrated = entries.computeIfAbsent(caseId, CaseEntry::new);
+    records.forEach(r -> hydrated.planModel.restorePlanItem(restorer.restore(r)));
+    return Optional.of(hydrated.planModel);
   }
 
   public void indexForCompletion(UUID caseId, String workerName, String planItemId) {
@@ -88,6 +108,10 @@ public class BlackboardRegistry {
    * io.casehub.blackboard.control.BlackboardPlanConfigurer}(s). Returns {@code true} only the first
    * time this method is called for the given case — subsequent calls return {@code false}. This
    * guarantees configurers are invoked exactly once per case instance.
+   *
+   * <p>Contract: BlackboardPlanConfigurer implementations must be idempotent with respect to
+   * pre-populated plan items — addPlanItemIfAbsent() correctly rejects re-dispatch of DELEGATED
+   * bindings already in activeByBinding.
    */
   public boolean markConfigured(UUID caseId) {
     CaseEntry e = entries.get(caseId);
@@ -97,8 +121,7 @@ public class BlackboardRegistry {
   /**
    * Atomically evicts the plan model, completion index, and configured marker for a completed or
    * terminated case. Single map removal — no race window between partial removes. Call when a case
-   * reaches a terminal state to prevent unbounded memory growth. See casehubio/engine#84 for the
-   * persistence SPI that will eventually replace this in-memory registry.
+   * reaches a terminal state to prevent unbounded memory growth. See casehubio/engine#84.
    */
   public void evict(UUID caseId) {
     entries.remove(caseId);

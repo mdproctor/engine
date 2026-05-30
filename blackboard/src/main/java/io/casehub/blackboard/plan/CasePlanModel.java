@@ -39,6 +39,13 @@ public interface CasePlanModel {
   // Scheduling agenda
   void addPlanItem(PlanItem planItem);
 
+  /**
+   * Restores a PlanItem from persistent store into the live plan after a JVM restart. Adds the item
+   * to the lookup indexes but NOT to the scheduling agenda — restored items are not pending
+   * dispatch. See casehubio/engine#274.
+   */
+  void restorePlanItem(PlanItem item);
+
   /** Removes the plan item with the given planItemId. No-op if not found. */
   void removePlanItem(String planItemId);
 

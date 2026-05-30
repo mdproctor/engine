@@ -93,6 +93,7 @@ public class DefaultCasePlanModel implements CasePlanModel {
    * <p>Adds the item to itemsById and activeByBinding so completion handlers can find it, but does
    * NOT add it to the agenda — restored items are not pending dispatch.
    */
+  @Override
   public void restorePlanItem(PlanItem item) {
     itemsById.put(item.getPlanItemId(), item);
     activeByBinding.put(item.getBindingName(), item);
