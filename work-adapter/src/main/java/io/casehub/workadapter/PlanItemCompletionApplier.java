@@ -51,7 +51,7 @@ import org.jboss.logging.Logger;
  * callers that already have one, and a new one is opened when called without.
  */
 @ApplicationScoped
-class PlanItemCompletionApplier {
+public class PlanItemCompletionApplier {
 
   private static final Logger LOG = Logger.getLogger(PlanItemCompletionApplier.class);
   private static final Duration TIMEOUT = Duration.ofSeconds(5);
