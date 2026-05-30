@@ -57,9 +57,10 @@ import org.jboss.logging.Logger;
  * <p>Only processes events whose {@code callerRef} matches the CaseHub format {@code
  * case:{caseId}/pi:{planItemId}} — other WorkItems are ignored.
  *
- * <p>ESCALATED is intentionally excluded from the terminal status filter: the WorkItem returns to
- * PENDING with new candidate groups and remains active. The PlanItem stays in its current state and
- * will transition when the WorkItem reaches a true terminal state. Refs engine#338.
+ * <p>ESCALATED is not terminal: the WorkItem re-enters PENDING with new candidate groups; the
+ * PlanItem stays in its current state. The adapter writes a {@code workItemEscalated} signal to
+ * the case context, allowing definitions to react via {@code contextChange(".workItemEscalated")}.
+ * Refs engine#338, engine#400.
  */
 @ApplicationScoped
 public class WorkItemLifecycleAdapter {
@@ -79,6 +80,12 @@ public class WorkItemLifecycleAdapter {
 
   public void onWorkItemLifecycle(@ObservesAsync WorkItemLifecycleEvent event) {
     WorkItemStatus status = event.status();
+
+    if (status == WorkItemStatus.ESCALATED) {
+      handleEscalation(event);
+      return;
+    }
+
     if (status != WorkItemStatus.COMPLETED
         && status != WorkItemStatus.REJECTED
         && status != WorkItemStatus.CANCELLED
@@ -215,6 +222,67 @@ public class WorkItemLifecycleAdapter {
           "outputMapping failed for PlanItem %s — CONTEXT_CHANGED fires without output update",
           item.getPlanItemId());
     }
+  }
+
+  /**
+   * Writes a {@code workItemEscalated} signal to the case context when a WorkItem escalates.
+   *
+   * <p>ESCALATED is non-terminal: the WorkItem re-enters PENDING with new candidate groups;
+   * the PlanItem status does not change. Case definitions that need to react to escalation
+   * (e.g. notify a supervisor, adjust scope) bind on {@code contextChange(".workItemEscalated")}.
+   *
+   * <p>Follows the same pattern as {@code QhorusMessageSignalBridge}: external events write to a
+   * named context path; definitions bind on it. Refs engine#400.
+   */
+  private void handleEscalation(WorkItemLifecycleEvent event) {
+    if (!(event.source() instanceof WorkItem workItem)) return;
+
+    CallerRef ref = CallerRef.parse(workItem.callerRef);
+    if (ref == null) return;
+
+    CasePlanModel plan = registry.get(ref.caseId()).orElse(null);
+    if (plan == null) {
+      LOG.debugf("No CasePlanModel for caseId=%s — escalation signal skipped", ref.caseId());
+      return;
+    }
+
+    PlanItem item = plan.getPlanItem(ref.planItemId()).orElse(null);
+    if (item == null) {
+      LOG.warnf(
+          "PlanItem %s not found in case %s — escalation signal skipped",
+          ref.planItemId(), ref.caseId());
+      return;
+    }
+
+    CaseInstance instance =
+        caseInstanceRepository.findByUuid(ref.caseId()).await().atMost(TIMEOUT);
+    if (instance == null) {
+      LOG.warnf(
+          "CaseInstance not found for caseId=%s — escalation signal skipped", ref.caseId());
+      return;
+    }
+
+    List<String> newGroups =
+        workItem.candidateGroups != null
+            ? List.of(workItem.candidateGroups.split(","))
+            : List.of();
+
+    instance
+        .getCaseContext()
+        .set(
+            "workItemEscalated",
+            Map.of(
+                "workItemId", workItem.id.toString(),
+                "newGroups", newGroups,
+                "bindingName", item.getBindingName()));
+
+    eventBus.publish(
+        EventBusAddresses.CONTEXT_CHANGED,
+        new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+
+    LOG.infof(
+        "WorkItem escalation signal: caseId=%s planItemId=%s bindingName=%s newGroups=%s",
+        ref.caseId(), ref.planItemId(), item.getBindingName(), newGroups);
   }
 
   /**

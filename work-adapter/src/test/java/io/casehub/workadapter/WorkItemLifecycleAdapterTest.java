@@ -145,19 +145,39 @@ class WorkItemLifecycleAdapterTest {
   }
 
   @Test
-  void workItemEscalated_planItemUnchanged() {
-    // ESCALATED is not terminal — WorkItem re-enters PENDING with new candidate groups.
-    // The adapter ignores the ESCALATED event; PlanItem retains its current status.
-    // The PlanItem will transition when the WorkItem reaches a true terminal state.
-    lifecycleEvents.fireAsync(buildEvent(WorkItemStatus.ESCALATED, null));
+  void workItemEscalated_writesContextSignal_planItemUnchanged() {
+    // ESCALATED is not terminal — PlanItem stays in its current status.
+    // The adapter writes a workItemEscalated signal so case definitions can react via
+    // contextChange(".workItemEscalated") bindings. Refs engine#400.
+    WorkItem escalatedItem = new WorkItem();
+    escalatedItem.id = UUID.randomUUID();
+    escalatedItem.status = WorkItemStatus.ESCALATED;
+    escalatedItem.candidateGroups = "committee-a,committee-b";
+    escalatedItem.callerRef = CallerRef.encode(caseId, planItemId);
 
-    // Give the async observer time to run if it were going to
-    try {
-      Thread.sleep(500);
-    } catch (InterruptedException ignored) {
-    }
+    lifecycleEvents.fireAsync(
+        WorkItemLifecycleEvent.of("workitem.escalated", escalatedItem, "system", null));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              CaseInstance updated =
+                  caseInstanceRepository.findByUuid(caseId).await().atMost(Duration.ofSeconds(2));
+              Object signal = updated.getCaseContext().get("workItemEscalated");
+              assertThat(signal).isNotNull().isInstanceOf(Map.class);
+              @SuppressWarnings("unchecked")
+              Map<String, Object> signalMap = (Map<String, Object>) signal;
+              assertThat(signalMap)
+                  .containsEntry("workItemId", escalatedItem.id.toString())
+                  .containsEntry("bindingName", "review-binding");
+              assertThat(signalMap.get("newGroups")).asList()
+                  .containsExactlyInAnyOrder("committee-a", "committee-b");
+            });
+
+    // PlanItem status must remain unchanged — ESCALATED is not terminal
     assertThat(planItem.getStatus())
-        .as("ESCALATED must be ignored — PlanItem stays in its current status (RUNNING)")
+        .as("ESCALATED must not change PlanItem status")
         .isEqualTo(PlanItemStatus.RUNNING);
   }
 
