@@ -16,29 +16,38 @@
 package io.casehub.engine.common.spi;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Blocking SPI for durable {@link io.casehub.blackboard.plan.PlanItem} status persistence.
+ * Blocking SPI for durable PlanItem status persistence.
  *
- * <p>Used by {@code HumanTaskScheduleHandler} (blocking context) to write PlanItem status in the
- * same JTA transaction as WorkItem creation. The default no-op implementation ({@code
- * NoOpPlanItemStore}) is active when no real store is on the classpath.
- *
- * @see ReactivePlanItemStore for the Uni-returning mirror
+ * <p>Used by HumanTaskScheduleHandler (blocking context) to write PlanItem status in the same JTA
+ * transaction as WorkItem creation. The default no-op implementation (NoOpPlanItemStore) is active
+ * when no real store is on the classpath.
  */
 public interface PlanItemStore {
 
-  /** Record a new PlanItem. Called from {@code DefaultCasePlanModel.addPlanItem()}. */
-  void save(
-      UUID caseId, String planItemId, String bindingName, PlanItemStatus status, Instant createdAt);
+  /** Record a new PlanItem. */
+  void save(PlanItemSaveRequest request);
 
   /** Update the stored status for an existing PlanItem. */
   void updateStatus(String planItemId, PlanItemStatus status);
 
   /** Return all PlanItemRecords for the given case. */
   List<PlanItemRecord> findByCaseId(UUID caseId);
+
+  /**
+   * Return all DELEGATED PlanItemRecords for the given case. Used by BlackboardRegistry lazy
+   * hydration.
+   */
+  List<PlanItemRecord> findDelegated(UUID caseId);
+
+  /**
+   * Return all DELEGATED PlanItemRecords across all cases. Used by HumanTaskRecoveryService at
+   * startup.
+   */
+  List<PlanItemRecord> findAllDelegated();
 }

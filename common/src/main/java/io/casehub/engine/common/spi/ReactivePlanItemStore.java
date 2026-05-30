@@ -16,22 +16,25 @@
 package io.casehub.engine.common.spi;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.smallrye.mutiny.Uni;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Reactive mirror of {@link PlanItemStore} — method signatures identical, return types wrapped in
- * {@link Uni}. For engine runtime handlers on Vert.x IO threads.
+ * Reactive mirror of PlanItemStore — method signatures identical, return types wrapped in Uni. For
+ * engine runtime handlers on Vert.x IO threads.
  */
 public interface ReactivePlanItemStore {
 
-  Uni<Void> save(
-      UUID caseId, String planItemId, String bindingName, PlanItemStatus status, Instant createdAt);
+  Uni<Void> save(PlanItemSaveRequest request);
 
   Uni<Void> updateStatus(String planItemId, PlanItemStatus status);
 
   Uni<List<PlanItemRecord>> findByCaseId(UUID caseId);
+
+  Uni<List<PlanItemRecord>> findDelegated(UUID caseId);
+
+  Uni<List<PlanItemRecord>> findAllDelegated();
 }

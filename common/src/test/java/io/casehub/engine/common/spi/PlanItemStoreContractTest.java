@@ -18,7 +18,9 @@ package io.casehub.engine.common.spi;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.TargetType;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -29,11 +31,16 @@ public abstract class PlanItemStoreContractTest {
 
   protected abstract PlanItemStore store();
 
+  private PlanItemSaveRequest request(UUID caseId, String planItemId, PlanItemStatus status) {
+    return new PlanItemSaveRequest(
+        caseId, planItemId, "my-binding", status, Instant.now(), TargetType.HUMAN_TASK, null);
+  }
+
   @Test
   void save_and_findByCaseId() {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
-    store().save(caseId, planItemId, "my-binding", PlanItemStatus.PENDING, Instant.now());
+    store().save(request(caseId, planItemId, PlanItemStatus.PENDING));
     List<PlanItemRecord> results = store().findByCaseId(caseId);
     assertThat(results).hasSize(1);
     assertThat(results.get(0).planItemId()).isEqualTo(planItemId);
@@ -44,9 +51,34 @@ public abstract class PlanItemStoreContractTest {
   void updateStatus_changes_stored_status() {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
-    store().save(caseId, planItemId, "my-binding", PlanItemStatus.PENDING, Instant.now());
+    store().save(request(caseId, planItemId, PlanItemStatus.PENDING));
     store().updateStatus(planItemId, PlanItemStatus.RUNNING);
     List<PlanItemRecord> results = store().findByCaseId(caseId);
     assertThat(results.get(0).status()).isEqualTo(PlanItemStatus.RUNNING);
+  }
+
+  @Test
+  void findDelegated_returns_only_delegated_for_case() {
+    UUID caseId = UUID.randomUUID();
+    String delegatedId = UUID.randomUUID().toString();
+    String pendingId = UUID.randomUUID().toString();
+    store().save(request(caseId, delegatedId, PlanItemStatus.DELEGATED));
+    store().save(request(caseId, pendingId, PlanItemStatus.PENDING));
+    List<PlanItemRecord> results = store().findDelegated(caseId);
+    assertThat(results).hasSize(1);
+    assertThat(results.get(0).planItemId()).isEqualTo(delegatedId);
+  }
+
+  @Test
+  void findAllDelegated_returns_delegated_across_cases() {
+    UUID case1 = UUID.randomUUID();
+    UUID case2 = UUID.randomUUID();
+    String id1 = UUID.randomUUID().toString();
+    String id2 = UUID.randomUUID().toString();
+    store().save(request(case1, id1, PlanItemStatus.DELEGATED));
+    store().save(request(case2, id2, PlanItemStatus.DELEGATED));
+    List<PlanItemRecord> results = store().findAllDelegated();
+    assertThat(results.stream().map(PlanItemRecord::planItemId))
+        .containsExactlyInAnyOrder(id1, id2);
   }
 }
