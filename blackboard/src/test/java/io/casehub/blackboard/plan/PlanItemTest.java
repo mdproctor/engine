@@ -23,9 +23,11 @@ import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for PlanItem ordering and lifecycle. See casehubio/engine#76. */
@@ -231,5 +233,28 @@ class PlanItemTest {
     PlanItem item = PlanItem.create("binding-a", "unknown", 0);
     item.markCancelled();
     assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
+  }
+
+  // --- restore() factory ---
+
+  @Test
+  void restore_createsPlanItemWithGivenStatusAndId() {
+    String planItemId = UUID.randomUUID().toString();
+    PlanItem item =
+        PlanItem.restore(planItemId, "my-binding", null, PlanItemStatus.DELEGATED, Instant.now());
+    assertThat(item.getPlanItemId()).isEqualTo(planItemId);
+    assertThat(item.getBindingName()).isEqualTo("my-binding");
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+    assertThat(item.getTarget()).isNull();
+  }
+
+  @Test
+  void restore_rejectsInvalidStatus() {
+    assertThatThrownBy(
+            () ->
+                PlanItem.restore(
+                    UUID.randomUUID().toString(), "b", null, PlanItemStatus.PENDING, Instant.now()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("PENDING");
   }
 }

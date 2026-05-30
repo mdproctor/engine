@@ -87,6 +87,17 @@ public class DefaultCasePlanModel implements CasePlanModel {
     return added[0];
   }
 
+  /**
+   * Restores a PlanItem from persistent store into the live plan after a JVM restart.
+   *
+   * <p>Adds the item to itemsById and activeByBinding so completion handlers can find it, but does
+   * NOT add it to the agenda — restored items are not pending dispatch.
+   */
+  public void restorePlanItem(PlanItem item) {
+    itemsById.put(item.getPlanItemId(), item);
+    activeByBinding.put(item.getBindingName(), item);
+  }
+
   @Override
   public void removePlanItem(String planItemId) {
     PlanItem item = itemsById.remove(planItemId);

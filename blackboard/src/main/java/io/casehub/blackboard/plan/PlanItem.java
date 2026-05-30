@@ -52,6 +52,23 @@ public class PlanItem implements Comparable<PlanItem> {
     this.target = target;
   }
 
+  /** For restoration from persistent store. Allows setting a specific planItemId and status. */
+  private PlanItem(
+      String planItemId,
+      String bindingName,
+      BindingTarget target,
+      PlanItemStatus status,
+      Instant createdAt) {
+    this.planItemId = planItemId;
+    this.bindingName = bindingName;
+    this.workerName = null;
+    this.priority = 0;
+    this.target = target;
+    this.status = status;
+    this.createdAt = createdAt;
+    this.parentStageId = null;
+  }
+
   public static PlanItem create(String bindingName, String workerName, int priority) {
     return new PlanItem(bindingName, workerName, priority, null);
   }
@@ -59,6 +76,27 @@ public class PlanItem implements Comparable<PlanItem> {
   public static PlanItem create(
       String bindingName, String workerName, int priority, BindingTarget target) {
     return new PlanItem(bindingName, workerName, priority, target);
+  }
+
+  /**
+   * Restores a PlanItem from persistent store after a JVM restart.
+   *
+   * <p>Only RUNNING and DELEGATED items are valid for restoration. PENDING items are re-created by
+   * evaluation; terminal items must not re-enter the live plan.
+   *
+   * @throws IllegalArgumentException if status is not RUNNING or DELEGATED
+   */
+  public static PlanItem restore(
+      String planItemId,
+      String bindingName,
+      BindingTarget target,
+      PlanItemStatus status,
+      Instant createdAt) {
+    if (status != PlanItemStatus.RUNNING && status != PlanItemStatus.DELEGATED) {
+      throw new IllegalArgumentException(
+          "restore() only valid for RUNNING or DELEGATED status, got: " + status);
+    }
+    return new PlanItem(planItemId, bindingName, target, status, createdAt);
   }
 
   @Override

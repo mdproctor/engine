@@ -18,6 +18,8 @@ package io.casehub.blackboard.plan;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.blackboard.stage.Stage;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -312,6 +314,36 @@ class DefaultCasePlanModelTest {
 
     List<PlanItem> agenda = plan.getAgenda();
     assertThat(agenda).containsExactly(pending);
+  }
+
+  // --- restorePlanItem() ---
+
+  @Test
+  void restorePlanItem_makesItemFindableByIdAndBinding() {
+    UUID caseId = UUID.randomUUID();
+    DefaultCasePlanModel model = new DefaultCasePlanModel(caseId);
+    String planItemId = UUID.randomUUID().toString();
+    PlanItem item =
+        PlanItem.restore(planItemId, "task-binding", null, PlanItemStatus.DELEGATED, Instant.now());
+
+    model.restorePlanItem(item);
+
+    assertThat(model.getPlanItem(planItemId)).contains(item);
+    assertThat(model.getPlanItemByBindingName("task-binding")).contains(item);
+  }
+
+  @Test
+  void restorePlanItem_doesNotAddToAgenda() {
+    UUID caseId = UUID.randomUUID();
+    DefaultCasePlanModel model = new DefaultCasePlanModel(caseId);
+    PlanItem item =
+        PlanItem.restore(
+            UUID.randomUUID().toString(), "task", null, PlanItemStatus.DELEGATED, Instant.now());
+
+    model.restorePlanItem(item);
+
+    // agenda only shows PENDING items
+    assertThat(model.getAgenda()).isEmpty();
   }
 
   // ---------------------------------------------------------------------------
