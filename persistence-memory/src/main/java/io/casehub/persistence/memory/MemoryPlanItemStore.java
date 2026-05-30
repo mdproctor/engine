@@ -48,7 +48,7 @@ public class MemoryPlanItemStore implements PlanItemStore {
       String bindingName,
       PlanItemStatus status,
       Instant createdAt) {
-    records.put(planItemId, new PlanItemRecord(caseId, planItemId, bindingName, status, createdAt));
+    records.put(planItemId, new PlanItemRecord(caseId, planItemId, bindingName, status, createdAt, null, null));
   }
 
   @Override
@@ -56,7 +56,7 @@ public class MemoryPlanItemStore implements PlanItemStore {
     records.computeIfPresent(
         planItemId,
         (k, r) ->
-            new PlanItemRecord(r.caseId(), r.planItemId(), r.bindingName(), status, r.createdAt()));
+            new PlanItemRecord(r.caseId(), r.planItemId(), r.bindingName(), status, r.createdAt(), r.targetType(), r.outputMappingExpression()));
   }
 
   @Override

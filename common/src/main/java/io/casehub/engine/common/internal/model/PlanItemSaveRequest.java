@@ -18,11 +18,7 @@ package io.casehub.engine.common.internal.model;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Lightweight read model returned by {@link
- * io.casehub.engine.common.spi.PlanItemStore#findByCaseId}.
- */
-public record PlanItemRecord(
+public record PlanItemSaveRequest(
     UUID caseId,
     String planItemId,
     String bindingName,

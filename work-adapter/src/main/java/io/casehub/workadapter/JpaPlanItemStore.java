@@ -82,7 +82,7 @@ public class JpaPlanItemStore implements PlanItemStore {
         .setParameter("caseId", caseId)
         .getResultList()
         .stream()
-        .map(e -> new PlanItemRecord(e.caseId, e.planItemId, e.bindingName, e.status, e.createdAt))
+        .map(e -> new PlanItemRecord(e.caseId, e.planItemId, e.bindingName, e.status, e.createdAt, null, null))
         .collect(Collectors.toList());
   }
 }

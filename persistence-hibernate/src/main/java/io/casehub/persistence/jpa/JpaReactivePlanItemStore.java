@@ -89,7 +89,9 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
                                                 e.planItemId,
                                                 e.bindingName,
                                                 e.status,
-                                                e.createdAt))
+                                                e.createdAt,
+                                                null,
+                                                null))
                                     .collect(Collectors.toList()))));
   }
 }
