@@ -15,21 +15,11 @@
  */
 package io.casehub.workadapter;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.api.model.CapabilityTarget;
-import io.casehub.api.model.ExtensionTarget;
-import io.casehub.api.model.HumanTaskTarget;
-import io.casehub.api.model.SubCaseTarget;
-import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
-import io.casehub.engine.common.internal.jq.JQEvaluator;
-import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.work.api.GroupStatus;
@@ -67,8 +57,6 @@ public class WorkItemLifecycleAdapter {
 
   private static final Logger LOG = Logger.getLogger(WorkItemLifecycleAdapter.class);
   private static final Duration TIMEOUT = Duration.ofSeconds(5);
-  private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject BlackboardRegistry registry;
 
@@ -76,7 +64,7 @@ public class WorkItemLifecycleAdapter {
 
   @Inject EventBus eventBus;
 
-  @Inject JQEvaluator jqEvaluator;
+  @Inject PlanItemCompletionApplier applier;
 
   public void onWorkItemLifecycle(@ObservesAsync WorkItemLifecycleEvent event) {
     WorkItemStatus status = event.status();
@@ -96,36 +84,14 @@ public class WorkItemLifecycleAdapter {
     CallerRef ref = CallerRef.parse(workItem.callerRef);
     if (ref == null) return;
 
-    CasePlanModel plan = registry.get(ref.caseId()).orElse(null);
-    if (plan == null) {
+    if (registry.get(ref.caseId()).isEmpty()) {
       LOG.debugf(
           "No CasePlanModel for caseId=%s — case may have completed or not use blackboard",
           ref.caseId());
       return;
     }
 
-    PlanItem item = plan.getPlanItem(ref.planItemId()).orElse(null);
-    if (item == null) {
-      LOG.warnf("PlanItem %s not found in case %s", ref.planItemId(), ref.caseId());
-      return;
-    }
-
-    if (!applyStatus(item, status)) return;
-
-    // Use Uni.await() directly — safe from a CDI managed executor thread (non-Vert.x).
-    // runOnSafeVertxContext was removed because it reliably times out in complex Quarkus
-    // deployments with many event-bus subscribers (engine#316).
-    CaseInstance instance = caseInstanceRepository.findByUuid(ref.caseId()).await().atMost(TIMEOUT);
-
-    if (instance == null) {
-      LOG.warnf("CaseInstance not found for caseId=%s — cannot fire CONTEXT_CHANGED", ref.caseId());
-      return;
-    }
-
-    applyOutputMapping(item, workItem, instance);
-    eventBus.publish(
-        EventBusAddresses.CONTEXT_CHANGED,
-        new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+    applier.apply(ref.caseId(), ref.planItemId(), status, workItem);
   }
 
   public void onWorkItemGroupLifecycle(@ObservesAsync WorkItemGroupLifecycleEvent event) {
@@ -176,57 +142,6 @@ public class WorkItemLifecycleAdapter {
           "Cannot transition PlanItem %s (current=%s) for GroupStatus %s: %s",
           item.getPlanItemId(), item.getStatus(), status, e.getMessage());
       return false;
-    }
-  }
-
-  private void applyOutputMapping(PlanItem item, WorkItem workItem, CaseInstance instance) {
-    if (instance.getCaseContext() == null) {
-      LOG.warnf(
-          "CaseInstance %s has no CaseContext — outputMapping skipped for PlanItem %s",
-          instance.getUuid(), item.getPlanItemId());
-      return;
-    }
-    if (item.getTarget() == null) {
-      LOG.warnf(
-          "PlanItem %s has no target (recovered without target info) — outputMapping skipped",
-          item.getPlanItemId());
-      return;
-    }
-    HumanTaskTarget ht =
-        switch (item.getTarget()) {
-          case HumanTaskTarget humanTaskTarget -> humanTaskTarget;
-          case CapabilityTarget ignored -> null;
-          case SubCaseTarget ignored -> null;
-          case ExtensionTarget ignored -> null;
-        };
-    if (ht == null) return;
-    if (ht.outputMapping() == null) return;
-    if (workItem.resolution == null) return;
-
-    if (!(ht.outputMapping() instanceof JQExpressionEvaluator jq)) {
-      LOG.warnf(
-          "Unsupported outputMapping evaluator type '%s' for PlanItem %s — skipping",
-          ht.outputMapping().getClass().getName(), item.getPlanItemId());
-      return;
-    }
-
-    try {
-      JsonNode resolutionNode = MAPPER.readTree(workItem.resolution);
-      ValidationResult vr = jqEvaluator.eval(jq.expression(), resolutionNode);
-      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
-        LOG.warnf(
-            "outputMapping jq expression returned no result for PlanItem %s: %s",
-            item.getPlanItemId(), vr.error());
-        return;
-      }
-      List<JsonNode> output = vr.output();
-      Map<String, Object> updates = MAPPER.convertValue(output.get(0), MAP_TYPE);
-      instance.getCaseContext().setAll(updates);
-    } catch (Exception e) {
-      LOG.warnf(
-          e,
-          "outputMapping failed for PlanItem %s — CONTEXT_CHANGED fires without output update",
-          item.getPlanItemId());
     }
   }
 
@@ -289,29 +204,5 @@ public class WorkItemLifecycleAdapter {
     LOG.infof(
         "WorkItem escalation signal: caseId=%s planItemId=%s bindingName=%s newGroups=%s",
         ref.caseId(), ref.planItemId(), item.getBindingName(), newGroups);
-  }
-
-  /**
-   * Applies the terminal WorkItemStatus to the PlanItem. Returns false if the transition is invalid
-   * (e.g. item already terminal), in which case no CONTEXT_CHANGED should be fired.
-   */
-  private boolean applyStatus(PlanItem item, WorkItemStatus status) {
-    try {
-      switch (status) {
-        case COMPLETED -> item.markCompleted();
-        case REJECTED -> item.markRejected();
-        case EXPIRED -> item.markFaulted();
-        case CANCELLED -> item.markCancelled();
-        default -> {
-          return false;
-        }
-      }
-      return true;
-    } catch (IllegalStateException e) {
-      LOG.warnf(
-          "Cannot transition PlanItem %s (current=%s) for WorkItemStatus %s: %s",
-          item.getPlanItemId(), item.getStatus(), status, e.getMessage());
-      return false;
-    }
   }
 }
