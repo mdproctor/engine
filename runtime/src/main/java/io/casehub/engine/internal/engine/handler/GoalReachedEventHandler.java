@@ -86,17 +86,30 @@ public class GoalReachedEventHandler {
 
     return eventLogRepository
         .append(eventLog)
-        .invoke(
+        .chain(
             () ->
-                lifecycleEvents.fireAsync(
-                    new CaseLifecycleEvent(
-                        caseInstance.getUuid(),
-                        "ReachGoal",
-                        "GoalReached",
-                        caseInstance.getState().name(),
-                        null,
-                        "System",
-                        traceId)))
+                Uni.createFrom()
+                    .completionStage(
+                        () ->
+                            lifecycleEvents.fireAsync(
+                                new CaseLifecycleEvent(
+                                    caseInstance.getUuid(),
+                                    "ReachGoal",
+                                    "GoalReached",
+                                    caseInstance.getState().name(),
+                                    null,
+                                    "System",
+                                    traceId)))
+                    .onFailure()
+                    .recoverWithItem(
+                        t -> {
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
+                              caseInstance.getUuid());
+                          return null;
+                        })
+                    .replaceWithVoid())
         .chain(() -> evaluateCompletion(caseInstance, definition.getCompletion()));
   }
 

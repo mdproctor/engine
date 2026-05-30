@@ -33,11 +33,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import org.jboss.logging.Logger;
 
 /** Records a MILESTONE_REACHED event. */
 @ApplicationScoped
 public class MilestoneReachedEventHandler {
 
+  private static final Logger LOG = Logger.getLogger(MilestoneReachedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   @Inject EventLogRepository eventLogRepository;
@@ -65,16 +67,29 @@ public class MilestoneReachedEventHandler {
 
     return eventLogRepository
         .append(eventLog)
-        .invoke(
+        .chain(
             () ->
-                lifecycleEvents.fireAsync(
-                    new CaseLifecycleEvent(
-                        caseInstance.getUuid(),
-                        "ReachMilestone",
-                        "MilestoneReached",
-                        caseInstance.getState().name(),
-                        null,
-                        "System",
-                        traceId)));
+                Uni.createFrom()
+                    .completionStage(
+                        () ->
+                            lifecycleEvents.fireAsync(
+                                new CaseLifecycleEvent(
+                                    caseInstance.getUuid(),
+                                    "ReachMilestone",
+                                    "MilestoneReached",
+                                    caseInstance.getState().name(),
+                                    null,
+                                    "System",
+                                    traceId)))
+                    .onFailure()
+                    .recoverWithItem(
+                        t -> {
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s event=MilestoneReached",
+                              caseInstance.getUuid());
+                          return null;
+                        })
+                    .replaceWithVoid());
   }
 }

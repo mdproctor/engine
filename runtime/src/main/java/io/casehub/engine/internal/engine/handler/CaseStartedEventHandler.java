@@ -74,19 +74,33 @@ public class CaseStartedEventHandler {
         .append(eventLog)
         .chain(() -> schedulerService.registerScheduledTriggers(instance))
         .invoke(
-            () -> {
-              eventBus.publish(
-                  EventBusAddresses.CONTEXT_CHANGED,
-                  new CaseContextChangedEvent(instance, contextSnapshot));
-              lifecycleEvents.fireAsync(
-                  new CaseLifecycleEvent(
-                      instance.getUuid(),
-                      "StartCase",
-                      "CaseStarted",
-                      instance.getState().name(),
-                      null,
-                      "System",
-                      traceId));
-            });
+            () ->
+                eventBus.publish(
+                    EventBusAddresses.CONTEXT_CHANGED,
+                    new CaseContextChangedEvent(instance, contextSnapshot)))
+        .chain(
+            () ->
+                Uni.createFrom()
+                    .completionStage(
+                        () ->
+                            lifecycleEvents.fireAsync(
+                                new CaseLifecycleEvent(
+                                    instance.getUuid(),
+                                    "StartCase",
+                                    "CaseStarted",
+                                    instance.getState().name(),
+                                    null,
+                                    "System",
+                                    traceId)))
+                    .onFailure()
+                    .recoverWithItem(
+                        t -> {
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s event=CaseStarted",
+                              instance.getUuid());
+                          return null;
+                        })
+                    .replaceWithVoid());
   }
 }

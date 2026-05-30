@@ -101,28 +101,55 @@ public class WorkflowExecutionCompletedHandler {
                     worker.getName(),
                     WorkResult.completed(
                         event.idempotency(), rawOutput, worker.getName(), caseInstance.getUuid())))
-        .invoke(
+        .chain(
             () ->
-                lifecycleEvents.fireAsync(
-                    new CaseLifecycleEvent(
-                        caseInstance.getUuid(),
-                        "ExecuteWorker",
-                        "WorkerExecutionCompleted",
-                        caseInstance.getState().name(),
-                        // "system" — the engine applied the worker's output; the worker's decision
-                        // record is written separately as WorkerDecisionEntry via
-                        // WorkerDecisionEvent
-                        "system",
-                        "SYSTEM",
-                        traceId)))
-        .invoke(
+                Uni.createFrom()
+                    .completionStage(
+                        () ->
+                            lifecycleEvents.fireAsync(
+                                new CaseLifecycleEvent(
+                                    caseInstance.getUuid(),
+                                    "ExecuteWorker",
+                                    "WorkerExecutionCompleted",
+                                    caseInstance.getState().name(),
+                                    // "system" — the engine applied the worker's output; the worker's
+                                    // decision record is written separately as WorkerDecisionEntry
+                                    // via WorkerDecisionEvent
+                                    "system",
+                                    "SYSTEM",
+                                    traceId)))
+                    .onFailure()
+                    .recoverWithItem(
+                        t -> {
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s event=WorkerExecutionCompleted",
+                              caseInstance.getUuid());
+                          return null;
+                        })
+                    .replaceWithVoid())
+        .chain(
             () ->
-                workerDecisionEvents.fireAsync(
-                    new WorkerDecisionEvent(
-                        caseInstance.getUuid(),
-                        worker.getName(),
-                        extractCapabilityTag(caseInstance, worker),
-                        traceId)))
+                Uni.createFrom()
+                    .completionStage(
+                        () ->
+                            workerDecisionEvents.fireAsync(
+                                new WorkerDecisionEvent(
+                                    caseInstance.getUuid(),
+                                    worker.getName(),
+                                    extractCapabilityTag(caseInstance, worker),
+                                    traceId)))
+                    .onFailure()
+                    .recoverWithItem(
+                        t -> {
+                          LOG.warnf(
+                              t,
+                              "WorkerDecisionEvent observer failed for caseId=%s worker=%s",
+                              caseInstance.getUuid(),
+                              worker.getName());
+                          return null;
+                        })
+                    .replaceWithVoid())
         .invoke(
             () ->
                 eventBus.publish(

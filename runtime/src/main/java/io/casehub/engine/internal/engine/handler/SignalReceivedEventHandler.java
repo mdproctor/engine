@@ -114,19 +114,33 @@ public class SignalReceivedEventHandler {
     return eventLogRepository
         .append(eventLog)
         .invoke(
-            () -> {
-              eventBus.publish(
-                  CONTEXT_CHANGED, new CaseContextChangedEvent(instance, contextSnapshot));
-              lifecycleEvents.fireAsync(
-                  new CaseLifecycleEvent(
-                      instance.getUuid(),
-                      "SignalCase",
-                      "SignalReceived",
-                      instance.getState().name(),
-                      null,
-                      "System",
-                      traceId));
-            })
+            () ->
+                eventBus.publish(
+                    CONTEXT_CHANGED, new CaseContextChangedEvent(instance, contextSnapshot)))
+        .chain(
+            () ->
+                Uni.createFrom()
+                    .completionStage(
+                        () ->
+                            lifecycleEvents.fireAsync(
+                                new CaseLifecycleEvent(
+                                    instance.getUuid(),
+                                    "SignalCase",
+                                    "SignalReceived",
+                                    instance.getState().name(),
+                                    null,
+                                    "System",
+                                    traceId)))
+                    .onFailure()
+                    .recoverWithItem(
+                        t -> {
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s event=SignalReceived",
+                              instance.getUuid());
+                          return null;
+                        })
+                    .replaceWithVoid())
         .replaceWithVoid()
         .onFailure()
         .invoke(
