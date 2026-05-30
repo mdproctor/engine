@@ -186,6 +186,12 @@ public class WorkItemLifecycleAdapter {
           instance.getUuid(), item.getPlanItemId());
       return;
     }
+    if (item.getTarget() == null) {
+      LOG.warnf(
+          "PlanItem %s has no target (recovered without target info) — outputMapping skipped",
+          item.getPlanItemId());
+      return;
+    }
     HumanTaskTarget ht =
         switch (item.getTarget()) {
           case HumanTaskTarget humanTaskTarget -> humanTaskTarget;
