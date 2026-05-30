@@ -16,11 +16,11 @@
 package io.casehub.blackboard.store;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,18 +33,23 @@ import java.util.UUID;
 public class NoOpPlanItemStore implements PlanItemStore {
 
   @Override
-  public void save(
-      UUID caseId,
-      String planItemId,
-      String bindingName,
-      PlanItemStatus status,
-      Instant createdAt) {}
+  public void save(PlanItemSaveRequest request) {}
 
   @Override
   public void updateStatus(String planItemId, PlanItemStatus status) {}
 
   @Override
   public List<PlanItemRecord> findByCaseId(UUID caseId) {
+    return List.of();
+  }
+
+  @Override
+  public List<PlanItemRecord> findDelegated(UUID caseId) {
+    return List.of();
+  }
+
+  @Override
+  public List<PlanItemRecord> findAllDelegated() {
     return List.of();
   }
 }

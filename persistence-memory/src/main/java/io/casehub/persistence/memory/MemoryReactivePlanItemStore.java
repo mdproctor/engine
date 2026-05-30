@@ -16,13 +16,13 @@
 package io.casehub.persistence.memory;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.ReactivePlanItemStore;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -37,13 +37,8 @@ public class MemoryReactivePlanItemStore implements ReactivePlanItemStore {
   @Inject MemoryPlanItemStore delegate;
 
   @Override
-  public Uni<Void> save(
-      UUID caseId,
-      String planItemId,
-      String bindingName,
-      PlanItemStatus status,
-      Instant createdAt) {
-    delegate.save(caseId, planItemId, bindingName, status, createdAt);
+  public Uni<Void> save(PlanItemSaveRequest request) {
+    delegate.save(request);
     return Uni.createFrom().voidItem();
   }
 
@@ -56,5 +51,15 @@ public class MemoryReactivePlanItemStore implements ReactivePlanItemStore {
   @Override
   public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId) {
     return Uni.createFrom().item(delegate.findByCaseId(caseId));
+  }
+
+  @Override
+  public Uni<List<PlanItemRecord>> findDelegated(UUID caseId) {
+    return Uni.createFrom().item(delegate.findDelegated(caseId));
+  }
+
+  @Override
+  public Uni<List<PlanItemRecord>> findAllDelegated() {
+    return Uni.createFrom().item(delegate.findAllDelegated());
   }
 }

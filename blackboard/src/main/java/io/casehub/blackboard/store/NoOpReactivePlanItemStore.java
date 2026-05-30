@@ -16,12 +16,12 @@
 package io.casehub.blackboard.store;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.ReactivePlanItemStore;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -31,12 +31,7 @@ import java.util.UUID;
 public class NoOpReactivePlanItemStore implements ReactivePlanItemStore {
 
   @Override
-  public Uni<Void> save(
-      UUID caseId,
-      String planItemId,
-      String bindingName,
-      PlanItemStatus status,
-      Instant createdAt) {
+  public Uni<Void> save(PlanItemSaveRequest request) {
     return Uni.createFrom().voidItem();
   }
 
@@ -47,6 +42,16 @@ public class NoOpReactivePlanItemStore implements ReactivePlanItemStore {
 
   @Override
   public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId) {
+    return Uni.createFrom().item(List.of());
+  }
+
+  @Override
+  public Uni<List<PlanItemRecord>> findDelegated(UUID caseId) {
+    return Uni.createFrom().item(List.of());
+  }
+
+  @Override
+  public Uni<List<PlanItemRecord>> findAllDelegated() {
     return Uni.createFrom().item(List.of());
   }
 }

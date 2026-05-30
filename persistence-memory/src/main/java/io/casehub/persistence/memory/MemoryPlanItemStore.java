@@ -16,11 +16,11 @@
 package io.casehub.persistence.memory;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,13 +42,17 @@ public class MemoryPlanItemStore implements PlanItemStore {
   }
 
   @Override
-  public void save(
-      UUID caseId,
-      String planItemId,
-      String bindingName,
-      PlanItemStatus status,
-      Instant createdAt) {
-    records.put(planItemId, new PlanItemRecord(caseId, planItemId, bindingName, status, createdAt, null, null));
+  public void save(PlanItemSaveRequest request) {
+    records.put(
+        request.planItemId(),
+        new PlanItemRecord(
+            request.caseId(),
+            request.planItemId(),
+            request.bindingName(),
+            request.status(),
+            request.createdAt(),
+            request.targetType(),
+            request.outputMappingExpression()));
   }
 
   @Override
@@ -56,13 +60,34 @@ public class MemoryPlanItemStore implements PlanItemStore {
     records.computeIfPresent(
         planItemId,
         (k, r) ->
-            new PlanItemRecord(r.caseId(), r.planItemId(), r.bindingName(), status, r.createdAt(), r.targetType(), r.outputMappingExpression()));
+            new PlanItemRecord(
+                r.caseId(),
+                r.planItemId(),
+                r.bindingName(),
+                status,
+                r.createdAt(),
+                r.targetType(),
+                r.outputMappingExpression()));
   }
 
   @Override
   public List<PlanItemRecord> findByCaseId(UUID caseId) {
     return records.values().stream()
         .filter(r -> caseId.equals(r.caseId()))
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public List<PlanItemRecord> findDelegated(UUID caseId) {
+    return records.values().stream()
+        .filter(r -> caseId.equals(r.caseId()) && r.status() == PlanItemStatus.DELEGATED)
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public List<PlanItemRecord> findAllDelegated() {
+    return records.values().stream()
+        .filter(r -> r.status() == PlanItemStatus.DELEGATED)
         .collect(Collectors.toList());
   }
 }

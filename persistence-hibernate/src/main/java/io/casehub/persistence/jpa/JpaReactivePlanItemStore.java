@@ -16,13 +16,13 @@
 package io.casehub.persistence.jpa;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.ReactivePlanItemStore;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.panache.common.Parameters;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -32,22 +32,18 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
     implements ReactivePlanItemStore {
 
   @Override
-  public Uni<Void> save(
-      UUID caseId,
-      String planItemId,
-      String bindingName,
-      PlanItemStatus status,
-      Instant createdAt) {
+  public Uni<Void> save(PlanItemSaveRequest request) {
     return withSafeContext(
         () ->
             Panache.withTransaction(
                 () -> {
                   PlanItemEntity e = new PlanItemEntity();
-                  e.caseId = caseId;
-                  e.planItemId = planItemId;
-                  e.bindingName = bindingName;
-                  e.status = status;
-                  e.createdAt = createdAt;
+                  e.caseId = request.caseId();
+                  e.planItemId = request.planItemId();
+                  e.bindingName = request.bindingName();
+                  e.status = request.status();
+                  e.createdAt = request.createdAt();
+                  // targetType and outputMappingExpression stored in Task 5 (entity columns TBD)
                   return e.persist().replaceWithVoid();
                 }));
   }
@@ -78,6 +74,57 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
             Panache.withSession(
                 () ->
                     PlanItemEntity.<PlanItemEntity>find("caseId", caseId)
+                        .list()
+                        .map(
+                            list ->
+                                list.stream()
+                                    .map(
+                                        e ->
+                                            new PlanItemRecord(
+                                                e.caseId,
+                                                e.planItemId,
+                                                e.bindingName,
+                                                e.status,
+                                                e.createdAt,
+                                                null,
+                                                null))
+                                    .collect(Collectors.toList()))));
+  }
+
+  @Override
+  public Uni<List<PlanItemRecord>> findDelegated(UUID caseId) {
+    return withSafeContext(
+        () ->
+            Panache.withSession(
+                () ->
+                    PlanItemEntity.<PlanItemEntity>find(
+                            "caseId = :caseId AND status = :status",
+                            Parameters.with("caseId", caseId)
+                                .and("status", PlanItemStatus.DELEGATED))
+                        .list()
+                        .map(
+                            list ->
+                                list.stream()
+                                    .map(
+                                        e ->
+                                            new PlanItemRecord(
+                                                e.caseId,
+                                                e.planItemId,
+                                                e.bindingName,
+                                                e.status,
+                                                e.createdAt,
+                                                null,
+                                                null))
+                                    .collect(Collectors.toList()))));
+  }
+
+  @Override
+  public Uni<List<PlanItemRecord>> findAllDelegated() {
+    return withSafeContext(
+        () ->
+            Panache.withSession(
+                () ->
+                    PlanItemEntity.<PlanItemEntity>find("status", PlanItemStatus.DELEGATED)
                         .list()
                         .map(
                             list ->
