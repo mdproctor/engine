@@ -413,17 +413,30 @@ public class CaseContextChangedEventHandler {
                                 null); // triggerCorrelationId — see engine#231
                         return reactiveWorkerProvisioner
                             .provision(caps, provisionContext)
-                            .invoke(
+                            .chain(
                                 result ->
-                                    lifecycleEvents.fireAsync(
-                                        new CaseLifecycleEvent(
-                                            caseInstance.getUuid(),
-                                            "ProvisionWorker",
-                                            "WorkerStarted",
-                                            caseInstance.getState().name(),
-                                            null,
-                                            "System",
-                                            traceId)))
+                                    Uni.createFrom()
+                                        .completionStage(
+                                            () ->
+                                                lifecycleEvents.fireAsync(
+                                                    new CaseLifecycleEvent(
+                                                        caseInstance.getUuid(),
+                                                        "ProvisionWorker",
+                                                        "WorkerStarted",
+                                                        caseInstance.getState().name(),
+                                                        null,
+                                                        "System",
+                                                        traceId)))
+                                        .onFailure()
+                                        .recoverWithItem(
+                                            t -> {
+                                              LOG.warnf(
+                                                  t,
+                                                  "CaseLifecycleEvent observer failed for caseId=%s event=WorkerStarted",
+                                                  caseInstance.getUuid());
+                                              return null;
+                                            })
+                                        .replaceWithVoid())
                             .replaceWithVoid();
                       });
             })

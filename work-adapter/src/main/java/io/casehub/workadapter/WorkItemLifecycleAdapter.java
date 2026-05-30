@@ -264,9 +264,11 @@ public class WorkItemLifecycleAdapter {
 
     List<String> newGroups =
         workItem.candidateGroups != null
-            ? List.of(workItem.candidateGroups.split(","))
+            ? List.of(workItem.candidateGroups.split("\\s*,\\s*"))
             : List.of();
 
+    // Overwrites any previous escalation signal for this case — last escalation wins.
+    // Same semantics as QhorusMessageSignalBridge (single fixed key, not a queue).
     instance
         .getCaseContext()
         .set(
