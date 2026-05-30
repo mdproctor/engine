@@ -125,10 +125,8 @@ public class HumanTaskScheduleHandler {
 
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
     WorkItem workItem =
-        workItemTemplateService.instantiate(template, target.title(), callerRef, "casehub-engine");
+        workItemTemplateService.instantiate(template, target.title(), null, "casehub-engine", callerRef);
 
-    // Set callerRef, scope, and payload manually (not handled by instantiate method)
-    workItem.callerRef = callerRef;
     workItem.scope = target.scope();
     if (event.inputData() != null && !event.inputData().isEmpty()) {
       workItem.payload = serializePayload(event.inputData());

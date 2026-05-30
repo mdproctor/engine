@@ -153,6 +153,7 @@ class HumanTaskScheduleHandlerTest {
     assertThat(created).isNotNull();
     assertThat(created.status).isEqualTo(WorkItemStatus.PENDING);
     assertThat(created.title).isEqualTo("IRB Ethics Review Template");
+    assertThat(created.assigneeId).isNull(); // callerRef must not be passed as assigneeIdOverride
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
     assertThat(planItemStore.findByCaseId(caseId))
         .anyMatch(
