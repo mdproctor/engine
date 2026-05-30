@@ -18,6 +18,7 @@ package io.casehub.ledger.repository;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.runtime.repository.jpa.JpaLedgerEntryRepository;
+import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
@@ -29,10 +30,16 @@ import java.util.UUID;
 /**
  * JPA repository for {@link CaseLedgerEntry}.
  *
- * <p>Extends {@link JpaLedgerEntryRepository} (marked {@code @Alternative}) — being
- * {@code @ApplicationScoped} here activates it as the single {@code LedgerEntryRepository} CDI
- * bean. No {@code beans.xml} or {@code selected-alternatives} config needed.
+ * <p>Extends {@link JpaLedgerEntryRepository} — adds case-specific query methods for
+ * {@link CaseLedgerEntry} and {@link WorkerDecisionEntry}.
+ *
+ * <p>{@code @DefaultBean} yields automatically to any explicitly selected alternative
+ * ({@code selected-alternatives}, {@code @Priority}-activated alternative). Consumers that want a
+ * different implementation (e.g. in-memory test doubles) need no exclusion configuration — their
+ * selected alternative wins by default. This follows the engine SPI default pattern
+ * (PP-20260514-engine-spi-noops-defaultbean).
  */
+@DefaultBean
 @ApplicationScoped
 public class CaseLedgerEntryRepository extends JpaLedgerEntryRepository {
 
