@@ -18,12 +18,15 @@ package io.casehub.workadapter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
@@ -125,7 +128,8 @@ public class HumanTaskScheduleHandler {
 
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
     WorkItem workItem =
-        workItemTemplateService.instantiate(template, target.title(), null, "casehub-engine", callerRef);
+        workItemTemplateService.instantiate(
+            template, target.title(), null, "casehub-engine", callerRef);
 
     workItem.scope = target.scope();
     if (event.inputData() != null && !event.inputData().isEmpty()) {
@@ -134,11 +138,14 @@ public class HumanTaskScheduleHandler {
     workItem.persist();
 
     planItemStore.save(
-        event.caseId(),
-        item.getPlanItemId(),
-        item.getBindingName(),
-        PlanItemStatus.DELEGATED,
-        item.getCreatedAt());
+        new PlanItemSaveRequest(
+            event.caseId(),
+            item.getPlanItemId(),
+            item.getBindingName(),
+            PlanItemStatus.DELEGATED,
+            item.getCreatedAt(),
+            TargetType.HUMAN_TASK,
+            extractOutputMappingExpression(event.target())));
     item.markDelegated();
     LOG.infof("WorkItem created (template=%s) for binding callerRef=%s", template.id, callerRef);
   }
@@ -147,11 +154,14 @@ public class HumanTaskScheduleHandler {
     String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
     createInline(event.target(), event.inputData(), callerRef, event.caseBudgetDeadline());
     planItemStore.save(
-        event.caseId(),
-        item.getPlanItemId(),
-        item.getBindingName(),
-        PlanItemStatus.DELEGATED,
-        item.getCreatedAt());
+        new PlanItemSaveRequest(
+            event.caseId(),
+            item.getPlanItemId(),
+            item.getBindingName(),
+            PlanItemStatus.DELEGATED,
+            item.getCreatedAt(),
+            TargetType.HUMAN_TASK,
+            extractOutputMappingExpression(event.target())));
     item.markDelegated();
   }
 
@@ -207,5 +217,11 @@ public class HumanTaskScheduleHandler {
   private static String candidateUsersCsv(HumanTaskTarget target) {
     if (target.candidateUsers() == null || target.candidateUsers().isEmpty()) return null;
     return String.join(",", target.candidateUsers());
+  }
+
+  private static String extractOutputMappingExpression(HumanTaskTarget target) {
+    if (target == null || target.outputMapping() == null) return null;
+    if (target.outputMapping() instanceof JQExpressionEvaluator jq) return jq.expression();
+    return null;
   }
 }

@@ -18,7 +18,9 @@ package io.casehub.workadapter;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.TargetType;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -37,7 +39,15 @@ class JpaPlanItemStoreTest {
   void save_and_findByCaseId() {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
-    store.save(caseId, planItemId, "test-binding", PlanItemStatus.PENDING, Instant.now());
+    store.save(
+        new PlanItemSaveRequest(
+            caseId,
+            planItemId,
+            "test-binding",
+            PlanItemStatus.PENDING,
+            Instant.now(),
+            TargetType.HUMAN_TASK,
+            null));
     List<PlanItemRecord> found = store.findByCaseId(caseId);
     assertThat(found).hasSize(1);
     assertThat(found.get(0).status()).isEqualTo(PlanItemStatus.PENDING);
@@ -48,7 +58,15 @@ class JpaPlanItemStoreTest {
   void updateStatus_updates_stored_value() {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
-    store.save(caseId, planItemId, "test-binding", PlanItemStatus.PENDING, Instant.now());
+    store.save(
+        new PlanItemSaveRequest(
+            caseId,
+            planItemId,
+            "test-binding",
+            PlanItemStatus.PENDING,
+            Instant.now(),
+            TargetType.HUMAN_TASK,
+            null));
     store.updateStatus(planItemId, PlanItemStatus.RUNNING);
     List<PlanItemRecord> found = store.findByCaseId(caseId);
     assertThat(found.get(0).status()).isEqualTo(PlanItemStatus.RUNNING);
