@@ -59,30 +59,23 @@ class WorkerRetryExhaustionHandlerTest {
     item.markRunning();
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler
-        .onWorkerRetriesExhausted(new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123"))
-        .await()
-        .indefinitely();
+    handler.onWorkerRetriesExhausted(
+        new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
 
   @Test
   void unknown_case_is_a_noop() {
-    handler
-        .onWorkerRetriesExhausted(
-            new WorkerRetriesExhaustedEvent(UUID.randomUUID(), "worker-x", "hash"))
-        .await()
-        .indefinitely();
+    handler.onWorkerRetriesExhausted(
+        new WorkerRetriesExhaustedEvent(UUID.randomUUID(), "worker-x", "hash"));
     // no exception
   }
 
   @Test
   void unknown_worker_is_a_noop() {
-    handler
-        .onWorkerRetriesExhausted(new WorkerRetriesExhaustedEvent(caseId, "unknown-worker", "hash"))
-        .await()
-        .indefinitely();
+    handler.onWorkerRetriesExhausted(
+        new WorkerRetriesExhaustedEvent(caseId, "unknown-worker", "hash"));
     // no exception
   }
 
@@ -94,10 +87,8 @@ class WorkerRetryExhaustionHandlerTest {
     item.markFaulted(); // already terminal
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler
-        .onWorkerRetriesExhausted(new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123"))
-        .await()
-        .indefinitely();
+    handler.onWorkerRetriesExhausted(
+        new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED); // unchanged, no throw
   }
@@ -111,10 +102,8 @@ class WorkerRetryExhaustionHandlerTest {
     // PENDING — no markRunning()
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler
-        .onWorkerRetriesExhausted(new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123"))
-        .await()
-        .indefinitely();
+    handler.onWorkerRetriesExhausted(
+        new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123"));
 
     // PENDING is not RUNNING — handler must not transition it (guard fires before plan item
     // indexing in the guard-blocked path, so lookup returns empty; this tests a theoretical edge)

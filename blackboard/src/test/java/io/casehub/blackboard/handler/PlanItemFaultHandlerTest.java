@@ -58,7 +58,7 @@ class PlanItemFaultHandlerTest {
     item.markRunning();
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler.onWorkerRetriesExhausted(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerRetriesExhausted(eventFor("worker-a"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
@@ -70,7 +70,7 @@ class PlanItemFaultHandlerTest {
     item.markDelegated();
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler.onWorkerRetriesExhausted(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerRetriesExhausted(eventFor("worker-a"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
@@ -81,7 +81,7 @@ class PlanItemFaultHandlerTest {
     plan.addPlanItem(item);
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler.onWorkerRetriesExhausted(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerRetriesExhausted(eventFor("worker-a"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
@@ -94,7 +94,7 @@ class PlanItemFaultHandlerTest {
     item.markCompleted();
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler.onWorkerRetriesExhausted(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerRetriesExhausted(eventFor("worker-a"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }
@@ -107,22 +107,19 @@ class PlanItemFaultHandlerTest {
     item.markFaulted();
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler.onWorkerRetriesExhausted(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerRetriesExhausted(eventFor("worker-a"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
 
   @Test
   void unknown_worker_does_not_throw() {
-    handler.onWorkerRetriesExhausted(eventFor("unknown-worker")).await().indefinitely();
+    handler.onWorkerRetriesExhausted(eventFor("unknown-worker"));
   }
 
   @Test
   void no_plan_registered_does_not_throw() {
     UUID otherCase = UUID.randomUUID();
-    handler
-        .onWorkerRetriesExhausted(new WorkerRetriesExhaustedEvent(otherCase, "w", "key"))
-        .await()
-        .indefinitely();
+    handler.onWorkerRetriesExhausted(new WorkerRetriesExhaustedEvent(otherCase, "w", "key"));
   }
 }

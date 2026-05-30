@@ -80,14 +80,14 @@ class PlanItemCompletionHandlerTest {
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerFinished(eventFor("worker-a"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }
 
   @Test
   void unknown_worker_does_not_throw() {
-    handler.onWorkerFinished(eventFor("unknown-worker")).await().indefinitely();
+    handler.onWorkerFinished(eventFor("unknown-worker"));
   }
 
   @Test
@@ -103,7 +103,7 @@ class PlanItemCompletionHandlerTest {
     stage.activate();
     plan.addStage(stage);
 
-    handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerFinished(eventFor("worker-a"));
 
     assertThat(stage.isTerminal()).isTrue();
     verify(mockBus).publish(eq(BlackboardEventBusAddresses.STAGE_COMPLETED), any());
@@ -126,7 +126,7 @@ class PlanItemCompletionHandlerTest {
     stage.activate();
     plan.addStage(stage);
 
-    handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerFinished(eventFor("worker-a"));
 
     assertThat(stage.isTerminal()).isFalse();
     verifyNoInteractions(mockBus);
@@ -139,7 +139,7 @@ class PlanItemCompletionHandlerTest {
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
-    handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerFinished(eventFor("worker-a"));
 
     assertThat(plan.hasActivePlanItem("binding-a"))
         .as("completed PlanItem must be removed from active tracking")
@@ -158,7 +158,7 @@ class PlanItemCompletionHandlerTest {
     stage.activate();
     plan.addStage(stage);
 
-    handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerFinished(eventFor("worker-a"));
 
     assertThat(stage.isTerminal())
         .as("stage must not autocomplete when required item is not registered")
@@ -178,7 +178,7 @@ class PlanItemCompletionHandlerTest {
     stage.activate();
     plan.addStage(stage);
 
-    handler.onWorkerFinished(eventFor("worker-a")).await().indefinitely();
+    handler.onWorkerFinished(eventFor("worker-a"));
 
     assertThat(stage.isTerminal()).isFalse();
     verifyNoInteractions(mockBus);
@@ -194,10 +194,7 @@ class PlanItemCompletionHandlerTest {
     UUID childCaseId = UUID.randomUUID();
     registry.indexForCompletion(caseId, childCaseId.toString(), item.getPlanItemId());
 
-    handler
-        .onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId))
-        .await()
-        .indefinitely();
+    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }
@@ -216,10 +213,7 @@ class PlanItemCompletionHandlerTest {
     stage.activate();
     plan.addStage(stage);
 
-    handler
-        .onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId))
-        .await()
-        .indefinitely();
+    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId));
 
     assertThat(stage.isTerminal()).isTrue();
     verify(mockBus).publish(eq(BlackboardEventBusAddresses.STAGE_COMPLETED), any());
@@ -227,10 +221,7 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void subcase_completion_unknown_tracking_key_does_not_throw() {
-    handler
-        .onSubCaseFinished(new SubCaseExecutionCompleted(caseId, UUID.randomUUID()))
-        .await()
-        .indefinitely();
+    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, UUID.randomUUID()));
   }
 
   @Test
@@ -245,7 +236,7 @@ class PlanItemCompletionHandlerTest {
     registry.indexForCompletion(caseId, child2.toString(), item.getPlanItemId());
 
     // Completion arrives for child2 (threshold-triggering child)
-    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, child2)).await().indefinitely();
+    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, child2));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }

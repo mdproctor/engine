@@ -23,7 +23,6 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
@@ -57,17 +56,17 @@ public class PlanItemFaultHandler {
     this.planItemFaultedEvents = planItemFaultedEvents;
   }
 
-  @ConsumeEvent(EventBusAddresses.WORKER_RETRIES_EXHAUSTED)
-  public Uni<Void> onWorkerRetriesExhausted(WorkerRetriesExhaustedEvent event) {
+  @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED, blocking = true)
+  public void onWorkerRetriesExhausted(WorkerRetriesExhaustedEvent event) {
     CasePlanModel plan = registry.get(event.caseId()).orElse(null);
-    if (plan == null) return Uni.createFrom().voidItem();
+    if (plan == null) return;
 
     String planItemId = registry.getPlanItemId(event.caseId(), event.workerId()).orElse(null);
     if (planItemId == null) {
       LOG.debugf(
           "No PlanItem indexed for worker '%s' in case %s — pure choreography or already evicted",
           event.workerId(), event.caseId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     plan.getPlanItem(planItemId)
@@ -86,7 +85,5 @@ public class PlanItemFaultHandler {
               planItemFaultedEvents.fireAsync(
                   new PlanItemFaultedEvent(event.caseId(), planItemId, event.workerId()));
             });
-
-    return Uni.createFrom().voidItem();
   }
 }

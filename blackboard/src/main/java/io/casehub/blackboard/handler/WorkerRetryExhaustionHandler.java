@@ -21,7 +21,6 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
@@ -57,17 +56,17 @@ public class WorkerRetryExhaustionHandler {
     this.stageAutocompleteEvaluator = stageAutocompleteEvaluator;
   }
 
-  @ConsumeEvent(EventBusAddresses.WORKER_RETRIES_EXHAUSTED)
-  public Uni<Void> onWorkerRetriesExhausted(final WorkerRetriesExhaustedEvent event) {
+  @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED, blocking = true)
+  public void onWorkerRetriesExhausted(final WorkerRetriesExhaustedEvent event) {
     final CasePlanModel plan = registry.get(event.caseId()).orElse(null);
-    if (plan == null) return Uni.createFrom().voidItem();
+    if (plan == null) return;
 
     final String planItemId = registry.getPlanItemId(event.caseId(), event.workerId()).orElse(null);
     if (planItemId == null) {
       LOG.debugf(
           "No PlanItem indexed for worker '%s' in case %s — guard-blocked or already evicted",
           event.workerId(), event.caseId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     plan.getPlanItem(planItemId)
@@ -85,7 +84,5 @@ public class WorkerRetryExhaustionHandler {
                   "PlanItem %s marked FAULTED — worker '%s' retries exhausted in case %s",
                   planItemId, event.workerId(), event.caseId());
             });
-
-    return Uni.createFrom().voidItem();
   }
 }

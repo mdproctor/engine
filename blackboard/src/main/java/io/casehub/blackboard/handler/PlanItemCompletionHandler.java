@@ -25,7 +25,6 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -76,26 +75,26 @@ public class PlanItemCompletionHandler {
     this.stageAutocompleteEvaluator = stageAutocompleteEvaluator;
   }
 
-  @ConsumeEvent(EventBusAddresses.WORKER_EXECUTION_FINISHED)
-  public Uni<Void> onWorkerFinished(WorkflowExecutionCompleted event) {
-    return completePlanItemByKey(event.caseInstance().getUuid(), event.worker().getName());
+  @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED, blocking = true)
+  public void onWorkerFinished(WorkflowExecutionCompleted event) {
+    completePlanItemByKey(event.caseInstance().getUuid(), event.worker().getName());
   }
 
-  @ConsumeEvent(BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED)
-  public Uni<Void> onSubCaseFinished(SubCaseExecutionCompleted event) {
-    return completePlanItemByKey(event.parentCaseId(), event.childCaseId().toString());
+  @ConsumeEvent(value = BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED, blocking = true)
+  public void onSubCaseFinished(SubCaseExecutionCompleted event) {
+    completePlanItemByKey(event.parentCaseId(), event.childCaseId().toString());
   }
 
-  private Uni<Void> completePlanItemByKey(UUID caseId, String trackingKey) {
+  private void completePlanItemByKey(UUID caseId, String trackingKey) {
     CasePlanModel plan = registry.get(caseId).orElse(null);
-    if (plan == null) return Uni.createFrom().voidItem();
+    if (plan == null) return;
 
     String planItemId = registry.getPlanItemId(caseId, trackingKey).orElse(null);
     if (planItemId == null) {
       LOG.debugf(
           "No PlanItem indexed for key '%s' in case %s — pure choreography or already evicted",
           trackingKey, caseId);
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     plan.getPlanItem(planItemId)
@@ -115,7 +114,5 @@ public class PlanItemCompletionHandler {
               planItemCompletedEvents.fireAsync(
                   new PlanItemCompletedEvent(caseId, planItemId, trackingKey));
             });
-
-    return Uni.createFrom().voidItem();
   }
 }
