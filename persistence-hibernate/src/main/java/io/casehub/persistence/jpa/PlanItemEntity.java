@@ -16,6 +16,7 @@
 package io.casehub.persistence.jpa;
 
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.TargetType;
 import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -52,4 +53,11 @@ public class PlanItemEntity extends PanacheEntity {
 
   @Column(name = "created_at", nullable = false)
   public Instant createdAt;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "target_type", length = 20)
+  public TargetType targetType;
+
+  @Column(name = "output_mapping_expression", length = 1000)
+  public String outputMappingExpression;
 }

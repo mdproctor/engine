@@ -43,7 +43,8 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
                   e.bindingName = request.bindingName();
                   e.status = request.status();
                   e.createdAt = request.createdAt();
-                  // targetType and outputMappingExpression stored in Task 5 (entity columns TBD)
+                  e.targetType = request.targetType();
+                  e.outputMappingExpression = request.outputMappingExpression();
                   return e.persist().replaceWithVoid();
                 }));
   }
@@ -77,18 +78,7 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
                         .list()
                         .map(
                             list ->
-                                list.stream()
-                                    .map(
-                                        e ->
-                                            new PlanItemRecord(
-                                                e.caseId,
-                                                e.planItemId,
-                                                e.bindingName,
-                                                e.status,
-                                                e.createdAt,
-                                                null,
-                                                null))
-                                    .collect(Collectors.toList()))));
+                                list.stream().map(this::toRecord).collect(Collectors.toList()))));
   }
 
   @Override
@@ -98,24 +88,11 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
             Panache.withSession(
                 () ->
                     PlanItemEntity.<PlanItemEntity>find(
-                            "caseId = :caseId AND status = :status",
-                            Parameters.with("caseId", caseId)
-                                .and("status", PlanItemStatus.DELEGATED))
+                            "caseId = ?1 AND status = ?2", caseId, PlanItemStatus.DELEGATED)
                         .list()
                         .map(
                             list ->
-                                list.stream()
-                                    .map(
-                                        e ->
-                                            new PlanItemRecord(
-                                                e.caseId,
-                                                e.planItemId,
-                                                e.bindingName,
-                                                e.status,
-                                                e.createdAt,
-                                                null,
-                                                null))
-                                    .collect(Collectors.toList()))));
+                                list.stream().map(this::toRecord).collect(Collectors.toList()))));
   }
 
   @Override
@@ -128,17 +105,17 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
                         .list()
                         .map(
                             list ->
-                                list.stream()
-                                    .map(
-                                        e ->
-                                            new PlanItemRecord(
-                                                e.caseId,
-                                                e.planItemId,
-                                                e.bindingName,
-                                                e.status,
-                                                e.createdAt,
-                                                null,
-                                                null))
-                                    .collect(Collectors.toList()))));
+                                list.stream().map(this::toRecord).collect(Collectors.toList()))));
+  }
+
+  private PlanItemRecord toRecord(PlanItemEntity e) {
+    return new PlanItemRecord(
+        e.caseId,
+        e.planItemId,
+        e.bindingName,
+        e.status,
+        e.createdAt,
+        e.targetType,
+        e.outputMappingExpression);
   }
 }

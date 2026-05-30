@@ -58,9 +58,9 @@ import org.jboss.logging.Logger;
  * case:{caseId}/pi:{planItemId}} — other WorkItems are ignored.
  *
  * <p>ESCALATED is not terminal: the WorkItem re-enters PENDING with new candidate groups; the
- * PlanItem stays in its current state. The adapter writes a {@code workItemEscalated} signal to
- * the case context, allowing definitions to react via {@code contextChange(".workItemEscalated")}.
- * Refs engine#338, engine#400.
+ * PlanItem stays in its current state. The adapter writes a {@code workItemEscalated} signal to the
+ * case context, allowing definitions to react via {@code contextChange(".workItemEscalated")}. Refs
+ * engine#338, engine#400.
  */
 @ApplicationScoped
 public class WorkItemLifecycleAdapter {
@@ -227,9 +227,9 @@ public class WorkItemLifecycleAdapter {
   /**
    * Writes a {@code workItemEscalated} signal to the case context when a WorkItem escalates.
    *
-   * <p>ESCALATED is non-terminal: the WorkItem re-enters PENDING with new candidate groups;
-   * the PlanItem status does not change. Case definitions that need to react to escalation
-   * (e.g. notify a supervisor, adjust scope) bind on {@code contextChange(".workItemEscalated")}.
+   * <p>ESCALATED is non-terminal: the WorkItem re-enters PENDING with new candidate groups; the
+   * PlanItem status does not change. Case definitions that need to react to escalation (e.g. notify
+   * a supervisor, adjust scope) bind on {@code contextChange(".workItemEscalated")}.
    *
    * <p>Follows the same pattern as {@code QhorusMessageSignalBridge}: external events write to a
    * named context path; definitions bind on it. Refs engine#400.
@@ -254,11 +254,9 @@ public class WorkItemLifecycleAdapter {
       return;
     }
 
-    CaseInstance instance =
-        caseInstanceRepository.findByUuid(ref.caseId()).await().atMost(TIMEOUT);
+    CaseInstance instance = caseInstanceRepository.findByUuid(ref.caseId()).await().atMost(TIMEOUT);
     if (instance == null) {
-      LOG.warnf(
-          "CaseInstance not found for caseId=%s — escalation signal skipped", ref.caseId());
+      LOG.warnf("CaseInstance not found for caseId=%s — escalation signal skipped", ref.caseId());
       return;
     }
 

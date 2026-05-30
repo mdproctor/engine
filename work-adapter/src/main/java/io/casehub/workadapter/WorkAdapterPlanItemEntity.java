@@ -16,6 +16,7 @@
 package io.casehub.workadapter;
 
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.PlanItemStore;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -66,4 +67,11 @@ public class WorkAdapterPlanItemEntity {
 
   @Column(name = "created_at", nullable = false)
   public Instant createdAt;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "target_type", length = 20)
+  public TargetType targetType;
+
+  @Column(name = "output_mapping_expression", length = 1000)
+  public String outputMappingExpression;
 }

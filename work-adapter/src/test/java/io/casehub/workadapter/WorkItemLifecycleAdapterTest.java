@@ -171,7 +171,8 @@ class WorkItemLifecycleAdapterTest {
               assertThat(signalMap)
                   .containsEntry("workItemId", escalatedItem.id.toString())
                   .containsEntry("bindingName", "review-binding");
-              assertThat(signalMap.get("newGroups")).asList()
+              assertThat(signalMap.get("newGroups"))
+                  .asList()
                   .containsExactlyInAnyOrder("committee-a", "committee-b");
             });
 

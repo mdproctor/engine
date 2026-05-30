@@ -16,26 +16,22 @@
 package io.casehub.workadapter;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
+import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Blocking JPA {@link PlanItemStore} for use in the work-adapter context.
+ * Blocking JPA PlanItemStore for use in the work-adapter context.
  *
  * <p>Uses the same blocking persistence unit as casehub-work, so writes participate in the same JTA
- * transaction as {@link io.casehub.work.runtime.service.WorkItemService}. This is the key atomicity
- * guarantee: {@code planItemStore.updateStatus()} and {@code workItemService.create()} either both
- * commit or both roll back.
- *
- * <p>This bean is {@code @ApplicationScoped} and therefore takes priority over {@link
- * io.casehub.blackboard.store.NoOpPlanItemStore} which is {@code @DefaultBean}.
+ * transaction as WorkItemService. This is the key atomicity guarantee: planItemStore.updateStatus()
+ * and workItemService.create() either both commit or both roll back.
  */
 @ApplicationScoped
 public class JpaPlanItemStore implements PlanItemStore {
@@ -43,33 +39,26 @@ public class JpaPlanItemStore implements PlanItemStore {
   @Inject EntityManager em;
 
   @Override
-  public void save(
-      UUID caseId,
-      String planItemId,
-      String bindingName,
-      PlanItemStatus status,
-      Instant createdAt) {
+  public void save(PlanItemSaveRequest request) {
     WorkAdapterPlanItemEntity e = new WorkAdapterPlanItemEntity();
-    e.caseId = caseId;
-    e.planItemId = planItemId;
-    e.bindingName = bindingName;
-    e.status = status;
-    e.createdAt = createdAt;
+    e.caseId = request.caseId();
+    e.planItemId = request.planItemId();
+    e.bindingName = request.bindingName();
+    e.status = request.status();
+    e.createdAt = request.createdAt();
+    e.targetType = request.targetType();
+    e.outputMappingExpression = request.outputMappingExpression();
     em.persist(e);
   }
 
   @Override
   public void updateStatus(String planItemId, PlanItemStatus status) {
-    // Flush pending inserts so the bulk UPDATE can see entities persisted earlier in this
-    // transaction but not yet written to the DB row store.
     em.flush();
     em.createQuery(
             "UPDATE WorkAdapterPlanItemEntity e SET e.status = :status WHERE e.planItemId = :planItemId")
         .setParameter("status", status)
         .setParameter("planItemId", planItemId)
         .executeUpdate();
-    // Bulk DML bypasses the first-level cache, leaving cached entities stale. Clear so any
-    // subsequent find re-reads from the database with the updated status.
     em.clear();
   }
 
@@ -82,7 +71,45 @@ public class JpaPlanItemStore implements PlanItemStore {
         .setParameter("caseId", caseId)
         .getResultList()
         .stream()
-        .map(e -> new PlanItemRecord(e.caseId, e.planItemId, e.bindingName, e.status, e.createdAt, null, null))
+        .map(this::toRecord)
         .collect(Collectors.toList());
+  }
+
+  @Override
+  public List<PlanItemRecord> findDelegated(UUID caseId) {
+    return em
+        .createQuery(
+            "SELECT e FROM WorkAdapterPlanItemEntity e WHERE e.caseId = :caseId AND e.status = :status",
+            WorkAdapterPlanItemEntity.class)
+        .setParameter("caseId", caseId)
+        .setParameter("status", PlanItemStatus.DELEGATED)
+        .getResultList()
+        .stream()
+        .map(this::toRecord)
+        .collect(Collectors.toList());
+  }
+
+  @Override
+  public List<PlanItemRecord> findAllDelegated() {
+    return em
+        .createQuery(
+            "SELECT e FROM WorkAdapterPlanItemEntity e WHERE e.status = :status",
+            WorkAdapterPlanItemEntity.class)
+        .setParameter("status", PlanItemStatus.DELEGATED)
+        .getResultList()
+        .stream()
+        .map(this::toRecord)
+        .collect(Collectors.toList());
+  }
+
+  private PlanItemRecord toRecord(WorkAdapterPlanItemEntity e) {
+    return new PlanItemRecord(
+        e.caseId,
+        e.planItemId,
+        e.bindingName,
+        e.status,
+        e.createdAt,
+        e.targetType,
+        e.outputMappingExpression);
   }
 }
