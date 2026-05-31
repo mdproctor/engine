@@ -427,7 +427,7 @@ public class CaseContextChangedEventHandler {
                                                 lifecycleEvents.fireAsync(
                                                     new CaseLifecycleEvent(
                                                         caseInstance.getUuid(),
-                                                        null,
+                                                        caseInstance.tenancyId,
                                                         "ProvisionWorker",
                                                         "WorkerStarted",
                                                         caseInstance.getState().name(),

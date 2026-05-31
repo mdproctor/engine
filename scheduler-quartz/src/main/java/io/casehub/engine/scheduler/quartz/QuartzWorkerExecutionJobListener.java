@@ -98,12 +98,17 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     String workerId = context.getMergedJobDataMap().getString("workerId");
     String caseHubInstanceUuid = context.getMergedJobDataMap().getString("caseHubInstanceUuid");
     String tenancyId = context.getMergedJobDataMap().getString("tenancyId");
+    if (tenancyId == null) {
+      LOG.warnf(
+          "tenancyId absent from Quartz job data for job %s — lifecycle event will carry null tenancyId",
+          jobName);
+    }
     LOG.infof("Job is about to be executed: %s, idempotency=%s", jobName, idempotency);
     workerStatusListener.onWorkerStarted(workerId, Map.of("caseId", caseHubInstanceUuid));
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
             UUID.fromString(caseHubInstanceUuid),
-            null,
+            tenancyId,
             "ExecuteWorker",
             "WorkerExecutionStarted",
             null,
