@@ -66,6 +66,7 @@ public class WorkerDecisionEventCapture {
     entry.subjectId = event.caseId();
     entry.workerId = event.workerId();
     entry.capabilityTag = event.capabilityTag();
+    entry.tenancyId = event.tenancyId();
     entry.sequenceNumber = seq;
     entry.entryType = LedgerEntryType.EVENT;
     entry.actorId = event.workerId();

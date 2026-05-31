@@ -30,9 +30,10 @@ import java.util.UUID;
  * practice but the field is nullable to avoid blocking the worker completion path.
  *
  * @param caseId the case instance UUID
+ * @param tenancyId the tenant that owns this case
  * @param workerId the worker name from the case definition (e.g. {@code "sar-drafting-agent-v1"})
  * @param capabilityTag the capability name exercised; null if not determinable
  * @param traceId OTel trace ID captured synchronously before fireAsync()
  */
 public record WorkerDecisionEvent(
-    UUID caseId, String workerId, String capabilityTag, String traceId) {}
+    UUID caseId, String tenancyId, String workerId, String capabilityTag, String traceId) {}

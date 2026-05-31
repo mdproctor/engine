@@ -46,7 +46,7 @@ class CaseLedgerEventCaptureDisabledTest {
 
     capture.onCaseLifecycleEvent(
         new CaseLifecycleEvent(
-            caseId, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null));
+            caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null));
 
     assertThat(repository.findByCaseId(caseId)).isEmpty();
   }

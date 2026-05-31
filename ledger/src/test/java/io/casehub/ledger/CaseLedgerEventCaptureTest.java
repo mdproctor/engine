@@ -54,7 +54,7 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
-            caseId, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null));
+            caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -72,6 +72,7 @@ class CaseLedgerEventCaptureTest {
               assertThat(entry.entryType).isEqualTo(LedgerEntryType.EVENT);
               assertThat(entry.actorType).isEqualTo(ActorType.SYSTEM);
               assertThat(entry.occurredAt).isNotNull();
+              assertThat(entry.tenancyId).isEqualTo("test-tenant");
             });
   }
 
@@ -84,19 +85,33 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+                caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "SuspendCase", "CaseSuspended", "SUSPENDED", null, "System", null))
+                caseId,
+                "test-tenant",
+                "SuspendCase",
+                "CaseSuspended",
+                "SUSPENDED",
+                null,
+                "System",
+                null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "ResumeCase", "CaseResumed", "RUNNING", null, "System", null))
+                caseId,
+                "test-tenant",
+                "ResumeCase",
+                "CaseResumed",
+                "RUNNING",
+                null,
+                "System",
+                null))
         .toCompletableFuture()
         .join();
 
@@ -120,19 +135,26 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseA, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+                caseA, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseB, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+                caseB, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseA, null, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System", null))
+                caseA,
+                "test-tenant",
+                "CompleteCase",
+                "CaseCompleted",
+                "COMPLETED",
+                null,
+                "System",
+                null))
         .toCompletableFuture()
         .join();
 
@@ -154,7 +176,7 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
             caseId,
-            null,
+            "test-tenant",
             "StartCase",
             "CaseStarted",
             "RUNNING",
@@ -181,7 +203,7 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
             caseId,
-            null,
+            "test-tenant",
             "SuspendCase",
             "CaseSuspended",
             "SUSPENDED",
@@ -205,7 +227,7 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
-            caseId, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null));
+            caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -225,13 +247,20 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+                caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System", null))
+                caseId,
+                "test-tenant",
+                "CompleteCase",
+                "CaseCompleted",
+                "COMPLETED",
+                null,
+                "System",
+                null))
         .toCompletableFuture()
         .join();
 
@@ -252,7 +281,7 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
-            caseId, null, "SignalCase", "SignalReceived", null, null, "System", null));
+            caseId, "test-tenant", "SignalCase", "SignalReceived", null, null, "System", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -284,7 +313,7 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
             caseId,
-            null,
+            "test-tenant",
             "ExecuteWorker",
             "WorkerExecutionStarted",
             null,
@@ -317,7 +346,7 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
             caseId,
-            null,
+            "test-tenant",
             "ExecuteWorker",
             "WorkerExecutionCompleted",
             "RUNNING",
@@ -350,7 +379,7 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+                caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
 
@@ -370,19 +399,33 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+                caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "SuspendCase", "CaseSuspended", "SUSPENDED", null, "System", null))
+                caseId,
+                "test-tenant",
+                "SuspendCase",
+                "CaseSuspended",
+                "SUSPENDED",
+                null,
+                "System",
+                null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "CompleteCase", "CaseCompleted", "COMPLETED", null, "System", null))
+                caseId,
+                "test-tenant",
+                "CompleteCase",
+                "CaseCompleted",
+                "COMPLETED",
+                null,
+                "System",
+                null))
         .toCompletableFuture()
         .join();
 
@@ -407,7 +450,7 @@ class CaseLedgerEventCaptureTest {
         .fireAsync(
             new CaseLifecycleEvent(
                 caseId,
-                null,
+                "test-tenant",
                 "StartCase",
                 "CaseStarted",
                 "RUNNING",
@@ -436,7 +479,7 @@ class CaseLedgerEventCaptureTest {
     lifecycleEvents
         .fireAsync(
             new CaseLifecycleEvent(
-                caseId, null, "StartCase", "CaseStarted", "RUNNING", null, "System", null))
+                caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
 
