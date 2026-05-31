@@ -22,19 +22,19 @@ import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Reactive mirror of PlanItemStore — method signatures identical, return types wrapped in Uni. For
- * engine runtime handlers on Vert.x IO threads.
- */
+/** Reactive mirror of PlanItemStore. Same tenancyId rules apply — see PlanItemStore Javadoc. */
 public interface ReactivePlanItemStore {
 
-  Uni<Void> save(PlanItemSaveRequest request);
+  Uni<Void> save(PlanItemSaveRequest request, String tenancyId);
 
+  /** UUID planItemId — globally unique; no tenancyId needed. */
   Uni<Void> updateStatus(String planItemId, PlanItemStatus status);
 
-  Uni<List<PlanItemRecord>> findByCaseId(UUID caseId);
+  Uni<List<PlanItemRecord>> findByCaseId(UUID caseId, String tenancyId);
 
+  /** UUID caseId — globally unique; no tenancyId filter needed for hydration. */
   Uni<List<PlanItemRecord>> findDelegated(UUID caseId);
 
+  /** Cross-tenant: startup recovery only. */
   Uni<List<PlanItemRecord>> findAllDelegated();
 }

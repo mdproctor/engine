@@ -24,30 +24,38 @@ import java.util.UUID;
 /**
  * Blocking SPI for durable PlanItem status persistence.
  *
- * <p>Used by HumanTaskScheduleHandler (blocking context) to write PlanItem status in the same JTA
- * transaction as WorkItem creation. The default no-op implementation (NoOpPlanItemStore) is active
- * when no real store is on the classpath.
+ * <p>tenancyId is explicit on save and findByCaseId. Three methods intentionally omit it:
+ *
+ * <ul>
+ *   <li>{@code updateStatus}: planItemId is a UUID string (globally unique) — no cross-tenant
+ *       collision possible
+ *   <li>{@code findDelegated(UUID)}: caseId is a UUID (globally unique); used by BlackboardRegistry
+ *       hydration which self-bootstraps tenancyId from the returned PlanItemRecord
+ *   <li>{@code findAllDelegated()}: cross-tenant by design — startup recovery only
+ *       (HumanTaskRecoveryService)
+ * </ul>
  */
 public interface PlanItemStore {
 
-  /** Record a new PlanItem. */
-  void save(PlanItemSaveRequest request);
+  /** Record a new PlanItem scoped to tenancyId. */
+  void save(PlanItemSaveRequest request, String tenancyId);
 
-  /** Update the stored status for an existing PlanItem. */
+  /** Update status by planItemId (UUID string — globally unique; no tenancyId needed in WHERE). */
   void updateStatus(String planItemId, PlanItemStatus status);
 
-  /** Return all PlanItemRecords for the given case. */
-  List<PlanItemRecord> findByCaseId(UUID caseId);
+  /** Return all PlanItemRecords for the given case within the tenant. */
+  List<PlanItemRecord> findByCaseId(UUID caseId, String tenancyId);
 
   /**
-   * Return all DELEGATED PlanItemRecords for the given case. Used by BlackboardRegistry lazy
-   * hydration.
+   * Return DELEGATED PlanItemRecords for the specific case. caseId is UUID (globally unique) — no
+   * tenancyId filter needed. Used by BlackboardRegistry lazy hydration; tenancyId self-bootstrapped
+   * from returned records.
    */
   List<PlanItemRecord> findDelegated(UUID caseId);
 
   /**
-   * Return all DELEGATED PlanItemRecords across all cases. Used by HumanTaskRecoveryService at
-   * startup.
+   * Return ALL DELEGATED PlanItemRecords across all tenants. Cross-tenant by design — startup
+   * recovery only (HumanTaskRecoveryService).
    */
   List<PlanItemRecord> findAllDelegated();
 }

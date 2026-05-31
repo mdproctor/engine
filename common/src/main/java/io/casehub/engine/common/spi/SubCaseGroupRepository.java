@@ -28,16 +28,18 @@ public interface SubCaseGroupRepository {
       String groupId,
       int totalInGroup,
       int requiredCount,
-      OnThresholdReached onThresholdReached);
+      OnThresholdReached onThresholdReached,
+      String tenancyId);
 
-  Uni<SubCaseGroup> registerChild(UUID parentCaseId, String groupId, UUID childCaseId);
+  Uni<SubCaseGroup> registerChild(
+      UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId);
 
-  Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId);
+  Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId, String tenancyId);
 
-  Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId);
+  Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId, String tenancyId);
 
   /** Returns {@code true} if this call actually set the flag; {@code false} if already set. */
-  Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId);
+  Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId);
 
-  Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId);
+  Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId, String tenancyId);
 }

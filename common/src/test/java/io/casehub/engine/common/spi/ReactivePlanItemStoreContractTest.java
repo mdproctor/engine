@@ -30,6 +30,8 @@ import org.junit.jupiter.api.Test;
 /** Abstract contract test — extend with a concrete impl to verify the ReactivePlanItemStore SPI. */
 public abstract class ReactivePlanItemStoreContractTest {
 
+  protected static final String TEST_TENANT = "test-tenant";
+
   protected abstract ReactivePlanItemStore store();
 
   /** Execute a Uni on whatever execution context the concrete impl requires. */
@@ -44,8 +46,8 @@ public abstract class ReactivePlanItemStoreContractTest {
   void save_and_findByCaseId() {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
-    run(store().save(request(caseId, planItemId, PlanItemStatus.PENDING)));
-    List<PlanItemRecord> results = run(store().findByCaseId(caseId));
+    run(store().save(request(caseId, planItemId, PlanItemStatus.PENDING), TEST_TENANT));
+    List<PlanItemRecord> results = run(store().findByCaseId(caseId, TEST_TENANT));
     assertThat(results).hasSize(1);
     assertThat(results.get(0).planItemId()).isEqualTo(planItemId);
     assertThat(results.get(0).status()).isEqualTo(PlanItemStatus.PENDING);
@@ -55,9 +57,9 @@ public abstract class ReactivePlanItemStoreContractTest {
   void updateStatus_changes_stored_status() {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
-    run(store().save(request(caseId, planItemId, PlanItemStatus.PENDING)));
+    run(store().save(request(caseId, planItemId, PlanItemStatus.PENDING), TEST_TENANT));
     run(store().updateStatus(planItemId, PlanItemStatus.RUNNING));
-    List<PlanItemRecord> results = run(store().findByCaseId(caseId));
+    List<PlanItemRecord> results = run(store().findByCaseId(caseId, TEST_TENANT));
     assertThat(results.get(0).status()).isEqualTo(PlanItemStatus.RUNNING);
   }
 
@@ -66,8 +68,8 @@ public abstract class ReactivePlanItemStoreContractTest {
     UUID caseId = UUID.randomUUID();
     String delegatedId = UUID.randomUUID().toString();
     String pendingId = UUID.randomUUID().toString();
-    run(store().save(request(caseId, delegatedId, PlanItemStatus.DELEGATED)));
-    run(store().save(request(caseId, pendingId, PlanItemStatus.PENDING)));
+    run(store().save(request(caseId, delegatedId, PlanItemStatus.DELEGATED), TEST_TENANT));
+    run(store().save(request(caseId, pendingId, PlanItemStatus.PENDING), TEST_TENANT));
     List<PlanItemRecord> results = run(store().findDelegated(caseId));
     assertThat(results).hasSize(1);
     assertThat(results.get(0).planItemId()).isEqualTo(delegatedId);
@@ -79,8 +81,8 @@ public abstract class ReactivePlanItemStoreContractTest {
     UUID case2 = UUID.randomUUID();
     String id1 = UUID.randomUUID().toString();
     String id2 = UUID.randomUUID().toString();
-    run(store().save(request(case1, id1, PlanItemStatus.DELEGATED)));
-    run(store().save(request(case2, id2, PlanItemStatus.DELEGATED)));
+    run(store().save(request(case1, id1, PlanItemStatus.DELEGATED), TEST_TENANT));
+    run(store().save(request(case2, id2, PlanItemStatus.DELEGATED), TEST_TENANT));
     List<PlanItemRecord> results = run(store().findAllDelegated());
     assertThat(results.stream().map(PlanItemRecord::planItemId))
         .containsExactlyInAnyOrder(id1, id2);

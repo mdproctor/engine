@@ -21,24 +21,21 @@ import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 
 /**
- * Storage provider for {@link CaseInstance} lifecycle. Implementations must handle their own
- * session/transaction management; callers do not wrap calls in Panache.withTransaction().
+ * Storage provider for {@link CaseInstance} lifecycle. Implementations handle their own
+ * session/transaction management; callers do not wrap calls in Panache.withTransaction(). tenancyId
+ * is an explicit parameter on every method — no CDI scope injection in implementations.
  */
 public interface CaseInstanceRepository {
 
-  /** Persist a new CaseInstance. Sets {@code instance.id} on completion. */
-  Uni<CaseInstance> save(CaseInstance instance);
+  /** Persist a new CaseInstance scoped to tenancyId. Sets {@code instance.id} on completion. */
+  Uni<CaseInstance> save(CaseInstance instance, String tenancyId);
 
-  /** Update mutable fields (state, parentPlanItemId) of an existing CaseInstance. */
-  Uni<CaseInstance> update(CaseInstance instance);
+  /** Update mutable fields. tenancyId is included in the WHERE clause. */
+  Uni<CaseInstance> update(CaseInstance instance, String tenancyId);
 
-  /** Look up a CaseInstance by its business UUID. Returns null if not found. */
-  Uni<CaseInstance> findByUuid(UUID uuid);
+  /** Look up by business UUID within the given tenant. Returns null if not found. */
+  Uni<CaseInstance> findByUuid(UUID uuid, String tenancyId);
 
-  /**
-   * Atomically update the instance state and append an event log entry. JPA implementations wrap
-   * both writes in a single transaction. In-memory implementations perform both synchronously. Sets
-   * {@code eventLog.id} and {@code eventLog.seq} on completion.
-   */
-  Uni<Void> updateStateAndAppendEvent(CaseInstance instance, EventLog eventLog);
+  /** Atomically update state and append event log entry within the same tenant. */
+  Uni<Void> updateStateAndAppendEvent(CaseInstance instance, EventLog eventLog, String tenancyId);
 }

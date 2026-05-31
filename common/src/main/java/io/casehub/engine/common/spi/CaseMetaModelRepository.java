@@ -19,23 +19,20 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.smallrye.mutiny.Uni;
 
 /**
- * Storage provider for {@link CaseMetaModel} definitions. Implementations handle their own
- * session/transaction management.
+ * Storage provider for {@link CaseMetaModel} definitions. tenancyId is explicit — case definitions
+ * are per-tenant.
  */
 public interface CaseMetaModelRepository {
 
   /**
-   * Find a registered case type by its natural key. Returns {@code null} if not found.
-   *
-   * @param namespace the case namespace (may be null for unnamespaced definitions)
-   * @param name the case name
-   * @param version the semantic version string
+   * Find a registered case type by its natural key within the given tenant. Returns {@code null} if
+   * not found.
    */
-  Uni<CaseMetaModel> findByKey(String namespace, String name, String version);
+  Uni<CaseMetaModel> findByKey(String namespace, String name, String version, String tenancyId);
 
   /**
-   * Persist a new case meta model. Sets {@code metaModel.id} and {@code metaModel.createdAt} on
-   * completion if not already set.
+   * Persist a new case meta model scoped to tenancyId. Sets {@code metaModel.id} and {@code
+   * metaModel.createdAt} on completion.
    */
-  Uni<CaseMetaModel> save(CaseMetaModel metaModel);
+  Uni<CaseMetaModel> save(CaseMetaModel metaModel, String tenancyId);
 }

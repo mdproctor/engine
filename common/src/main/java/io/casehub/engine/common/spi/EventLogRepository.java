@@ -25,76 +25,45 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Storage provider for immutable {@link EventLog} entries. All writes are append-only.
- * Implementations handle their own session/transaction management.
+ * Storage provider for event log entries. tenancyId is an explicit parameter on every method.
+ * Cross-tenant methods (findByTypes, findSubmittedWorkWithoutCompletion,
+ * findByWorkerAndTypeAcrossTenants) are in CrossTenantEventLogRepository (runtime internal).
  */
 public interface EventLogRepository {
 
-  /** Append an event. Sets {@code eventLog.id} and {@code eventLog.seq} on completion. */
-  Uni<Void> append(EventLog eventLog);
+  Uni<Void> append(EventLog eventLog, String tenancyId);
 
-  /**
-   * Append an event and return its generated id. Sets {@code eventLog.id} and {@code eventLog.seq}.
-   */
-  Uni<Long> appendAndReturnId(EventLog eventLog);
+  Uni<Long> appendAndReturnId(EventLog eventLog, String tenancyId);
 
-  /** Find an event by its generated id. Returns {@code null} if not found. */
-  Uni<EventLog> findById(Long id);
+  Uni<EventLog> findById(Long id, String tenancyId);
 
-  /**
-   * Find all scheduling-lifecycle events (WORKER_SCHEDULED, WORKER_EXECUTION_STARTED,
-   * WORKER_EXECUTION_COMPLETED) for the given case and worker, ordered by seq ascending. When
-   * {@code after} is non-null, only events with {@code timestamp > after} are returned.
-   */
-  Uni<List<EventLog>> findSchedulingEvents(UUID caseId, String workerId, Instant after);
+  Uni<List<EventLog>> findSchedulingEvents(
+      UUID caseId, String workerId, Instant after, String tenancyId);
 
   /**
    * Convenience overload with no time cutoff — equivalent to {@code findSchedulingEvents(caseId,
-   * workerId, null)}.
+   * workerId, null, tenancyId)}.
    */
-  default Uni<List<EventLog>> findSchedulingEvents(UUID caseId, String workerId) {
-    return findSchedulingEvents(caseId, workerId, null);
+  default Uni<List<EventLog>> findSchedulingEvents(UUID caseId, String workerId, String tenancyId) {
+    return findSchedulingEvents(caseId, workerId, null, tenancyId);
   }
 
-  /**
-   * Find all events matching the given types across all cases, ordered by seq ascending. Used by
-   * recovery to replay in-flight workers.
-   */
-  Uni<List<EventLog>> findByTypes(Collection<CaseHubEventType> types);
+  Uni<List<EventLog>> findByCaseAndTypes(
+      UUID caseId, Collection<CaseHubEventType> types, String tenancyId);
 
-  /** Find events for a specific case matching the given types, ordered by seq ascending. */
-  Uni<List<EventLog>> findByCaseAndTypes(UUID caseId, Collection<CaseHubEventType> types);
-
-  /** Find events for a specific case, worker, and event type (all criteria must match). */
   Uni<List<EventLog>> findByCaseAndWorkerAndType(
-      UUID caseId, String workerId, CaseHubEventType type);
+      UUID caseId, String workerId, CaseHubEventType type, String tenancyId);
 
   /**
-   * Find all events matching the given worker and event type across all cases. Used by
-   * SubCaseCompletionListener to locate the parent case from a child case UUID (stored as workerId
-   * in the SUBCASE_STARTED entry).
+   * Same-tenant lookup. Used by SubCaseCompletionService — sub-cases are always in the same tenant.
+   * NOT the cross-tenant recovery variant (see
+   * CrossTenantEventLogRepository.findByWorkerAndTypeAcrossTenants).
    */
-  Uni<List<EventLog>> findByWorkerAndType(String workerId, CaseHubEventType type);
+  Uni<List<EventLog>> findByWorkerAndType(String workerId, CaseHubEventType type, String tenancyId);
 
-  /**
-   * Returns correlation keys (idempotency hashes) for WORK_SUBMITTED events that have no matching
-   * WORK_COMPLETED entry. Used by PendingWorkRegistry on startup to re-register futures for
-   * in-flight orchestrated work that survived a JVM restart.
-   */
-  Uni<List<String>> findSubmittedWorkWithoutCompletion();
-
-  /**
-   * Find events for a specific case with optional filtering by event types and stream types,
-   * ordered by seq ascending. If {@code eventTypes} is null or empty, no event type filtering is
-   * applied. If {@code streamTypes} is null or empty, no stream type filtering is applied.
-   *
-   * @param caseId the case identifier (required)
-   * @param eventTypes optional collection of event types to filter by
-   * @param streamTypes optional collection of stream types to filter by
-   * @return list of matching events sorted by seq ascending
-   */
   Uni<List<EventLog>> findByCaseWithFilters(
       UUID caseId,
       Collection<CaseHubEventType> eventTypes,
-      Collection<EventStreamType> streamTypes);
+      Collection<EventStreamType> streamTypes,
+      String tenancyId);
 }
