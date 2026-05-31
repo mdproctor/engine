@@ -32,6 +32,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -169,7 +170,10 @@ class ContextDiffEndToEndTest {
   private EventLog fetchCompletedEvent(UUID caseId) {
     List<EventLog> events =
         eventLogRepository
-            .findByCaseAndTypes(caseId, List.of(CaseHubEventType.WORKER_EXECUTION_COMPLETED))
+            .findByCaseAndTypes(
+                caseId,
+                List.of(CaseHubEventType.WORKER_EXECUTION_COMPLETED),
+                TenancyConstants.DEFAULT_TENANT_ID)
             .await()
             .atMost(SPI_TIMEOUT);
     return events.isEmpty() ? null : events.get(0);

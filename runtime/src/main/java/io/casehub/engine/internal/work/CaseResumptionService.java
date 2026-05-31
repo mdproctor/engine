@@ -91,7 +91,7 @@ public class CaseResumptionService {
         caseInstance.getUuid(), correlationKey, eventType);
 
     return caseInstanceRepository
-        .updateStateAndAppendEvent(caseInstance, completedLog)
+        .updateStateAndAppendEvent(caseInstance, completedLog, caseInstance.tenancyId)
         .invoke(
             () ->
                 completeRegisteredFuture(

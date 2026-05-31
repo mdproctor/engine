@@ -85,7 +85,7 @@ public class CaseStatusChangedHandler {
             .put("newStatus", event.newStatus()));
 
     return caseInstanceRepository
-        .updateStateAndAppendEvent(caseInstance, eventLog)
+        .updateStateAndAppendEvent(caseInstance, eventLog, caseInstance.tenancyId)
         .chain(
             () -> {
               if (isTerminalState(newState)) {
@@ -123,6 +123,7 @@ public class CaseStatusChangedHandler {
                           lifecycleEvents.fireAsync(
                               new CaseLifecycleEvent(
                                   caseInstance.getUuid(),
+                                  caseInstance.tenancyId,
                                   resolveCommandType(newState),
                                   resolveEventType(newState),
                                   newState.name(),

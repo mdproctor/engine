@@ -31,6 +31,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -223,7 +224,9 @@ class MilestoneLifecycleTest {
     java.util.List<EventLog> slaEvents =
         eventLogRepository
             .findByCaseAndTypes(
-                caseId, java.util.EnumSet.of(CaseHubEventType.MILESTONE_SLA_VIOLATED))
+                caseId,
+                java.util.EnumSet.of(CaseHubEventType.MILESTONE_SLA_VIOLATED),
+                TenancyConstants.DEFAULT_TENANT_ID)
             .await()
             .indefinitely();
 

@@ -30,13 +30,13 @@ import java.util.UUID;
 /**
  * JPA repository for {@link CaseLedgerEntry}.
  *
- * <p>Extends {@link JpaLedgerEntryRepository} — adds case-specific query methods for
- * {@link CaseLedgerEntry} and {@link WorkerDecisionEntry}.
+ * <p>Extends {@link JpaLedgerEntryRepository} — adds case-specific query methods for {@link
+ * CaseLedgerEntry} and {@link WorkerDecisionEntry}.
  *
- * <p>{@code @DefaultBean} yields automatically to any explicitly selected alternative
- * ({@code selected-alternatives}, {@code @Priority}-activated alternative). Consumers that want a
- * different implementation (e.g. in-memory test doubles) need no exclusion configuration — their
- * selected alternative wins by default. This follows the engine SPI default pattern
+ * <p>{@code @DefaultBean} yields automatically to any explicitly selected alternative ({@code
+ * selected-alternatives}, {@code @Priority}-activated alternative). Consumers that want a different
+ * implementation (e.g. in-memory test doubles) need no exclusion configuration — their selected
+ * alternative wins by default. This follows the engine SPI default pattern
  * (PP-20260514-engine-spi-noops-defaultbean).
  */
 @DefaultBean

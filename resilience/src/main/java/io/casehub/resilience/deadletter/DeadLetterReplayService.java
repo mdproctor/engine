@@ -26,8 +26,8 @@ import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -48,16 +48,16 @@ public class DeadLetterReplayService {
   private static final Logger LOG = Logger.getLogger(DeadLetterReplayService.class);
 
   private final DeadLetterQueue deadLetterQueue;
-  private final EventLogRepository eventLogRepository;
-  private final CaseInstanceRepository caseInstanceRepository;
+  private final CrossTenantEventLogRepository eventLogRepository;
+  private final CrossTenantCaseInstanceRepository caseInstanceRepository;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final EventBus eventBus;
 
   @Inject
   public DeadLetterReplayService(
       DeadLetterQueue deadLetterQueue,
-      EventLogRepository eventLogRepository,
-      CaseInstanceRepository caseInstanceRepository,
+      CrossTenantEventLogRepository eventLogRepository,
+      CrossTenantCaseInstanceRepository caseInstanceRepository,
       CaseDefinitionRegistry caseDefinitionRegistry,
       EventBus eventBus) {
     this.deadLetterQueue = deadLetterQueue;

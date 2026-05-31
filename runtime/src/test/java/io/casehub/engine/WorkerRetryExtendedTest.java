@@ -35,6 +35,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -410,7 +411,7 @@ public class WorkerRetryExtendedTest {
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
     return eventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType))
+        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()
         .toCompletableFuture()
@@ -419,7 +420,7 @@ public class WorkerRetryExtendedTest {
 
   private List<EventLog> findWorkerEvents(UUID caseId, CaseHubEventType eventType) {
     return eventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType))
+        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()
         .toCompletableFuture()

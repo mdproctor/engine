@@ -22,8 +22,8 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -60,9 +60,9 @@ public class MilestoneSLATimeoutJob implements Job {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject CrossTenantEventLogRepository eventLogRepository;
 
   @Override
   public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -109,7 +109,7 @@ public class MilestoneSLATimeoutJob implements Job {
   }
 
   private MilestoneLifecycleStatus getCurrentLifecycleStatus(
-      EventLogRepository eventLogRepository, UUID caseId, String milestoneName) {
+      CrossTenantEventLogRepository eventLogRepository, UUID caseId, String milestoneName) {
     EventLog lastEvent =
         eventLogRepository
             .findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS)

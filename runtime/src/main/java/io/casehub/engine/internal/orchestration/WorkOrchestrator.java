@@ -202,7 +202,7 @@ public class WorkOrchestrator {
     final EventLog submittedLog =
         buildWorkSubmittedLog(instance, selectedWorker, capability, correlationKey);
     eventLogRepository
-        .appendAndReturnId(submittedLog)
+        .appendAndReturnId(submittedLog, instance.tenancyId)
         .subscribe()
         .with(
             id ->
@@ -223,7 +223,7 @@ public class WorkOrchestrator {
 
       final EventLog waitingLog = buildCaseStatusChangedLog(instance, CaseStatus.WAITING);
       caseInstanceRepository
-          .updateStateAndAppendEvent(instance, waitingLog)
+          .updateStateAndAppendEvent(instance, waitingLog, instance.tenancyId)
           .subscribe()
           .with(
               ignored ->

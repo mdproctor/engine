@@ -86,7 +86,7 @@ public class WorkflowExecutionCompletedHandler {
         buildEventLog(caseInstance, worker, rawOutput, event.idempotency(), now, diff);
 
     return eventLogRepository
-        .append(eventLog)
+        .append(eventLog, caseInstance.tenancyId)
         .chain(
             () ->
                 caseResumptionService.resumeIfWaiting(
@@ -109,10 +109,12 @@ public class WorkflowExecutionCompletedHandler {
                             lifecycleEvents.fireAsync(
                                 new CaseLifecycleEvent(
                                     caseInstance.getUuid(),
+                                    caseInstance.tenancyId,
                                     "ExecuteWorker",
                                     "WorkerExecutionCompleted",
                                     caseInstance.getState().name(),
-                                    // "system" — the engine applied the worker's output; the worker's
+                                    // "system" — the engine applied the worker's output; the
+                                    // worker's
                                     // decision record is written separately as WorkerDecisionEntry
                                     // via WorkerDecisionEvent
                                     "system",

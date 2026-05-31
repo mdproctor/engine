@@ -37,6 +37,7 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -554,7 +555,7 @@ public class WorkerIdempotencyTest {
 
   private void persistEvent(EventLog eventLog) {
     eventLogRepository
-        .append(eventLog)
+        .append(eventLog, TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()
         .toCompletableFuture()
@@ -565,7 +566,8 @@ public class WorkerIdempotencyTest {
       UUID caseId, CaseHubEventType eventType, String workerId, String inputDataHash) {
     List<EventLog> eventLogs =
         eventLogRepository
-            .findByCaseAndWorkerAndType(caseId, workerId, eventType)
+            .findByCaseAndWorkerAndType(
+                caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID)
             .subscribe()
             .asCompletionStage()
             .toCompletableFuture()

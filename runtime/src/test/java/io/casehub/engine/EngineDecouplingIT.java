@@ -20,7 +20,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.time.Instant;
@@ -36,6 +38,7 @@ import org.junit.jupiter.api.Test;
 class EngineDecouplingIT {
 
   @Inject EventLogRepository eventLogRepository;
+  @Inject CrossTenantEventLogRepository crossTenantEventLogRepository;
 
   @Test
   void eventLogRepository_appendAndFind_happyPath() {
@@ -46,7 +49,7 @@ class EngineDecouplingIT {
     eventLog.setTimestamp(Instant.now());
 
     eventLogRepository
-        .append(eventLog)
+        .append(eventLog, TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()
         .toCompletableFuture()
@@ -57,7 +60,7 @@ class EngineDecouplingIT {
 
     EventLog found =
         eventLogRepository
-            .findById(eventLog.id)
+            .findById(eventLog.id, TenancyConstants.DEFAULT_TENANT_ID)
             .subscribe()
             .asCompletionStage()
             .toCompletableFuture()
@@ -75,7 +78,12 @@ class EngineDecouplingIT {
     started.setEventType(CaseHubEventType.CASE_STARTED);
     started.setStreamType(EventStreamType.CASE);
     started.setTimestamp(Instant.now());
-    eventLogRepository.append(started).subscribe().asCompletionStage().toCompletableFuture().join();
+    eventLogRepository
+        .append(started, TenancyConstants.DEFAULT_TENANT_ID)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
 
     EventLog completed = new EventLog();
     completed.setCaseId(caseId);
@@ -83,14 +91,14 @@ class EngineDecouplingIT {
     completed.setStreamType(EventStreamType.CASE);
     completed.setTimestamp(Instant.now());
     eventLogRepository
-        .append(completed)
+        .append(completed, TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()
         .toCompletableFuture()
         .join();
 
     List<EventLog> found =
-        eventLogRepository
+        crossTenantEventLogRepository
             .findByTypes(List.of(CaseHubEventType.CASE_STARTED, CaseHubEventType.CASE_COMPLETED))
             .subscribe()
             .asCompletionStage()

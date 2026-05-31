@@ -30,7 +30,7 @@ import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.quarkus.runtime.StartupEvent;
@@ -63,7 +63,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
 
   @Inject WorkerExecutionRecoveryService workerExecutionRecoveryService;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject CrossTenantEventLogRepository eventLogRepository;
 
   private static final Logger LOG = Logger.getLogger(WorkerExecutionManager.class);
 
@@ -106,7 +106,10 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
         .ifNull()
         .failWith(() -> new RuntimeException("EventLog not found: id=" + eventLogId))
         .replaceWithVoid()
-        .chain(() -> scheduleQuartzJob(eventLogId, instance, worker, idempotency, group));
+        .chain(
+            () ->
+                scheduleQuartzJob(
+                    eventLogId, instance, worker, idempotency, group, instance.tenancyId));
   }
 
   @Override
@@ -114,7 +117,8 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
     String caseId = scheduledEventLog.getCaseId().toString();
     String workerId = scheduledEventLog.getWorkerId();
     String idempotency = scheduledEventLog.getMetadata().get("inputDataHash").asText();
-    return scheduleQuartzJob(scheduledEventLog.id, caseId, workerId, idempotency, caseId);
+    return scheduleQuartzJob(
+        scheduledEventLog.id, caseId, workerId, idempotency, caseId, scheduledEventLog.tenancyId);
   }
 
   @Override
@@ -144,13 +148,24 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
   }
 
   private Uni<Void> scheduleQuartzJob(
-      Long eventLogId, CaseInstance instance, Worker worker, String idempotency, String group) {
-    return scheduleQuartzJob(eventLogId, instance, worker.getName(), idempotency, group);
+      Long eventLogId,
+      CaseInstance instance,
+      Worker worker,
+      String idempotency,
+      String group,
+      String tenancyId) {
+    return scheduleQuartzJob(eventLogId, instance, worker.getName(), idempotency, group, tenancyId);
   }
 
   private Uni<Void> scheduleQuartzJob(
-      Long eventLogId, CaseInstance instance, String name, String idempotency, String group) {
-    return scheduleQuartzJob(eventLogId, instance.getUuid().toString(), name, idempotency, group);
+      Long eventLogId,
+      CaseInstance instance,
+      String name,
+      String idempotency,
+      String group,
+      String tenancyId) {
+    return scheduleQuartzJob(
+        eventLogId, instance.getUuid().toString(), name, idempotency, group, tenancyId);
   }
 
   private Uni<Void> scheduleQuartzJob(
@@ -158,9 +173,10 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
       String caseHubInstanceUuid,
       String workerId,
       String idempotency,
-      String group) {
+      String group,
+      String tenancyId) {
     return workerExecutionScheduler.scheduleJob(
-        eventLogId, caseHubInstanceUuid, workerId, idempotency, group);
+        eventLogId, caseHubInstanceUuid, workerId, idempotency, group, tenancyId);
   }
 
   /**

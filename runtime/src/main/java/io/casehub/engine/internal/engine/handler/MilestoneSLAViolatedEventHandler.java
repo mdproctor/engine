@@ -91,7 +91,7 @@ public class MilestoneSLAViolatedEventHandler {
         "Recording MILESTONE_SLA_VIOLATED for case=%s milestone=%s violatedAt=%s",
         caseInstance.getUuid(), milestoneName, event.violatedAt());
 
-    return eventLogRepository.append(eventLog);
+    return eventLogRepository.append(eventLog, caseInstance.tenancyId);
   }
 
   private Uni<Void> updateCaseContext(

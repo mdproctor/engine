@@ -32,6 +32,7 @@ import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
@@ -79,7 +80,7 @@ public class SubCaseOutputMappingRecoveryTest {
     meta.setName("recovery-test-" + unique);
     meta.setNamespace("test-ns");
     meta.setVersion("1.0");
-    savedMeta = run(() -> metaModelRepository.save(meta));
+    savedMeta = run(() -> metaModelRepository.save(meta, TenancyConstants.DEFAULT_TENANT_ID));
   }
 
   /**
@@ -167,7 +168,7 @@ public class SubCaseOutputMappingRecoveryTest {
     // ✓ CORRECT: payload contains output data
     workerEvent.setPayload(
         OBJECT_MAPPER.valueToTree(Map.of("processed", true, "result", "success")));
-    run(() -> eventLogRepository.append(workerEvent));
+    run(() -> eventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
 
     // Clear cache and restore
     caseInstanceCache.clear();
@@ -194,7 +195,8 @@ public class SubCaseOutputMappingRecoveryTest {
   private UUID createParentCase(String orderId) {
     CaseInstance parent = newInstance(CaseStatus.RUNNING);
     parent.getCaseContext().set("orderId", orderId);
-    CaseInstance savedParent = run(() -> instanceRepository.save(parent));
+    CaseInstance savedParent =
+        run(() -> instanceRepository.save(parent, TenancyConstants.DEFAULT_TENANT_ID));
 
     // Write CASE_STARTED event (needed for recovery)
     EventLog caseStarted = new EventLog();
@@ -203,7 +205,7 @@ public class SubCaseOutputMappingRecoveryTest {
     caseStarted.setStreamType(EventStreamType.CASE);
     caseStarted.setTimestamp(Instant.now());
     caseStarted.setPayload(OBJECT_MAPPER.valueToTree(Map.of("orderId", orderId)));
-    run(() -> eventLogRepository.append(caseStarted));
+    run(() -> eventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
 
     caseInstanceCache.put(savedParent);
     return savedParent.getUuid();
@@ -216,7 +218,7 @@ public class SubCaseOutputMappingRecoveryTest {
     child.setParentCaseId(parentId);
     child.getCaseContext().set("result", result);
     child.getCaseContext().set("processedData", processedData);
-    run(() -> instanceRepository.save(child));
+    run(() -> instanceRepository.save(child, TenancyConstants.DEFAULT_TENANT_ID));
     caseInstanceCache.put(child);
     return childId;
   }
@@ -233,7 +235,7 @@ public class SubCaseOutputMappingRecoveryTest {
     metadata.put("outputMapping", outputMapping);
     metadata.put("waitForCompletion", true);
     event.setMetadata(metadata);
-    run(() -> eventLogRepository.append(event));
+    run(() -> eventLogRepository.append(event, TenancyConstants.DEFAULT_TENANT_ID));
   }
 
   private void writeSubCaseCompletedEvent(
@@ -252,7 +254,7 @@ public class SubCaseOutputMappingRecoveryTest {
     if (appliedData != null) {
       event.setPayload(OBJECT_MAPPER.valueToTree(appliedData));
     }
-    run(() -> eventLogRepository.append(event));
+    run(() -> eventLogRepository.append(event, TenancyConstants.DEFAULT_TENANT_ID));
   }
 
   private CaseInstance newInstance(CaseStatus status) {
@@ -306,7 +308,7 @@ public class SubCaseOutputMappingRecoveryTest {
     metadata.set("contextChanges", contextChanges);
     workerEvent.setMetadata(metadata);
 
-    run(() -> eventLogRepository.append(workerEvent));
+    run(() -> eventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
 
     // 3. Clear cache (simulates JVM restart)
     caseInstanceCache.clear();
@@ -358,7 +360,7 @@ public class SubCaseOutputMappingRecoveryTest {
     metadata.set("contextChanges", contextChanges);
     workerEvent.setMetadata(metadata);
 
-    run(() -> eventLogRepository.append(workerEvent));
+    run(() -> eventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
 
     // 3. Clear cache
     caseInstanceCache.clear();
@@ -379,7 +381,8 @@ public class SubCaseOutputMappingRecoveryTest {
     CaseInstance instance = newInstance(CaseStatus.RUNNING);
     instance.getCaseContext().set("orderId", orderId);
     instance.getCaseContext().set("temp", tempValue);
-    CaseInstance saved = run(() -> instanceRepository.save(instance));
+    CaseInstance saved =
+        run(() -> instanceRepository.save(instance, TenancyConstants.DEFAULT_TENANT_ID));
 
     // Write CASE_STARTED event
     EventLog caseStarted = new EventLog();
@@ -389,7 +392,7 @@ public class SubCaseOutputMappingRecoveryTest {
     caseStarted.setTimestamp(Instant.now());
     caseStarted.setPayload(
         OBJECT_MAPPER.valueToTree(Map.of("orderId", orderId, "temp", tempValue)));
-    run(() -> eventLogRepository.append(caseStarted));
+    run(() -> eventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
 
     caseInstanceCache.put(saved);
     return saved.getUuid();

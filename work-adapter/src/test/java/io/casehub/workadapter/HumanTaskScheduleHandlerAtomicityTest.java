@@ -146,7 +146,7 @@ class HumanTaskScheduleHandlerAtomicityTest {
     }
     caseId = UUID.randomUUID();
     planItem = PlanItem.create("irb-binding", "unused-worker", 5);
-    registry.getOrCreate(caseId).addPlanItem(planItem);
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(planItem);
   }
 
   @AfterEach

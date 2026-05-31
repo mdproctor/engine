@@ -19,7 +19,7 @@ import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,7 +42,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class WorkResultSubmitter {
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
 
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 

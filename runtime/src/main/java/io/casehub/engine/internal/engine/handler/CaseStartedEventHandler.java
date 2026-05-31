@@ -71,7 +71,7 @@ public class CaseStartedEventHandler {
     caseChannelProvider.openChannel(instance.getUuid(), "coordination");
 
     return eventLogRepository
-        .append(eventLog)
+        .append(eventLog, instance.tenancyId)
         .chain(() -> schedulerService.registerScheduledTriggers(instance))
         .invoke(
             () ->
@@ -86,6 +86,7 @@ public class CaseStartedEventHandler {
                             lifecycleEvents.fireAsync(
                                 new CaseLifecycleEvent(
                                     instance.getUuid(),
+                                    instance.tenancyId,
                                     "StartCase",
                                     "CaseStarted",
                                     instance.getState().name(),

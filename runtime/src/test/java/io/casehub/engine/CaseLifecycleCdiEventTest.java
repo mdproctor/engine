@@ -31,6 +31,7 @@ import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
@@ -100,7 +101,7 @@ class CaseLifecycleCdiEventTest {
             () -> {
               CaseInstance instance =
                   caseInstanceRepository
-                      .findByUuid(caseId)
+                      .findByUuid(caseId, TenancyConstants.DEFAULT_TENANT_ID)
                       .subscribe()
                       .asCompletionStage()
                       .toCompletableFuture()

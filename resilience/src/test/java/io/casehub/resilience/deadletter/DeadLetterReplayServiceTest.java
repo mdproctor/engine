@@ -36,8 +36,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Instant;
@@ -51,8 +51,8 @@ import org.junit.jupiter.api.Test;
 class DeadLetterReplayServiceTest {
 
   private DeadLetterQueue queue;
-  private EventLogRepository eventLogRepository;
-  private CaseInstanceRepository caseInstanceRepository;
+  private CrossTenantEventLogRepository eventLogRepository;
+  private CrossTenantCaseInstanceRepository caseInstanceRepository;
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private EventBus eventBus;
   private DeadLetterReplayService service;
@@ -60,8 +60,8 @@ class DeadLetterReplayServiceTest {
   @BeforeEach
   void setup() {
     queue = new DeadLetterQueue();
-    eventLogRepository = mock(EventLogRepository.class);
-    caseInstanceRepository = mock(CaseInstanceRepository.class);
+    eventLogRepository = mock(CrossTenantEventLogRepository.class);
+    caseInstanceRepository = mock(CrossTenantCaseInstanceRepository.class);
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
     eventBus = mock(EventBus.class);
     service =

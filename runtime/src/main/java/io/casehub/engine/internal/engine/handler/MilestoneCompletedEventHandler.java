@@ -101,7 +101,7 @@ public class MilestoneCompletedEventHandler {
         "Recording MILESTONE_COMPLETED for case=%s milestone=%s slaStatus=%s",
         caseInstance.getUuid(), milestone.getName(), event.slaStatusAtCompletion());
 
-    return eventLogRepository.append(eventLog);
+    return eventLogRepository.append(eventLog, caseInstance.tenancyId);
   }
 
   private Uni<Void> updateCaseContext(

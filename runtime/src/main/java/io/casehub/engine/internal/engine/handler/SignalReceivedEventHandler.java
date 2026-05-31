@@ -112,7 +112,7 @@ public class SignalReceivedEventHandler {
     EventLog eventLog = buildSignalEventLog(instance, diff);
 
     return eventLogRepository
-        .append(eventLog)
+        .append(eventLog, instance.tenancyId)
         .invoke(
             () ->
                 eventBus.publish(
@@ -125,6 +125,7 @@ public class SignalReceivedEventHandler {
                             lifecycleEvents.fireAsync(
                                 new CaseLifecycleEvent(
                                     instance.getUuid(),
+                                    instance.tenancyId,
                                     "SignalCase",
                                     "SignalReceived",
                                     instance.getState().name(),

@@ -79,7 +79,7 @@ class WorkItemLifecycleAdapterTest {
     planItemId = planItem.getPlanItemId();
     planItem.markRunning();
 
-    registry.getOrCreate(caseId).addPlanItem(planItem);
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(planItem);
 
     CaseInstance instance = new CaseInstance();
     instance.setUuid(caseId);
@@ -107,7 +107,7 @@ class WorkItemLifecycleAdapterTest {
     // Human task refusal — PlanItem must be DELEGATED (human task lifecycle)
     PlanItem delegatedItem = PlanItem.create("review-ht", "ht-worker", 10);
     delegatedItem.markDelegated();
-    registry.getOrCreate(caseId).addPlanItem(delegatedItem);
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(delegatedItem);
     String delegatedItemId = delegatedItem.getPlanItemId();
 
     WorkItem workItem = new WorkItem();
@@ -128,7 +128,7 @@ class WorkItemLifecycleAdapterTest {
     // Deadline expiry — a time-based failure, maps to FAULTED
     PlanItem delegatedItem = PlanItem.create("review-ht-expired", "ht-worker", 10);
     delegatedItem.markDelegated();
-    registry.getOrCreate(caseId).addPlanItem(delegatedItem);
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(delegatedItem);
     String delegatedItemId = delegatedItem.getPlanItemId();
 
     WorkItem workItem = new WorkItem();
@@ -246,7 +246,7 @@ class WorkItemLifecycleAdapterTest {
         HumanTaskTarget.inline().title("Review").outputMapping("{ irbOutcome: .decision }").build();
     PlanItem htPlanItem = PlanItem.create("review-binding-ht", "ht-worker", 10, target);
     htPlanItem.markRunning();
-    registry.getOrCreate(caseId).addPlanItem(htPlanItem);
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(htPlanItem);
 
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
@@ -283,7 +283,7 @@ class WorkItemLifecycleAdapterTest {
         HumanTaskTarget.inline().title("Review").outputMapping("not-a-valid-template").build();
     PlanItem htPlanItem = PlanItem.create("review-binding-fail", "ht-worker", 10, target);
     htPlanItem.markRunning();
-    registry.getOrCreate(caseId).addPlanItem(htPlanItem);
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(htPlanItem);
 
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
@@ -310,7 +310,7 @@ class WorkItemLifecycleAdapterTest {
             .build();
     PlanItem htPlanItem = PlanItem.create("nested-mapping-binding", "ht-worker", 10, target);
     htPlanItem.markRunning();
-    registry.getOrCreate(caseId).addPlanItem(htPlanItem);
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(htPlanItem);
 
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
@@ -382,7 +382,7 @@ class WorkItemLifecycleAdapterTest {
     // Group threshold unreachable — group PlanItems are always DELEGATED (HumanTask SpawnGroup)
     PlanItem delegatedItem = PlanItem.create("group-binding", "group-worker", 10);
     delegatedItem.markDelegated();
-    registry.getOrCreate(caseId).addPlanItem(delegatedItem);
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(delegatedItem);
     String delegatedItemId = delegatedItem.getPlanItemId();
 
     groupLifecycleEvents.fireAsync(

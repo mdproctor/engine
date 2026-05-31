@@ -97,11 +97,13 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     String idempotency = context.getMergedJobDataMap().getString("inputDataHash");
     String workerId = context.getMergedJobDataMap().getString("workerId");
     String caseHubInstanceUuid = context.getMergedJobDataMap().getString("caseHubInstanceUuid");
+    String tenancyId = context.getMergedJobDataMap().getString("tenancyId");
     LOG.infof("Job is about to be executed: %s, idempotency=%s", jobName, idempotency);
     workerStatusListener.onWorkerStarted(workerId, Map.of("caseId", caseHubInstanceUuid));
     lifecycleEvents.fireAsync(
         new CaseLifecycleEvent(
             UUID.fromString(caseHubInstanceUuid),
+            null,
             "ExecuteWorker",
             "WorkerExecutionStarted",
             null,
@@ -115,7 +117,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
             CaseHubEventType.WORKER_EXECUTION_STARTED,
             OBJECT_MAPPER.createObjectNode().put("inputDataHash", idempotency));
 
-    persistEventLog(jobName, eventLog)
+    persistEventLog(jobName, eventLog, tenancyId)
         .subscribe()
         .with(
             ignored -> LOG.debugf("Persisted start event for %s", jobName),
@@ -142,6 +144,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     if (jobException != null) {
       String jobName = context.getJobDetail().getKey().toString();
       String idempotency = context.getMergedJobDataMap().getString("inputDataHash");
+      String tenancyId = context.getMergedJobDataMap().getString("tenancyId");
       LOG.errorf("Job failed: %s, Error: %s", jobName, jobException.getMessage());
 
       EventLog eventLog =
@@ -153,7 +156,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
                   .put("inputDataHash", idempotency)
                   .put("errorMessage", jobException.getMessage()));
 
-      persistEventLog(jobName, eventLog)
+      persistEventLog(jobName, eventLog, tenancyId)
           .subscribe()
           .with(
               success -> maybeRescheduleJob(context),
@@ -170,6 +173,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     String caseHubInstanceUuid = context.getMergedJobDataMap().getString("caseHubInstanceUuid");
     String workerId = context.getMergedJobDataMap().getString("workerId");
     String idempotency = context.getMergedJobDataMap().getString("inputDataHash");
+    String tenancyId = context.getMergedJobDataMap().getString("tenancyId");
     UUID caseId = UUID.fromString(caseHubInstanceUuid);
 
     workerExecutionRecoveryService
@@ -183,7 +187,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
               if (retryPolicy == null) {
                 return;
               }
-              countFailedAttempts(caseId, workerId, idempotency)
+              countFailedAttempts(caseId, workerId, idempotency, tenancyId)
                   .subscribe()
                   .with(
                       failureCount -> {
@@ -287,19 +291,20 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     return eventLog;
   }
 
-  private Uni<Void> persistEventLog(String jobName, EventLog eventLog) {
-    return runOnSafeVertxContext(() -> eventLogRepository.append(eventLog))
+  private Uni<Void> persistEventLog(String jobName, EventLog eventLog, String tenancyId) {
+    return runOnSafeVertxContext(() -> eventLogRepository.append(eventLog, tenancyId))
         .onFailure()
         .invoke(ex -> LOG.errorf(ex, "Failed to persist event for job: %s", jobName));
   }
 
   // TODO metadata->>'idempotency' way faster but not very stable
-  private Uni<Long> countFailedAttempts(UUID caseId, String workerId, String idempotency) {
+  private Uni<Long> countFailedAttempts(
+      UUID caseId, String workerId, String idempotency, String tenancyId) {
     return runOnSafeVertxContext(
         () ->
             eventLogRepository
                 .findByCaseAndWorkerAndType(
-                    caseId, workerId, CaseHubEventType.WORKER_EXECUTION_FAILED)
+                    caseId, workerId, CaseHubEventType.WORKER_EXECUTION_FAILED, tenancyId)
                 .map(
                     eventLogs ->
                         eventLogs.stream()

@@ -362,7 +362,7 @@ public class CaseContextChangedEventHandler {
             target,
             inputData,
             caseBudgetDeadline,
-            caseInstance.getTenancyId()));
+            caseInstance.tenancyId));
 
     return Uni.createFrom().voidItem();
   }

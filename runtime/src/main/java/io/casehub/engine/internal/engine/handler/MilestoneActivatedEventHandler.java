@@ -108,7 +108,7 @@ public class MilestoneActivatedEventHandler {
         "Recording MILESTONE_ACTIVATED for case=%s milestone=%s",
         caseInstance.getUuid(), milestone.getName());
 
-    return eventLogRepository.append(eventLog);
+    return eventLogRepository.append(eventLog, caseInstance.tenancyId);
   }
 
   private Uni<Void> updateCaseContext(

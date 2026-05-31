@@ -85,7 +85,7 @@ public class GoalReachedEventHandler {
             .put("isTerminal", goal.getTerminal()));
 
     return eventLogRepository
-        .append(eventLog)
+        .append(eventLog, caseInstance.tenancyId)
         .chain(
             () ->
                 Uni.createFrom()
@@ -94,6 +94,7 @@ public class GoalReachedEventHandler {
                             lifecycleEvents.fireAsync(
                                 new CaseLifecycleEvent(
                                     caseInstance.getUuid(),
+                                    caseInstance.tenancyId,
                                     "ReachGoal",
                                     "GoalReached",
                                     caseInstance.getState().name(),
@@ -119,7 +120,7 @@ public class GoalReachedEventHandler {
     }
 
     return eventLogRepository
-        .findByCaseAndTypes(caseInstance.getUuid(), Set.of(GOAL_REACHED))
+        .findByCaseAndTypes(caseInstance.getUuid(), Set.of(GOAL_REACHED), caseInstance.tenancyId)
         .chain(
             eventLogs -> {
               Set<String> reachedGoals =

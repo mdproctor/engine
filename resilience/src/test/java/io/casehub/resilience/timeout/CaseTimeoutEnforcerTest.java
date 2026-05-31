@@ -56,7 +56,7 @@ class CaseTimeoutEnforcerTest {
     cache = new CaseInstanceCacheImpl();
     eventBus = mock(EventBus.class);
     repository = mock(CaseInstanceRepository.class);
-    when(repository.updateStateAndAppendEvent(any(), any()))
+    when(repository.updateStateAndAppendEvent(any(), any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
     enforcer = new CaseTimeoutEnforcer(cache, eventBus, repository);
   }
@@ -107,7 +107,7 @@ class CaseTimeoutEnforcerTest {
     enforcer.scanForTimeouts();
 
     assertThat(instance.getState()).isEqualTo(CaseStatus.RUNNING);
-    verify(repository, never()).updateStateAndAppendEvent(any(), any());
+    verify(repository, never()).updateStateAndAppendEvent(any(), any(), any());
   }
 
   // ---- Timeout cases --------------------------------------------------------
@@ -143,7 +143,7 @@ class CaseTimeoutEnforcerTest {
 
     enforcer.scanForTimeouts();
 
-    verify(repository).updateStateAndAppendEvent(any(), any());
+    verify(repository).updateStateAndAppendEvent(any(), any(), any());
   }
 
   // ---- Non-RUNNING cases are ignored ----------------------------------------

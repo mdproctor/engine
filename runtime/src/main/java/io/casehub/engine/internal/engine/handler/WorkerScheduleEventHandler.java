@@ -129,7 +129,8 @@ public class WorkerScheduleEventHandler {
     Instant idempotencyAfter = idempotencyWindow.map(w -> Instant.now().minus(w)).orElse(null);
 
     return eventLogRepository
-        .findSchedulingEvents(instance.getUuid(), worker.getName(), idempotencyAfter)
+        .findSchedulingEvents(
+            instance.getUuid(), worker.getName(), idempotencyAfter, instance.tenancyId)
         .map(existing -> decideAction(existing, inputDataHash))
         .chain(action -> executeAction(action, eventLog, instance, worker, capability))
         .chain(eventLogId -> submitIfNeeded(eventLogId, instance, worker, capability, inputData))
@@ -188,7 +189,7 @@ public class WorkerScheduleEventHandler {
             instance.getUuid(), worker.getName(), capability.getName());
         yield Uni.createFrom().nullItem();
       }
-      case CREATE_NEW -> eventLogRepository.appendAndReturnId(eventLog);
+      case CREATE_NEW -> eventLogRepository.appendAndReturnId(eventLog, instance.tenancyId);
     };
   }
 

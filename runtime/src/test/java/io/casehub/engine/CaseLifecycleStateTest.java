@@ -33,6 +33,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -96,7 +97,11 @@ class CaseLifecycleStateTest {
         .untilAsserted(() -> assertThat(caseInstanceCache.get(caseId)).isNotNull());
 
     // Repository must store RUNNING — not the legacy ACTIVE value.
-    var stored = caseInstanceRepository.findByUuid(caseId).await().atMost(SPI_TIMEOUT);
+    var stored =
+        caseInstanceRepository
+            .findByUuid(caseId, TenancyConstants.DEFAULT_TENANT_ID)
+            .await()
+            .atMost(SPI_TIMEOUT);
 
     assertThat(stored).as("CaseInstance must be findable by UUID after start").isNotNull();
     assertThat(stored.getState())
@@ -164,14 +169,15 @@ class CaseLifecycleStateTest {
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
     return eventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType))
+        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);
   }
 
   private List<EventLog> findEventsByTypeName(UUID caseId, String eventTypeName) {
     return eventLogRepository
-        .findByCaseAndTypes(caseId, List.of(CaseHubEventType.values()))
+        .findByCaseAndTypes(
+            caseId, List.of(CaseHubEventType.values()), TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT)
         .stream()

@@ -72,7 +72,7 @@ public class WorkerRetriesExhaustedEventHandler {
             .put("inputDataHash", event.idempotency()));
 
     return caseInstanceRepository
-        .updateStateAndAppendEvent(caseInstance, eventLog)
+        .updateStateAndAppendEvent(caseInstance, eventLog, caseInstance.tenancyId)
         .invoke(
             () -> {
               LOG.warnf(

@@ -265,6 +265,30 @@ public class JpaEventLogRepository extends AbstractJpaRepository
   }
 
   @Override
+  public Uni<EventLog> findById(Long id) {
+    return withSafeContext(
+        () ->
+            Panache.withSession(() -> EventLogEntity.<EventLogEntity>findById(id))
+                .map(entity -> entity == null ? null : fromEntity(entity)));
+  }
+
+  @Override
+  public Uni<List<EventLog>> findByCaseAndWorkerAndType(
+      UUID caseId, String workerId, CaseHubEventType type) {
+    return withSafeContext(
+        () ->
+            Panache.withSession(
+                    () ->
+                        EventLogEntity.<EventLogEntity>find(
+                                "caseId = ?1 and workerId = ?2 and eventType = ?3",
+                                caseId,
+                                workerId,
+                                type)
+                            .list())
+                .map(list -> list.stream().map(this::fromEntity).toList()));
+  }
+
+  @Override
   public Uni<List<EventLog>> findByWorkerAndTypeAcrossTenants(
       String workerId, CaseHubEventType type) {
     return withSafeContext(

@@ -99,7 +99,7 @@ public class CaseTimeoutEnforcer {
       eventLog.setMetadata(OBJECT_MAPPER.createObjectNode().put("reason", "timeout"));
 
       caseInstanceRepository
-          .updateStateAndAppendEvent(instance, eventLog)
+          .updateStateAndAppendEvent(instance, eventLog, instance.tenancyId)
           .subscribe()
           .with(
               ignored ->

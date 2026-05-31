@@ -35,7 +35,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.internal.worker.WorkflowExecutor;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowModel;
@@ -72,7 +72,7 @@ class QuartzWorkerExecutionJob implements Job {
 
   @Inject WorkerExecutionRecoveryService workerExecutionRecoveryService;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject CrossTenantEventLogRepository eventLogRepository;
 
   @Inject WorkerExecutionConfig executionConfig;
 

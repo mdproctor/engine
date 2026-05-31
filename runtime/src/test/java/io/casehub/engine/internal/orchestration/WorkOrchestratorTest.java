@@ -82,9 +82,9 @@ class WorkOrchestratorTest {
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
     when(executionManager.getActiveWorkCount(any())).thenReturn(0);
-    when(caseInstanceRepository.updateStateAndAppendEvent(any(), any()))
+    when(caseInstanceRepository.updateStateAndAppendEvent(any(), any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
-    when(eventLogRepository.appendAndReturnId(any())).thenReturn(Uni.createFrom().item(1L));
+    when(eventLogRepository.appendAndReturnId(any(), any())).thenReturn(Uni.createFrom().item(1L));
     when(jqEvaluator.eval(any(), any()))
         .thenReturn(
             ValidationResult.ok(

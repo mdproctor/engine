@@ -42,4 +42,17 @@ public interface CrossTenantEventLogRepository {
 
   /** Cross-tenant variant of findByWorkerAndType — recovery only. */
   Uni<List<EventLog>> findByWorkerAndTypeAcrossTenants(String workerId, CaseHubEventType type);
+
+  /**
+   * Look up an event log entry by surrogate id without tenant filter. Used by Quartz jobs that have
+   * the event log id from job data but no principal context.
+   */
+  Uni<EventLog> findById(Long id);
+
+  /**
+   * Cross-tenant variant of findByCaseAndWorkerAndType. Used by DLQ replay and system services that
+   * operate across tenants.
+   */
+  Uni<List<EventLog>> findByCaseAndWorkerAndType(
+      UUID caseId, String workerId, CaseHubEventType type);
 }

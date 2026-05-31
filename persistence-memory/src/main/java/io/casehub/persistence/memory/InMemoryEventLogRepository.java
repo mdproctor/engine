@@ -263,6 +263,35 @@ public class InMemoryEventLogRepository
   }
 
   @Override
+  public Uni<EventLog> findById(Long id) {
+    rwLock.readLock().lock();
+    try {
+      return Uni.createFrom().item(store.get(id));
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public Uni<List<EventLog>> findByCaseAndWorkerAndType(
+      UUID caseId, String workerId, CaseHubEventType type) {
+    rwLock.readLock().lock();
+    try {
+      List<EventLog> result =
+          store.values().stream()
+              .filter(
+                  e ->
+                      caseId.equals(e.getCaseId())
+                          && workerId.equals(e.getWorkerId())
+                          && type == e.getEventType())
+              .toList();
+      return Uni.createFrom().item(result);
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
   public Uni<List<EventLog>> findByWorkerAndTypeAcrossTenants(
       String workerId, CaseHubEventType type) {
     rwLock.readLock().lock();

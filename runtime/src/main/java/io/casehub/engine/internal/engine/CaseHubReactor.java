@@ -36,6 +36,7 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -70,6 +71,8 @@ class CaseHubReactor {
   @Inject LedgerTraceIdProvider traceIdProvider;
 
   @Inject EventLogRepository eventLogRepository;
+
+  @Inject CurrentPrincipal currentPrincipal;
 
   CompletionStage<UUID> startCase(CaseDefinition definition, CaseContext context) {
     return startCaseInternal(definition, context, null, null);
@@ -141,7 +144,7 @@ class CaseHubReactor {
     instance.setParentCaseId(parentCaseId);
 
     caseInstanceCache.put(instance);
-    return caseInstanceRepository.save(instance);
+    return caseInstanceRepository.save(instance, currentPrincipal.tenancyId());
   }
 
   void signal(UUID caseId, String path, Object value) {
@@ -228,6 +231,7 @@ class CaseHubReactor {
       UUID caseId,
       Collection<CaseHubEventType> eventTypes,
       Collection<EventStreamType> streamTypes) {
-    return eventLogRepository.findByCaseWithFilters(caseId, eventTypes, streamTypes);
+    return eventLogRepository.findByCaseWithFilters(
+        caseId, eventTypes, streamTypes, currentPrincipal.tenancyId());
   }
 }

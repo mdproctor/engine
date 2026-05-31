@@ -66,7 +66,7 @@ public class MilestoneReachedEventHandler {
             .put("description", milestone.getDescription()));
 
     return eventLogRepository
-        .append(eventLog)
+        .append(eventLog, caseInstance.tenancyId)
         .chain(
             () ->
                 Uni.createFrom()
@@ -75,6 +75,7 @@ public class MilestoneReachedEventHandler {
                             lifecycleEvents.fireAsync(
                                 new CaseLifecycleEvent(
                                     caseInstance.getUuid(),
+                                    caseInstance.tenancyId,
                                     "ReachMilestone",
                                     "MilestoneReached",
                                     caseInstance.getState().name(),

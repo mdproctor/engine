@@ -126,7 +126,8 @@ public class MilestoneLifecycleManager {
   }
 
   private Uni<Void> evaluateMilestone(CaseInstance caseInstance, Milestone milestone) {
-    return getCurrentLifecycleStatus(caseInstance.getUuid(), milestone.getName())
+    return getCurrentLifecycleStatus(
+            caseInstance.getUuid(), milestone.getName(), caseInstance.tenancyId)
         .chain(
             currentStatus -> {
               LOG.debugf(
@@ -193,9 +194,10 @@ public class MilestoneLifecycleManager {
             });
   }
 
-  private Uni<EventLog> findLastMilestoneEvent(UUID caseId, String milestoneName) {
+  private Uni<EventLog> findLastMilestoneEvent(
+      UUID caseId, String milestoneName, String tenancyId) {
     return eventLogRepository
-        .findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS)
+        .findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS, tenancyId)
         .map(
             events ->
                 events.stream()
@@ -205,8 +207,8 @@ public class MilestoneLifecycleManager {
   }
 
   private Uni<MilestoneLifecycleStatus> getCurrentLifecycleStatus(
-      UUID caseId, String milestoneName) {
-    return findLastMilestoneEvent(caseId, milestoneName)
+      UUID caseId, String milestoneName, String tenancyId) {
+    return findLastMilestoneEvent(caseId, milestoneName, tenancyId)
         .map(
             lastEvent -> {
               if (lastEvent == null) {
@@ -226,7 +228,7 @@ public class MilestoneLifecycleManager {
   }
 
   private Uni<SlaStatus> getCurrentSlaStatus(CaseInstance caseInstance, String milestoneName) {
-    return findLastMilestoneEvent(caseInstance.getUuid(), milestoneName)
+    return findLastMilestoneEvent(caseInstance.getUuid(), milestoneName, caseInstance.tenancyId)
         .map(
             lastEvent -> {
               if (lastEvent == null) {
@@ -258,7 +260,10 @@ public class MilestoneLifecycleManager {
     if (slaStartFrom == SlaStartFrom.CASE_CREATED) {
       // Query EventLog for CASE_STARTED event to get creation timestamp
       return eventLogRepository
-          .findByCaseAndTypes(caseInstance.getUuid(), EnumSet.of(CaseHubEventType.CASE_STARTED))
+          .findByCaseAndTypes(
+              caseInstance.getUuid(),
+              EnumSet.of(CaseHubEventType.CASE_STARTED),
+              caseInstance.tenancyId)
           .map(
               events -> {
                 EventLog caseStartedEvent =

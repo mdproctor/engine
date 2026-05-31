@@ -35,6 +35,7 @@ import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -243,7 +244,7 @@ public class SignalPersistenceAndDedupTest {
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
     return eventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType))
+        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);
   }
@@ -251,7 +252,7 @@ public class SignalPersistenceAndDedupTest {
   private List<EventLog> findWorkerEvents(
       UUID caseId, CaseHubEventType eventType, String workerId) {
     return eventLogRepository
-        .findByCaseAndWorkerAndType(caseId, workerId, eventType)
+        .findByCaseAndWorkerAndType(caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);
   }

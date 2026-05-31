@@ -29,6 +29,7 @@ import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.casehub.engine.common.spi.ExpressionEngineRegistry;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -68,6 +69,8 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   @Inject SecretManager secretManager;
 
   @Inject ConfigManager configManager;
+
+  @Inject CurrentPrincipal currentPrincipal;
 
   void onStart(@Observes @Priority(10) StartupEvent ev) {
     ReactiveUtils.runOnSafeVertxContext(vertx, this::registerKnownDefinitions)
@@ -114,7 +117,8 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
     }
 
     return caseMetaModelRepository
-        .findByKey(model.getNamespace(), model.getName(), model.getVersion())
+        .findByKey(
+            model.getNamespace(), model.getName(), model.getVersion(), currentPrincipal.tenancyId())
         .onItem()
         .transformToUni(
             existing -> {
@@ -125,7 +129,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
               definition.setDsl(model.getDsl());
               definition.setCreatedAt(Instant.now());
               return caseMetaModelRepository
-                  .save(definition)
+                  .save(definition, currentPrincipal.tenancyId())
                   .invoke(saved -> registry.put(saved, model));
             });
   }

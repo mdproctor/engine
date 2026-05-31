@@ -47,7 +47,8 @@ class QuartzWorkerSchedulerService {
       String caseHubInstanceUuid,
       String workerId,
       String idempotency,
-      String group) {
+      String group,
+      String tenancyId) {
     JobKey jobKey = new JobKey(idempotency, group);
     JobDetail job =
         newJob(QuartzWorkerExecutionJob.class)
@@ -57,6 +58,7 @@ class QuartzWorkerSchedulerService {
             .usingJobData("caseHubInstanceUuid", caseHubInstanceUuid)
             .usingJobData("workerId", workerId)
             .usingJobData("eventLogId", String.valueOf(eventLogId))
+            .usingJobData("tenancyId", tenancyId != null ? tenancyId : "")
             .build();
 
     Trigger trigger =
