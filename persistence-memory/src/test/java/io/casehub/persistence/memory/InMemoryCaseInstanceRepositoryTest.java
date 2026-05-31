@@ -49,7 +49,7 @@ class InMemoryCaseInstanceRepositoryTest {
   void save_populatesId() {
     CaseInstance instance = newInstance(CaseStatus.RUNNING);
 
-    CaseInstance saved = repository.save(instance).await().indefinitely();
+    CaseInstance saved = repository.save(instance, "test-tenant").await().indefinitely();
 
     assertThat(saved.id).isNotNull().isPositive();
   }
@@ -58,7 +58,7 @@ class InMemoryCaseInstanceRepositoryTest {
   void save_returnsSameInstance() {
     CaseInstance instance = newInstance(CaseStatus.RUNNING);
 
-    CaseInstance saved = repository.save(instance).await().indefinitely();
+    CaseInstance saved = repository.save(instance, "test-tenant").await().indefinitely();
 
     assertThat(saved).isSameAs(instance);
   }
@@ -68,9 +68,9 @@ class InMemoryCaseInstanceRepositoryTest {
     UUID uuid = UUID.randomUUID();
     CaseInstance instance = newInstance(CaseStatus.RUNNING);
     instance.setUuid(uuid);
-    repository.save(instance).await().indefinitely();
+    repository.save(instance, "test-tenant").await().indefinitely();
 
-    CaseInstance found = repository.findByUuid(uuid).await().indefinitely();
+    CaseInstance found = repository.findByUuid(uuid, "test-tenant").await().indefinitely();
 
     assertThat(found).isNotNull();
     assertThat(found.getUuid()).isEqualTo(uuid);
@@ -82,21 +82,22 @@ class InMemoryCaseInstanceRepositoryTest {
   @Test
   void update_changesState() {
     CaseInstance instance = newInstance(CaseStatus.RUNNING);
-    repository.save(instance).await().indefinitely();
+    repository.save(instance, "test-tenant").await().indefinitely();
 
     instance.setState(CaseStatus.COMPLETED);
-    repository.update(instance).await().indefinitely();
+    repository.update(instance, "test-tenant").await().indefinitely();
 
-    CaseInstance reloaded = repository.findByUuid(instance.getUuid()).await().indefinitely();
+    CaseInstance reloaded =
+        repository.findByUuid(instance.getUuid(), "test-tenant").await().indefinitely();
     assertThat(reloaded.getState()).isEqualTo(CaseStatus.COMPLETED);
   }
 
   @Test
   void update_returnsSameInstance() {
     CaseInstance instance = newInstance(CaseStatus.RUNNING);
-    repository.save(instance).await().indefinitely();
+    repository.save(instance, "test-tenant").await().indefinitely();
 
-    CaseInstance result = repository.update(instance).await().indefinitely();
+    CaseInstance result = repository.update(instance, "test-tenant").await().indefinitely();
 
     assertThat(result).isSameAs(instance);
   }
@@ -106,8 +107,8 @@ class InMemoryCaseInstanceRepositoryTest {
     CaseInstance a = newInstance(CaseStatus.RUNNING);
     CaseInstance b = newInstance(CaseStatus.RUNNING);
 
-    repository.save(a).await().indefinitely();
-    repository.save(b).await().indefinitely();
+    repository.save(a, "test-tenant").await().indefinitely();
+    repository.save(b, "test-tenant").await().indefinitely();
 
     assertThat(a.id).isNotEqualTo(b.id);
   }
@@ -115,10 +116,10 @@ class InMemoryCaseInstanceRepositoryTest {
   @Test
   void save_doesNotReassignIdIfAlreadySet() {
     CaseInstance instance = newInstance(CaseStatus.RUNNING);
-    repository.save(instance).await().indefinitely();
+    repository.save(instance, "test-tenant").await().indefinitely();
     Long firstId = instance.id;
 
-    repository.save(instance).await().indefinitely();
+    repository.save(instance, "test-tenant").await().indefinitely();
 
     assertThat(instance.id).isEqualTo(firstId);
   }
@@ -127,22 +128,24 @@ class InMemoryCaseInstanceRepositoryTest {
 
   @Test
   void findByUuid_returnsNullForUnknown() {
-    CaseInstance result = repository.findByUuid(UUID.randomUUID()).await().indefinitely();
+    CaseInstance result =
+        repository.findByUuid(UUID.randomUUID(), "test-tenant").await().indefinitely();
     assertThat(result).isNull();
   }
 
   @Test
   void update_afterMultipleStateChanges_reflectsLatest() {
     CaseInstance instance = newInstance(CaseStatus.RUNNING);
-    repository.save(instance).await().indefinitely();
+    repository.save(instance, "test-tenant").await().indefinitely();
 
     instance.setState(CaseStatus.WAITING);
-    repository.update(instance).await().indefinitely();
+    repository.update(instance, "test-tenant").await().indefinitely();
 
     instance.setState(CaseStatus.COMPLETED);
-    repository.update(instance).await().indefinitely();
+    repository.update(instance, "test-tenant").await().indefinitely();
 
-    CaseInstance reloaded = repository.findByUuid(instance.getUuid()).await().indefinitely();
+    CaseInstance reloaded =
+        repository.findByUuid(instance.getUuid(), "test-tenant").await().indefinitely();
     assertThat(reloaded.getState()).isEqualTo(CaseStatus.COMPLETED);
   }
 
@@ -152,7 +155,7 @@ class InMemoryCaseInstanceRepositoryTest {
     // deliberately not saved
 
     org.assertj.core.api.Assertions.assertThatThrownBy(
-            () -> repository.update(instance).await().indefinitely())
+            () -> repository.update(instance, "test-tenant").await().indefinitely())
         .isInstanceOf(IllegalStateException.class);
   }
 
@@ -171,7 +174,7 @@ class InMemoryCaseInstanceRepositoryTest {
     instance.setUuid(UUID.randomUUID());
     instance.setCaseMetaModel(model);
     instance.setState(CaseStatus.RUNNING);
-    repo.save(instance).subscribe().asCompletionStage().toCompletableFuture().join();
+    repo.save(instance, "test-tenant").subscribe().asCompletionStage().toCompletableFuture().join();
 
     instance.setState(CaseStatus.COMPLETED);
     EventLog eventLog = new EventLog();
@@ -180,14 +183,14 @@ class InMemoryCaseInstanceRepositoryTest {
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
 
-    repo.updateStateAndAppendEvent(instance, eventLog)
+    repo.updateStateAndAppendEvent(instance, eventLog, "test-tenant")
         .subscribe()
         .asCompletionStage()
         .toCompletableFuture()
         .join();
 
     CaseInstance updated =
-        repo.findByUuid(instance.getUuid())
+        repo.findByUuid(instance.getUuid(), "test-tenant")
             .subscribe()
             .asCompletionStage()
             .toCompletableFuture()
@@ -197,7 +200,7 @@ class InMemoryCaseInstanceRepositoryTest {
     assertThat(eventLog.getSeq()).isNotNull();
     EventLog found =
         eventLogRepo
-            .findById(eventLog.id)
+            .findById(eventLog.id, "test-tenant")
             .subscribe()
             .asCompletionStage()
             .toCompletableFuture()

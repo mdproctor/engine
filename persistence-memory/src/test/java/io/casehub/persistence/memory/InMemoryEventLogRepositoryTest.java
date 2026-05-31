@@ -42,7 +42,7 @@ class InMemoryEventLogRepositoryTest {
   void append_populatesIdAndSeq() {
     EventLog log = event(UUID.randomUUID(), "worker-1", CaseHubEventType.WORKER_SCHEDULED);
 
-    repository.append(log).await().indefinitely();
+    repository.append(log, "test-tenant").await().indefinitely();
 
     assertThat(log.id).isNotNull().isPositive();
     assertThat(log.getSeq()).isNotNull().isPositive();
@@ -54,8 +54,8 @@ class InMemoryEventLogRepositoryTest {
     EventLog first = event(caseId, "w-1", CaseHubEventType.WORKER_SCHEDULED);
     EventLog second = event(caseId, "w-2", CaseHubEventType.WORKER_SCHEDULED);
 
-    repository.append(first).await().indefinitely();
-    repository.append(second).await().indefinitely();
+    repository.append(first, "test-tenant").await().indefinitely();
+    repository.append(second, "test-tenant").await().indefinitely();
 
     assertThat(second.getSeq()).isGreaterThan(first.getSeq());
   }
@@ -64,7 +64,7 @@ class InMemoryEventLogRepositoryTest {
   void appendAndReturnId_returnsIdAndPopulatesLog() {
     EventLog log = event(UUID.randomUUID(), "worker-ret", CaseHubEventType.WORKER_SCHEDULED);
 
-    Long returned = repository.appendAndReturnId(log).await().indefinitely();
+    Long returned = repository.appendAndReturnId(log, "test-tenant").await().indefinitely();
 
     assertThat(returned).isNotNull().isPositive();
     assertThat(returned).isEqualTo(log.id);
@@ -75,9 +75,9 @@ class InMemoryEventLogRepositoryTest {
   void findById_returnsAppendedEvent() {
     UUID caseId = UUID.randomUUID();
     EventLog log = event(caseId, "worker-find", CaseHubEventType.WORKER_SCHEDULED);
-    repository.append(log).await().indefinitely();
+    repository.append(log, "test-tenant").await().indefinitely();
 
-    EventLog found = repository.findById(log.id).await().indefinitely();
+    EventLog found = repository.findById(log.id, "test-tenant").await().indefinitely();
 
     assertThat(found).isNotNull();
     assertThat(found.getCaseId()).isEqualTo(caseId);
@@ -95,13 +95,16 @@ class InMemoryEventLogRepositoryTest {
     EventLog otherWorker = event(caseId, "other", CaseHubEventType.WORKER_SCHEDULED);
     EventLog otherCase = event(UUID.randomUUID(), workerId, CaseHubEventType.WORKER_SCHEDULED);
 
-    repository.append(scheduled).await().indefinitely();
-    repository.append(started).await().indefinitely();
-    repository.append(otherWorker).await().indefinitely();
-    repository.append(otherCase).await().indefinitely();
+    repository.append(scheduled, "test-tenant").await().indefinitely();
+    repository.append(started, "test-tenant").await().indefinitely();
+    repository.append(otherWorker, "test-tenant").await().indefinitely();
+    repository.append(otherCase, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
-        repository.findSchedulingEvents(caseId, workerId).await().indefinitely();
+        repository
+            .findSchedulingEvents(caseId, workerId, null, "test-tenant")
+            .await()
+            .indefinitely();
 
     assertThat(result).hasSize(2);
     assertThat(result)
@@ -117,9 +120,9 @@ class InMemoryEventLogRepositoryTest {
     EventLog e2 = event(caseId, "w", CaseHubEventType.WORKER_EXECUTION_COMPLETED);
     EventLog noise = event(caseId, "w", CaseHubEventType.WORKER_SCHEDULED);
 
-    repository.append(e1).await().indefinitely();
-    repository.append(e2).await().indefinitely();
-    repository.append(noise).await().indefinitely();
+    repository.append(e1, "test-tenant").await().indefinitely();
+    repository.append(e2, "test-tenant").await().indefinitely();
+    repository.append(noise, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
         repository
@@ -139,12 +142,18 @@ class InMemoryEventLogRepositoryTest {
     UUID target = UUID.randomUUID();
     UUID other = UUID.randomUUID();
 
-    repository.append(event(target, "w", CaseHubEventType.CASE_STARTED)).await().indefinitely();
-    repository.append(event(other, "w", CaseHubEventType.CASE_STARTED)).await().indefinitely();
+    repository
+        .append(event(target, "w", CaseHubEventType.CASE_STARTED), "test-tenant")
+        .await()
+        .indefinitely();
+    repository
+        .append(event(other, "w", CaseHubEventType.CASE_STARTED), "test-tenant")
+        .await()
+        .indefinitely();
 
     List<EventLog> result =
         repository
-            .findByCaseAndTypes(target, List.of(CaseHubEventType.CASE_STARTED))
+            .findByCaseAndTypes(target, List.of(CaseHubEventType.CASE_STARTED), "test-tenant")
             .await()
             .indefinitely();
 
@@ -162,13 +171,14 @@ class InMemoryEventLogRepositoryTest {
     EventLog wrongWorker = event(caseId, "other", CaseHubEventType.WORKER_EXECUTION_FAILED);
     EventLog wrongType = event(caseId, workerId, CaseHubEventType.WORKER_SCHEDULED);
 
-    repository.append(match).await().indefinitely();
-    repository.append(wrongWorker).await().indefinitely();
-    repository.append(wrongType).await().indefinitely();
+    repository.append(match, "test-tenant").await().indefinitely();
+    repository.append(wrongWorker, "test-tenant").await().indefinitely();
+    repository.append(wrongType, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
         repository
-            .findByCaseAndWorkerAndType(caseId, workerId, CaseHubEventType.WORKER_EXECUTION_FAILED)
+            .findByCaseAndWorkerAndType(
+                caseId, workerId, CaseHubEventType.WORKER_EXECUTION_FAILED, "test-tenant")
             .await()
             .indefinitely();
 
@@ -181,14 +191,17 @@ class InMemoryEventLogRepositoryTest {
 
   @Test
   void findById_returnsNullForUnknownId() {
-    EventLog result = repository.findById(Long.MAX_VALUE).await().indefinitely();
+    EventLog result = repository.findById(Long.MAX_VALUE, "test-tenant").await().indefinitely();
     assertThat(result).isNull();
   }
 
   @Test
   void findSchedulingEvents_returnsEmptyWhenNoneMatch() {
     List<EventLog> result =
-        repository.findSchedulingEvents(UUID.randomUUID(), "ghost").await().indefinitely();
+        repository
+            .findSchedulingEvents(UUID.randomUUID(), "ghost", null, "test-tenant")
+            .await()
+            .indefinitely();
     assertThat(result).isEmpty();
   }
 
@@ -204,8 +217,8 @@ class InMemoryEventLogRepositoryTest {
     EventLog a = event(UUID.randomUUID(), "w", CaseHubEventType.WORKER_SCHEDULED);
     EventLog b = event(UUID.randomUUID(), "w", CaseHubEventType.WORKER_SCHEDULED);
 
-    repository.append(a).await().indefinitely();
-    repository.append(b).await().indefinitely();
+    repository.append(a, "test-tenant").await().indefinitely();
+    repository.append(b, "test-tenant").await().indefinitely();
 
     assertThat(a.id).isNotEqualTo(b.id);
     assertThat(a.getSeq()).isNotEqualTo(b.getSeq());
@@ -224,7 +237,7 @@ class InMemoryEventLogRepositoryTest {
     old.setStreamType(EventStreamType.CASE);
     old.setTimestamp(Instant.now().minusSeconds(120));
     old.setMetadata(new ObjectMapper().createObjectNode().put("inputDataHash", "h-old"));
-    repository.append(old).await().indefinitely();
+    repository.append(old, "test-tenant").await().indefinitely();
 
     // recent event — after cutoff
     EventLog recent = new EventLog();
@@ -234,10 +247,10 @@ class InMemoryEventLogRepositoryTest {
     recent.setStreamType(EventStreamType.CASE);
     recent.setTimestamp(Instant.now());
     recent.setMetadata(new ObjectMapper().createObjectNode().put("inputDataHash", "h-recent"));
-    repository.append(recent).await().indefinitely();
+    repository.append(recent, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
-        repository.findSchedulingEvents(caseId, "w1", cutoff).await().indefinitely();
+        repository.findSchedulingEvents(caseId, "w1", cutoff, "test-tenant").await().indefinitely();
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).getTimestamp()).isAfter(cutoff);
@@ -254,7 +267,7 @@ class InMemoryEventLogRepositoryTest {
     e1.setStreamType(EventStreamType.CASE);
     e1.setTimestamp(Instant.now().minusSeconds(120));
     e1.setMetadata(new ObjectMapper().createObjectNode().put("inputDataHash", "h1"));
-    repository.append(e1).await().indefinitely();
+    repository.append(e1, "test-tenant").await().indefinitely();
 
     EventLog e2 = new EventLog();
     e2.setCaseId(caseId);
@@ -263,7 +276,7 @@ class InMemoryEventLogRepositoryTest {
     e2.setStreamType(EventStreamType.CASE);
     e2.setTimestamp(Instant.now());
     e2.setMetadata(new ObjectMapper().createObjectNode().put("inputDataHash", "h1"));
-    repository.append(e2).await().indefinitely();
+    repository.append(e2, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
         repository.findSchedulingEvents(caseId, "w2", null).await().indefinitely();
@@ -284,13 +297,16 @@ class InMemoryEventLogRepositoryTest {
     e3.setStreamType(EventStreamType.SYSTEM);
     EventLog other = event(otherCase, "w1", CaseHubEventType.CASE_STARTED);
 
-    repository.append(e1).await().indefinitely();
-    repository.append(e2).await().indefinitely();
-    repository.append(e3).await().indefinitely();
-    repository.append(other).await().indefinitely();
+    repository.append(e1, "test-tenant").await().indefinitely();
+    repository.append(e2, "test-tenant").await().indefinitely();
+    repository.append(e3, "test-tenant").await().indefinitely();
+    repository.append(other, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
-        repository.findByCaseWithFilters(targetCase, null, null).await().indefinitely();
+        repository
+            .findByCaseWithFilters(targetCase, null, null, "test-tenant")
+            .await()
+            .indefinitely();
 
     assertThat(result).hasSize(3);
     assertThat(result).allMatch(e -> targetCase.equals(e.getCaseId()));
@@ -305,9 +321,9 @@ class InMemoryEventLogRepositoryTest {
     EventLog e2 = event(caseId, "w", CaseHubEventType.WORKER_EXECUTION_STARTED);
     EventLog e3 = event(caseId, "w", CaseHubEventType.CASE_STARTED);
 
-    repository.append(e1).await().indefinitely();
-    repository.append(e2).await().indefinitely();
-    repository.append(e3).await().indefinitely();
+    repository.append(e1, "test-tenant").await().indefinitely();
+    repository.append(e2, "test-tenant").await().indefinitely();
+    repository.append(e3, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
         repository
@@ -315,7 +331,8 @@ class InMemoryEventLogRepositoryTest {
                 caseId,
                 List.of(
                     CaseHubEventType.WORKER_SCHEDULED, CaseHubEventType.WORKER_EXECUTION_STARTED),
-                null)
+                null,
+                "test-tenant")
             .await()
             .indefinitely();
 
@@ -338,13 +355,13 @@ class InMemoryEventLogRepositoryTest {
     EventLog e3 = event(caseId, "w", CaseHubEventType.WORKER_EXECUTION_STARTED);
     e3.setStreamType(EventStreamType.WORKER);
 
-    repository.append(e1).await().indefinitely();
-    repository.append(e2).await().indefinitely();
-    repository.append(e3).await().indefinitely();
+    repository.append(e1, "test-tenant").await().indefinitely();
+    repository.append(e2, "test-tenant").await().indefinitely();
+    repository.append(e3, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
         repository
-            .findByCaseWithFilters(caseId, null, List.of(EventStreamType.WORKER))
+            .findByCaseWithFilters(caseId, null, List.of(EventStreamType.WORKER), "test-tenant")
             .await()
             .indefinitely();
 
@@ -366,14 +383,17 @@ class InMemoryEventLogRepositoryTest {
     EventLog wrongStream = event(caseId, "w", CaseHubEventType.WORKER_SCHEDULED);
     wrongStream.setStreamType(EventStreamType.CASE);
 
-    repository.append(match).await().indefinitely();
-    repository.append(wrongType).await().indefinitely();
-    repository.append(wrongStream).await().indefinitely();
+    repository.append(match, "test-tenant").await().indefinitely();
+    repository.append(wrongType, "test-tenant").await().indefinitely();
+    repository.append(wrongStream, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
         repository
             .findByCaseWithFilters(
-                caseId, List.of(CaseHubEventType.WORKER_SCHEDULED), List.of(EventStreamType.WORKER))
+                caseId,
+                List.of(CaseHubEventType.WORKER_SCHEDULED),
+                List.of(EventStreamType.WORKER),
+                "test-tenant")
             .await()
             .indefinitely();
 
@@ -389,11 +409,14 @@ class InMemoryEventLogRepositoryTest {
     EventLog e1 = event(caseId, "w", CaseHubEventType.CASE_STARTED);
     EventLog e2 = event(caseId, "w", CaseHubEventType.WORKER_SCHEDULED);
 
-    repository.append(e1).await().indefinitely();
-    repository.append(e2).await().indefinitely();
+    repository.append(e1, "test-tenant").await().indefinitely();
+    repository.append(e2, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
-        repository.findByCaseWithFilters(caseId, List.of(), List.of()).await().indefinitely();
+        repository
+            .findByCaseWithFilters(caseId, List.of(), List.of(), "test-tenant")
+            .await()
+            .indefinitely();
 
     assertThat(result).hasSize(2);
   }

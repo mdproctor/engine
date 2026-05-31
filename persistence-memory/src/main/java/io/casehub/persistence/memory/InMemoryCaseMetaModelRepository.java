@@ -31,44 +31,41 @@ public class InMemoryCaseMetaModelRepository implements CaseMetaModelRepository 
 
   private final AtomicLong idSeq = new AtomicLong(0);
   private final ConcurrentHashMap<String, CaseMetaModel> store = new ConcurrentHashMap<>();
-
-  /**
-   * Read-write lock to ensure happens-before relationship between writes and reads.
-   * ConcurrentHashMap provides weak consistency — concurrent modifications may not be immediately
-   * visible to readers without a memory barrier. Read lock permits parallel findByKey queries;
-   * write lock serializes save operations.
-   */
   private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
 
   @Override
-  public Uni<CaseMetaModel> findByKey(String namespace, String name, String version) {
+  public Uni<CaseMetaModel> findByKey(
+      String namespace, String name, String version, String tenancyId) {
     rwLock.readLock().lock();
     try {
-      return Uni.createFrom().item(store.get(key(namespace, name, version)));
+      CaseMetaModel m = store.get(key(tenancyId, namespace, name, version));
+      return Uni.createFrom().item(m);
     } finally {
       rwLock.readLock().unlock();
     }
   }
 
   @Override
-  public Uni<CaseMetaModel> save(CaseMetaModel metaModel) {
+  public Uni<CaseMetaModel> save(CaseMetaModel metaModel, String tenancyId) {
     rwLock.writeLock().lock();
     try {
-      if (metaModel.getId() == null) {
-        metaModel.setId(idSeq.incrementAndGet());
+      if (metaModel.id == null) {
+        metaModel.id = idSeq.incrementAndGet();
       }
       if (metaModel.getCreatedAt() == null) {
         metaModel.setCreatedAt(Instant.now());
       }
+      metaModel.tenancyId = tenancyId;
       store.put(
-          key(metaModel.getNamespace(), metaModel.getName(), metaModel.getVersion()), metaModel);
+          key(tenancyId, metaModel.getNamespace(), metaModel.getName(), metaModel.getVersion()),
+          metaModel);
       return Uni.createFrom().item(metaModel);
     } finally {
       rwLock.writeLock().unlock();
     }
   }
 
-  private String key(String namespace, String name, String version) {
-    return namespace + ":" + name + ":" + version;
+  private String key(String tenancyId, String namespace, String name, String version) {
+    return tenancyId + ":" + namespace + ":" + name + ":" + version;
   }
 }

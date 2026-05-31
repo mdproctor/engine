@@ -46,7 +46,8 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
       String groupId,
       int totalInGroup,
       int requiredCount,
-      OnThresholdReached onThresholdReached) {
+      OnThresholdReached onThresholdReached,
+      String tenancyId) {
     String k = key(parentCaseId, groupId);
     SubCaseGroup g =
         groups.computeIfAbsent(
@@ -65,7 +66,8 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<SubCaseGroup> registerChild(UUID parentCaseId, String groupId, UUID childCaseId) {
+  public Uni<SubCaseGroup> registerChild(
+      UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId) {
     String k = key(parentCaseId, groupId);
     SubCaseGroup g = groups.get(k);
     if (g == null) {
@@ -79,7 +81,7 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId) {
+  public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId, String tenancyId) {
     String k = key(parentCaseId, groupId);
     SubCaseGroup g = groups.get(k);
     if (g == null) {
@@ -92,7 +94,7 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId) {
+  public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId, String tenancyId) {
     String k = key(parentCaseId, groupId);
     SubCaseGroup g = groups.get(k);
     if (g == null) {
@@ -105,7 +107,7 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId) {
+  public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId) {
     SubCaseGroup g = groups.get(key(parentCaseId, groupId));
     if (g == null) return Uni.createFrom().item(false);
     synchronized (g) {
@@ -116,7 +118,7 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId) {
+  public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId, String tenancyId) {
     String k = childIndex.get(childCaseId);
     if (k == null) {
       return Uni.createFrom().item(Optional.empty());

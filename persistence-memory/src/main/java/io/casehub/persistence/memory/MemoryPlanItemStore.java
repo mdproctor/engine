@@ -42,7 +42,7 @@ public class MemoryPlanItemStore implements PlanItemStore {
   }
 
   @Override
-  public void save(PlanItemSaveRequest request) {
+  public void save(PlanItemSaveRequest request, String tenancyId) {
     records.put(
         request.planItemId(),
         new PlanItemRecord(
@@ -53,7 +53,7 @@ public class MemoryPlanItemStore implements PlanItemStore {
             request.createdAt(),
             request.targetType(),
             request.outputMappingExpression(),
-            request.tenancyId()));
+            tenancyId));
   }
 
   @Override
@@ -73,9 +73,9 @@ public class MemoryPlanItemStore implements PlanItemStore {
   }
 
   @Override
-  public List<PlanItemRecord> findByCaseId(UUID caseId) {
+  public List<PlanItemRecord> findByCaseId(UUID caseId, String tenancyId) {
     return records.values().stream()
-        .filter(r -> caseId.equals(r.caseId()))
+        .filter(r -> caseId.equals(r.caseId()) && tenancyId.equals(r.tenancyId()))
         .collect(Collectors.toList());
   }
 

@@ -18,6 +18,7 @@ package io.casehub.persistence.memory;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -29,37 +30,48 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * In-memory {@link CaseInstanceRepository} for use in engine unit tests. Activated via {@code
+ * In-memory {@link CaseInstanceRepository} for use in engine unit tests. Also implements {@link
+ * CrossTenantCaseInstanceRepository} for recovery service testing. Activated via {@code
  * quarkus.arc.selected-alternatives} — never active in production.
  */
 @Alternative
 @ApplicationScoped
-public class InMemoryCaseInstanceRepository implements CaseInstanceRepository {
+public class InMemoryCaseInstanceRepository
+    implements CaseInstanceRepository, CrossTenantCaseInstanceRepository {
 
   private final AtomicLong idSeq = new AtomicLong(0);
   private final ConcurrentHashMap<UUID, CaseInstance> store = new ConcurrentHashMap<>();
-
-  /**
-   * Read-write lock to ensure happens-before relationship between writes and reads.
-   * ConcurrentHashMap provides weak consistency — concurrent modifications may not be immediately
-   * visible to readers without a memory barrier. Read lock permits parallel findByUuid queries;
-   * write lock serializes save/update operations.
-   */
   private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
 
   @Inject EventLogRepository eventLogRepository;
 
-  /** Package-private setter for unit tests that cannot use CDI injection. */
   void setEventLogRepository(EventLogRepository eventLogRepository) {
     this.eventLogRepository = eventLogRepository;
   }
 
   @Override
-  public Uni<CaseInstance> save(CaseInstance instance) {
+  public Uni<CaseInstance> save(CaseInstance instance, String tenancyId) {
     rwLock.writeLock().lock();
     try {
       if (instance.id == null) {
         instance.id = idSeq.incrementAndGet();
+      }
+      instance.tenancyId = tenancyId;
+      store.put(instance.getUuid(), instance);
+      return Uni.createFrom().item(instance);
+    } finally {
+      rwLock.writeLock().unlock();
+    }
+  }
+
+  @Override
+  public Uni<CaseInstance> update(CaseInstance instance, String tenancyId) {
+    rwLock.writeLock().lock();
+    try {
+      CaseInstance existing = store.get(instance.getUuid());
+      if (existing == null || !tenancyId.equals(existing.tenancyId)) {
+        throw new IllegalStateException(
+            "CaseInstance not found or wrong tenant: " + instance.getUuid());
       }
       store.put(instance.getUuid(), instance);
       return Uni.createFrom().item(instance);
@@ -69,19 +81,20 @@ public class InMemoryCaseInstanceRepository implements CaseInstanceRepository {
   }
 
   @Override
-  public Uni<CaseInstance> update(CaseInstance instance) {
-    rwLock.writeLock().lock();
+  public Uni<CaseInstance> findByUuid(UUID uuid, String tenancyId) {
+    rwLock.readLock().lock();
     try {
-      if (!store.containsKey(instance.getUuid())) {
-        throw new IllegalStateException("CaseInstance not found for UUID: " + instance.getUuid());
+      CaseInstance instance = store.get(uuid);
+      if (instance != null && !tenancyId.equals(instance.tenancyId)) {
+        return Uni.createFrom().nullItem();
       }
-      store.put(instance.getUuid(), instance);
       return Uni.createFrom().item(instance);
     } finally {
-      rwLock.writeLock().unlock();
+      rwLock.readLock().unlock();
     }
   }
 
+  /** CrossTenantCaseInstanceRepository — no tenancy filter. */
   @Override
   public Uni<CaseInstance> findByUuid(UUID uuid) {
     rwLock.readLock().lock();
@@ -93,11 +106,13 @@ public class InMemoryCaseInstanceRepository implements CaseInstanceRepository {
   }
 
   @Override
-  public Uni<Void> updateStateAndAppendEvent(CaseInstance instance, EventLog eventLog) {
+  public Uni<Void> updateStateAndAppendEvent(
+      CaseInstance instance, EventLog eventLog, String tenancyId) {
     rwLock.writeLock().lock();
     try {
+      instance.tenancyId = tenancyId;
       store.put(instance.getUuid(), instance);
-      return eventLogRepository.append(eventLog);
+      return eventLogRepository.append(eventLog, tenancyId);
     } finally {
       rwLock.writeLock().unlock();
     }

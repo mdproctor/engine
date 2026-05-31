@@ -37,8 +37,8 @@ public class MemoryReactivePlanItemStore implements ReactivePlanItemStore {
   @Inject MemoryPlanItemStore delegate;
 
   @Override
-  public Uni<Void> save(PlanItemSaveRequest request) {
-    delegate.save(request);
+  public Uni<Void> save(PlanItemSaveRequest request, String tenancyId) {
+    delegate.save(request, tenancyId);
     return Uni.createFrom().voidItem();
   }
 
@@ -49,8 +49,8 @@ public class MemoryReactivePlanItemStore implements ReactivePlanItemStore {
   }
 
   @Override
-  public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId) {
-    return Uni.createFrom().item(delegate.findByCaseId(caseId));
+  public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId, String tenancyId) {
+    return Uni.createFrom().item(delegate.findByCaseId(caseId, tenancyId));
   }
 
   @Override

@@ -36,7 +36,7 @@ class InMemoryCaseMetaModelRepositoryTest {
   void save_populatesIdAndCreatedAt() {
     CaseMetaModel meta = metaModel("save-populates", "ns", "1.0");
 
-    CaseMetaModel saved = repository.save(meta).await().indefinitely();
+    CaseMetaModel saved = repository.save(meta, "test-tenant").await().indefinitely();
 
     assertThat(saved.getId()).isNotNull().isPositive();
     assertThat(saved.getCreatedAt()).isNotNull();
@@ -46,7 +46,7 @@ class InMemoryCaseMetaModelRepositoryTest {
   void save_returnsSameInstance() {
     CaseMetaModel meta = metaModel("same-instance", "ns", "1.0");
 
-    CaseMetaModel saved = repository.save(meta).await().indefinitely();
+    CaseMetaModel saved = repository.save(meta, "test-tenant").await().indefinitely();
 
     assertThat(saved).isSameAs(meta);
   }
@@ -54,10 +54,10 @@ class InMemoryCaseMetaModelRepositoryTest {
   @Test
   void findByKey_returnsRegisteredMetaModel() {
     CaseMetaModel meta = metaModel("find-by-key", "repo-ns", "2.0");
-    repository.save(meta).await().indefinitely();
+    repository.save(meta, "test-tenant").await().indefinitely();
 
     CaseMetaModel found =
-        repository.findByKey("repo-ns", "find-by-key", "2.0").await().indefinitely();
+        repository.findByKey("repo-ns", "find-by-key", "2.0", "test-tenant").await().indefinitely();
 
     assertThat(found).isNotNull();
     assertThat(found.getName()).isEqualTo("find-by-key");
@@ -72,8 +72,9 @@ class InMemoryCaseMetaModelRepositoryTest {
     meta.setTitle("Round Trip Title");
     meta.setDsl("yaml");
 
-    CaseMetaModel saved = repository.save(meta).await().indefinitely();
-    CaseMetaModel found = repository.findByKey("rt-ns", "round-trip", "3.0").await().indefinitely();
+    CaseMetaModel saved = repository.save(meta, "test-tenant").await().indefinitely();
+    CaseMetaModel found =
+        repository.findByKey("rt-ns", "round-trip", "3.0", "test-tenant").await().indefinitely();
 
     assertThat(found.getId()).isEqualTo(saved.getId());
     assertThat(found.getTitle()).isEqualTo("Round Trip Title");
@@ -86,8 +87,8 @@ class InMemoryCaseMetaModelRepositoryTest {
     CaseMetaModel a = metaModel("a", "ns", "1.0");
     CaseMetaModel b = metaModel("b", "ns", "1.0");
 
-    repository.save(a).await().indefinitely();
-    repository.save(b).await().indefinitely();
+    repository.save(a, "test-tenant").await().indefinitely();
+    repository.save(b, "test-tenant").await().indefinitely();
 
     assertThat(a.getId()).isNotEqualTo(b.getId());
   }
@@ -95,10 +96,10 @@ class InMemoryCaseMetaModelRepositoryTest {
   @Test
   void save_doesNotReassignIdIfAlreadySet() {
     CaseMetaModel meta = metaModel("idempotent", "ns", "1.0");
-    repository.save(meta).await().indefinitely();
+    repository.save(meta, "test-tenant").await().indefinitely();
     Long firstId = meta.getId();
 
-    repository.save(meta).await().indefinitely();
+    repository.save(meta, "test-tenant").await().indefinitely();
 
     assertThat(meta.getId()).isEqualTo(firstId);
   }
@@ -107,17 +108,22 @@ class InMemoryCaseMetaModelRepositoryTest {
 
   @Test
   void findByKey_returnsNullForUnknown() {
-    CaseMetaModel result = repository.findByKey("no-ns", "no-name", "9.9").await().indefinitely();
+    CaseMetaModel result =
+        repository.findByKey("no-ns", "no-name", "9.9", "test-tenant").await().indefinitely();
     assertThat(result).isNull();
   }
 
   @Test
   void findByKey_isKeyExact_namespaceVersionMustMatch() {
     CaseMetaModel meta = metaModel("exact", "exact-ns", "1.0");
-    repository.save(meta).await().indefinitely();
+    repository.save(meta, "test-tenant").await().indefinitely();
 
-    assertThat(repository.findByKey("wrong-ns", "exact", "1.0").await().indefinitely()).isNull();
-    assertThat(repository.findByKey("exact-ns", "exact", "2.0").await().indefinitely()).isNull();
+    assertThat(
+            repository.findByKey("wrong-ns", "exact", "1.0", "test-tenant").await().indefinitely())
+        .isNull();
+    assertThat(
+            repository.findByKey("exact-ns", "exact", "2.0", "test-tenant").await().indefinitely())
+        .isNull();
   }
 
   // --- Helper ---
