@@ -24,6 +24,16 @@ import java.util.UUID;
  * Context passed to {@link LoopControl#select} — carries case identity, definition, context, and
  * current {@link CaseStatus}, enabling LoopControl implementations to decide both which bindings to
  * fire and whether to evaluate at all for the given case state.
+ *
+ * @param caseId the case instance UUID
+ * @param definition the case type definition
+ * @param caseContext the case runtime context
+ * @param caseStatus the case status
+ * @param tenancyId the tenant that owns this case
  */
 public record PlanExecutionContext(
-    UUID caseId, CaseDefinition definition, CaseContext caseContext, CaseStatus caseStatus) {}
+    UUID caseId,
+    CaseDefinition definition,
+    CaseContext caseContext,
+    CaseStatus caseStatus,
+    String tenancyId) {}

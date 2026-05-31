@@ -26,6 +26,9 @@ public class CaseInstance {
   /** Populated by the repository after save. Null until first persisted. */
   public Long id;
 
+  /** Tenant this case belongs to. Set by the repository at save; never updated. */
+  public String tenancyId;
+
   private CaseMetaModel caseMetaModel;
   private UUID uuid;
   private long version = 0L;

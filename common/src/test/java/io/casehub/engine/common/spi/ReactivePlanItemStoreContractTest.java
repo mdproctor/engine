@@ -37,7 +37,7 @@ public abstract class ReactivePlanItemStoreContractTest {
 
   private PlanItemSaveRequest request(UUID caseId, String planItemId, PlanItemStatus status) {
     return new PlanItemSaveRequest(
-        caseId, planItemId, "my-binding", status, Instant.now(), TargetType.HUMAN_TASK, null);
+        caseId, planItemId, "my-binding", status, Instant.now(), TargetType.HUMAN_TASK, null, null);
   }
 
   @Test

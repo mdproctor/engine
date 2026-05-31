@@ -52,7 +52,8 @@ public class MemoryPlanItemStore implements PlanItemStore {
             request.status(),
             request.createdAt(),
             request.targetType(),
-            request.outputMappingExpression()));
+            request.outputMappingExpression(),
+            request.tenancyId()));
   }
 
   @Override
@@ -67,7 +68,8 @@ public class MemoryPlanItemStore implements PlanItemStore {
                 status,
                 r.createdAt(),
                 r.targetType(),
-                r.outputMappingExpression()));
+                r.outputMappingExpression(),
+                r.tenancyId()));
   }
 
   @Override

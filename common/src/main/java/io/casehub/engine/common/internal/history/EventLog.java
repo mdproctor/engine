@@ -35,6 +35,9 @@ public class EventLog {
   /** Populated by the repository after append. Null until first persisted. */
   public Long id;
 
+  /** Tenant this event belongs to. Set by the repository at append; never updated. */
+  public String tenancyId;
+
   private UUID caseId;
   private Long seq;
   private CaseHubEventType eventType;

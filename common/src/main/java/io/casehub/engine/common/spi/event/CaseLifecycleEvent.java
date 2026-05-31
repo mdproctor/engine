@@ -25,6 +25,7 @@ import java.util.UUID;
  * observer is present the event fires into the void.
  *
  * @param caseId the case instance UUID
+ * @param tenancyId the tenant that owns this case
  * @param commandType the actor intent — e.g. {@code "StartCase"}, {@code "SuspendCase"}
  * @param eventType the observable fact — e.g. {@code "CaseStarted"}, {@code "CaseSuspended"}
  * @param caseStatus snapshot of CaseStatus at transition time; null for non-status events
@@ -34,6 +35,7 @@ import java.util.UUID;
  */
 public record CaseLifecycleEvent(
     UUID caseId,
+    String tenancyId,
     String commandType,
     String eventType,
     String caseStatus,

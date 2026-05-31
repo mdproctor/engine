@@ -25,4 +25,5 @@ public record PlanItemSaveRequest(
     PlanItemStatus status,
     Instant createdAt,
     TargetType targetType,
-    String outputMappingExpression) {}
+    String outputMappingExpression,
+    String tenancyId) {}

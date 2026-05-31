@@ -25,6 +25,9 @@ public class CaseMetaModel {
   /** Populated by the repository after save. Null until first persisted. */
   public Long id;
 
+  /** Tenant this definition belongs to. Set by the repository at save; never updated. */
+  public String tenancyId;
+
   private String name;
   private String namespace;
   private String version;
