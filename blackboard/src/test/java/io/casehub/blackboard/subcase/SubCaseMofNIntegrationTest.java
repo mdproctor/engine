@@ -31,6 +31,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -90,7 +91,7 @@ class SubCaseMofNIntegrationTest {
     CaseLifecycleEvent completedEvent0 =
         new CaseLifecycleEvent(
             childIds.get(0),
-            null,
+            TenancyConstants.DEFAULT_TENANT_ID,
             "CompleteCase",
             "CaseCompleted",
             "COMPLETED",
@@ -100,7 +101,7 @@ class SubCaseMofNIntegrationTest {
     CaseLifecycleEvent completedEvent1 =
         new CaseLifecycleEvent(
             childIds.get(1),
-            null,
+            TenancyConstants.DEFAULT_TENANT_ID,
             "CompleteCase",
             "CaseCompleted",
             "COMPLETED",
