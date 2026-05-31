@@ -31,7 +31,7 @@ import java.util.UUID;
 public class NoOpReactivePlanItemStore implements ReactivePlanItemStore {
 
   @Override
-  public Uni<Void> save(PlanItemSaveRequest request) {
+  public Uni<Void> save(PlanItemSaveRequest request, String tenancyId) {
     return Uni.createFrom().voidItem();
   }
 
@@ -41,7 +41,7 @@ public class NoOpReactivePlanItemStore implements ReactivePlanItemStore {
   }
 
   @Override
-  public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId) {
+  public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId, String tenancyId) {
     return Uni.createFrom().item(List.of());
   }
 

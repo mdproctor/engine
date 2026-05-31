@@ -104,7 +104,8 @@ public class SubCaseCompletionService {
 
     EventLog startedEntry =
         eventLogRepository
-            .findByWorkerAndType(childCaseId.toString(), CaseHubEventType.SUBCASE_STARTED)
+            .findByWorkerAndType(
+                childCaseId.toString(), CaseHubEventType.SUBCASE_STARTED, event.tenancyId())
             .await()
             .atMost(Duration.ofSeconds(10))
             .stream()
@@ -136,13 +137,13 @@ public class SubCaseCompletionService {
     if (childCompleted) {
       group =
           subCaseGroupRepository
-              .incrementCompleted(parentCaseId, groupId)
+              .incrementCompleted(parentCaseId, groupId, event.tenancyId())
               .await()
               .atMost(Duration.ofSeconds(10));
     } else {
       group =
           subCaseGroupRepository
-              .incrementRejected(parentCaseId, groupId)
+              .incrementRejected(parentCaseId, groupId, event.tenancyId())
               .await()
               .atMost(Duration.ofSeconds(10));
     }
@@ -157,7 +158,7 @@ public class SubCaseCompletionService {
     if (groupStatus == GroupStatus.COMPLETED || groupStatus == GroupStatus.REJECTED) {
       boolean won =
           subCaseGroupRepository
-              .markPolicyTriggered(parentCaseId, groupId)
+              .markPolicyTriggered(parentCaseId, groupId, event.tenancyId())
               .await()
               .atMost(Duration.ofSeconds(10));
 
@@ -172,7 +173,8 @@ public class SubCaseCompletionService {
 
         Map<String, Object> appliedData =
             applyOutputMapping(startedEntry, childCaseId, parentCaseId);
-        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, appliedData);
+        writeCompletedLog(
+            parentCaseId, childCaseId, groupId, groupStatus, appliedData, event.tenancyId());
 
         CaseInstance parent = caseInstanceCache.get(parentCaseId);
         if (parent == null) {
@@ -202,7 +204,7 @@ public class SubCaseCompletionService {
         // REJECTED — threshold is unreachable; cancel parent to prevent indefinite WAITING.
         // Cancel the PlanItem first so it is in a terminal state before the registry is evicted.
         cancelPlanItemOnRejected(parentCaseId, childCaseId);
-        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null);
+        writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null, event.tenancyId());
         LOG.warnf(
             "SubCaseGroup REJECTED: parentCaseId=%s groupId=%s — threshold unreachable. Cancelling parent case.",
             parentCaseId, groupId);
@@ -215,7 +217,7 @@ public class SubCaseCompletionService {
         }
       }
     } else {
-      writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null);
+      writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null, event.tenancyId());
     }
   }
 
@@ -245,7 +247,7 @@ public class SubCaseCompletionService {
         "SubCaseCompletionService (ungrouped): child %s (%s) → parent %s",
         childCaseId, childStatus, parentCaseId);
 
-    writeCompletedLog(parentCaseId, childCaseId, null, null, appliedData);
+    writeCompletedLog(parentCaseId, childCaseId, null, null, appliedData, event.tenancyId());
 
     caseResumptionService
         .resumeIfWaiting(
@@ -346,7 +348,8 @@ public class SubCaseCompletionService {
       UUID childCaseId,
       String groupId,
       GroupStatus groupStatus,
-      Map<String, Object> appliedData) {
+      Map<String, Object> appliedData,
+      String tenancyId) {
     EventLog log = new EventLog();
     log.setCaseId(parentCaseId);
     log.setWorkerId(childCaseId.toString());
@@ -361,7 +364,7 @@ public class SubCaseCompletionService {
     if (appliedData != null && !appliedData.isEmpty()) {
       log.setPayload(OBJECT_MAPPER.valueToTree(appliedData));
     }
-    eventLogRepository.append(log).await().atMost(Duration.ofSeconds(10));
+    eventLogRepository.append(log, tenancyId).await().atMost(Duration.ofSeconds(10));
   }
 
   private static boolean isTerminal(String commandType) {

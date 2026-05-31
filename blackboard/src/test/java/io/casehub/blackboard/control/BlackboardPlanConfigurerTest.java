@@ -24,6 +24,7 @@ import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
+import io.casehub.platform.api.identity.TenancyConstants;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +46,8 @@ class BlackboardPlanConfigurerTest {
             UUID.randomUUID(),
             mock(CaseDefinition.class),
             mock(CaseContext.class),
-            io.casehub.api.model.CaseStatus.RUNNING);
+            io.casehub.api.model.CaseStatus.RUNNING,
+            TenancyConstants.DEFAULT_TENANT_ID);
     c.configure(plan, ctx);
     assertThat(captured[0]).isSameAs(plan);
   }

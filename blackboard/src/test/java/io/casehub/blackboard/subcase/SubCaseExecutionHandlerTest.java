@@ -70,21 +70,21 @@ class SubCaseExecutionHandlerTest {
     SubCaseGroupRepository subCaseGroupRepository = mock(SubCaseGroupRepository.class);
 
     // EventLogRepository returns successful Uni for all append calls
-    when(eventLogRepository.append(any())).thenReturn(Uni.createFrom().voidItem());
+    when(eventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
 
     // CaseDefinitionRegistry returns a non-null definition by default
     when(definitionRegistry.getCaseDefinition(any()))
         .thenReturn(mock(io.casehub.api.model.CaseDefinition.class));
 
     // CaseInstanceRepository returns Uni for updateStateAndAppendEvent
-    when(instanceRepository.updateStateAndAppendEvent(any(), any()))
+    when(instanceRepository.updateStateAndAppendEvent(any(), any(), any()))
         .thenReturn(Uni.createFrom().nullItem());
 
     // SubCaseGroupRepository: stub grouped path Uni methods
     SubCaseGroup stubGroup = mock(SubCaseGroup.class);
-    when(subCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any()))
+    when(subCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
         .thenReturn(Uni.createFrom().item(stubGroup));
-    when(subCaseGroupRepository.registerChild(any(), any(), any()))
+    when(subCaseGroupRepository.registerChild(any(), any(), any(), any()))
         .thenReturn(Uni.createFrom().item(stubGroup));
 
     handler =
@@ -98,7 +98,7 @@ class SubCaseExecutionHandlerTest {
             registry);
 
     parentCaseId = UUID.randomUUID();
-    plan = (DefaultCasePlanModel) registry.getOrCreate(parentCaseId);
+    plan = (DefaultCasePlanModel) registry.getOrCreate(parentCaseId, "test-tenant");
   }
 
   private CaseInstance parentInstance(UUID id) {
@@ -209,7 +209,8 @@ class SubCaseExecutionHandlerTest {
   @Test
   void no_case_definition_marks_plan_item_faulted() {
     BlackboardRegistry freshRegistry = new BlackboardRegistry();
-    DefaultCasePlanModel freshPlan = (DefaultCasePlanModel) freshRegistry.getOrCreate(parentCaseId);
+    DefaultCasePlanModel freshPlan =
+        (DefaultCasePlanModel) freshRegistry.getOrCreate(parentCaseId, "test-tenant");
     PlanItem item = PlanItem.create("spawn-child", "unknown", 0);
     freshPlan.addPlanItem(item);
 

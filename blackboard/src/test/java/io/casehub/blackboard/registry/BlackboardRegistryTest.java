@@ -35,14 +35,14 @@ class BlackboardRegistryTest {
 
   @Test
   void getOrCreate_returnsPlanModel() {
-    CasePlanModel model = registry.getOrCreate(caseId);
+    CasePlanModel model = registry.getOrCreate(caseId, "test-tenant");
     assertThat(model).isNotNull();
   }
 
   @Test
   void getOrCreate_returnsSameInstanceOnRepeatCall() {
-    CasePlanModel first = registry.getOrCreate(caseId);
-    CasePlanModel second = registry.getOrCreate(caseId);
+    CasePlanModel first = registry.getOrCreate(caseId, "test-tenant");
+    CasePlanModel second = registry.getOrCreate(caseId, "test-tenant");
     assertThat(first).isSameAs(second);
   }
 
@@ -53,13 +53,13 @@ class BlackboardRegistryTest {
 
   @Test
   void get_returnsPresentAfterGetOrCreate() {
-    CasePlanModel model = registry.getOrCreate(caseId);
+    CasePlanModel model = registry.getOrCreate(caseId, "test-tenant");
     assertThat(registry.get(caseId)).contains(model);
   }
 
   @Test
   void indexForCompletion_andGetPlanItemId_roundTrip_withWorkerName() {
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     String planItemId = UUID.randomUUID().toString();
     registry.indexForCompletion(caseId, "worker-a", planItemId);
     assertThat(registry.getPlanItemId(caseId, "worker-a")).contains(planItemId);
@@ -68,7 +68,7 @@ class BlackboardRegistryTest {
   @Test
   void indexForCompletion_andGetPlanItemId_roundTrip_withChildCaseId() {
     // SubCaseTarget tracking: childCaseId is the key, not a workerName
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     String planItemId = UUID.randomUUID().toString();
     String childCaseId = UUID.randomUUID().toString();
     registry.indexForCompletion(caseId, childCaseId, planItemId);
@@ -78,7 +78,7 @@ class BlackboardRegistryTest {
   @Test
   void indexForCompletion_multipleChildCaseIds_allPointToSamePlanItem() {
     // M-of-N grouped SubCase: all children index to the same planItemId
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     String planItemId = UUID.randomUUID().toString();
     String child1 = UUID.randomUUID().toString();
     String child2 = UUID.randomUUID().toString();
@@ -95,26 +95,26 @@ class BlackboardRegistryTest {
 
   @Test
   void getPlanItemId_returnsEmptyForUnknownKey() {
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     assertThat(registry.getPlanItemId(caseId, "unknown-key")).isEmpty();
   }
 
   @Test
   void markConfigured_returnsTrueFirstTime() {
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     assertThat(registry.markConfigured(caseId)).isTrue();
   }
 
   @Test
   void markConfigured_returnsFalseOnSubsequentCall() {
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     registry.markConfigured(caseId);
     assertThat(registry.markConfigured(caseId)).isFalse();
   }
 
   @Test
   void evict_removesAllState() {
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     registry.indexForCompletion(caseId, "worker-a", "plan-item-1");
     registry.markConfigured(caseId);
 
@@ -123,13 +123,13 @@ class BlackboardRegistryTest {
     assertThat(registry.get(caseId)).isEmpty();
     assertThat(registry.getPlanItemId(caseId, "worker-a")).isEmpty();
     // explicit recreate before checking configured flag — markConfigured no-ops on missing entry
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     assertThat(registry.markConfigured(caseId)).isTrue();
   }
 
   @Test
   void evict_isIdempotent() {
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     registry.evict(caseId);
     registry.evict(caseId); // must not throw
     assertThat(registry.get(caseId)).isEmpty();

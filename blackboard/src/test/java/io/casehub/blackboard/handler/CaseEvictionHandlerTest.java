@@ -33,7 +33,7 @@ class CaseEvictionHandlerTest {
   void evicts_plan_model_on_completed_status() {
     BlackboardRegistry registry = new BlackboardRegistry();
     UUID caseId = UUID.randomUUID();
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
 
     CaseEvictionHandler handler = new CaseEvictionHandler(registry);
     CaseInstance instance = mock(CaseInstance.class);
@@ -52,7 +52,7 @@ class CaseEvictionHandlerTest {
   void evicts_on_faulted_status() {
     BlackboardRegistry registry = new BlackboardRegistry();
     UUID caseId = UUID.randomUUID();
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     CaseEvictionHandler handler = new CaseEvictionHandler(registry);
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);
@@ -70,7 +70,7 @@ class CaseEvictionHandlerTest {
   void evicts_on_cancelled_status() {
     BlackboardRegistry registry = new BlackboardRegistry();
     UUID caseId = UUID.randomUUID();
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     CaseEvictionHandler handler = new CaseEvictionHandler(registry);
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);
@@ -88,7 +88,7 @@ class CaseEvictionHandlerTest {
   void does_not_evict_on_running_status() {
     BlackboardRegistry registry = new BlackboardRegistry();
     UUID caseId = UUID.randomUUID();
-    registry.getOrCreate(caseId);
+    registry.getOrCreate(caseId, "test-tenant");
     CaseEvictionHandler handler = new CaseEvictionHandler(registry);
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);

@@ -177,7 +177,8 @@ public class CaseContextChangedEventHandler {
             caseInstance.getUuid(),
             definition,
             caseInstance.getCaseContext(),
-            caseInstance.getState());
+            caseInstance.getState(),
+            caseInstance.tenancyId);
 
     return loopControl
         .select(planCtx, eligible)
@@ -356,7 +357,11 @@ public class CaseContextChangedEventHandler {
     eventBus.publish(
         EventBusAddresses.HUMAN_TASK_SCHEDULE,
         new HumanTaskScheduleEvent(
-            caseInstance.getUuid(), binding.getName(), target, inputData, caseBudgetDeadline,
+            caseInstance.getUuid(),
+            binding.getName(),
+            target,
+            inputData,
+            caseBudgetDeadline,
             caseInstance.getTenancyId()));
 
     return Uni.createFrom().voidItem();
@@ -422,6 +427,7 @@ public class CaseContextChangedEventHandler {
                                                 lifecycleEvents.fireAsync(
                                                     new CaseLifecycleEvent(
                                                         caseInstance.getUuid(),
+                                                        null,
                                                         "ProvisionWorker",
                                                         "WorkerStarted",
                                                         caseInstance.getState().name(),

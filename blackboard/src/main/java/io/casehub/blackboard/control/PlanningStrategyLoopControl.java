@@ -79,7 +79,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
       return Uni.createFrom().item(List.of());
     }
     UUID caseId = ctx.caseId();
-    CasePlanModel plan = registry.getOrCreate(caseId);
+    CasePlanModel plan = registry.getOrCreate(caseId, ctx.tenancyId());
 
     // On the first select() call for a case, run all applicable BlackboardPlanConfigurer beans.
     // markConfigured() is atomic — only returns true once, guaranteeing exactly-once invocation.

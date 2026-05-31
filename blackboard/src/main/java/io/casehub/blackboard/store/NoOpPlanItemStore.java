@@ -33,13 +33,13 @@ import java.util.UUID;
 public class NoOpPlanItemStore implements PlanItemStore {
 
   @Override
-  public void save(PlanItemSaveRequest request) {}
+  public void save(PlanItemSaveRequest request, String tenancyId) {}
 
   @Override
   public void updateStatus(String planItemId, PlanItemStatus status) {}
 
   @Override
-  public List<PlanItemRecord> findByCaseId(UUID caseId) {
+  public List<PlanItemRecord> findByCaseId(UUID caseId, String tenancyId) {
     return List.of();
   }
 

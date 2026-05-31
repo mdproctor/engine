@@ -62,7 +62,7 @@ class PlanItemCompletionHandlerTest {
             mock(jakarta.enterprise.event.Event.class),
             new StageAutocompleteEvaluator(mockBus));
     caseId = UUID.randomUUID();
-    plan = (DefaultCasePlanModel) registry.getOrCreate(caseId);
+    plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
 
   private WorkflowExecutionCompleted eventFor(String workerName) {

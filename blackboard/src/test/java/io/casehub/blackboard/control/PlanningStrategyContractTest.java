@@ -24,6 +24,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
+import io.casehub.platform.api.identity.TenancyConstants;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -41,7 +42,8 @@ public abstract class PlanningStrategyContractTest {
         UUID.randomUUID(),
         mock(CaseDefinition.class),
         mock(CaseContext.class),
-        io.casehub.api.model.CaseStatus.RUNNING);
+        io.casehub.api.model.CaseStatus.RUNNING,
+        TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   @Test

@@ -49,7 +49,7 @@ class WorkerRetryExhaustionHandlerTest {
     eventBus = mock(EventBus.class);
     handler = new WorkerRetryExhaustionHandler(registry, new StageAutocompleteEvaluator(eventBus));
     caseId = UUID.randomUUID();
-    plan = (DefaultCasePlanModel) registry.getOrCreate(caseId);
+    plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
 
   @Test

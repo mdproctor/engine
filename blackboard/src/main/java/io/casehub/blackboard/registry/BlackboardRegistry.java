@@ -26,6 +26,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.jboss.logging.Logger;
 
 /**
  * Shared registry of per-case {@link CasePlanModel} instances and the worker-name-to-PlanItemId
@@ -33,6 +34,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
  *
  * <p>All per-case state is co-located in a single {@link CaseEntry}, making eviction atomic — one
  * map removal instead of three. See casehubio/engine#292.
+ *
+ * <p>Map key is UUID (globally unique — no cross-tenant collision possible). {@link CaseEntry}
+ * stores tenancyId at creation time for defense-in-depth checks in {@link #get(UUID, String)}.
  *
  * <p>On first {@link #get} miss after a JVM restart, DELEGATED PlanItems are lazily restored from
  * PlanItemStore so completion handlers can find their PlanItems without any startup ordering
@@ -42,12 +46,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @ApplicationScoped
 public class BlackboardRegistry {
 
+  private static final Logger LOG = Logger.getLogger(BlackboardRegistry.class);
+
   private static final class CaseEntry {
+    final String tenancyId;
     final CasePlanModel planModel;
     final ConcurrentHashMap<String, String> completionIndex = new ConcurrentHashMap<>();
     final AtomicBoolean configured = new AtomicBoolean(false);
 
-    CaseEntry(UUID caseId) {
+    CaseEntry(UUID caseId, String tenancyId) {
+      this.tenancyId = tenancyId;
       this.planModel = new DefaultCasePlanModel(caseId);
     }
   }
@@ -60,22 +68,47 @@ public class BlackboardRegistry {
   /**
    * Returns the {@link CasePlanModel} for the given case, creating it if absent. Only {@link
    * io.casehub.blackboard.control.PlanningStrategyLoopControl} should call this method — all other
-   * components should use {@link #get(UUID)}.
+   * components should use {@link #get(UUID, String)} or {@link #get(UUID)}.
+   *
+   * @param tenancyId the tenant that owns this case — stored in {@link CaseEntry} for
+   *     defense-in-depth checks
    */
-  public CasePlanModel getOrCreate(UUID caseId) {
-    return entries.computeIfAbsent(caseId, CaseEntry::new).planModel;
+  public CasePlanModel getOrCreate(UUID caseId, String tenancyId) {
+    return entries.computeIfAbsent(caseId, id -> new CaseEntry(id, tenancyId)).planModel;
   }
 
   /**
-   * Returns the {@link CasePlanModel} for the given case, or empty if absent.
+   * Returns the {@link CasePlanModel} for the given case with tenancy defense-in-depth.
    *
-   * <p>On miss: queries PlanItemStore for DELEGATED records and hydrates the registry before
-   * returning. Two concurrent misses for the same case each query the store; the loser finds the
-   * entry already populated and re-applies restorePlanItem() (idempotent — same planItemId, same
-   * data). The cost is at most one duplicate DB call per concurrent miss, acceptable post-restart.
-   *
-   * <p>If planItemStore is null (unit tests that construct BlackboardRegistry directly without
-   * CDI), returns empty immediately without attempting hydration.
+   * <p>Returns {@link Optional#empty()} if the stored tenancyId does not match — logs a warning for
+   * visibility. Lazy hydration uses tenancyId for the store call.
+   */
+  public Optional<CasePlanModel> get(UUID caseId, String tenancyId) {
+    CaseEntry e = entries.get(caseId);
+    if (e != null) {
+      if (!e.tenancyId.equals(tenancyId)) {
+        LOG.warnf(
+            "Tenant mismatch for caseId=%s (stored=%s, requested=%s)",
+            caseId, e.tenancyId, tenancyId);
+        return Optional.empty();
+      }
+      return Optional.of(e.planModel);
+    }
+
+    if (planItemStore == null) return Optional.empty();
+
+    List<PlanItemRecord> records = planItemStore.findDelegated(caseId);
+    if (records.isEmpty()) return Optional.empty();
+
+    CaseEntry hydrated = entries.computeIfAbsent(caseId, id -> new CaseEntry(id, tenancyId));
+    records.forEach(r -> hydrated.planModel.restorePlanItem(restorer.restore(r)));
+    return Optional.of(hydrated.planModel);
+  }
+
+  /**
+   * UUID-only get for callers without tenancyId (e.g. WorkItemLifecycleAdapter). UUID global
+   * uniqueness prevents cross-tenant collision. Self-bootstraps tenancyId from the first
+   * PlanItemRecord on lazy hydration.
    */
   public Optional<CasePlanModel> get(UUID caseId) {
     CaseEntry e = entries.get(caseId);
@@ -86,7 +119,15 @@ public class BlackboardRegistry {
     List<PlanItemRecord> records = planItemStore.findDelegated(caseId);
     if (records.isEmpty()) return Optional.empty();
 
-    CaseEntry hydrated = entries.computeIfAbsent(caseId, CaseEntry::new);
+    String inferredTenancyId =
+        records.stream()
+            .map(PlanItemRecord::tenancyId)
+            .filter(t -> t != null && !t.isBlank())
+            .findFirst()
+            .orElse("unknown");
+
+    CaseEntry hydrated =
+        entries.computeIfAbsent(caseId, id -> new CaseEntry(id, inferredTenancyId));
     records.forEach(r -> hydrated.planModel.restorePlanItem(restorer.restore(r)));
     return Optional.of(hydrated.planModel);
   }
@@ -103,25 +144,15 @@ public class BlackboardRegistry {
     return e == null ? Optional.empty() : Optional.ofNullable(e.completionIndex.get(workerName));
   }
 
-  /**
-   * Atomically marks a case as configured by {@link
-   * io.casehub.blackboard.control.BlackboardPlanConfigurer}(s). Returns {@code true} only the first
-   * time this method is called for the given case — subsequent calls return {@code false}. This
-   * guarantees configurers are invoked exactly once per case instance.
-   *
-   * <p>Contract: BlackboardPlanConfigurer implementations must be idempotent with respect to
-   * pre-populated plan items — addPlanItemIfAbsent() correctly rejects re-dispatch of DELEGATED
-   * bindings already in activeByBinding.
-   */
+  /** Atomically marks a case as configured. Returns {@code true} only the first time per case. */
   public boolean markConfigured(UUID caseId) {
     CaseEntry e = entries.get(caseId);
     return e != null && e.configured.compareAndSet(false, true);
   }
 
   /**
-   * Atomically evicts the plan model, completion index, and configured marker for a completed or
-   * terminated case. Single map removal — no race window between partial removes. Call when a case
-   * reaches a terminal state to prevent unbounded memory growth. See casehubio/engine#84.
+   * O(1) eviction by UUID key. UUID global uniqueness means no cross-tenant key collision. Does not
+   * read any principal — robust regardless of what execution context is active at eviction time.
    */
   public void evict(UUID caseId) {
     entries.remove(caseId);

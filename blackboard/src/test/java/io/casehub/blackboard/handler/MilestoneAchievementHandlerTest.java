@@ -37,7 +37,7 @@ class MilestoneAchievementHandlerTest {
   void achieves_tracked_milestone_in_plan_model() {
     BlackboardRegistry registry = new BlackboardRegistry();
     UUID caseId = UUID.randomUUID();
-    DefaultCasePlanModel plan = (DefaultCasePlanModel) registry.getOrCreate(caseId);
+    DefaultCasePlanModel plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
     plan.trackMilestone("docs-received");
 
     MilestoneAchievementHandler handler = new MilestoneAchievementHandler(registry);

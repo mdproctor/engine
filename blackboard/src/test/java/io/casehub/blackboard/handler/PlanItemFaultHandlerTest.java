@@ -44,7 +44,7 @@ class PlanItemFaultHandlerTest {
     registry = new BlackboardRegistry();
     handler = new PlanItemFaultHandler(registry, mock(Event.class));
     caseId = UUID.randomUUID();
-    plan = (DefaultCasePlanModel) registry.getOrCreate(caseId);
+    plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
 
   private WorkerRetriesExhaustedEvent eventFor(String workerId) {

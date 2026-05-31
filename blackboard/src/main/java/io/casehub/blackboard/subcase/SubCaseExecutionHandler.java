@@ -189,9 +189,12 @@ public class SubCaseExecutionHandler {
             groupId,
             subCase.totalInGroup(),
             subCase.requiredCount(),
-            subCase.onThresholdReached())
+            subCase.onThresholdReached(),
+            parent.tenancyId)
         .flatMap(
-            group -> subCaseGroupRepository.registerChild(parent.getUuid(), groupId, childCaseId))
+            group ->
+                subCaseGroupRepository.registerChild(
+                    parent.getUuid(), groupId, childCaseId, parent.tenancyId))
         .flatMap(
             group -> {
               EventLog log = new EventLog();
@@ -216,10 +219,10 @@ public class SubCaseExecutionHandler {
                 parent.setState(CaseStatus.WAITING);
                 parent.setWaitingForWorkId(groupId);
                 return caseInstanceRepository
-                    .updateStateAndAppendEvent(parent, log)
+                    .updateStateAndAppendEvent(parent, log, parent.tenancyId)
                     .replaceWithVoid();
               } else {
-                return eventLogRepository.append(log).replaceWithVoid();
+                return eventLogRepository.append(log, parent.tenancyId).replaceWithVoid();
               }
             });
   }
@@ -243,9 +246,11 @@ public class SubCaseExecutionHandler {
       pendingWorkRegistry.register(childCaseId.toString());
       parent.setState(CaseStatus.WAITING);
       parent.setWaitingForWorkId(childCaseId.toString());
-      return caseInstanceRepository.updateStateAndAppendEvent(parent, log).replaceWithVoid();
+      return caseInstanceRepository
+          .updateStateAndAppendEvent(parent, log, parent.tenancyId)
+          .replaceWithVoid();
     } else {
-      return eventLogRepository.append(log).replaceWithVoid();
+      return eventLogRepository.append(log, parent.tenancyId).replaceWithVoid();
     }
   }
 }

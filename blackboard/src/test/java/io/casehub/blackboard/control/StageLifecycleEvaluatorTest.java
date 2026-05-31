@@ -29,6 +29,7 @@ import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,7 +52,11 @@ class StageLifecycleEvaluatorTest {
     CaseContext mockCtx = mock(CaseContext.class);
     ctx =
         new PlanExecutionContext(
-            caseId, mock(CaseDefinition.class), mockCtx, io.casehub.api.model.CaseStatus.RUNNING);
+            caseId,
+            mock(CaseDefinition.class),
+            mockCtx,
+            io.casehub.api.model.CaseStatus.RUNNING,
+            TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   @Test

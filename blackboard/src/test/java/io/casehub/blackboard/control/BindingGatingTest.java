@@ -28,6 +28,7 @@ import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.util.List;
@@ -82,7 +83,11 @@ class BindingGatingTest {
     when(def.getWorkers()).thenReturn(List.of());
     ctx =
         new PlanExecutionContext(
-            caseId, def, mock(CaseContext.class), io.casehub.api.model.CaseStatus.RUNNING);
+            caseId,
+            def,
+            mock(CaseContext.class),
+            io.casehub.api.model.CaseStatus.RUNNING,
+            TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   /** Creates a minimal mock Binding with the given name and no capability. */
@@ -95,7 +100,7 @@ class BindingGatingTest {
 
   /** Returns the DefaultCasePlanModel created in the registry for the current caseId. */
   private DefaultCasePlanModel plan() {
-    return (DefaultCasePlanModel) registry.getOrCreate(caseId);
+    return (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
 
   // ------------------------------------------------------------------ //
@@ -233,7 +238,11 @@ class BindingGatingTest {
   void suspendedCase_returnsEmptyList() {
     PlanExecutionContext suspended =
         new PlanExecutionContext(
-            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.SUSPENDED);
+            caseId,
+            ctx.definition(),
+            ctx.caseContext(),
+            io.casehub.api.model.CaseStatus.SUSPENDED,
+            TenancyConstants.DEFAULT_TENANT_ID);
     Binding b = binding("any-b");
 
     List<Binding> result = loopControl.select(suspended, List.of(b)).await().indefinitely();
@@ -245,7 +254,11 @@ class BindingGatingTest {
   void completedCase_returnsEmptyList() {
     PlanExecutionContext completed =
         new PlanExecutionContext(
-            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.COMPLETED);
+            caseId,
+            ctx.definition(),
+            ctx.caseContext(),
+            io.casehub.api.model.CaseStatus.COMPLETED,
+            TenancyConstants.DEFAULT_TENANT_ID);
     Binding b = binding("any-b");
 
     List<Binding> result = loopControl.select(completed, List.of(b)).await().indefinitely();
@@ -259,7 +272,11 @@ class BindingGatingTest {
     Binding b = binding("fresh-b");
     PlanExecutionContext waiting =
         new PlanExecutionContext(
-            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.WAITING);
+            caseId,
+            ctx.definition(),
+            ctx.caseContext(),
+            io.casehub.api.model.CaseStatus.WAITING,
+            TenancyConstants.DEFAULT_TENANT_ID);
 
     // No PlanItem created yet — first time this binding is eligible
     List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
@@ -275,7 +292,11 @@ class BindingGatingTest {
     Binding b = binding("active-b");
     PlanExecutionContext waiting =
         new PlanExecutionContext(
-            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.WAITING);
+            caseId,
+            ctx.definition(),
+            ctx.caseContext(),
+            io.casehub.api.model.CaseStatus.WAITING,
+            TenancyConstants.DEFAULT_TENANT_ID);
 
     // Pre-populate a RUNNING PlanItem for this binding
     PlanItem item = PlanItem.create("active-b", "some-worker", 0);
@@ -295,7 +316,11 @@ class BindingGatingTest {
     Binding b = binding("delegated-b");
     PlanExecutionContext waiting =
         new PlanExecutionContext(
-            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.WAITING);
+            caseId,
+            ctx.definition(),
+            ctx.caseContext(),
+            io.casehub.api.model.CaseStatus.WAITING,
+            TenancyConstants.DEFAULT_TENANT_ID);
 
     PlanItem item = PlanItem.create("delegated-b", "ht-worker", 0);
     item.markDelegated();
@@ -317,7 +342,11 @@ class BindingGatingTest {
     Binding b = binding("done-b");
     PlanExecutionContext waiting =
         new PlanExecutionContext(
-            caseId, ctx.definition(), ctx.caseContext(), io.casehub.api.model.CaseStatus.WAITING);
+            caseId,
+            ctx.definition(),
+            ctx.caseContext(),
+            io.casehub.api.model.CaseStatus.WAITING,
+            TenancyConstants.DEFAULT_TENANT_ID);
 
     PlanItem item = PlanItem.create("done-b", "some-worker", 0);
     item.markRunning();

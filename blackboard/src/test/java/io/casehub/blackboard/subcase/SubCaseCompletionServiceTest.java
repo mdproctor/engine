@@ -77,7 +77,7 @@ class SubCaseCompletionServiceTest {
 
     when(caseResumptionService.resumeIfWaiting(any(), any(), any(), any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
-    when(eventLogRepository.append(any())).thenReturn(Uni.createFrom().voidItem());
+    when(eventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
 
     service =
         new SubCaseCompletionService(
@@ -107,14 +107,14 @@ class SubCaseCompletionServiceTest {
 
   private CaseLifecycleEvent completionEvent(UUID caseId) {
     return new CaseLifecycleEvent(
-        caseId, "CompleteCase", "CaseCompleted", "COMPLETED", null, "system", null);
+        caseId, null, "CompleteCase", "CaseCompleted", "COMPLETED", null, "system", null);
   }
 
   @Test
   void ungrouped_completion_publishes_subcase_execution_completed_event() {
     EventLog startedEntry = subcaseStartedEntry(parentCaseId, childCaseId, true);
     when(eventLogRepository.findByWorkerAndType(
-            eq(childCaseId.toString()), eq(CaseHubEventType.SUBCASE_STARTED)))
+            eq(childCaseId.toString()), eq(CaseHubEventType.SUBCASE_STARTED), any()))
         .thenReturn(Uni.createFrom().item(List.of(startedEntry)));
 
     CaseInstance parent = mock(CaseInstance.class);
@@ -132,7 +132,8 @@ class SubCaseCompletionServiceTest {
   @Test
   void mofn_rejected_cancels_plan_item_in_registry() {
     // Set up a DELEGATED plan item in the registry
-    DefaultCasePlanModel plan = (DefaultCasePlanModel) registry.getOrCreate(parentCaseId);
+    DefaultCasePlanModel plan =
+        (DefaultCasePlanModel) registry.getOrCreate(parentCaseId, "test-tenant");
     PlanItem subcaseItem = PlanItem.create("spawn-sites", "unknown", 0);
     plan.addPlanItem(subcaseItem);
     subcaseItem.markDelegated();

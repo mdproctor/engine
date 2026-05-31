@@ -66,7 +66,9 @@ class BlackboardRegistryLazyHydrationTest {
             PlanItemStatus.DELEGATED,
             Instant.now(),
             TargetType.HUMAN_TASK,
-            ".result.decision"));
+            ".result.decision",
+            "test-tenant"),
+        "test-tenant");
 
     Optional<CasePlanModel> result = registry.get(caseId);
 
@@ -96,7 +98,9 @@ class BlackboardRegistryLazyHydrationTest {
             PlanItemStatus.DELEGATED,
             Instant.now(),
             TargetType.HUMAN_TASK,
-            null));
+            null,
+            "test-tenant"),
+        "test-tenant");
 
     Optional<CasePlanModel> result = registry.get(caseId);
 
@@ -119,7 +123,9 @@ class BlackboardRegistryLazyHydrationTest {
             PlanItemStatus.PENDING,
             Instant.now(),
             null,
-            null));
+            null,
+            "test-tenant"),
+        "test-tenant");
     planItemStore.save(
         new PlanItemSaveRequest(
             caseId,
@@ -128,7 +134,9 @@ class BlackboardRegistryLazyHydrationTest {
             PlanItemStatus.COMPLETED,
             Instant.now(),
             TargetType.HUMAN_TASK,
-            null));
+            null,
+            "test-tenant"),
+        "test-tenant");
 
     Optional<CasePlanModel> result = registry.get(caseId);
 
