@@ -279,7 +279,7 @@ class InMemoryEventLogRepositoryTest {
     repository.append(e2, "test-tenant").await().indefinitely();
 
     List<EventLog> result =
-        repository.findSchedulingEvents(caseId, "w2", null).await().indefinitely();
+        repository.findSchedulingEvents(caseId, "w2", null, "test-tenant").await().indefinitely();
 
     assertThat(result).hasSize(2);
   }
