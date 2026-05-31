@@ -138,6 +138,7 @@ public class WorkflowExecutionCompletedHandler {
                             workerDecisionEvents.fireAsync(
                                 new WorkerDecisionEvent(
                                     caseInstance.getUuid(),
+                                    caseInstance.tenancyId,
                                     worker.getName(),
                                     extractCapabilityTag(caseInstance, worker),
                                     traceId)))

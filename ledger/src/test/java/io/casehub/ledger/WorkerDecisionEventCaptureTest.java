@@ -51,7 +51,7 @@ class WorkerDecisionEventCaptureTest {
     final String capabilityTag = "sar-drafting";
 
     workerDecisionEvents.fireAsync(
-        new WorkerDecisionEvent(caseId, workerId, capabilityTag, "trace-abc"));
+        new WorkerDecisionEvent(caseId, "test-tenant", workerId, capabilityTag, "trace-abc"));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -71,6 +71,8 @@ class WorkerDecisionEventCaptureTest {
               assertThat(entry.entryType).isEqualTo(LedgerEntryType.EVENT);
               assertThat(entry.sequenceNumber).isGreaterThan(0);
               assertThat(entry.id).isNotNull();
+              assertThat(entry.tenancyId).isEqualTo("test-tenant");
+              assertThat(entry.traceId).isEqualTo("trace-abc");
             });
   }
 
@@ -78,7 +80,8 @@ class WorkerDecisionEventCaptureTest {
   void nullCapabilityTag_writesEntryWithNullCapabilityTag() {
     final UUID caseId = UUID.randomUUID();
 
-    workerDecisionEvents.fireAsync(new WorkerDecisionEvent(caseId, "generic-worker", null, null));
+    workerDecisionEvents.fireAsync(
+        new WorkerDecisionEvent(caseId, "test-tenant", "generic-worker", null, null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)
@@ -98,7 +101,8 @@ class WorkerDecisionEventCaptureTest {
     // across the same subjectId (case).
     final UUID caseId = UUID.randomUUID();
 
-    workerDecisionEvents.fireAsync(new WorkerDecisionEvent(caseId, "worker-a", "cap-a", null));
+    workerDecisionEvents.fireAsync(
+        new WorkerDecisionEvent(caseId, "test-tenant", "worker-a", "cap-a", null));
 
     Awaitility.await()
         .atMost(5, TimeUnit.SECONDS)

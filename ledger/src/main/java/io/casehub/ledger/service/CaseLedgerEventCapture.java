@@ -63,6 +63,7 @@ public class CaseLedgerEventCapture {
     final CaseLedgerEntry entry = new CaseLedgerEntry();
     entry.caseId = event.caseId();
     entry.subjectId = event.caseId();
+    entry.tenancyId = event.tenancyId();
     entry.sequenceNumber = seq;
     entry.entryType = LedgerEntryType.EVENT;
     entry.commandType = event.commandType();

@@ -45,7 +45,8 @@ class WorkerDecisionEventCaptureDisabledTest {
     final UUID caseId = UUID.randomUUID();
 
     capture.onWorkerDecisionEvent(
-        new WorkerDecisionEvent(caseId, "sar-drafting-agent-v1", "sar-drafting", "trace-abc"));
+        new WorkerDecisionEvent(
+            caseId, "test-tenant", "sar-drafting-agent-v1", "sar-drafting", "trace-abc"));
 
     assertThat(repository.findWorkerDecisionsByCaseId(caseId)).isEmpty();
   }
