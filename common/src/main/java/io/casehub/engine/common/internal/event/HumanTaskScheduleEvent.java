@@ -39,4 +39,5 @@ public record HumanTaskScheduleEvent(
     String bindingName,
     HumanTaskTarget target,
     Map<String, Object> inputData,
-    Instant caseBudgetDeadline) {}
+    Instant caseBudgetDeadline,
+    String tenancyId) {}

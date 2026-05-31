@@ -24,6 +24,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -34,7 +35,8 @@ import java.util.UUID;
 @Entity
 @Table(
     name = "subcase_group",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"parent_case_id", "group_id"}))
+    uniqueConstraints = @UniqueConstraint(columnNames = {"parent_case_id", "group_id"}),
+    indexes = {@Index(name = "idx_subcase_group_tenancy_id", columnList = "tenancy_id")})
 public class SubCaseGroupEntity extends PanacheEntity {
 
   @Column(name = "parent_case_id", nullable = false)
@@ -68,4 +70,7 @@ public class SubCaseGroupEntity extends PanacheEntity {
       joinColumns = @JoinColumn(name = "group_entity_id"))
   @Column(name = "child_case_id")
   public Set<UUID> childCaseIds = new HashSet<>();
+
+  @Column(name = "tenancy_id", nullable = false, length = 64)
+  public String tenancyId;
 }

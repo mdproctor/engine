@@ -77,7 +77,8 @@ class HumanTaskRecoveryServiceTest {
             PlanItemStatus.DELEGATED,
             Instant.now(),
             TargetType.HUMAN_TASK,
-            null));
+            null,
+            "test-tenant"));
 
     // Set up CaseInstance so PlanItemCompletionApplier can fire CONTEXT_CHANGED
     CaseInstance instance = new CaseInstance();

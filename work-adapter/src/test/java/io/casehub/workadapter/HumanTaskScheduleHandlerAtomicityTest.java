@@ -66,6 +66,8 @@ import org.junit.jupiter.api.Test;
 @TestProfile(HumanTaskScheduleHandlerAtomicityTest.Profile.class)
 class HumanTaskScheduleHandlerAtomicityTest {
 
+  private static final String TENANCY_ID = "test-tenant";
+
   public static class Profile implements QuarkusTestProfile {
     @Override
     public Set<Class<?>> getEnabledAlternatives() {
@@ -160,7 +162,7 @@ class HumanTaskScheduleHandlerAtomicityTest {
     try {
       eventBus.publish(
           EventBusAddresses.HUMAN_TASK_SCHEDULE,
-          new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of(), null));
+          new HumanTaskScheduleEvent(caseId, "irb-binding", target, Map.of(), null, TENANCY_ID));
 
       try {
         assertThat(FailingWorkItemStore.putAttemptLatch.await(5, TimeUnit.SECONDS))

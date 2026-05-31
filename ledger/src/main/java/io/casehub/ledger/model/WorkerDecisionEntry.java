@@ -19,6 +19,7 @@ import io.casehub.ledger.runtime.model.LedgerEntry;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.util.UUID;
 
@@ -38,7 +39,9 @@ import java.util.UUID;
  * worker capability decision.
  */
 @Entity
-@Table(name = "worker_decision_entry")
+@Table(
+    name = "worker_decision_entry",
+    indexes = {@Index(name = "idx_worker_decision_entry_tenancy_id", columnList = "tenancy_id")})
 @DiscriminatorValue("WORKER_DECISION")
 public class WorkerDecisionEntry extends LedgerEntry {
 
@@ -58,4 +61,7 @@ public class WorkerDecisionEntry extends LedgerEntry {
   /** The CaseInstance UUID — equals {@code subjectId}. */
   @Column(name = "case_id", nullable = false)
   public UUID caseId;
+
+  @Column(name = "tenancy_id", nullable = false, length = 64)
+  public String tenancyId;
 }

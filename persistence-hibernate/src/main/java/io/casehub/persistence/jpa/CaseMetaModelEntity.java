@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
 import java.time.Instant;
@@ -28,7 +29,11 @@ import org.hibernate.type.SqlTypes;
 @Entity
 @Table(
     name = "case_meta_model",
-    uniqueConstraints = {@UniqueConstraint(columnNames = {"namespace", "name", "version"})})
+    uniqueConstraints =
+        @UniqueConstraint(
+            name = "uq_case_meta_model_tenant_key",
+            columnNames = {"tenancy_id", "namespace", "name", "version"}),
+    indexes = {@Index(name = "idx_case_meta_model_tenancy_id", columnList = "tenancy_id")})
 public class CaseMetaModelEntity extends PanacheEntity {
 
   @Column(nullable = false, length = 255)
@@ -52,4 +57,7 @@ public class CaseMetaModelEntity extends PanacheEntity {
 
   @Column(name = "created_at", nullable = false, updatable = false)
   public Instant createdAt;
+
+  @Column(name = "tenancy_id", nullable = false, length = 64)
+  public String tenancyId;
 }

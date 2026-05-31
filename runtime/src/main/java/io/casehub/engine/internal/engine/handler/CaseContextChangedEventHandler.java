@@ -356,7 +356,8 @@ public class CaseContextChangedEventHandler {
     eventBus.publish(
         EventBusAddresses.HUMAN_TASK_SCHEDULE,
         new HumanTaskScheduleEvent(
-            caseInstance.getUuid(), binding.getName(), target, inputData, caseBudgetDeadline));
+            caseInstance.getUuid(), binding.getName(), target, inputData, caseBudgetDeadline,
+            caseInstance.getTenancyId()));
 
     return Uni.createFrom().voidItem();
   }

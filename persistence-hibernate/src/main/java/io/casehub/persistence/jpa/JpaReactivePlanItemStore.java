@@ -116,6 +116,7 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
         e.status,
         e.createdAt,
         e.targetType,
-        e.outputMappingExpression);
+        e.outputMappingExpression,
+        e.tenancyId);
   }
 }

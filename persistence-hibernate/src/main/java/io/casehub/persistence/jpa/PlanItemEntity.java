@@ -34,7 +34,8 @@ import org.hibernate.annotations.DynamicUpdate;
     name = "plan_item",
     indexes = {
       @Index(name = "idx_plan_item_plan_item_id", columnList = "plan_item_id"),
-      @Index(name = "idx_plan_item_case_id", columnList = "case_id")
+      @Index(name = "idx_plan_item_case_id", columnList = "case_id"),
+      @Index(name = "idx_plan_item_tenancy_id", columnList = "tenancy_id")
     })
 public class PlanItemEntity extends PanacheEntity {
 
@@ -60,4 +61,7 @@ public class PlanItemEntity extends PanacheEntity {
 
   @Column(name = "output_mapping_expression", length = 1000)
   public String outputMappingExpression;
+
+  @Column(name = "tenancy_id", nullable = false, length = 64)
+  public String tenancyId;
 }

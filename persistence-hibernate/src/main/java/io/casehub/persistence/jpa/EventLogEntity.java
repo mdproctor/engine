@@ -23,6 +23,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
@@ -32,7 +33,9 @@ import org.hibernate.generator.EventType;
 import org.hibernate.type.SqlTypes;
 
 @Entity
-@Table(name = "event_log")
+@Table(
+    name = "event_log",
+    indexes = {@Index(name = "idx_event_log_tenancy_id", columnList = "tenancy_id")})
 public class EventLogEntity extends PanacheEntity {
 
   @Column(
@@ -68,4 +71,7 @@ public class EventLogEntity extends PanacheEntity {
   @JdbcTypeCode(SqlTypes.JSON)
   @Column(name = "metadata", columnDefinition = "jsonb")
   public JsonNode metadata;
+
+  @Column(name = "tenancy_id", nullable = false, length = 64)
+  public String tenancyId;
 }

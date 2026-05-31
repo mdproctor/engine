@@ -22,6 +22,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
+import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
@@ -30,7 +31,9 @@ import org.hibernate.annotations.DynamicUpdate;
 
 @Entity
 @DynamicUpdate
-@Table(name = "case_instance")
+@Table(
+    name = "case_instance",
+    indexes = {@Index(name = "idx_case_instance_tenancy_id", columnList = "tenancy_id")})
 public class CaseInstanceEntity extends PanacheEntity {
 
   @Column(name = "uuid", nullable = false, unique = true, updatable = false)
@@ -52,4 +55,7 @@ public class CaseInstanceEntity extends PanacheEntity {
 
   @Column(name = "waiting_for_work_id", nullable = true, length = 255)
   public String waitingForWorkId;
+
+  @Column(name = "tenancy_id", nullable = false, length = 64)
+  public String tenancyId;
 }

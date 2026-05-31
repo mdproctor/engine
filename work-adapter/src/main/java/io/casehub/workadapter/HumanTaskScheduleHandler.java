@@ -145,9 +145,10 @@ public class HumanTaskScheduleHandler {
             PlanItemStatus.DELEGATED,
             item.getCreatedAt(),
             TargetType.HUMAN_TASK,
-            extractOutputMappingExpression(event.target())));
+            extractOutputMappingExpression(event.target()),
+            event.tenancyId()));
     item.markDelegated();
-    LOG.infof("WorkItem created (template=%s) for binding callerRef=%s", template.id, callerRef);
+    LOG.infof("WorkItem created (inline) for binding callerRef=%s", callerRef);
   }
 
   private void handleInlineMode(PlanItem item, HumanTaskScheduleEvent event) {
@@ -161,7 +162,8 @@ public class HumanTaskScheduleHandler {
             PlanItemStatus.DELEGATED,
             item.getCreatedAt(),
             TargetType.HUMAN_TASK,
-            extractOutputMappingExpression(event.target())));
+            extractOutputMappingExpression(event.target()),
+            event.tenancyId()));
     item.markDelegated();
   }
 

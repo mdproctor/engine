@@ -48,6 +48,7 @@ public class JpaPlanItemStore implements PlanItemStore {
     e.createdAt = request.createdAt();
     e.targetType = request.targetType();
     e.outputMappingExpression = request.outputMappingExpression();
+    e.tenancyId = request.tenancyId();
     em.persist(e);
   }
 
@@ -110,6 +111,7 @@ public class JpaPlanItemStore implements PlanItemStore {
         e.status,
         e.createdAt,
         e.targetType,
-        e.outputMappingExpression);
+        e.outputMappingExpression,
+        e.tenancyId);
   }
 }

@@ -47,7 +47,8 @@ class JpaPlanItemStoreTest {
             PlanItemStatus.PENDING,
             Instant.now(),
             TargetType.HUMAN_TASK,
-            null));
+            null,
+            "test-tenant"));
     List<PlanItemRecord> found = store.findByCaseId(caseId);
     assertThat(found).hasSize(1);
     assertThat(found.get(0).status()).isEqualTo(PlanItemStatus.PENDING);
@@ -66,7 +67,8 @@ class JpaPlanItemStoreTest {
             PlanItemStatus.PENDING,
             Instant.now(),
             TargetType.HUMAN_TASK,
-            null));
+            null,
+            "test-tenant"));
     store.updateStatus(planItemId, PlanItemStatus.RUNNING);
     List<PlanItemRecord> found = store.findByCaseId(caseId);
     assertThat(found.get(0).status()).isEqualTo(PlanItemStatus.RUNNING);
