@@ -32,12 +32,13 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
     implements ReactivePlanItemStore {
 
   @Override
-  public Uni<Void> save(PlanItemSaveRequest request) {
+  public Uni<Void> save(PlanItemSaveRequest request, String tenancyId) {
     return withSafeContext(
         () ->
             Panache.withTransaction(
                 () -> {
                   PlanItemEntity e = new PlanItemEntity();
+                  e.tenancyId = tenancyId;
                   e.caseId = request.caseId();
                   e.planItemId = request.planItemId();
                   e.bindingName = request.bindingName();
@@ -69,12 +70,13 @@ public class JpaReactivePlanItemStore extends AbstractJpaRepository
   }
 
   @Override
-  public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId) {
+  public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId, String tenancyId) {
     return withSafeContext(
         () ->
             Panache.withSession(
                 () ->
-                    PlanItemEntity.<PlanItemEntity>find("caseId", caseId)
+                    PlanItemEntity.<PlanItemEntity>find(
+                            "caseId = ?1 AND tenancyId = ?2", caseId, tenancyId)
                         .list()
                         .map(
                             list ->

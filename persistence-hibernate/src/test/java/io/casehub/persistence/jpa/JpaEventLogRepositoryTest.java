@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test;
 class JpaEventLogRepositoryTest {
 
   @Inject EventLogRepository repository;
+  @Inject CrossTenantEventLogRepository crossTenantRepository;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
@@ -44,7 +46,7 @@ class JpaEventLogRepositoryTest {
   void append_populatesIdAndSeq() {
     EventLog log = workerScheduled(UUID.randomUUID(), "worker-1");
 
-    run(() -> repository.append(log));
+    run(() -> repository.append(log, "test-tenant"));
 
     assertThat(log.id).isNotNull().isPositive();
     assertThat(log.getSeq()).isNotNull().isPositive();
@@ -56,8 +58,8 @@ class JpaEventLogRepositoryTest {
     EventLog first = workerScheduled(caseId, "worker-seq-1");
     EventLog second = workerScheduled(caseId, "worker-seq-2");
 
-    run(() -> repository.append(first));
-    run(() -> repository.append(second));
+    run(() -> repository.append(first, "test-tenant"));
+    run(() -> repository.append(second, "test-tenant"));
 
     assertThat(second.getSeq()).isGreaterThan(first.getSeq());
   }
@@ -66,7 +68,7 @@ class JpaEventLogRepositoryTest {
   void appendAndReturnId_returnsId() {
     EventLog log = workerScheduled(UUID.randomUUID(), "worker-return-id");
 
-    Long returnedId = run(() -> repository.appendAndReturnId(log));
+    Long returnedId = run(() -> repository.appendAndReturnId(log, "test-tenant"));
 
     assertThat(returnedId).isNotNull().isPositive();
     assertThat(returnedId).isEqualTo(log.id);
@@ -74,7 +76,7 @@ class JpaEventLogRepositoryTest {
 
   @Test
   void findById_returnsNullForUnknown() {
-    EventLog result = run(() -> repository.findById(Long.MAX_VALUE));
+    EventLog result = run(() -> repository.findById(Long.MAX_VALUE, "test-tenant"));
 
     assertThat(result).isNull();
   }
@@ -83,9 +85,9 @@ class JpaEventLogRepositoryTest {
   void findById_returnsAppendedEvent() {
     UUID caseId = UUID.randomUUID();
     EventLog log = workerScheduled(caseId, "worker-find-by-id");
-    run(() -> repository.append(log));
+    run(() -> repository.append(log, "test-tenant"));
 
-    EventLog found = run(() -> repository.findById(log.id));
+    EventLog found = run(() -> repository.findById(log.id, "test-tenant"));
 
     assertThat(found).isNotNull();
     assertThat(found.getCaseId()).isEqualTo(caseId);
@@ -103,12 +105,13 @@ class JpaEventLogRepositoryTest {
     EventLog otherWorker = event(caseId, "other-worker", CaseHubEventType.WORKER_SCHEDULED);
     EventLog otherCase = event(UUID.randomUUID(), workerId, CaseHubEventType.WORKER_SCHEDULED);
 
-    run(() -> repository.append(scheduled));
-    run(() -> repository.append(started));
-    run(() -> repository.append(otherWorker));
-    run(() -> repository.append(otherCase));
+    run(() -> repository.append(scheduled, "test-tenant"));
+    run(() -> repository.append(started, "test-tenant"));
+    run(() -> repository.append(otherWorker, "test-tenant"));
+    run(() -> repository.append(otherCase, "test-tenant"));
 
-    List<EventLog> result = run(() -> repository.findSchedulingEvents(caseId, workerId));
+    List<EventLog> result =
+        run(() -> repository.findSchedulingEvents(caseId, workerId, "test-tenant"));
 
     assertThat(result).hasSize(2);
     assertThat(result)
@@ -126,14 +129,14 @@ class JpaEventLogRepositoryTest {
     EventLog e2 = event(caseId, "w-" + suffix, CaseHubEventType.WORKER_EXECUTION_COMPLETED);
     EventLog noise = event(caseId, "w-" + suffix, CaseHubEventType.WORKER_SCHEDULED);
 
-    run(() -> repository.append(e1));
-    run(() -> repository.append(e2));
-    run(() -> repository.append(noise));
+    run(() -> repository.append(e1, "test-tenant"));
+    run(() -> repository.append(e2, "test-tenant"));
+    run(() -> repository.append(noise, "test-tenant"));
 
     List<EventLog> result =
         run(
             () ->
-                repository.findByTypes(
+                crossTenantRepository.findByTypes(
                     List.of(
                         CaseHubEventType.CASE_STARTED,
                         CaseHubEventType.WORKER_EXECUTION_COMPLETED)));
@@ -154,13 +157,14 @@ class JpaEventLogRepositoryTest {
     EventLog target = event(targetCase, "w-" + suffix, CaseHubEventType.CASE_STARTED);
     EventLog other = event(otherCase, "w-" + suffix, CaseHubEventType.CASE_STARTED);
 
-    run(() -> repository.append(target));
-    run(() -> repository.append(other));
+    run(() -> repository.append(target, "test-tenant"));
+    run(() -> repository.append(other, "test-tenant"));
 
     List<EventLog> result =
         run(
             () ->
-                repository.findByCaseAndTypes(targetCase, List.of(CaseHubEventType.CASE_STARTED)));
+                repository.findByCaseAndTypes(
+                    targetCase, List.of(CaseHubEventType.CASE_STARTED), "test-tenant"));
 
     assertThat(result).isNotEmpty();
     assertThat(result).allMatch(e -> targetCase.equals(e.getCaseId()));
@@ -176,15 +180,15 @@ class JpaEventLogRepositoryTest {
     EventLog wrongWorker = event(caseId, "other", CaseHubEventType.WORKER_EXECUTION_FAILED);
     EventLog wrongType = event(caseId, workerId, CaseHubEventType.WORKER_SCHEDULED);
 
-    run(() -> repository.append(match));
-    run(() -> repository.append(wrongWorker));
-    run(() -> repository.append(wrongType));
+    run(() -> repository.append(match, "test-tenant"));
+    run(() -> repository.append(wrongWorker, "test-tenant"));
+    run(() -> repository.append(wrongType, "test-tenant"));
 
     List<EventLog> result =
         run(
             () ->
-                repository.findByCaseAndWorkerAndType(
-                    caseId, workerId, CaseHubEventType.WORKER_EXECUTION_FAILED));
+                repository.findByWorkerAndType(
+                    workerId, CaseHubEventType.WORKER_EXECUTION_FAILED, "test-tenant"));
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).getWorkerId()).isEqualTo(workerId);
@@ -203,7 +207,7 @@ class JpaEventLogRepositoryTest {
     old.setStreamType(EventStreamType.CASE);
     old.setTimestamp(Instant.now().minusSeconds(120));
     old.setMetadata(OBJECT_MAPPER.createObjectNode().put("inputDataHash", "hash-old"));
-    run(() -> repository.append(old));
+    run(() -> repository.append(old, "test-tenant"));
 
     EventLog recent = new EventLog();
     recent.setCaseId(caseId);
@@ -212,9 +216,10 @@ class JpaEventLogRepositoryTest {
     recent.setStreamType(EventStreamType.CASE);
     recent.setTimestamp(Instant.now());
     recent.setMetadata(OBJECT_MAPPER.createObjectNode().put("inputDataHash", "hash-recent"));
-    run(() -> repository.append(recent));
+    run(() -> repository.append(recent, "test-tenant"));
 
-    List<EventLog> result = run(() -> repository.findSchedulingEvents(caseId, "w-old", cutoff));
+    List<EventLog> result =
+        run(() -> repository.findSchedulingEvents(caseId, "w-old", cutoff, "test-tenant"));
     assertThat(result).hasSize(1);
     assertThat(result.get(0).getTimestamp()).isAfter(cutoff);
   }
@@ -230,7 +235,7 @@ class JpaEventLogRepositoryTest {
     e1.setStreamType(EventStreamType.CASE);
     e1.setTimestamp(Instant.now().minusSeconds(120));
     e1.setMetadata(OBJECT_MAPPER.createObjectNode().put("inputDataHash", "h1"));
-    run(() -> repository.append(e1));
+    run(() -> repository.append(e1, "test-tenant"));
 
     EventLog e2 = new EventLog();
     e2.setCaseId(caseId);
@@ -239,9 +244,10 @@ class JpaEventLogRepositoryTest {
     e2.setStreamType(EventStreamType.CASE);
     e2.setTimestamp(Instant.now());
     e2.setMetadata(OBJECT_MAPPER.createObjectNode().put("inputDataHash", "h1"));
-    run(() -> repository.append(e2));
+    run(() -> repository.append(e2, "test-tenant"));
 
-    List<EventLog> result = run(() -> repository.findSchedulingEvents(caseId, "w-null", null));
+    List<EventLog> result =
+        run(() -> repository.findSchedulingEvents(caseId, "w-null", null, "test-tenant"));
     assertThat(result).hasSize(2);
   }
 
@@ -259,12 +265,13 @@ class JpaEventLogRepositoryTest {
     e3.setStreamType(EventStreamType.SYSTEM);
     EventLog other = event(otherCase, "w-" + suffix, CaseHubEventType.CASE_STARTED);
 
-    run(() -> repository.append(e1));
-    run(() -> repository.append(e2));
-    run(() -> repository.append(e3));
-    run(() -> repository.append(other));
+    run(() -> repository.append(e1, "test-tenant"));
+    run(() -> repository.append(e2, "test-tenant"));
+    run(() -> repository.append(e3, "test-tenant"));
+    run(() -> repository.append(other, "test-tenant"));
 
-    List<EventLog> result = run(() -> repository.findByCaseWithFilters(targetCase, null, null));
+    List<EventLog> result =
+        run(() -> repository.findByCaseWithFilters(targetCase, null, null, "test-tenant"));
 
     assertThat(result).hasSize(3);
     assertThat(result).allMatch(e -> targetCase.equals(e.getCaseId()));
@@ -280,9 +287,9 @@ class JpaEventLogRepositoryTest {
     EventLog e2 = event(caseId, "w-" + suffix, CaseHubEventType.WORKER_EXECUTION_STARTED);
     EventLog e3 = event(caseId, "w-" + suffix, CaseHubEventType.CASE_STARTED);
 
-    run(() -> repository.append(e1));
-    run(() -> repository.append(e2));
-    run(() -> repository.append(e3));
+    run(() -> repository.append(e1, "test-tenant"));
+    run(() -> repository.append(e2, "test-tenant"));
+    run(() -> repository.append(e3, "test-tenant"));
 
     List<EventLog> result =
         run(
@@ -292,7 +299,8 @@ class JpaEventLogRepositoryTest {
                     List.of(
                         CaseHubEventType.WORKER_SCHEDULED,
                         CaseHubEventType.WORKER_EXECUTION_STARTED),
-                    null));
+                    null,
+                    "test-tenant"));
 
     assertThat(result).hasSize(2);
     assertThat(result)
@@ -314,12 +322,15 @@ class JpaEventLogRepositoryTest {
     EventLog e3 = event(caseId, "w-" + suffix, CaseHubEventType.WORKER_EXECUTION_STARTED);
     e3.setStreamType(EventStreamType.WORKER);
 
-    run(() -> repository.append(e1));
-    run(() -> repository.append(e2));
-    run(() -> repository.append(e3));
+    run(() -> repository.append(e1, "test-tenant"));
+    run(() -> repository.append(e2, "test-tenant"));
+    run(() -> repository.append(e3, "test-tenant"));
 
     List<EventLog> result =
-        run(() -> repository.findByCaseWithFilters(caseId, null, List.of(EventStreamType.WORKER)));
+        run(
+            () ->
+                repository.findByCaseWithFilters(
+                    caseId, null, List.of(EventStreamType.WORKER), "test-tenant"));
 
     assertThat(result).hasSize(2);
     assertThat(result).allMatch(e -> EventStreamType.WORKER.equals(e.getStreamType()));
@@ -340,9 +351,9 @@ class JpaEventLogRepositoryTest {
     EventLog wrongStream = event(caseId, "w-" + suffix, CaseHubEventType.WORKER_SCHEDULED);
     wrongStream.setStreamType(EventStreamType.CASE);
 
-    run(() -> repository.append(match));
-    run(() -> repository.append(wrongType));
-    run(() -> repository.append(wrongStream));
+    run(() -> repository.append(match, "test-tenant"));
+    run(() -> repository.append(wrongType, "test-tenant"));
+    run(() -> repository.append(wrongStream, "test-tenant"));
 
     List<EventLog> result =
         run(
@@ -350,7 +361,8 @@ class JpaEventLogRepositoryTest {
                 repository.findByCaseWithFilters(
                     caseId,
                     List.of(CaseHubEventType.WORKER_SCHEDULED),
-                    List.of(EventStreamType.WORKER)));
+                    List.of(EventStreamType.WORKER),
+                    "test-tenant"));
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).getEventType()).isEqualTo(CaseHubEventType.WORKER_SCHEDULED);
@@ -365,11 +377,11 @@ class JpaEventLogRepositoryTest {
     EventLog e1 = event(caseId, "w-" + suffix, CaseHubEventType.CASE_STARTED);
     EventLog e2 = event(caseId, "w-" + suffix, CaseHubEventType.WORKER_SCHEDULED);
 
-    run(() -> repository.append(e1));
-    run(() -> repository.append(e2));
+    run(() -> repository.append(e1, "test-tenant"));
+    run(() -> repository.append(e2, "test-tenant"));
 
     List<EventLog> result =
-        run(() -> repository.findByCaseWithFilters(caseId, List.of(), List.of()));
+        run(() -> repository.findByCaseWithFilters(caseId, List.of(), List.of(), "test-tenant"));
 
     assertThat(result).hasSize(2);
   }
@@ -384,11 +396,11 @@ class JpaEventLogRepositoryTest {
     EventLog completion = workEvent(caseId, CaseHubEventType.WORK_COMPLETED, completedKey);
     EventLog pendingSubmission = workEvent(caseId, CaseHubEventType.WORK_SUBMITTED, pendingKey);
 
-    run(() -> repository.append(completedSubmission));
-    run(() -> repository.append(completion));
-    run(() -> repository.append(pendingSubmission));
+    run(() -> repository.append(completedSubmission, "test-tenant"));
+    run(() -> repository.append(completion, "test-tenant"));
+    run(() -> repository.append(pendingSubmission, "test-tenant"));
 
-    List<String> result = run(repository::findSubmittedWorkWithoutCompletion);
+    List<String> result = run(crossTenantRepository::findSubmittedWorkWithoutCompletion);
 
     assertThat(result).contains(pendingKey);
     assertThat(result).doesNotContain(completedKey);
@@ -433,7 +445,7 @@ class JpaEventLogRepositoryTest {
     EventLog log = event(caseId, "worker-null-payload", CaseHubEventType.WORKER_SCHEDULED);
     log.setPayload(null);
 
-    run(() -> repository.append(log));
+    run(() -> repository.append(log, "test-tenant"));
 
     assertThat(log.id).isNotNull();
     assertThat(log.getPayload()).isNull();
@@ -445,7 +457,7 @@ class JpaEventLogRepositoryTest {
     EventLog log = event(caseId, "worker-null-meta", CaseHubEventType.WORKER_SCHEDULED);
     log.setMetadata(null);
 
-    run(() -> repository.append(log));
+    run(() -> repository.append(log, "test-tenant"));
 
     assertThat(log.id).isNotNull();
     assertThat(log.getMetadata()).isNull();
@@ -463,9 +475,9 @@ class JpaEventLogRepositoryTest {
     }
     log.setPayload(largePayload);
 
-    run(() -> repository.append(log));
+    run(() -> repository.append(log, "test-tenant"));
 
-    EventLog found = run(() -> repository.findById(log.id));
+    EventLog found = run(() -> repository.findById(log.id, "test-tenant"));
     assertThat(found).isNotNull();
     assertThat(found.getPayload()).isNotNull();
     assertThat(found.getPayload().get("key999").asText()).contains("value");
@@ -486,7 +498,7 @@ class JpaEventLogRepositoryTest {
               () -> {
                 EventLog log =
                     event(caseId, "worker-concurrent-" + index, CaseHubEventType.WORKER_SCHEDULED);
-                run(() -> repository.append(log));
+                run(() -> repository.append(log, "test-tenant"));
                 logs.add(log);
               });
       threads.add(t);
@@ -520,11 +532,12 @@ class JpaEventLogRepositoryTest {
     for (int i = 0; i < eventCount; i++) {
       EventLog log =
           event(caseId, "worker-perf-" + suffix + "-" + i, CaseHubEventType.WORKER_SCHEDULED);
-      run(() -> repository.append(log));
+      run(() -> repository.append(log, "test-tenant"));
     }
 
     long startTime = System.currentTimeMillis();
-    List<EventLog> result = run(() -> repository.findByCaseWithFilters(caseId, null, null));
+    List<EventLog> result =
+        run(() -> repository.findByCaseWithFilters(caseId, null, null, "test-tenant"));
     long duration = System.currentTimeMillis() - startTime;
 
     assertThat(result).hasSizeGreaterThanOrEqualTo(eventCount);
@@ -541,7 +554,8 @@ class JpaEventLogRepositoryTest {
     log.setStreamType(EventStreamType.WORKER);
     log.setTimestamp(Instant.now());
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.append(log)))
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> run(() -> repository.append(log, "test-tenant")))
         .isInstanceOf(Exception.class);
   }
 
@@ -554,7 +568,8 @@ class JpaEventLogRepositoryTest {
     log.setStreamType(EventStreamType.WORKER);
     log.setTimestamp(Instant.now());
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.append(log)))
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> run(() -> repository.append(log, "test-tenant")))
         .isInstanceOf(Exception.class);
   }
 
@@ -567,7 +582,8 @@ class JpaEventLogRepositoryTest {
     log.setStreamType(null);
     log.setTimestamp(Instant.now());
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.append(log)))
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> run(() -> repository.append(log, "test-tenant")))
         .isInstanceOf(Exception.class);
   }
 
@@ -580,7 +596,8 @@ class JpaEventLogRepositoryTest {
     log.setStreamType(EventStreamType.WORKER);
     log.setTimestamp(null);
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.append(log)))
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> run(() -> repository.append(log, "test-tenant")))
         .isInstanceOf(Exception.class);
   }
 }

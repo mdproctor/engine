@@ -28,30 +28,33 @@ public class JpaCaseMetaModelRepository extends AbstractJpaRepository
     implements CaseMetaModelRepository {
 
   @Override
-  public Uni<CaseMetaModel> findByKey(String namespace, String name, String version) {
+  public Uni<CaseMetaModel> findByKey(
+      String namespace, String name, String version, String tenancyId) {
     return withSafeContext(
         () ->
             Panache.withSession(
                     () ->
                         CaseMetaModelEntity.<CaseMetaModelEntity>find(
-                                "namespace = ?1 and name = ?2 and version = ?3",
+                                "namespace = ?1 and name = ?2 and version = ?3 and tenancyId = ?4",
                                 namespace,
                                 name,
-                                version)
+                                version,
+                                tenancyId)
                             .firstResult())
                 .map(entity -> entity == null ? null : fromEntity(entity)));
   }
 
   @Override
-  public Uni<CaseMetaModel> save(CaseMetaModel metaModel) {
-    CaseMetaModelEntity entity = toEntity(metaModel);
+  public Uni<CaseMetaModel> save(CaseMetaModel metaModel, String tenancyId) {
+    CaseMetaModelEntity entity = toEntity(metaModel, tenancyId);
     entity.createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     return withSafeContext(
         () ->
             Panache.withTransaction(() -> entity.persist())
                 .map(
                     v -> {
-                      metaModel.setId(entity.id);
+                      metaModel.id = entity.id;
+                      metaModel.tenancyId = tenancyId;
                       metaModel.setCreatedAt(entity.createdAt);
                       return metaModel;
                     }));
@@ -59,7 +62,8 @@ public class JpaCaseMetaModelRepository extends AbstractJpaRepository
 
   private CaseMetaModel fromEntity(CaseMetaModelEntity entity) {
     CaseMetaModel m = new CaseMetaModel();
-    m.setId(entity.id);
+    m.id = entity.id;
+    m.tenancyId = entity.tenancyId;
     m.setName(entity.name);
     m.setNamespace(entity.namespace);
     m.setVersion(entity.version);
@@ -70,8 +74,9 @@ public class JpaCaseMetaModelRepository extends AbstractJpaRepository
     return m;
   }
 
-  private CaseMetaModelEntity toEntity(CaseMetaModel m) {
+  private CaseMetaModelEntity toEntity(CaseMetaModel m, String tenancyId) {
     CaseMetaModelEntity entity = new CaseMetaModelEntity();
+    entity.tenancyId = tenancyId;
     entity.name = m.getName();
     entity.namespace = m.getNamespace();
     entity.version = m.getVersion();

@@ -18,6 +18,7 @@ package io.casehub.persistence.jpa;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
@@ -30,11 +31,14 @@ import java.util.Objects;
 import java.util.UUID;
 
 @ApplicationScoped
-public class JpaEventLogRepository extends AbstractJpaRepository implements EventLogRepository {
+public class JpaEventLogRepository extends AbstractJpaRepository
+    implements EventLogRepository, CrossTenantEventLogRepository {
+
+  // ── Tenant-scoped methods ────────────────────────────────────────────────
 
   @Override
-  public Uni<Void> append(EventLog eventLog) {
-    EventLogEntity entity = toEntity(eventLog);
+  public Uni<Void> append(EventLog eventLog, String tenancyId) {
+    EventLogEntity entity = toEntity(eventLog, tenancyId);
     return withSafeContext(
         () ->
             Panache.withTransaction(entity::persistAndFlush)
@@ -47,8 +51,8 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
   }
 
   @Override
-  public Uni<Long> appendAndReturnId(EventLog eventLog) {
-    EventLogEntity entity = toEntity(eventLog);
+  public Uni<Long> appendAndReturnId(EventLog eventLog, String tenancyId) {
+    EventLogEntity entity = toEntity(eventLog, tenancyId);
     return withSafeContext(
         () ->
             Panache.withTransaction(entity::persistAndFlush)
@@ -61,15 +65,20 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
   }
 
   @Override
-  public Uni<EventLog> findById(Long id) {
+  public Uni<EventLog> findById(Long id, String tenancyId) {
     return withSafeContext(
         () ->
-            Panache.withSession(() -> EventLogEntity.<EventLogEntity>findById(id))
+            Panache.withSession(
+                    () ->
+                        EventLogEntity.<EventLogEntity>find(
+                                "id = ?1 and tenancyId = ?2", id, tenancyId)
+                            .firstResult())
                 .map(entity -> entity == null ? null : fromEntity(entity)));
   }
 
   @Override
-  public Uni<List<EventLog>> findSchedulingEvents(UUID caseId, String workerId, Instant after) {
+  public Uni<List<EventLog>> findSchedulingEvents(
+      UUID caseId, String workerId, Instant after, String tenancyId) {
     return withSafeContext(
         () ->
             Panache.withSession(
@@ -77,28 +86,116 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                       if (after == null) {
                         return EventLogEntity.<EventLogEntity>find(
                                 "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
-                                    + " order by seq asc",
-                                caseId,
-                                workerId,
-                                CaseHubEventType.WORKER_SCHEDULED,
-                                CaseHubEventType.WORKER_EXECUTION_STARTED,
-                                CaseHubEventType.WORKER_EXECUTION_COMPLETED)
-                            .list();
-                      } else {
-                        return EventLogEntity.<EventLogEntity>find(
-                                "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
-                                    + " and timestamp > ?6 order by seq asc",
+                                    + " and tenancyId = ?6 order by seq asc",
                                 caseId,
                                 workerId,
                                 CaseHubEventType.WORKER_SCHEDULED,
                                 CaseHubEventType.WORKER_EXECUTION_STARTED,
                                 CaseHubEventType.WORKER_EXECUTION_COMPLETED,
-                                after)
+                                tenancyId)
+                            .list();
+                      } else {
+                        return EventLogEntity.<EventLogEntity>find(
+                                "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
+                                    + " and timestamp > ?6 and tenancyId = ?7 order by seq asc",
+                                caseId,
+                                workerId,
+                                CaseHubEventType.WORKER_SCHEDULED,
+                                CaseHubEventType.WORKER_EXECUTION_STARTED,
+                                CaseHubEventType.WORKER_EXECUTION_COMPLETED,
+                                after,
+                                tenancyId)
                             .list();
                       }
                     })
                 .map(list -> list.stream().map(this::fromEntity).toList()));
   }
+
+  @Override
+  public Uni<List<EventLog>> findByCaseAndTypes(
+      UUID caseId, Collection<CaseHubEventType> types, String tenancyId) {
+    return withSafeContext(
+        () ->
+            Panache.withSession(
+                    () ->
+                        EventLogEntity.<EventLogEntity>find(
+                                "caseId = ?1 and eventType in ?2 and tenancyId = ?3"
+                                    + " order by seq asc",
+                                caseId,
+                                types,
+                                tenancyId)
+                            .list())
+                .map(list -> list.stream().map(this::fromEntity).toList()));
+  }
+
+  @Override
+  public Uni<List<EventLog>> findByCaseAndWorkerAndType(
+      UUID caseId, String workerId, CaseHubEventType type, String tenancyId) {
+    return withSafeContext(
+        () ->
+            Panache.withSession(
+                    () ->
+                        EventLogEntity.<EventLogEntity>find(
+                                "caseId = ?1 and workerId = ?2 and eventType = ?3"
+                                    + " and tenancyId = ?4",
+                                caseId,
+                                workerId,
+                                type,
+                                tenancyId)
+                            .list())
+                .map(list -> list.stream().map(this::fromEntity).toList()));
+  }
+
+  @Override
+  public Uni<List<EventLog>> findByWorkerAndType(
+      String workerId, CaseHubEventType type, String tenancyId) {
+    return withSafeContext(
+        () ->
+            Panache.withSession(
+                    () ->
+                        EventLogEntity.<EventLogEntity>find(
+                                "workerId = ?1 and eventType = ?2 and tenancyId = ?3",
+                                workerId,
+                                type,
+                                tenancyId)
+                            .list())
+                .map(list -> list.stream().map(this::fromEntity).toList()));
+  }
+
+  @Override
+  public Uni<List<EventLog>> findByCaseWithFilters(
+      UUID caseId,
+      Collection<CaseHubEventType> eventTypes,
+      Collection<EventStreamType> streamTypes,
+      String tenancyId) {
+    return withSafeContext(
+        () ->
+            Panache.withSession(
+                    () -> {
+                      StringBuilder query = new StringBuilder("caseId = ?1 and tenancyId = ?2");
+                      List<Object> params = new ArrayList<>();
+                      params.add(caseId);
+                      params.add(tenancyId);
+
+                      if (eventTypes != null && !eventTypes.isEmpty()) {
+                        query.append(" and eventType in ?").append(params.size() + 1);
+                        params.add(eventTypes);
+                      }
+
+                      if (streamTypes != null && !streamTypes.isEmpty()) {
+                        query.append(" and streamType in ?").append(params.size() + 1);
+                        params.add(streamTypes);
+                      }
+
+                      query.append(" order by seq asc");
+
+                      return EventLogEntity.<EventLogEntity>find(query.toString(), params.toArray())
+                          .list();
+                    })
+                .map(list -> list.stream().map(this::fromEntity).toList()));
+  }
+
+  // ── CrossTenantEventLogRepository methods ────────────────────────────────
 
   @Override
   public Uni<List<EventLog>> findByTypes(Collection<CaseHubEventType> types) {
@@ -125,33 +222,6 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
   }
 
   @Override
-  public Uni<List<EventLog>> findByCaseAndWorkerAndType(
-      UUID caseId, String workerId, CaseHubEventType type) {
-    return withSafeContext(
-        () ->
-            Panache.withSession(
-                    () ->
-                        EventLogEntity.<EventLogEntity>find(
-                                "caseId = ?1 and workerId = ?2 and eventType = ?3",
-                                caseId,
-                                workerId,
-                                type)
-                            .list())
-                .map(list -> list.stream().map(this::fromEntity).toList()));
-  }
-
-  @Override
-  public Uni<List<EventLog>> findByWorkerAndType(String workerId, CaseHubEventType type) {
-    return withSafeContext(
-        () ->
-            Panache.withSession(
-                    () ->
-                        EventLogEntity.<EventLogEntity>find(
-                                "workerId = ?1 and eventType = ?2", workerId, type)
-                            .list())
-                .map(list -> list.stream().map(this::fromEntity).toList()));
-  }
-
   public Uni<List<String>> findSubmittedWorkWithoutCompletion() {
     return withSafeContext(
         () ->
@@ -167,9 +237,6 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                                         "eventType", CaseHubEventType.WORK_COMPLETED))
                             .map(
                                 completed -> {
-                                  // correlationKey now includes caseId (format:
-                                  // caseId:worker:capability:hash)
-                                  // No need for WorkKey workaround - keys are globally unique
                                   var submittedKeys =
                                       submitted.stream()
                                           .map(
@@ -181,7 +248,6 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                                                       : null)
                                           .filter(Objects::nonNull)
                                           .collect(java.util.stream.Collectors.toSet());
-
                                   var completedKeys =
                                       completed.stream()
                                           .map(
@@ -193,46 +259,30 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
                                                       : null)
                                           .filter(Objects::nonNull)
                                           .collect(java.util.stream.Collectors.toSet());
-
                                   submittedKeys.removeAll(completedKeys);
                                   return new ArrayList<>(submittedKeys);
                                 })));
   }
 
   @Override
-  public Uni<List<EventLog>> findByCaseWithFilters(
-      UUID caseId,
-      Collection<CaseHubEventType> eventTypes,
-      Collection<EventStreamType> streamTypes) {
+  public Uni<List<EventLog>> findByWorkerAndTypeAcrossTenants(
+      String workerId, CaseHubEventType type) {
     return withSafeContext(
         () ->
             Panache.withSession(
-                    () -> {
-                      StringBuilder query = new StringBuilder("caseId = ?1");
-                      List<Object> params = new ArrayList<>();
-                      params.add(caseId);
-
-                      if (eventTypes != null && !eventTypes.isEmpty()) {
-                        query.append(" and eventType in ?").append(params.size() + 1);
-                        params.add(eventTypes);
-                      }
-
-                      if (streamTypes != null && !streamTypes.isEmpty()) {
-                        query.append(" and streamType in ?").append(params.size() + 1);
-                        params.add(streamTypes);
-                      }
-
-                      query.append(" order by seq asc");
-
-                      return EventLogEntity.<EventLogEntity>find(query.toString(), params.toArray())
-                          .list();
-                    })
+                    () ->
+                        EventLogEntity.<EventLogEntity>find(
+                                "workerId = ?1 and eventType = ?2", workerId, type)
+                            .list())
                 .map(list -> list.stream().map(this::fromEntity).toList()));
   }
+
+  // ── Helpers ──────────────────────────────────────────────────────────────
 
   private EventLog fromEntity(EventLogEntity entity) {
     EventLog log = new EventLog();
     log.id = entity.id;
+    log.tenancyId = entity.tenancyId;
     log.setSeq(entity.seq);
     log.setCaseId(entity.caseId);
     log.setEventType(entity.eventType);
@@ -244,8 +294,9 @@ public class JpaEventLogRepository extends AbstractJpaRepository implements Even
     return log;
   }
 
-  private EventLogEntity toEntity(EventLog log) {
+  private EventLogEntity toEntity(EventLog log, String tenancyId) {
     EventLogEntity entity = new EventLogEntity();
+    entity.tenancyId = tenancyId;
     entity.caseId = log.getCaseId();
     entity.eventType = log.getEventType();
     entity.streamType = log.getStreamType();

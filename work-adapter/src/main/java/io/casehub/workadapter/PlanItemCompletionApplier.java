@@ -30,7 +30,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -59,7 +59,7 @@ public class PlanItemCompletionApplier {
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject BlackboardRegistry registry;
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
   @Inject EventBus eventBus;
   @Inject JQEvaluator jqEvaluator;
 

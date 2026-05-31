@@ -146,7 +146,8 @@ public class HumanTaskScheduleHandler {
             item.getCreatedAt(),
             TargetType.HUMAN_TASK,
             extractOutputMappingExpression(event.target()),
-            event.tenancyId()));
+            event.tenancyId()),
+        event.tenancyId());
     item.markDelegated();
     LOG.infof("WorkItem created (inline) for binding callerRef=%s", callerRef);
   }
@@ -163,7 +164,8 @@ public class HumanTaskScheduleHandler {
             item.getCreatedAt(),
             TargetType.HUMAN_TASK,
             extractOutputMappingExpression(event.target()),
-            event.tenancyId()));
+            event.tenancyId()),
+        event.tenancyId());
     item.markDelegated();
   }
 

@@ -33,16 +33,21 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
       String groupId,
       int totalInGroup,
       int requiredCount,
-      OnThresholdReached onThresholdReached) {
+      OnThresholdReached onThresholdReached,
+      String tenancyId) {
     return Panache.withTransaction(
         () ->
             SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                    "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
+                    parentCaseId,
+                    groupId,
+                    tenancyId)
                 .firstResult()
                 .flatMap(
                     existing -> {
                       if (existing != null) return Uni.createFrom().item(toDomain(existing));
                       SubCaseGroupEntity e = new SubCaseGroupEntity();
+                      e.tenancyId = tenancyId;
                       e.parentCaseId = parentCaseId;
                       e.groupId = groupId;
                       e.instanceCount = totalInGroup;
@@ -54,11 +59,15 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<SubCaseGroup> registerChild(UUID parentCaseId, String groupId, UUID childCaseId) {
+  public Uni<SubCaseGroup> registerChild(
+      UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId) {
     return Panache.withTransaction(
         () ->
             SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                    "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                    "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
+                    parentCaseId,
+                    groupId,
+                    tenancyId)
                 .firstResult()
                 .flatMap(
                     e -> {
@@ -73,17 +82,15 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId) {
-    // Atomic JPQL increment — avoids read-modify-write race under PostgreSQL READ COMMITTED.
-    // The returned SubCaseGroup reflects DB state at SELECT time; may include concurrent
-    // increments.
-    // SubCaseGroupPolicy.evaluate() reads counts and handles any total correctly. Refs engine#248.
+  public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId, String tenancyId) {
     return Panache.withTransaction(
         () ->
             SubCaseGroupEntity.update(
-                    "completedCount = completedCount + 1 WHERE parentCaseId = ?1 AND groupId = ?2",
+                    "completedCount = completedCount + 1 "
+                        + "WHERE parentCaseId = ?1 AND groupId = ?2 AND tenancyId = ?3",
                     parentCaseId,
-                    groupId)
+                    groupId,
+                    tenancyId)
                 .chain(
                     count -> {
                       if (count == 0)
@@ -92,7 +99,10 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
                                 new IllegalStateException(
                                     "Group not found: " + parentCaseId + ":" + groupId));
                       return SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                              "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                              "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
+                              parentCaseId,
+                              groupId,
+                              tenancyId)
                           .firstResult()
                           .onItem()
                           .ifNotNull()
@@ -107,13 +117,15 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId) {
+  public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId, String tenancyId) {
     return Panache.withTransaction(
         () ->
             SubCaseGroupEntity.update(
-                    "rejectedCount = rejectedCount + 1 WHERE parentCaseId = ?1 AND groupId = ?2",
+                    "rejectedCount = rejectedCount + 1 "
+                        + "WHERE parentCaseId = ?1 AND groupId = ?2 AND tenancyId = ?3",
                     parentCaseId,
-                    groupId)
+                    groupId,
+                    tenancyId)
                 .chain(
                     count -> {
                       if (count == 0)
@@ -122,7 +134,10 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
                                 new IllegalStateException(
                                     "Group not found: " + parentCaseId + ":" + groupId));
                       return SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                              "parentCaseId = ?1 and groupId = ?2", parentCaseId, groupId)
+                              "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
+                              parentCaseId,
+                              groupId,
+                              tenancyId)
                           .firstResult()
                           .onItem()
                           .ifNotNull()
@@ -137,21 +152,25 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId) {
+  public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId) {
     return Panache.withTransaction(
         () ->
             SubCaseGroupEntity.update(
-                    "policyTriggered = true WHERE parentCaseId = ?1 AND groupId = ?2 AND policyTriggered = false",
+                    "policyTriggered = true "
+                        + "WHERE parentCaseId = ?1 AND groupId = ?2 AND tenancyId = ?3 "
+                        + "AND policyTriggered = false",
                     parentCaseId,
-                    groupId)
+                    groupId,
+                    tenancyId)
                 .map(count -> count > 0));
   }
 
   @Override
-  public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId) {
+  public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId, String tenancyId) {
     return Panache.withSession(
         () ->
-            SubCaseGroupEntity.<SubCaseGroupEntity>find("?1 member of childCaseIds", childCaseId)
+            SubCaseGroupEntity.<SubCaseGroupEntity>find(
+                    "?1 member of childCaseIds and tenancyId = ?2", childCaseId, tenancyId)
                 .firstResult()
                 .map(e -> Optional.ofNullable(e == null ? null : toDomain(e))));
   }

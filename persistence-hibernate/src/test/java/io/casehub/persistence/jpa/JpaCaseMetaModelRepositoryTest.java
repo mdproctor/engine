@@ -51,7 +51,8 @@ class JpaCaseMetaModelRepositoryTest {
 
   @Test
   void save_populatesIdAndCreatedAt() {
-    CaseMetaModel saved = run(() -> repository.save(metaModel("save-populates", "ns", "1.0")));
+    CaseMetaModel saved =
+        run(() -> repository.save(metaModel("save-populates", "ns", "1.0"), "test-tenant"));
 
     assertThat(saved.getId()).isNotNull().isPositive();
     assertThat(saved.getCreatedAt()).isNotNull();
@@ -59,16 +60,18 @@ class JpaCaseMetaModelRepositoryTest {
 
   @Test
   void findByKey_returnsNullForUnknown() {
-    CaseMetaModel result = run(() -> repository.findByKey("no-such-ns", "no-such-name", "9.9"));
+    CaseMetaModel result =
+        run(() -> repository.findByKey("no-such-ns", "no-such-name", "9.9", "test-tenant"));
 
     assertThat(result).isNull();
   }
 
   @Test
   void findByKey_returnsRegisteredMetaModel() {
-    run(() -> repository.save(metaModel("find-by-key", "repo-ns", "2.0")));
+    run(() -> repository.save(metaModel("find-by-key", "repo-ns", "2.0"), "test-tenant"));
 
-    CaseMetaModel found = run(() -> repository.findByKey("repo-ns", "find-by-key", "2.0"));
+    CaseMetaModel found =
+        run(() -> repository.findByKey("repo-ns", "find-by-key", "2.0", "test-tenant"));
 
     assertThat(found).isNotNull();
     assertThat(found.getName()).isEqualTo("find-by-key");
@@ -83,8 +86,9 @@ class JpaCaseMetaModelRepositoryTest {
     meta.setTitle("Round Trip Title");
     meta.setDsl("yaml");
 
-    CaseMetaModel saved = run(() -> repository.save(meta));
-    CaseMetaModel found = run(() -> repository.findByKey("rt-ns", "round-trip", "3.0"));
+    CaseMetaModel saved = run(() -> repository.save(meta, "test-tenant"));
+    CaseMetaModel found =
+        run(() -> repository.findByKey("rt-ns", "round-trip", "3.0", "test-tenant"));
 
     assertThat(found.getId()).isEqualTo(saved.getId());
     assertThat(found.getTitle()).isEqualTo("Round Trip Title");
@@ -109,7 +113,7 @@ class JpaCaseMetaModelRepositoryTest {
     meta.setDsl(null);
     meta.setDefinition(null);
 
-    CaseMetaModel saved = run(() -> repository.save(meta));
+    CaseMetaModel saved = run(() -> repository.save(meta, "test-tenant"));
 
     assertThat(saved.getId()).isNotNull();
     assertThat(saved.getTitle()).isNull();
@@ -123,7 +127,7 @@ class JpaCaseMetaModelRepositoryTest {
     CaseMetaModel meta = metaModel("long-title", "ns", "1.0");
     meta.setTitle(longTitle);
 
-    CaseMetaModel saved = run(() -> repository.save(meta));
+    CaseMetaModel saved = run(() -> repository.save(meta, "test-tenant"));
 
     assertThat(saved.getTitle()).isEqualTo(longTitle);
   }
@@ -136,9 +140,9 @@ class JpaCaseMetaModelRepositoryTest {
     CaseMetaModel meta = metaModel("large-def", "ns", "1.0");
     meta.setDefinition(largeDefinition);
 
-    CaseMetaModel saved = run(() -> repository.save(meta));
+    CaseMetaModel saved = run(() -> repository.save(meta, "test-tenant"));
 
-    CaseMetaModel found = run(() -> repository.findByKey("ns", "large-def", "1.0"));
+    CaseMetaModel found = run(() -> repository.findByKey("ns", "large-def", "1.0", "test-tenant"));
     assertThat(found.getDefinition().toString()).isEqualTo(largeDefinition.toString());
   }
 
@@ -146,21 +150,22 @@ class JpaCaseMetaModelRepositoryTest {
   void save_duplicateKey_fails() {
     String unique = java.util.UUID.randomUUID().toString().substring(0, 8);
     CaseMetaModel first = metaModel("dup-test-" + unique, "dup-ns", "1.0");
-    run(() -> repository.save(first));
+    run(() -> repository.save(first, "test-tenant"));
 
     CaseMetaModel duplicate = metaModel("dup-test-" + unique, "dup-ns", "1.0");
 
-    org.assertj.core.api.Assertions.assertThatThrownBy(() -> run(() -> repository.save(duplicate)))
+    org.assertj.core.api.Assertions.assertThatThrownBy(
+            () -> run(() -> repository.save(duplicate, "test-tenant")))
         .isInstanceOf(Exception.class);
   }
 
   @Test
   void findByKey_isCaseSensitive_namespace() {
     String unique = java.util.UUID.randomUUID().toString().substring(0, 8);
-    run(() -> repository.save(metaModel("case-test-" + unique, "Namespace", "1.0")));
+    run(() -> repository.save(metaModel("case-test-" + unique, "Namespace", "1.0"), "test-tenant"));
 
     CaseMetaModel found =
-        run(() -> repository.findByKey("namespace", "case-test-" + unique, "1.0"));
+        run(() -> repository.findByKey("namespace", "case-test-" + unique, "1.0", "test-tenant"));
 
     assertThat(found).isNull(); // Different case should not match
   }
@@ -168,9 +173,10 @@ class JpaCaseMetaModelRepositoryTest {
   @Test
   void findByKey_isCaseSensitive_name() {
     String unique = java.util.UUID.randomUUID().toString().substring(0, 8);
-    run(() -> repository.save(metaModel("CaseName-" + unique, "ns", "1.0")));
+    run(() -> repository.save(metaModel("CaseName-" + unique, "ns", "1.0"), "test-tenant"));
 
-    CaseMetaModel found = run(() -> repository.findByKey("ns", "casename-" + unique, "1.0"));
+    CaseMetaModel found =
+        run(() -> repository.findByKey("ns", "casename-" + unique, "1.0", "test-tenant"));
 
     assertThat(found).isNull(); // Different case should not match
   }
@@ -178,9 +184,10 @@ class JpaCaseMetaModelRepositoryTest {
   @Test
   void findByKey_isCaseSensitive_version() {
     String unique = java.util.UUID.randomUUID().toString().substring(0, 8);
-    run(() -> repository.save(metaModel("version-test-" + unique, "ns", "1.0.0")));
+    run(() -> repository.save(metaModel("version-test-" + unique, "ns", "1.0.0"), "test-tenant"));
 
-    CaseMetaModel found = run(() -> repository.findByKey("ns", "version-test-" + unique, "1.0.0"));
+    CaseMetaModel found =
+        run(() -> repository.findByKey("ns", "version-test-" + unique, "1.0.0", "test-tenant"));
 
     assertThat(found).isNotNull(); // Exact match should work
   }
@@ -193,11 +200,13 @@ class JpaCaseMetaModelRepositoryTest {
     CaseMetaModel first = metaModel(sameName, "ns1", "1.0");
     CaseMetaModel second = metaModel(sameName, "ns2", "1.0");
 
-    run(() -> repository.save(first));
-    run(() -> repository.save(second));
+    run(() -> repository.save(first, "test-tenant"));
+    run(() -> repository.save(second, "test-tenant"));
 
-    CaseMetaModel foundInNs1 = run(() -> repository.findByKey("ns1", sameName, "1.0"));
-    CaseMetaModel foundInNs2 = run(() -> repository.findByKey("ns2", sameName, "1.0"));
+    CaseMetaModel foundInNs1 =
+        run(() -> repository.findByKey("ns1", sameName, "1.0", "test-tenant"));
+    CaseMetaModel foundInNs2 =
+        run(() -> repository.findByKey("ns2", sameName, "1.0", "test-tenant"));
 
     assertThat(foundInNs1).isNotNull();
     assertThat(foundInNs2).isNotNull();
@@ -212,11 +221,11 @@ class JpaCaseMetaModelRepositoryTest {
     CaseMetaModel v1 = metaModel(sameName, "ns", "1.0");
     CaseMetaModel v2 = metaModel(sameName, "ns", "2.0");
 
-    run(() -> repository.save(v1));
-    run(() -> repository.save(v2));
+    run(() -> repository.save(v1, "test-tenant"));
+    run(() -> repository.save(v2, "test-tenant"));
 
-    CaseMetaModel foundV1 = run(() -> repository.findByKey("ns", sameName, "1.0"));
-    CaseMetaModel foundV2 = run(() -> repository.findByKey("ns", sameName, "2.0"));
+    CaseMetaModel foundV1 = run(() -> repository.findByKey("ns", sameName, "1.0", "test-tenant"));
+    CaseMetaModel foundV2 = run(() -> repository.findByKey("ns", sameName, "2.0", "test-tenant"));
 
     assertThat(foundV1).isNotNull();
     assertThat(foundV2).isNotNull();
@@ -236,7 +245,7 @@ class JpaCaseMetaModelRepositoryTest {
               () -> {
                 String unique = java.util.UUID.randomUUID().toString().substring(0, 8);
                 CaseMetaModel meta = metaModel("concurrent-" + index + "-" + unique, "ns", "1.0");
-                CaseMetaModel saved = run(() -> repository.save(meta));
+                CaseMetaModel saved = run(() -> repository.save(meta, "test-tenant"));
                 savedModels.add(saved);
               });
       threads.add(t);
@@ -259,11 +268,12 @@ class JpaCaseMetaModelRepositoryTest {
     String unique = java.util.UUID.randomUUID().toString().substring(0, 8);
     CaseMetaModel meta = metaModel("immutable-" + unique, "ns", "1.0");
 
-    CaseMetaModel saved = run(() -> repository.save(meta));
+    CaseMetaModel saved = run(() -> repository.save(meta, "test-tenant"));
     java.time.Instant originalCreatedAt = saved.getCreatedAt();
 
     // Reload from database
-    CaseMetaModel reloaded = run(() -> repository.findByKey("ns", "immutable-" + unique, "1.0"));
+    CaseMetaModel reloaded =
+        run(() -> repository.findByKey("ns", "immutable-" + unique, "1.0", "test-tenant"));
 
     assertThat(reloaded.getCreatedAt()).isEqualTo(originalCreatedAt);
   }
@@ -273,8 +283,8 @@ class JpaCaseMetaModelRepositoryTest {
     String unique = java.util.UUID.randomUUID().toString().substring(0, 8);
     String specialName = "name-with-special_chars.and.dots-" + unique;
 
-    run(() -> repository.save(metaModel(specialName, "ns", "1.0")));
-    CaseMetaModel found = run(() -> repository.findByKey("ns", specialName, "1.0"));
+    run(() -> repository.save(metaModel(specialName, "ns", "1.0"), "test-tenant"));
+    CaseMetaModel found = run(() -> repository.findByKey("ns", specialName, "1.0", "test-tenant"));
 
     assertThat(found).isNotNull();
     assertThat(found.getName()).isEqualTo(specialName);
@@ -285,8 +295,9 @@ class JpaCaseMetaModelRepositoryTest {
     String unique = java.util.UUID.randomUUID().toString().substring(0, 8);
     String name = "semver-" + unique;
 
-    run(() -> repository.save(metaModel(name, "ns", "1.2.3-alpha+build123")));
-    CaseMetaModel found = run(() -> repository.findByKey("ns", name, "1.2.3-alpha+build123"));
+    run(() -> repository.save(metaModel(name, "ns", "1.2.3-alpha+build123"), "test-tenant"));
+    CaseMetaModel found =
+        run(() -> repository.findByKey("ns", name, "1.2.3-alpha+build123", "test-tenant"));
 
     assertThat(found).isNotNull();
     assertThat(found.getVersion()).isEqualTo("1.2.3-alpha+build123");

@@ -21,7 +21,7 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.work.api.GroupStatus;
 import io.casehub.work.api.WorkItemGroupLifecycleEvent;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
@@ -60,7 +60,7 @@ public class WorkItemLifecycleAdapter {
 
   @Inject BlackboardRegistry registry;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
 
   @Inject EventBus eventBus;
 

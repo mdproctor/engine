@@ -52,21 +52,22 @@ class JpaCaseInstanceRepositoryTest {
     meta.setName("instance-test-" + unique);
     meta.setNamespace("test-ns");
     meta.setVersion("1.0");
-    savedMeta = run(() -> metaModelRepository.save(meta));
+    savedMeta = run(() -> metaModelRepository.save(meta, "test-tenant"));
   }
 
   @Test
   void save_populatesId() {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
 
-    CaseInstance saved = run(() -> instanceRepository.save(instance));
+    CaseInstance saved = run(() -> instanceRepository.save(instance, "test-tenant"));
 
     assertThat(saved.id).isNotNull().isPositive();
   }
 
   @Test
   void findByUuid_returnsNullForUnknown() {
-    CaseInstance result = run(() -> instanceRepository.findByUuid(UUID.randomUUID()));
+    CaseInstance result =
+        run(() -> instanceRepository.findByUuid(UUID.randomUUID(), "test-tenant"));
 
     assertThat(result).isNull();
   }
@@ -76,9 +77,9 @@ class JpaCaseInstanceRepositoryTest {
     UUID uuid = UUID.randomUUID();
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
     instance.setUuid(uuid);
-    run(() -> instanceRepository.save(instance));
+    run(() -> instanceRepository.save(instance, "test-tenant"));
 
-    CaseInstance found = run(() -> instanceRepository.findByUuid(uuid));
+    CaseInstance found = run(() -> instanceRepository.findByUuid(uuid, "test-tenant"));
 
     assertThat(found).isNotNull();
     assertThat(found.getUuid()).isEqualTo(uuid);
@@ -90,7 +91,7 @@ class JpaCaseInstanceRepositoryTest {
   @Test
   void updateStateAndAppendEvent_atomicallyUpdatesAndPersistsEvent() {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
-    run(() -> instanceRepository.save(instance));
+    run(() -> instanceRepository.save(instance, "test-tenant"));
 
     instance.setState(CaseStatus.FAULTED);
     EventLog eventLog = new EventLog();
@@ -100,14 +101,15 @@ class JpaCaseInstanceRepositoryTest {
     eventLog.setTimestamp(
         java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
 
-    run(() -> instanceRepository.updateStateAndAppendEvent(instance, eventLog));
+    run(() -> instanceRepository.updateStateAndAppendEvent(instance, eventLog, "test-tenant"));
 
-    CaseInstance updated = run(() -> instanceRepository.findByUuid(instance.getUuid()));
+    CaseInstance updated =
+        run(() -> instanceRepository.findByUuid(instance.getUuid(), "test-tenant"));
     assertThat(updated.getState()).isEqualTo(CaseStatus.FAULTED);
     assertThat(eventLog.id).isNotNull();
     assertThat(eventLog.getSeq()).isNotNull();
 
-    EventLog found = run(() -> eventLogRepository.findById(eventLog.id));
+    EventLog found = run(() -> eventLogRepository.findById(eventLog.id, "test-tenant"));
     assertThat(found).isNotNull();
     assertThat(found.getEventType()).isEqualTo(CaseHubEventType.CASE_FAULTED);
   }
@@ -115,12 +117,13 @@ class JpaCaseInstanceRepositoryTest {
   @Test
   void update_changesState() {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
-    run(() -> instanceRepository.save(instance));
+    run(() -> instanceRepository.save(instance, "test-tenant"));
 
     instance.setState(CaseStatus.COMPLETED);
-    run(() -> instanceRepository.update(instance));
+    run(() -> instanceRepository.update(instance, "test-tenant"));
 
-    CaseInstance reloaded = run(() -> instanceRepository.findByUuid(instance.getUuid()));
+    CaseInstance reloaded =
+        run(() -> instanceRepository.findByUuid(instance.getUuid(), "test-tenant"));
     assertThat(reloaded.getState()).isEqualTo(CaseStatus.COMPLETED);
   }
 
@@ -149,7 +152,7 @@ class JpaCaseInstanceRepositoryTest {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
     instance.setParentCaseId(null); // NULL parent is valid for root cases
 
-    CaseInstance saved = run(() -> instanceRepository.save(instance));
+    CaseInstance saved = run(() -> instanceRepository.save(instance, "test-tenant"));
 
     assertThat(saved.id).isNotNull();
     assertThat(saved.getParentCaseId()).isNull();
@@ -161,7 +164,7 @@ class JpaCaseInstanceRepositoryTest {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
     instance.setParentCaseId(parentCaseId);
 
-    CaseInstance saved = run(() -> instanceRepository.save(instance));
+    CaseInstance saved = run(() -> instanceRepository.save(instance, "test-tenant"));
 
     assertThat(saved.id).isNotNull();
     assertThat(saved.getParentCaseId()).isEqualTo(parentCaseId);
@@ -172,12 +175,13 @@ class JpaCaseInstanceRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
     instance.setParentCaseId(parentCaseId);
-    run(() -> instanceRepository.save(instance));
+    run(() -> instanceRepository.save(instance, "test-tenant"));
 
     instance.setState(CaseStatus.COMPLETED);
-    run(() -> instanceRepository.update(instance));
+    run(() -> instanceRepository.update(instance, "test-tenant"));
 
-    CaseInstance reloaded = run(() -> instanceRepository.findByUuid(instance.getUuid()));
+    CaseInstance reloaded =
+        run(() -> instanceRepository.findByUuid(instance.getUuid(), "test-tenant"));
     assertThat(reloaded.getState()).isEqualTo(CaseStatus.COMPLETED);
     assertThat(reloaded.getParentCaseId()).isEqualTo(parentCaseId);
   }
@@ -185,14 +189,15 @@ class JpaCaseInstanceRepositoryTest {
   @Test
   void update_canChangeMultipleFields() {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
-    run(() -> instanceRepository.save(instance));
+    run(() -> instanceRepository.save(instance, "test-tenant"));
 
     UUID newParentCaseId = UUID.randomUUID();
     instance.setState(CaseStatus.FAULTED);
     instance.setParentCaseId(newParentCaseId);
-    run(() -> instanceRepository.update(instance));
+    run(() -> instanceRepository.update(instance, "test-tenant"));
 
-    CaseInstance reloaded = run(() -> instanceRepository.findByUuid(instance.getUuid()));
+    CaseInstance reloaded =
+        run(() -> instanceRepository.findByUuid(instance.getUuid(), "test-tenant"));
     assertThat(reloaded.getState()).isEqualTo(CaseStatus.FAULTED);
     assertThat(reloaded.getParentCaseId()).isEqualTo(newParentCaseId);
   }
@@ -204,9 +209,9 @@ class JpaCaseInstanceRepositoryTest {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.SUSPENDED);
     instance.setUuid(instanceUuid);
     instance.setParentCaseId(parentCaseId);
-    run(() -> instanceRepository.save(instance));
+    run(() -> instanceRepository.save(instance, "test-tenant"));
 
-    CaseInstance found = run(() -> instanceRepository.findByUuid(instanceUuid));
+    CaseInstance found = run(() -> instanceRepository.findByUuid(instanceUuid, "test-tenant"));
 
     assertThat(found).isNotNull();
     assertThat(found.getUuid()).isEqualTo(instanceUuid);
@@ -219,7 +224,7 @@ class JpaCaseInstanceRepositoryTest {
   @Test
   void updateStateAndAppendEvent_bothOperationsSucceed() {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
-    run(() -> instanceRepository.save(instance));
+    run(() -> instanceRepository.save(instance, "test-tenant"));
 
     instance.setState(CaseStatus.COMPLETED);
     EventLog eventLog = new EventLog();
@@ -229,13 +234,14 @@ class JpaCaseInstanceRepositoryTest {
     eventLog.setTimestamp(
         java.time.Instant.now().truncatedTo(java.time.temporal.ChronoUnit.MICROS));
 
-    run(() -> instanceRepository.updateStateAndAppendEvent(instance, eventLog));
+    run(() -> instanceRepository.updateStateAndAppendEvent(instance, eventLog, "test-tenant"));
 
     // Verify both operations persisted
-    CaseInstance updated = run(() -> instanceRepository.findByUuid(instance.getUuid()));
+    CaseInstance updated =
+        run(() -> instanceRepository.findByUuid(instance.getUuid(), "test-tenant"));
     assertThat(updated.getState()).isEqualTo(CaseStatus.COMPLETED);
 
-    EventLog foundEvent = run(() -> eventLogRepository.findById(eventLog.id));
+    EventLog foundEvent = run(() -> eventLogRepository.findById(eventLog.id, "test-tenant"));
     assertThat(foundEvent).isNotNull();
     assertThat(foundEvent.getEventType()).isEqualTo(CaseHubEventType.CASE_COMPLETED);
   }
@@ -248,10 +254,10 @@ class JpaCaseInstanceRepositoryTest {
       meta.setName("state-test-" + unique);
       meta.setNamespace("test-ns");
       meta.setVersion("1.0");
-      CaseMetaModel savedMetaForStatus = run(() -> metaModelRepository.save(meta));
+      CaseMetaModel savedMetaForStatus = run(() -> metaModelRepository.save(meta, "test-tenant"));
 
       CaseInstance instance = newInstance(savedMetaForStatus, status);
-      CaseInstance saved = run(() -> instanceRepository.save(instance));
+      CaseInstance saved = run(() -> instanceRepository.save(instance, "test-tenant"));
 
       assertThat(saved.getState()).isEqualTo(status);
     }
@@ -260,7 +266,7 @@ class JpaCaseInstanceRepositoryTest {
   @Test
   void findByUuid_concurrentReads() throws InterruptedException {
     CaseInstance instance = newInstance(savedMeta, CaseStatus.RUNNING);
-    run(() -> instanceRepository.save(instance));
+    run(() -> instanceRepository.save(instance, "test-tenant"));
     final UUID uuid = instance.getUuid();
 
     int threadCount = 5;
@@ -271,7 +277,7 @@ class JpaCaseInstanceRepositoryTest {
       Thread t =
           new Thread(
               () -> {
-                CaseInstance found = run(() -> instanceRepository.findByUuid(uuid));
+                CaseInstance found = run(() -> instanceRepository.findByUuid(uuid, "test-tenant"));
                 results.add(found);
               });
       threads.add(t);

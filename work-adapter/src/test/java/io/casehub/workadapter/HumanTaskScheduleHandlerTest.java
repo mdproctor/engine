@@ -125,7 +125,7 @@ class HumanTaskScheduleHandlerTest {
     assertThat(created.status).isEqualTo(WorkItemStatus.PENDING);
     assertThat(created.title).isEqualTo("IRB Ethics Review");
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
-    assertThat(planItemStore.findByCaseId(caseId))
+    assertThat(planItemStore.findByCaseId(caseId, "test-tenant"))
         .anyMatch(
             r ->
                 r.planItemId().equals(planItem.getPlanItemId())
@@ -158,7 +158,7 @@ class HumanTaskScheduleHandlerTest {
     assertThat(created.title).isEqualTo("IRB Ethics Review Template");
     assertThat(created.assigneeId).isNull(); // callerRef must not be passed as assigneeIdOverride
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
-    assertThat(planItemStore.findByCaseId(caseId))
+    assertThat(planItemStore.findByCaseId(caseId, "test-tenant"))
         .anyMatch(
             r ->
                 r.planItemId().equals(planItem.getPlanItemId())
@@ -183,7 +183,7 @@ class HumanTaskScheduleHandlerTest {
     assertThat(created.payload).contains("trialId").contains("T-99");
     assertThat(created.payload).doesNotContain("\"type\":\"default\"");
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
-    assertThat(planItemStore.findByCaseId(caseId))
+    assertThat(planItemStore.findByCaseId(caseId, "test-tenant"))
         .anyMatch(
             r ->
                 r.planItemId().equals(planItem.getPlanItemId())
@@ -207,7 +207,7 @@ class HumanTaskScheduleHandlerTest {
     assertThat(created).isNotNull();
     assertThat(created.payload).isEqualTo("{\"type\":\"loan\"}");
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
-    assertThat(planItemStore.findByCaseId(caseId))
+    assertThat(planItemStore.findByCaseId(caseId, "test-tenant"))
         .anyMatch(
             r ->
                 r.planItemId().equals(planItem.getPlanItemId())

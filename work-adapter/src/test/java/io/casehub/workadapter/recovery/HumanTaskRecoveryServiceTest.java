@@ -78,14 +78,15 @@ class HumanTaskRecoveryServiceTest {
             Instant.now(),
             TargetType.HUMAN_TASK,
             null,
-            "test-tenant"));
+            "test-tenant"),
+        "test-tenant");
 
     // Set up CaseInstance so PlanItemCompletionApplier can fire CONTEXT_CHANGED
     CaseInstance instance = new CaseInstance();
     instance.setUuid(caseId);
     instance.setState(io.casehub.api.model.CaseStatus.RUNNING);
     instance.setCaseContext(new CaseContextImpl(Map.of("stage", "review")));
-    caseInstanceRepository.save(instance).await().atMost(Duration.ofSeconds(5));
+    caseInstanceRepository.save(instance, "test-tenant").await().atMost(Duration.ofSeconds(5));
   }
 
   @AfterEach

@@ -29,7 +29,7 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
     implements CaseInstanceRepository {
 
   @Override
-  public Uni<CaseInstance> save(CaseInstance instance) {
+  public Uni<CaseInstance> save(CaseInstance instance, String tenancyId) {
     return withSafeContext(
         () ->
             Panache.withTransaction(
@@ -38,6 +38,7 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
                         .chain(
                             session -> {
                               CaseInstanceEntity entity = new CaseInstanceEntity();
+                              entity.tenancyId = tenancyId;
                               entity.uuid = instance.getUuid();
                               entity.state = instance.getState();
                               entity.parentCaseId = instance.getParentCaseId();
@@ -54,44 +55,52 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
                                   .map(
                                       v -> {
                                         instance.id = entity.id;
+                                        instance.tenancyId = tenancyId;
                                         return instance;
                                       });
                             })));
   }
 
   @Override
-  public Uni<CaseInstance> update(CaseInstance instance) {
+  public Uni<CaseInstance> update(CaseInstance instance, String tenancyId) {
     return withSafeContext(
         () ->
             Panache.withTransaction(
                 () ->
-                    CaseInstanceEntity.<CaseInstanceEntity>findById(instance.id)
+                    CaseInstanceEntity.<CaseInstanceEntity>find(
+                            "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
+                        .firstResult()
                         .invoke(
                             entity -> {
                               entity.state = instance.getState();
                               entity.parentCaseId = instance.getParentCaseId();
                               entity.parentPlanItemId = instance.getParentPlanItemId();
                               entity.waitingForWorkId = instance.getWaitingForWorkId();
+                              // tenancyId is immutable — not updated
                             })
                         .replaceWith(instance)));
   }
 
   @Override
-  public Uni<CaseInstance> findByUuid(UUID uuid) {
+  public Uni<CaseInstance> findByUuid(UUID uuid, String tenancyId) {
     return withSafeContext(
         () ->
             Panache.withSession(
                     () ->
                         CaseInstanceEntity.<CaseInstanceEntity>find(
-                                "from CaseInstanceEntity ci join fetch ci.caseMetaModel where ci.uuid = ?1",
-                                uuid)
+                                "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
+                                    + "where ci.uuid = ?1 and ci.tenancyId = ?2",
+                                uuid,
+                                tenancyId)
                             .firstResult())
                 .map(entity -> entity == null ? null : fromEntity(entity)));
   }
 
   @Override
-  public Uni<Void> updateStateAndAppendEvent(CaseInstance instance, EventLog eventLog) {
+  public Uni<Void> updateStateAndAppendEvent(
+      CaseInstance instance, EventLog eventLog, String tenancyId) {
     EventLogEntity logEntity = new EventLogEntity();
+    logEntity.tenancyId = tenancyId;
     logEntity.caseId = eventLog.getCaseId();
     logEntity.eventType = eventLog.getEventType();
     logEntity.streamType = eventLog.getStreamType();
@@ -104,7 +113,9 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
         () ->
             Panache.withTransaction(
                     () ->
-                        CaseInstanceEntity.<CaseInstanceEntity>findById(instance.id)
+                        CaseInstanceEntity.<CaseInstanceEntity>find(
+                                "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
+                            .firstResult()
                             .chain(
                                 entity -> {
                                   entity.state = instance.getState();
@@ -125,6 +136,7 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
   private CaseInstance fromEntity(CaseInstanceEntity entity) {
     CaseInstance instance = new CaseInstance();
     instance.id = entity.id;
+    instance.tenancyId = entity.tenancyId;
     instance.setUuid(entity.uuid);
     instance.setState(entity.state);
     instance.setParentCaseId(entity.parentCaseId);
@@ -138,7 +150,8 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
 
   private CaseMetaModel fromMetaEntity(CaseMetaModelEntity entity) {
     CaseMetaModel m = new CaseMetaModel();
-    m.setId(entity.id);
+    m.id = entity.id;
+    m.tenancyId = entity.tenancyId;
     m.setName(entity.name);
     m.setNamespace(entity.namespace);
     m.setVersion(entity.version);

@@ -175,7 +175,7 @@ class HumanTaskScheduleHandlerAtomicityTest {
 
       assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.PENDING);
       assertThat(workItemStore.scanAll()).isEmpty();
-      List<PlanItemRecord> records = planItemStore.findByCaseId(caseId);
+      List<PlanItemRecord> records = planItemStore.findByCaseId(caseId, "test-tenant");
       assertThat(records)
           .noneMatch(
               r ->

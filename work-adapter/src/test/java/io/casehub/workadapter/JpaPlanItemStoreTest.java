@@ -48,8 +48,9 @@ class JpaPlanItemStoreTest {
             Instant.now(),
             TargetType.HUMAN_TASK,
             null,
-            "test-tenant"));
-    List<PlanItemRecord> found = store.findByCaseId(caseId);
+            "test-tenant"),
+        "test-tenant");
+    List<PlanItemRecord> found = store.findByCaseId(caseId, "test-tenant");
     assertThat(found).hasSize(1);
     assertThat(found.get(0).status()).isEqualTo(PlanItemStatus.PENDING);
   }
@@ -68,9 +69,10 @@ class JpaPlanItemStoreTest {
             Instant.now(),
             TargetType.HUMAN_TASK,
             null,
-            "test-tenant"));
+            "test-tenant"),
+        "test-tenant");
     store.updateStatus(planItemId, PlanItemStatus.RUNNING);
-    List<PlanItemRecord> found = store.findByCaseId(caseId);
+    List<PlanItemRecord> found = store.findByCaseId(caseId, "test-tenant");
     assertThat(found.get(0).status()).isEqualTo(PlanItemStatus.RUNNING);
   }
 }

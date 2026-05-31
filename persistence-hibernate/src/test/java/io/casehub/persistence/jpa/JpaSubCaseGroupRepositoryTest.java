@@ -41,7 +41,10 @@ class JpaSubCaseGroupRepositoryTest {
     String groupId = "group-create-" + UUID.randomUUID().toString().substring(0, 8);
 
     SubCaseGroup result =
-        run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.CANCEL));
+        run(
+            () ->
+                repository.getOrCreate(
+                    parentCaseId, groupId, 3, 2, OnThresholdReached.CANCEL, "test-tenant"));
 
     assertThat(result).isNotNull();
     assertThat(result.getParentCaseId()).isEqualTo(parentCaseId);
@@ -61,11 +64,17 @@ class JpaSubCaseGroupRepositoryTest {
     String groupId = "group-existing-" + UUID.randomUUID().toString().substring(0, 8);
 
     SubCaseGroup first =
-        run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    run(() -> repository.incrementCompleted(parentCaseId, groupId));
+        run(
+            () ->
+                repository.getOrCreate(
+                    parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
 
     SubCaseGroup second =
-        run(() -> repository.getOrCreate(parentCaseId, groupId, 5, 4, OnThresholdReached.CANCEL));
+        run(
+            () ->
+                repository.getOrCreate(
+                    parentCaseId, groupId, 5, 4, OnThresholdReached.CANCEL, "test-tenant"));
 
     // Should return existing group, ignoring new parameters
     assertThat(second.getParentCaseId()).isEqualTo(parentCaseId);
@@ -81,7 +90,8 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-default-" + UUID.randomUUID().toString().substring(0, 8);
 
-    SubCaseGroup result = run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, null));
+    SubCaseGroup result =
+        run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, null, "test-tenant"));
 
     assertThat(result.getOnThresholdReached()).isEqualTo(OnThresholdReached.KEEP);
   }
@@ -93,9 +103,15 @@ class JpaSubCaseGroupRepositoryTest {
     String groupId2 = "group-2-" + UUID.randomUUID().toString().substring(0, 8);
 
     SubCaseGroup g1 =
-        run(() -> repository.getOrCreate(parentCaseId, groupId1, 2, 1, OnThresholdReached.KEEP));
+        run(
+            () ->
+                repository.getOrCreate(
+                    parentCaseId, groupId1, 2, 1, OnThresholdReached.KEEP, "test-tenant"));
     SubCaseGroup g2 =
-        run(() -> repository.getOrCreate(parentCaseId, groupId2, 3, 2, OnThresholdReached.CANCEL));
+        run(
+            () ->
+                repository.getOrCreate(
+                    parentCaseId, groupId2, 3, 2, OnThresholdReached.CANCEL, "test-tenant"));
 
     assertThat(g1.getGroupId()).isEqualTo(groupId1);
     assertThat(g2.getGroupId()).isEqualTo(groupId2);
@@ -110,9 +126,15 @@ class JpaSubCaseGroupRepositoryTest {
     String groupId = "shared-group-" + UUID.randomUUID().toString().substring(0, 8);
 
     SubCaseGroup g1 =
-        run(() -> repository.getOrCreate(parentCaseId1, groupId, 2, 1, OnThresholdReached.KEEP));
+        run(
+            () ->
+                repository.getOrCreate(
+                    parentCaseId1, groupId, 2, 1, OnThresholdReached.KEEP, "test-tenant"));
     SubCaseGroup g2 =
-        run(() -> repository.getOrCreate(parentCaseId2, groupId, 3, 2, OnThresholdReached.CANCEL));
+        run(
+            () ->
+                repository.getOrCreate(
+                    parentCaseId2, groupId, 3, 2, OnThresholdReached.CANCEL, "test-tenant"));
 
     assertThat(g1.getParentCaseId()).isEqualTo(parentCaseId1);
     assertThat(g2.getParentCaseId()).isEqualTo(parentCaseId2);
@@ -126,8 +148,12 @@ class JpaSubCaseGroupRepositoryTest {
     String groupId = "group-child-" + UUID.randomUUID().toString().substring(0, 8);
     UUID childCaseId = UUID.randomUUID();
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    SubCaseGroup result = run(() -> repository.registerChild(parentCaseId, groupId, childCaseId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    SubCaseGroup result =
+        run(() -> repository.registerChild(parentCaseId, groupId, childCaseId, "test-tenant"));
 
     assertThat(result.getChildCaseIds()).containsExactly(childCaseId);
   }
@@ -140,10 +166,14 @@ class JpaSubCaseGroupRepositoryTest {
     UUID child2 = UUID.randomUUID();
     UUID child3 = UUID.randomUUID();
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    run(() -> repository.registerChild(parentCaseId, groupId, child1));
-    run(() -> repository.registerChild(parentCaseId, groupId, child2));
-    SubCaseGroup result = run(() -> repository.registerChild(parentCaseId, groupId, child3));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.registerChild(parentCaseId, groupId, child1, "test-tenant"));
+    run(() -> repository.registerChild(parentCaseId, groupId, child2, "test-tenant"));
+    SubCaseGroup result =
+        run(() -> repository.registerChild(parentCaseId, groupId, child3, "test-tenant"));
 
     assertThat(result.getChildCaseIds()).containsExactlyInAnyOrder(child1, child2, child3);
   }
@@ -155,7 +185,11 @@ class JpaSubCaseGroupRepositoryTest {
     UUID childCaseId = UUID.randomUUID();
 
     assertThatThrownBy(
-            () -> run(() -> repository.registerChild(parentCaseId, groupId, childCaseId)))
+            () ->
+                run(
+                    () ->
+                        repository.registerChild(
+                            parentCaseId, groupId, childCaseId, "test-tenant")))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Group not found");
   }
@@ -166,9 +200,13 @@ class JpaSubCaseGroupRepositoryTest {
     String groupId = "group-idempotent-" + UUID.randomUUID().toString().substring(0, 8);
     UUID childCaseId = UUID.randomUUID();
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    run(() -> repository.registerChild(parentCaseId, groupId, childCaseId));
-    SubCaseGroup result = run(() -> repository.registerChild(parentCaseId, groupId, childCaseId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.registerChild(parentCaseId, groupId, childCaseId, "test-tenant"));
+    SubCaseGroup result =
+        run(() -> repository.registerChild(parentCaseId, groupId, childCaseId, "test-tenant"));
 
     assertThat(result.getChildCaseIds()).containsExactly(childCaseId);
   }
@@ -178,8 +216,12 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-increment-" + UUID.randomUUID().toString().substring(0, 8);
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    SubCaseGroup result = run(() -> repository.incrementCompleted(parentCaseId, groupId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    SubCaseGroup result =
+        run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
 
     assertThat(result.getCompletedCount()).isEqualTo(1);
   }
@@ -189,10 +231,14 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-multi-inc-" + UUID.randomUUID().toString().substring(0, 8);
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 5, 3, OnThresholdReached.KEEP));
-    run(() -> repository.incrementCompleted(parentCaseId, groupId));
-    run(() -> repository.incrementCompleted(parentCaseId, groupId));
-    SubCaseGroup result = run(() -> repository.incrementCompleted(parentCaseId, groupId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 5, 3, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
+    run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
+    SubCaseGroup result =
+        run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
 
     assertThat(result.getCompletedCount()).isEqualTo(3);
   }
@@ -202,7 +248,8 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "non-existent-" + UUID.randomUUID().toString().substring(0, 8);
 
-    assertThatThrownBy(() -> run(() -> repository.incrementCompleted(parentCaseId, groupId)))
+    assertThatThrownBy(
+            () -> run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant")))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Group not found");
   }
@@ -212,8 +259,12 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-reject-" + UUID.randomUUID().toString().substring(0, 8);
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    SubCaseGroup result = run(() -> repository.incrementRejected(parentCaseId, groupId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    SubCaseGroup result =
+        run(() -> repository.incrementRejected(parentCaseId, groupId, "test-tenant"));
 
     assertThat(result.getRejectedCount()).isEqualTo(1);
   }
@@ -223,9 +274,13 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-multi-reject-" + UUID.randomUUID().toString().substring(0, 8);
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 5, 3, OnThresholdReached.KEEP));
-    run(() -> repository.incrementRejected(parentCaseId, groupId));
-    SubCaseGroup result = run(() -> repository.incrementRejected(parentCaseId, groupId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 5, 3, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.incrementRejected(parentCaseId, groupId, "test-tenant"));
+    SubCaseGroup result =
+        run(() -> repository.incrementRejected(parentCaseId, groupId, "test-tenant"));
 
     assertThat(result.getRejectedCount()).isEqualTo(2);
   }
@@ -235,7 +290,8 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "non-existent-" + UUID.randomUUID().toString().substring(0, 8);
 
-    assertThatThrownBy(() -> run(() -> repository.incrementRejected(parentCaseId, groupId)))
+    assertThatThrownBy(
+            () -> run(() -> repository.incrementRejected(parentCaseId, groupId, "test-tenant")))
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("Group not found");
   }
@@ -245,11 +301,15 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-independent-" + UUID.randomUUID().toString().substring(0, 8);
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 5, 3, OnThresholdReached.KEEP));
-    run(() -> repository.incrementCompleted(parentCaseId, groupId));
-    run(() -> repository.incrementRejected(parentCaseId, groupId));
-    run(() -> repository.incrementCompleted(parentCaseId, groupId));
-    SubCaseGroup result = run(() -> repository.incrementRejected(parentCaseId, groupId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 5, 3, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
+    run(() -> repository.incrementRejected(parentCaseId, groupId, "test-tenant"));
+    run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
+    SubCaseGroup result =
+        run(() -> repository.incrementRejected(parentCaseId, groupId, "test-tenant"));
 
     assertThat(result.getCompletedCount()).isEqualTo(2);
     assertThat(result.getRejectedCount()).isEqualTo(2);
@@ -260,8 +320,12 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-policy-" + UUID.randomUUID().toString().substring(0, 8);
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    Boolean result = run(() -> repository.markPolicyTriggered(parentCaseId, groupId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    Boolean result =
+        run(() -> repository.markPolicyTriggered(parentCaseId, groupId, "test-tenant"));
 
     assertThat(result).isTrue();
   }
@@ -271,9 +335,13 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-policy-idempotent-" + UUID.randomUUID().toString().substring(0, 8);
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    run(() -> repository.markPolicyTriggered(parentCaseId, groupId));
-    Boolean secondCall = run(() -> repository.markPolicyTriggered(parentCaseId, groupId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.markPolicyTriggered(parentCaseId, groupId, "test-tenant"));
+    Boolean secondCall =
+        run(() -> repository.markPolicyTriggered(parentCaseId, groupId, "test-tenant"));
 
     assertThat(secondCall).isFalse();
   }
@@ -283,7 +351,8 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "non-existent-" + UUID.randomUUID().toString().substring(0, 8);
 
-    Boolean result = run(() -> repository.markPolicyTriggered(parentCaseId, groupId));
+    Boolean result =
+        run(() -> repository.markPolicyTriggered(parentCaseId, groupId, "test-tenant"));
 
     assertThat(result).isFalse();
   }
@@ -293,11 +362,15 @@ class JpaSubCaseGroupRepositoryTest {
     UUID parentCaseId = UUID.randomUUID();
     String groupId = "group-policy-persist-" + UUID.randomUUID().toString().substring(0, 8);
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    run(() -> repository.markPolicyTriggered(parentCaseId, groupId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.markPolicyTriggered(parentCaseId, groupId, "test-tenant"));
 
     // Verify by incrementing - should see policyTriggered=true
-    SubCaseGroup result = run(() -> repository.incrementCompleted(parentCaseId, groupId));
+    SubCaseGroup result =
+        run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
     assertThat(result.isPolicyTriggered()).isTrue();
   }
 
@@ -307,10 +380,14 @@ class JpaSubCaseGroupRepositoryTest {
     String groupId = "group-find-" + UUID.randomUUID().toString().substring(0, 8);
     UUID childCaseId = UUID.randomUUID();
 
-    run(() -> repository.getOrCreate(parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP));
-    run(() -> repository.registerChild(parentCaseId, groupId, childCaseId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.registerChild(parentCaseId, groupId, childCaseId, "test-tenant"));
 
-    Optional<SubCaseGroup> result = run(() -> repository.findByChildCaseId(childCaseId));
+    Optional<SubCaseGroup> result =
+        run(() -> repository.findByChildCaseId(childCaseId, "test-tenant"));
 
     assertThat(result).isPresent();
     assertThat(result.get().getParentCaseId()).isEqualTo(parentCaseId);
@@ -322,7 +399,8 @@ class JpaSubCaseGroupRepositoryTest {
   void findByChildCaseId_returnsEmptyForUnknownChild() {
     UUID unknownChildCaseId = UUID.randomUUID();
 
-    Optional<SubCaseGroup> result = run(() -> repository.findByChildCaseId(unknownChildCaseId));
+    Optional<SubCaseGroup> result =
+        run(() -> repository.findByChildCaseId(unknownChildCaseId, "test-tenant"));
 
     assertThat(result).isEmpty();
   }
@@ -336,12 +414,19 @@ class JpaSubCaseGroupRepositoryTest {
     String groupId2 = "group-multi-2-" + UUID.randomUUID().toString().substring(0, 8);
     UUID sharedChildCaseId = UUID.randomUUID();
 
-    run(() -> repository.getOrCreate(parentCaseId1, groupId1, 3, 2, OnThresholdReached.KEEP));
-    run(() -> repository.getOrCreate(parentCaseId2, groupId2, 3, 2, OnThresholdReached.KEEP));
-    run(() -> repository.registerChild(parentCaseId1, groupId1, sharedChildCaseId));
-    run(() -> repository.registerChild(parentCaseId2, groupId2, sharedChildCaseId));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId1, groupId1, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    run(
+        () ->
+            repository.getOrCreate(
+                parentCaseId2, groupId2, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
+    run(() -> repository.registerChild(parentCaseId1, groupId1, sharedChildCaseId, "test-tenant"));
+    run(() -> repository.registerChild(parentCaseId2, groupId2, sharedChildCaseId, "test-tenant"));
 
-    Optional<SubCaseGroup> result = run(() -> repository.findByChildCaseId(sharedChildCaseId));
+    Optional<SubCaseGroup> result =
+        run(() -> repository.findByChildCaseId(sharedChildCaseId, "test-tenant"));
 
     // Should return one of the groups (implementation returns first match)
     assertThat(result).isPresent();
@@ -357,24 +442,28 @@ class JpaSubCaseGroupRepositoryTest {
 
     // Create
     SubCaseGroup created =
-        run(() -> repository.getOrCreate(parentCaseId, groupId, 5, 3, OnThresholdReached.CANCEL));
+        run(
+            () ->
+                repository.getOrCreate(
+                    parentCaseId, groupId, 5, 3, OnThresholdReached.CANCEL, "test-tenant"));
     assertThat(created.getInstanceCount()).isEqualTo(5);
     assertThat(created.getRequiredCount()).isEqualTo(3);
 
     // Register children
-    run(() -> repository.registerChild(parentCaseId, groupId, child1));
-    run(() -> repository.registerChild(parentCaseId, groupId, child2));
+    run(() -> repository.registerChild(parentCaseId, groupId, child1, "test-tenant"));
+    run(() -> repository.registerChild(parentCaseId, groupId, child2, "test-tenant"));
 
     // Increment counters
-    run(() -> repository.incrementCompleted(parentCaseId, groupId));
-    run(() -> repository.incrementRejected(parentCaseId, groupId));
+    run(() -> repository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
+    run(() -> repository.incrementRejected(parentCaseId, groupId, "test-tenant"));
 
     // Mark policy
-    Boolean policyResult = run(() -> repository.markPolicyTriggered(parentCaseId, groupId));
+    Boolean policyResult =
+        run(() -> repository.markPolicyTriggered(parentCaseId, groupId, "test-tenant"));
     assertThat(policyResult).isTrue();
 
     // Find by child
-    Optional<SubCaseGroup> found = run(() -> repository.findByChildCaseId(child1));
+    Optional<SubCaseGroup> found = run(() -> repository.findByChildCaseId(child1, "test-tenant"));
     assertThat(found).isPresent();
     assertThat(found.get().getParentCaseId()).isEqualTo(parentCaseId);
     assertThat(found.get().getGroupId()).isEqualTo(groupId);

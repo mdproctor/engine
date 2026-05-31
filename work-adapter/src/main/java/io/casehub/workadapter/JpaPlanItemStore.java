@@ -39,8 +39,9 @@ public class JpaPlanItemStore implements PlanItemStore {
   @Inject EntityManager em;
 
   @Override
-  public void save(PlanItemSaveRequest request) {
+  public void save(PlanItemSaveRequest request, String tenancyId) {
     WorkAdapterPlanItemEntity e = new WorkAdapterPlanItemEntity();
+    e.tenancyId = tenancyId;
     e.caseId = request.caseId();
     e.planItemId = request.planItemId();
     e.bindingName = request.bindingName();
@@ -48,7 +49,6 @@ public class JpaPlanItemStore implements PlanItemStore {
     e.createdAt = request.createdAt();
     e.targetType = request.targetType();
     e.outputMappingExpression = request.outputMappingExpression();
-    e.tenancyId = request.tenancyId();
     em.persist(e);
   }
 
@@ -64,12 +64,13 @@ public class JpaPlanItemStore implements PlanItemStore {
   }
 
   @Override
-  public List<PlanItemRecord> findByCaseId(UUID caseId) {
+  public List<PlanItemRecord> findByCaseId(UUID caseId, String tenancyId) {
     return em
         .createQuery(
-            "SELECT e FROM WorkAdapterPlanItemEntity e WHERE e.caseId = :caseId",
+            "SELECT e FROM WorkAdapterPlanItemEntity e WHERE e.caseId = :caseId AND e.tenancyId = :tenancyId",
             WorkAdapterPlanItemEntity.class)
         .setParameter("caseId", caseId)
+        .setParameter("tenancyId", tenancyId)
         .getResultList()
         .stream()
         .map(this::toRecord)
