@@ -314,6 +314,9 @@ public final class CaseDefinitionYamlMapper {
     if (schema.getScope() != null) {
       builder.scope(schema.getScope());
     }
+    if (schema.getClaimDeadlineHours() != null) {
+      builder.claimDeadlineHours(schema.getClaimDeadlineHours());
+    }
     if (schema.getExpiresIn() != null) {
       Duration duration;
       try {

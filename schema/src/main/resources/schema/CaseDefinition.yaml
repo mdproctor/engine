@@ -282,6 +282,10 @@ $defs:
       expiresIn:
         type: string
         description: "ISO 8601 duration after which the WorkItem expires (e.g. PT24H)"
+      claimDeadlineHours:
+        type: integer
+        minimum: 1
+        description: "Business hours allowed to claim this WorkItem before it escalates"
 
   Binding:
     type: object

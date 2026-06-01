@@ -151,4 +151,19 @@ class HumanTaskTargetTest {
     assertThat(target.scope()).isEqualTo("casehubio/clinical/adverse-event");
     assertThat(target.isTemplateMode()).isTrue();
   }
+
+  @Test
+  void claimDeadlineHours_storedAndReturned() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Urgent Review").claimDeadlineHours(4).build();
+
+    assertThat(target.claimDeadlineHours()).isEqualTo(4);
+  }
+
+  @Test
+  void claimDeadlineHours_nullByDefault() {
+    HumanTaskTarget target = HumanTaskTarget.template("t1").build();
+
+    assertThat(target.claimDeadlineHours()).isNull();
+  }
 }
