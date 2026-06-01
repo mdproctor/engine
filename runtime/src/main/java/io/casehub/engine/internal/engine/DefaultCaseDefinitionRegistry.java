@@ -136,7 +136,22 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
   @Override
   public CaseDefinition getCaseDefinition(CaseMetaModel definition) {
-    return registry.get(definition);
+    CaseDefinition result = registry.get(definition);
+    if (result != null) {
+      return result;
+    }
+    // Defensive linear scan: guards against hash inconsistency if a registry key's
+    // hashCode changes after insertion (field mutation post-put). Should never fire
+    // in normal operation — if it does, the warn log captures the state for engine#410.
+    for (Map.Entry<CaseMetaModel, CaseDefinition> entry : registry.entrySet()) {
+      if (entry.getKey().equals(definition)) {
+        LOG.warnf(
+            "getCaseDefinition: Map.get() missed for %s — key hashCode mismatch after insertion? Refs engine#410.",
+            definition);
+        return entry.getValue();
+      }
+    }
+    return null;
   }
 
   @Override
