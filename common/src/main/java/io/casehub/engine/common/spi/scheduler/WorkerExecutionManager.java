@@ -20,7 +20,9 @@ import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.smallrye.mutiny.Uni;
+import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 public interface WorkerExecutionManager {
 
@@ -44,4 +46,21 @@ public interface WorkerExecutionManager {
   Uni<Void> schedulePersistedEvent(EventLog scheduledEventLog);
 
   int getActiveWorkCount(String workerId);
+
+  /**
+   * Returns the case UUIDs for all Quartz jobs currently executing for this worker.
+   *
+   * <p>This is a best-effort snapshot — a job completing between this call and the HTTP response
+   * means the list may transiently contain cases whose work just finished. Acceptable for a
+   * monitoring/observability endpoint.
+   *
+   * <p>NOTE: workerId here equals actorId at the REST layer — same string, different naming
+   * convention.
+   *
+   * @param workerId the worker name from the case definition YAML
+   * @return list of case UUIDs currently executing; empty list if none or on error
+   */
+  default List<UUID> getActiveCaseIds(String workerId) {
+    return List.of();
+  }
 }

@@ -144,6 +144,7 @@ Eight interfaces in `api/src/main/java/io/casehub/api/spi/` (four blocking + fou
 - `WorkerStatusListener` / `ReactiveWorkerStatusListener` — lifecycle callbacks (started, completed, stalled)
 - `CaseChannelProvider` / `ReactiveCaseChannelProvider` — open/close/post to backend-agnostic channels. **`postToChannel` takes 6 parameters**: `(CaseChannel, String from, String content, MessageType, String correlationId, String deadline)`. The 3-arg overload is a `default` delegating with three `null`s. `correlationId` and `deadline` are first-class SPI params (engine#343) — consumers no longer parse them from `CommandContent` JSON.
 - `WorkerContextProvider` / `ReactiveWorkerContextProvider` — build startup context from ledger lineage
+- `WorkerExecutionManager` — `getActiveCaseIds(String workerId): List<UUID>` is a `default` method added in engine#56 that returns Quartz job case UUIDs currently scheduled for the given worker; used by `casehub-engine-actor-state` to populate the active-cases slice of the actor state view
 
 **Default implementations** in `engine/src/main/java/io/casehub/engine/internal/worker/`:
 - `NoOpWorkerProvisioner`, `NoOpWorkerStatusListener`, `NoOpCaseChannelProvider`, `EmptyWorkerContextProvider`
@@ -292,6 +293,10 @@ See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until al
 - `QuarkusTestProfile.getEnabledAlternatives()` **replaces** (not appends to) `quarkus.arc.selected-alternatives` — any profile using this method must re-declare all globally required alternatives, including persistence-memory repos and `InMemoryWorkItemStore`
 
 `callerRef` format: `case:{caseId}/pi:{planItemId}` — use `CallerRef.encode()` / `CallerRef.parse()`.
+
+## casehub-engine-actor-state Module
+
+Optional module providing a unified actor workload view (`GET /actors/{actorId}/state`). Aggregates active cases (via `WorkerExecutionManager.getActiveCaseIds`), open WorkItems (via `casehub-work-api`), and open Qhorus obligations (via `CommitmentStore.findOpenByObligor`) using the `ActorStateContributor` SPI from `casehub-platform-api`. Both blocking (`ActorStateAggregator`) and reactive (`ReactiveActorStateAggregator`) aggregation paths are provided with parity enforced by `ActorStateParityTest`. Activated by adding `casehub-engine-actor-state` to the consumer's classpath.
 
 ## Writing Style Guide
 

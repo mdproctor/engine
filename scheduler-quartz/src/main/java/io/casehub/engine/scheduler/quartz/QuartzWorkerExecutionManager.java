@@ -40,6 +40,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -144,6 +146,37 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
           "Failed to count active jobs for worker '%s' — returning 0: %s",
           workerId, e.getMessage());
       return 0;
+    }
+  }
+
+  @Override
+  public List<UUID> getActiveCaseIds(String workerId) {
+    try {
+      List<String> groups = scheduler.getJobGroupNames();
+      List<UUID> caseIds = new ArrayList<>();
+      for (String group : groups) {
+        Set<JobKey> keys = scheduler.getJobKeys(GroupMatcher.groupEquals(group));
+        for (JobKey key : keys) {
+          JobDetail detail = scheduler.getJobDetail(key);
+          if (detail != null) {
+            Object wId = detail.getJobDataMap().get("workerId");
+            Object caseUuid = detail.getJobDataMap().get("caseHubInstanceUuid");
+            if (workerId.equals(wId) && caseUuid instanceof String s) {
+              try {
+                caseIds.add(UUID.fromString(s));
+              } catch (IllegalArgumentException ignored) {
+                // malformed UUID in job data — skip
+              }
+            }
+          }
+        }
+      }
+      return Collections.unmodifiableList(caseIds);
+    } catch (SchedulerException e) {
+      LOG.warnf(
+          "Failed to collect active case IDs for worker '%s' — returning empty: %s",
+          workerId, e.getMessage());
+      return List.of();
     }
   }
 

@@ -89,4 +89,31 @@ class CaseChannelTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("null values");
   }
+
+  @Test
+  void parseCaseId_standardFormat_withPurpose() {
+    final var caseUuid = java.util.UUID.fromString("3fa85f64-5717-4562-b3fc-2c963f66afa6");
+    assertThat(CaseChannel.parseCaseId("case-" + caseUuid + "/work")).isEqualTo(caseUuid);
+  }
+
+  @Test
+  void parseCaseId_noPurposeSegment() {
+    final var caseUuid = java.util.UUID.fromString("3fa85f64-5717-4562-b3fc-2c963f66afa6");
+    assertThat(CaseChannel.parseCaseId("case-" + caseUuid)).isEqualTo(caseUuid);
+  }
+
+  @Test
+  void parseCaseId_notCaseChannel_returnsNull() {
+    assertThat(CaseChannel.parseCaseId("some-other-channel")).isNull();
+  }
+
+  @Test
+  void parseCaseId_invalidUuid_returnsNull() {
+    assertThat(CaseChannel.parseCaseId("case-not-a-uuid/work")).isNull();
+  }
+
+  @Test
+  void parseCaseId_null_returnsNull() {
+    assertThat(CaseChannel.parseCaseId(null)).isNull();
+  }
 }

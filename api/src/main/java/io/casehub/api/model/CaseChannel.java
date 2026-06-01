@@ -58,6 +58,25 @@ public record CaseChannel(
     return channelName(caseId, "oversight");
   }
 
+  /**
+   * Extracts the case UUID from a channel name that follows the {@code "case-{caseId}/{purpose}"}
+   * convention.
+   *
+   * @param channelName the channel name; may be null
+   * @return the case UUID, or null if channelName is null, does not start with {@link
+   *     #CASE_CHANNEL_PREFIX}, or the UUID segment is malformed
+   */
+  public static UUID parseCaseId(final String channelName) {
+    if (channelName == null || !channelName.startsWith(CASE_CHANNEL_PREFIX)) return null;
+    final String rest = channelName.substring(CASE_CHANNEL_PREFIX.length());
+    final String uuidStr = rest.contains("/") ? rest.substring(0, rest.indexOf('/')) : rest;
+    try {
+      return UUID.fromString(uuidStr);
+    } catch (final IllegalArgumentException e) {
+      return null;
+    }
+  }
+
   public CaseChannel {
     if (id == null || id.isBlank()) throw new IllegalArgumentException("id must not be blank");
     if (backendType == null || backendType.isBlank())

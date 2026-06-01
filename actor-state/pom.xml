@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>io.casehub</groupId>
+        <artifactId>casehub-engine-parent</artifactId>
+        <version>0.2-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>casehub-engine-actor-state</artifactId>
+    <name>Case Hub :: Engine :: Actor State</name>
+    <description>GET /actors/{actorId}/state — unified actor workload view assembled from ledger, work, qhorus, and engine</description>
+
+    <dependencies>
+        <!-- SPI interfaces (ActorStateContributor, ActorStateAccumulator) -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-api</artifactId>
+        </dependency>
+
+        <!-- WorkerExecutionManager SPI -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- quarkus-rest + casehub-engine-api transitively -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- LedgerActorStateContributor -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-ledger</artifactId>
+        </dependency>
+
+        <!-- WorkActorStateContributor -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-work</artifactId>
+        </dependency>
+
+        <!-- QhorusActorStateContributor -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-qhorus</artifactId>
+            <version>${version.io.casehub}</version>
+        </dependency>
+
+        <!-- ManagedExecutor — CDI-context-safe parallel contributor execution -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-context-propagation</artifactId>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit5</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-junit-mockito</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.rest-assured</groupId>
+            <artifactId>rest-assured</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-h2</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <!-- In-memory SPI implementations (EventLogRepository, CaseInstanceRepository, etc.)
+             so CDI validation passes without a real database in test scope -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-persistence-memory</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- In-memory JobScheduler / WorkerExecutionManager for CDI validation -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-scheduler-quartz</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- MockCurrentPrincipal (@DefaultBean) + MockPreferenceProvider for CDI validation -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>io.smallrye</groupId>
+                <artifactId>jandex-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>make-index</id>
+                        <goals><goal>jandex</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <parameters>true</parameters>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
