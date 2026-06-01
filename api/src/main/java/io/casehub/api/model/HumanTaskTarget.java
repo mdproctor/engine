@@ -41,6 +41,7 @@ public final class HumanTaskTarget implements BindingTarget {
   private final Set<String> candidateGroups;
   private final Set<String> candidateUsers;
   private final Duration expiresIn;
+  private final Integer claimDeadlineHours;
   private final String priority;
   private final ExpressionEvaluator inputMapping;
   private final ExpressionEvaluator outputMapping;
@@ -52,6 +53,7 @@ public final class HumanTaskTarget implements BindingTarget {
     this.candidateGroups = builder.candidateGroups;
     this.candidateUsers = builder.candidateUsers;
     this.expiresIn = builder.expiresIn;
+    this.claimDeadlineHours = builder.claimDeadlineHours;
     this.priority = builder.priority;
     this.inputMapping = builder.inputMapping;
     this.outputMapping = builder.outputMapping;
@@ -97,6 +99,11 @@ public final class HumanTaskTarget implements BindingTarget {
     return expiresIn;
   }
 
+  /** Business hours allowed to claim this WorkItem before escalation. Null means unset. */
+  public Integer claimDeadlineHours() {
+    return claimDeadlineHours;
+  }
+
   public String priority() {
     return priority;
   }
@@ -125,6 +132,7 @@ public final class HumanTaskTarget implements BindingTarget {
     private Set<String> candidateGroups;
     private Set<String> candidateUsers;
     private Duration expiresIn;
+    private Integer claimDeadlineHours;
     private String priority;
     private ExpressionEvaluator inputMapping;
     private ExpressionEvaluator outputMapping;
@@ -151,6 +159,11 @@ public final class HumanTaskTarget implements BindingTarget {
 
     public Builder expiresIn(Duration expiresIn) {
       this.expiresIn = expiresIn;
+      return this;
+    }
+
+    public Builder claimDeadlineHours(Integer hours) {
+      this.claimDeadlineHours = hours;
       return this;
     }
 

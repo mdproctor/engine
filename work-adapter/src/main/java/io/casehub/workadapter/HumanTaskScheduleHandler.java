@@ -187,6 +187,7 @@ public class HumanTaskScheduleHandler {
             .createdBy("casehub-engine")
             .payload(payload)
             .expiresAt(effectiveDeadline)
+            .claimDeadlineBusinessHours(target.claimDeadlineHours())
             .callerRef(callerRef)
             .scope(target.scope())
             .build();

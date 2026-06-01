@@ -15,6 +15,8 @@
  */
 package io.casehub.engine.internal.engine;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
@@ -33,6 +35,9 @@ import java.util.concurrent.CompletionStage;
 @ApplicationScoped
 class CaseHubRuntimeImpl implements CaseHubRuntime {
 
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
+
   @Inject CaseHubReactor reactor;
 
   @Override
@@ -41,18 +46,25 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   }
 
   @Override
-  public CompletionStage<UUID> startCase(CaseDefinition definition, Map<String, Object> inputData) {
-    return reactor.startCase(definition, new CaseContextImpl(inputData));
+  public CompletionStage<UUID> startCase(CaseDefinition definition, Object inputData) {
+    return reactor.startCase(definition, new CaseContextImpl(toContextMap(inputData)));
   }
 
   @Override
   public CompletionStage<UUID> startCase(
       CaseDefinition definition,
-      Map<String, Object> inputData,
+      Object inputData,
       UUID parentCaseId,
       PropagationContext propagationContext) {
     return reactor.startCase(
-        definition, new CaseContextImpl(inputData), parentCaseId, propagationContext);
+        definition, new CaseContextImpl(toContextMap(inputData)), parentCaseId, propagationContext);
+  }
+
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> toContextMap(Object inputData) {
+    if (inputData == null) return Map.of();
+    if (inputData instanceof Map) return (Map<String, Object>) inputData;
+    return OBJECT_MAPPER.convertValue(inputData, MAP_TYPE);
   }
 
   @Override
