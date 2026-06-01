@@ -64,4 +64,19 @@ public class WorkerDecisionEntry extends LedgerEntry {
 
   @Column(name = "tenancy_id", nullable = false, length = 64)
   public String tenancyId;
+
+  /**
+   * CAPABILITY trust score read from {@code TrustScoreCache} at event observation time. Null when
+   * no trust score exists for this worker+capability pair (Phase 0 / trust routing disabled).
+   * Populated by {@link io.casehub.ledger.service.WorkerDecisionEventCapture}.
+   */
+  @Column(name = "trust_score_at_routing")
+  public Double trustScoreAtRouting;
+
+  /**
+   * The threshold from {@code TrustRoutingPolicy} applied when this worker was selected. Null when
+   * {@code trustScoreAtRouting} is null (no trust routing in play).
+   */
+  @Column(name = "threshold_applied")
+  public Double thresholdApplied;
 }
