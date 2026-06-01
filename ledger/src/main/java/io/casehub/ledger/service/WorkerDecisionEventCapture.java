@@ -15,10 +15,12 @@
  */
 package io.casehub.ledger.service;
 
+import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.repository.CaseLedgerEntryRepository;
+import io.casehub.ledger.routing.TrustScoreCache;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.platform.api.identity.ActorType;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -27,6 +29,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.OptionalDouble;
 import org.jboss.logging.Logger;
 
 /**
@@ -52,6 +55,10 @@ public class WorkerDecisionEventCapture {
 
   @Inject LedgerConfig ledgerConfig;
 
+  @Inject TrustScoreCache trustScoreCache;
+
+  @Inject TrustRoutingPolicyProvider trustRoutingPolicyProvider;
+
   @Transactional
   void onWorkerDecisionEvent(@ObservesAsync WorkerDecisionEvent event) {
     if (!ledgerConfig.enabled()) {
@@ -74,6 +81,16 @@ public class WorkerDecisionEventCapture {
     entry.actorRole = "WORKER";
     entry.occurredAt = Instant.now().truncatedTo(ChronoUnit.MILLIS);
     entry.traceId = event.traceId();
+
+    if (event.capabilityTag() != null) {
+      OptionalDouble score =
+          trustScoreCache.getCapabilityScore(event.workerId(), event.capabilityTag());
+      if (score.isPresent()) {
+        entry.trustScoreAtRouting = score.getAsDouble();
+        entry.thresholdApplied =
+            trustRoutingPolicyProvider.forCapability(event.capabilityTag()).threshold();
+      }
+    }
 
     ledgerRepo.save(entry);
 

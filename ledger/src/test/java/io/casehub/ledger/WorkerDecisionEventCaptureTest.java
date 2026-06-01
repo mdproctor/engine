@@ -18,9 +18,13 @@ package io.casehub.ledger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
+import io.casehub.ledger.api.model.ActorTrustScore.ScoreType;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.repository.CaseLedgerEntryRepository;
+import io.casehub.ledger.routing.TrustScoreCache;
+import io.casehub.ledger.runtime.model.ActorTrustScore;
+import io.casehub.ledger.runtime.service.routing.TrustScoreFullPayload;
 import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.event.Event;
@@ -43,6 +47,8 @@ class WorkerDecisionEventCaptureTest {
   @Inject Event<WorkerDecisionEvent> workerDecisionEvents;
 
   @Inject CaseLedgerEntryRepository repository;
+
+  @Inject TrustScoreCache trustScoreCache;
 
   @Test
   void happyPath_workerDecisionEvent_writesWorkerDecisionEntry() {
@@ -73,6 +79,9 @@ class WorkerDecisionEventCaptureTest {
               assertThat(entry.id).isNotNull();
               assertThat(entry.tenancyId).isEqualTo("test-tenant");
               assertThat(entry.traceId).isEqualTo("trace-abc");
+              // Trust score fields are null when no scores exist in TrustScoreCache for this actor
+              assertThat(entry.trustScoreAtRouting).isNull();
+              assertThat(entry.thresholdApplied).isNull();
             });
   }
 
@@ -92,6 +101,38 @@ class WorkerDecisionEventCaptureTest {
               assertThat(entries).hasSize(1);
               assertThat(entries.get(0).capabilityTag).isNull();
               assertThat(entries.get(0).actorType).isEqualTo(ActorType.SYSTEM);
+            });
+  }
+
+  @Test
+  void trustScore_populatedFromCache_whenScoreExists() {
+    final UUID caseId = UUID.randomUUID();
+    final String workerId = "trust-worker-v1";
+    final String capabilityTag = "trust-cap";
+
+    // Pre-populate TrustScoreCache via onFull() — same path as the production scoring cycle.
+    final ActorTrustScore score = new ActorTrustScore();
+    score.actorId = workerId;
+    score.scoreType = ScoreType.CAPABILITY;
+    score.capabilityKey = capabilityTag;
+    score.trustScore = 0.85;
+    trustScoreCache.onFull(new TrustScoreFullPayload(List.of(score)));
+
+    workerDecisionEvents.fireAsync(
+        new WorkerDecisionEvent(caseId, "test-tenant", workerId, capabilityTag, "trace-trust"));
+
+    Awaitility.await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              final List<WorkerDecisionEntry> entries =
+                  repository.findWorkerDecisionsByCaseId(caseId);
+              assertThat(entries).hasSize(1);
+              final WorkerDecisionEntry entry = entries.get(0);
+              assertThat(entry.trustScoreAtRouting).isEqualTo(0.85);
+              // DefaultTrustRoutingPolicyProvider returns TrustRoutingPolicy.DEFAULT
+              // (threshold=0.7)
+              assertThat(entry.thresholdApplied).isEqualTo(0.7);
             });
   }
 
