@@ -121,6 +121,15 @@
             <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Provides DefaultTestPrincipal (@DefaultBean CurrentPrincipal) for all test profiles.
+             In-memory SPI implementations are @Alternative and only activate when
+             selected-alternatives is configured (memory profile only). -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-persistence-memory</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <properties>
