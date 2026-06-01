@@ -40,6 +40,7 @@ import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
@@ -76,6 +77,7 @@ public class SubCaseCompletionService {
   private final CaseHubRuntime caseHubRuntime;
   private final EventBus eventBus;
   private final BlackboardRegistry registry;
+  private final Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents;
 
   @Inject
   public SubCaseCompletionService(
@@ -86,7 +88,8 @@ public class SubCaseCompletionService {
       SubCaseGroupRepository subCaseGroupRepository,
       CaseHubRuntime caseHubRuntime,
       EventBus eventBus,
-      BlackboardRegistry registry) {
+      BlackboardRegistry registry,
+      Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents) {
     this.eventLogRepository = eventLogRepository;
     this.jqEvaluator = jqEvaluator;
     this.caseInstanceCache = caseInstanceCache;
@@ -95,6 +98,7 @@ public class SubCaseCompletionService {
     this.caseHubRuntime = caseHubRuntime;
     this.eventBus = eventBus;
     this.registry = registry;
+    this.groupLifecycleEvents = groupLifecycleEvents;
   }
 
   public void handleCompletion(CaseLifecycleEvent event) {
@@ -150,6 +154,8 @@ public class SubCaseCompletionService {
 
     GroupStatus groupStatus = SubCaseGroupPolicy.evaluate(group);
     if (groupStatus == null) return; // policyTriggered — already handled
+
+    groupLifecycleEvents.fireAsync(SubCaseGroupPolicy.toEvent(group, groupStatus));
 
     LOG.infof(
         "SubCaseGroup event: parentCaseId=%s groupId=%s status=%s completed=%d/%d",

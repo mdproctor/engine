@@ -34,7 +34,9 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.GroupStatus;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
@@ -42,8 +44,10 @@ import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.enterprise.event.Event;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -61,6 +65,11 @@ class SubCaseCompletionServiceTest {
   private CaseInstanceCache caseInstanceCache;
   private EventLogRepository eventLogRepository;
   private CaseHubRuntime caseHubRuntime;
+  private SubCaseGroupRepository subCaseGroupRepository;
+
+  @SuppressWarnings("unchecked")
+  private Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents = mock(Event.class);
+
   private SubCaseCompletionService service;
 
   private UUID parentCaseId;
@@ -75,9 +84,11 @@ class SubCaseCompletionServiceTest {
     eventLogRepository = mock(EventLogRepository.class);
     caseHubRuntime = mock(CaseHubRuntime.class);
 
+    subCaseGroupRepository = mock(SubCaseGroupRepository.class);
     when(caseResumptionService.resumeIfWaiting(any(), any(), any(), any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
     when(eventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    when(groupLifecycleEvents.fireAsync(any())).thenReturn(mock(CompletionStage.class));
 
     service =
         new SubCaseCompletionService(
@@ -85,10 +96,11 @@ class SubCaseCompletionServiceTest {
             mock(JQEvaluator.class),
             caseInstanceCache,
             caseResumptionService,
-            mock(SubCaseGroupRepository.class),
+            subCaseGroupRepository,
             caseHubRuntime,
             mockBus,
-            registry);
+            registry,
+            groupLifecycleEvents);
 
     parentCaseId = UUID.randomUUID();
     childCaseId = UUID.randomUUID();
@@ -127,6 +139,44 @@ class SubCaseCompletionServiceTest {
         .publish(
             eq(BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED),
             eq(new SubCaseExecutionCompleted(parentCaseId, childCaseId)));
+  }
+
+  @Test
+  void groupedCompletion_firesSubCaseGroupLifecycleEvent_forAllTransitions() {
+    final String groupId = "test-group";
+    ObjectNode meta = MAPPER.createObjectNode();
+    meta.put("groupId", groupId);
+    EventLog startedEntry = mock(EventLog.class);
+    when(startedEntry.getMetadata()).thenReturn(meta);
+    when(startedEntry.getCaseId()).thenReturn(parentCaseId);
+
+    when(eventLogRepository.findByWorkerAndType(
+            eq(childCaseId.toString()), eq(CaseHubEventType.SUBCASE_STARTED), any()))
+        .thenReturn(Uni.createFrom().item(List.of(startedEntry)));
+
+    // IN_PROGRESS: 1 of 2 required completed; 3 total → 2 remaining ≥ 1 still needed
+    SubCaseGroup group = new SubCaseGroup();
+    group.setGroupId(groupId);
+    group.setParentCaseId(parentCaseId);
+    group.setInstanceCount(3);
+    group.setRequiredCount(2);
+    group.setCompletedCount(1);
+    group.setRejectedCount(0);
+    when(subCaseGroupRepository.incrementCompleted(eq(parentCaseId), eq(groupId), any()))
+        .thenReturn(Uni.createFrom().item(group));
+
+    service.handleCompletion(completionEvent(childCaseId));
+
+    verify(groupLifecycleEvents)
+        .fireAsync(
+            new SubCaseGroupLifecycleEvent(
+                parentCaseId,
+                groupId,
+                group.getInstanceCount(),
+                group.getRequiredCount(),
+                group.getCompletedCount(),
+                group.getRejectedCount(),
+                GroupStatus.IN_PROGRESS));
   }
 
   @Test
