@@ -18,27 +18,24 @@ package io.casehub.persistence.jpa;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
-import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 
 /** Cross-tenant CaseInstance access for startup recovery services only. */
 @ApplicationScoped
-public class JpaCrosstenantCaseInstanceRepository extends AbstractJpaRepository
+public class JpaCrosstenantCaseInstanceRepository extends TenantAwareRepository
     implements CrossTenantCaseInstanceRepository {
 
   @Override
   public Uni<CaseInstance> findByUuid(UUID caseId) {
-    return withSafeContext(
+    return withCrossTenantTransaction(
         () ->
-            Panache.withSession(
-                    () ->
-                        CaseInstanceEntity.<CaseInstanceEntity>find(
-                                "from CaseInstanceEntity ci join fetch ci.caseMetaModel"
-                                    + " where ci.uuid = ?1",
-                                caseId)
-                            .firstResult())
+            CaseInstanceEntity.<CaseInstanceEntity>find(
+                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel"
+                        + " where ci.uuid = ?1",
+                    caseId)
+                .firstResult()
                 .map(entity -> entity == null ? null : fromEntity(entity)));
   }
 

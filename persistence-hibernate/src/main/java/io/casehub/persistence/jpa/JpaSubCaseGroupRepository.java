@@ -18,14 +18,14 @@ package io.casehub.persistence.jpa;
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
-import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
 import java.util.UUID;
 
 @ApplicationScoped
-public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
+public class JpaSubCaseGroupRepository extends TenantAwareRepository
+    implements SubCaseGroupRepository {
 
   @Override
   public Uni<SubCaseGroup> getOrCreate(
@@ -35,7 +35,7 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
       int requiredCount,
       OnThresholdReached onThresholdReached,
       String tenancyId) {
-    return Panache.withTransaction(
+    return withTenantTransaction(
         () ->
             SubCaseGroupEntity.<SubCaseGroupEntity>find(
                     "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
@@ -61,7 +61,7 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
   @Override
   public Uni<SubCaseGroup> registerChild(
       UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId) {
-    return Panache.withTransaction(
+    return withTenantTransaction(
         () ->
             SubCaseGroupEntity.<SubCaseGroupEntity>find(
                     "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
@@ -83,7 +83,7 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
 
   @Override
   public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId, String tenancyId) {
-    return Panache.withTransaction(
+    return withTenantTransaction(
         () ->
             SubCaseGroupEntity.update(
                     "completedCount = completedCount + 1 "
@@ -118,7 +118,7 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
 
   @Override
   public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId, String tenancyId) {
-    return Panache.withTransaction(
+    return withTenantTransaction(
         () ->
             SubCaseGroupEntity.update(
                     "rejectedCount = rejectedCount + 1 "
@@ -153,7 +153,7 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
 
   @Override
   public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId) {
-    return Panache.withTransaction(
+    return withTenantTransaction(
         () ->
             SubCaseGroupEntity.update(
                     "policyTriggered = true "
@@ -167,7 +167,7 @@ public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
 
   @Override
   public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId, String tenancyId) {
-    return Panache.withSession(
+    return withTenantTransaction(
         () ->
             SubCaseGroupEntity.<SubCaseGroupEntity>find(
                     "?1 member of childCaseIds and tenancyId = ?2", childCaseId, tenancyId)

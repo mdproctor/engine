@@ -25,74 +25,67 @@ import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 
 @ApplicationScoped
-public class JpaCaseInstanceRepository extends AbstractJpaRepository
+public class JpaCaseInstanceRepository extends TenantAwareRepository
     implements CaseInstanceRepository {
 
   @Override
   public Uni<CaseInstance> save(CaseInstance instance, String tenancyId) {
-    return withSafeContext(
+    return withTenantTransaction(
         () ->
-            Panache.withTransaction(
-                () ->
-                    Panache.getSession()
-                        .chain(
-                            session -> {
-                              CaseInstanceEntity entity = new CaseInstanceEntity();
-                              entity.tenancyId = tenancyId;
-                              entity.uuid = instance.getUuid();
-                              entity.state = instance.getState();
-                              entity.parentCaseId = instance.getParentCaseId();
-                              entity.parentPlanItemId = instance.getParentPlanItemId();
-                              entity.waitingForWorkId = instance.getWaitingForWorkId();
-                              if (instance.getCaseMetaModel() != null) {
-                                entity.caseMetaModel =
-                                    session.getReference(
-                                        CaseMetaModelEntity.class,
-                                        instance.getCaseMetaModel().getId());
-                              }
-                              return entity
-                                  .persist()
-                                  .map(
-                                      v -> {
-                                        instance.id = entity.id;
-                                        instance.tenancyId = tenancyId;
-                                        return instance;
-                                      });
-                            })));
+            Panache.getSession()
+                .chain(
+                    session -> {
+                      CaseInstanceEntity entity = new CaseInstanceEntity();
+                      entity.tenancyId = tenancyId;
+                      entity.uuid = instance.getUuid();
+                      entity.state = instance.getState();
+                      entity.parentCaseId = instance.getParentCaseId();
+                      entity.parentPlanItemId = instance.getParentPlanItemId();
+                      entity.waitingForWorkId = instance.getWaitingForWorkId();
+                      if (instance.getCaseMetaModel() != null) {
+                        entity.caseMetaModel =
+                            session.getReference(
+                                CaseMetaModelEntity.class, instance.getCaseMetaModel().getId());
+                      }
+                      return entity
+                          .persist()
+                          .map(
+                              v -> {
+                                instance.id = entity.id;
+                                instance.tenancyId = tenancyId;
+                                return instance;
+                              });
+                    }));
   }
 
   @Override
   public Uni<CaseInstance> update(CaseInstance instance, String tenancyId) {
-    return withSafeContext(
+    return withTenantTransaction(
         () ->
-            Panache.withTransaction(
-                () ->
-                    CaseInstanceEntity.<CaseInstanceEntity>find(
-                            "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
-                        .firstResult()
-                        .invoke(
-                            entity -> {
-                              entity.state = instance.getState();
-                              entity.parentCaseId = instance.getParentCaseId();
-                              entity.parentPlanItemId = instance.getParentPlanItemId();
-                              entity.waitingForWorkId = instance.getWaitingForWorkId();
-                              // tenancyId is immutable — not updated
-                            })
-                        .replaceWith(instance)));
+            CaseInstanceEntity.<CaseInstanceEntity>find(
+                    "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
+                .firstResult()
+                .invoke(
+                    entity -> {
+                      entity.state = instance.getState();
+                      entity.parentCaseId = instance.getParentCaseId();
+                      entity.parentPlanItemId = instance.getParentPlanItemId();
+                      entity.waitingForWorkId = instance.getWaitingForWorkId();
+                      // tenancyId is immutable — not updated
+                    })
+                .replaceWith(instance));
   }
 
   @Override
   public Uni<CaseInstance> findByUuid(UUID uuid, String tenancyId) {
-    return withSafeContext(
+    return withTenantTransaction(
         () ->
-            Panache.withSession(
-                    () ->
-                        CaseInstanceEntity.<CaseInstanceEntity>find(
-                                "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
-                                    + "where ci.uuid = ?1 and ci.tenancyId = ?2",
-                                uuid,
-                                tenancyId)
-                            .firstResult())
+            CaseInstanceEntity.<CaseInstanceEntity>find(
+                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
+                        + "where ci.uuid = ?1 and ci.tenancyId = ?2",
+                    uuid,
+                    tenancyId)
+                .firstResult()
                 .map(entity -> entity == null ? null : fromEntity(entity)));
   }
 
@@ -109,22 +102,20 @@ public class JpaCaseInstanceRepository extends AbstractJpaRepository
     logEntity.payload = eventLog.getPayload();
     logEntity.metadata = eventLog.getMetadata();
 
-    return withSafeContext(
+    return withTenantTransaction(
         () ->
-            Panache.withTransaction(
-                    () ->
-                        CaseInstanceEntity.<CaseInstanceEntity>find(
-                                "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
-                            .firstResult()
-                            .chain(
-                                entity -> {
-                                  entity.state = instance.getState();
-                                  entity.parentCaseId = instance.getParentCaseId();
-                                  entity.parentPlanItemId = instance.getParentPlanItemId();
-                                  entity.waitingForWorkId = instance.getWaitingForWorkId();
-                                  return Panache.getSession().chain(s -> s.merge(entity));
-                                })
-                            .chain(merged -> logEntity.persistAndFlush()))
+            CaseInstanceEntity.<CaseInstanceEntity>find(
+                    "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
+                .firstResult()
+                .chain(
+                    entity -> {
+                      entity.state = instance.getState();
+                      entity.parentCaseId = instance.getParentCaseId();
+                      entity.parentPlanItemId = instance.getParentPlanItemId();
+                      entity.waitingForWorkId = instance.getWaitingForWorkId();
+                      return Panache.getSession().chain(s -> s.merge(entity));
+                    })
+                .chain(merged -> logEntity.persistAndFlush())
                 .invoke(
                     () -> {
                       eventLog.id = logEntity.id;

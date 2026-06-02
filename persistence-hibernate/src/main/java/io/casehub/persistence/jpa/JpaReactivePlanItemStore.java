@@ -19,7 +19,6 @@ import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.ReactivePlanItemStore;
-import io.quarkus.hibernate.reactive.panache.Panache;
 import io.quarkus.panache.common.Parameters;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -28,86 +27,71 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
-public class JpaReactivePlanItemStore extends AbstractJpaRepository
+public class JpaReactivePlanItemStore extends TenantAwareRepository
     implements ReactivePlanItemStore {
 
   @Override
   public Uni<Void> save(PlanItemSaveRequest request, String tenancyId) {
-    return withSafeContext(
-        () ->
-            Panache.withTransaction(
-                () -> {
-                  PlanItemEntity e = new PlanItemEntity();
-                  e.tenancyId = tenancyId;
-                  e.caseId = request.caseId();
-                  e.planItemId = request.planItemId();
-                  e.bindingName = request.bindingName();
-                  e.status = request.status();
-                  e.createdAt = request.createdAt();
-                  e.targetType = request.targetType();
-                  e.outputMappingExpression = request.outputMappingExpression();
-                  return e.persist().replaceWithVoid();
-                }));
+    return withTenantTransaction(
+        () -> {
+          PlanItemEntity e = new PlanItemEntity();
+          e.tenancyId = tenancyId;
+          e.caseId = request.caseId();
+          e.planItemId = request.planItemId();
+          e.bindingName = request.bindingName();
+          e.status = request.status();
+          e.createdAt = request.createdAt();
+          e.targetType = request.targetType();
+          e.outputMappingExpression = request.outputMappingExpression();
+          return e.persist().replaceWithVoid();
+        });
   }
 
   @Override
   public Uni<Void> updateStatus(String planItemId, PlanItemStatus status) {
-    return withSafeContext(
+    return withTenantTransaction(
         () ->
-            Panache.withTransaction(
-                () ->
-                    // Flush pending inserts so the JPQL UPDATE can see entities persisted
-                    // earlier in this transaction but not yet written to the DB row store.
-                    PlanItemEntity.getSession()
-                        .chain(session -> session.flush())
-                        .chain(
-                            () ->
-                                PlanItemEntity.update(
-                                    "status = :status WHERE planItemId = :planItemId",
-                                    Parameters.with("status", status)
-                                        .and("planItemId", planItemId)))
-                        .replaceWithVoid()));
+            // Flush pending inserts so the JPQL UPDATE can see entities persisted
+            // earlier in this transaction but not yet written to the DB row store.
+            PlanItemEntity.getSession()
+                .chain(session -> session.flush())
+                .chain(
+                    () ->
+                        PlanItemEntity.update(
+                            "status = :status WHERE planItemId = :planItemId",
+                            Parameters.with("status", status).and("planItemId", planItemId)))
+                .replaceWithVoid());
   }
 
   @Override
   public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId, String tenancyId) {
-    return withSafeContext(
+    return withTenantTransaction(
         () ->
-            Panache.withSession(
-                () ->
-                    PlanItemEntity.<PlanItemEntity>find(
-                            "caseId = ?1 AND tenancyId = ?2", caseId, tenancyId)
-                        .list()
-                        .map(
-                            list ->
-                                list.stream().map(this::toRecord).collect(Collectors.toList()))));
+            PlanItemEntity.<PlanItemEntity>find("caseId = ?1 AND tenancyId = ?2", caseId, tenancyId)
+                .list()
+                .map(list -> list.stream().map(this::toRecord).collect(Collectors.toList())));
   }
 
   @Override
   public Uni<List<PlanItemRecord>> findDelegated(UUID caseId) {
-    return withSafeContext(
+    // caseId is a globally unique UUID — caller already has correct tenant context;
+    // tenant-scoped transaction is sufficient and RLS correctly enforces the boundary.
+    return withTenantTransaction(
         () ->
-            Panache.withSession(
-                () ->
-                    PlanItemEntity.<PlanItemEntity>find(
-                            "caseId = ?1 AND status = ?2", caseId, PlanItemStatus.DELEGATED)
-                        .list()
-                        .map(
-                            list ->
-                                list.stream().map(this::toRecord).collect(Collectors.toList()))));
+            PlanItemEntity.<PlanItemEntity>find(
+                    "caseId = ?1 AND status = ?2", caseId, PlanItemStatus.DELEGATED)
+                .list()
+                .map(list -> list.stream().map(this::toRecord).collect(Collectors.toList())));
   }
 
   @Override
   public Uni<List<PlanItemRecord>> findAllDelegated() {
-    return withSafeContext(
+    // Recovery path: needs all tenants — startup only
+    return withCrossTenantTransaction(
         () ->
-            Panache.withSession(
-                () ->
-                    PlanItemEntity.<PlanItemEntity>find("status", PlanItemStatus.DELEGATED)
-                        .list()
-                        .map(
-                            list ->
-                                list.stream().map(this::toRecord).collect(Collectors.toList()))));
+            PlanItemEntity.<PlanItemEntity>find("status", PlanItemStatus.DELEGATED)
+                .list()
+                .map(list -> list.stream().map(this::toRecord).collect(Collectors.toList())));
   }
 
   private PlanItemRecord toRecord(PlanItemEntity e) {
