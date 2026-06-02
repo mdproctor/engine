@@ -24,6 +24,7 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.PredicateBasedCompletion;
 import io.casehub.engine.common.internal.config.ConfigManager;
 import io.casehub.engine.common.internal.config.SecretManager;
+import io.casehub.engine.common.internal.model.CaseKey;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
@@ -54,7 +55,9 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
-  private final Map<CaseMetaModel, CaseDefinition> registry = new ConcurrentHashMap<>();
+  private record RegistryEntry(CaseDefinition definition, CaseMetaModel metaModel) {}
+
+  private final Map<CaseKey, RegistryEntry> registry = new ConcurrentHashMap<>();
 
   private static final Logger LOG = Logger.getLogger(DefaultCaseDefinitionRegistry.class);
 
@@ -105,69 +108,57 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
             + " namespace: "
             + model.getNamespace());
 
+    CaseKey key = CaseKey.of(model);
+
+    // Early exit: already registered
+    RegistryEntry existing = registry.get(key);
+    if (existing != null) {
+      return Uni.createFrom().item(existing.metaModel());
+    }
+
     CaseMetaModel definition = new CaseMetaModel();
     definition.setName(model.getName());
     definition.setNamespace(model.getNamespace());
     definition.setVersion(model.getVersion());
-
-    for (CaseMetaModel registered : registry.keySet()) {
-      if (registered.equals(definition)) {
-        return Uni.createFrom().item(registered);
-      }
-    }
 
     return caseMetaModelRepository
         .findByKey(
             model.getNamespace(), model.getName(), model.getVersion(), currentPrincipal.tenancyId())
         .onItem()
         .transformToUni(
-            existing -> {
-              if (existing != null) {
-                registry.put(existing, model);
-                return Uni.createFrom().item(existing);
+            dbModel -> {
+              if (dbModel != null) {
+                registry.put(CaseKey.of(dbModel), new RegistryEntry(model, dbModel));
+                return Uni.createFrom().item(dbModel);
               }
               definition.setDsl(model.getDsl());
               definition.setCreatedAt(Instant.now());
               return caseMetaModelRepository
                   .save(definition, currentPrincipal.tenancyId())
-                  .invoke(saved -> registry.put(saved, model));
+                  .invoke(
+                      saved -> registry.put(CaseKey.of(saved), new RegistryEntry(model, saved)));
             });
   }
 
   @Override
   public CaseDefinition getCaseDefinition(CaseMetaModel definition) {
-    CaseDefinition result = registry.get(definition);
-    if (result != null) {
-      return result;
-    }
-    // Defensive linear scan: guards against hash inconsistency if a registry key's
-    // hashCode changes after insertion (field mutation post-put). Should never fire
-    // in normal operation — if it does, the warn log captures the state for engine#410.
-    for (Map.Entry<CaseMetaModel, CaseDefinition> entry : registry.entrySet()) {
-      if (entry.getKey().equals(definition)) {
-        LOG.warnf(
-            "getCaseDefinition: Map.get() missed for %s — key hashCode mismatch after insertion? Refs engine#410.",
-            definition);
-        return entry.getValue();
-      }
-    }
-    return null;
+    RegistryEntry entry = registry.get(CaseKey.of(definition));
+    return entry != null ? entry.definition() : null;
   }
 
   @Override
   public CaseMetaModel getCaseMetaModel(CaseDefinition caseDefinition) {
-    for (Map.Entry<CaseMetaModel, CaseDefinition> entry : registry.entrySet()) {
-      if (entry.getValue().equals(caseDefinition)) {
-        return entry.getKey();
-      }
+    RegistryEntry entry = registry.get(CaseKey.of(caseDefinition));
+    if (entry == null) {
+      throw new RuntimeException(
+          "CaseMetaModel not found for caseDefinition: "
+              + caseDefinition.getNamespace()
+              + "."
+              + caseDefinition.getName()
+              + ":"
+              + caseDefinition.getVersion());
     }
-    throw new RuntimeException(
-        "CaseMetaModel not found for caseDefinition: "
-            + caseDefinition.getNamespace()
-            + "."
-            + caseDefinition.getName()
-            + ":"
-            + caseDefinition.getVersion());
+    return entry.metaModel();
   }
 
   private void validateExpressions(CaseDefinition definition) {
