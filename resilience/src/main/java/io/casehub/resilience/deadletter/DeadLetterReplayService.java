@@ -25,6 +25,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
@@ -56,8 +57,8 @@ public class DeadLetterReplayService {
   @Inject
   public DeadLetterReplayService(
       DeadLetterQueue deadLetterQueue,
-      CrossTenantEventLogRepository eventLogRepository,
-      CrossTenantCaseInstanceRepository caseInstanceRepository,
+      @CrossTenant CrossTenantEventLogRepository eventLogRepository,
+      @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository,
       CaseDefinitionRegistry caseDefinitionRegistry,
       EventBus eventBus) {
     this.deadLetterQueue = deadLetterQueue;

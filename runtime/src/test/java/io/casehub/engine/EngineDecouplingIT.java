@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.Test;
 class EngineDecouplingIT {
 
   @Inject EventLogRepository eventLogRepository;
-  @Inject CrossTenantEventLogRepository crossTenantEventLogRepository;
+  @Inject @CrossTenant CrossTenantEventLogRepository crossTenantEventLogRepository;
 
   @Test
   void eventLogRepository_appendAndFind_happyPath() {
