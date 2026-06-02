@@ -118,6 +118,26 @@ Both `engine` and both persistence modules depend on `casehub-engine-common`. Ne
 
 Modules needing in-memory tests add `casehub-persistence-memory` as a test dependency and activate the implementations via `quarkus.arc.selected-alternatives` in `src/test/resources/application.properties` — no Docker required.
 
+**`TenantAwareRepository` — RLS base class (persistence-hibernate only):** All JPA repositories in `casehub-persistence-hibernate` extend `TenantAwareRepository` (which extends `AbstractJpaRepository`). It provides two helpers that inject PostgreSQL session variables inside reactive transactions:
+- `withTenantTransaction(work)` — sets `SET LOCAL "casehub.tenancy_id" = <currentPrincipal.tenancyId()>` before any SQL. Used by all tenant-scoped repos (EventLog, CaseInstance, CaseMetaModel, SubCaseGroup, PlanItem).
+- `withCrossTenantTransaction(work)` — sets `SET LOCAL ROLE casehub_crosstenancy` (BYPASSRLS). Used by cross-tenant repos (`JpaCrosstenantEventLogRepository`, `JpaCrosstenantCaseInstanceRepository`) and recovery methods.
+
+`SET LOCAL` resets automatically at transaction end — no cleanup needed. All reads AND writes go through `withTenantTransaction()` because `SET LOCAL` only applies inside an explicit PostgreSQL transaction (not in `withSession()` autocommit mode).
+
+**`JpaCrosstenantEventLogRepository`** — separate class (not inside `JpaEventLogRepository`) implementing `CrossTenantEventLogRepository`. `JpaEventLogRepository` implements `EventLogRepository` only. Both extend `TenantAwareRepository`.
+
+**Row Level Security:** Controlled by `casehub.rls.enabled` (default `false`). When enabled, `RlsPolicyApplicator` runs at `@Priority(100)` startup and:
+1. Creates the `casehub_crosstenancy` PostgreSQL role with `BYPASSRLS` (requires `CREATEROLE` — pre-create via DBA if the app user lacks it)
+2. Applies `ENABLE ROW LEVEL SECURITY`, `FORCE ROW LEVEL SECURITY`, and `tenant_isolation` policy to 5 engine tables
+3. Policy: `USING (tenancy_id = current_setting('casehub.tenancy_id', true))`
+
+**Cross-tenant tests:** Any `@QuarkusTest` that calls `withCrossTenantTransaction()` (e.g. via `CrossTenantEventLogRepository`) requires the `casehub_crosstenancy` role to exist. Add a Dev Services init script:
+```properties
+# src/test/resources/application.properties
+quarkus.datasource.devservices.init-script-path=db/init-crosstenancy-role.sql
+```
+And create `db/init-crosstenancy-role.sql` in test resources — see `runtime/src/test/resources/` for the pattern.
+
 **SPI contract tests:** Abstract contract tests live in `casehub-engine-common/src/test` (e.g. `PlanItemStoreContractTest`, `ReactivePlanItemStoreContractTest`). Modules that provide concrete implementations extend the abstract class. To access these test-only classes, add `casehub-engine-common` with `<type>test-jar</type>` and `<scope>test</scope>` — see `persistence-hibernate/pom.xml` and `persistence-memory/pom.xml` for the pattern.
 
 **`JpaReactivePlanItemStore.updateStatus` flush requirement:** JPQL queries bypass the first-level cache. If `save()` and `updateStatus()` run in the same transaction, the entity from `save()` may not be in the database yet. `updateStatus()` calls `session.flush()` before issuing the JPQL UPDATE to ensure the entity is visible. Same pattern as the blocking `JpaPlanItemStore.updateStatus()`.
@@ -135,6 +155,10 @@ And add a `NoOpLedgerEntryRepository` (`@Alternative @Priority(1) @ApplicationSc
 
 Domain objects (`CaseMetaModel`, `CaseInstance`, `EventLog`) are plain POJOs. The `id` field
 is public (`public Long id`) and set by the repository after save.
+
+**`CaseDefinitionRegistry` uses `CaseKey` record:** `DefaultCaseDefinitionRegistry` stores definitions in `Map<CaseKey, RegistryEntry>`. `CaseKey` is an immutable record `(namespace, name, version)` — eliminates the mutable-hashCode map key bug (engine#410). `RegistryEntry` is an inner record `(CaseDefinition, CaseMetaModel)` — a single atomic map put covers both, with no consistency window between two separate maps.
+
+**`@CrossTenant` qualifier:** Cross-tenant SPIs (`CrossTenantEventLogRepository`, `CrossTenantCaseInstanceRepository`) are only injectable via `@CrossTenant`. `CrossTenantProducer` (in `runtime/internal/identity/`) produces both beans, guarded by `@EngineSystem SystemCurrentPrincipal`. Convention-based — CDI does not prevent unqualified injection; code review and the qualifier annotation are the enforcement mechanism. `SystemCurrentPrincipal` is `@ApplicationScoped @EngineSystem` (not `@DefaultBean`) — it does not conflict with `MockCurrentPrincipal`. All 6 engine injection sites (`PendingWorkRegistry`, `DefaultWorkerExecutionRecoveryService`, `QuartzWorkerExecutionJob`, `QuartzWorkerExecutionManager`, `MilestoneSLATimeoutJob`, `DeadLetterReplayService`) use `@CrossTenant`. See protocol PP-20260520-e6a5f0.
 
 ## Worker Provisioner SPIs
 
