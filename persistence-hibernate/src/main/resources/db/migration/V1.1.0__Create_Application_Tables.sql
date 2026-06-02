@@ -14,11 +14,14 @@ CREATE TABLE IF NOT EXISTS case_meta_model (
     title        VARCHAR(500),
     dsl          VARCHAR(50),
     definition   JSONB,
+    tenancy_id   VARCHAR(64)  NOT NULL DEFAULT '__system__',
     created_at   TIMESTAMP    NOT NULL,
     PRIMARY KEY (id),
-    CONSTRAINT uq_case_meta_model_namespace_name_version
-    UNIQUE (namespace, name, version)
+    CONSTRAINT uq_case_meta_model_tenant_key
+    UNIQUE (tenancy_id, namespace, name, version)
     );
+
+CREATE INDEX IF NOT EXISTS idx_case_meta_model_tenancy_id ON case_meta_model (tenancy_id);
 
 -- Represents a running case instance linked to a definition
 CREATE TABLE IF NOT EXISTS case_instance (
@@ -29,12 +32,15 @@ CREATE TABLE IF NOT EXISTS case_instance (
     parent_plan_item_id  UUID,
     parent_case_id       UUID,
     waiting_for_work_id VARCHAR(255),
+    tenancy_id          VARCHAR(64)  NOT NULL DEFAULT '__system__',
     PRIMARY KEY (id),
     CONSTRAINT uq_case_instance_uuid
     UNIQUE (uuid),
     CONSTRAINT fk_case_instance_meta_model
     FOREIGN KEY (case_definition_id) REFERENCES case_meta_model(id)
     );
+
+CREATE INDEX IF NOT EXISTS idx_case_instance_tenancy_id ON case_instance (tenancy_id);
 
 -- Append-only event log; seq is a monotonic identity column for ordering within a case stream
 CREATE TABLE IF NOT EXISTS event_log (
@@ -47,11 +53,13 @@ CREATE TABLE IF NOT EXISTS event_log (
     timestamp    TIMESTAMP    NOT NULL,
     payload      JSONB,
     metadata     JSONB,
+    tenancy_id   VARCHAR(64)  NOT NULL DEFAULT '__system__',
     PRIMARY KEY (id)
     );
 
 CREATE INDEX IF NOT EXISTS idx_event_log_case_id ON event_log(case_id);
 CREATE INDEX IF NOT EXISTS idx_event_log_case_worker ON event_log(case_id, worker_id);
+CREATE INDEX IF NOT EXISTS idx_event_log_tenancy_id ON event_log (tenancy_id);
 
 -- Add subcase group tracking tables for multi-instance subcase management.
 -- Tracks completion policies and child case relationships for subcase groups.
@@ -69,10 +77,13 @@ CREATE TABLE IF NOT EXISTS subcase_group (
     rejected_count          INTEGER      NOT NULL,
     policy_triggered        BOOLEAN      NOT NULL,
     on_threshold_reached    VARCHAR(50)  NOT NULL,
+    tenancy_id              VARCHAR(64)  NOT NULL DEFAULT '__system__',
     PRIMARY KEY (id),
     CONSTRAINT uq_subcase_group_parent_group
     UNIQUE (parent_case_id, group_id)
     );
+
+CREATE INDEX IF NOT EXISTS idx_subcase_group_tenancy_id ON subcase_group (tenancy_id);
 
 -- Child case IDs for each subcase group (ElementCollection mapping)
 CREATE TABLE IF NOT EXISTS subcase_group_children (
@@ -91,16 +102,21 @@ CREATE SEQUENCE IF NOT EXISTS plan_item_seq START WITH 1 INCREMENT BY 50;
 
 -- Stores plan item state and binding information
 CREATE TABLE IF NOT EXISTS plan_item (
-                                         id              BIGINT       NOT NULL DEFAULT nextval('plan_item_seq'),
-    plan_item_id    VARCHAR(36)  NOT NULL,
-    case_id         UUID         NOT NULL,
-    binding_name    VARCHAR(255) NOT NULL,
-    status          VARCHAR(50)  NOT NULL,
-    created_at      TIMESTAMP    NOT NULL,
+                                         id                          BIGINT       NOT NULL DEFAULT nextval('plan_item_seq'),
+    plan_item_id                VARCHAR(36)  NOT NULL,
+    case_id                     UUID         NOT NULL,
+    binding_name                VARCHAR(255) NOT NULL,
+    status                      VARCHAR(50)  NOT NULL,
+    target_type                 VARCHAR(20),
+    output_mapping_expression   VARCHAR(1000),
+    tenancy_id                  VARCHAR(64)  NOT NULL DEFAULT '__system__',
+    created_at                  TIMESTAMP    NOT NULL,
     PRIMARY KEY (id),
     CONSTRAINT uq_plan_item_plan_item_id
     UNIQUE (plan_item_id)
     );
+
+CREATE INDEX IF NOT EXISTS idx_plan_item_tenancy_id ON plan_item (tenancy_id);
 
 CREATE INDEX IF NOT EXISTS idx_plan_item_plan_item_id ON plan_item(plan_item_id);
 CREATE INDEX IF NOT EXISTS idx_plan_item_case_id ON plan_item(case_id);
