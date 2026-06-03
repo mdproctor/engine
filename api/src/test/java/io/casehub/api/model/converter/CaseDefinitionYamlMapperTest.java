@@ -752,4 +752,29 @@ class CaseDefinitionYamlMapperTest {
         .hasMessageContaining("PREVIOUS_MILESTONE_COMPLETED")
         .hasMessageContaining("not yet implemented");
   }
+
+  @Test
+  void milestone_withEventOccurredSlaStartFrom_throwsUnsupportedOperation() {
+    String yaml =
+        """
+        namespace: test
+        name: Event StartFrom
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: event-sla
+              condition: '.done == true'
+              slaDuration: PT1H
+              slaStartFrom: EVENT_OCCURRED
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(UnsupportedOperationException.class)
+        .hasMessageContaining("event-sla")
+        .hasMessageContaining("EVENT_OCCURRED")
+        .hasMessageContaining("not yet implemented");
+  }
 }
