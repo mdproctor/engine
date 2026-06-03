@@ -28,6 +28,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
+import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.io.IOException;
@@ -136,11 +137,55 @@ public final class CaseDefinitionYamlMapper {
     // Convert milestones
     if (schema.getSpec().getMilestones() != null) {
       for (io.casehub.model.Milestone sm : schema.getSpec().getMilestones()) {
-        Milestone milestone =
+        Milestone.Builder milestoneBuilder =
             Milestone.builder()
                 .name(sm.getName())
-                .completionCriteria(new JQExpressionEvaluator(sm.getCondition()))
-                .build();
+                .completionCriteria(new JQExpressionEvaluator(sm.getCondition()));
+
+        if (sm.getEntryCriteria() != null) {
+          milestoneBuilder.entryCriteria(new JQExpressionEvaluator(sm.getEntryCriteria()));
+        }
+
+        if (sm.getSlaDuration() != null) {
+          Duration duration;
+          try {
+            duration = Duration.parse(sm.getSlaDuration());
+          } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException(
+                "Milestone '"
+                    + sm.getName()
+                    + "' has invalid slaDuration '"
+                    + sm.getSlaDuration()
+                    + "' — must be ISO-8601 duration (e.g. PT2H)",
+                e);
+          }
+          if (duration.isNegative() || duration.isZero()) {
+            throw new IllegalArgumentException(
+                "Milestone '"
+                    + sm.getName()
+                    + "' slaDuration must be positive, got '"
+                    + sm.getSlaDuration()
+                    + "'");
+          }
+          milestoneBuilder.slaDuration(duration);
+        }
+
+        if (sm.getSlaStartFrom() != null) {
+          SlaStartFrom startFrom = SlaStartFrom.valueOf(sm.getSlaStartFrom().value());
+          if (startFrom == SlaStartFrom.PREVIOUS_MILESTONE_COMPLETED
+              || startFrom == SlaStartFrom.EVENT_OCCURRED) {
+            throw new UnsupportedOperationException(
+                "Milestone '"
+                    + sm.getName()
+                    + "' uses slaStartFrom="
+                    + startFrom
+                    + " which is not yet implemented."
+                    + " Use CASE_CREATED or MILESTONE_ACTIVATED.");
+          }
+          milestoneBuilder.slaStartFrom(startFrom);
+        }
+
+        Milestone milestone = milestoneBuilder.build();
         milestone.setDescription(sm.getDescription());
         def.getMilestones().add(milestone);
       }
