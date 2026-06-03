@@ -431,6 +431,17 @@ $defs:
         type: string
         title: MilestoneCondition
         description: "JQ expression — true means milestone is reached"
+      entryCriteria:
+        type: string
+        description: "JQ predicate — milestone becomes ACTIVE when true (default: always true)"
+      slaDuration:
+        type: string
+        description: "ISO-8601 duration for SLA deadline (e.g. PT2H, PT24H). Must be positive if present."
+      slaStartFrom:
+        type: string
+        enum: [CASE_CREATED, MILESTONE_ACTIVATED, PREVIOUS_MILESTONE_COMPLETED, EVENT_OCCURRED]
+        default: MILESTONE_ACTIVATED
+        description: "When SLA clock starts. Only CASE_CREATED and MILESTONE_ACTIVATED are currently implemented."
 
   RetryPolicy:
     type: object
