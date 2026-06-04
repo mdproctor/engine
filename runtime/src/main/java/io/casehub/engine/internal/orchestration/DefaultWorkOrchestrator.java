@@ -42,6 +42,7 @@ import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
@@ -64,9 +65,9 @@ import org.jboss.logging.Logger;
  * {@code waitingForWorkId} so the engine can resume after a JVM restart.
  */
 @ApplicationScoped
-public class WorkOrchestrator {
+public class DefaultWorkOrchestrator implements WorkOrchestrator {
 
-  private static final Logger LOG = Logger.getLogger(WorkOrchestrator.class);
+  private static final Logger LOG = Logger.getLogger(DefaultWorkOrchestrator.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
@@ -81,7 +82,7 @@ public class WorkOrchestrator {
   private final JQEvaluator jqEvaluator;
 
   @Inject
-  public WorkOrchestrator(
+  public DefaultWorkOrchestrator(
       final AgentRoutingStrategy agentRoutingStrategy,
       final WorkerExecutionManager executionManager,
       final CapabilityHealth capabilityHealth,

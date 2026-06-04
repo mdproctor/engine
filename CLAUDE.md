@@ -179,7 +179,7 @@ All nine are `@DefaultBean @ApplicationScoped` (`io.quarkus.arc.DefaultBean`) �
 
 **`ContextDiffStrategy`** is engine-internal strategy selection, not a consumer-replaceable SPI. Selected via `casehub.engine.diff-strategy` config (`none` | `top-level` | `json-patch`, default `none`). A `@Produces @DefaultBean` producer in `engine/internal/diff/ContextDiffStrategyProducer` instantiates the chosen POJO — consumer `@ApplicationScoped` impl still wins automatically.
 
-**SPI placement rule:** Operational SPIs (worker provisioning, lifecycle, channels) go in `api/spi/`; persistence SPIs (`CaseMetaModelRepository`, etc.) go in `casehub-engine-common/spi/`. This clarifies intent: operational SPIs are about external system integration; persistence SPIs are about data durability.
+**SPI placement rule:** Operational SPIs (worker provisioning, lifecycle, channels) go in `api/spi/`; persistence SPIs (`CaseMetaModelRepository`, etc.) go in `casehub-engine-common/spi/`. **Exception:** if an operational SPI takes `CaseInstance` or other `common/internal/` types as parameters, it must go in `common/spi/` to avoid a circular dependency (`api` ← `common` ← `api`). `WorkOrchestrator` is the current example — it uses `CaseInstance`, so it lives in `common/spi/` alongside the persistence SPIs.
 
 To add a new operational SPI: define the interface in `api/spi/`, add a `@DefaultBean @ApplicationScoped` (`io.quarkus.arc.DefaultBean`) no-op default in `engine/internal/worker/`, add it to the beans table in protocol `PP-20260514-engine-spi-noops-defaultbean`, add contract tests in `api/src/test/java/io/casehub/api/spi/`, and add engine unit tests in `engine/src/test/java/io/casehub/engine/internal/worker/DefaultWorkerSpiImplementationsTest.java`.
 
@@ -321,6 +321,12 @@ See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until al
 ## casehub-engine-actor-state Module
 
 Optional module providing a unified actor workload view (`GET /actors/{actorId}/state`). Aggregates active cases (via `WorkerExecutionManager.getActiveCaseIds`), open WorkItems (via `casehub-work-api`), and open Qhorus obligations (via `CommitmentStore.findOpenByObligor`) using the `ActorStateContributor` SPI from `casehub-platform-api`. Both blocking (`ActorStateAggregator`) and reactive (`ReactiveActorStateAggregator`) aggregation paths are provided with parity enforced by `ActorStateParityTest`. Activated by adding `casehub-engine-actor-state` to the consumer's classpath.
+
+## casehub-engine-flow Module
+
+Optional module enabling `Worker(Workflow)` to dispatch casehub workers from within Serverless Workflow steps and await their results. Fixes two bugs in the previous `ServerlessWorkflowExecutor` (new `WorkflowApplication` per call; try-with-resources closed the app before the future resolved). Activated by adding `casehub-engine-flow` to the consumer's classpath.
+
+`FlowWorkerExecutor` is plain `@ApplicationScoped` — it wins over the `NoOpWorkflowExecutor @DefaultBean` fallback in `runtime` when the flow module is present. The `WorkflowApplication` singleton is managed by the `quarkus-flow` CDI extension; no manual producer is needed. `CasehubCallableTaskBuilder implements CallableTaskBuilder<CallFunction>` (registered via Java SPI) handles `call: casehub:dispatch` YAML steps. Note: `CallFunction` and `FunctionArguments` are in `io.serverlessworkflow.api.types` — not the `.func` experimental subpackage.
 
 ## Writing Style Guide
 

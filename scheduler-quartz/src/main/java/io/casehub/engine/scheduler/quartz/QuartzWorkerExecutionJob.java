@@ -27,7 +27,9 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.spi.WorkerContextProvider;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
+import io.casehub.engine.common.internal.event.WorkflowExecutionFailed;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
@@ -39,7 +41,6 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.serverlessworkflow.api.types.Workflow;
-import io.serverlessworkflow.impl.WorkflowModel;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -149,17 +150,51 @@ class QuartzWorkerExecutionJob implements Job {
         workerContextProvider.buildContext(
             workflowId, eventLog.getCaseId(), WorkRequest.of(capabilityName, inputData));
 
+    // Workflow workers run non-blocking — Quartz thread returns immediately.
+    // Success/failure is communicated via event bus from the async whenComplete.
+    if (worker.getFunction().getValue() instanceof Workflow workflow) {
+      final Capability capabilityForClosure = capability;
+      final Worker workerForClosure = worker;
+      workflowExecutor
+          .execute(workflow, inputData, instance, worker.getName(), inputDataHash)
+          .thenApply(
+              model ->
+                  model
+                      .asMap()
+                      .orElseThrow(
+                          () ->
+                              new RuntimeException(
+                                  "Workflow produced non-serializable model: " + worker.getName())))
+          .thenApply(output -> evalJqAsMap(output, capabilityForClosure.getOutputSchema()))
+          .whenComplete(
+              (output, ex) -> {
+                if (ex != null) {
+                  handleWorkflowFailure(
+                      instance,
+                      workerForClosure,
+                      capabilityForClosure,
+                      inputDataHash,
+                      eventLogId,
+                      ex);
+                } else {
+                  eventBus.publish(
+                      WORKER_EXECUTION_FINISHED,
+                      new WorkflowExecutionCompleted(
+                          instance, workerForClosure, inputDataHash, output));
+                }
+              });
+      return; // Quartz marks the job complete; async path handles the rest
+    }
+
     Map<String, Object> outputData;
     try {
-      if (worker.getFunction().getValue() instanceof Workflow workflow) {
-        outputData = workflow(workflow, inputData, workerContext, timeoutMs);
-      } else if (worker.getFunction().getValue() instanceof Function function) {
+      if (worker.getFunction().getValue() instanceof Function function) {
         outputData = function(function, inputData, workerContext, timeoutMs);
       } else if (worker.getFunction().getValue() instanceof Agent agent) {
         outputData = agent(agent, inputData, workerContext, timeoutMs);
       } else {
         throw new RuntimeException(
-            "Worker function is not a workflow, function, or agent: "
+            "Worker function is not a function or agent: "
                 + worker.getName()
                 + " "
                 + worker.getFunction().getValue().getClass().getCanonicalName());
@@ -181,15 +216,20 @@ class QuartzWorkerExecutionJob implements Job {
     eventBus.publish(WORKER_EXECUTION_FINISHED, event);
   }
 
-  private Map<String, Object> workflow(
-      Workflow workflow, Map<String, Object> inputData, WorkerContext workerContext, int timeoutMs)
-      throws TimeoutException, InterruptedException, ExecutionException {
-    LOG.debugf("Executing workflow with timeout: %d ms", timeoutMs);
-    CompletableFuture<WorkflowModel> cf = workflowExecutor.execute(workflow, inputData);
-    WorkflowModel workflowModel = cf.get(timeoutMs, TimeUnit.MILLISECONDS);
-    return workflowModel
-        .asMap()
-        .orElseThrow(() -> new RuntimeException("Failed to convert workflow model to map"));
+  private void handleWorkflowFailure(
+      final CaseInstance instance,
+      final Worker worker,
+      final Capability capability,
+      final String inputDataHash,
+      final String eventLogId,
+      final Throwable cause) {
+    LOG.errorf(
+        "Workflow execution failed: caseId=%s worker=%s cause=%s",
+        instance.getUuid(), worker.getName(), cause.getMessage());
+    eventBus.publish(
+        EventBusAddresses.WORKFLOW_EXECUTION_FAILED,
+        new WorkflowExecutionFailed(
+            instance, worker, capability, inputDataHash, eventLogId, cause));
   }
 
   private Map<String, Object> function(

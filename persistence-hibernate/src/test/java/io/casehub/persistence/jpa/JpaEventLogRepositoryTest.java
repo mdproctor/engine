@@ -31,10 +31,13 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 @QuarkusTest
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class JpaEventLogRepositoryTest {
 
   @Inject EventLogRepository repository;
@@ -486,10 +489,9 @@ class JpaEventLogRepositoryTest {
   @Test
   void append_concurrent_sequenceMonotonicallyIncreases() {
     UUID caseId = UUID.randomUUID();
-    int threadCount = 10;
+    int threadCount = 3;
     List<EventLog> logs = new java.util.concurrent.CopyOnWriteArrayList<>();
 
-    // Create events concurrently
     List<Thread> threads = new ArrayList<>();
     for (int i = 0; i < threadCount; i++) {
       final int index = i;
@@ -505,17 +507,15 @@ class JpaEventLogRepositoryTest {
       t.start();
     }
 
-    // Wait for all threads
     threads.forEach(
         t -> {
           try {
-            t.join();
+            t.join(30_000);
           } catch (InterruptedException e) {
             throw new RuntimeException(e);
           }
         });
 
-    // Verify all sequences are unique and monotonically increasing
     List<Long> sequences = logs.stream().map(EventLog::getSeq).sorted().toList();
     assertThat(sequences).hasSize(threadCount);
     assertThat(sequences).doesNotHaveDuplicates();

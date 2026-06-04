@@ -27,10 +27,13 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 @QuarkusTest
+@Timeout(value = 30, unit = TimeUnit.SECONDS)
 class JpaSubCaseGroupRepositoryTest {
 
   @Inject SubCaseGroupRepository repository;

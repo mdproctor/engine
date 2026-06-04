@@ -36,8 +36,10 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Verifies RLS wiring end-to-end against real PostgreSQL via Quarkus Dev Services.
@@ -73,6 +75,7 @@ import org.junit.jupiter.api.Test;
  */
 @QuarkusTest
 @TestProfile(RlsIntegrationTest.RlsProfile.class)
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class RlsIntegrationTest {
 
   public static class RlsProfile implements QuarkusTestProfile {

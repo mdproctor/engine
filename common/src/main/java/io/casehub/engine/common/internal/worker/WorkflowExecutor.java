@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.common.internal.worker;
 
+import io.casehub.engine.common.internal.model.CaseInstance;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowModel;
 import java.util.Map;
@@ -23,27 +24,16 @@ import java.util.concurrent.CompletableFuture;
 /**
  * Executor for serverless workflow definitions.
  *
- * <p>This interface defines the contract for executing workflow instances based on Serverless
- * Workflow specifications.
- *
- * @see io.serverlessworkflow.api.types.Workflow
- * @see io.serverlessworkflow.impl.WorkflowModel
+ * <p>{@code workerName} and {@code inputDataHash} are passed for lineage — {@code
+ * FlowWorkerExecutor} stores them in {@code FlowExecutionRegistry} so {@code CasehubDispatch} can
+ * emit {@code WORKFLOW_STEP_DISPATCHED} events with the correct parent execution metadata.
  */
 public interface WorkflowExecutor {
 
-  /**
-   * Execute a workflow with the given input data.
-   *
-   * <p>{@code inputData} is {@code Map<String, Object>} at this layer because it is post-evaluation
-   * data — the result of applying {@code inputMapping} expressions against {@link
-   * io.casehub.api.context.CaseContext}. This is the correct type at the engine-internal layer.
-   * Public entry points ({@link io.casehub.api.engine.CaseHub#startCase} and {@link
-   * io.casehub.api.engine.CaseHubRuntime#startCase}) should accept {@code Object} to align with
-   * {@code Flow.instance(Object)} — tracked in casehubio/engine#302.
-   *
-   * @param workflow the workflow definition
-   * @param inputData post-evaluated case input; always a Map at this layer
-   * @return CompletableFuture containing the workflow execution result
-   */
-  CompletableFuture<WorkflowModel> execute(Workflow workflow, Map<String, Object> inputData);
+  CompletableFuture<WorkflowModel> execute(
+      Workflow workflow,
+      Map<String, Object> inputData,
+      CaseInstance caseInstance,
+      String workerName,
+      String inputDataHash);
 }

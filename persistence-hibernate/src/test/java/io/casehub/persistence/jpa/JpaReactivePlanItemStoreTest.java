@@ -21,8 +21,11 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
+import java.util.concurrent.TimeUnit;
+import org.junit.jupiter.api.Timeout;
 
 @QuarkusTest
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class JpaReactivePlanItemStoreTest extends ReactivePlanItemStoreContractTest {
 
   @Inject JpaReactivePlanItemStore store;

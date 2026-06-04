@@ -37,11 +37,14 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 @QuarkusTest
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class PersistenceIntegrationTest {
 
   @Inject CaseInstanceRepository instanceRepository;

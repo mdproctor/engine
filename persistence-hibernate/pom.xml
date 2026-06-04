@@ -129,6 +129,8 @@
                 <artifactId>maven-surefire-plugin</artifactId>
                 <configuration>
                     <argLine>--add-opens java.base/java.lang=ALL-UNNAMED</argLine>
+                    <redirectTestOutputToFile>true</redirectTestOutputToFile>
+                    <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
                     <systemPropertyVariables>
                         <java.util.logging.manager>org.jboss.logmanager.LogManager</java.util.logging.manager>
                         <maven.home>${maven.home}</maven.home>

@@ -45,5 +45,10 @@ public enum CaseHubEventType {
   GOAL_REACHED,
 
   SUBCASE_STARTED, // child case spawned by a SubCase binding
-  SUBCASE_COMPLETED // child case reached a terminal state; parent context updated
+  SUBCASE_COMPLETED, // child case reached a terminal state; parent context updated
+
+  WORKFLOW_STEP_DISPATCHED, // workflow step dispatched a casehub capability via WorkOrchestrator
+  WORKFLOW_STEP_COMPLETED, // workflow step dispatch completed successfully
+  WORKFLOW_STEP_FAILED // workflow step dispatch failed (capability not found, routing error,
+  // exhaustion)
 }

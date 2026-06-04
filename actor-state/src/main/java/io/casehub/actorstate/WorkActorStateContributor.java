@@ -17,13 +17,13 @@ package io.casehub.actorstate;
 
 import io.casehub.platform.api.actor.ActorStateAccumulator;
 import io.casehub.platform.api.actor.ActorStateContributor;
-import io.casehub.work.api.WorkItemCallerRef;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.repository.WorkItemQuery;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Contributes active WorkItems from casehub-work.
@@ -62,6 +62,18 @@ public class WorkActorStateContributor implements ActorStateContributor {
                 wi.title,
                 wi.status != null ? wi.status.name() : null,
                 wi.category,
-                WorkItemCallerRef.parseCaseId(wi.callerRef)));
+                parseCaseId(wi.callerRef)));
+  }
+
+  /** Extracts the caseId from a callerRef in format {@code case:{uuid}/pi:{planItemId}}. */
+  private static UUID parseCaseId(final String callerRef) {
+    if (callerRef == null || !callerRef.startsWith("case:")) return null;
+    final int slash = callerRef.indexOf('/');
+    if (slash < 0) return null;
+    try {
+      return UUID.fromString(callerRef.substring(5, slash));
+    } catch (IllegalArgumentException e) {
+      return null;
+    }
   }
 }

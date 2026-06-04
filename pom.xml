@@ -104,6 +104,7 @@
         <module>work-adapter</module>
         <module>actor-state</module>
         <module>engine-ai</module>
+        <module>flow</module>
     </modules>
 
     <repositories>

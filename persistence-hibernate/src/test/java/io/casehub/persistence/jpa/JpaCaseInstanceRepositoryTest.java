@@ -32,11 +32,14 @@ import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 @QuarkusTest
+@Timeout(value = 60, unit = TimeUnit.SECONDS)
 class JpaCaseInstanceRepositoryTest {
 
   @Inject CaseInstanceRepository instanceRepository;

@@ -54,7 +54,7 @@ import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class WorkOrchestratorTest {
+class DefaultWorkOrchestratorTest {
 
   private AgentRoutingStrategy agentRoutingStrategy;
   private WorkerExecutionManager executionManager;
@@ -65,7 +65,7 @@ class WorkOrchestratorTest {
   private CaseInstanceRepository caseInstanceRepository;
   private EventLogRepository eventLogRepository;
   private JQEvaluator jqEvaluator;
-  private WorkOrchestrator orchestrator;
+  private DefaultWorkOrchestrator orchestrator;
 
   @BeforeEach
   void setUp() {
@@ -93,7 +93,7 @@ class WorkOrchestratorTest {
                         new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode())));
 
     orchestrator =
-        new WorkOrchestrator(
+        new DefaultWorkOrchestrator(
             agentRoutingStrategy,
             executionManager,
             capabilityHealth,

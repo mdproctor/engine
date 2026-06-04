@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.worker;
 
+import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.worker.WorkflowExecutor;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
@@ -24,16 +25,30 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Serverless Workflow implementation of {@link WorkflowExecutor}.
+ * Test-only {@link WorkflowExecutor} for the runtime module's own {@code @QuarkusTest} suite.
+ * Activates over {@code NoOpWorkflowExecutor @DefaultBean} because it is plain
+ * {@code @ApplicationScoped} (non-default). Plain {@code FlowWorkerExecutor} in {@code
+ * casehub-engine-flow} wins over this when the flow module is on the test classpath.
  *
- * <p>Uses the Serverless Workflow SDK to execute workflow definitions.
+ * <p>This is the legacy implementation with two known bugs — new {@code WorkflowApplication} per
+ * call, and {@code try-with-resources} that closes the app before the returned {@code
+ * CompletableFuture} resolves. Both bugs are fixed by {@code FlowWorkerExecutor}. This class exists
+ * only to keep the existing runtime integration tests passing until they are migrated to use {@code
+ * casehub-engine-flow} — tracked in casehubio/engine#206.
+ *
+ * @deprecated Use {@code FlowWorkerExecutor} from {@code casehub-engine-flow} for production use.
  */
+@Deprecated
 @ApplicationScoped
 public class ServerlessWorkflowExecutor implements WorkflowExecutor {
 
   @Override
   public CompletableFuture<WorkflowModel> execute(
-      Workflow workflow, Map<String, Object> inputData) {
+      final Workflow workflow,
+      final Map<String, Object> inputData,
+      final CaseInstance caseInstance,
+      final String workerName,
+      final String inputDataHash) {
     try (WorkflowApplication app = WorkflowApplication.builder().build()) {
       return app.workflowDefinition(workflow).instance(inputData).start();
     } catch (Exception e) {

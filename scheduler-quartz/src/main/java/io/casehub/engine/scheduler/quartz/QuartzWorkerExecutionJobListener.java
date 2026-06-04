@@ -50,6 +50,7 @@ import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import org.jboss.logging.Logger;
+import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
@@ -89,7 +90,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
 
   @Override
   public void jobToBeExecuted(JobExecutionContext context) {
-    if (isWorkflowExecutionJob(context)) {
+    if (isNotWorkerExecutionJob(context)) {
       return;
     }
 
@@ -131,7 +132,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
 
   @Override
   public void jobExecutionVetoed(JobExecutionContext context) {
-    if (isWorkflowExecutionJob(context)) {
+    if (isNotWorkerExecutionJob(context)) {
       return;
     }
 
@@ -142,7 +143,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
   /** We log success at WorkflowExecutionCompletedHandler.onWorkflowExecutionCompletedHandler */
   @Override
   public void jobWasExecuted(JobExecutionContext context, JobExecutionException jobException) {
-    if (isWorkflowExecutionJob(context)) {
+    if (isNotWorkerExecutionJob(context)) {
       return;
     }
 
@@ -164,65 +165,96 @@ class QuartzWorkerExecutionJobListener implements JobListener {
       persistEventLog(jobName, eventLog, tenancyId)
           .subscribe()
           .with(
-              success -> maybeRescheduleJob(context),
+              success -> maybeRescheduleWorker(WorkerRetryContext.from(context)),
               ex -> LOG.errorf(ex, "Failed to persist and reschedule job: %s", jobName));
     }
   }
 
-  private boolean isWorkflowExecutionJob(JobExecutionContext context) {
+  private boolean isNotWorkerExecutionJob(JobExecutionContext context) {
     return !QuartzWorkerExecutionJob.class.equals(context.getJobDetail().getJobClass());
   }
 
-  private void maybeRescheduleJob(JobExecutionContext context) {
-    String jobName = context.getJobDetail().getKey().toString();
-    String caseHubInstanceUuid = context.getMergedJobDataMap().getString("caseHubInstanceUuid");
-    String workerId = context.getMergedJobDataMap().getString("workerId");
-    String idempotency = context.getMergedJobDataMap().getString("inputDataHash");
-    String tenancyId = context.getMergedJobDataMap().getString("tenancyId");
-    UUID caseId = UUID.fromString(caseHubInstanceUuid);
-
+  private void maybeRescheduleWorker(final WorkerRetryContext ctx) {
     workerExecutionRecoveryService
-        .loadOrRestoreCaseInstance(caseId)
-        .map(instance -> resolveRetryPolicy(jobName, instance, workerId))
+        .loadOrRestoreCaseInstance(ctx.caseId())
+        .map(instance -> resolveRetryPolicy(ctx.caseId().toString(), instance, ctx.workerId()))
         .subscribe()
         .with(
             retryPolicy -> {
-
               // TODO use default policy
               if (retryPolicy == null) {
                 return;
               }
-              countFailedAttempts(caseId, workerId, idempotency, tenancyId)
+              countFailedAttempts(
+                      ctx.caseId(), ctx.workerId(), ctx.inputDataHash(), ctx.tenancyId())
                   .subscribe()
                   .with(
                       failureCount -> {
                         if (failureCount < retryPolicy.maxAttempts()) {
                           LOG.infof(
                               "Rescheduling worker %s: attempt %d/%d, strategy=%s",
-                              workerId,
+                              ctx.workerId(),
                               failureCount + 1,
                               retryPolicy.maxAttempts(),
                               retryPolicy.backoffStrategy());
-                          rescheduleJob(context, retryPolicy, failureCount + 1);
+                          rescheduleWorker(ctx, retryPolicy, failureCount + 1);
                         } else {
                           LOG.warnf(
                               "Worker %s exhausted all %d retry attempts for case %s",
-                              workerId, retryPolicy.maxAttempts(), caseHubInstanceUuid);
+                              ctx.workerId(), retryPolicy.maxAttempts(), ctx.caseId());
                           eventBus.publish(
                               EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-                              new WorkerRetriesExhaustedEvent(caseId, workerId, idempotency));
+                              new WorkerRetriesExhaustedEvent(
+                                  ctx.caseId(), ctx.workerId(), ctx.inputDataHash()));
                         }
                       },
                       ex ->
                           LOG.errorf(
-                              ex, "Failed to count failed attempts for worker %s", workerId));
+                              ex, "Failed to count failed attempts for worker %s", ctx.workerId()));
             },
             ex ->
                 LOG.errorf(
                     ex,
                     "Failed to reschedule worker %s for case %s",
-                    workerId,
-                    caseHubInstanceUuid));
+                    ctx.workerId(),
+                    ctx.caseId()));
+  }
+
+  @io.quarkus.vertx.ConsumeEvent(
+      value = EventBusAddresses.WORKFLOW_EXECUTION_FAILED,
+      blocking = true)
+  public void onWorkflowExecutionFailed(
+      final io.casehub.engine.common.internal.event.WorkflowExecutionFailed event) {
+    final WorkerRetryContext ctx =
+        new WorkerRetryContext(
+            event.caseInstance().getUuid(),
+            event.worker().getName(),
+            event.inputDataHash(),
+            event.caseInstance().tenancyId,
+            event.eventLogId());
+
+    // Persist WORKER_EXECUTION_FAILED first — countFailedAttempts() queries this count
+    final EventLog failureLog = new EventLog();
+    failureLog.setCaseId(event.caseInstance().getUuid());
+    failureLog.setWorkerId(event.worker().getName());
+    failureLog.setEventType(CaseHubEventType.WORKER_EXECUTION_FAILED);
+    failureLog.setStreamType(EventStreamType.CASE);
+    failureLog.setTimestamp(java.time.Instant.now());
+    failureLog.setMetadata(
+        OBJECT_MAPPER
+            .createObjectNode()
+            .put("inputDataHash", event.inputDataHash())
+            .put("errorMessage", event.cause() != null ? event.cause().getMessage() : "unknown"));
+
+    persistEventLog(event.worker().getName(), failureLog, event.caseInstance().tenancyId)
+        .subscribe()
+        .with(
+            ignored -> maybeRescheduleWorker(ctx),
+            ex ->
+                LOG.errorf(
+                    ex,
+                    "Failed to persist WORKER_EXECUTION_FAILED for workflow worker %s",
+                    event.worker().getName()));
   }
 
   private RetryPolicy resolveRetryPolicy(String jobName, CaseInstance instance, String workerId) {
@@ -251,17 +283,25 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     return executionPolicy.retries();
   }
 
-  private void rescheduleJob(
-      JobExecutionContext context, RetryPolicy retryPolicy, long attemptNumber) {
-    String idempotency = context.getMergedJobDataMap().getString("inputDataHash");
-    String group = context.getMergedJobDataMap().getString("caseHubInstanceUuid");
-    JobKey jobKey = new JobKey(idempotency, group);
+  private void rescheduleWorker(
+      final WorkerRetryContext ctx, final RetryPolicy retryPolicy, final long attemptNumber) {
+    final String idempotency = ctx.inputDataHash();
+    final String group = ctx.caseId().toString();
+    final JobKey jobKey = new JobKey(idempotency, group);
+
+    // Reconstruct the JobDataMap from WorkerRetryContext fields
+    final JobDataMap dataMap = new JobDataMap();
+    dataMap.put("inputDataHash", ctx.inputDataHash());
+    dataMap.put("eventLogId", ctx.eventLogId());
+    dataMap.put("workerId", ctx.workerId());
+    dataMap.put("caseHubInstanceUuid", ctx.caseId().toString());
+    dataMap.put("tenancyId", ctx.tenancyId());
 
     JobDetail job =
         newJob(QuartzWorkerExecutionJob.class)
             .withIdentity(jobKey)
             .storeDurably(false)
-            .usingJobData(context.getMergedJobDataMap())
+            .usingJobData(dataMap)
             .build();
 
     long delayMs = computeBackoffDelayMs(retryPolicy, attemptNumber);

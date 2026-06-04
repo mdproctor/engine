@@ -48,4 +48,7 @@ public final class EventBusAddresses {
   public static final String HUMAN_TASK_SCHEDULE = "casehub.humantask.schedule";
 
   public static final String AGENT_ROUTING_ESCALATION = "casehub.agent.routing.escalation";
+
+  /** Published by QuartzWorkerExecutionJob when a workflow future completes exceptionally. */
+  public static final String WORKFLOW_EXECUTION_FAILED = "casehub.workflow.execution.failed";
 }
