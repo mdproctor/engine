@@ -78,7 +78,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git push --force-with-lease
+          CURRENT_BRANCH=$(git branch --show-current)
+          UPSTREAM_REMOTE=$(git config "branch.${CURRENT_BRANCH}.remote")
+          UPSTREAM_BRANCH=$(git config "branch.${CURRENT_BRANCH}.merge" | sed 's#refs/heads/##')
+
+          # Refresh upstream ref to avoid stale lease data on re-run/concurrent updates
+          git fetch "$UPSTREAM_REMOTE" "$UPSTREAM_BRANCH"
+          git push --force-with-lease "$UPSTREAM_REMOTE" "HEAD:$UPSTREAM_BRANCH"
 
       - name: React with success
         if: steps.rebase.outputs.rebase_status == 'success'
