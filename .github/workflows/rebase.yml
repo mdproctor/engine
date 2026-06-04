@@ -83,7 +83,7 @@ jobs:
           UPSTREAM_BRANCH=$(git config "branch.${CURRENT_BRANCH}.merge" | sed 's#refs/heads/##')
 
           # Refresh upstream ref to avoid stale lease data on re-run/concurrent updates
-          git fetch "$UPSTREAM_REMOTE" "$UPSTREAM_BRANCH"
+          git fetch "$UPSTREAM_REMOTE" "${UPSTREAM_BRANCH}:refs/remotes/${UPSTREAM_REMOTE}/${UPSTREAM_BRANCH}"
           git push --force-with-lease "$UPSTREAM_REMOTE" "HEAD:$UPSTREAM_BRANCH"
 
       - name: React with success
