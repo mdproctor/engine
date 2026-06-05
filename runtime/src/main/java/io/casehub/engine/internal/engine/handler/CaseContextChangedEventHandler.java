@@ -337,7 +337,10 @@ public class CaseContextChangedEventHandler {
     eventBus.publish(
         EventBusAddresses.AGENT_ROUTING_ESCALATION,
         new AgentRoutingEscalationEvent(
-            caseInstance.getUuid(), escalation.capabilityName(), binding.getName()));
+            caseInstance.getUuid(),
+            escalation.capabilityName(),
+            binding.getName(),
+            escalation.reason()));
 
     return Uni.createFrom().voidItem();
   }

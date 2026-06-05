@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.spi.CaseChannelProvider;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import java.util.List;
@@ -49,7 +50,9 @@ class AgentRoutingEscalationHandlerTest {
     final CaseChannel channel = channel(oversightName);
     when(channelProvider.listChannels(caseId)).thenReturn(List.of(channel));
 
-    handler.handle(new AgentRoutingEscalationEvent(caseId, "research", "research-binding"));
+    handler.handle(
+        new AgentRoutingEscalationEvent(
+            caseId, "research", "research-binding", EscalationReason.BORDERLINE_STALEMATE));
 
     verify(channelProvider)
         .postToChannel(
@@ -67,7 +70,9 @@ class AgentRoutingEscalationHandlerTest {
     final CaseChannel unrelatedChannel = channel(CaseChannel.channelName(caseId, "work"));
     when(channelProvider.listChannels(caseId)).thenReturn(List.of(unrelatedChannel));
 
-    handler.handle(new AgentRoutingEscalationEvent(caseId, "research", "research-binding"));
+    handler.handle(
+        new AgentRoutingEscalationEvent(
+            caseId, "research", "research-binding", EscalationReason.BORDERLINE_STALEMATE));
 
     verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
   }
@@ -77,7 +82,9 @@ class AgentRoutingEscalationHandlerTest {
     final UUID caseId = UUID.randomUUID();
     when(channelProvider.listChannels(caseId)).thenReturn(List.of());
 
-    handler.handle(new AgentRoutingEscalationEvent(caseId, "research", "research-binding"));
+    handler.handle(
+        new AgentRoutingEscalationEvent(
+            caseId, "research", "research-binding", EscalationReason.BORDERLINE_STALEMATE));
 
     verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
   }

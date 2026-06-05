@@ -162,7 +162,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
         eventBus.publish(
             EventBusAddresses.AGENT_ROUTING_ESCALATION,
             new AgentRoutingEscalationEvent(
-                instance.getUuid(), e.capabilityName(), "(direct-orchestration)"));
+                instance.getUuid(), e.capabilityName(), "(direct-orchestration)", e.reason()));
         final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
         failed.completeExceptionally(
             new IllegalStateException(

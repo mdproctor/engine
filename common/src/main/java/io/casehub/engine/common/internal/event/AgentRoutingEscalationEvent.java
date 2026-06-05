@@ -15,18 +15,13 @@
  */
 package io.casehub.engine.common.internal.event;
 
+import io.casehub.api.spi.routing.EscalationReason;
 import java.util.UUID;
 
 /**
- * Published to {@link EventBusAddresses#AGENT_ROUTING_ESCALATION} when all trust-eligible agent
- * candidates for a capability are borderline (trust score within {@code borderlineMargin} of {@code
- * threshold}). Signals that human oversight is required to decide which agent should handle the
- * capability for this case.
- *
- * <p>Handler: {@code AgentRoutingEscalationHandler} posts a QUERY to the case's oversight channel
- * so a human supervisor can make the routing decision.
- *
- * <p>PlanItem state during escalation: stays PENDING. Response handling (COMMAND → re-trigger
- * routing) tracked in engine#383.
+ * Published when agent routing cannot proceed automatically and human oversight is required. The
+ * {@link EscalationReason} indicates whether the trigger was a borderline stalemate or a pool with
+ * no trust-qualified agents.
  */
-public record AgentRoutingEscalationEvent(UUID caseId, String capabilityName, String bindingName) {}
+public record AgentRoutingEscalationEvent(
+    UUID caseId, String capabilityName, String bindingName, EscalationReason reason) {}
