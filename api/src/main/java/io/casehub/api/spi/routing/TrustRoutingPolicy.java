@@ -28,8 +28,10 @@ import java.util.Map;
  *     trust)
  * @param qualityFloors Phase 3: dimension name → minimum acceptable quality score; candidates
  *     failing any floor are excluded; no penalty if dimension data is absent
- * @param bootstrapEscalationRequired true to escalate bootstrap context changes; false to handle
- *     via routing fallback
+ * @param bootstrapEscalationRequired when true, BOOTSTRAP candidates are stripped from the scoring
+ *     pool; if no QUALIFIED agent exists, escalates to {@link
+ *     io.casehub.api.spi.routing.EscalationReason#NO_QUALIFIED_AGENT} instead of assigning an
+ *     unproven agent. Set to true for high-stakes, irreversible capabilities. Default: false.
  */
 public record TrustRoutingPolicy(
     double threshold,

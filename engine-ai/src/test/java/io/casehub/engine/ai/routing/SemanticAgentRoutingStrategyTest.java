@@ -330,6 +330,24 @@ class SemanticAgentRoutingStrategyTest {
   }
 
   @Test
+  void bootstrap_allExcluded_noBootstrap_returnsUnresolvable() {
+    when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
+    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
+    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
+    // EXCLUDED_PHASE2B: scores 0.0 — still enters worker pool, query text gets embedded
+    when(jqEvaluator.eval(anyString(), any()))
+        .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
+    when(embeddingProvider.embed(any())).thenReturn(new float[] {1.0f, 0.0f});
+
+    final List<AgentCandidate> candidates =
+        List.of(candidateWithDescriptor("agent-low", 0, "agent-l"));
+
+    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.Unresolvable.class);
+  }
+
+  @Test
   void bootstrap_flagFalse_allBootstrap_assignsByWorkload() {
     // POLICY has bootstrapEscalationRequired = false; pre-screen skipped; existing behaviour
     when(jqEvaluator.eval(anyString(), any()))

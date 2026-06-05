@@ -423,6 +423,21 @@ class TrustWeightedAgentStrategyTest {
   }
 
   @Test
+  void bootstrap_allExcluded_noBootstrap_returnsUnresolvable() {
+    // Guard requires hasBootstrap=true; all-EXCLUDED pool has no BOOTSTRAP → guard must not fire
+    when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
+    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
+    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
+    when(cache.getCapabilityScore("agent-lower", "research")).thenReturn(OptionalDouble.of(0.3));
+    when(cache.getDecisionCount("agent-lower", "research")).thenReturn(10);
+
+    final AgentAssignment result =
+        select(List.of(candidate("agent-low", 0), candidate("agent-lower", 0)));
+
+    assertThat(result).isInstanceOf(AgentAssignment.Unresolvable.class);
+  }
+
+  @Test
   void bootstrap_flagFalse_allBootstrap_assignsByWorkload() {
     // bootstrapEscalationRequired = false: pre-screen skipped; existing behaviour preserved
     when(policyProvider.forCapability("research")).thenReturn(DEFAULT_POLICY);

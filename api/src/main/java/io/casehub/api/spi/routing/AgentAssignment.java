@@ -21,10 +21,9 @@ package io.casehub.api.spi.routing;
  * <ul>
  *   <li>{@link Assigned} — a specific worker was selected
  *   <li>{@link Unresolvable} — no candidate passed trust filters (none were borderline)
- *   <li>{@link EscalateToOversight} — all trust-eligible candidates are borderline, or the
- *       bootstrap fallback threshold was breached; human oversight is required per
- *       trust-maturity-model.md Phase 2. The {@code reason} field identifies why escalation was
- *       triggered — callers use it to populate {@link
+ *   <li>{@link EscalateToOversight} — routing cannot proceed automatically; see {@link
+ *       EscalationReason} for the specific trigger. The {@code reason} field identifies why
+ *       escalation was triggered — callers use it to populate {@link
  *       io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent} and to select the
  *       appropriate oversight handler.
  * </ul>
@@ -47,10 +46,8 @@ public sealed interface AgentAssignment
   record Unresolvable() implements AgentAssignment {}
 
   /**
-   * All trust-eligible candidates are borderline (score within {@code borderlineMargin} of {@code
-   * threshold}), or the bootstrap fallback threshold was breached. Engine must route to human
-   * oversight per trust-maturity-model.md Phase 2. The {@code reason} field identifies the specific
-   * trigger condition.
+   * Routing cannot proceed automatically. See {@link EscalationReason} for why. Engine must route
+   * to human oversight via the oversight channel.
    */
   record EscalateToOversight(String capabilityName, EscalationReason reason)
       implements AgentAssignment {}

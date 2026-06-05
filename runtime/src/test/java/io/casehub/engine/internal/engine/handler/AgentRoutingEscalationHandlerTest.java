@@ -59,7 +59,7 @@ class AgentRoutingEscalationHandlerTest {
         .postToChannel(
             eq(channel),
             eq("casehub-engine"),
-            any(String.class),
+            contains("borderline"),
             eq(MessageType.QUERY),
             eq(null),
             eq(null));
