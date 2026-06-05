@@ -21,8 +21,12 @@ package io.casehub.api.spi.routing;
  * <ul>
  *   <li>{@link Assigned} — a specific worker was selected
  *   <li>{@link Unresolvable} — no candidate passed trust filters (none were borderline)
- *   <li>{@link EscalateToOversight} — all trust-eligible candidates are borderline; human oversight
- *       is required per trust-maturity-model.md Phase 2
+ *   <li>{@link EscalateToOversight} — all trust-eligible candidates are borderline, or the
+ *       bootstrap fallback threshold was breached; human oversight is required per
+ *       trust-maturity-model.md Phase 2. The {@code reason} field identifies why escalation was
+ *       triggered — callers use it to populate {@link
+ *       io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent} and to select the
+ *       appropriate oversight handler.
  * </ul>
  *
  * <p>Callers must switch exhaustively on the sealed type. The previous {@code isNoOp()} pattern is
@@ -44,9 +48,12 @@ public sealed interface AgentAssignment
 
   /**
    * All trust-eligible candidates are borderline (score within {@code borderlineMargin} of {@code
-   * threshold}). Engine must route to human oversight per trust-maturity-model.md Phase 2.
+   * threshold}), or the bootstrap fallback threshold was breached. Engine must route to human
+   * oversight per trust-maturity-model.md Phase 2. The {@code reason} field identifies the specific
+   * trigger condition.
    */
-  record EscalateToOversight(String capabilityName) implements AgentAssignment {}
+  record EscalateToOversight(String capabilityName, EscalationReason reason)
+      implements AgentAssignment {}
 
   static AgentAssignment assign(final String workerId) {
     return new Assigned(workerId);
@@ -56,7 +63,7 @@ public sealed interface AgentAssignment
     return new Unresolvable();
   }
 
-  static AgentAssignment escalate(final String capabilityName) {
-    return new EscalateToOversight(capabilityName);
+  static AgentAssignment escalate(final String capabilityName, final EscalationReason reason) {
+    return new EscalateToOversight(capabilityName, reason);
   }
 }

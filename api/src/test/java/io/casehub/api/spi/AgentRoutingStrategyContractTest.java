@@ -23,6 +23,7 @@ import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Set;
@@ -108,7 +109,11 @@ class AgentRoutingStrategyContractTest {
   @Test
   void implementation_canReturnEscalateToOversight() {
     final AgentRoutingStrategy strategy =
-        (ctx, candidates) -> Uni.createFrom().item(AgentAssignment.escalate(ctx.capabilityName()));
+        (ctx, candidates) ->
+            Uni.createFrom()
+                .item(
+                    AgentAssignment.escalate(
+                        ctx.capabilityName(), EscalationReason.BORDERLINE_STALEMATE));
     final AgentRoutingContext ctx =
         new AgentRoutingContext(UUID.randomUUID(), "sensitive-review", NullNode.instance);
 

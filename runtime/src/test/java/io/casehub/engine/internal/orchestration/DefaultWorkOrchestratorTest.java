@@ -32,6 +32,7 @@ import io.casehub.api.model.Worker;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
@@ -161,7 +162,9 @@ class DefaultWorkOrchestratorTest {
   void submit_strategyReturnsEscalate_failsFutureAndPublishesEscalation() {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.escalate("analyse")));
+        .thenReturn(
+            Uni.createFrom()
+                .item(AgentAssignment.escalate("analyse", EscalationReason.BORDERLINE_STALEMATE)));
 
     final var future =
         orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();

@@ -18,6 +18,7 @@ package io.casehub.api.spi;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.spi.routing.AgentAssignment;
+import io.casehub.api.spi.routing.EscalationReason;
 import org.junit.jupiter.api.Test;
 
 class AgentAssignmentTest {
@@ -38,12 +39,15 @@ class AgentAssignmentTest {
   }
 
   @Test
-  void escalate_createsEscalateToOversight_withCapabilityName() {
-    final AgentAssignment assignment = AgentAssignment.escalate("data-analysis");
+  void escalate_createsEscalateToOversight_withCapabilityNameAndReason() {
+    final AgentAssignment assignment =
+        AgentAssignment.escalate("data-analysis", EscalationReason.BORDERLINE_STALEMATE);
 
     assertThat(assignment).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) assignment).capabilityName())
-        .isEqualTo("data-analysis");
+    final AgentAssignment.EscalateToOversight escalation =
+        (AgentAssignment.EscalateToOversight) assignment;
+    assertThat(escalation.capabilityName()).isEqualTo("data-analysis");
+    assertThat(escalation.reason()).isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
   @Test
@@ -76,7 +80,8 @@ class AgentAssignmentTest {
 
   @Test
   void patternSwitch_EscalateToOversight_branchesCorrectly() {
-    final AgentAssignment assignment = AgentAssignment.escalate("review");
+    final AgentAssignment assignment =
+        AgentAssignment.escalate("review", EscalationReason.BORDERLINE_STALEMATE);
 
     final String result =
         switch (assignment) {

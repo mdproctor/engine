@@ -37,6 +37,7 @@ import io.casehub.api.spi.ReactiveWorkerContextProvider;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -184,7 +185,9 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Test
   void routing_escalateToOversight_publishesEscalationEvent() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.escalate("research")));
+        .thenReturn(
+            Uni.createFrom()
+                .item(AgentAssignment.escalate("research", EscalationReason.BORDERLINE_STALEMATE)));
 
     handler
         .onCaseStateContextChangedEventHandler(
