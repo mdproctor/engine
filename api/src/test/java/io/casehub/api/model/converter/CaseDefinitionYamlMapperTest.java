@@ -27,6 +27,7 @@ import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
+import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
@@ -572,5 +573,208 @@ class CaseDefinitionYamlMapperTest {
     GoalBasedCompletion completion = (GoalBasedCompletion) def.getCompletion();
     assertThat(completion.getSuccess()).isNotNull();
     assertThat(completion.getFailure()).isNotNull();
+  }
+
+  @Test
+  void milestone_withSlaFields_allFieldsParsed() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: SLA Test
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: approval
+              condition: '.approved == true'
+              entryCriteria: '.submitted == true'
+              slaDuration: PT2H
+              slaStartFrom: CASE_CREATED
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getMilestones()).hasSize(1);
+    Milestone m = def.getMilestones().get(0);
+    assertThat(m.getName()).isEqualTo("approval");
+    assertThat(m.getCompletionCriteria()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) m.getCompletionCriteria()).expression())
+        .isEqualTo(".approved == true");
+    assertThat(m.getEntryCriteria()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) m.getEntryCriteria()).expression())
+        .isEqualTo(".submitted == true");
+    assertThat(m.getSlaDuration()).isEqualTo(Duration.ofHours(2));
+    assertThat(m.getSlaStartFrom()).isEqualTo(SlaStartFrom.CASE_CREATED);
+  }
+
+  @Test
+  void milestone_withoutSlaFields_usesDefaults() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Defaults Test
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: simple
+              condition: '.done == true'
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    Milestone m = def.getMilestones().get(0);
+    assertThat(m.getName()).isEqualTo("simple");
+    assertThat(m.getSlaDuration()).isNull();
+    assertThat(m.getSlaStartFrom()).isEqualTo(SlaStartFrom.MILESTONE_ACTIVATED);
+    assertThat(m.getEntryCriteria()).isNotNull();
+    assertThat(m.getEntryCriteria()).isNotInstanceOf(JQExpressionEvaluator.class);
+  }
+
+  @Test
+  void milestone_withEntryCriteriaOnly_slaFieldsDefault() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Entry Test
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: gated
+              condition: '.reviewed == true'
+              entryCriteria: '.assignee != null'
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    Milestone m = def.getMilestones().get(0);
+    assertThat(m.getEntryCriteria()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) m.getEntryCriteria()).expression())
+        .isEqualTo(".assignee != null");
+    assertThat(m.getSlaDuration()).isNull();
+    assertThat(m.getSlaStartFrom()).isEqualTo(SlaStartFrom.MILESTONE_ACTIVATED);
+  }
+
+  @Test
+  void milestone_withInvalidSlaDurationFormat_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Bad Duration
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: bad-sla
+              condition: '.done == true'
+              slaDuration: "1h"
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("bad-sla")
+        .hasMessageContaining("1h");
+  }
+
+  @Test
+  void milestone_withZeroSlaDuration_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Zero Duration
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: zero-sla
+              condition: '.done == true'
+              slaDuration: "PT0S"
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("zero-sla")
+        .hasMessageContaining("must be positive");
+  }
+
+  @Test
+  void milestone_withNegativeSlaDuration_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Neg Duration
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: neg-sla
+              condition: '.done == true'
+              slaDuration: "PT-1H"
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("neg-sla")
+        .hasMessageContaining("must be positive");
+  }
+
+  @Test
+  void milestone_withUnimplementedSlaStartFrom_throwsUnsupportedOperation() {
+    String yaml =
+        """
+        namespace: test
+        name: Unimplemented StartFrom
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: future-sla
+              condition: '.done == true'
+              slaDuration: PT1H
+              slaStartFrom: PREVIOUS_MILESTONE_COMPLETED
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(UnsupportedOperationException.class)
+        .hasMessageContaining("future-sla")
+        .hasMessageContaining("PREVIOUS_MILESTONE_COMPLETED")
+        .hasMessageContaining("not yet implemented");
+  }
+
+  @Test
+  void milestone_withEventOccurredSlaStartFrom_throwsUnsupportedOperation() {
+    String yaml =
+        """
+        namespace: test
+        name: Event StartFrom
+        version: 1.0.0
+        spec:
+          milestones:
+            - name: event-sla
+              condition: '.done == true'
+              slaDuration: PT1H
+              slaStartFrom: EVENT_OCCURRED
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(UnsupportedOperationException.class)
+        .hasMessageContaining("event-sla")
+        .hasMessageContaining("EVENT_OCCURRED")
+        .hasMessageContaining("not yet implemented");
   }
 }
