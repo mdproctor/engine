@@ -28,17 +28,20 @@ import java.util.Map;
  *     trust)
  * @param qualityFloors Phase 3: dimension name → minimum acceptable quality score; candidates
  *     failing any floor are excluded; no penalty if dimension data is absent
+ * @param bootstrapEscalationRequired true to escalate bootstrap context changes; false to handle
+ *     via routing fallback
  */
 public record TrustRoutingPolicy(
     double threshold,
     int minimumObservations,
     double borderlineMargin,
     double blendFactor,
-    Map<String, Double> qualityFloors) {
+    Map<String, Double> qualityFloors,
+    boolean bootstrapEscalationRequired) {
 
   /** Conservative defaults: 0.7 threshold, 10 observations, 0.1 margin, 60% trust blend. */
   public static final TrustRoutingPolicy DEFAULT =
-      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of());
+      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false);
 
   /** True when an agent lacks sufficient decision history for trust-based routing (Phase 0/1). */
   public boolean isBootstrap(final int decisionCount) {
