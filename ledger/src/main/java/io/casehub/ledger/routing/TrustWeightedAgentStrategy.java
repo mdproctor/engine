@@ -19,6 +19,7 @@ import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
@@ -86,12 +87,30 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
     final List<ClassifiedCandidate> classified =
         classifier.classify(candidates, context.capabilityName(), policy, cache);
 
-    final List<ScoredCandidate> scored = new ArrayList<>(classified.size());
-    for (final ClassifiedCandidate cc : classified) {
+    // Bootstrap guard: pre-screen before scoring
+    if (policy.bootstrapEscalationRequired()) {
+      final boolean hasQualified = classified.stream().anyMatch(c -> c.phase() == Phase.QUALIFIED);
+      final boolean hasBootstrap = classified.stream().anyMatch(c -> c.phase() == Phase.BOOTSTRAP);
+      if (!hasQualified && hasBootstrap) {
+        return Uni.createFrom()
+            .item(
+                AgentAssignment.escalate(
+                    context.capabilityName(), EscalationReason.NO_QUALIFIED_AGENT));
+      }
+    }
+
+    // Strip BOOTSTRAP from scoring when guard is active (only reached if QUALIFIED exists)
+    final List<ClassifiedCandidate> eligible =
+        policy.bootstrapEscalationRequired()
+            ? classified.stream().filter(c -> c.phase() != Phase.BOOTSTRAP).toList()
+            : classified;
+
+    final List<ScoredCandidate> scored = new ArrayList<>(eligible.size());
+    for (final ClassifiedCandidate cc : eligible) {
       scored.add(new ScoredCandidate(cc, score(cc, policy)));
     }
 
-    return Uni.createFrom().item(classifier.decide(classified, scored, context.capabilityName()));
+    return Uni.createFrom().item(classifier.decide(eligible, scored, context.capabilityName()));
   }
 
   private double score(final ClassifiedCandidate cc, final TrustRoutingPolicy policy) {
