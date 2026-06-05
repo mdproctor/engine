@@ -20,6 +20,7 @@ import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.eidos.api.AgentCapability;
@@ -119,6 +120,24 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
     final List<ClassifiedCandidate> classified =
         classifier.classify(candidates, context.capabilityName(), policy, cache);
 
+    // Bootstrap guard: pre-screen before entering worker pool — avoids embedding cost
+    if (policy.bootstrapEscalationRequired()) {
+      final boolean hasQualified = classified.stream().anyMatch(c -> c.phase() == Phase.QUALIFIED);
+      final boolean hasBootstrap = classified.stream().anyMatch(c -> c.phase() == Phase.BOOTSTRAP);
+      if (!hasQualified && hasBootstrap) {
+        return Uni.createFrom()
+            .item(
+                AgentAssignment.escalate(
+                    context.capabilityName(), EscalationReason.NO_QUALIFIED_AGENT));
+      }
+    }
+
+    // Compute eligible before entering worker pool; lambda captures eligible (not classified)
+    final List<ClassifiedCandidate> eligible =
+        policy.bootstrapEscalationRequired()
+            ? classified.stream().filter(c -> c.phase() != Phase.BOOTSTRAP).toList()
+            : classified;
+
     return Uni.createFrom()
         .voidItem()
         .emitOn(Infrastructure.getDefaultWorkerPool())
@@ -128,12 +147,12 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
                   extractQueryText(context.caseContext(), context.capabilityName());
               final float[] queryVector = embeddingCache.getOrCompute(queryText, embeddingProvider);
 
-              final List<ScoredCandidate> scored = new ArrayList<>(classified.size());
-              for (final ClassifiedCandidate cc : classified) {
+              final List<ScoredCandidate> scored = new ArrayList<>(eligible.size());
+              for (final ClassifiedCandidate cc : eligible) {
                 scored.add(new ScoredCandidate(cc, score(cc, queryVector, policy)));
               }
 
-              return classifier.decide(classified, scored, context.capabilityName());
+              return classifier.decide(eligible, scored, context.capabilityName());
             });
   }
 

@@ -27,6 +27,7 @@ import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.eidos.api.AgentCapability;
@@ -54,6 +55,8 @@ class SemanticAgentRoutingStrategyTest {
 
   private static final TrustRoutingPolicy POLICY =
       new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false);
+  private static final TrustRoutingPolicy BOOTSTRAP_GUARD_POLICY =
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), true);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @BeforeEach
@@ -148,6 +151,8 @@ class SemanticAgentRoutingStrategyTest {
     final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
 
     assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
+    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+        .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
   @Test
@@ -186,6 +191,160 @@ class SemanticAgentRoutingStrategyTest {
   void emptyCandidates_returnsUnresolvable() {
     assertThat(strategy.select(ctx(), List.of()).await().indefinitely())
         .isInstanceOf(AgentAssignment.Unresolvable.class);
+  }
+
+  // ---- Bootstrap guard (bootstrapEscalationRequired = true) -----------------------
+
+  @Test
+  void bootstrap_noQualified_allBootstrap_escalatesNoQualifiedAgent() {
+    // Pre-screen fires BEFORE emitOn(workerPool) — no embedding cost
+    when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
+    // Both candidates: no trust score → BOOTSTRAP phase
+
+    final List<AgentCandidate> candidates =
+        List.of(
+            new AgentCandidate("agent-1", Set.of("research"), 0, AgentHealth.READY, null),
+            new AgentCandidate("agent-2", Set.of("research"), 1, AgentHealth.READY, null));
+
+    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
+    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+        .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
+    assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName())
+        .isEqualTo("research");
+  }
+
+  @Test
+  void bootstrap_noQualified_bootstrapPlusBorderline_escalatesNoQualifiedAgent() {
+    // Mixed-pool gap: BOOTSTRAP + BORDERLINE → pre-screen fires, no embedding cost
+    when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
+    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
+
+    final List<AgentCandidate> candidates =
+        List.of(
+            candidateWithDescriptor("agent-border", 0, "agent-b"),
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+
+    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
+    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+        .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
+  }
+
+  @Test
+  void bootstrap_noQualified_bootstrapPlusExcluded_escalatesNoQualifiedAgent() {
+    when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
+    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
+    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
+
+    final List<AgentCandidate> candidates =
+        List.of(
+            candidateWithDescriptor("agent-low", 0, "agent-l"),
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+
+    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
+    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+        .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
+  }
+
+  @Test
+  void bootstrap_qualifiedExists_bootstrapStripped_qualifiedAssigned() {
+    // QUALIFIED exists → pre-screen skips, enters worker pool; BOOTSTRAP stripped from eligible
+    // Embedding mocks needed because QUALIFIED candidate triggers semantic scoring
+    when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
+    when(cache.getCapabilityScore("agent-qualified", "research"))
+        .thenReturn(OptionalDouble.of(0.85));
+    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
+    when(jqEvaluator.eval(anyString(), any()))
+        .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
+    when(embeddingProvider.embed(any()))
+        .thenReturn(new float[] {1.0f, 0.0f}) // query vector
+        .thenReturn(new float[] {0.9f, 0.1f}); // agent-qualified descriptor
+
+    final List<AgentCandidate> candidates =
+        List.of(
+            candidateWithDescriptor("agent-qualified", 2, "agent-q"),
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+
+    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+  }
+
+  @Test
+  void bootstrap_qualifiedExists_bootstrapStripped_busyQualifiedWinsOverIdleBootstrap() {
+    // Explicit: flag overrides workload comparison. Busy QUALIFIED beats idle BOOTSTRAP.
+    when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
+    when(cache.getCapabilityScore("agent-qualified", "research"))
+        .thenReturn(OptionalDouble.of(0.85));
+    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
+    when(jqEvaluator.eval(anyString(), any()))
+        .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
+    when(embeddingProvider.embed(any()))
+        .thenReturn(new float[] {1.0f, 0.0f})
+        .thenReturn(new float[] {0.9f, 0.1f});
+
+    final List<AgentCandidate> candidates =
+        List.of(
+            candidateWithDescriptor("agent-qualified", 5, "agent-q"),
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+
+    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+  }
+
+  @Test
+  void bootstrap_qualifiedExists_bootstrapPlusBorderline_qualifiedWins_noBorderlineStalemate() {
+    // [BOOTSTRAP, QUALIFIED, BORDERLINE]: BOOTSTRAP stripped; eligible=[QUALIFIED, BORDERLINE]
+    // QUALIFIED wins positive score; BORDERLINE_STALEMATE must NOT fire
+    when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
+    when(cache.getCapabilityScore("agent-qualified", "research"))
+        .thenReturn(OptionalDouble.of(0.85));
+    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
+    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
+    when(jqEvaluator.eval(anyString(), any()))
+        .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
+    when(embeddingProvider.embed(any()))
+        .thenReturn(new float[] {1.0f, 0.0f})
+        .thenReturn(new float[] {0.9f, 0.1f}); // QUALIFIED descriptor only; BORDERLINE scores 0.0
+
+    final List<AgentCandidate> candidates =
+        List.of(
+            candidateWithDescriptor("agent-qualified", 0, "agent-q"),
+            candidateWithDescriptor("agent-border", 0, "agent-b"),
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+
+    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+  }
+
+  @Test
+  void bootstrap_flagFalse_allBootstrap_assignsByWorkload() {
+    // POLICY has bootstrapEscalationRequired = false; pre-screen skipped; existing behaviour
+    when(jqEvaluator.eval(anyString(), any()))
+        .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
+    when(embeddingProvider.embed(any())).thenReturn(new float[] {1.0f, 0.0f});
+
+    final List<AgentCandidate> candidates =
+        List.of(
+            new AgentCandidate("agent-busy", Set.of("research"), 5, AgentHealth.READY, null),
+            new AgentCandidate("agent-idle", Set.of("research"), 0, AgentHealth.READY, null));
+
+    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+
+    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-idle");
   }
 
   // ---- Helpers ---------------------------------------------------------------
