@@ -17,6 +17,7 @@ package io.casehub.engine.internal.engine.handler;
 
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.spi.CaseChannelProvider;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.qhorus.api.message.MessageType;
@@ -52,6 +53,15 @@ public class AgentRoutingEscalationHandler {
 
   @ConsumeEvent(value = EventBusAddresses.AGENT_ROUTING_ESCALATION, blocking = true)
   public void handle(final AgentRoutingEscalationEvent event) {
+    // Metric log fires unconditionally — before channel search
+    // Fires even when no oversight channel is open (that scenario is the most critical to alert on)
+    if (event.reason() == EscalationReason.NO_QUALIFIED_AGENT) {
+      LOG.warnf(
+          "[METRIC:escalation.no-qualified-agent] caseId=%s capability=%s binding=%s"
+              + " — bootstrap guard fired; no trust-qualified agent available.",
+          event.caseId(), event.capabilityName(), event.bindingName());
+    }
+
     final String oversightName = CaseChannel.oversightChannelName(event.caseId());
     final List<CaseChannel> channels = channelProvider.listChannels(event.caseId());
 
@@ -70,18 +80,27 @@ public class AgentRoutingEscalationHandler {
 
   private void postQuery(final CaseChannel channel, final AgentRoutingEscalationEvent event) {
     final String message =
-        String.format(
-            "All agent candidates for capability '%s' (binding: '%s') are borderline."
-                + " Human oversight required: please select an agent or approve the next"
-                + " best available agent.",
-            event.capabilityName(), event.bindingName());
+        switch (event.reason()) {
+          case BORDERLINE_STALEMATE ->
+              String.format(
+                  "All agent candidates for capability '%s' (binding: '%s') are borderline."
+                      + " Human oversight required: please select an agent or approve the next"
+                      + " best available agent.",
+                  event.capabilityName(), event.bindingName());
+          case NO_QUALIFIED_AGENT ->
+              String.format(
+                  "No trust-qualified agent is available for capability '%s' (binding: '%s')."
+                      + " Routing policy requires an agent with established trust history."
+                      + " Human routing required.",
+                  event.capabilityName(), event.bindingName());
+        };
 
     channelProvider.postToChannel(
         channel, "casehub-engine", message, MessageType.QUERY, null, null);
 
     LOG.infof(
         "Agent routing escalation: QUERY posted to oversight channel '%s' for"
-            + " caseId=%s capability=%s",
-        channel.name(), event.caseId(), event.capabilityName());
+            + " caseId=%s capability=%s reason=%s",
+        channel.name(), event.caseId(), event.capabilityName(), event.reason());
   }
 }

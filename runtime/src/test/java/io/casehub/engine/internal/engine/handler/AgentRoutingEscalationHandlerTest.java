@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine.handler;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -85,6 +86,41 @@ class AgentRoutingEscalationHandlerTest {
     handler.handle(
         new AgentRoutingEscalationEvent(
             caseId, "research", "research-binding", EscalationReason.BORDERLINE_STALEMATE));
+
+    verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
+  }
+
+  @Test
+  void noQualifiedAgent_channelFound_postsQueryWithNoQualifiedMessage() {
+    final UUID caseId = UUID.randomUUID();
+    final String oversightName = CaseChannel.oversightChannelName(caseId);
+    final CaseChannel oversight = channel(oversightName);
+    when(channelProvider.listChannels(caseId)).thenReturn(List.of(oversight));
+
+    handler.handle(
+        new AgentRoutingEscalationEvent(
+            caseId, "merge-executor", "merge-binding", EscalationReason.NO_QUALIFIED_AGENT));
+
+    verify(channelProvider)
+        .postToChannel(
+            eq(oversight),
+            eq("casehub-engine"),
+            contains("No trust-qualified agent"),
+            eq(MessageType.QUERY),
+            eq(null),
+            eq(null));
+  }
+
+  @Test
+  void noQualifiedAgent_noChannel_doesNotPostQueryButHandlesGracefully() {
+    // Regression test: metric log fires unconditionally before channel search.
+    // Even with no channel, handle() completes without error and posts nothing.
+    final UUID caseId = UUID.randomUUID();
+    when(channelProvider.listChannels(caseId)).thenReturn(List.of());
+
+    handler.handle(
+        new AgentRoutingEscalationEvent(
+            caseId, "merge-executor", "merge-binding", EscalationReason.NO_QUALIFIED_AGENT));
 
     verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
   }
