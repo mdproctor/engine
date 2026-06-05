@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
+import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ScoredCandidate;
@@ -173,6 +174,8 @@ class TrustCandidateClassifierTest {
 
     assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
     assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName()).isEqualTo(CAP);
+    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+        .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
   @Test
@@ -195,6 +198,8 @@ class TrustCandidateClassifierTest {
     final AgentAssignment result = classifier.decide(List.of(border, excluded), scored, CAP);
 
     assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
+    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+        .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
   @Test
