@@ -15,7 +15,6 @@
  */
 package io.casehub.resilience.deadletter;
 
-import io.casehub.api.model.WorkerResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -29,6 +28,7 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -149,9 +149,7 @@ class DeadLetterReplayServiceTest {
         Worker.builder()
             .name(workerId)
             .capabilities(cap)
-            .function(
-                (java.util.function.Function<Map<String, Object>, Map<String, Object>>)
-                    i -> WorkerResult.of(Map.of()))
+            .function(i -> WorkerResult.of(Map.of()))
             .build();
     CaseDefinition definition =
         CaseDefinition.builder()
