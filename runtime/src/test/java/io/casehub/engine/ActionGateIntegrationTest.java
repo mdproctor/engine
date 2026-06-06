@@ -101,7 +101,14 @@ class ActionGateIntegrationTest {
 
     final UUID caseId = startCase();
 
-    await().atMost(5, TimeUnit.SECONDS).until(() -> !CapturingClassifier.capturedActions.isEmpty());
+    // Wait for THIS case's gate specifically — not any classifier action (cross-test contamination)
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(
+            () -> {
+              final var inst = caseInstanceCache.get(caseId);
+              return inst != null && inst.getPendingActionGate() != null;
+            });
 
     // Case must NOT complete — gate is pending
     assertThat(caseInstanceCache.get(caseId).getState()).isEqualTo(CaseStatus.RUNNING);
@@ -185,11 +192,19 @@ class ActionGateIntegrationTest {
 
     final UUID caseId = startCase();
 
+    // Wait for THIS case's classifier to fire specifically
     await()
         .atMost(10, TimeUnit.SECONDS)
-        .until(() -> !CapturingClassifier.capturedActions.isEmpty());
+        .until(
+            () ->
+                CapturingClassifier.capturedActions.stream()
+                    .anyMatch(a -> caseId.equals(a.caseId())));
 
-    final PlannedAction action = CapturingClassifier.capturedActions.get(0);
+    final PlannedAction action =
+        CapturingClassifier.capturedActions.stream()
+            .filter(a -> caseId.equals(a.caseId()))
+            .findFirst()
+            .orElseThrow();
     assertThat(action.workerId()).isEqualTo("gate-worker");
     assertThat(action.caseId()).isEqualTo(caseId);
     assertThat(action.description()).isEqualTo("File SAR report");

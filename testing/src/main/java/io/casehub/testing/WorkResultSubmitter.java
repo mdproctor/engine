@@ -66,7 +66,7 @@ public class WorkResultSubmitter {
               String idempotency = UUID.randomUUID().toString();
               eventBus.publish(
                   EventBusAddresses.WORKER_EXECUTION_FINISHED,
-                  new WorkflowExecutionCompleted(instance, worker, idempotency, output));
+                  WorkflowExecutionCompleted.approved(instance, worker, idempotency, output));
               return (Void) null;
             });
   }
