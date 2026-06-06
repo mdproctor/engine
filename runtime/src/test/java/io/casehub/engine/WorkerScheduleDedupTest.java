@@ -24,6 +24,7 @@ import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
@@ -293,11 +294,12 @@ public class WorkerScheduleDedupTest {
             .function(
                 input -> {
                   runCount.incrementAndGet();
-                  return Map.of(
-                      "status",
-                      "processed",
-                      "processedDocument",
-                      Map.of("id", input.get("documentId")));
+                  return WorkerResult.of(
+                      Map.of(
+                          "status",
+                          "processed",
+                          "processedDocument",
+                          Map.of("id", input.get("documentId"))));
                 })
             .build();
 

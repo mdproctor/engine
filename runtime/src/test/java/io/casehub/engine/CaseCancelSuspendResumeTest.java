@@ -26,6 +26,7 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
@@ -373,7 +374,7 @@ class CaseCancelSuspendResumeTest {
                   .function(
                       input -> {
                         runCount.incrementAndGet();
-                        return Map.of("result", "done");
+                        return WorkerResult.of(Map.of("result", "done"));
                       })
                   .build())
           .bindings(

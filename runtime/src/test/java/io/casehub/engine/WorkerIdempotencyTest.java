@@ -26,6 +26,7 @@ import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
@@ -635,7 +636,7 @@ public class WorkerIdempotencyTest {
                         .computeIfAbsent(taskId, k -> new AtomicInteger())
                         .incrementAndGet();
                   }
-                  return Map.of("taskResult", "done");
+                  return WorkerResult.of(Map.of("taskResult", "done"));
                 })
             .build();
 
@@ -699,7 +700,7 @@ public class WorkerIdempotencyTest {
                   .function(
                       input -> {
                         alphaRunCount.incrementAndGet();
-                        return Map.of("alphaResult", "done");
+                        return WorkerResult.of(Map.of("alphaResult", "done"));
                       })
                   .build(),
               Worker.builder()
@@ -708,7 +709,7 @@ public class WorkerIdempotencyTest {
                   .function(
                       input -> {
                         betaRunCount.incrementAndGet();
-                        return Map.of("betaResult", "done");
+                        return WorkerResult.of(Map.of("betaResult", "done"));
                       })
                   .build())
           .bindings(

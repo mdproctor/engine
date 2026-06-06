@@ -15,6 +15,7 @@
  */
 package io.casehub.resilience.timeout;
 
+import io.casehub.api.model.WorkerResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -166,7 +167,7 @@ class CaseTimeoutEnforcerIntegrationTest {
                         } catch (InterruptedException e) {
                           Thread.currentThread().interrupt();
                         }
-                        return Map.of();
+                        return WorkerResult.of(Map.of());
                       })
                   .executionPolicy(
                       // 30s per-execution timeout, 1 retry — budget expires at 1s, long before

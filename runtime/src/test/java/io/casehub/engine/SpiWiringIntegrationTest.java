@@ -33,6 +33,7 @@ import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.ProvisionResult;
 import io.casehub.api.spi.ProvisioningException;
@@ -589,14 +590,13 @@ class SpiWiringIntegrationTest {
               .name("execution-context-recorder")
               .capabilities(capability)
               .function(
-                  (java.util.function.Function<Map<String, Object>, Map<String, Object>>)
-                      input -> {
-                        WorkerContext ctx = WorkerExecutionContext.current();
-                        if (ctx != null) {
-                          RecordingExecutionContextWorker.capturedChannels.add(ctx.channels());
-                        }
-                        return Map.of("recorded", true);
-                      })
+                  input -> {
+                    WorkerContext ctx = WorkerExecutionContext.current();
+                    if (ctx != null) {
+                      RecordingExecutionContextWorker.capturedChannels.add(ctx.channels());
+                    }
+                    return WorkerResult.of(Map.of("recorded", true));
+                  })
               .build();
 
       return CaseDefinition.builder()

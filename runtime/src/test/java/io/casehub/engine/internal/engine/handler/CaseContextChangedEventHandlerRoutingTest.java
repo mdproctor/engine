@@ -33,6 +33,7 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.spi.ReactiveWorkerContextProvider;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.api.spi.routing.AgentAssignment;
@@ -112,7 +113,7 @@ class CaseContextChangedEventHandlerRoutingTest {
         Worker.builder()
             .name("analyst-worker")
             .capabilities(capability)
-            .function(input -> java.util.Map.of())
+            .function(input -> WorkerResult.of(java.util.Map.of()))
             .build();
 
     final CaseMetaModel metaModel = mock(CaseMetaModel.class);

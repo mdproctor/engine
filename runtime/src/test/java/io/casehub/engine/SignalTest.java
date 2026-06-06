@@ -29,6 +29,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -263,7 +264,7 @@ public class SignalTest {
                               .computeIfAbsent(orderId, k -> new AtomicInteger())
                               .incrementAndGet();
                         }
-                        return Map.of("status", "paid");
+                        return WorkerResult.of(Map.of("status", "paid"));
                       })
                   .build())
           .bindings(
@@ -323,7 +324,7 @@ public class SignalTest {
                   .function(
                       input -> {
                         paymentRunCount.incrementAndGet();
-                        return Map.of("paymentProcessed", true);
+                        return WorkerResult.of(Map.of("paymentProcessed", true));
                       })
                   .build(),
               Worker.builder()
@@ -332,7 +333,7 @@ public class SignalTest {
                   .function(
                       input -> {
                         documentRunCount.incrementAndGet();
-                        return Map.of("documentProcessed", true);
+                        return WorkerResult.of(Map.of("documentProcessed", true));
                       })
                   .build())
           .bindings(

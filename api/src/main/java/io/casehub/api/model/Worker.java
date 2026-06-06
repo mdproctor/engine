@@ -138,7 +138,7 @@ public class Worker implements PlanElement {
       return this;
     }
 
-    public Builder function(Function<Map<String, Object>, Map<String, Object>> function) {
+    public Builder function(Function<Map<String, Object>, WorkerResult> function) {
       this.functionHolder = new WorkerFunctionHolder<>(function);
       return this;
     }

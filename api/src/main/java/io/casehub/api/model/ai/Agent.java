@@ -27,6 +27,7 @@ import dev.langchain4j.model.chat.request.ResponseFormatType;
 import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.input.PromptTemplate;
+import io.casehub.api.model.WorkerResult;
 import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;
@@ -62,7 +63,15 @@ public final class Agent {
     return new AgentBuilder();
   }
 
-  public Map<String, Object> execute(Map<String, Object> input) {
+  /**
+   * Executes this agent with the given input and returns a {@link WorkerResult}.
+   *
+   * <p>The output map is the LLM response after applying the output transformer. Workers that
+   * declare a consequential action should use {@link WorkerResult#of(Map,
+   * io.casehub.api.spi.PlannedAction)} — agents that don't declare actions use {@link
+   * WorkerResult#of(Map)}.
+   */
+  public WorkerResult execute(Map<String, Object> input) {
     JsonNode inputNode = MAPPER.convertValue(input, JsonNode.class);
     JsonNode transformed = inputTransformer.apply(inputNode);
 
@@ -98,7 +107,7 @@ public final class Agent {
       throw new AgentException("LLM returned invalid JSON: " + responseText, e);
     }
 
-    return MAPPER.convertValue(outputTransformer.apply(responseJson), MAP_TYPE);
+    return WorkerResult.of(MAPPER.convertValue(outputTransformer.apply(responseJson), MAP_TYPE));
   }
 
   private ResponseFormat buildResponseFormat() {

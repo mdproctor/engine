@@ -84,14 +84,23 @@ public class WorkItemLifecycleAdapter {
     CallerRef ref = CallerRef.parse(workItem.callerRef);
     if (ref == null) return;
 
-    if (registry.get(ref.caseId()).isEmpty()) {
-      LOG.debugf(
-          "No CasePlanModel for caseId=%s — case may have completed or not use blackboard",
-          ref.caseId());
+    // Gate WorkItems bypass the blackboard guard — they have no PlanItem. Gate routing
+    // is handled by ActionGateCompletionApplier (wired in task #13 / engine#402).
+    if (ref instanceof GateCallerRef gateRef) {
+      routeGate(gateRef, status, workItem);
       return;
     }
 
-    applier.apply(ref.caseId(), ref.planItemId(), status, workItem);
+    if (!(ref instanceof PlanItemCallerRef piRef)) return;
+
+    if (registry.get(piRef.caseId()).isEmpty()) {
+      LOG.debugf(
+          "No CasePlanModel for caseId=%s — case may have completed or not use blackboard",
+          piRef.caseId());
+      return;
+    }
+
+    applier.apply(piRef.caseId(), piRef.planItemId(), status, workItem);
   }
 
   public void onWorkItemGroupLifecycle(@ObservesAsync WorkItemGroupLifecycleEvent event) {
@@ -99,26 +108,28 @@ public class WorkItemLifecycleAdapter {
     if (status != GroupStatus.COMPLETED && status != GroupStatus.REJECTED) return;
 
     CallerRef ref = CallerRef.parse(event.callerRef());
-    if (ref == null) return;
+    if (!(ref instanceof PlanItemCallerRef piRef)) return;
 
-    CasePlanModel plan = registry.get(ref.caseId()).orElse(null);
+    CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
     if (plan == null) {
-      LOG.debugf("No CasePlanModel for caseId=%s — group outcome ignored", ref.caseId());
+      LOG.debugf("No CasePlanModel for caseId=%s — group outcome ignored", piRef.caseId());
       return;
     }
 
-    PlanItem item = plan.getPlanItem(ref.planItemId()).orElse(null);
+    PlanItem item = plan.getPlanItem(piRef.planItemId()).orElse(null);
     if (item == null) {
       LOG.warnf(
-          "PlanItem %s not found in case %s for group outcome", ref.planItemId(), ref.caseId());
+          "PlanItem %s not found in case %s for group outcome", piRef.planItemId(), piRef.caseId());
       return;
     }
 
     if (!applyGroupStatus(item, status)) return;
 
-    CaseInstance instance = caseInstanceRepository.findByUuid(ref.caseId()).await().atMost(TIMEOUT);
+    CaseInstance instance =
+        caseInstanceRepository.findByUuid(piRef.caseId()).await().atMost(TIMEOUT);
     if (instance == null) {
-      LOG.warnf("CaseInstance not found for caseId=%s — cannot fire CONTEXT_CHANGED", ref.caseId());
+      LOG.warnf(
+          "CaseInstance not found for caseId=%s — cannot fire CONTEXT_CHANGED", piRef.caseId());
       return;
     }
 
@@ -159,25 +170,26 @@ public class WorkItemLifecycleAdapter {
     if (!(event.source() instanceof WorkItem workItem)) return;
 
     CallerRef ref = CallerRef.parse(workItem.callerRef);
-    if (ref == null) return;
+    if (!(ref instanceof PlanItemCallerRef piRef)) return;
 
-    CasePlanModel plan = registry.get(ref.caseId()).orElse(null);
+    CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
     if (plan == null) {
-      LOG.debugf("No CasePlanModel for caseId=%s — escalation signal skipped", ref.caseId());
+      LOG.debugf("No CasePlanModel for caseId=%s — escalation signal skipped", piRef.caseId());
       return;
     }
 
-    PlanItem item = plan.getPlanItem(ref.planItemId()).orElse(null);
+    PlanItem item = plan.getPlanItem(piRef.planItemId()).orElse(null);
     if (item == null) {
       LOG.warnf(
           "PlanItem %s not found in case %s — escalation signal skipped",
-          ref.planItemId(), ref.caseId());
+          piRef.planItemId(), piRef.caseId());
       return;
     }
 
-    CaseInstance instance = caseInstanceRepository.findByUuid(ref.caseId()).await().atMost(TIMEOUT);
+    CaseInstance instance =
+        caseInstanceRepository.findByUuid(piRef.caseId()).await().atMost(TIMEOUT);
     if (instance == null) {
-      LOG.warnf("CaseInstance not found for caseId=%s — escalation signal skipped", ref.caseId());
+      LOG.warnf("CaseInstance not found for caseId=%s — escalation signal skipped", piRef.caseId());
       return;
     }
 
@@ -203,6 +215,14 @@ public class WorkItemLifecycleAdapter {
 
     LOG.infof(
         "WorkItem escalation signal: caseId=%s planItemId=%s bindingName=%s newGroups=%s",
-        ref.caseId(), ref.planItemId(), item.getBindingName(), newGroups);
+        piRef.caseId(), piRef.planItemId(), item.getBindingName(), newGroups);
+  }
+
+  /** Stub — replaced by full ActionGateCompletionApplier routing in engine#402 task #13. */
+  private void routeGate(
+      final GateCallerRef gateRef, final WorkItemStatus status, final WorkItem workItem) {
+    LOG.debugf(
+        "Gate WorkItem lifecycle: caseId=%s gateId=%d status=%s — routing pending task #13",
+        gateRef.caseId(), gateRef.gateId(), status);
   }
 }

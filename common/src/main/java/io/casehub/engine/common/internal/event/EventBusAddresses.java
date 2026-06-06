@@ -51,4 +51,35 @@ public final class EventBusAddresses {
 
   /** Published by QuartzWorkerExecutionJob when a workflow future completes exceptionally. */
   public static final String WORKFLOW_EXECUTION_FAILED = "casehub.workflow.execution.failed";
+
+  // --- Action gate lifecycle ---
+
+  /** Published by WorkflowExecutionCompletedHandler when GateRequired fires. */
+  public static final String ACTION_GATE_SCHEDULE = "casehub.action.gate.schedule";
+
+  /**
+   * Published by ActionGateCompletionApplier (work-adapter) when a gate WorkItem is COMPLETED.
+   * Handled by ActionGateApprovedHandler in the engine runtime.
+   */
+  public static final String ACTION_GATE_APPROVED = "casehub.action.gate.approved";
+
+  /**
+   * Published by ActionGateCompletionApplier (work-adapter) when a gate WorkItem is
+   * REJECTED/CANCELLED. Handled by ActionGateRejectedHandler in the engine runtime and by
+   * ActionGateRejectedPlanItemHandler in the blackboard module.
+   */
+  public static final String ACTION_GATE_REJECTED = "casehub.action.gate.rejected";
+
+  /**
+   * Published by ActionGateCompletionApplier (work-adapter) when a gate WorkItem expires. Handled
+   * by ActionGateExpiredHandler in the engine runtime and by ActionGateExpiredPlanItemHandler in
+   * the blackboard module.
+   */
+  public static final String ACTION_GATE_EXPIRED = "casehub.action.gate.expired";
+
+  /**
+   * Published by CaseStatusChangedHandler when a case transitions to a terminal state while a gate
+   * is pending. Handled by ActionGateCancelledHandler in work-adapter to cancel the WorkItem.
+   */
+  public static final String ACTION_GATE_CANCELLED = "casehub.action.gate.cancelled";
 }

@@ -24,6 +24,7 @@ import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
@@ -125,7 +126,7 @@ class LambdaEntryConditionBlackboardTest {
               Worker.builder()
                   .name("lambda-worker")
                   .capabilities(cap)
-                  .function(input -> Map.of("done", true))
+                  .function(input -> WorkerResult.of(Map.of("done", true)))
                   .build())
           .bindings(
               Binding.builder()

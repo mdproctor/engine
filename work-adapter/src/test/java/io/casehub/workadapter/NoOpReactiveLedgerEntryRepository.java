@@ -75,6 +75,11 @@ class NoOpReactiveLedgerEntryRepository implements ReactiveLedgerEntryRepository
   }
 
   @Override
+  public Uni<List<LedgerEntry>> findEventsByActorId(String actorId) {
+    return Uni.createFrom().item(List.of());
+  }
+
+  @Override
   public Uni<List<LedgerEntry>> findByActorId(String actorId, Instant from, Instant to) {
     return Uni.createFrom().item(List.of());
   }

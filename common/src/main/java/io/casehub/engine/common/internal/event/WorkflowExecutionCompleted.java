@@ -16,8 +16,35 @@
 package io.casehub.engine.common.internal.event;
 
 import io.casehub.api.model.Worker;
+import io.casehub.api.spi.PlannedAction;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.Map;
 
+/**
+ * Published on {@link EventBusAddresses#WORKER_EXECUTION_FINISHED} when a worker function returns.
+ *
+ * <p>{@code plannedAction} is non-null only when the worker returned a {@link
+ * io.casehub.api.model.WorkerResult} with a declared action. The engine's completion handler forks
+ * on this field: null means the normal path; non-null triggers {@link
+ * io.casehub.api.spi.ReactiveActionRiskClassifier#classify(PlannedAction)} before applying output.
+ *
+ * <p>The gate approval path re-publishes this event with {@code plannedAction=null} so the normal
+ * completion machinery handles output application, PlanItem completion, and stage autocomplete
+ * without re-classifying.
+ */
 public record WorkflowExecutionCompleted(
-    CaseInstance caseInstance, Worker worker, String idempotency, Map<String, Object> output) {}
+    CaseInstance caseInstance,
+    Worker worker,
+    String idempotency,
+    Map<String, Object> output,
+    PlannedAction plannedAction) {
+
+  /** Convenience constructor for the gate-re-fire path — plannedAction is always null. */
+  public static WorkflowExecutionCompleted approved(
+      final CaseInstance caseInstance,
+      final Worker worker,
+      final String idempotency,
+      final Map<String, Object> output) {
+    return new WorkflowExecutionCompleted(caseInstance, worker, idempotency, output, null);
+  }
+}

@@ -25,7 +25,9 @@ import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.ai.Agent;
+import io.casehub.api.spi.PlannedAction;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
@@ -177,21 +179,22 @@ class QuartzWorkerExecutionJob implements Job {
                       eventLogId,
                       ex);
                 } else {
+                  // Workflow workers don't support PlannedAction in v1 — plannedAction=null.
                   eventBus.publish(
                       WORKER_EXECUTION_FINISHED,
                       new WorkflowExecutionCompleted(
-                          instance, workerForClosure, inputDataHash, output));
+                          instance, workerForClosure, inputDataHash, output, null));
                 }
               });
       return; // Quartz marks the job complete; async path handles the rest
     }
 
-    Map<String, Object> outputData;
+    WorkerResult workerResult;
     try {
       if (worker.getFunction().getValue() instanceof Function function) {
-        outputData = function(function, inputData, workerContext, timeoutMs);
+        workerResult = function(function, inputData, workerContext, timeoutMs);
       } else if (worker.getFunction().getValue() instanceof Agent agent) {
-        outputData = agent(agent, inputData, workerContext, timeoutMs);
+        workerResult = agent(agent, inputData, workerContext, timeoutMs);
       } else {
         throw new RuntimeException(
             "Worker function is not a function or agent: "
@@ -209,11 +212,18 @@ class QuartzWorkerExecutionJob implements Job {
       throw new JobExecutionException("Worker execution failed: " + worker.getName(), e.getCause());
     }
 
-    Map<String, Object> toContextOutputData = evalJqAsMap(outputData, capability.getOutputSchema());
+    final Map<String, Object> outputData =
+        evalJqAsMap(workerResult.output(), capability.getOutputSchema());
+    // Enrich PlannedAction with workerId and caseId before passing to the completion handler.
+    final PlannedAction enrichedAction =
+        workerResult.plannedAction() != null
+            ? workerResult.plannedAction().withIdentity(worker.getName(), instance.getUuid())
+            : null;
 
-    WorkflowExecutionCompleted event =
-        new WorkflowExecutionCompleted(instance, worker, inputDataHash, toContextOutputData);
-    eventBus.publish(WORKER_EXECUTION_FINISHED, event);
+    eventBus.publish(
+        WORKER_EXECUTION_FINISHED,
+        new WorkflowExecutionCompleted(
+            instance, worker, inputDataHash, outputData, enrichedAction));
   }
 
   private void handleWorkflowFailure(
@@ -232,8 +242,8 @@ class QuartzWorkerExecutionJob implements Job {
             instance, worker, capability, inputDataHash, eventLogId, cause));
   }
 
-  private Map<String, Object> function(
-      Function<Map<String, Object>, Map<String, Object>> function,
+  private WorkerResult function(
+      Function<Map<String, Object>, WorkerResult> function,
       Map<String, Object> inputData,
       WorkerContext workerContext,
       int timeoutMs)
@@ -241,7 +251,7 @@ class QuartzWorkerExecutionJob implements Job {
 
     LOG.debugf("Executing function with timeout: %d ms", timeoutMs);
 
-    CompletableFuture<Map<String, Object>> cf =
+    CompletableFuture<WorkerResult> cf =
         CompletableFuture.supplyAsync(
             () -> {
               WorkerExecutionContext.set(workerContext);
@@ -255,13 +265,13 @@ class QuartzWorkerExecutionJob implements Job {
     return cf.get(timeoutMs, TimeUnit.MILLISECONDS);
   }
 
-  private Map<String, Object> agent(
+  private WorkerResult agent(
       Agent agent, Map<String, Object> inputData, WorkerContext workerContext, int timeoutMs)
       throws TimeoutException, InterruptedException, ExecutionException {
 
     LOG.debugf("Executing agent with timeout: %d ms", timeoutMs);
 
-    CompletableFuture<Map<String, Object>> cf =
+    CompletableFuture<WorkerResult> cf =
         CompletableFuture.supplyAsync(
             () -> {
               WorkerExecutionContext.set(workerContext);

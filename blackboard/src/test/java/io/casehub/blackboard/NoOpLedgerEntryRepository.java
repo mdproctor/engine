@@ -79,6 +79,11 @@ class NoOpLedgerEntryRepository implements LedgerEntryRepository {
   }
 
   @Override
+  public List<LedgerEntry> findEventsByActorId(String actorId) {
+    return List.of();
+  }
+
+  @Override
   public Map<UUID, List<LedgerAttestation>> findAttestationsForEntries(Set<UUID> entryIds) {
     return Map.of();
   }

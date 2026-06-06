@@ -24,6 +24,7 @@ import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
@@ -421,7 +422,7 @@ class StageBlackboardTest {
               Worker.builder()
                   .name("signal-worker")
                   .capabilities(cap)
-                  .function(input -> Map.of("probe", "done"))
+                  .function(input -> WorkerResult.of(Map.of("probe", "done")))
                   .build())
           .bindings(
               Binding.builder()
@@ -460,7 +461,9 @@ class StageBlackboardTest {
               Worker.builder()
                   .name("once-signal-worker")
                   .capabilities(cap)
-                  .function(input -> Map.of("go", false)) // falsifies trigger, no re-fire
+                  .function(
+                      input ->
+                          WorkerResult.of(Map.of("go", false))) // falsifies trigger, no re-fire
                   .build())
           .bindings(
               Binding.builder()

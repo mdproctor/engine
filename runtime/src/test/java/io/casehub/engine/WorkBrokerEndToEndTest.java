@@ -28,6 +28,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -125,7 +126,7 @@ class WorkBrokerEndToEndTest {
                       input -> {
                         stage1BeforeStage2 = stage2Count.get() == 0;
                         stage1Count.incrementAndGet();
-                        return Map.of("stage", "processed");
+                        return WorkerResult.of(Map.of("stage", "processed"));
                       })
                   .build(),
               Worker.builder()
@@ -134,7 +135,7 @@ class WorkBrokerEndToEndTest {
                   .function(
                       input -> {
                         stage2Count.incrementAndGet();
-                        return Map.of("stage", "final");
+                        return WorkerResult.of(Map.of("stage", "final"));
                       })
                   .build())
           .bindings(

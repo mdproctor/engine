@@ -24,6 +24,7 @@ import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
@@ -110,7 +111,7 @@ class ExitConditionBlackboardTest {
               Worker.builder()
                   .name("exit-writer-worker")
                   .capabilities(cap)
-                  .function(input -> Map.of("phase", "exited"))
+                  .function(input -> WorkerResult.of(Map.of("phase", "exited")))
                   .build())
           .bindings(
               Binding.builder()

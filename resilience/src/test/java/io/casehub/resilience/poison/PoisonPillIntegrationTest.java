@@ -15,6 +15,7 @@
  */
 package io.casehub.resilience.poison;
 
+import io.casehub.api.model.WorkerResult;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
@@ -181,7 +182,7 @@ class PoisonPillIntegrationTest {
                   .function(
                       input -> {
                         runCount.incrementAndGet();
-                        return Map.of("status", "complete");
+                        return WorkerResult.of(Map.of("status", "complete"));
                       })
                   .executionPolicy(new ExecutionPolicy(5000, new RetryPolicy(1, 100)))
                   .build())

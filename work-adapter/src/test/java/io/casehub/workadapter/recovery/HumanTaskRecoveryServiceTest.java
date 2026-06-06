@@ -33,7 +33,7 @@ import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.casehub.work.testing.InMemoryWorkItemStore;
-import io.casehub.workadapter.CallerRef;
+import io.casehub.workadapter.PlanItemCallerRef;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -67,7 +67,7 @@ class HumanTaskRecoveryServiceTest {
     if (workItemStore instanceof InMemoryWorkItemStore mem) mem.clear();
     caseId = UUID.randomUUID();
     planItemId = UUID.randomUUID().toString();
-    callerRef = CallerRef.encode(caseId, planItemId);
+    callerRef = PlanItemCallerRef.encode(caseId, planItemId);
 
     planItemStore.save(
         new PlanItemSaveRequest(

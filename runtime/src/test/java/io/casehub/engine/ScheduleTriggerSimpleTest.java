@@ -27,6 +27,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.ScheduleTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
@@ -254,7 +255,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     executionCount.incrementAndGet();
-                    return Map.of("workDone", true);
+                    return WorkerResult.of(Map.of("workDone", true));
                   })
               .build();
 
@@ -296,7 +297,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     executionCount.incrementAndGet();
-                    return Map.of("workDone", true);
+                    return WorkerResult.of(Map.of("workDone", true));
                   })
               .build();
 
@@ -338,7 +339,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     executionCount.incrementAndGet();
-                    return Map.of("workDone", true);
+                    return WorkerResult.of(Map.of("workDone", true));
                   })
               .build();
 
@@ -381,7 +382,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     executionCount.incrementAndGet();
-                    return Map.of("workDone", true);
+                    return WorkerResult.of(Map.of("workDone", true));
                   })
               .build();
 
@@ -424,7 +425,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     executionCount.incrementAndGet();
-                    return Map.of("workDone", true);
+                    return WorkerResult.of(Map.of("workDone", true));
                   })
               .build();
 
@@ -467,7 +468,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     executionCount.incrementAndGet();
-                    return Map.of("workDone", true);
+                    return WorkerResult.of(Map.of("workDone", true));
                   })
               .build();
 
@@ -518,7 +519,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     worker1Count.incrementAndGet();
-                    return Map.of("work1Done", true);
+                    return WorkerResult.of(Map.of("work1Done", true));
                   })
               .build();
 
@@ -529,7 +530,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     worker2Count.incrementAndGet();
-                    return Map.of("work2Done", true);
+                    return WorkerResult.of(Map.of("work2Done", true));
                   })
               .build();
 
@@ -578,7 +579,7 @@ class ScheduleTriggerSimpleTest {
               .function(
                   ctx -> {
                     executionCount.incrementAndGet();
-                    return Map.of("workDone", true);
+                    return WorkerResult.of(Map.of("workDone", true));
                   })
               .build();
 

@@ -101,7 +101,7 @@ class AgentWorkerTest {
             .build();
 
     Agent extractedAgent = (Agent) worker.getFunction().getValue();
-    Map<String, Object> result = extractedAgent.execute(Map.of("text", "hello world"));
+    Map<String, Object> result = extractedAgent.execute(Map.of("text", "hello world")).output();
 
     assertEquals("HELLO WORLD", result.get("result"));
   }

@@ -21,6 +21,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.ScheduleTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.time.Duration;
@@ -56,7 +57,7 @@ class ConditionalTriggerConditionParameterTest {
         Worker.builder()
             .name("test-worker")
             .capabilities(cap)
-            .function(ctx -> Map.of("workDone", true))
+            .function(ctx -> WorkerResult.of(Map.of("workDone", true)))
             .build();
 
     ExpressionEvaluator condition = new JQExpressionEvaluator(".status == \"ready\"");

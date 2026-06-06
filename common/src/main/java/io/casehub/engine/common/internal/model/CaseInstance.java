@@ -111,4 +111,23 @@ public class CaseInstance {
   public void setState(CaseStatus state) {
     this.state = state;
   }
+
+  /**
+   * Non-null while an action gate is pending human approval. Set by the engine when {@link
+   * io.casehub.api.spi.RiskDecision.GateRequired} fires; cleared by the gate resolution handlers
+   * after processing. Stored as a nullable JSON blob on the JPA entity.
+   *
+   * <p>Only one gate is supported per case in v1. If a second worker returns a PlannedAction while
+   * this field is non-null, the engine proceeds as Autonomous for the second action and logs an
+   * ERROR.
+   */
+  private PendingActionGate pendingActionGate;
+
+  public PendingActionGate getPendingActionGate() {
+    return pendingActionGate;
+  }
+
+  public void setPendingActionGate(final PendingActionGate pendingActionGate) {
+    this.pendingActionGate = pendingActionGate;
+  }
 }

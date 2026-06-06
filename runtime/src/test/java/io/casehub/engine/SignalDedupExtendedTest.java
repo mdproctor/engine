@@ -28,6 +28,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -355,7 +356,7 @@ public class SignalDedupExtendedTest {
                               .computeIfAbsent(id, k -> new AtomicInteger())
                               .incrementAndGet();
                         }
-                        return Map.of("eventResult", "processed");
+                        return WorkerResult.of(Map.of("eventResult", "processed"));
                       })
                   .build())
           .bindings(
@@ -409,7 +410,7 @@ public class SignalDedupExtendedTest {
                               .computeIfAbsent(id, k -> new AtomicInteger())
                               .incrementAndGet();
                         }
-                        return Map.of("eventResult", "processed");
+                        return WorkerResult.of(Map.of("eventResult", "processed"));
                       })
                   .build())
           .bindings(

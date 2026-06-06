@@ -134,7 +134,7 @@ class AgentBuilderTest {
             .build();
 
     // Should not throw — just runs with identity transformers
-    final Map<String, Object> result = agent.execute(Map.of("status", "pending"));
+    final Map<String, Object> result = agent.execute(Map.of("status", "pending")).output();
     assertThat(result).containsKey("answer");
   }
 

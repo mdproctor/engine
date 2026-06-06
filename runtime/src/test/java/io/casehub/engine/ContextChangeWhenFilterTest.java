@@ -28,6 +28,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -142,7 +143,7 @@ class ContextChangeWhenFilterTest {
                   .function(
                       input -> {
                         guardedWorkerCount.incrementAndGet();
-                        return Map.of("guardedRan", true);
+                        return WorkerResult.of(Map.of("guardedRan", true));
                       })
                   .build(),
               Worker.builder()
@@ -151,7 +152,7 @@ class ContextChangeWhenFilterTest {
                   .function(
                       input -> {
                         ungardedWorkerCount.incrementAndGet();
-                        return Map.of("done", true);
+                        return WorkerResult.of(Map.of("done", true));
                       })
                   .build())
           .bindings(

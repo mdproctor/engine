@@ -30,6 +30,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
@@ -286,7 +287,8 @@ class CaseFaultedStateTest {
               Worker.builder()
                   .name("error-producing-worker")
                   .capabilities(capability)
-                  .function(input -> Map.of("status", "error")) // satisfies failure goal
+                  .function(
+                      input -> WorkerResult.of(Map.of("status", "error"))) // satisfies failure goal
                   .build())
           .bindings(
               Binding.builder()

@@ -31,6 +31,7 @@ import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -120,21 +121,22 @@ public class WorkerRetryTest {
                   .function(
                       new Function<>() {
                         @Override
-                        public Map<String, Object> apply(Map<String, Object> stateContext) {
+                        public WorkerResult apply(Map<String, Object> stateContext) {
                           if (runCount.incrementAndGet() <= 2) {
                             throw new RuntimeException("Simulated processing failure");
                           }
 
-                          return Map.of(
-                              "processedDocument",
+                          return WorkerResult.of(
                               Map.of(
-                                  "id",
-                                  stateContext.get("documentId"),
-                                  "content",
-                                  "Processed content for document "
-                                      + stateContext.get("documentId")),
-                              "status",
-                              "processed");
+                                  "processedDocument",
+                                  Map.of(
+                                      "id",
+                                      stateContext.get("documentId"),
+                                      "content",
+                                      "Processed content for document "
+                                          + stateContext.get("documentId")),
+                                  "status",
+                                  "processed"));
                         }
                       })
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(3, 1000)))

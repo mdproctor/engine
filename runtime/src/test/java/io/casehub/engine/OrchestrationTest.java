@@ -30,6 +30,7 @@ import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.WorkStatus;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
@@ -149,7 +150,7 @@ class OrchestrationTest {
               Worker.builder()
                   .name("analyse-worker")
                   .capabilities(cap)
-                  .function(input -> Map.of("analysis", "complete"))
+                  .function(input -> WorkerResult.of(Map.of("analysis", "complete")))
                   .build())
           .bindings(
               Binding.builder()

@@ -29,6 +29,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
@@ -139,7 +140,7 @@ class CaseWaitingResumeTest {
               Worker.builder()
                   .name("analyse-worker")
                   .capabilities(cap)
-                  .function(input -> Map.of("result", "done"))
+                  .function(input -> WorkerResult.of(Map.of("result", "done")))
                   .build())
           .bindings(
               Binding.builder()

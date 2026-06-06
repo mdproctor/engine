@@ -28,6 +28,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
@@ -178,7 +179,7 @@ class CaseLifecycleCdiEventTest {
                   .capabilities(capability)
                   // Return done:true, trigger:false — so the ContextChangeTrigger
                   // (.trigger==true and .done!=true) never re-fires after the first execution.
-                  .function(input -> Map.of("done", true, "trigger", false))
+                  .function(input -> WorkerResult.of(Map.of("done", true, "trigger", false)))
                   .build())
           .bindings(
               Binding.builder()

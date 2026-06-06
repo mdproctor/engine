@@ -31,6 +31,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
@@ -488,7 +489,7 @@ public class WorkerRetryExtendedTest {
                           throw new RuntimeException(
                               "Simulated failure on attempt " + attempt + " of " + maxFail);
                         }
-                        return Map.of("status", "processed", "taskId", taskId);
+                        return WorkerResult.of(Map.of("status", "processed", "taskId", taskId));
                       })
                   // 5 max attempts, 100 ms between retries — allows tests up to 4 failures
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(5, 100)))
@@ -545,7 +546,7 @@ public class WorkerRetryExtendedTest {
                           throw new RuntimeException(
                               "Signal-triggered failure on attempt " + attempt);
                         }
-                        return Map.of("status", "processed");
+                        return WorkerResult.of(Map.of("status", "processed"));
                       })
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(5, 100)))
                   .build())
@@ -599,7 +600,7 @@ public class WorkerRetryExtendedTest {
                   .function(
                       input -> {
                         alphaAttempts.incrementAndGet();
-                        return Map.of("alphaResult", "alpha-done");
+                        return WorkerResult.of(Map.of("alphaResult", "alpha-done"));
                       })
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(3, 100)))
                   .build(),
@@ -612,7 +613,7 @@ public class WorkerRetryExtendedTest {
                         if (attempt <= betaFailUntil.get()) {
                           throw new RuntimeException("Beta failure on attempt " + attempt);
                         }
-                        return Map.of("betaResult", "beta-done");
+                        return WorkerResult.of(Map.of("betaResult", "beta-done"));
                       })
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(5, 100)))
                   .build())

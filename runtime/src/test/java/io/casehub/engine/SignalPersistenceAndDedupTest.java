@@ -28,6 +28,7 @@ import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -290,8 +291,9 @@ public class SignalPersistenceAndDedupTest {
                         runCount.incrementAndGet();
                         Map<String, Object> payment = (Map<String, Object>) input.get("payment");
                         Number amount = (Number) payment.get("amount");
-                        return Map.of(
-                            "status", "processed", "lastProcessedAmount", amount.intValue());
+                        return WorkerResult.of(
+                            Map.of(
+                                "status", "processed", "lastProcessedAmount", amount.intValue()));
                       })
                   .build())
           .bindings(

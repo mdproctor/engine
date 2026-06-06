@@ -20,7 +20,7 @@ import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.service.WorkItemService;
-import io.casehub.workadapter.CallerRef;
+import io.casehub.workadapter.PlanItemCallerRef;
 import io.casehub.workadapter.PlanItemCompletionApplier;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.Priority;
@@ -80,7 +80,7 @@ public class HumanTaskRecoveryService {
   }
 
   private boolean tryRecover(PlanItemRecord r) {
-    String callerRef = CallerRef.encode(r.caseId(), r.planItemId());
+    String callerRef = PlanItemCallerRef.encode(r.caseId(), r.planItemId());
     Optional<WorkItem> workItemOpt = workItemService.findByCallerRef(callerRef);
 
     if (workItemOpt.isEmpty()) {

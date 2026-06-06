@@ -28,6 +28,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
@@ -211,7 +212,7 @@ class CaseLifecycleStateTest {
               Worker.builder()
                   .name("idle-worker")
                   .capabilities(capability)
-                  .function(input -> Map.of("status", "done"))
+                  .function(input -> WorkerResult.of(Map.of("status", "done")))
                   .build())
           .bindings(
               Binding.builder()
@@ -252,7 +253,7 @@ class CaseLifecycleStateTest {
               Worker.builder()
                   .name("completing-worker")
                   .capabilities(capability)
-                  .function(input -> Map.of("status", "done"))
+                  .function(input -> WorkerResult.of(Map.of("status", "done")))
                   .build())
           .bindings(
               Binding.builder()

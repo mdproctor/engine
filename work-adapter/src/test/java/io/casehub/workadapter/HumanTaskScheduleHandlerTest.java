@@ -114,7 +114,7 @@ class HumanTaskScheduleHandlerTest {
         new HumanTaskScheduleEvent(
             caseId, "irb-binding", target, Map.of("caseRef", "T-42"), null, TENANCY_ID));
 
-    String expectedCallerRef = CallerRef.encode(caseId, planItem.getPlanItemId());
+    String expectedCallerRef = PlanItemCallerRef.encode(caseId, planItem.getPlanItemId());
 
     WorkItem created =
         workItemStore.scanAll().stream()
@@ -147,7 +147,7 @@ class HumanTaskScheduleHandlerTest {
             null,
             TENANCY_ID));
 
-    String expectedCallerRef = CallerRef.encode(caseId, planItem.getPlanItemId());
+    String expectedCallerRef = PlanItemCallerRef.encode(caseId, planItem.getPlanItemId());
     WorkItem created =
         workItemStore.scanAll().stream()
             .filter(w -> expectedCallerRef.equals(w.callerRef))

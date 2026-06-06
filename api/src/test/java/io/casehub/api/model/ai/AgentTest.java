@@ -56,7 +56,7 @@ class AgentTest {
             .model(model)
             .build();
 
-    Map<String, Object> result = agent.execute(Map.of("question", "what?"));
+    Map<String, Object> result = agent.execute(Map.of("question", "what?")).output();
 
     assertThat(result.get("value")).isEqualTo(42);
     assertThat(result).doesNotContainKey("extra");

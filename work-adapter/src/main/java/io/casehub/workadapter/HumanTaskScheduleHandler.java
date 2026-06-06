@@ -126,7 +126,7 @@ public class HumanTaskScheduleHandler {
       return;
     }
 
-    String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
+    String callerRef = PlanItemCallerRef.encode(event.caseId(), item.getPlanItemId());
     WorkItem workItem =
         workItemTemplateService.instantiate(
             template, target.title(), null, "casehub-engine", callerRef);
@@ -153,7 +153,7 @@ public class HumanTaskScheduleHandler {
   }
 
   private void handleInlineMode(PlanItem item, HumanTaskScheduleEvent event) {
-    String callerRef = CallerRef.encode(event.caseId(), item.getPlanItemId());
+    String callerRef = PlanItemCallerRef.encode(event.caseId(), item.getPlanItemId());
     createInline(event.target(), event.inputData(), callerRef, event.caseBudgetDeadline());
     planItemStore.save(
         new PlanItemSaveRequest(

@@ -20,31 +20,56 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Parses and constructs the {@code callerRef} string embedded by CaseHub when spawning a
+ * Sealed hierarchy for the {@code callerRef} string embedded by CaseHub when spawning a
  * quarkus-work WorkItem child.
  *
- * <p>Format: {@code case:{caseId}/pi:{planItemId}}
+ * <p>Two concrete types:
  *
- * <p>CaseHub owns the semantics of this opaque string — quarkus-work stores it unchanged on the
- * WorkItem and echoes it back in every WorkItemLifecycleEvent. Refs casehubio/work#136.
+ * <ul>
+ *   <li>{@link PlanItemCallerRef} — {@code "case:{caseId}/pi:{planItemId}"} — standard WorkItem
+ *       created from a humanTask YAML binding. Routes back to a blackboard PlanItem.
+ *   <li>{@link GateCallerRef} — {@code "case:{caseId}/gate:{gateId}"} — WorkItem created for an
+ *       action gate. Routes to {@code ActionGateCompletionApplier}; bypasses the blackboard guard
+ *       in {@code WorkItemLifecycleAdapter}.
+ * </ul>
+ *
+ * <p>CaseHub owns the semantics of these opaque strings — quarkus-work stores them unchanged on the
+ * WorkItem and echoes them back in every WorkItemLifecycleEvent. Refs casehubio/work#136.
  */
-public record CallerRef(UUID caseId, String planItemId) {
+public sealed interface CallerRef permits PlanItemCallerRef, GateCallerRef {
 
-  private static final Pattern PATTERN = Pattern.compile("^case:([0-9a-fA-F-]{36})/pi:(.+)$");
+  UUID caseId();
 
-  public static String encode(UUID caseId, String planItemId) {
-    return "case:" + caseId + "/pi:" + planItemId;
+  /**
+   * Parses a callerRef string, returning {@code null} if the string is not a recognised CaseHub
+   * callerRef format.
+   */
+  static CallerRef parse(final String raw) {
+    if (raw == null) return null;
+    final Matcher pi = Patterns.PI.matcher(raw);
+    if (pi.matches()) {
+      try {
+        return new PlanItemCallerRef(UUID.fromString(pi.group(1)), pi.group(2));
+      } catch (IllegalArgumentException e) {
+        return null;
+      }
+    }
+    final Matcher gate = Patterns.GATE.matcher(raw);
+    if (gate.matches()) {
+      try {
+        return new GateCallerRef(UUID.fromString(gate.group(1)), Long.parseLong(gate.group(2)));
+      } catch (IllegalArgumentException e) {
+        return null; // covers both UUID parse and number parse errors
+      }
+    }
+    return null;
   }
 
-  /** Returns {@code null} if the string is not a CaseHub callerRef. */
-  public static CallerRef parse(String callerRef) {
-    if (callerRef == null) return null;
-    Matcher m = PATTERN.matcher(callerRef);
-    if (!m.matches()) return null;
-    try {
-      return new CallerRef(UUID.fromString(m.group(1)), m.group(2));
-    } catch (IllegalArgumentException e) {
-      return null;
-    }
+  /** Compiled patterns kept here to avoid re-compilation on each parse() call. */
+  final class Patterns {
+    static final Pattern PI = Pattern.compile("^case:([0-9a-fA-F-]{36})/pi:(.+)$");
+    static final Pattern GATE = Pattern.compile("^case:([0-9a-fA-F-]{36})/gate:(\\d+)$");
+
+    private Patterns() {}
   }
 }

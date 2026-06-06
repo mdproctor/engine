@@ -27,6 +27,7 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
@@ -177,7 +178,7 @@ class WorkerTimeoutTest {
                   ctx -> {
                     executionCount.incrementAndGet();
                     // Completes immediately
-                    return Map.of("result", "fast-completed");
+                    return WorkerResult.of(Map.of("result", "fast-completed"));
                   })
               .build();
 
@@ -230,7 +231,7 @@ class WorkerTimeoutTest {
                     } catch (InterruptedException e) {
                       Thread.currentThread().interrupt();
                     }
-                    return Map.of("result", "should-not-complete");
+                    return WorkerResult.of(Map.of("result", "should-not-complete"));
                   })
               .build();
 
@@ -280,7 +281,7 @@ class WorkerTimeoutTest {
                     } catch (InterruptedException e) {
                       Thread.currentThread().interrupt();
                     }
-                    return Map.of("result", "slow-completed");
+                    return WorkerResult.of(Map.of("result", "slow-completed"));
                   })
               .build();
 
@@ -333,7 +334,7 @@ class WorkerTimeoutTest {
                     } catch (InterruptedException e) {
                       Thread.currentThread().interrupt();
                     }
-                    return Map.of("result", "should-not-complete");
+                    return WorkerResult.of(Map.of("result", "should-not-complete"));
                   })
               .build();
 

@@ -49,6 +49,12 @@ public enum CaseHubEventType {
 
   WORKFLOW_STEP_DISPATCHED, // workflow step dispatched a casehub capability via WorkOrchestrator
   WORKFLOW_STEP_COMPLETED, // workflow step dispatch completed successfully
-  WORKFLOW_STEP_FAILED // workflow step dispatch failed (capability not found, routing error,
+  WORKFLOW_STEP_FAILED, // workflow step dispatch failed (capability not found, routing error,
   // exhaustion)
+
+  ACTION_GATE_PENDING, // worker declared a PlannedAction; gate pending human approval
+  ACTION_GATE_APPROVED, // human approved the gate; deferred worker output applied
+  ACTION_GATE_REJECTED, // human rejected the gate; worker treated as faulted
+  ACTION_GATE_EXPIRED, // gate WorkItem expired before approval; worker treated as faulted
+  ACTION_GATE_CANCELLED, // gate cancelled because the case reached a terminal state
 }

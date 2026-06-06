@@ -113,7 +113,7 @@ class WorkItemLifecycleAdapterTest {
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
     workItem.status = WorkItemStatus.REJECTED;
-    workItem.callerRef = CallerRef.encode(caseId, delegatedItemId);
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, delegatedItemId);
     lifecycleEvents.fireAsync(
         WorkItemLifecycleEvent.of("workitem.rejected", workItem, "system", null));
 
@@ -134,7 +134,7 @@ class WorkItemLifecycleAdapterTest {
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
     workItem.status = WorkItemStatus.EXPIRED;
-    workItem.callerRef = CallerRef.encode(caseId, delegatedItemId);
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, delegatedItemId);
     lifecycleEvents.fireAsync(
         WorkItemLifecycleEvent.of("workitem.expired", workItem, "system", null));
 
@@ -153,7 +153,7 @@ class WorkItemLifecycleAdapterTest {
     escalatedItem.id = UUID.randomUUID();
     escalatedItem.status = WorkItemStatus.ESCALATED;
     escalatedItem.candidateGroups = "committee-a,committee-b";
-    escalatedItem.callerRef = CallerRef.encode(caseId, planItemId);
+    escalatedItem.callerRef = PlanItemCallerRef.encode(caseId, planItemId);
 
     lifecycleEvents.fireAsync(
         WorkItemLifecycleEvent.of("workitem.escalated", escalatedItem, "system", null));
@@ -251,7 +251,7 @@ class WorkItemLifecycleAdapterTest {
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
     workItem.status = WorkItemStatus.COMPLETED;
-    workItem.callerRef = CallerRef.encode(caseId, htPlanItem.getPlanItemId());
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, htPlanItem.getPlanItemId());
     workItem.resolution = "{ \"decision\": \"Approved\" }";
 
     lifecycleEvents.fireAsync(
@@ -288,7 +288,7 @@ class WorkItemLifecycleAdapterTest {
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
     workItem.status = WorkItemStatus.COMPLETED;
-    workItem.callerRef = CallerRef.encode(caseId, htPlanItem.getPlanItemId());
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, htPlanItem.getPlanItemId());
     workItem.resolution = "{}";
 
     lifecycleEvents.fireAsync(
@@ -315,7 +315,7 @@ class WorkItemLifecycleAdapterTest {
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
     workItem.status = WorkItemStatus.COMPLETED;
-    workItem.callerRef = CallerRef.encode(caseId, htPlanItem.getPlanItemId());
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, htPlanItem.getPlanItemId());
     workItem.resolution = "{ \"decision\": \"approved\" }";
 
     lifecycleEvents.fireAsync(
@@ -394,7 +394,7 @@ class WorkItemLifecycleAdapterTest {
             0,
             3,
             GroupStatus.REJECTED,
-            CallerRef.encode(caseId, delegatedItemId)));
+            PlanItemCallerRef.encode(caseId, delegatedItemId)));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -443,7 +443,7 @@ class WorkItemLifecycleAdapterTest {
     WorkItem workItem = new WorkItem();
     workItem.id = UUID.randomUUID();
     workItem.status = status;
-    workItem.callerRef = CallerRef.encode(caseId, planItemId);
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, planItemId);
     workItem.resolution = resolution;
     return WorkItemLifecycleEvent.of(
         "workitem." + status.name().toLowerCase(), workItem, "system", null);
@@ -458,6 +458,6 @@ class WorkItemLifecycleAdapterTest {
         2,
         0,
         status,
-        CallerRef.encode(caseId, planItemId));
+        PlanItemCallerRef.encode(caseId, planItemId));
   }
 }

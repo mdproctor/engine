@@ -29,6 +29,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
@@ -290,7 +291,7 @@ class DefaultWorkOrchestratorTest {
         Worker.builder()
             .name("agent-worker")
             .capabilities(capability)
-            .function(input -> Map.of("result", "done"))
+            .function(input -> WorkerResult.of(Map.of("result", "done")))
             .agentDescriptor(AGENT_DESCRIPTOR)
             .build();
 
@@ -309,7 +310,7 @@ class DefaultWorkOrchestratorTest {
         Worker.builder()
             .name("analyst-worker")
             .capabilities(capability)
-            .function(input -> Map.of("result", "done"))
+            .function(input -> WorkerResult.of(Map.of("result", "done")))
             .build();
 
     return buildInstance(capabilityName, worker);

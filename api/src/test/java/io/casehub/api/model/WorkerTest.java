@@ -51,7 +51,7 @@ class WorkerTest {
             .capabilities(
                 Capability.builder().name("review").inputSchema(".x").outputSchema(".y").build())
             .agentDescriptor(DESCRIPTOR)
-            .function(input -> Map.of())
+            .function(input -> WorkerResult.of(Map.of()))
             .build();
 
     assertThat(worker.hasDescriptor()).isTrue();
@@ -64,7 +64,7 @@ class WorkerTest {
             .name("plain-worker")
             .capabilities(
                 Capability.builder().name("review").inputSchema(".x").outputSchema(".y").build())
-            .function(input -> Map.of())
+            .function(input -> WorkerResult.of(Map.of()))
             .build();
 
     assertThat(worker.hasDescriptor()).isFalse();
@@ -78,7 +78,7 @@ class WorkerTest {
             .capabilities(
                 Capability.builder().name("review").inputSchema(".x").outputSchema(".y").build())
             .agentDescriptor(DESCRIPTOR)
-            .function(input -> Map.of())
+            .function(input -> WorkerResult.of(Map.of()))
             .build();
 
     assertThat(worker.agentDescriptor()).isSameAs(DESCRIPTOR);
@@ -91,7 +91,7 @@ class WorkerTest {
             .name("plain-worker")
             .capabilities(
                 Capability.builder().name("review").inputSchema(".x").outputSchema(".y").build())
-            .function(input -> Map.of())
+            .function(input -> WorkerResult.of(Map.of()))
             .build();
 
     assertThat(worker.agentDescriptor()).isNull();

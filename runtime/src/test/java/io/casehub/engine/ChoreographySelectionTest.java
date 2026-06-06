@@ -28,6 +28,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -136,7 +137,7 @@ class ChoreographySelectionTest {
                   .function(
                       input -> {
                         record(input);
-                        return Map.of("result", "done");
+                        return WorkerResult.of(Map.of("result", "done"));
                       })
                   .build(),
               Worker.builder()
@@ -145,7 +146,7 @@ class ChoreographySelectionTest {
                   .function(
                       input -> {
                         record(input);
-                        return Map.of("result", "done");
+                        return WorkerResult.of(Map.of("result", "done"));
                       })
                   .build())
           .bindings(
