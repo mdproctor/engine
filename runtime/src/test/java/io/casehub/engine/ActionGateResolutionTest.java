@@ -272,11 +272,11 @@ class ActionGateResolutionTest {
 
   /**
    * Registers event bus codecs for gate resolution event types. Without @ConsumeEvent handlers,
-   * Quarkus doesn't register codecs for these types and publish() fails. These stubs exist only to
-   * register codecs; the real handlers (ActionGateApprovedHandler etc.) process the events.
+   * Quarkus doesn't register codecs for these types and publish() fails.
    *
-   * <p>When the real handlers are implemented, they will also register the codecs and these stubs
-   * become redundant — but harmless (multiple consumers receive the same event).
+   * <p>The real handlers (ActionGateApprovedHandler, ActionGateRejectedHandler, etc.) also consume
+   * these addresses and register their own codecs. These stubs coexist as additional consumers —
+   * Vert.x publish() fan-out means all consumers receive the event.
    */
   @ApplicationScoped
   static class GateCodecStubs {

@@ -52,6 +52,8 @@ import org.jboss.logging.Logger;
 public class ActionGateCompletionApplier {
 
   private static final Logger LOG = Logger.getLogger(ActionGateCompletionApplier.class);
+  private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+      new com.fasterxml.jackson.databind.ObjectMapper();
 
   @Inject EventBus eventBus;
 
@@ -109,8 +111,7 @@ public class ActionGateCompletionApplier {
     // Fallback: try resolution JSON for completedBy
     if (workItem.resolution != null) {
       try {
-        final com.fasterxml.jackson.databind.JsonNode node =
-            new com.fasterxml.jackson.databind.ObjectMapper().readTree(workItem.resolution);
+        final com.fasterxml.jackson.databind.JsonNode node = MAPPER.readTree(workItem.resolution);
         final com.fasterxml.jackson.databind.JsonNode completedBy = node.get("completedBy");
         if (completedBy != null && !completedBy.isNull()) return completedBy.asText();
       } catch (final Exception e) {

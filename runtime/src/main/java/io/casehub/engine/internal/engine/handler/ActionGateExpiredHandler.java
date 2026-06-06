@@ -57,7 +57,8 @@ public class ActionGateExpiredHandler {
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
 
-  @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_EXPIRED)
+  // blocking=true: workerStatusListener.onWorkerCompleted() may do I/O in consumer impls
+  @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_EXPIRED, blocking = true)
   public Uni<Void> onActionGateExpired(final ActionGateExpiredEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {

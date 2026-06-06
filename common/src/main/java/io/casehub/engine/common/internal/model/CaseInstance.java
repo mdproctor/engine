@@ -115,11 +115,18 @@ public class CaseInstance {
   /**
    * Non-null while an action gate is pending human approval. Set by the engine when {@link
    * io.casehub.api.spi.RiskDecision.GateRequired} fires; cleared by the gate resolution handlers
-   * after processing. Stored as a nullable JSON blob on the JPA entity.
+   * after processing.
+   *
+   * <p><strong>In-memory only in v1 — not persisted by {@code CaseInstanceEntity}.</strong> If the
+   * engine restarts while a gate is pending, the gate is lost from memory. The WorkItem in
+   * quarkus-work survives restart, but when it resolves, the resolution handler sees null from the
+   * cache and discards the approval silently — the case stalls. When v2 adds the {@code
+   * pending_action_gate} column to {@code CaseInstanceEntity}, resolution handlers must also call
+   * {@code caseInstanceRepository.update()} to clear it.
    *
    * <p>Only one gate is supported per case in v1. If a second worker returns a PlannedAction while
    * this field is non-null, the engine proceeds as Autonomous for the second action and logs an
-   * ERROR.
+   * ERROR. The second action bypasses classification — a known v1 constraint.
    */
   private PendingActionGate pendingActionGate;
 

@@ -18,6 +18,7 @@ package io.casehub.engine.internal.startup;
 import io.casehub.api.spi.ActionRiskClassifier;
 import io.casehub.api.spi.RiskClassifier;
 import io.quarkus.runtime.Startup;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -51,6 +52,7 @@ public class ActionGateDeploymentHealthCheck {
    * registered (the chain returns Autonomous — no gates possible), or (b) work-adapter is on the
    * classpath.
    */
+  @PostConstruct
   public void checkConfiguration() {
     if (classifiers.isUnsatisfied()) {
       return; // No @RiskClassifier beans — always Autonomous, no gate possible

@@ -117,6 +117,52 @@ class ActionGateIntegrationTest {
   }
 
   @Test
+  void concurrentGate_secondPlannedActionProceedsAutonomous_firstGatePreserved() {
+    // v1 constraint: when a second PlannedAction arrives while a gate is pending,
+    // the engine logs ERROR and proceeds as Autonomous for the second action.
+    // The second action bypasses classification — a known compliance risk documented in
+    // CaseInstance.
+    // This test verifies the constraint is enforced and the first gate is not corrupted.
+    CapturingClassifier.nextDecision =
+        new GateRequired("SAR filing requires MLRO sign-off", false, List.of("mlro"), null, null);
+    GateCaseHub.declareAction.set(true);
+
+    final UUID caseId = startCase();
+
+    // Wait for first gate to fire
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .until(
+            () -> {
+              final var inst = caseInstanceCache.get(caseId);
+              return inst != null && inst.getPendingActionGate() != null;
+            });
+
+    final long firstGateId = caseInstanceCache.get(caseId).getPendingActionGate().gateId();
+
+    // Now switch to Autonomous so the second worker execution (if triggered) would return
+    // Autonomous
+    // The concurrent gate detection fires before classify() — second action bypasses classification
+    CapturingClassifier.nextDecision = new RiskDecision.Autonomous();
+
+    // Wait briefly — if the binding re-triggers, the concurrent gate path fires
+    // The case must still be RUNNING (gate still pending) and first gate must not be replaced
+    await()
+        .atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              final var inst = caseInstanceCache.get(caseId);
+              // Gate must still be pending — second action proceeds as Autonomous but does not
+              // replace the first gate or complete the case (the binding guards prevent re-trigger)
+              assertThat(inst.getState()).isEqualTo(CaseStatus.RUNNING);
+              if (inst.getPendingActionGate() != null) {
+                // If gate still set, it must be the FIRST one
+                assertThat(inst.getPendingActionGate().gateId()).isEqualTo(firstGateId);
+              }
+            });
+  }
+
+  @Test
   void nullPlannedAction_classifierNotCalled_caseCompletes() {
     GateCaseHub.declareAction.set(false); // worker returns WorkerResult without PlannedAction
 

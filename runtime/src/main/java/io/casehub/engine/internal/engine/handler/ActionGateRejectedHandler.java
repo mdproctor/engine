@@ -64,7 +64,8 @@ public class ActionGateRejectedHandler {
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
 
-  @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_REJECTED)
+  // blocking=true: workerStatusListener.onWorkerCompleted() may do I/O in consumer impls
+  @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_REJECTED, blocking = true)
   public Uni<Void> onActionGateRejected(final ActionGateRejectedEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {
