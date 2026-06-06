@@ -26,6 +26,7 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
+import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.api.model.ai.ModelType;
@@ -60,10 +61,10 @@ class AgentExecutionTest {
     WorkerContext context = new WorkerContext(null, null, null, null, null, null);
     int timeout = 5000;
 
-    Map<String, Object> result = invokeAgentMethod(agent, input, context, timeout);
+    WorkerResult result = invokeAgentMethod(agent, input, context, timeout);
 
     assertNotNull(result);
-    assertEquals("POSITIVE", result.get("sentiment"));
+    assertEquals("POSITIVE", result.output().get("sentiment"));
   }
 
   @Test
@@ -158,7 +159,7 @@ class AgentExecutionTest {
     };
   }
 
-  private Map<String, Object> invokeAgentMethod(
+  private WorkerResult invokeAgentMethod(
       Agent agent, Map<String, Object> input, WorkerContext context, int timeout) throws Exception {
     Method agentMethod =
         QuartzWorkerExecutionJob.class.getDeclaredMethod(
@@ -166,9 +167,7 @@ class AgentExecutionTest {
     agentMethod.setAccessible(true);
 
     try {
-      @SuppressWarnings("unchecked")
-      Map<String, Object> result =
-          (Map<String, Object>) agentMethod.invoke(job, agent, input, context, timeout);
+      WorkerResult result = (WorkerResult) agentMethod.invoke(job, agent, input, context, timeout);
       return result;
     } catch (java.lang.reflect.InvocationTargetException e) {
       // Re-throw the original exception
