@@ -66,6 +66,8 @@ public class WorkItemLifecycleAdapter {
 
   @Inject PlanItemCompletionApplier applier;
 
+  @Inject ActionGateCompletionApplier gateApplier;
+
   public void onWorkItemLifecycle(@ObservesAsync WorkItemLifecycleEvent event) {
     WorkItemStatus status = event.status();
 
@@ -218,11 +220,8 @@ public class WorkItemLifecycleAdapter {
         piRef.caseId(), piRef.planItemId(), item.getBindingName(), newGroups);
   }
 
-  /** Stub — replaced by full ActionGateCompletionApplier routing in engine#402 task #13. */
   private void routeGate(
       final GateCallerRef gateRef, final WorkItemStatus status, final WorkItem workItem) {
-    LOG.debugf(
-        "Gate WorkItem lifecycle: caseId=%s gateId=%d status=%s — routing pending task #13",
-        gateRef.caseId(), gateRef.gateId(), status);
+    gateApplier.apply(gateRef, status, workItem);
   }
 }
