@@ -21,6 +21,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
+import io.casehub.engine.common.internal.event.ActionGateWorkerFaultedEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -116,6 +117,13 @@ public class ActionGateRejectedHandler {
     eventBus.publish(
         EventBusAddresses.CONTEXT_CHANGED,
         new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+
+    // Notify the blackboard (if active) to mark the PlanItem FAULTED so stage autocomplete fires.
+    // Uses ACTION_GATE_WORKER_FAULTED (not WORKER_RETRIES_EXHAUSTED) to avoid case-fault
+    // transition.
+    eventBus.publish(
+        EventBusAddresses.ACTION_GATE_WORKER_FAULTED,
+        new ActionGateWorkerFaultedEvent(instance.getUuid(), gate.workerId(), gate.idempotency()));
 
     // EventLog write is best-effort and fire-and-forget — failures are logged, not propagated
     writeResolutionEventLog(instance, gate)

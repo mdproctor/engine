@@ -82,4 +82,13 @@ public final class EventBusAddresses {
    * is pending. Handled by ActionGateCancelledHandler in work-adapter to cancel the WorkItem.
    */
   public static final String ACTION_GATE_CANCELLED = "casehub.action.gate.cancelled";
+
+  /**
+   * Published by ActionGateRejectedHandler and ActionGateExpiredHandler when a gate is resolved
+   * negatively (rejected or expired). Consumed by the blackboard module to mark the associated
+   * PlanItem FAULTED — enabling StageAutocompleteEvaluator to proceed. Distinct from
+   * WORKER_RETRIES_EXHAUSTED which also faults the CaseInstance; gate faults leave the case
+   * RUNNING.
+   */
+  public static final String ACTION_GATE_WORKER_FAULTED = "casehub.action.gate.worker.faulted";
 }

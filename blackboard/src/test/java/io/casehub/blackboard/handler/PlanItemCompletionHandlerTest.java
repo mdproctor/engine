@@ -70,7 +70,7 @@ class PlanItemCompletionHandlerTest {
     when(instance.getUuid()).thenReturn(caseId);
     Worker worker = mock(Worker.class);
     when(worker.getName()).thenReturn(workerName);
-    return new WorkflowExecutionCompleted(instance, worker, "idempotency-key", Map.of());
+    return WorkflowExecutionCompleted.approved(instance, worker, "idempotency-key", Map.of());
   }
 
   @Test
