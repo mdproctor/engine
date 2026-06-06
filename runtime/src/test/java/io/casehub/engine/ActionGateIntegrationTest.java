@@ -224,7 +224,12 @@ class ActionGateIntegrationTest {
           .bindings(
               Binding.builder()
                   .name("gate-binding")
-                  .on(new ContextChangeTrigger(".filingResult == null"))
+                  // Prevent re-triggering while gate is pending (deferred output not applied)
+                  .on(
+                      new ContextChangeTrigger(
+                          ".filingResult == null and .actionGateApproved == null"
+                              + " and .actionGateRejected == null"
+                              + " and .actionGateExpired == null"))
                   .target(new CapabilityTarget(cap))
                   .build())
           .goals(goal)

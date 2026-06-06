@@ -92,6 +92,13 @@ public class CaseStatusChangedHandler {
                 caseChannelProvider
                     .listChannels(caseInstance.getUuid())
                     .forEach(caseChannelProvider::closeChannel);
+                // Cancel pending gate WorkItem if case terminates while gate is pending
+                if (caseInstance.getPendingActionGate() != null) {
+                  eventBus.publish(
+                      EventBusAddresses.ACTION_GATE_CANCELLED,
+                      new io.casehub.engine.common.internal.event.ActionGateCancelledEvent(
+                          caseInstance.getUuid(), caseInstance.getPendingActionGate().gateId()));
+                }
                 return schedulerService.cancelAllTriggers(caseInstance.getUuid());
               }
               return Uni.createFrom().voidItem();
