@@ -1,0 +1,244 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.engine;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
+import io.casehub.api.engine.CaseHub;
+import io.casehub.api.model.Binding;
+import io.casehub.api.model.Capability;
+import io.casehub.api.model.CapabilityTarget;
+import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.Goal;
+import io.casehub.api.model.GoalExpression;
+import io.casehub.api.model.GoalKind;
+import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerResult;
+import io.casehub.api.spi.ActionRiskClassifier;
+import io.casehub.api.spi.PlannedAction;
+import io.casehub.api.spi.RiskClassifier;
+import io.casehub.api.spi.RiskDecision;
+import io.casehub.api.spi.RiskDecision.Autonomous;
+import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.annotation.Priority;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
+import jakarta.inject.Inject;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+/**
+ * Integration tests for the ActionRiskClassifier gate fork in WorkflowExecutionCompletedHandler.
+ *
+ * <p>Verifies: Autonomous path proceeds normally; GateRequired path blocks case advancement; the
+ * classifier receives a fully enriched PlannedAction; null PlannedAction bypasses the classifier.
+ */
+@QuarkusTest
+class ActionGateIntegrationTest {
+
+  @Inject CaseInstanceCache caseInstanceCache;
+  @Inject GateCaseHub gateCaseHub;
+
+  @BeforeEach
+  void resetBeans() {
+    CapturingClassifier.reset();
+    GateCaseHub.declareAction.set(false);
+  }
+
+  // --- Tests ---
+
+  @Test
+  void autonomousDecision_caseCompletesNormally() {
+    CapturingClassifier.nextDecision = new Autonomous();
+    GateCaseHub.declareAction.set(true);
+
+    final UUID caseId = startCase();
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(caseInstanceCache.get(caseId).getState())
+                    .isEqualTo(CaseStatus.COMPLETED));
+
+    assertThat(CapturingClassifier.capturedActions).hasSize(1);
+    final PlannedAction action = CapturingClassifier.capturedActions.get(0);
+    assertThat(action.actionType()).isEqualTo("sar.file");
+    assertThat(action.workerId()).isNotNull();
+    assertThat(action.caseId()).isEqualTo(caseId);
+  }
+
+  @Test
+  void gateRequiredDecision_caseRemainsRunning_gateIsPending() {
+    CapturingClassifier.nextDecision =
+        new GateRequired("SAR filing requires MLRO sign-off", false, List.of("mlro"), null, null);
+    GateCaseHub.declareAction.set(true);
+
+    final UUID caseId = startCase();
+
+    await().atMost(5, TimeUnit.SECONDS).until(() -> !CapturingClassifier.capturedActions.isEmpty());
+
+    // Case must NOT complete — gate is pending
+    assertThat(caseInstanceCache.get(caseId).getState()).isEqualTo(CaseStatus.RUNNING);
+    // pendingActionGate must be set
+    assertThat(caseInstanceCache.get(caseId).getPendingActionGate()).isNotNull();
+    assertThat(caseInstanceCache.get(caseId).getPendingActionGate().gateId()).isPositive();
+    assertThat(caseInstanceCache.get(caseId).getPendingActionGate().workerId())
+        .isEqualTo("gate-worker");
+    assertThat(caseInstanceCache.get(caseId).getPendingActionGate().deferredOutput())
+        .containsKey("filingResult");
+    assertThat(caseInstanceCache.get(caseId).getPendingActionGate().plannedAction().actionType())
+        .isEqualTo("sar.file");
+  }
+
+  @Test
+  void nullPlannedAction_classifierNotCalled_caseCompletes() {
+    GateCaseHub.declareAction.set(false); // worker returns WorkerResult without PlannedAction
+
+    final UUID caseId = startCase();
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertThat(caseInstanceCache.get(caseId).getState())
+                    .isEqualTo(CaseStatus.COMPLETED));
+
+    assertThat(CapturingClassifier.capturedActions).isEmpty();
+  }
+
+  @Test
+  void classifierReceivesEnrichedPlannedAction_workerIdAndCaseIdPopulated() {
+    CapturingClassifier.nextDecision = new Autonomous();
+    GateCaseHub.declareAction.set(true);
+
+    final UUID caseId = startCase();
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .until(() -> !CapturingClassifier.capturedActions.isEmpty());
+
+    final PlannedAction action = CapturingClassifier.capturedActions.get(0);
+    assertThat(action.workerId()).isEqualTo("gate-worker");
+    assertThat(action.caseId()).isEqualTo(caseId);
+    assertThat(action.description()).isEqualTo("File SAR report");
+    assertThat(action.context()).containsEntry("accountId", "ACC-999");
+  }
+
+  // --- Test CDI beans ---
+
+  /**
+   * Configurable classifier — returns Autonomous by default; tests set nextDecision before starting
+   * a case.
+   */
+  @RiskClassifier
+  @Alternative
+  @Priority(1)
+  @ApplicationScoped
+  static class CapturingClassifier implements ActionRiskClassifier {
+
+    static final List<PlannedAction> capturedActions = new CopyOnWriteArrayList<>();
+    static volatile RiskDecision nextDecision = new Autonomous();
+
+    static void reset() {
+      capturedActions.clear();
+      nextDecision = new Autonomous();
+    }
+
+    @Override
+    public RiskDecision classify(final PlannedAction action) {
+      capturedActions.add(action);
+      return nextDecision;
+    }
+  }
+
+  /**
+   * Configurable CaseHub bean. When {@code declareAction=true} the worker includes a PlannedAction;
+   * otherwise it returns a plain WorkerResult.
+   */
+  @ApplicationScoped
+  static class GateCaseHub extends CaseHub {
+
+    static final AtomicBoolean declareAction = new AtomicBoolean(false);
+
+    @Override
+    public CaseDefinition getDefinition() {
+      final Capability cap =
+          Capability.builder()
+              .name("file-sar-gate-test")
+              .inputSchema(".")
+              .outputSchema(".")
+              .build();
+      final Goal goal =
+          Goal.builder()
+              .name("filed")
+              .kind(GoalKind.SUCCESS)
+              .condition(".filingResult != null")
+              .build();
+      return CaseDefinition.builder()
+          .namespace("test-action-gate")
+          .name("Gate Integration Case")
+          .version("1.0.0")
+          .capabilities(cap)
+          .workers(
+              Worker.builder()
+                  .name("gate-worker")
+                  .capabilities(cap)
+                  .function(
+                      input -> {
+                        final Map<String, Object> output = Map.of("filingResult", "pending");
+                        if (declareAction.get()) {
+                          return WorkerResult.of(
+                              output,
+                              PlannedAction.of(
+                                  "File SAR report", "sar.file", Map.of("accountId", "ACC-999")));
+                        }
+                        return WorkerResult.of(output);
+                      })
+                  .build())
+          .bindings(
+              Binding.builder()
+                  .name("gate-binding")
+                  .on(new ContextChangeTrigger(".filingResult == null"))
+                  .target(new CapabilityTarget(cap))
+                  .build())
+          .goals(goal)
+          .completion(GoalExpression.allOf(goal))
+          .build();
+    }
+  }
+
+  // --- Helpers ---
+
+  private UUID startCase() {
+    final AtomicReference<UUID> ref = new AtomicReference<>();
+    gateCaseHub.startCase(Map.of()).thenAccept(ref::set);
+    await().atMost(5, TimeUnit.SECONDS).until(() -> ref.get() != null);
+    return ref.get();
+  }
+}

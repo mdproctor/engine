@@ -27,13 +27,19 @@ import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.ContextDiffStrategy;
+import io.casehub.api.spi.PlannedAction;
+import io.casehub.api.spi.ReactiveActionRiskClassifier;
+import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.PendingActionGate;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
@@ -65,6 +71,8 @@ public class WorkflowExecutionCompletedHandler {
   @Inject CaseResumptionService caseResumptionService;
   @Inject WorkerStatusListener workerStatusListener;
   @Inject LedgerTraceIdProvider traceIdProvider;
+  @Inject ReactiveActionRiskClassifier actionRiskClassifier;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
@@ -74,6 +82,12 @@ public class WorkflowExecutionCompletedHandler {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.caseInstance();
     final Worker worker = event.worker();
+
+    // Gate fork: if the worker declared a PlannedAction, classify before applying output.
+    if (event.plannedAction() != null) {
+      return handleWithPlannedAction(event, traceId);
+    }
+
     final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
     final Instant now = Instant.now();
 
@@ -166,6 +180,161 @@ public class WorkflowExecutionCompletedHandler {
                     "Failed to handle WorkflowExecutionCompleted for caseId: "
                         + caseInstance.getUuid(),
                     t));
+  }
+
+  private Uni<Void> handleWithPlannedAction(
+      final WorkflowExecutionCompleted event, final String traceId) {
+    final CaseInstance caseInstance = event.caseInstance();
+    final Worker worker = event.worker();
+    final PlannedAction plannedAction = event.plannedAction();
+
+    // v1 concurrent-gate constraint: only one pending gate per case.
+    if (caseInstance.getPendingActionGate() != null) {
+      LOG.errorf(
+          "Concurrent gate not supported in v1: caseId=%s worker=%s already has a pending gate"
+              + " — proceeding as Autonomous for second action",
+          caseInstance.getUuid(), worker.getName());
+      // Re-dispatch as if plannedAction was null so the normal completion path runs.
+      final WorkflowExecutionCompleted withoutAction =
+          WorkflowExecutionCompleted.approved(
+              caseInstance, worker, event.idempotency(), event.output());
+      return onWorkflowExecutionCompletedHandler(withoutAction);
+    }
+
+    return actionRiskClassifier
+        .classify(plannedAction)
+        .onFailure()
+        .recoverWithItem(
+            t -> {
+              LOG.errorf(
+                  t,
+                  "ActionRiskClassifier threw for action type='%s' caseId=%s — applying fail-safe"
+                      + " GateRequired",
+                  plannedAction.actionType(),
+                  caseInstance.getUuid());
+              return new RiskDecision.GateRequired(
+                  "Classifier error — manual review required before proceeding",
+                  true,
+                  null,
+                  null,
+                  null);
+            })
+        .chain(
+            decision -> {
+              if (decision instanceof RiskDecision.Autonomous) {
+                // Autonomous — proceed as if there was no PlannedAction.
+                final WorkflowExecutionCompleted withoutAction =
+                    WorkflowExecutionCompleted.approved(
+                        caseInstance, worker, event.idempotency(), event.output());
+                return onWorkflowExecutionCompletedHandler(withoutAction);
+              }
+              return handleGate(event, (RiskDecision.GateRequired) decision, traceId);
+            });
+  }
+
+  private Uni<Void> handleGate(
+      final WorkflowExecutionCompleted event,
+      final RiskDecision.GateRequired gate,
+      final String traceId) {
+    final CaseInstance caseInstance = event.caseInstance();
+    final Worker worker = event.worker();
+    final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
+    final PlannedAction plannedAction = event.plannedAction();
+    final Instant now = Instant.now();
+
+    final EventLog gateEventLog =
+        buildGateEventLog(
+            caseInstance, worker, rawOutput, plannedAction, gate, event.idempotency(), now);
+
+    return eventLogRepository
+        .append(gateEventLog, caseInstance.tenancyId)
+        .chain(
+            () -> {
+              caseInstance.setPendingActionGate(
+                  new PendingActionGate(
+                      gateEventLog.id,
+                      worker.getName(),
+                      event.idempotency(),
+                      rawOutput,
+                      plannedAction));
+              return caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
+            })
+        .invoke(
+            () ->
+                eventBus.publish(
+                    EventBusAddresses.ACTION_GATE_SCHEDULE,
+                    new ActionGateScheduleEvent(
+                        caseInstance.getUuid(),
+                        caseInstance.tenancyId,
+                        gateEventLog.id,
+                        plannedAction,
+                        gate)))
+        .chain(
+            () ->
+                Uni.createFrom()
+                    .completionStage(
+                        () ->
+                            lifecycleEvents.fireAsync(
+                                new CaseLifecycleEvent(
+                                    caseInstance.getUuid(),
+                                    caseInstance.tenancyId,
+                                    "ActionGate",
+                                    "ActionGatePending",
+                                    caseInstance.getState().name(),
+                                    worker.getName(),
+                                    "WORKER",
+                                    traceId)))
+                    .onFailure()
+                    .recoverWithItem(
+                        t -> {
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s"
+                                  + " event=ActionGatePending",
+                              caseInstance.getUuid());
+                          return null;
+                        })
+                    .replaceWithVoid())
+        .replaceWithVoid()
+        .onFailure()
+        .invoke(
+            t ->
+                LOG.error("Failed to handle action gate for caseId: " + caseInstance.getUuid(), t));
+  }
+
+  private EventLog buildGateEventLog(
+      final CaseInstance caseInstance,
+      final Worker worker,
+      final Map<String, Object> rawOutput,
+      final PlannedAction plannedAction,
+      final RiskDecision.GateRequired gate,
+      final String idempotency,
+      final Instant timestamp) {
+    final EventLog eventLog = new EventLog();
+    eventLog.setCaseId(caseInstance.getUuid());
+    eventLog.setWorkerId(worker.getName());
+    eventLog.setStreamType(EventStreamType.CASE);
+    eventLog.setTimestamp(timestamp);
+    eventLog.setEventType(CaseHubEventType.ACTION_GATE_PENDING);
+    final ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+    payload.put("workerId", worker.getName());
+    payload.put("idempotency", idempotency);
+    payload.set("deferredOutput", OBJECT_MAPPER.valueToTree(rawOutput));
+    final ObjectNode actionNode = OBJECT_MAPPER.createObjectNode();
+    actionNode.put("description", plannedAction.description());
+    actionNode.put("actionType", plannedAction.actionType());
+    actionNode.set("context", OBJECT_MAPPER.valueToTree(plannedAction.context()));
+    payload.set("plannedAction", actionNode);
+    final ObjectNode gateNode = OBJECT_MAPPER.createObjectNode();
+    gateNode.put("reason", gate.reason());
+    gateNode.put("reversible", gate.reversible());
+    if (gate.expiresIn() != null) {
+      gateNode.put("expiresInSeconds", gate.expiresIn().getSeconds());
+    }
+    payload.set("gateRequired", gateNode);
+    eventLog.setPayload(payload);
+    eventLog.setMetadata(OBJECT_MAPPER.createObjectNode().put("inputDataHash", idempotency));
+    return eventLog;
   }
 
   private EventLog buildEventLog(
