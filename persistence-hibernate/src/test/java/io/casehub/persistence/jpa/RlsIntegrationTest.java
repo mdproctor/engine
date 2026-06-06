@@ -15,7 +15,6 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.casehub.api.model.WorkerResult;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.agroal.api.AgroalDataSource;
@@ -82,13 +81,13 @@ class RlsIntegrationTest {
   public static class RlsProfile implements QuarkusTestProfile {
     @Override
     public Map<String, String> getConfigOverrides() {
-      return WorkerResult.of(Map.of(
+      return Map.of(
           "casehub.rls.enabled", "true",
           // Use Hibernate DDL (not Flyway) so tables exist before RlsPolicyApplicator fires.
           // Flyway migrations run after @Priority(100) StartupEvent observers in Quarkus
           // test mode, causing "relation does not exist" errors when RLS tries to ALTER TABLE.
           "quarkus.hibernate-orm.schema-management.strategy", "drop-and-create",
-          "quarkus.flyway.migrate-at-start", "false"));
+          "quarkus.flyway.migrate-at-start", "false");
     }
   }
 

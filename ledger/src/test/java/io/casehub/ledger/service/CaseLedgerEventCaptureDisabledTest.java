@@ -15,7 +15,6 @@
  */
 package io.casehub.ledger.service;
 
-import io.casehub.api.model.WorkerResult;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
@@ -55,7 +54,7 @@ class CaseLedgerEventCaptureDisabledTest {
   public static class DisabledProfile implements QuarkusTestProfile {
     @Override
     public Map<String, String> getConfigOverrides() {
-      return WorkerResult.of(Map.of("casehub.ledger.enabled", "false"));
+      return Map.of("casehub.ledger.enabled", "false");
     }
   }
 }
