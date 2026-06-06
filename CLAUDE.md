@@ -208,11 +208,61 @@ To add a new operational SPI: define the interface in `api/spi/`, add a `@Defaul
 
 **To test SPI wiring:** use `@Alternative @Priority(1) @ApplicationScoped` static inner classes in `@QuarkusTest` with `static` recording fields reset in `@BeforeEach`. This activates the recording bean globally across the test suite without Mockito. See `SpiWiringIntegrationTest` for the pattern. To test provisioner wiring, define a `CaseHub` subclass with a capability binding and no workers — the engine will fall through to `tryProvision()`.
 
+## ActionRiskClassifier SPI
+
+Platform-level oversight gate for consequential worker actions. Workers declare what they are about to do; the engine classifies the risk before applying output and advancing the case. Implemented in engine#402.
+
+**Worker return type — `WorkerResult` (breaking change):** All worker functions now return `WorkerResult` instead of `Map<String, Object>`. `Agent.execute()` also returns `WorkerResult`.
+```java
+// No consequential action — unchanged behaviour
+.function(input -> WorkerResult.of(Map.of("result", "done")))
+
+// Declares a consequential action
+.function(input -> WorkerResult.of(
+    Map.of("output", "value"),
+    PlannedAction.of("File SAR report", "sar.file", Map.of("accountId", "ACC-123"))))
+```
+
+**SPI interfaces** in `api/src/main/java/io/casehub/api/spi/`:
+- `ActionRiskClassifier` — blocking; consumer implementations use this
+- `ReactiveActionRiskClassifier` — primary (called by engine); `ChainedReactiveActionRiskClassifier` bridges blocking → reactive
+- `RiskDecision` — sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope)`
+- `PlannedAction` — what the worker declares; enriched by engine with `workerId` and `caseId` before classify()
+- `@RiskClassifier` — CDI qualifier; consumer implementations must use this to avoid CDI conflict with the chain
+
+**Composition pattern:** Multiple consumer classifiers are supported via `@RiskClassifier @ApplicationScoped`:
+```java
+@RiskClassifier @ApplicationScoped
+public class AmlActionRiskClassifier implements ActionRiskClassifier {
+    @Override public RiskDecision classify(PlannedAction action) { ... }
+}
+```
+`ChainedReactiveActionRiskClassifier` (`@ApplicationScoped`, NOT `@DefaultBean`) discovers all `@RiskClassifier` beans and applies "most restrictive wins" (fewest candidateGroups beats more; GateRequired beats Autonomous). Classifier failure → fail-safe `GateRequired`. Blocking classifiers offloaded to worker pool via `runSubscriptionOn(workerPool)`.
+
+**Gate mechanism:** When `GateRequired` fires:
+1. `WorkflowExecutionCompletedHandler` stores `PendingActionGate` in-memory on `CaseInstance` (**not persisted by JPA in v1 — restart loses the gate**; tracked as engine#433)
+2. Publishes `ActionGateScheduleEvent` → `ActionGateWorkItemHandler` (work-adapter) creates a WorkItem
+3. Human approves/rejects via work inbox
+4. `ActionGateCompletionApplier` (work-adapter) publishes `ActionGateApprovedEvent` or `ActionGateRejectedEvent`
+5. `ActionGateApprovedHandler` (runtime) re-fires `WorkflowExecutionCompleted(plannedAction=null)` — normal completion path applies deferred output
+6. `ActionGateRejectedHandler`/`ActionGateExpiredHandler` write context signals (`actionGateRejected`, `actionGateExpired`), fire `CONTEXT_CHANGED`, publish `ACTION_GATE_WORKER_FAULTED` for blackboard PlanItem fault
+
+**Binding guard requirement:** Case definitions with consequential workers MUST include rejection handler bindings. The binding trigger condition must also exclude gate signal paths to prevent re-scheduling while a gate is pending:
+```java
+.on(new ContextChangeTrigger(".result == null and .actionGateRejected == null and .actionGateApproved == null"))
+```
+
+**Startup warning:** `ActionGateDeploymentHealthCheck` warns if `@RiskClassifier` classifiers are registered but `casehub-engine-work-adapter` is absent (gate WorkItem would never be created).
+
+**New event bus addresses** (in `EventBusAddresses`): `ACTION_GATE_SCHEDULE`, `ACTION_GATE_APPROVED`, `ACTION_GATE_REJECTED`, `ACTION_GATE_EXPIRED`, `ACTION_GATE_CANCELLED`, `ACTION_GATE_WORKER_FAULTED` (distinct from `WORKER_RETRIES_EXHAUSTED` — gate faults must not fault the CaseInstance).
+
+See design spec: `docs/specs/2026-06-05-action-risk-classifier-design.md`. Consumer exploration issues: life#20, devtown#56, aml#42, clinical#47, openclaw#6.
+
 ## Agent Worker AI Model
 
 AI agent workers live in `api/src/main/java/io/casehub/api/model/ai/`:
 
-- `Agent` — immutable execution unit; holds systemPrompt, transformers, ChatModel, optional responseSchema
+- `Agent` — immutable execution unit; holds systemPrompt, transformers, ChatModel, optional responseSchema. **`execute()` returns `WorkerResult`** (not `Map<String,Object>`) — engine#402 breaking change. Agent workers that want to declare a consequential action return `WorkerResult.of(output, PlannedAction.of(...))`.
 - `AgentBuilder` — fluent builder; JQ string mode (`inputSchema(String)`) or lambda mode (`inputTransformer(UnaryOperator<JsonNode>)`) for transformers; mutually exclusive per direction
 - `ChatModelProvider` — SPI interface; implementations use reflection (`Class.forName`) to avoid compile-time LLM SDK dependencies
 - `ModelType` — enum: OPENAI, OLLAMA, ANTHROPIC, MISTRAL, GOOGLE_AI_GEMINI
