@@ -28,7 +28,6 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
@@ -90,8 +89,7 @@ public class MultiWorkerPipelineBean extends CaseHub {
                                   if (!ctx.containsKey("documentId")) {
                                     throw new RuntimeException("Missing documentId");
                                   }
-                                  return WorkerResult.of(
-                                      Map.of("valid", true, "step", "validated"));
+                                  return Map.of("valid", true, "step", "validated");
                                 },
                                 Map.class))
                         .build())
@@ -109,15 +107,14 @@ public class MultiWorkerPipelineBean extends CaseHub {
                                   if (!ctx.containsKey("documentId")) {
                                     throw new RuntimeException("Missing documentId");
                                   }
-                                  return WorkerResult.of(
+                                  return Map.of(
+                                      "enrichedData",
                                       Map.of(
-                                          "enrichedData",
-                                          Map.of(
-                                              "source", "internal",
-                                              "tags", List.of("validated", "enriched"),
-                                              "documentId", ctx.get("documentId")),
-                                          "step",
-                                          "enriched"));
+                                          "source", "internal",
+                                          "tags", List.of("validated", "enriched"),
+                                          "documentId", ctx.get("documentId")),
+                                      "step",
+                                      "enriched");
                                 },
                                 Map.class))
                         .build())
@@ -135,12 +132,11 @@ public class MultiWorkerPipelineBean extends CaseHub {
                                   if (!ctx.containsKey("documentId")) {
                                     throw new RuntimeException("Missing documentId");
                                   }
-                                  return WorkerResult.of(
-                                      Map.of(
-                                          "publishedUrl",
-                                          "https://docs.example.com/" + ctx.get("documentId"),
-                                          "step",
-                                          "published"));
+                                  return Map.of(
+                                      "publishedUrl",
+                                      "https://docs.example.com/" + ctx.get("documentId"),
+                                      "step",
+                                      "published");
                                 },
                                 Map.class))
                         .build())

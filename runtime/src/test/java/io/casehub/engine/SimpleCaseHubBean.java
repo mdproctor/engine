@@ -28,7 +28,6 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 
@@ -76,17 +75,16 @@ public class SimpleCaseHubBean extends CaseHub {
                                   if (!context.containsKey("status")) {
                                     throw new RuntimeException("Missing status in context");
                                   }
-                                  return WorkerResult.of(
+                                  return Map.of(
+                                      "processedDocument",
                                       Map.of(
-                                          "processedDocument",
-                                          Map.of(
-                                              "id",
-                                              context.get("documentId"),
-                                              "content",
-                                              "Processed content for document "
-                                                  + context.get("documentId")),
-                                          "status",
-                                          "processed"));
+                                          "id",
+                                          context.get("documentId"),
+                                          "content",
+                                          "Processed content for document "
+                                              + context.get("documentId")),
+                                      "status",
+                                      "processed");
                                 },
                                 Map.class))
                         .build())
