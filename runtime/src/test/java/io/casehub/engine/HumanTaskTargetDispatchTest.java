@@ -29,6 +29,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
@@ -45,6 +46,9 @@ import org.junit.jupiter.api.Test;
 class HumanTaskTargetDispatchTest {
 
   @Inject HumanTaskCaseBean humanTaskCaseBean;
+  @Inject DynamicGroupsCaseBean dynamicGroupsCaseBean;
+  @Inject BadGroupsCaseBean badGroupsCaseBean;
+  @Inject ConjunctionFailCaseBean conjunctionFailCaseBean;
 
   @BeforeEach
   void reset() {
@@ -68,6 +72,56 @@ class HumanTaskTargetDispatchTest {
     assertThat(event.target().templateRef()).isEqualTo("irb-review-template");
     // inputMapping "{ applicantId: .applicantId }" evaluated: applicantId should be "A-42"
     assertThat(event.inputData()).containsEntry("applicantId", "A-42");
+  }
+
+  // ── Dynamic candidateGroups ─────────────────────────────────────────────────
+
+  @Test
+  void humanTaskBinding_dynamicCandidateGroups_resolvesFromContext() {
+    CompletionStage<UUID> future =
+        dynamicGroupsCaseBean.startCase(
+            Map.of("stage", "review", "irb", Map.of("candidateGroups", List.of("irb-committee"))));
+    future.toCompletableFuture().join();
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> assertThat(HumanTaskEventRecorder.events).isNotEmpty());
+
+    HumanTaskScheduleEvent event = HumanTaskEventRecorder.events.get(0);
+    assertThat(event.resolvedCandidateGroups()).containsExactlyInAnyOrder("irb-committee");
+  }
+
+  @Test
+  void humanTaskBinding_dynamicCandidateGroups_jqReturnsNonArray_planItemStaysPending() {
+    CompletionStage<UUID> future =
+        badGroupsCaseBean.startCase(Map.of("stage", "review", "routing", "not-an-array"));
+    future.toCompletableFuture().join();
+
+    // Assert no event is published; during() ensures the condition holds for the duration
+    await()
+        .during(300, TimeUnit.MILLISECONDS)
+        .atMost(500, TimeUnit.MILLISECONDS)
+        .untilAsserted(() -> assertThat(HumanTaskEventRecorder.events).isEmpty());
+  }
+
+  @Test
+  void
+      humanTaskBinding_dynamicCandidateGroups_conjunctionFail_groupsFailUsersSucceed_eventBlocked() {
+    // groups is a string (wrong type → RESOLUTION_FAILED), users is a valid array
+    // Either failure blocks the event — conjunction test
+    CompletionStage<UUID> future =
+        conjunctionFailCaseBean.startCase(
+            Map.of(
+                "stage", "review",
+                "groups", "wrong",
+                "users", List.of("user-1")));
+    future.toCompletableFuture().join();
+
+    // Assert no event is published; during() ensures the condition holds for the duration
+    await()
+        .during(300, TimeUnit.MILLISECONDS)
+        .atMost(500, TimeUnit.MILLISECONDS)
+        .untilAsserted(() -> assertThat(HumanTaskEventRecorder.events).isEmpty());
   }
 
   /** Records HumanTaskScheduleEvent arrivals for test assertions. */
@@ -99,6 +153,82 @@ class HumanTaskTargetDispatchTest {
           .bindings(
               Binding.builder()
                   .name("review-binding")
+                  .humanTask(target)
+                  .on(new ContextChangeTrigger(".stage == \"review\""))
+                  .build())
+          .build();
+    }
+  }
+
+  /** Case with candidateGroupsExpression binding. */
+  @ApplicationScoped
+  static class DynamicGroupsCaseBean extends CaseHub {
+    @Override
+    public CaseDefinition getDefinition() {
+      HumanTaskTarget target =
+          HumanTaskTarget.inline()
+              .title("IRB Review")
+              .candidateGroupsExpression(".irb.candidateGroups")
+              .build();
+
+      return CaseDefinition.builder()
+          .namespace("test")
+          .name("DynamicGroupsCase")
+          .version("1.0.0")
+          .bindings(
+              Binding.builder()
+                  .name("review-binding")
+                  .humanTask(target)
+                  .on(new ContextChangeTrigger(".stage == \"review\""))
+                  .build())
+          .build();
+    }
+  }
+
+  /** Case with candidateGroupsExpression that resolves to a non-array. */
+  @ApplicationScoped
+  static class BadGroupsCaseBean extends CaseHub {
+    @Override
+    public CaseDefinition getDefinition() {
+      HumanTaskTarget target =
+          HumanTaskTarget.inline()
+              .title("Bad Groups")
+              .candidateGroupsExpression(".routing")
+              .build();
+
+      return CaseDefinition.builder()
+          .namespace("test")
+          .name("BadGroupsCase")
+          .version("1.0.0")
+          .bindings(
+              Binding.builder()
+                  .name("bad-binding")
+                  .humanTask(target)
+                  .on(new ContextChangeTrigger(".stage == \"review\""))
+                  .build())
+          .build();
+    }
+  }
+
+  /** Case where groups expression fails and users expression succeeds — conjunction failure. */
+  @ApplicationScoped
+  static class ConjunctionFailCaseBean extends CaseHub {
+    @Override
+    public CaseDefinition getDefinition() {
+      HumanTaskTarget target =
+          HumanTaskTarget.inline()
+              .title("Conjunction")
+              .candidateGroupsExpression(".groups")
+              .candidateUsersExpression(".users")
+              .build();
+
+      return CaseDefinition.builder()
+          .namespace("test")
+          .name("ConjunctionFailCase")
+          .version("1.0.0")
+          .bindings(
+              Binding.builder()
+                  .name("conjunction-binding")
                   .humanTask(target)
                   .on(new ContextChangeTrigger(".stage == \"review\""))
                   .build())
