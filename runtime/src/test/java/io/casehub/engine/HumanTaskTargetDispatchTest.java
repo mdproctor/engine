@@ -89,6 +89,7 @@ class HumanTaskTargetDispatchTest {
 
     HumanTaskScheduleEvent event = HumanTaskEventRecorder.events.get(0);
     assertThat(event.resolvedCandidateGroups()).containsExactlyInAnyOrder("irb-committee");
+    assertThat(event.resolvedCandidateUsers()).isNull();
   }
 
   @Test

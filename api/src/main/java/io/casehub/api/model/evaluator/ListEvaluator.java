@@ -34,7 +34,11 @@ import java.util.Set;
 public sealed interface ListEvaluator permits ListEvaluator.StaticList, ListEvaluator.JQList {
 
   /** A literal, pre-defined set of strings — no runtime evaluation. */
-  record StaticList(Set<String> values) implements ListEvaluator {}
+  record StaticList(Set<String> values) implements ListEvaluator {
+    public StaticList {
+      values = values == null ? null : Set.copyOf(values);
+    }
+  }
 
   /** A JQ expression that resolves to a JSON array of strings at runtime. */
   record JQList(String expression) implements ListEvaluator {}

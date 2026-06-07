@@ -421,17 +421,36 @@ class HumanTaskScheduleHandlerTest {
     assertThat(created.scope).isNull();
   }
 
+  // ── Dynamic candidateGroups — inline mode ────────────────────────────────
+
   @Test
-  void inlineMode_candidateGroupsExpression_workItemHasNullGroups_pendingTask7() {
-    // JQ expression path: listEvaluatorToCsv returns null for JQList until Task 7 wires the
-    // resolver.
-    // This test documents the known gap — update it in Task 7 to pass resolved groups via the
-    // event.
-    HumanTaskTarget target =
-        HumanTaskTarget.inline()
-            .title("IRB Review")
-            .candidateGroupsExpression(".irb.candidateGroups")
-            .build();
+  void inlineMode_resolvedCandidateGroups_passedToWorkItem() {
+    HumanTaskTarget target = HumanTaskTarget.inline().title("IRB Review").build();
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(
+            caseId,
+            "irb-binding",
+            target,
+            Map.of(),
+            Set.of("irb-committee"),
+            null,
+            null,
+            TENANCY_ID));
+
+    String expectedCallerRef = PlanItemCallerRef.encode(caseId, planItem.getPlanItemId());
+    WorkItem created =
+        workItemStore.scanAll().stream()
+            .filter(w -> expectedCallerRef.equals(w.callerRef))
+            .findFirst()
+            .orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.candidateGroups).isEqualTo("irb-committee");
+  }
+
+  @Test
+  void inlineMode_nullResolvedCandidateGroups_workItemHasNullGroups() {
+    HumanTaskTarget target = HumanTaskTarget.inline().title("Open Review").build();
 
     handler.onHumanTaskSchedule(
         new HumanTaskScheduleEvent(
@@ -444,11 +463,105 @@ class HumanTaskScheduleHandlerTest {
             .findFirst()
             .orElse(null);
     assertThat(created).isNotNull();
-    assertThat(created.status).isEqualTo(WorkItemStatus.PENDING);
-    // JQ not evaluated in handler — candidateGroups is null until Task 7 wires
-    // ListExpressionResolver
     assertThat(created.candidateGroups).isNull();
-    assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+  }
+
+  // ── Dynamic candidateGroups — template mode ───────────────────────────────
+
+  @Test
+  void templateMode_resolvedCandidateGroups_overridesTemplateDefaults() {
+    WorkItemTemplate tmpl = persistTemplate("IRB Review Template");
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(
+            caseId,
+            "irb-binding",
+            HumanTaskTarget.template(tmpl.id.toString()).build(),
+            Map.of(),
+            Set.of("committee-a", "committee-b"),
+            null,
+            null,
+            TENANCY_ID));
+
+    WorkItem created =
+        workItemStore.scanAll().stream()
+            .filter(w -> w.callerRef != null && w.callerRef.startsWith("case:"))
+            .findFirst()
+            .orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.candidateGroups.split(","))
+        .containsExactlyInAnyOrder("committee-a", "committee-b");
+  }
+
+  @Test
+  void templateMode_nullResolvedCandidateGroups_keepsTemplateDefaults() {
+    WorkItemTemplate tmpl = persistTemplate("IRB Review Template");
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(
+            caseId,
+            "irb-binding",
+            HumanTaskTarget.template(tmpl.id.toString()).build(),
+            Map.of(),
+            null, // spec absent — do not override template defaults
+            null,
+            null,
+            TENANCY_ID));
+
+    WorkItem created =
+        workItemStore.scanAll().stream()
+            .filter(w -> w.callerRef != null && w.callerRef.startsWith("case:"))
+            .findFirst()
+            .orElse(null);
+    assertThat(created).isNotNull();
+    // Template has no candidateGroups set (persistTemplate doesn't set them) — stays null
+    assertThat(created.candidateGroups).isNull();
+  }
+
+  // ── Dynamic candidateUsers — inline mode ──────────────────────────────────
+
+  @Test
+  void inlineMode_resolvedCandidateUsers_passedToWorkItem() {
+    HumanTaskTarget target = HumanTaskTarget.inline().title("IRB Review").build();
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(
+            caseId, "irb-binding", target, Map.of(), null, Set.of("user-a"), null, TENANCY_ID));
+
+    String expectedCallerRef = PlanItemCallerRef.encode(caseId, planItem.getPlanItemId());
+    WorkItem created =
+        workItemStore.scanAll().stream()
+            .filter(w -> expectedCallerRef.equals(w.callerRef))
+            .findFirst()
+            .orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.candidateUsers).isEqualTo("user-a");
+  }
+
+  // ── Dynamic candidateUsers — template mode ────────────────────────────────
+
+  @Test
+  void templateMode_resolvedCandidateUsers_overridesTemplateDefaults() {
+    WorkItemTemplate tmpl = persistTemplate("IRB Review Template");
+
+    handler.onHumanTaskSchedule(
+        new HumanTaskScheduleEvent(
+            caseId,
+            "irb-binding",
+            HumanTaskTarget.template(tmpl.id.toString()).build(),
+            Map.of(),
+            null,
+            Set.of("user-x", "user-y"),
+            null,
+            TENANCY_ID));
+
+    WorkItem created =
+        workItemStore.scanAll().stream()
+            .filter(w -> w.callerRef != null && w.callerRef.startsWith("case:"))
+            .findFirst()
+            .orElse(null);
+    assertThat(created).isNotNull();
+    assertThat(created.candidateUsers.split(",")).containsExactlyInAnyOrder("user-x", "user-y");
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
