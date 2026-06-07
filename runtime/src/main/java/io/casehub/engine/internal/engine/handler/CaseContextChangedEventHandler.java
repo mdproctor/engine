@@ -364,6 +364,8 @@ public class CaseContextChangedEventHandler {
             binding.getName(),
             target,
             inputData,
+            null, // resolvedCandidateGroups — wired in Task 6
+            null, // resolvedCandidateUsers  — wired in Task 6
             caseBudgetDeadline,
             caseInstance.tenancyId));
 
