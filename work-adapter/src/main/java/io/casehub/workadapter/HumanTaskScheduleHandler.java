@@ -19,6 +19,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.model.evaluator.ListEvaluator;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
@@ -215,13 +216,20 @@ public class HumanTaskScheduleHandler {
   }
 
   private static String candidateGroupsCsv(HumanTaskTarget target) {
-    if (target.candidateGroups() == null || target.candidateGroups().isEmpty()) return null;
-    return String.join(",", target.candidateGroups());
+    return listEvaluatorToCsv(target.candidateGroups());
   }
 
   private static String candidateUsersCsv(HumanTaskTarget target) {
-    if (target.candidateUsers() == null || target.candidateUsers().isEmpty()) return null;
-    return String.join(",", target.candidateUsers());
+    return listEvaluatorToCsv(target.candidateUsers());
+  }
+
+  private static String listEvaluatorToCsv(ListEvaluator evaluator) {
+    if (evaluator == null) return null;
+    if (evaluator instanceof ListEvaluator.StaticList sl) {
+      return sl.values() == null || sl.values().isEmpty() ? null : String.join(",", sl.values());
+    }
+    // JQList — runtime evaluation against case context handled by ListExpressionResolver in Task 7
+    return null;
   }
 
   private static String extractOutputMappingExpression(HumanTaskTarget target) {

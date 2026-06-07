@@ -36,6 +36,7 @@ class WorkerTest {
           null,
           null,
           null,
+          null,
           "code-review",
           List.of(),
           null,

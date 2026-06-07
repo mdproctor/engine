@@ -272,13 +272,19 @@ $defs:
           (e.g. "casehubio/devtown/pr-review"). Null resolves preferences at root scope.
           Follow the platform convention: org / app / case-type.
       candidateGroups:
-        type: array
-        items: { type: string }
-        description: "Groups eligible to claim this WorkItem"
+        oneOf:
+          - type: array
+            items: { type: string }
+            description: "Static list of groups eligible to claim this WorkItem"
+          - type: string
+            description: "JQ expression resolving to a list of group names from case context (e.g. \".irb.candidateGroups\")"
       candidateUsers:
-        type: array
-        items: { type: string }
-        description: "Users eligible to claim this WorkItem"
+        oneOf:
+          - type: array
+            items: { type: string }
+            description: "Static list of users eligible to claim this WorkItem"
+          - type: string
+            description: "JQ expression resolving to a list of user IDs from case context"
       expiresIn:
         type: string
         description: "ISO 8601 duration after which the WorkItem expires (e.g. PT24H)"
