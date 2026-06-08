@@ -21,6 +21,7 @@ import io.casehub.platform.api.actor.ActorStateContributor;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
+import java.util.OptionalDouble;
 
 /** Contributes global and capability trust scores from casehub-ledger. */
 @ApplicationScoped
@@ -36,10 +37,10 @@ public class LedgerActorStateContributor implements ActorStateContributor {
   @Override
   public void contribute(final String actorId, final ActorStateAccumulator acc) {
     // Atomic: collect all data before calling accumulator methods.
-    // findScore().map(s -> s.trustScore): primitive double boxed to Double.
-    // null means no score computed yet — distinct from 0.0 (zero trust).
-    final Double globalScore =
-        trustGateService.findScore(actorId).map(s -> s.trustScore).orElse(null);
+    // currentScore() returns OptionalDouble — box to Double; null means no score yet,
+    // distinct from 0.0 (zero trust).
+    final OptionalDouble rawScore = trustGateService.currentScore(actorId);
+    final Double globalScore = rawScore.isPresent() ? rawScore.getAsDouble() : null;
     final Map<String, Double> capScores = trustGateService.allCapabilityScores(actorId);
     acc.trustScore(globalScore);
     capScores.forEach(acc::capabilityScore);

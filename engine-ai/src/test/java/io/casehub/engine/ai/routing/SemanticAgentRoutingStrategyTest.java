@@ -389,6 +389,7 @@ class SemanticAgentRoutingStrategyTest {
             "domain-vocab",
             "slot-vocab",
             "disposition-vocab",
+            null,
             "research",
             List.of(
                 new AgentCapability(
