@@ -31,6 +31,7 @@ import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.model.evaluator.ListEvaluator;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -348,8 +349,12 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
     HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
-    assertThat(ht.candidateGroups()).containsExactlyInAnyOrder("architects", "seniors");
-    assertThat(ht.candidateUsers()).containsExactlyInAnyOrder("alice");
+    assertThat(ht.candidateGroups()).isInstanceOf(ListEvaluator.StaticList.class);
+    assertThat(((ListEvaluator.StaticList) ht.candidateGroups()).values())
+        .containsExactlyInAnyOrder("architects", "seniors");
+    assertThat(ht.candidateUsers()).isInstanceOf(ListEvaluator.StaticList.class);
+    assertThat(((ListEvaluator.StaticList) ht.candidateUsers()).values())
+        .containsExactlyInAnyOrder("alice");
     assertThat(ht.expiresIn()).isEqualTo(Duration.parse("PT24H"));
     assertThat(ht.inputMapping()).isInstanceOf(JQExpressionEvaluator.class);
     assertThat(((JQExpressionEvaluator) ht.inputMapping()).expression()).isEqualTo("{ pr: .pr }");
@@ -530,6 +535,112 @@ class CaseDefinitionYamlMapperTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("negative-binding")
         .hasMessageContaining("must be positive");
+  }
+
+  @Test
+  void humanTask_candidateGroups_jqExpression_roundTrips() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Dynamic Groups Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: irb-review
+              on: { contextChange: {} }
+              humanTask:
+                title: "IRB Review"
+                candidateGroups: ".irb.candidateGroups"
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.candidateGroups()).isInstanceOf(ListEvaluator.JQList.class);
+    assertThat(((ListEvaluator.JQList) ht.candidateGroups()).expression())
+        .isEqualTo(".irb.candidateGroups");
+  }
+
+  @Test
+  void humanTask_candidateUsers_jqExpression_roundTrips() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Dynamic Users Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: approval
+              on: { contextChange: {} }
+              humanTask:
+                title: "Approval"
+                candidateUsers: ".approver.id | [.]"
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.candidateUsers()).isInstanceOf(ListEvaluator.JQList.class);
+    assertThat(((ListEvaluator.JQList) ht.candidateUsers()).expression())
+        .isEqualTo(".approver.id | [.]");
+  }
+
+  @Test
+  void humanTask_candidateGroups_staticList_stillWorks() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Static Groups Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: review
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+                candidateGroups:
+                  - architects
+                  - seniors
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.candidateGroups()).isInstanceOf(ListEvaluator.StaticList.class);
+    assertThat(((ListEvaluator.StaticList) ht.candidateGroups()).values())
+        .containsExactlyInAnyOrder("architects", "seniors");
+  }
+
+  @Test
+  void humanTask_candidateGroups_nonStringElement_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: badGroupsCase
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: review-binding
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+                candidateGroups:
+                  - valid-group
+                  - 123
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("candidateGroups");
   }
 
   @Test

@@ -40,6 +40,7 @@ class NoOpCapabilityHealthTest {
             null,
             null,
             null,
+            null,
             "review",
             List.of(),
             null,

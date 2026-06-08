@@ -60,6 +60,7 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.engine.internal.engine.ListExpressionResolver;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
@@ -71,6 +72,7 @@ import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -83,6 +85,8 @@ public class CaseContextChangedEventHandler {
   @Inject EventBus eventBus;
 
   @Inject JQEvaluator jqEvaluator;
+
+  @Inject ListExpressionResolver listExpressionResolver;
 
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 
@@ -348,6 +352,19 @@ public class CaseContextChangedEventHandler {
   private Uni<Void> publishHumanTaskSchedule(
       final CaseInstance caseInstance, final Binding binding, final HumanTaskTarget target) {
     final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
+    final Set<String> resolvedGroups =
+        listExpressionResolver.resolve(caseInstance, target.candidateGroups(), "candidateGroups");
+    final Set<String> resolvedUsers =
+        listExpressionResolver.resolve(caseInstance, target.candidateUsers(), "candidateUsers");
+
+    if (ListExpressionResolver.isFailed(resolvedGroups)
+        || ListExpressionResolver.isFailed(resolvedUsers)) {
+      LOG.warnf(
+          "HumanTask list expression resolution failed for caseId=%s binding=%s — PlanItem stays PENDING",
+          caseInstance.getUuid(), binding.getName());
+      return Uni.createFrom().voidItem();
+    }
+
     final java.time.Instant caseBudgetDeadline =
         java.util.Optional.ofNullable(caseInstance.getPropagationContext())
             .flatMap(PropagationContext::getDeadline)
@@ -364,6 +381,8 @@ public class CaseContextChangedEventHandler {
             binding.getName(),
             target,
             inputData,
+            resolvedGroups,
+            resolvedUsers,
             caseBudgetDeadline,
             caseInstance.tenancyId));
 

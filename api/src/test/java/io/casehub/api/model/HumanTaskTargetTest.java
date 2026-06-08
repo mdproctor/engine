@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.model.evaluator.ListEvaluator;
 import java.time.Duration;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -84,7 +85,7 @@ class HumanTaskTargetTest {
   }
 
   @Test
-  void inlineMode_candidateGroups_andExpiresIn() {
+  void candidateGroups_staticSet_wrapsInStaticList() {
     HumanTaskTarget target =
         HumanTaskTarget.inline()
             .title("Review")
@@ -92,8 +93,50 @@ class HumanTaskTargetTest {
             .expiresIn(Duration.ofHours(72))
             .build();
 
-    assertThat(target.candidateGroups()).containsExactlyInAnyOrder("ethics-committee");
+    assertThat(target.candidateGroups()).isInstanceOf(ListEvaluator.StaticList.class);
+    assertThat(((ListEvaluator.StaticList) target.candidateGroups()).values())
+        .containsExactlyInAnyOrder("ethics-committee");
     assertThat(target.expiresIn()).isEqualTo(Duration.ofHours(72));
+  }
+
+  @Test
+  void candidateGroups_jqExpression_wrapsInJQList() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").candidateGroupsExpression(".irb.groups").build();
+
+    assertThat(target.candidateGroups()).isInstanceOf(ListEvaluator.JQList.class);
+    assertThat(((ListEvaluator.JQList) target.candidateGroups()).expression())
+        .isEqualTo(".irb.groups");
+  }
+
+  @Test
+  void candidateGroups_absent_returnsNull() {
+    HumanTaskTarget target = HumanTaskTarget.inline().title("Review").build();
+
+    assertThat(target.candidateGroups()).isNull();
+  }
+
+  @Test
+  void candidateUsers_staticSet_wrapsInStaticList() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").candidateUsers(Set.of("user-a")).build();
+
+    assertThat(target.candidateUsers()).isInstanceOf(ListEvaluator.StaticList.class);
+    assertThat(((ListEvaluator.StaticList) target.candidateUsers()).values())
+        .containsExactlyInAnyOrder("user-a");
+  }
+
+  @Test
+  void candidateUsers_jqExpression_wrapsInJQList() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Review")
+            .candidateUsersExpression(".approver.id | [.]")
+            .build();
+
+    assertThat(target.candidateUsers()).isInstanceOf(ListEvaluator.JQList.class);
+    assertThat(((ListEvaluator.JQList) target.candidateUsers()).expression())
+        .isEqualTo(".approver.id | [.]");
   }
 
   @Test

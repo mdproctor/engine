@@ -350,11 +350,18 @@ public final class CaseDefinitionYamlMapper {
     if (schema.getOutputMapping() != null) {
       builder.outputMapping(schema.getOutputMapping());
     }
-    if (schema.getCandidateGroups() != null && !schema.getCandidateGroups().isEmpty()) {
-      builder.candidateGroups(new LinkedHashSet<>(schema.getCandidateGroups()));
+    Object rawGroups = schema.getCandidateGroups();
+    if (rawGroups instanceof List<?> list && !list.isEmpty()) {
+      builder.candidateGroups(new LinkedHashSet<>(castStringList("candidateGroups", list)));
+    } else if (rawGroups instanceof String expr && !expr.isBlank()) {
+      builder.candidateGroupsExpression(expr);
     }
-    if (schema.getCandidateUsers() != null && !schema.getCandidateUsers().isEmpty()) {
-      builder.candidateUsers(new LinkedHashSet<>(schema.getCandidateUsers()));
+
+    Object rawUsers = schema.getCandidateUsers();
+    if (rawUsers instanceof List<?> list && !list.isEmpty()) {
+      builder.candidateUsers(new LinkedHashSet<>(castStringList("candidateUsers", list)));
+    } else if (rawUsers instanceof String expr && !expr.isBlank()) {
+      builder.candidateUsersExpression(expr);
     }
     if (schema.getScope() != null) {
       builder.scope(schema.getScope());
@@ -380,5 +387,18 @@ public final class CaseDefinitionYamlMapper {
       builder.expiresIn(duration);
     }
     return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static List<String> castStringList(String fieldName, List<?> raw) {
+    for (Object element : raw) {
+      if (!(element instanceof String)) {
+        throw new IllegalArgumentException(
+            fieldName
+                + " list must contain only strings, found: "
+                + element.getClass().getSimpleName());
+      }
+    }
+    return (List<String>) raw;
   }
 }

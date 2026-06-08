@@ -39,6 +39,7 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
@@ -132,6 +133,12 @@ public class HumanTaskScheduleHandler {
             template, target.title(), null, "casehub-engine", callerRef);
 
     workItem.scope = target.scope();
+    if (event.resolvedCandidateGroups() != null) {
+      workItem.candidateGroups = toCsv(event.resolvedCandidateGroups());
+    }
+    if (event.resolvedCandidateUsers() != null) {
+      workItem.candidateUsers = toCsv(event.resolvedCandidateUsers());
+    }
     if (event.inputData() != null && !event.inputData().isEmpty()) {
       workItem.payload = serializePayload(event.inputData());
     }
@@ -154,7 +161,13 @@ public class HumanTaskScheduleHandler {
 
   private void handleInlineMode(PlanItem item, HumanTaskScheduleEvent event) {
     String callerRef = PlanItemCallerRef.encode(event.caseId(), item.getPlanItemId());
-    createInline(event.target(), event.inputData(), callerRef, event.caseBudgetDeadline());
+    createInline(
+        event.target(),
+        event.inputData(),
+        event.resolvedCandidateGroups(),
+        event.resolvedCandidateUsers(),
+        callerRef,
+        event.caseBudgetDeadline());
     planItemStore.save(
         new PlanItemSaveRequest(
             event.caseId(),
@@ -172,6 +185,8 @@ public class HumanTaskScheduleHandler {
   private void createInline(
       HumanTaskTarget target,
       Map<String, Object> inputData,
+      Set<String> resolvedGroups,
+      Set<String> resolvedUsers,
       String callerRef,
       Instant caseBudgetDeadline) {
     String payload = serializePayload(inputData);
@@ -182,8 +197,8 @@ public class HumanTaskScheduleHandler {
     WorkItemCreateRequest request =
         WorkItemCreateRequest.builder()
             .title(target.title())
-            .candidateGroups(candidateGroupsCsv(target))
-            .candidateUsers(candidateUsersCsv(target))
+            .candidateGroups(toCsv(resolvedGroups))
+            .candidateUsers(toCsv(resolvedUsers))
             .createdBy("casehub-engine")
             .payload(payload)
             .expiresAt(effectiveDeadline)
@@ -214,14 +229,9 @@ public class HumanTaskScheduleHandler {
     }
   }
 
-  private static String candidateGroupsCsv(HumanTaskTarget target) {
-    if (target.candidateGroups() == null || target.candidateGroups().isEmpty()) return null;
-    return String.join(",", target.candidateGroups());
-  }
-
-  private static String candidateUsersCsv(HumanTaskTarget target) {
-    if (target.candidateUsers() == null || target.candidateUsers().isEmpty()) return null;
-    return String.join(",", target.candidateUsers());
+  private static String toCsv(Set<String> values) {
+    if (values == null || values.isEmpty()) return null;
+    return String.join(",", values);
   }
 
   private static String extractOutputMappingExpression(HumanTaskTarget target) {

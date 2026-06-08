@@ -17,6 +17,7 @@ package io.casehub.api.model;
 
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.model.evaluator.ListEvaluator;
 import java.time.Duration;
 import java.util.Objects;
 import java.util.Set;
@@ -38,8 +39,8 @@ public final class HumanTaskTarget implements BindingTarget {
 
   private final String templateRef;
   private final String title;
-  private final Set<String> candidateGroups;
-  private final Set<String> candidateUsers;
+  private final ListEvaluator candidateGroups;
+  private final ListEvaluator candidateUsers;
   private final Duration expiresIn;
   private final Integer claimDeadlineHours;
   private final String priority;
@@ -87,11 +88,11 @@ public final class HumanTaskTarget implements BindingTarget {
     return title;
   }
 
-  public Set<String> candidateGroups() {
+  public ListEvaluator candidateGroups() {
     return candidateGroups;
   }
 
-  public Set<String> candidateUsers() {
+  public ListEvaluator candidateUsers() {
     return candidateUsers;
   }
 
@@ -129,8 +130,8 @@ public final class HumanTaskTarget implements BindingTarget {
 
     private final String templateRef;
     private String title;
-    private Set<String> candidateGroups;
-    private Set<String> candidateUsers;
+    private ListEvaluator candidateGroups;
+    private ListEvaluator candidateUsers;
     private Duration expiresIn;
     private Integer claimDeadlineHours;
     private String priority;
@@ -148,12 +149,22 @@ public final class HumanTaskTarget implements BindingTarget {
     }
 
     public Builder candidateGroups(Set<String> candidateGroups) {
-      this.candidateGroups = candidateGroups;
+      this.candidateGroups = new ListEvaluator.StaticList(candidateGroups);
+      return this;
+    }
+
+    public Builder candidateGroupsExpression(String jqExpression) {
+      this.candidateGroups = new ListEvaluator.JQList(jqExpression);
       return this;
     }
 
     public Builder candidateUsers(Set<String> candidateUsers) {
-      this.candidateUsers = candidateUsers;
+      this.candidateUsers = new ListEvaluator.StaticList(candidateUsers);
+      return this;
+    }
+
+    public Builder candidateUsersExpression(String jqExpression) {
+      this.candidateUsers = new ListEvaluator.JQList(jqExpression);
       return this;
     }
 
