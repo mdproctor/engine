@@ -335,6 +335,51 @@ class DefaultWorkerSpiImplementationsTest {
     assertThat(ctx.channels()).containsExactly(channel);
   }
 
+  // --- NoOpWorkerExecutionManager ---
+
+  @Test
+  void noOpWorkerExecutionManager_submit_uniFails_withProvisioningException() {
+    var manager = new NoOpWorkerExecutionManager();
+    assertThatThrownBy(
+            () ->
+                manager
+                    .submit(
+                        1L,
+                        mock(io.casehub.engine.common.internal.model.CaseInstance.class),
+                        mock(io.casehub.api.model.Worker.class),
+                        mock(io.casehub.api.model.Capability.class),
+                        Map.of())
+                    .await()
+                    .indefinitely())
+        .isInstanceOf(ProvisioningException.class)
+        .hasMessageContaining("WorkerExecutionManager");
+  }
+
+  @Test
+  void noOpWorkerExecutionManager_schedulePersistedEvent_completesWithoutException() {
+    var manager = new NoOpWorkerExecutionManager();
+    assertThatNoException()
+        .isThrownBy(
+            () ->
+                manager
+                    .schedulePersistedEvent(
+                        mock(io.casehub.engine.common.internal.history.EventLog.class))
+                    .await()
+                    .indefinitely());
+  }
+
+  @Test
+  void noOpWorkerExecutionManager_getActiveWorkCount_returnsZero() {
+    var manager = new NoOpWorkerExecutionManager();
+    assertThat(manager.getActiveWorkCount("any-worker")).isZero();
+  }
+
+  @Test
+  void noOpWorkerExecutionManager_getActiveCaseIds_returnsEmptyList() {
+    var manager = new NoOpWorkerExecutionManager();
+    assertThat(manager.getActiveCaseIds("any-worker")).isEmpty();
+  }
+
   // --- NoOpCapabilityHealth ---
 
   @Test
