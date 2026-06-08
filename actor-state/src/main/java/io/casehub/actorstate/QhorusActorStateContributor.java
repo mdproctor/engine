@@ -35,6 +35,16 @@ public class QhorusActorStateContributor implements ActorStateContributor {
 
   @Inject ChannelStore channelStore;
 
+  /** Test constructor. */
+  QhorusActorStateContributor(
+      final CommitmentStore commitmentStore, final ChannelStore channelStore) {
+    this.commitmentStore = commitmentStore;
+    this.channelStore = channelStore;
+  }
+
+  /** CDI constructor. */
+  QhorusActorStateContributor() {}
+
   @Override
   public String sourceName() {
     return "qhorus";

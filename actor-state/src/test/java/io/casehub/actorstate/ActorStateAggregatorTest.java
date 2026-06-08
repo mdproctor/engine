@@ -163,6 +163,30 @@ class ActorStateAggregatorTest {
   }
 
   @Test
+  void partialWriteContributor_partialDataVisible_sourceExcluded() {
+    // Documents actual behavior: accumulator writes before a throw are NOT rolled back.
+    // The contributor responsibility contract requires atomicity from contributors, not the engine.
+    final var agg =
+        new ActorStateAggregator(
+            List.of(
+                contributor(
+                    "ledger",
+                    (id, acc) -> {
+                      acc.trustScore(0.8);
+                      throw new RuntimeException("partial fail after trustScore");
+                    }),
+                contributor("work", (id, acc) -> {})));
+
+    final var resp = agg.forActor("agent-x");
+
+    assertEquals(0.8, resp.trustScore(), 0.001);
+    assertFalse(resp.sources().contains("ledger"));
+    assertTrue(resp.sources().contains("work"));
+    assertNotNull(resp.sourceWarnings());
+    assertTrue(resp.sourceWarnings().containsKey("ledger"));
+  }
+
+  @Test
   void unknownActor_validEmptyResponse_allSourcesPresent() {
     final var agg =
         new ActorStateAggregator(
