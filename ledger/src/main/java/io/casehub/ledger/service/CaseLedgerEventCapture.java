@@ -58,7 +58,10 @@ public class CaseLedgerEventCapture {
     // etc.) for the same subjectId. Using the narrow findLatestByCaseId here would miss
     // WorkerDecisionEntry records and produce duplicate sequence numbers.
     final int seq =
-        ledgerRepo.findLatestBySubjectId(event.caseId()).map(e -> e.sequenceNumber + 1).orElse(1);
+        ledgerRepo
+            .findLatestBySubjectId(event.caseId(), event.tenancyId())
+            .map(e -> e.sequenceNumber + 1)
+            .orElse(1);
 
     final CaseLedgerEntry entry = new CaseLedgerEntry();
     entry.caseId = event.caseId();
@@ -80,7 +83,7 @@ public class CaseLedgerEventCapture {
     entry.traceId = event.traceId();
 
     // save() handles digest computation and Merkle frontier update internally.
-    ledgerRepo.save(entry);
+    ledgerRepo.save(entry, event.tenancyId());
 
     LOG.debugf(
         "Ledger entry written: caseId=%s seq=%d event=%s", event.caseId(), seq, event.eventType());

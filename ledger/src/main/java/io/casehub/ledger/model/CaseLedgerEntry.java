@@ -19,7 +19,6 @@ import io.casehub.ledger.runtime.model.LedgerEntry;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
-import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.util.UUID;
 
@@ -34,9 +33,7 @@ import java.util.UUID;
  * Sequence numbering and the Merkle chain are scoped per {@code subjectId}.
  */
 @Entity
-@Table(
-    name = "case_ledger_entry",
-    indexes = {@Index(name = "idx_case_ledger_entry_tenancy_id", columnList = "tenancy_id")})
+@Table(name = "case_ledger_entry")
 @DiscriminatorValue("CASE")
 public class CaseLedgerEntry extends LedgerEntry {
 
@@ -57,7 +54,4 @@ public class CaseLedgerEntry extends LedgerEntry {
   /** Snapshot of {@code CaseStatus} at transition time. */
   @Column(name = "case_status", length = 50)
   public String caseStatus;
-
-  @Column(name = "tenancy_id", nullable = false, length = 64)
-  public String tenancyId;
 }

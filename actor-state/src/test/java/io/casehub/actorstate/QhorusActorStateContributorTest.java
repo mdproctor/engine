@@ -158,7 +158,7 @@ class QhorusActorStateContributorTest {
       }
 
       @Override
-      public void updateLastActivity(final UUID channelId) {
+      public void updateLastActivity(final UUID channelId, final String tenancyId) {
         throw new UnsupportedOperationException();
       }
     };

@@ -7,10 +7,8 @@ CREATE TABLE case_ledger_entry (
     command_type VARCHAR(100),
     event_type   VARCHAR(100),
     case_status  VARCHAR(50),
-    tenancy_id   VARCHAR(64)  NOT NULL DEFAULT '__system__',
     CONSTRAINT pk_case_ledger_entry PRIMARY KEY (id),
     CONSTRAINT fk_case_ledger_entry FOREIGN KEY (id) REFERENCES ledger_entry(id)
 );
 
 CREATE INDEX idx_cle_case_id ON case_ledger_entry (case_id);
-CREATE INDEX idx_case_ledger_entry_tenancy_id ON case_ledger_entry (tenancy_id);

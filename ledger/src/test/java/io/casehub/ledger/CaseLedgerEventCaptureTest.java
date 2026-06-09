@@ -387,7 +387,7 @@ class CaseLedgerEventCaptureTest {
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(repository.findByCaseId(caseId)).hasSize(1));
 
-    assertThat(verificationService.verify(caseId))
+    assertThat(verificationService.verify(caseId, "test-tenant"))
         .as("Merkle chain must be intact after a single event")
         .isTrue();
   }
@@ -433,7 +433,7 @@ class CaseLedgerEventCaptureTest {
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(repository.findByCaseId(caseId)).hasSize(3));
 
-    assertThat(verificationService.verify(caseId))
+    assertThat(verificationService.verify(caseId, "test-tenant"))
         .as("Merkle chain must be intact after three events")
         .isTrue();
   }

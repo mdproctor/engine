@@ -66,7 +66,10 @@ public class WorkerDecisionEventCapture {
     }
 
     final int seq =
-        ledgerRepo.findLatestBySubjectId(event.caseId()).map(e -> e.sequenceNumber + 1).orElse(1);
+        ledgerRepo
+            .findLatestBySubjectId(event.caseId(), event.tenancyId())
+            .map(e -> e.sequenceNumber + 1)
+            .orElse(1);
 
     final WorkerDecisionEntry entry = new WorkerDecisionEntry();
     entry.caseId = event.caseId();
@@ -92,7 +95,7 @@ public class WorkerDecisionEventCapture {
       }
     }
 
-    ledgerRepo.save(entry);
+    ledgerRepo.save(entry, event.tenancyId());
 
     LOG.debugf(
         "Worker decision entry written: caseId=%s workerId=%s capability=%s seq=%d",
