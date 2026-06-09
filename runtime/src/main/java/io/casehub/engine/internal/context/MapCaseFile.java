@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.internal.context;
 
-import io.casehub.api.context.CaseContext;
 import java.util.Map;
 import java.util.Set;
 
@@ -61,15 +60,5 @@ public class MapCaseFile extends CaseContextImpl {
   /** poc-compatible alias for {@link #getKeys()}. */
   public Set<String> keys() {
     return getKeys();
-  }
-
-  /**
-   * Overrides {@link CaseContextImpl#snapshot()} to return a {@code MapCaseFile}, preserving the
-   * poc-compatible {@code put/get/keys} aliases on the snapshot.
-   */
-  @Override
-  public CaseContext snapshot() {
-    final CaseContext base = super.snapshot();
-    return new MapCaseFile(base.getData());
   }
 }

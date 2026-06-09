@@ -22,6 +22,10 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ReadablePanel;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -743,13 +747,16 @@ class CaseContextImplTest {
   class JsonNodeTests {
 
     @Test
-    @DisplayName("asJsonNode returns an object node with all entries")
+    @DisplayName("asJsonNode returns an object node with working panel present")
     void asJsonNode_returnsObjectNode() {
       final var ctx = new CaseContextImpl(Map.of("status", "active", "count", 3));
       final var node = ctx.asJsonNode();
       assertNotNull(node);
-      assertEquals("active", node.get("status").asText());
-      assertEquals(3, node.get("count").asInt());
+      // After panel restructure, values are under the "working" key
+      final var working = node.get("working");
+      assertNotNull(working, "working panel must be present in asJsonNode()");
+      assertEquals("active", working.get("status").asText());
+      assertEquals(3, working.get("count").asInt());
     }
 
     @Test
@@ -818,6 +825,127 @@ class CaseContextImplTest {
       assertNotNull(json);
       assertTrue(json.contains("status"), "toString should contain the key");
       assertTrue(json.contains("ok"), "toString should contain the value");
+    }
+  }
+
+  // ================================================================== //
+  //  Panel API                                                          //
+  // ================================================================== //
+
+  @Nested
+  @DisplayName("panel API")
+  class PanelApiTests {
+
+    @Test
+    @DisplayName("panel() returns working panel with flat-API values")
+    void panel_returnsWorkingPanel() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      ctx.set("result", "done");
+      ReadablePanel p = ctx.panel(ContextPanel.WORKING);
+      assertEquals("done", p.get("result"));
+      assertEquals(ContextPanel.WORKING, p.panelName());
+    }
+
+    @Test
+    @DisplayName("flat API delegates to working panel")
+    void flatApi_delegatesToWorkingPanel() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      ctx.set("key", "value");
+      assertEquals("value", ctx.panel(ContextPanel.WORKING).get("key"));
+    }
+
+    @Test
+    @DisplayName("asJsonNode() returns full panel document with working/semantic/episodic keys")
+    void asJsonNode_returnsPanelDocument() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      ctx.set("result", "done");
+      JsonNode doc = ctx.asJsonNode();
+      assertNotNull(doc.get("working"), "working panel must be present");
+      assertEquals("done", doc.get("working").get("result").asText());
+      assertNotNull(doc.get("semantic"), "semantic panel must be present");
+      assertNotNull(doc.get("episodic"), "episodic panel must be present");
+    }
+
+    @Test
+    @DisplayName("snapshot() includes all panels")
+    void snapshot_includesAllPanels() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      ctx.set("result", "done");
+      ctx.writablePanel(ContextPanel.SEMANTIC).set("threshold", 0.8);
+      CaseContext snap = ctx.snapshot();
+      assertNotNull(snap.asJsonNode().get("semantic"));
+      assertNotNull(snap.asJsonNode().get("episodic"));
+      assertEquals("done", snap.asJsonNode().get("working").get("result").asText());
+      assertEquals(0.8, snap.asJsonNode().get("semantic").get("threshold").asDouble());
+    }
+
+    @Test
+    @DisplayName("getVersion() delegates to working panel")
+    void getVersion_delegatesToWorkingPanel() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      long before = ctx.getVersion();
+      ctx.set("k", "v");
+      assertEquals(before + 1, ctx.getVersion());
+    }
+
+    @Test
+    @DisplayName("clear() only clears working panel; other panels unchanged")
+    void clear_onlyClearsWorkingPanel() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      ctx.set("k", "v");
+      ctx.writablePanel(ContextPanel.SEMANTIC).set("x", 1);
+      ctx.clear();
+      assertTrue(ctx.isEmpty()); // working is clear
+      assertEquals(
+          1, ctx.panel(ContextPanel.SEMANTIC).getAs("x", Integer.class)); // semantic unchanged
+    }
+
+    @Test
+    @DisplayName("applyAndDiff path is working-panel-relative (not panel-prefixed)")
+    void applyAndDiff_isWorkingPanelRelative() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      ctx.set("score", 10);
+      var diff = ctx.applyAndDiff("score", 20);
+      assertTrue(diff.isPresent());
+      String patchStr = diff.get().toString();
+      // Patch path should be /score not /working/score
+      assertTrue(patchStr.contains("/score"), "patch path should be working-panel-relative");
+      assertFalse(patchStr.contains("/working/score"), "patch path must not be panel-prefixed");
+    }
+
+    @Test
+    @DisplayName("fromPanelDocument() reconstructs working and semantic panels")
+    void fromPanelDocument_reconstructsWorkingAndSemanticPanels() throws Exception {
+      CaseContextImpl original = new CaseContextImpl();
+      original.set("result", "done");
+      original.writablePanel(ContextPanel.SEMANTIC).set("domain", "fraud");
+      JsonNode doc = original.asJsonNode();
+
+      CaseContextImpl recovered = CaseContextImpl.fromPanelDocument(doc);
+      assertEquals("done", recovered.get("result"));
+      assertEquals("fraud", recovered.panel(ContextPanel.SEMANTIC).getString("domain"));
+    }
+
+    @Test
+    @DisplayName("writablePanel() returns unfrozen panel that accepts writes")
+    void writablePanel_returnsUnfrozenPanel() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      WritablePanelImpl p = ctx.writablePanel(ContextPanel.EPISODIC);
+      assertFalse(p.isReadOnly());
+      p.set("workers", java.util.List.of());
+      assertEquals(java.util.List.of(), p.getList("workers", Object.class));
+    }
+
+    @Test
+    @DisplayName("freezePanel() makes the named panel read-only")
+    void freezePanel_makesSemanticReadOnly() {
+      CaseContextImpl ctx = new CaseContextImpl();
+      ctx.writablePanel(ContextPanel.SEMANTIC).set("key", "val");
+      ctx.freezePanel(ContextPanel.SEMANTIC);
+      assertTrue(ctx.panel(ContextPanel.SEMANTIC).isReadOnly());
+      assertThrows(
+          io.casehub.api.context.ReadOnlyPanelException.class,
+          () -> ctx.writablePanel(ContextPanel.SEMANTIC).set("key", "other"));
     }
   }
 }

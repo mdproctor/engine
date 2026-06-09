@@ -150,15 +150,14 @@ class MapCaseFileTest {
     }
 
     @Test
-    @DisplayName("snapshot is an independent copy and preserves MapCaseFile type")
-    void snapshot_isIndependentAndPreservesType() {
+    @DisplayName("snapshot is an independent copy")
+    void snapshot_isIndependentCopy() {
       final var map = new MapCaseFile();
       map.put("k", "v1");
       final var snap = map.snapshot();
       map.put("k", "v2");
       assertThat(snap.getString("k")).isEqualTo("v1");
       assertThat(map.getString("k")).isEqualTo("v2");
-      assertThat(snap).isInstanceOf(MapCaseFile.class);
     }
 
     @Test

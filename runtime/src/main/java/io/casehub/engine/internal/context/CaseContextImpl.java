@@ -21,608 +21,311 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
-import io.fabric8.zjsonpatch.JsonDiff;
-import io.fabric8.zjsonpatch.JsonPatch;
-import java.util.ArrayList;
-import java.util.HashSet;
+import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ReadablePanel;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
 @JsonDeserialize(as = CaseContextImpl.class)
 public class CaseContextImpl implements CaseContext {
 
-  private static final ObjectMapper mapper = new ObjectMapper();
+  private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private final Map<String, Object> data = new LinkedHashMap<>();
-  private final ReadWriteLock lock = new ReentrantReadWriteLock();
-  private long version = 0L;
+  private final Map<String, WritablePanelImpl> panels = new LinkedHashMap<>();
 
-  public CaseContextImpl() {}
+  // ── Constructors ────────────────────────────────────────────────────────────
 
-  public CaseContextImpl(Map<String, Object> initial) {
-    if (initial != null) {
-      data.putAll(initial);
-    }
+  public CaseContextImpl() {
+    initBuiltinPanels();
   }
 
-  public CaseContextImpl(Map<String, Object> initial, long version) {
-    if (initial != null) {
-      data.putAll(initial);
-    }
-    this.version = version;
+  public CaseContextImpl(Map<String, Object> initial) {
+    // Use WritablePanelImpl(name, data) constructor which pre-populates without incrementing
+    // version,
+    // preserving the original contract that the map constructor does not increment version.
+    panels.put(
+        ContextPanel.WORKING,
+        new WritablePanelImpl(ContextPanel.WORKING, initial != null ? initial : Map.of()));
+    panels.put(ContextPanel.SEMANTIC, new WritablePanelImpl(ContextPanel.SEMANTIC));
+    panels.put(ContextPanel.EPISODIC, new WritablePanelImpl(ContextPanel.EPISODIC));
+  }
+
+  public CaseContextImpl(Map<String, Object> initial, long ignoredVersion) {
+    // version is per-panel now; the top-level version param is ignored (legacy)
+    this(initial);
   }
 
   public CaseContextImpl(JsonNode asNode) {
-    this(mapper.convertValue(asNode == null ? mapper.createObjectNode() : asNode, Map.class));
+    this(asNode == null ? null : MAPPER.convertValue(asNode, Map.class));
   }
 
-  @JsonAnyGetter
-  @Override
-  public Map<String, Object> getData() {
-    lock.readLock().lock();
-    try {
-      return new LinkedHashMap<>(data);
-    } finally {
-      lock.readLock().unlock();
-    }
+  private void initBuiltinPanels() {
+    panels.put(ContextPanel.WORKING, new WritablePanelImpl(ContextPanel.WORKING));
+    panels.put(ContextPanel.SEMANTIC, new WritablePanelImpl(ContextPanel.SEMANTIC));
+    panels.put(ContextPanel.EPISODIC, new WritablePanelImpl(ContextPanel.EPISODIC));
   }
+
+  private WritablePanelImpl working() {
+    return panels.get(ContextPanel.WORKING);
+  }
+
+  // ── Panel access ────────────────────────────────────────────────────────────
+
+  @Override
+  public ReadablePanel panel(String name) {
+    return panels.computeIfAbsent(name, WritablePanelImpl::new);
+  }
+
+  /** Engine-internal: returns writable view (engine writes to semantic/episodic this way). */
+  public WritablePanelImpl writablePanel(String name) {
+    return panels.computeIfAbsent(name, WritablePanelImpl::new);
+  }
+
+  /** Freezes a panel (makes it read-only). */
+  public void freezePanel(String name) {
+    WritablePanelImpl p = panels.get(name);
+    if (p != null) p.freeze();
+  }
+
+  // ── Flat API — delegates to working panel ──────────────────────────────────
 
   @JsonAnySetter
   @Override
   public CaseContext set(String key, Object value) {
-    lock.writeLock().lock();
-    try {
-      Object prev = data.get(key);
-      if (!Objects.equals(prev, value)) {
-        data.put(key, value);
-        version++;
-      }
-      return this;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    working().set(key, value);
+    return this;
   }
 
   @Override
   public Object get(String key) {
-    lock.readLock().lock();
-    try {
-      return data.get(key);
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().get(key);
   }
 
   @Override
   public <T> T getAs(String key, Class<T> type) {
-    lock.readLock().lock();
-    try {
-      Object value = data.get(key);
-      if (value == null) {
-        return null;
-      }
-      if (type.isInstance(value)) {
-        return type.cast(value);
-      }
-      return mapper.convertValue(value, type);
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().getAs(key, type);
   }
 
-  @SuppressWarnings("unchecked")
   @Override
   public <T> T getOrDefault(String key, T defaultValue) {
-    lock.readLock().lock();
-    try {
-      Object value = data.get(key);
-      return value != null ? (T) value : defaultValue;
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().getOrDefault(key, defaultValue);
   }
 
   @Override
   public Object computeIfAbsent(String key, Function<String, Object> mappingFunction) {
-    lock.writeLock().lock();
-    try {
-      Object value = data.get(key);
-      if (value == null) {
-        value = mappingFunction.apply(key);
-        if (value != null) {
-          data.put(key, value);
-          version++;
-        }
-      }
-      return value;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    return working().computeIfAbsent(key, mappingFunction);
   }
 
   @Override
   public Object putIfAbsent(String key, Object value) {
-    lock.writeLock().lock();
-    try {
-      Object existing = data.get(key);
-      if (existing == null) {
-        data.put(key, value);
-        version++;
-      }
-      return existing;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    return working().putIfAbsent(key, value);
   }
 
   @Override
   public boolean compareAndSet(String key, Object expected, Object newValue) {
-    lock.writeLock().lock();
-    try {
-      Object current = data.get(key);
-      if (Objects.equals(current, expected)) {
-        if (!Objects.equals(current, newValue)) {
-          data.put(key, newValue);
-          version++;
-        }
-        return true;
-      }
-      return false;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    return working().compareAndSet(key, expected, newValue);
   }
 
   @Override
   public CaseContext update(String key, Function<Object, Object> updateFunction) {
-    lock.writeLock().lock();
-    try {
-      Object current = data.get(key);
-      Object newValue = updateFunction.apply(current);
-      if (newValue != null) {
-        if (!Objects.equals(current, newValue)) {
-          data.put(key, newValue);
-          version++;
-        }
-      } else {
-        if (data.containsKey(key)) {
-          data.remove(key);
-          version++;
-        }
-      }
-      return this;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    working().update(key, updateFunction);
+    return this;
   }
 
   @Override
   public String getString(String key) {
-    Object v = get(key);
-    return v != null ? v.toString() : null;
+    return working().getString(key);
   }
 
   @Override
   public Integer getInt(String key) {
-    Object v = get(key);
-    if (v == null) {
-      return null;
-    }
-    if (v instanceof Number n) {
-      return n.intValue();
-    }
-    return Integer.parseInt(v.toString());
+    return working().getInt(key);
   }
 
   @Override
   public Long getLong(String key) {
-    Object v = get(key);
-    if (v == null) {
-      return null;
-    }
-    if (v instanceof Number n) {
-      return n.longValue();
-    }
-    return Long.parseLong(v.toString());
+    return working().getLong(key);
   }
 
   @Override
   public Double getDouble(String key) {
-    Object v = get(key);
-    if (v == null) {
-      return null;
-    }
-    if (v instanceof Number n) {
-      return n.doubleValue();
-    }
-    return Double.parseDouble(v.toString());
+    return working().getDouble(key);
   }
 
   @Override
   public Boolean getBoolean(String key) {
-    Object v = get(key);
-    if (v == null) {
-      return null;
-    }
-    if (v instanceof Boolean b) {
-      return b;
-    }
-    return Boolean.parseBoolean(v.toString());
+    return working().getBoolean(key);
   }
 
   @Override
   public <T> List<T> getList(String key, Class<T> elementType) {
-    lock.readLock().lock();
-    try {
-      Object v = data.get(key);
-      if (v == null) {
-        return null;
-      }
-      if (v instanceof List<?> list) {
-        return list.stream().map(item -> mapper.convertValue(item, elementType)).toList();
-      }
-      return null;
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().getList(key, elementType);
   }
 
   @Override
   public Object getPath(String path) {
-    lock.readLock().lock();
-    try {
-      return getPathInternal(path);
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().getPath(path);
   }
 
   @Override
   public String getPathAsString(String path) {
-    Object v = getPath(path);
-    return v != null ? v.toString() : null;
+    return working().getPathAsString(path);
   }
 
-  @SuppressWarnings("unchecked")
-  private Object getPathInternal(String path) {
-    String[] parts = path.split("\\.");
-    Object current = data;
-
-    for (String part : parts) {
-      if (current instanceof Map<?, ?> map) {
-        current = map.get(part);
-      } else {
-        return null;
-      }
-      if (current == null) {
-        return null;
-      }
-    }
-    return current;
-  }
-
-  @SuppressWarnings("unchecked")
   @Override
   public CaseContext setPath(String path, Object value) {
-    lock.writeLock().lock();
-    try {
-      String[] parts = path.split("\\.");
-      Map<String, Object> current = data;
-
-      for (int i = 0; i < parts.length - 1; i++) {
-        Object next = current.get(parts[i]);
-        if (next == null) {
-          next = new LinkedHashMap<String, Object>();
-          current.put(parts[i], next);
-        }
-        if (next instanceof Map) {
-          current = (Map<String, Object>) next;
-        } else {
-          throw new IllegalStateException("Cannot set path: " + parts[i] + " is not a Map");
-        }
-      }
-      String leaf = parts[parts.length - 1];
-      Object prev = current.get(leaf);
-      if (!Objects.equals(prev, value)) {
-        current.put(leaf, value);
-        version++;
-      }
-      return this;
-    } finally {
-      lock.writeLock().unlock();
-    }
-  }
-
-  @Override
-  @SuppressWarnings("unchecked")
-  public Optional<JsonNode> applyAndDiff(String path, Object value) {
-    lock.writeLock().lock();
-    try {
-      JsonNode before = mapper.convertValue(data, JsonNode.class);
-
-      String[] parts = path.split("\\.");
-      Map<String, Object> current = data;
-      for (int i = 0; i < parts.length - 1; i++) {
-        Object next = current.get(parts[i]);
-        if (next == null) {
-          next = new LinkedHashMap<String, Object>();
-          current.put(parts[i], next);
-        }
-        if (next instanceof Map) {
-          current = (Map<String, Object>) next;
-        } else {
-          throw new IllegalStateException("Cannot set path: " + parts[i] + " is not a Map");
-        }
-      }
-      String leaf = parts[parts.length - 1];
-      Object prev = current.get(leaf);
-      if (!Objects.equals(prev, value)) {
-        current.put(leaf, value);
-        version++;
-      }
-
-      JsonNode after = mapper.convertValue(data, JsonNode.class);
-      JsonNode diff = JsonDiff.asJson(before, after);
-      return diff.isEmpty() ? Optional.empty() : Optional.of(diff);
-    } finally {
-      lock.writeLock().unlock();
-    }
+    working().setPath(path, value);
+    return this;
   }
 
   @Override
   public CaseContext setAll(Map<String, Object> values) {
-    if (values == null || values.isEmpty()) {
-      return this;
-    }
-    lock.writeLock().lock();
-    try {
-      boolean changed = false;
-      for (Map.Entry<String, Object> e : values.entrySet()) {
-        Object prev = data.get(e.getKey());
-        if (!Objects.equals(prev, e.getValue())) {
-          data.put(e.getKey(), e.getValue());
-          changed = true;
-        }
-      }
-      if (changed) {
-        version++;
-      }
-      return this;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    working().setAll(values);
+    return this;
   }
 
   @Override
   public Map<String, Object> getAll(String... keys) {
-    lock.readLock().lock();
-    try {
-      Map<String, Object> result = new LinkedHashMap<>();
-      for (String key : keys) {
-        Object value = data.get(key);
-        if (value != null) {
-          result.put(key, value);
-        }
-      }
-      return result;
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().getAll(keys);
   }
 
   @Override
   public boolean contains(String key) {
-    lock.readLock().lock();
-    try {
-      return data.containsKey(key);
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().contains(key);
   }
 
   @Override
   public CaseContext remove(String key) {
-    lock.writeLock().lock();
-    try {
-      if (data.containsKey(key)) {
-        data.remove(key);
-        version++;
-      }
-      return this;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    working().remove(key);
+    return this;
   }
 
   @Override
   public CaseContext clear() {
-    lock.writeLock().lock();
-    try {
-      if (!data.isEmpty()) {
-        data.clear();
-        version++;
-      }
-      return this;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    working().clear();
+    return this;
   }
 
   @JsonIgnore
   @Override
   public Set<String> getKeys() {
-    lock.readLock().lock();
-    try {
-      return new HashSet<>(data.keySet());
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().getKeys();
   }
 
   @JsonIgnore
   @Override
   public boolean isEmpty() {
-    lock.readLock().lock();
-    try {
-      return data.isEmpty();
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().isEmpty();
   }
 
   @JsonIgnore
   @Override
   public int size() {
-    lock.readLock().lock();
-    try {
-      return data.size();
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().size();
   }
 
+  @JsonAnyGetter
   @Override
-  public JsonNode asJsonNode() {
-    lock.readLock().lock();
-    try {
-      return mapper.convertValue(data, JsonNode.class);
-    } finally {
-      lock.readLock().unlock();
-    }
+  public Map<String, Object> getData() {
+    return working().getData();
+  }
+
+  // ── Multi-panel operations ─────────────────────────────────────────────────
+
+  @Override
+  public long getVersion() {
+    return working().getVersion();
   }
 
   @Override
   public CaseContext merge(CaseContext other) {
-    if (other == null) {
-      return this;
-    }
-    lock.writeLock().lock();
-    try {
-      Map<String, Object> otherData = other.getData();
-      boolean changed = false;
-      for (Map.Entry<String, Object> e : otherData.entrySet()) {
-        Object prev = data.get(e.getKey());
-        if (!Objects.equals(prev, e.getValue())) {
-          data.put(e.getKey(), e.getValue());
-          changed = true;
-        }
-      }
-      if (changed) {
-        version++;
-      }
-      return this;
-    } finally {
-      lock.writeLock().unlock();
-    }
-  }
-
-  @Override
-  public CaseContext snapshot() {
-    lock.readLock().lock();
-    try {
-      return new CaseContextImpl(deepCopy(data), version);
-    } finally {
-      lock.readLock().unlock();
-    }
+    if (other == null) return this;
+    working().setAll(other.getData()); // merge working panels only
+    return this;
   }
 
   @Override
   public JsonNode diff(CaseContext other) {
-    lock.readLock().lock();
-    try {
-      JsonNode thisNode = mapper.convertValue(this.data, JsonNode.class);
-      JsonNode otherNode = mapper.convertValue(other.getData(), JsonNode.class);
-      return JsonDiff.asJson(thisNode, otherNode);
-    } finally {
-      lock.readLock().unlock();
-    }
+    return working().diff(other.panel(ContextPanel.WORKING)); // working panels only
   }
 
   @Override
   public void applyDiff(JsonNode diff) {
-    lock.writeLock().lock();
-    try {
-      JsonNode current = mapper.convertValue(data, JsonNode.class);
-      JsonNode patched = JsonPatch.apply(diff, current);
-      Map<String, Object> updated =
-          mapper.convertValue(
-              patched,
-              mapper
-                  .getTypeFactory()
-                  .constructMapType(LinkedHashMap.class, String.class, Object.class));
-      data.clear();
-      data.putAll(updated);
-      version++;
-    } finally {
-      lock.writeLock().unlock();
-    }
+    working().applyDiff(diff); // working panel, working-panel-relative patches
   }
 
   @Override
-  public long getVersion() {
-    lock.readLock().lock();
-    try {
-      return version;
-    } finally {
-      lock.readLock().unlock();
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> deepCopy(Map<String, Object> source) {
-    Map<String, Object> copy = new LinkedHashMap<>();
-    for (Map.Entry<String, Object> entry : source.entrySet()) {
-      Object value = entry.getValue();
-      if (value instanceof Map) {
-        value = deepCopy((Map<String, Object>) value);
-      } else if (value instanceof List) {
-        value = new ArrayList<>((List<?>) value);
-      }
-      copy.put(entry.getKey(), value);
-    }
-    return copy;
+  public Optional<JsonNode> applyAndDiff(String path, Object value) {
+    return working().applyAndDiff(path, value); // working panel, path is working-relative
   }
 
   @Override
-  public String toString() {
-    lock.readLock().lock();
-    try {
-      return mapper.writeValueAsString(data);
-    } catch (Exception e) {
-      return data.toString();
-    } finally {
-      lock.readLock().unlock();
+  public CaseContext snapshot() {
+    // Deep-copy ALL panels
+    CaseContextImpl snap = new CaseContextImpl();
+    snap.panels.clear();
+    for (Map.Entry<String, WritablePanelImpl> e : panels.entrySet()) {
+      snap.panels.put(e.getKey(), e.getValue().deepCopy());
     }
+    return snap;
   }
+
+  @Override
+  public JsonNode asJsonNode() {
+    // Returns FULL panel document: {"working":{...},"semantic":{...},"episodic":{...},...}
+    ObjectNode doc = MAPPER.createObjectNode();
+    for (Map.Entry<String, WritablePanelImpl> e : panels.entrySet()) {
+      doc.set(e.getKey(), e.getValue().asJsonNode());
+    }
+    return doc;
+  }
+
+  /**
+   * Factory for recovery — reconstructs from a stored panel document. The panel document is the
+   * output of {@link #asJsonNode()}: a JSON object whose keys are panel names and values are panel
+   * data objects.
+   */
+  public static CaseContextImpl fromPanelDocument(JsonNode panelDoc) {
+    CaseContextImpl ctx = new CaseContextImpl();
+    if (panelDoc == null || panelDoc.isNull()) return ctx;
+    panelDoc
+        .fields()
+        .forEachRemaining(
+            entry -> {
+              String name = entry.getKey();
+              @SuppressWarnings("unchecked")
+              Map<String, Object> data = MAPPER.convertValue(entry.getValue(), Map.class);
+              ctx.panels.put(name, new WritablePanelImpl(name, data));
+            });
+    return ctx;
+  }
+
+  // ── equals / hashCode / toString — working panel data for backward compat ──
 
   @Override
   public boolean equals(Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (!(o instanceof CaseContextImpl that)) {
-      return false;
-    }
-    Map<String, Object> thisData = this.getData();
-    Map<String, Object> thatData = that.getData();
-    return thisData.equals(thatData);
+    if (this == o) return true;
+    if (!(o instanceof CaseContextImpl that)) return false;
+    return this.getData().equals(that.getData());
   }
 
   @Override
   public int hashCode() {
-    lock.readLock().lock();
+    return getData().hashCode();
+  }
+
+  @Override
+  public String toString() {
     try {
-      return data.hashCode();
-    } finally {
-      lock.readLock().unlock();
+      return MAPPER.writeValueAsString(getData());
+    } catch (Exception e) {
+      return getData().toString();
     }
   }
 }
