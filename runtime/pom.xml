@@ -40,6 +40,14 @@
             <groupId>io.casehub</groupId>
             <artifactId>casehub-eidos-api</artifactId>
         </dependency>
+        <dependency>
+            <!-- Provides ReactiveCaseMemoryStore (and NoOpCaseMemoryStore @DefaultBean).
+                 BOM pins this as test scope; override here for production injection.
+                 casehub-platform-api (compile) provides Memory/MemoryQuery value types. -->
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform</artifactId>
+            <scope>compile</scope>
+        </dependency>
 
         <dependency>
             <groupId>io.quarkus</groupId>

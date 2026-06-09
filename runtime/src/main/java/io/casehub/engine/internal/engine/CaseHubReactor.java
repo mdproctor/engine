@@ -24,12 +24,15 @@ import io.casehub.api.context.ContextPanel;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.EpisodicMemoryConfig;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseStartedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.SignalReceivedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.jq.JQEvaluator;
+import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
@@ -40,12 +43,18 @@ import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.context.EpisodicPanelUpdater;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.platform.api.identity.CurrentPrincipal;
+import io.casehub.platform.api.memory.Memory;
+import io.casehub.platform.api.memory.MemoryDomain;
+import io.casehub.platform.api.memory.MemoryQuery;
+import io.casehub.platform.memory.ReactiveCaseMemoryStore;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,6 +85,10 @@ class CaseHubReactor {
   @Inject EventLogRepository eventLogRepository;
 
   @Inject CurrentPrincipal currentPrincipal;
+
+  @Inject ReactiveCaseMemoryStore reactiveCaseMemoryStore;
+
+  @Inject JQEvaluator jqEvaluator;
 
   CompletionStage<UUID> startCase(CaseDefinition definition, CaseContext context) {
     return startCaseInternal(definition, context, null, null, null);
@@ -135,7 +148,7 @@ class CaseHubReactor {
       Map<String, Object> semanticData) {
     CaseMetaModel model = caseDefinitionRegistry.getCaseMetaModel(definition);
 
-    PropagationContext propagationContext;
+    final PropagationContext propagationContext;
     if (parentPropCtx != null) {
       propagationContext = parentPropCtx.createChild();
     } else {
@@ -153,7 +166,8 @@ class CaseHubReactor {
               .orElse(PropagationContext.createRoot(traceId));
     }
 
-    // Populate semantic panel: definition defaults first, call-site overrides second
+    // Populate semantic panel: definition defaults first, call-site overrides second.
+    // Semantic must be frozen before the inter-case memory query (entityId JQ needs it).
     if (context instanceof CaseContextImpl ctx) {
       Map<String, Object> defSemanticData = definition.getSemanticData();
       if (defSemanticData != null && !defSemanticData.isEmpty()) {
@@ -163,21 +177,110 @@ class CaseHubReactor {
         ctx.writablePanel(ContextPanel.SEMANTIC).setAll(semanticData);
       }
       ctx.freezePanel(ContextPanel.SEMANTIC);
+      // Initialize episodic baseline before the inter-case query and before freeze
       EpisodicPanelUpdater.initBaseline(ctx);
-      ctx.freezePanel(ContextPanel.EPISODIC); // episodic is engine-managed
     }
 
-    CaseInstance instance = new CaseInstance();
-    instance.setUuid(UUID.randomUUID());
-    instance.setCaseMetaModel(model);
-    instance.setVersion(0L);
-    instance.setState(CaseStatus.RUNNING);
-    instance.setCaseContext(context);
-    instance.setPropagationContext(propagationContext);
-    instance.setParentCaseId(parentCaseId);
+    // Inter-case memory query — async, runs before episodic panel is frozen
+    EpisodicMemoryConfig memCfg = definition.getEpisodicMemoryConfig();
+    final Uni<Void> memoryQueryStep;
 
-    caseInstanceCache.put(instance);
-    return caseInstanceRepository.save(instance, currentPrincipal.tenancyId());
+    if (memCfg != null && context instanceof CaseContextImpl ctxForMem) {
+      memoryQueryStep =
+          queryEpisodicMemory(ctxForMem, memCfg)
+              .invoke(
+                  memories -> {
+                    if (!memories.isEmpty()) {
+                      List<Map<String, Object>> projected =
+                          memories.stream()
+                              .map(
+                                  m -> {
+                                    Map<String, Object> p = new LinkedHashMap<>();
+                                    p.put("text", m.text());
+                                    if (m.attributes() != null && !m.attributes().isEmpty()) {
+                                      p.put("attributes", new LinkedHashMap<>(m.attributes()));
+                                    }
+                                    return p;
+                                  })
+                              .toList();
+                      ctxForMem.writablePanel(ContextPanel.EPISODIC).engineSet("memory", projected);
+                    }
+                  })
+              .replaceWithVoid();
+    } else {
+      memoryQueryStep = Uni.createFrom().voidItem();
+    }
+
+    return memoryQueryStep.chain(
+        () -> {
+          // Freeze episodic after memory injection — episodic is engine-managed
+          if (context instanceof CaseContextImpl ctx) {
+            ctx.freezePanel(ContextPanel.EPISODIC);
+          }
+
+          CaseInstance instance = new CaseInstance();
+          instance.setUuid(UUID.randomUUID());
+          instance.setCaseMetaModel(model);
+          instance.setVersion(0L);
+          instance.setState(CaseStatus.RUNNING);
+          instance.setCaseContext(context);
+          instance.setPropagationContext(propagationContext);
+          instance.setParentCaseId(parentCaseId);
+
+          caseInstanceCache.put(instance);
+          return caseInstanceRepository.save(instance, currentPrincipal.tenancyId());
+        });
+  }
+
+  private Uni<List<Memory>> queryEpisodicMemory(CaseContextImpl ctx, EpisodicMemoryConfig cfg) {
+    try {
+      // Evaluate entityId JQ against frozen semantic panel
+      var semNode = ctx.panel(ContextPanel.SEMANTIC).asJsonNode();
+      ValidationResult vr = jqEvaluator.eval(cfg.entityId(), semNode);
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
+        LOG.warnf("episodic.memory.entityId JQ evaluation failed: %s", vr.error());
+        return Uni.createFrom().item(List.of());
+      }
+
+      var result = vr.output().get(0);
+      List<String> entityIds;
+      if (result.isTextual()) {
+        entityIds = List.of(result.asText());
+      } else if (result.isArray()) {
+        entityIds = new ArrayList<>();
+        result.forEach(n -> entityIds.add(n.asText()));
+      } else {
+        LOG.warnf("episodic.memory.entityId JQ result is neither string nor array: %s", result);
+        return Uni.createFrom().item(List.of());
+      }
+
+      if (entityIds.isEmpty()) {
+        return Uni.createFrom().item(List.of());
+      }
+
+      var domain = new MemoryDomain(cfg.domain());
+      var tenantId = currentPrincipal.tenancyId();
+
+      // No withCaseId() — inter-case query is cross-case by design
+      MemoryQuery query =
+          entityIds.size() == 1
+              ? MemoryQuery.forEntity(entityIds.get(0), domain, tenantId).withLimit(cfg.recent())
+              : MemoryQuery.forEntities(entityIds, domain, tenantId).withLimit(cfg.recent());
+
+      return reactiveCaseMemoryStore
+          .query(query)
+          .onFailure()
+          .recoverWithItem(
+              t -> {
+                LOG.warnf(
+                    t, "EpisodicMemoryStore query failed — continuing without inter-case memory");
+                return List.of();
+              });
+
+    } catch (Exception e) {
+      LOG.warnf(e, "Failed to build episodic MemoryQuery");
+      return Uni.createFrom().item(List.of());
+    }
   }
 
   void signal(UUID caseId, String path, Object value) {
