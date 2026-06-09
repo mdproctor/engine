@@ -10,3 +10,4 @@
 | 0006 | [Application-managed RLS with drop-and-create schema strategy](0006-application-managed-rls-drop-and-create.md) | Accepted | 2026-06-02 |
 | 0007 | [SystemCurrentPrincipal as interim engine-internal class](0007-system-current-principal-interim-engine-class.md) | Accepted | 2026-06-02 |
 | 0008 | [ListEvaluator as a separate sealed hierarchy from ExpressionEvaluator](0008-list-evaluator-separate-sealed-hierarchy.md) | Accepted | 2026-06-07 |
+| 0009 | [expressionLang granularity: per-definition vs per-expression](0009-expression-lang-granularity.md) | Accepted | 2026-06-09 |
