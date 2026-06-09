@@ -186,6 +186,29 @@ class ActionGateIntegrationTest {
   }
 
   @Test
+  void classifierThrows_failSafeGateRequired_caseRemainsRunning() {
+    // Classifier throws — engine must apply fail-safe GateRequired, not fault the case.
+    CapturingClassifier.throwOnClassify.set(true);
+    GateCaseHub.declareAction.set(true);
+
+    final UUID caseId = startCase();
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .until(
+            () -> {
+              final var inst = caseInstanceCache.get(caseId);
+              return inst != null && inst.getPendingActionGate() != null;
+            });
+
+    assertThat(caseInstanceCache.get(caseId).getState()).isEqualTo(CaseStatus.RUNNING);
+    assertThat(caseInstanceCache.get(caseId).getPendingActionGate()).isNotNull();
+    // fail-safe message confirms the gate came from the error recovery path
+    assertThat(caseInstanceCache.get(caseId).getPendingActionGate().plannedAction().actionType())
+        .isEqualTo("sar.file");
+  }
+
+  @Test
   void classifierReceivesEnrichedPlannedAction_workerIdAndCaseIdPopulated() {
     CapturingClassifier.nextDecision = new Autonomous();
     GateCaseHub.declareAction.set(true);
@@ -225,15 +248,20 @@ class ActionGateIntegrationTest {
 
     static final List<PlannedAction> capturedActions = new CopyOnWriteArrayList<>();
     static volatile RiskDecision nextDecision = new Autonomous();
+    static final AtomicBoolean throwOnClassify = new AtomicBoolean(false);
 
     static void reset() {
       capturedActions.clear();
       nextDecision = new Autonomous();
+      throwOnClassify.set(false);
     }
 
     @Override
     public RiskDecision classify(final PlannedAction action) {
       capturedActions.add(action);
+      if (throwOnClassify.get()) {
+        throw new RuntimeException("Simulated classifier failure for fail-safe test");
+      }
       return nextDecision;
     }
   }
