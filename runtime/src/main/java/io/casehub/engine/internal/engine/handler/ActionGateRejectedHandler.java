@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.event.CaseHubEventType;
@@ -117,7 +118,8 @@ public class ActionGateRejectedHandler {
     // Fire CONTEXT_CHANGED immediately — gate is already cleared and signal written
     eventBus.publish(
         EventBusAddresses.CONTEXT_CHANGED,
-        new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+        new CaseContextChangedEvent(
+            instance, instance.getCaseContext().snapshot(), ContextPanel.WORKING));
 
     // Notify the blackboard (if active) to mark the PlanItem FAULTED so stage autocomplete fires.
     // Uses ACTION_GATE_WORKER_FAULTED (not WORKER_RETRIES_EXHAUSTED) to avoid case-fault

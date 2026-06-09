@@ -83,6 +83,11 @@ public final class EventBusAddresses {
    */
   public static final String ACTION_GATE_CANCELLED = "casehub.action.gate.cancelled";
 
+  /** Returns an event bus address scoped to a specific panel name. */
+  public static String panelChanged(String panelName) {
+    return "casehub.context.changed." + panelName;
+  }
+
   /**
    * Published by ActionGateRejectedHandler and ActionGateExpiredHandler when a gate is resolved
    * negatively (rejected or expired). Consumed by the blackboard module to mark the associated

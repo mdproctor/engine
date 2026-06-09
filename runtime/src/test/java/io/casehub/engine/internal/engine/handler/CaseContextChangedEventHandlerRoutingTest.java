@@ -23,8 +23,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.fasterxml.jackson.databind.node.NullNode;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.model.Binding;
@@ -129,15 +129,15 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
     when(expressionEngineRegistry.evaluate(
-            any(io.casehub.api.model.evaluator.ExpressionEvaluator.class),
-            any(com.fasterxml.jackson.databind.JsonNode.class)))
+            any(io.casehub.api.model.evaluator.ExpressionEvaluator.class), any(CaseContext.class)))
         .thenReturn(true);
     when(executionManager.getActiveWorkCount(any())).thenReturn(0);
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
 
     final CaseContext ctx = mock(CaseContext.class);
-    when(ctx.asJsonNode()).thenReturn(NullNode.instance);
+    when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
+    when(ctx.snapshot()).thenReturn(ctx);
 
     caseInstance = new CaseInstance();
     caseInstance.setUuid(UUID.randomUUID());
@@ -156,7 +156,8 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     handler
         .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(caseInstance, NullNode.instance))
+            new CaseContextChangedEvent(
+                caseInstance, caseInstance.getCaseContext(), ContextPanel.WORKING))
         .await()
         .indefinitely();
 
@@ -174,7 +175,8 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     handler
         .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(caseInstance, NullNode.instance))
+            new CaseContextChangedEvent(
+                caseInstance, caseInstance.getCaseContext(), ContextPanel.WORKING))
         .await()
         .indefinitely();
 
@@ -192,7 +194,8 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     handler
         .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(caseInstance, NullNode.instance))
+            new CaseContextChangedEvent(
+                caseInstance, caseInstance.getCaseContext(), ContextPanel.WORKING))
         .await()
         .indefinitely();
 
@@ -225,7 +228,8 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     handler
         .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(caseInstance, NullNode.instance))
+            new CaseContextChangedEvent(
+                caseInstance, caseInstance.getCaseContext(), ContextPanel.WORKING))
         .await()
         .indefinitely();
 

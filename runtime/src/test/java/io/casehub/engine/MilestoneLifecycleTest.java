@@ -238,9 +238,11 @@ class MilestoneLifecycleTest {
     instance.getCaseContext().set(key, value);
 
     // Publish context changed event to trigger milestone evaluation
-    com.fasterxml.jackson.databind.JsonNode contextSnapshot =
-        instance.getCaseContext().asJsonNode();
-    CaseContextChangedEvent event = new CaseContextChangedEvent(instance, contextSnapshot);
+    CaseContextChangedEvent event =
+        new CaseContextChangedEvent(
+            instance,
+            instance.getCaseContext().snapshot(),
+            io.casehub.api.context.ContextPanel.WORKING);
     eventBus.publish(EventBusAddresses.CONTEXT_CHANGED, event);
   }
 

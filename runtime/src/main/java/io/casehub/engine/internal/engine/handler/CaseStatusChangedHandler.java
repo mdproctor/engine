@@ -116,7 +116,7 @@ public class CaseStatusChangedHandler {
                 eventBus.publish(
                     EventBusAddresses.CONTEXT_CHANGED,
                     new CaseContextChangedEvent(
-                        caseInstance, caseInstance.getCaseContext().asJsonNode()));
+                        caseInstance, caseInstance.getCaseContext().snapshot(), null));
               }
             })
         .chain(

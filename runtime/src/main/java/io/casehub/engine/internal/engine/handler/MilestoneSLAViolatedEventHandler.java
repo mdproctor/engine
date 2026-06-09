@@ -18,9 +18,9 @@ package io.casehub.engine.internal.engine.handler;
 import static io.casehub.api.model.event.CaseHubEventType.MILESTONE_SLA_VIOLATED;
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.SlaStatus;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -107,8 +107,10 @@ public class MilestoneSLAViolatedEventHandler {
         caseInstance.getUuid(), milestoneName, violatedAt);
 
     // Publish CONTEXT_CHANGED event to notify other components
-    JsonNode contextSnapshot = context.asJsonNode();
-    eventBus.publish(CONTEXT_CHANGED, new CaseContextChangedEvent(caseInstance, contextSnapshot));
+    eventBus.publish(
+        CONTEXT_CHANGED,
+        new CaseContextChangedEvent(
+            caseInstance, caseInstance.getCaseContext().snapshot(), ContextPanel.WORKING));
 
     return Uni.createFrom().voidItem();
   }

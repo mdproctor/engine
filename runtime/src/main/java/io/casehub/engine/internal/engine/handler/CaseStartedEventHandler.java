@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.CaseChannelProvider;
@@ -59,14 +58,13 @@ public class CaseStartedEventHandler {
   public Uni<Void> onCaseStarted(CaseStartedEvent event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance instance = event.instance();
-    final JsonNode contextSnapshot = instance.getCaseContext().asJsonNode();
 
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(instance.getUuid());
     eventLog.setEventType(CaseHubEventType.CASE_STARTED);
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
-    eventLog.setPayload(contextSnapshot);
+    eventLog.setPayload(instance.getCaseContext().asJsonNode());
 
     caseChannelProvider.openChannel(instance.getUuid(), "coordination");
 
@@ -77,7 +75,8 @@ public class CaseStartedEventHandler {
             () ->
                 eventBus.publish(
                     EventBusAddresses.CONTEXT_CHANGED,
-                    new CaseContextChangedEvent(instance, contextSnapshot)))
+                    new CaseContextChangedEvent(
+                        instance, instance.getCaseContext().snapshot(), null)))
         .chain(
             () ->
                 Uni.createFrom()

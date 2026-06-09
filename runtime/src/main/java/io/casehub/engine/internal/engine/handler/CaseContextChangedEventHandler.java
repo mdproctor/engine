@@ -18,6 +18,8 @@ package io.casehub.engine.internal.engine.handler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.engine.LoopControl;
@@ -121,7 +123,13 @@ public class CaseContextChangedEventHandler {
       return Uni.createFrom().voidItem();
     }
 
-    final JsonNode contextSnapshot = event.contextSnapshot();
+    final CaseContext contextSnapshot = event.contextSnapshot();
+    final String changedPanel = event.changedPanel();
+
+    // Skip binding evaluation for episodic panel updates
+    if (ContextPanel.EPISODIC.equals(changedPanel)) {
+      return Uni.createFrom().voidItem();
+    }
 
     final CaseMetaModel caseMetaModel = caseInstance.getCaseMetaModel();
     final CaseDefinition caseDefinition =
@@ -152,7 +160,7 @@ public class CaseContextChangedEventHandler {
 
   private Uni<Void> rules(
       final CaseInstance caseInstance,
-      final JsonNode contextSnapshot,
+      final CaseContext contextSnapshot,
       final CaseDefinition definition) {
     final List<Binding> bindings = definition.getBindings();
     if (bindings == null || bindings.isEmpty()) {
@@ -199,7 +207,7 @@ public class CaseContextChangedEventHandler {
 
   private Uni<Void> milestones(
       final CaseInstance caseInstance,
-      final JsonNode contextSnapshot,
+      final CaseContext contextSnapshot,
       final CaseDefinition definition) {
     final List<Milestone> milestones = definition.getMilestones();
     if (milestones == null || milestones.isEmpty()) {
@@ -207,8 +215,8 @@ public class CaseContextChangedEventHandler {
     }
 
     for (final Milestone milestone : milestones) {
-      if (!expressionEngineRegistry.evaluate(
-          milestone.getCompletionCriteria(), caseInstance.getCaseContext())) continue;
+      if (!expressionEngineRegistry.evaluate(milestone.getCompletionCriteria(), contextSnapshot))
+        continue;
 
       LOG.infof("Milestone '%s' REACHED! Publishing MilestoneReachedEvent", milestone.getName());
       eventBus.publish(
@@ -220,7 +228,7 @@ public class CaseContextChangedEventHandler {
 
   private Uni<Void> goals(
       final CaseInstance caseInstance,
-      final JsonNode contextSnapshot,
+      final CaseContext contextSnapshot,
       final CaseDefinition definition) {
     final List<Goal> goals = definition.getGoals();
     if (goals == null || goals.isEmpty()) {
@@ -228,8 +236,7 @@ public class CaseContextChangedEventHandler {
     }
 
     for (final Goal goal : goals) {
-      if (!expressionEngineRegistry.evaluate(goal.getCondition(), caseInstance.getCaseContext()))
-        continue;
+      if (!expressionEngineRegistry.evaluate(goal.getCondition(), contextSnapshot)) continue;
 
       LOG.infof("Goal '%s' REACHED! Publishing GoalReachedEvent", goal.getName());
       eventBus.publish(EventBusAddresses.GOAL_REACHED, new GoalReachedEvent(caseInstance, goal));

@@ -15,6 +15,7 @@
  */
 package io.casehub.workadapter;
 
+import io.casehub.api.context.ContextPanel;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
@@ -137,7 +138,8 @@ public class WorkItemLifecycleAdapter {
 
     eventBus.publish(
         EventBusAddresses.CONTEXT_CHANGED,
-        new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+        new CaseContextChangedEvent(
+            instance, instance.getCaseContext().snapshot(), ContextPanel.WORKING));
   }
 
   private boolean applyGroupStatus(PlanItem item, GroupStatus status) {
@@ -213,7 +215,8 @@ public class WorkItemLifecycleAdapter {
 
     eventBus.publish(
         EventBusAddresses.CONTEXT_CHANGED,
-        new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+        new CaseContextChangedEvent(
+            instance, instance.getCaseContext().snapshot(), ContextPanel.WORKING));
 
     LOG.infof(
         "WorkItem escalation signal: caseId=%s planItemId=%s bindingName=%s newGroups=%s",

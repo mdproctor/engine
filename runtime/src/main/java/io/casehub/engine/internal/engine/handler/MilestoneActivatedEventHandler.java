@@ -18,9 +18,9 @@ package io.casehub.engine.internal.engine.handler;
 import static io.casehub.api.model.event.CaseHubEventType.MILESTONE_ACTIVATED;
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SlaStatus;
@@ -137,8 +137,10 @@ public class MilestoneActivatedEventHandler {
         caseInstance.getUuid(), milestone.getName(), milestoneState);
 
     // Publish CONTEXT_CHANGED event to notify other components (I3)
-    JsonNode contextSnapshot = context.asJsonNode();
-    eventBus.publish(CONTEXT_CHANGED, new CaseContextChangedEvent(caseInstance, contextSnapshot));
+    eventBus.publish(
+        CONTEXT_CHANGED,
+        new CaseContextChangedEvent(
+            caseInstance, caseInstance.getCaseContext().snapshot(), ContextPanel.WORKING));
 
     return Uni.createFrom().voidItem();
   }

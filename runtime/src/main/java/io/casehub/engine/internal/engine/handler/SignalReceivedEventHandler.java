@@ -19,6 +19,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -108,7 +109,6 @@ public class SignalReceivedEventHandler {
     }
 
     JsonNode diff = maybeDiff.get();
-    JsonNode contextSnapshot = instance.getCaseContext().asJsonNode();
     EventLog eventLog = buildSignalEventLog(instance, diff);
 
     return eventLogRepository
@@ -116,7 +116,9 @@ public class SignalReceivedEventHandler {
         .invoke(
             () ->
                 eventBus.publish(
-                    CONTEXT_CHANGED, new CaseContextChangedEvent(instance, contextSnapshot)))
+                    CONTEXT_CHANGED,
+                    new CaseContextChangedEvent(
+                        instance, instance.getCaseContext().snapshot(), ContextPanel.WORKING)))
         .chain(
             () ->
                 Uni.createFrom()

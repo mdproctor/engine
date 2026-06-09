@@ -15,16 +15,17 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.api.context.CaseContext;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.Objects;
 
-public record CaseContextChangedEvent(CaseInstance instance, JsonNode contextSnapshot) {
+public record CaseContextChangedEvent(
+    CaseInstance instance, CaseContext contextSnapshot, String changedPanel) {
 
   public CaseContextChangedEvent {
     instance = Objects.requireNonNull(instance, "instance cannot be null");
-    contextSnapshot =
-        Objects.requireNonNull(contextSnapshot, "contextSnapshot cannot be null").deepCopy();
+    contextSnapshot = Objects.requireNonNull(contextSnapshot, "contextSnapshot cannot be null");
+    // changedPanel may be null (case started/resumed — evaluate all bindings)
   }
 
   @Override
@@ -33,11 +34,11 @@ public record CaseContextChangedEvent(CaseInstance instance, JsonNode contextSna
     if (o == null || getClass() != o.getClass()) return false;
     CaseContextChangedEvent that = (CaseContextChangedEvent) o;
     return Objects.equals(instance, that.instance)
-        && Objects.equals(contextSnapshot, that.contextSnapshot);
+        && Objects.equals(changedPanel, that.changedPanel);
   }
 
   @Override
   public String toString() {
-    return "CaseStateContextChangedEvent{" + "uuid=" + instance.getUuid() + '}';
+    return "CaseContextChangedEvent{uuid=" + instance.getUuid() + ", panel=" + changedPanel + '}';
   }
 }

@@ -18,6 +18,7 @@ package io.casehub.workadapter;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
@@ -96,7 +97,8 @@ public class PlanItemCompletionApplier {
     applyOutputMapping(item, workItem, instance);
     eventBus.publish(
         EventBusAddresses.CONTEXT_CHANGED,
-        new CaseContextChangedEvent(instance, instance.getCaseContext().asJsonNode()));
+        new CaseContextChangedEvent(
+            instance, instance.getCaseContext().snapshot(), ContextPanel.WORKING));
   }
 
   private boolean applyStatus(PlanItem item, WorkItemStatus status) {
