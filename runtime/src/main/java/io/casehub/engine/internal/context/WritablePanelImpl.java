@@ -568,6 +568,25 @@ public class WritablePanelImpl implements WritablePanel {
   // ── Public helpers ─────────────────────────────────────────────────────────
 
   /**
+   * Engine-internal write that bypasses the frozen check. Used by {@code EpisodicPanelUpdater} to
+   * update engine-managed panels (episodic) without exposing an unfreeze/refreeze cycle.
+   */
+  public WritablePanelImpl engineSet(String key, Object value) {
+    lock.writeLock().lock();
+    try {
+      Object prev = data.get(key);
+      if (!Objects.equals(prev, value)) {
+        data.put(key, value);
+        // Intentionally does NOT increment version — episodic writes are engine-managed and must
+        // not trigger working-panel version bumps observed by trigger evaluation.
+      }
+      return this;
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
    * Returns a deep copy of this panel, detached from the original. The copy shares the same
    * panelName but has an independent data map.
    */

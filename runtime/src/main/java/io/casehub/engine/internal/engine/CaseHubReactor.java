@@ -37,6 +37,7 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.internal.context.EpisodicPanelUpdater;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.smallrye.mutiny.Uni;
@@ -162,6 +163,7 @@ class CaseHubReactor {
         ctx.writablePanel(ContextPanel.SEMANTIC).setAll(semanticData);
       }
       ctx.freezePanel(ContextPanel.SEMANTIC);
+      EpisodicPanelUpdater.initBaseline(ctx);
       ctx.freezePanel(ContextPanel.EPISODIC); // episodic is engine-managed
     }
 

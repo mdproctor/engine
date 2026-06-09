@@ -44,6 +44,8 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
+import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.internal.context.EpisodicPanelUpdater;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
@@ -94,6 +96,9 @@ public class WorkflowExecutionCompletedHandler {
 
     JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
     applyOutputWithConflictResolution(caseInstance, worker, rawOutput);
+    if (caseInstance.getCaseContext() instanceof CaseContextImpl ctx) {
+      EpisodicPanelUpdater.recordWorkerCompletion(ctx, worker.getName(), "COMPLETED");
+    }
     JsonNode contextAfter = caseInstance.getCaseContext().asJsonNode();
     JsonNode diff = contextDiffStrategy.compute(contextBefore, contextAfter);
 
