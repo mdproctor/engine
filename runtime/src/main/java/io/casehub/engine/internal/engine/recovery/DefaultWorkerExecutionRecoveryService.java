@@ -18,6 +18,7 @@ package io.casehub.engine.internal.engine.recovery;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -29,6 +30,7 @@ import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.internal.context.EpisodicPanelUpdater;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -148,7 +150,7 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                         CaseHubEventType.MILESTONE_SLA_VIOLATED)))
         .map(
             eventLogs -> {
-              CaseContext caseContext = new CaseContextImpl();
+              CaseContextImpl caseContext = new CaseContextImpl();
               EventLog caseStartedEvent =
                   eventLogs.stream()
                       .filter(e -> e.getEventType() == CaseHubEventType.CASE_STARTED)
@@ -156,7 +158,9 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                       .orElse(null);
 
               if (caseStartedEvent != null) {
-                caseContext = new CaseContextImpl(payloadAsMap(caseStartedEvent.getPayload()));
+                // CASE_STARTED payload is now a panel document
+                // {"working":{...},"semantic":{...},...}
+                caseContext = CaseContextImpl.fromPanelDocument(caseStartedEvent.getPayload());
               }
 
               for (EventLog eventLog : eventLogs) {
@@ -181,12 +185,25 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                   } else {
                     caseContext.setAll(payloadAsMap(eventLog.getPayload()));
                   }
+                  // Update episodic panel
+                  String workerId = eventLog.getWorkerId();
+                  if (workerId != null) {
+                    EpisodicPanelUpdater.recordWorkerCompletion(caseContext, workerId, "COMPLETED");
+                  }
                 } else if (eventLog.getEventType() == CaseHubEventType.SUBCASE_COMPLETED) {
                   caseContext.setAll(payloadAsMap(eventLog.getPayload()));
                 } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_ACTIVATED) {
                   applyMilestoneActivatedEvent(caseContext, eventLog);
                 } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_COMPLETED) {
                   applyMilestoneCompletedEvent(caseContext, eventLog);
+                  // Update episodic panel
+                  JsonNode payload = eventLog.getPayload();
+                  if (payload != null) {
+                    String milestoneName = payload.path("milestoneName").asText(null);
+                    if (milestoneName != null) {
+                      EpisodicPanelUpdater.recordMilestoneReached(caseContext, milestoneName);
+                    }
+                  }
                 } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_SLA_VIOLATED) {
                   applyMilestoneSLAViolatedEvent(caseContext, eventLog);
                 } else {
@@ -194,6 +211,9 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                       "Unexpected event type in rebuildStateContext: %s", eventLog.getEventType());
                 }
               }
+              // Re-freeze semantic and episodic panels (they were frozen at case start)
+              caseContext.freezePanel(ContextPanel.SEMANTIC);
+              caseContext.freezePanel(ContextPanel.EPISODIC);
               return caseContext;
             });
   }
