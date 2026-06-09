@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine;
 
 import io.casehub.api.engine.CaseHub;
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
@@ -29,7 +30,6 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
-import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Multi;

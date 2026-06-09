@@ -183,6 +183,7 @@ class QhorusMessageSignalBridgeTest {
         new MessageReceivedEvent(
             caseChannelName(caseId, "observe"),
             UUID.randomUUID(),
+            "test-tenancy",
             MessageType.EVENT,
             "sender-1",
             null,
@@ -235,7 +236,13 @@ class QhorusMessageSignalBridgeTest {
     String channelName = caseChannelName(caseId, "oversight");
     MessageReceivedEvent event =
         new MessageReceivedEvent(
-            channelName, channelId, MessageType.RESPONSE, "human-operator", "corr-xyz", "approved");
+            channelName,
+            channelId,
+            "test-tenancy",
+            MessageType.RESPONSE,
+            "human-operator",
+            "corr-xyz",
+            "approved");
 
     bridge.onMessage(event);
 
@@ -258,7 +265,13 @@ class QhorusMessageSignalBridgeTest {
     UUID channelId = UUID.randomUUID();
     MessageReceivedEvent event =
         new MessageReceivedEvent(
-            caseChannelName(caseId, "work"), channelId, MessageType.DONE, "agent-1", null, "done");
+            caseChannelName(caseId, "work"),
+            channelId,
+            "test-tenancy",
+            MessageType.DONE,
+            "agent-1",
+            null,
+            "done");
     bridge = new QhorusMessageSignalBridge(runtime);
 
     bridge.onMessage(event);
@@ -291,6 +304,7 @@ class QhorusMessageSignalBridgeTest {
     return new MessageReceivedEvent(
         channelName,
         UUID.randomUUID(),
+        "test-tenancy",
         type,
         senderId,
         correlationId,

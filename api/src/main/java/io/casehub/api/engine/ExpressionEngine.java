@@ -51,4 +51,38 @@ public interface ExpressionEngine {
    * @throws IllegalArgumentException if the expression is syntactically invalid
    */
   void validate(ExpressionEvaluator evaluator);
+
+  /**
+   * Creates an {@link ExpressionEvaluator} from a raw expression string.
+   *
+   * <p>Called by {@link io.casehub.engine.common.spi.ExpressionEngineRegistry#create} during YAML
+   * case definition loading. Only engines that override this method can be used in YAML definitions
+   * via {@code expressionLang: <type>}. Lambda-type evaluators are Java-DSL-only and intentionally
+   * do not override this method.
+   *
+   * <p>Contract: the returned evaluator's {@code type()} MUST equal this engine's {@code type()}.
+   *
+   * @param expression the raw expression string
+   * @return a new evaluator for the given expression
+   * @throws UnsupportedOperationException if this engine does not support string-based creation
+   */
+  default ExpressionEvaluator create(final String expression) {
+    throw new UnsupportedOperationException(
+        "ExpressionEngine '"
+            + type()
+            + "' does not support creation from string expressions. "
+            + "Use the Java DSL to construct evaluators of this type.");
+  }
+
+  /**
+   * Returns {@code true} if this engine overrides {@link #create(String)} and supports creation of
+   * evaluators from string expressions.
+   *
+   * <p>Used by {@link
+   * io.casehub.engine.common.spi.ExpressionEngineRegistry#assertLanguageSupported} to distinguish
+   * "no engine registered" from "engine registered but Java-DSL-only".
+   */
+  default boolean supportsStringCreation() {
+    return false;
+  }
 }

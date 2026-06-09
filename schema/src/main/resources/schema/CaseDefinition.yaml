@@ -24,6 +24,16 @@ properties:
     minLength: 1
     maxLength: 50
     description: The version of the DSL used by the CaseHub.
+  expressionLang:
+    type: string
+    title: ExpressionLang
+    minLength: 1
+    maxLength: 64
+    default: "jq"
+    description: >
+      Expression language for all condition expressions in this definition.
+      Must match the type() of a registered ExpressionEngine that overrides create().
+      Defaults to "jq". Constraint: expressionLang == ExpressionEvaluator.type() == ExpressionEngine.type().
   namespace:
     type: string
     pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$

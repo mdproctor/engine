@@ -43,7 +43,7 @@ public class CaseHubObjectMapperProducer {
 
   @Produces
   @Singleton
-  @YamlMapper
+  @io.casehub.api.marshaller.YamlMapper
   public ObjectMapper yamlObjectMapper() {
     ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 

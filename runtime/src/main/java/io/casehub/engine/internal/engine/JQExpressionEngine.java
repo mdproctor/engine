@@ -60,4 +60,14 @@ public class JQExpressionEngine implements ExpressionEngine {
           "Invalid JQ expression '" + expr + "': " + e.getMessage(), e);
     }
   }
+
+  @Override
+  public ExpressionEvaluator create(final String expression) {
+    return new JQExpressionEvaluator(expression);
+  }
+
+  @Override
+  public boolean supportsStringCreation() {
+    return true;
+  }
 }

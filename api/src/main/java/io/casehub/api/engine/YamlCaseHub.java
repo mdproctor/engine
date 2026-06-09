@@ -15,17 +15,31 @@
  */
 package io.casehub.api.engine;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.marshaller.YamlMapper;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.converter.CaseDefinitionYamlMapper;
+import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
 
+/**
+ * Base class for YAML-backed CaseHub definitions.
+ *
+ * <p>In CDI contexts, {@link ExpressionEngineRegistry} and {@link ObjectMapper} are injected
+ * automatically; all registered expression languages are supported. Outside CDI (tests, tooling),
+ * the no-arg constructor path falls back to JQ-only parsing.
+ */
 public class YamlCaseHub extends CaseHub {
+
+  @Inject ExpressionEngineRegistry expressionEngineRegistry;
+
+  @Inject @YamlMapper ObjectMapper objectMapper;
 
   private final String path;
   private volatile CaseDefinition definition;
 
-  public YamlCaseHub(String path) {
+  public YamlCaseHub(final String path) {
     this.path = path;
   }
 
@@ -39,7 +53,7 @@ public class YamlCaseHub extends CaseHub {
             if (is == null) {
               throw new IllegalStateException("Resource " + path + " not found on classpath");
             }
-            definition = CaseDefinitionYamlMapper.load(is);
+            definition = CaseDefinitionYamlMapper.load(is, objectMapper, expressionEngineRegistry);
           } catch (IOException e) {
             throw new RuntimeException("Failed to load CaseHub definition from " + path, e);
           }

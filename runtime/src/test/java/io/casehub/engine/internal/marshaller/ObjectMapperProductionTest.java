@@ -38,7 +38,7 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class ObjectMapperProductionTest {
 
-  @Inject @YamlMapper ObjectMapper mapper;
+  @Inject @io.casehub.api.marshaller.YamlMapper ObjectMapper mapper;
 
   @Test
   void objectMapperIsInjected() {

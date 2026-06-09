@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.NullNode;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
@@ -48,7 +49,6 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;

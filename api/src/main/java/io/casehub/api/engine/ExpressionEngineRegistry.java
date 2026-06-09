@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.api.engine;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
@@ -61,4 +61,34 @@ public interface ExpressionEngineRegistry {
    *     registered for the evaluator type
    */
   void validate(ExpressionEvaluator evaluator);
+
+  /**
+   * Creates an {@link ExpressionEvaluator} for the given expression language by dispatching to the
+   * {@link io.casehub.api.engine.ExpressionEngine} whose {@code type()} equals {@code
+   * expressionLang}.
+   *
+   * <p>The returned evaluator's {@code type()} is asserted to equal {@code expressionLang} — a
+   * contract violation by the engine's {@code create()} is caught immediately.
+   *
+   * @param expression the raw expression string
+   * @param expressionLang the language identifier (e.g. {@code "jq"})
+   * @return a new evaluator whose {@code type()} equals {@code expressionLang}
+   * @throws IllegalArgumentException if no engine is registered for {@code expressionLang}
+   * @throws UnsupportedOperationException if the matching engine does not override {@code create()}
+   */
+  ExpressionEvaluator create(String expression, String expressionLang);
+
+  /**
+   * Asserts that a registered {@link io.casehub.api.engine.ExpressionEngine} exists for {@code
+   * expressionLang} and that it supports creation from string expressions.
+   *
+   * <p>Does NOT call {@link io.casehub.api.engine.ExpressionEngine#create} — no domain objects are
+   * constructed as a side effect. Use this for fail-fast validation before parsing expressions.
+   *
+   * @param expressionLang the language identifier to check
+   * @throws IllegalArgumentException if no engine is registered for {@code expressionLang}
+   * @throws UnsupportedOperationException if the engine is registered but Java-DSL-only (does not
+   *     override {@code create()})
+   */
+  void assertLanguageSupported(String expressionLang);
 }

@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 @TestProfile(ConfigSecretResolvingDeserializerTest.Profile.class)
 class ConfigSecretResolvingDeserializerTest {
 
-  @Inject @YamlMapper ObjectMapper objectMapper;
+  @Inject @io.casehub.api.marshaller.YamlMapper ObjectMapper objectMapper;
 
   public static class Profile implements QuarkusTestProfile {
     @Override

@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 @TestProfile(YamlPlaceholderResolutionTest.Profile.class)
 class YamlPlaceholderResolutionTest {
 
-  @Inject @YamlMapper ObjectMapper objectMapper;
+  @Inject @io.casehub.api.marshaller.YamlMapper ObjectMapper objectMapper;
 
   public static class Profile implements QuarkusTestProfile {
     @Override

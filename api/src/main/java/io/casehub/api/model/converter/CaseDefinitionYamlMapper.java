@@ -15,8 +15,11 @@
  */
 package io.casehub.api.model.converter;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import io.casehub.api.context.CaseContext;
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.AllOfGoalExpression;
 import io.casehub.api.model.AnyOfGoalExpression;
 import io.casehub.api.model.Binding;
@@ -30,6 +33,7 @@ import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.Worker;
+import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.io.IOException;
 import java.io.InputStream;
@@ -47,59 +51,122 @@ import java.util.stream.Collectors;
  * <p>Reads YAML CaseDefinition files, deserializes to generated schema models (io.casehub.model.*),
  * and converts to API models (io.casehub.api.model.*).
  *
- * <p>Uses a default ObjectMapper with YAMLFactory. Runtime module can override via {@link
- * #setObjectMapper(ObjectMapper)} to inject a CDI-managed instance.
+ * <p>Use {@link #load(InputStream, ObjectMapper, ExpressionEngineRegistry)} in CDI contexts. Use
+ * {@link #load(InputStream)} for non-CDI contexts (tests, tooling) — JQ only.
  */
 public final class CaseDefinitionYamlMapper {
 
-  private static ObjectMapper yamlMapper = new ObjectMapper(new YAMLFactory());
+  /** JQ-only registry for non-CDI contexts. Does not support custom expression languages. */
+  private static final ExpressionEngineRegistry JQ_ONLY =
+      new ExpressionEngineRegistry() {
+        @Override
+        public ExpressionEvaluator create(final String expression, final String expressionLang) {
+          if (!JQExpressionEvaluator.TYPE.equals(expressionLang)) {
+            throw new IllegalArgumentException(
+                "No CDI registry available; only '"
+                    + JQExpressionEvaluator.TYPE
+                    + "' is supported without injection. Got: "
+                    + expressionLang);
+          }
+          return new JQExpressionEvaluator(expression);
+        }
+
+        @Override
+        public void assertLanguageSupported(final String expressionLang) {
+          if (!JQExpressionEvaluator.TYPE.equals(expressionLang)) {
+            throw new IllegalArgumentException(
+                "No CDI registry available; only '"
+                    + JQExpressionEvaluator.TYPE
+                    + "' is supported without injection. Got: "
+                    + expressionLang);
+          }
+        }
+
+        @Override
+        public boolean evaluate(final ExpressionEvaluator evaluator, final CaseContext context) {
+          throw new UnsupportedOperationException(
+              "JQ_ONLY loading registry does not support evaluation");
+        }
+
+        @Override
+        public boolean evaluate(final ExpressionEvaluator evaluator, final JsonNode asNode) {
+          throw new UnsupportedOperationException(
+              "JQ_ONLY loading registry does not support evaluation");
+        }
+
+        @Override
+        public void validate(final ExpressionEvaluator evaluator) {
+          // no-op: loading-only registry; validation occurs through the CDI path
+          // during case definition registration in DefaultCaseDefinitionRegistry
+        }
+      };
 
   private CaseDefinitionYamlMapper() {}
 
   /**
-   * Sets the ObjectMapper to use for YAML parsing.
+   * Loads a CaseDefinition from a YAML InputStream using the CDI-managed ObjectMapper and
+   * ExpressionEngineRegistry. Supports all registered expression languages.
    *
-   * <p>Intended for runtime module to inject CDI-managed ObjectMapper with config/secret support.
-   *
-   * @param mapper ObjectMapper instance (must use YAMLFactory)
+   * @param yamlStream InputStream containing YAML CaseDefinition
+   * @param objectMapper ObjectMapper configured for YAML (with config/secret placeholder support)
+   * @param registry ExpressionEngineRegistry for creating evaluators from YAML expression strings
+   * @return API model CaseDefinition
+   * @throws IOException if reading or parsing fails
    */
-  public static void setObjectMapper(ObjectMapper mapper) {
-    yamlMapper = mapper;
+  public static CaseDefinition load(
+      final InputStream yamlStream,
+      final ObjectMapper objectMapper,
+      final ExpressionEngineRegistry registry)
+      throws IOException {
+    if (yamlStream == null) {
+      throw new IllegalArgumentException("InputStream cannot be null");
+    }
+    final io.casehub.model.CaseDefinition schema =
+        objectMapper.readValue(yamlStream, io.casehub.model.CaseDefinition.class);
+    return convertToApiModel(schema, registry);
   }
 
   /**
-   * Loads a CaseDefinition from a YAML InputStream.
+   * Loads a CaseDefinition from a YAML InputStream using a plain ObjectMapper and JQ-only
+   * expression support.
+   *
+   * <p>For non-CDI contexts (tests, tooling). Does not support custom expression languages — use
+   * {@link #load(InputStream, ObjectMapper, ExpressionEngineRegistry)} in CDI deployments.
    *
    * @param yamlStream InputStream containing YAML CaseDefinition
    * @return API model CaseDefinition
    * @throws IOException if reading or parsing fails
    */
-  public static CaseDefinition load(InputStream yamlStream) throws IOException {
-    if (yamlStream == null) {
-      throw new IllegalArgumentException("InputStream cannot be null");
-    }
-    io.casehub.model.CaseDefinition schema =
-        yamlMapper.readValue(yamlStream, io.casehub.model.CaseDefinition.class);
-    return convertToApiModel(schema);
+  public static CaseDefinition load(final InputStream yamlStream) throws IOException {
+    return load(yamlStream, new ObjectMapper(new YAMLFactory()), JQ_ONLY);
   }
 
   /**
    * Converts generated schema model to API model.
    *
    * @param schema generated CaseDefinition from YAML
+   * @param registry registry for creating ExpressionEvaluator instances from string expressions
    * @return API model CaseDefinition
    */
-  private static CaseDefinition convertToApiModel(io.casehub.model.CaseDefinition schema) {
-    CaseDefinition def =
+  private static CaseDefinition convertToApiModel(
+      final io.casehub.model.CaseDefinition schema, final ExpressionEngineRegistry registry) {
+    final String expressionLang =
+        schema.getExpressionLang() != null
+            ? schema.getExpressionLang()
+            : JQExpressionEvaluator.TYPE;
+    registry.assertLanguageSupported(expressionLang);
+
+    final CaseDefinition def =
         new CaseDefinition(schema.getNamespace(), schema.getName(), schema.getVersion());
     def.setDsl(schema.getDsl());
     def.setTitle(schema.getTitle());
 
     // Convert capabilities
-    Map<String, Capability> capabilityMap = new LinkedHashMap<>();
+    final Map<String, Capability> capabilityMap = new LinkedHashMap<>();
     if (schema.getSpec().getCapabilities() != null) {
       for (io.casehub.model.Capability sc : schema.getSpec().getCapabilities()) {
-        Capability cap = new Capability(sc.getName(), sc.getInputSchema(), sc.getOutputSchema());
+        final Capability cap =
+            new Capability(sc.getName(), sc.getInputSchema(), sc.getOutputSchema());
         cap.setDescription(sc.getDescription());
         capabilityMap.put(sc.getName(), cap);
         def.getCapabilities().add(cap);
@@ -109,16 +176,14 @@ public final class CaseDefinitionYamlMapper {
     // Convert workers
     if (schema.getSpec().getWorkers() != null) {
       for (io.casehub.model.Worker sw : schema.getSpec().getWorkers()) {
-        List<Capability> workerCaps =
+        final List<Capability> workerCaps =
             sw.getCapabilities().stream().map(capabilityMap::get).collect(Collectors.toList());
 
-        Worker worker;
+        final Worker worker;
         if (sw.getAgent() != null) {
-          // Convert agent from schema model to API model
-          io.casehub.api.model.ai.Agent apiAgent = AgentConverter.toApiAgent(sw.getAgent());
+          final io.casehub.api.model.ai.Agent apiAgent = AgentConverter.toApiAgent(sw.getAgent());
           worker = new Worker(sw.getName(), workerCaps, apiAgent);
         } else {
-          // Use workflow
           worker = new Worker(sw.getName(), workerCaps, sw.getWorkflowAsEmbedded());
         }
         worker.setDescription(sw.getDescription());
@@ -129,7 +194,7 @@ public final class CaseDefinitionYamlMapper {
     // Convert bindings
     if (schema.getSpec().getBindings() != null) {
       for (io.casehub.model.Binding sr : schema.getSpec().getBindings()) {
-        Binding binding = convertBinding(sr, capabilityMap);
+        final Binding binding = convertBinding(sr, capabilityMap, registry, expressionLang);
         def.getBindings().add(binding);
       }
     }
@@ -137,17 +202,17 @@ public final class CaseDefinitionYamlMapper {
     // Convert milestones
     if (schema.getSpec().getMilestones() != null) {
       for (io.casehub.model.Milestone sm : schema.getSpec().getMilestones()) {
-        Milestone.Builder milestoneBuilder =
+        final Milestone.Builder milestoneBuilder =
             Milestone.builder()
                 .name(sm.getName())
-                .completionCriteria(new JQExpressionEvaluator(sm.getCondition()));
+                .completionCriteria(registry.create(sm.getCondition(), expressionLang));
 
         if (sm.getEntryCriteria() != null) {
-          milestoneBuilder.entryCriteria(new JQExpressionEvaluator(sm.getEntryCriteria()));
+          milestoneBuilder.entryCriteria(registry.create(sm.getEntryCriteria(), expressionLang));
         }
 
         if (sm.getSlaDuration() != null) {
-          Duration duration;
+          final Duration duration;
           try {
             duration = Duration.parse(sm.getSlaDuration());
           } catch (DateTimeParseException e) {
@@ -171,7 +236,7 @@ public final class CaseDefinitionYamlMapper {
         }
 
         if (sm.getSlaStartFrom() != null) {
-          SlaStartFrom startFrom = SlaStartFrom.valueOf(sm.getSlaStartFrom().value());
+          final SlaStartFrom startFrom = SlaStartFrom.valueOf(sm.getSlaStartFrom().value());
           if (startFrom == SlaStartFrom.PREVIOUS_MILESTONE_COMPLETED
               || startFrom == SlaStartFrom.EVENT_OCCURRED) {
             throw new UnsupportedOperationException(
@@ -185,20 +250,20 @@ public final class CaseDefinitionYamlMapper {
           milestoneBuilder.slaStartFrom(startFrom);
         }
 
-        Milestone milestone = milestoneBuilder.build();
+        final Milestone milestone = milestoneBuilder.build();
         milestone.setDescription(sm.getDescription());
         def.getMilestones().add(milestone);
       }
     }
 
     // Convert goals
-    Map<String, Goal> goalMap = new LinkedHashMap<>();
+    final Map<String, Goal> goalMap = new LinkedHashMap<>();
     if (schema.getSpec().getGoals() != null) {
       for (io.casehub.model.Goal sg : schema.getSpec().getGoals()) {
-        Goal goal =
+        final Goal goal =
             new Goal(
                 sg.getName(),
-                new JQExpressionEvaluator(sg.getCondition()),
+                registry.create(sg.getCondition(), expressionLang),
                 GoalKind.fromValue(sg.getKind().value()));
         goal.setDescription(sg.getDescription());
         goalMap.put(sg.getName(), goal);
@@ -208,9 +273,9 @@ public final class CaseDefinitionYamlMapper {
 
     // Convert completion
     if (schema.getSpec().getCompletion() != null) {
-      io.casehub.model.CaseCompletion sc = schema.getSpec().getCompletion();
-      GoalExpression successExpr = convertGoalExpression(sc.getSuccess(), goalMap);
-      GoalExpression failureExpr = convertGoalExpression(sc.getFailure(), goalMap);
+      final io.casehub.model.CaseCompletion sc = schema.getSpec().getCompletion();
+      final GoalExpression successExpr = convertGoalExpression(sc.getSuccess(), goalMap);
+      final GoalExpression failureExpr = convertGoalExpression(sc.getFailure(), goalMap);
       def.setCompletion(new GoalBasedCompletion(successExpr, failureExpr));
     }
 
@@ -218,19 +283,21 @@ public final class CaseDefinitionYamlMapper {
   }
 
   private static Binding convertBinding(
-      io.casehub.model.Binding schemaBinding, Map<String, Capability> capabilityMap) {
+      final io.casehub.model.Binding schemaBinding,
+      final Map<String, Capability> capabilityMap,
+      final ExpressionEngineRegistry registry,
+      final String expressionLang) {
     if (schemaBinding == null) {
       return null;
     }
 
-    // Convert trigger
-    io.casehub.api.model.Trigger trigger = convertTrigger(schemaBinding.getOn());
+    final io.casehub.api.model.Trigger trigger =
+        convertTrigger(schemaBinding.getOn(), registry, expressionLang);
 
-    Binding.Builder builder = Binding.builder().name(schemaBinding.getName()).on(trigger);
+    final Binding.Builder builder = Binding.builder().name(schemaBinding.getName()).on(trigger);
 
-    // Either capability OR subCase OR humanTask (mutually exclusive)
     if (schemaBinding.getCapability() != null) {
-      Capability cap = capabilityMap.get(schemaBinding.getCapability());
+      final Capability cap = capabilityMap.get(schemaBinding.getCapability());
       if (cap == null) {
         throw new IllegalArgumentException(
             "Capability '"
@@ -241,7 +308,7 @@ public final class CaseDefinitionYamlMapper {
       }
       builder.capability(cap);
     } else if (schemaBinding.getSubCase() != null) {
-      io.casehub.api.model.SubCase subCase = convertSubCase(schemaBinding.getSubCase());
+      final io.casehub.api.model.SubCase subCase = convertSubCase(schemaBinding.getSubCase());
       builder.subCase(subCase);
     } else if (schemaBinding.getHumanTask() != null) {
       try {
@@ -256,9 +323,8 @@ public final class CaseDefinitionYamlMapper {
           "Binding '" + schemaBinding.getName() + "' must have capability, subCase, or humanTask");
     }
 
-    // Optional fields
     if (schemaBinding.getWhen() != null) {
-      builder.when(new JQExpressionEvaluator(schemaBinding.getWhen()));
+      builder.when(registry.create(schemaBinding.getWhen(), expressionLang));
     }
 
     if (schemaBinding.getConflictResolverStrategy() != null) {
@@ -268,12 +334,13 @@ public final class CaseDefinitionYamlMapper {
     return builder.build();
   }
 
-  private static io.casehub.api.model.SubCase convertSubCase(io.casehub.model.SubCase schemaModel) {
+  private static io.casehub.api.model.SubCase convertSubCase(
+      final io.casehub.model.SubCase schemaModel) {
     if (schemaModel == null) {
       return null;
     }
 
-    io.casehub.api.model.SubCaseCompletionStrategy strategy =
+    final io.casehub.api.model.SubCaseCompletionStrategy strategy =
         convertCompletionStrategy(schemaModel.getCompletionStrategy());
 
     return io.casehub.api.model.SubCase.builder()
@@ -289,25 +356,26 @@ public final class CaseDefinitionYamlMapper {
   }
 
   private static io.casehub.api.model.SubCaseCompletionStrategy convertCompletionStrategy(
-      io.casehub.model.SubCase.CompletionStrategy schemaStrategy) {
+      final io.casehub.model.SubCase.CompletionStrategy schemaStrategy) {
     if (schemaStrategy == null
         || schemaStrategy == io.casehub.model.SubCase.CompletionStrategy.DEFAULT) {
       return new io.casehub.api.model.DefaultSubCaseCompletionStrategy();
     }
-    // For CUSTOM strategy, return default implementation
     return new io.casehub.api.model.DefaultSubCaseCompletionStrategy();
   }
 
   private static io.casehub.api.model.Trigger convertTrigger(
-      io.casehub.model.Trigger schemaTrigger) {
+      final io.casehub.model.Trigger schemaTrigger,
+      final ExpressionEngineRegistry registry,
+      final String expressionLang) {
     if (schemaTrigger == null) {
       return null;
     }
 
     if (schemaTrigger.getContextChange() != null) {
-      String filter = schemaTrigger.getContextChange().getFilter();
+      final String filter = schemaTrigger.getContextChange().getFilter();
       return new io.casehub.api.model.ContextChangeTrigger(
-          filter != null ? new JQExpressionEvaluator(filter) : null);
+          filter != null ? registry.create(filter, expressionLang) : null);
     }
 
     // TODO: Add support for CloudEventTrigger and ScheduleTrigger
@@ -317,29 +385,31 @@ public final class CaseDefinitionYamlMapper {
   }
 
   private static GoalExpression convertGoalExpression(
-      io.casehub.model.GoalExpression expr, Map<String, Goal> goalMap) {
+      final io.casehub.model.GoalExpression expr, final Map<String, Goal> goalMap) {
     if (expr == null) return null;
 
     if (expr.getAllOf() != null && !expr.getAllOf().isEmpty()) {
-      List<Goal> goals = expr.getAllOf().stream().map(goalMap::get).collect(Collectors.toList());
+      final List<Goal> goals =
+          expr.getAllOf().stream().map(goalMap::get).collect(Collectors.toList());
       return new AllOfGoalExpression(goals);
     }
 
     if (expr.getAnyOf() != null && !expr.getAnyOf().isEmpty()) {
-      List<Goal> goals = expr.getAnyOf().stream().map(goalMap::get).collect(Collectors.toList());
+      final List<Goal> goals =
+          expr.getAnyOf().stream().map(goalMap::get).collect(Collectors.toList());
       return new AnyOfGoalExpression(goals);
     }
 
     return null;
   }
 
-  private static HumanTaskTarget convertHumanTask(io.casehub.model.HumanTask schema) {
+  private static HumanTaskTarget convertHumanTask(final io.casehub.model.HumanTask schema) {
     if (schema.getTitle() != null && schema.getTemplateRef() != null) {
       throw new IllegalArgumentException(
           "humanTask cannot specify both title and templateRef"
               + " - use inline mode (title) or template mode (templateRef), not both");
     }
-    HumanTaskTarget.Builder builder =
+    final HumanTaskTarget.Builder builder =
         schema.getTemplateRef() != null
             ? HumanTaskTarget.template(schema.getTemplateRef())
             : HumanTaskTarget.inline().title(schema.getTitle());
@@ -350,14 +420,14 @@ public final class CaseDefinitionYamlMapper {
     if (schema.getOutputMapping() != null) {
       builder.outputMapping(schema.getOutputMapping());
     }
-    Object rawGroups = schema.getCandidateGroups();
+    final Object rawGroups = schema.getCandidateGroups();
     if (rawGroups instanceof List<?> list && !list.isEmpty()) {
       builder.candidateGroups(new LinkedHashSet<>(castStringList("candidateGroups", list)));
     } else if (rawGroups instanceof String expr && !expr.isBlank()) {
       builder.candidateGroupsExpression(expr);
     }
 
-    Object rawUsers = schema.getCandidateUsers();
+    final Object rawUsers = schema.getCandidateUsers();
     if (rawUsers instanceof List<?> list && !list.isEmpty()) {
       builder.candidateUsers(new LinkedHashSet<>(castStringList("candidateUsers", list)));
     } else if (rawUsers instanceof String expr && !expr.isBlank()) {
@@ -370,7 +440,7 @@ public final class CaseDefinitionYamlMapper {
       builder.claimDeadlineHours(schema.getClaimDeadlineHours());
     }
     if (schema.getExpiresIn() != null) {
-      Duration duration;
+      final Duration duration;
       try {
         duration = Duration.parse(schema.getExpiresIn());
       } catch (DateTimeParseException e) {
@@ -390,8 +460,8 @@ public final class CaseDefinitionYamlMapper {
   }
 
   @SuppressWarnings("unchecked")
-  private static List<String> castStringList(String fieldName, List<?> raw) {
-    for (Object element : raw) {
+  private static List<String> castStringList(final String fieldName, final List<?> raw) {
+    for (final Object element : raw) {
       if (!(element instanceof String)) {
         throw new IllegalArgumentException(
             fieldName

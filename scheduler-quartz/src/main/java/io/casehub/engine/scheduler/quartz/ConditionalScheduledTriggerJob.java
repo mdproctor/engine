@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
@@ -25,7 +26,6 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -18,6 +18,11 @@ package io.casehub.api.model.converter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import io.casehub.api.context.CaseContext;
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
@@ -30,6 +35,7 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.ai.Agent;
+import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.ListEvaluator;
 import java.io.ByteArrayInputStream;
@@ -37,6 +43,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class CaseDefinitionYamlMapperTest {
@@ -887,5 +895,195 @@ class CaseDefinitionYamlMapperTest {
         .hasMessageContaining("event-sla")
         .hasMessageContaining("EVENT_OCCURRED")
         .hasMessageContaining("not yet implemented");
+  }
+
+  // ── ExpressionEvaluatorFactory / expressionLang tests ──────────────────────
+
+  /** Stub registry that records all create() calls for assertion. */
+  private static final class RecordingRegistry implements ExpressionEngineRegistry {
+    final List<String> langs = new ArrayList<>();
+    final List<String> exprs = new ArrayList<>();
+
+    @Override
+    public ExpressionEvaluator create(final String expression, final String expressionLang) {
+      exprs.add(expression);
+      langs.add(expressionLang);
+      return new JQExpressionEvaluator(expression); // return a real evaluator so parsing continues
+    }
+
+    @Override
+    public void assertLanguageSupported(final String expressionLang) {
+      // no-op — accept any lang in tests
+    }
+
+    @Override
+    public boolean evaluate(final ExpressionEvaluator evaluator, final CaseContext context) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean evaluate(final ExpressionEvaluator evaluator, final JsonNode asNode) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void validate(final ExpressionEvaluator evaluator) {
+      throw new UnsupportedOperationException();
+    }
+  }
+
+  @Test
+  void load_withRegistry_allFiveCallSitesUseRegistry() throws IOException {
+    // YAML with all five expression sites populated:
+    // 1. binding.when, 2. trigger.filter, 3. milestone.condition,
+    // 4. milestone.entryCriteria, 5. goal.condition
+    final String yaml =
+        """
+        namespace: test
+        name: Registry Test
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: cap-a
+          goals:
+            - name: done
+              kind: success
+              condition: ".result != null"
+          milestones:
+            - name: m1
+              condition: ".score > 10"
+              entryCriteria: ".active == true"
+          bindings:
+            - name: b1
+              on:
+                contextChange:
+                  filter: ".status == null"
+              when: ".score < 100"
+              capability: cap-a
+        """;
+
+    final RecordingRegistry registry = new RecordingRegistry();
+    final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    CaseDefinitionYamlMapper.load(
+        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), mapper, registry);
+
+    assertThat(registry.exprs).hasSize(5);
+    assertThat(registry.exprs)
+        .contains(
+            ".result != null", ".score > 10", ".active == true", ".status == null", ".score < 100");
+  }
+
+  @Test
+  void load_withRegistry_expressionLangDefaultsToJq() throws IOException {
+    final String yaml =
+        """
+        namespace: test
+        name: Lang Default
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: cap-a
+          bindings:
+            - name: b1
+              on:
+                contextChange:
+                  filter: ".x == 1"
+              capability: cap-a
+        """;
+
+    final RecordingRegistry registry = new RecordingRegistry();
+    final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    CaseDefinitionYamlMapper.load(
+        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), mapper, registry);
+
+    assertThat(registry.langs).containsOnly("jq");
+  }
+
+  @Test
+  void load_withExpressionLangField_passesCustomLangToRegistry() throws IOException {
+    final String yaml =
+        """
+        namespace: test
+        name: Custom Lang
+        version: 1.0.0
+        expressionLang: drools
+        spec:
+          capabilities:
+            - name: cap-a
+          bindings:
+            - name: b1
+              on:
+                contextChange:
+                  filter: "SomePattern()"
+              capability: cap-a
+        """;
+
+    final RecordingRegistry registry = new RecordingRegistry();
+    final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    CaseDefinitionYamlMapper.load(
+        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), mapper, registry);
+
+    assertThat(registry.langs).containsOnly("drools");
+  }
+
+  @Test
+  void load_withUnknownExpressionLang_failsFast() throws IOException {
+    final String yaml =
+        """
+        namespace: test
+        name: Unknown Lang
+        version: 1.0.0
+        expressionLang: unknown-lang
+        spec:
+          capabilities:
+            - name: cap-a
+          bindings:
+            - name: b1
+              on:
+                contextChange:
+                  filter: ".x"
+              capability: cap-a
+        """;
+
+    // Registry that rejects unknown langs (simulating a real registry with no matching engine)
+    final ExpressionEngineRegistry strictRegistry =
+        new ExpressionEngineRegistry() {
+          @Override
+          public ExpressionEvaluator create(final String expression, final String lang) {
+            throw new IllegalArgumentException("No engine for: " + lang);
+          }
+
+          @Override
+          public void assertLanguageSupported(final String lang) {
+            throw new IllegalArgumentException("No engine for: " + lang);
+          }
+
+          @Override
+          public boolean evaluate(final ExpressionEvaluator e, final CaseContext c) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public boolean evaluate(final ExpressionEvaluator e, final JsonNode n) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public void validate(final ExpressionEvaluator e) {
+            throw new UnsupportedOperationException();
+          }
+        };
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+                    new ObjectMapper(new YAMLFactory()),
+                    strictRegistry))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("unknown-lang");
   }
 }

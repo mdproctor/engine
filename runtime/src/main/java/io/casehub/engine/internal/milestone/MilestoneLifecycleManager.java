@@ -17,6 +17,7 @@ package io.casehub.engine.internal.milestone;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.Milestone;
@@ -33,7 +34,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;

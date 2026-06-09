@@ -18,8 +18,8 @@ package io.casehub.engine.internal.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.marshaller.YamlMapper;
 import io.casehub.engine.common.internal.config.ConfigContext;
-import io.casehub.engine.internal.marshaller.YamlMapper;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;

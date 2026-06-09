@@ -18,8 +18,8 @@ package io.casehub.engine.internal.engine;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngine;
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
-import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -73,5 +73,46 @@ public class DefaultExpressionEngineRegistry implements ExpressionEngineRegistry
       }
     }
     throw new IllegalArgumentException("No ExpressionEngine registered for type '" + type + "'");
+  }
+
+  @Override
+  public ExpressionEvaluator create(final String expression, final String expressionLang) {
+    for (final ExpressionEngine engine : engines) {
+      if (engine.type().equals(expressionLang)) {
+        final ExpressionEvaluator evaluator = engine.create(expression);
+        if (!evaluator.type().equals(expressionLang)) {
+          throw new IllegalStateException(
+              "ExpressionEngine '"
+                  + engine.type()
+                  + "'.create() returned evaluator of type '"
+                  + evaluator.type()
+                  + "' — must equal '"
+                  + expressionLang
+                  + "'");
+        }
+        return evaluator;
+      }
+    }
+    throw new IllegalArgumentException(
+        "No ExpressionEngine registered for expressionLang '" + expressionLang + "'");
+  }
+
+  @Override
+  public void assertLanguageSupported(final String expressionLang) {
+    for (final ExpressionEngine engine : engines) {
+      if (engine.type().equals(expressionLang)) {
+        if (!engine.supportsStringCreation()) {
+          throw new UnsupportedOperationException(
+              "expressionLang '"
+                  + expressionLang
+                  + "' is a Java-DSL-only type and cannot be used in YAML definitions. "
+                  + "Use expressionLang: jq or register a custom ExpressionEngine "
+                  + "that overrides supportsStringCreation().");
+        }
+        return;
+      }
+    }
+    throw new IllegalArgumentException(
+        "No ExpressionEngine registered for expressionLang '" + expressionLang + "'");
   }
 }

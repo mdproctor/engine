@@ -15,14 +15,18 @@
  */
 package io.casehub.engine.internal.engine;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import io.casehub.api.engine.ExpressionEngineRegistry;
+import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
-import io.casehub.engine.common.spi.ExpressionEngineRegistry;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -150,6 +154,69 @@ class ExpressionEngineRegistryTest {
     @DisplayName("Lambda — no-op regardless of predicate")
     void lambda_doesNotThrow() {
       assertDoesNotThrow(() -> registry.validate(new LambdaExpressionEvaluator(ctx -> true)));
+    }
+  }
+
+  @Nested
+  @DisplayName("create()")
+  class Create {
+
+    @Test
+    @DisplayName("jq — returns JQExpressionEvaluator with correct expression")
+    void jq_returnsJQExpressionEvaluator() {
+      final ExpressionEvaluator result = registry.create(".status == \"ready\"", "jq");
+      assertThat(result).isInstanceOf(JQExpressionEvaluator.class);
+      assertThat(((JQExpressionEvaluator) result).expression()).isEqualTo(".status == \"ready\"");
+    }
+
+    @Test
+    @DisplayName("jq — evaluator type() equals 'jq' (invariant)")
+    void jq_evaluatorTypeMatchesLang() {
+      final ExpressionEvaluator result = registry.create(".x", "jq");
+      assertThat(result.type()).isEqualTo("jq");
+    }
+
+    @Test
+    @DisplayName("unknown lang — throws IllegalArgumentException naming the lang")
+    void unknownLang_throwsIllegalArgument() {
+      assertThatThrownBy(() -> registry.create(".x", "drools"))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("drools");
+    }
+
+    @Test
+    @DisplayName("lambda lang — throws UnsupportedOperationException (Java-DSL-only)")
+    void lambdaLang_throwsUnsupportedOperation() {
+      assertThatThrownBy(() -> registry.create(".x", "lambda"))
+          .isInstanceOf(UnsupportedOperationException.class);
+    }
+  }
+
+  @Nested
+  @DisplayName("assertLanguageSupported()")
+  class AssertLanguageSupported {
+
+    @Test
+    @DisplayName("jq — does not throw")
+    void jq_doesNotThrow() {
+      assertThatCode(() -> registry.assertLanguageSupported("jq")).doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("unknown lang — throws IllegalArgumentException naming the lang")
+    void unknownLang_throwsIllegalArgument() {
+      assertThatThrownBy(() -> registry.assertLanguageSupported("drools"))
+          .isInstanceOf(IllegalArgumentException.class)
+          .hasMessageContaining("drools");
+    }
+
+    @Test
+    @DisplayName("lambda lang — throws UnsupportedOperationException with actionable message")
+    void lambdaLang_throwsUnsupportedOperationWithActionableMessage() {
+      assertThatThrownBy(() -> registry.assertLanguageSupported("lambda"))
+          .isInstanceOf(UnsupportedOperationException.class)
+          .hasMessageContaining("Java-DSL-only")
+          .hasMessageContaining("expressionLang: jq");
     }
   }
 }
