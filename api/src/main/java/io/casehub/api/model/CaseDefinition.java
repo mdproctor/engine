@@ -18,6 +18,7 @@ package io.casehub.api.model;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 public class CaseDefinition {
@@ -35,6 +36,8 @@ public class CaseDefinition {
   private final List<Milestone> milestones;
   private final List<Goal> goals;
   private CaseCompletion completion;
+  private Map<String, Object> semanticData;
+  private EpisodicMemoryConfig episodicMemoryConfig;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -119,6 +122,22 @@ public class CaseDefinition {
     this.completion = completion;
   }
 
+  public Map<String, Object> getSemanticData() {
+    return semanticData;
+  }
+
+  public void setSemanticData(Map<String, Object> semanticData) {
+    this.semanticData = semanticData;
+  }
+
+  public EpisodicMemoryConfig getEpisodicMemoryConfig() {
+    return episodicMemoryConfig;
+  }
+
+  public void setEpisodicMemoryConfig(EpisodicMemoryConfig config) {
+    this.episodicMemoryConfig = config;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -136,6 +155,8 @@ public class CaseDefinition {
     private List<Milestone> milestones;
     private List<Goal> goals;
     private CaseCompletion completion;
+    private Map<String, Object> semanticData;
+    private EpisodicMemoryConfig episodicMemoryConfig;
 
     private Builder() {}
 
@@ -228,6 +249,21 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder semanticData(Map<String, Object> semanticData) {
+      this.semanticData = semanticData;
+      return this;
+    }
+
+    public Builder episodicMemory(String domain, String entityId) {
+      this.episodicMemoryConfig = EpisodicMemoryConfig.of(domain, entityId);
+      return this;
+    }
+
+    public Builder episodicMemory(String domain, String entityId, int recent) {
+      this.episodicMemoryConfig = EpisodicMemoryConfig.of(domain, entityId, recent);
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -252,6 +288,8 @@ public class CaseDefinition {
         caseHubDefinition.goals.addAll(goals);
       }
       caseHubDefinition.setCompletion(completion);
+      caseHubDefinition.setSemanticData(semanticData);
+      caseHubDefinition.setEpisodicMemoryConfig(episodicMemoryConfig);
 
       return caseHubDefinition;
     }

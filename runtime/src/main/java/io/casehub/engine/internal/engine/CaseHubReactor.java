@@ -20,6 +20,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STA
 import static io.casehub.engine.common.internal.event.EventBusAddresses.SIGNAL_RECEIVED;
 
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
@@ -35,6 +36,7 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.smallrye.mutiny.Uni;
@@ -75,7 +77,7 @@ class CaseHubReactor {
   @Inject CurrentPrincipal currentPrincipal;
 
   CompletionStage<UUID> startCase(CaseDefinition definition, CaseContext context) {
-    return startCaseInternal(definition, context, null, null);
+    return startCaseInternal(definition, context, null, null, null);
   }
 
   CompletionStage<UUID> startCase(
@@ -83,15 +85,30 @@ class CaseHubReactor {
       CaseContext context,
       UUID parentCaseId,
       PropagationContext propagationContext) {
-    return startCaseInternal(definition, context, parentCaseId, propagationContext);
+    return startCaseInternal(definition, context, parentCaseId, propagationContext, null);
+  }
+
+  CompletionStage<UUID> startCase(
+      CaseDefinition definition, CaseContext context, Map<String, Object> semanticData) {
+    return startCaseInternal(definition, context, null, null, semanticData);
+  }
+
+  CompletionStage<UUID> startCase(
+      CaseDefinition definition,
+      CaseContext context,
+      Map<String, Object> semanticData,
+      UUID parentCaseId,
+      PropagationContext propagationContext) {
+    return startCaseInternal(definition, context, parentCaseId, propagationContext, semanticData);
   }
 
   private CompletionStage<UUID> startCaseInternal(
       CaseDefinition definition,
       CaseContext context,
       UUID parentCaseId,
-      PropagationContext parentPropCtx) {
-    return buildInstance(definition, context, parentCaseId, parentPropCtx)
+      PropagationContext parentPropCtx,
+      Map<String, Object> semanticData) {
+    return buildInstance(definition, context, parentCaseId, parentPropCtx, semanticData)
         .chain(
             instance -> {
               LOG.info("Case started with caseId: " + instance.getUuid());
@@ -113,7 +130,8 @@ class CaseHubReactor {
       CaseDefinition definition,
       CaseContext context,
       UUID parentCaseId,
-      PropagationContext parentPropCtx) {
+      PropagationContext parentPropCtx,
+      Map<String, Object> semanticData) {
     CaseMetaModel model = caseDefinitionRegistry.getCaseMetaModel(definition);
 
     PropagationContext propagationContext;
@@ -132,6 +150,19 @@ class CaseHubReactor {
                   budget ->
                       PropagationContext.createRoot(traceId, Map.<String, String>of(), budget))
               .orElse(PropagationContext.createRoot(traceId));
+    }
+
+    // Populate semantic panel: definition defaults first, call-site overrides second
+    if (context instanceof CaseContextImpl ctx) {
+      Map<String, Object> defSemanticData = definition.getSemanticData();
+      if (defSemanticData != null && !defSemanticData.isEmpty()) {
+        ctx.writablePanel(ContextPanel.SEMANTIC).setAll(defSemanticData);
+      }
+      if (semanticData != null && !semanticData.isEmpty()) {
+        ctx.writablePanel(ContextPanel.SEMANTIC).setAll(semanticData);
+      }
+      ctx.freezePanel(ContextPanel.SEMANTIC);
+      ctx.freezePanel(ContextPanel.EPISODIC); // episodic is engine-managed
     }
 
     CaseInstance instance = new CaseInstance();

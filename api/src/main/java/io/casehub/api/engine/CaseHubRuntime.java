@@ -21,6 +21,7 @@ import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
@@ -34,6 +35,16 @@ public interface CaseHubRuntime {
   CompletionStage<UUID> startCase(
       CaseDefinition definition,
       Object inputData,
+      UUID parentCaseId,
+      PropagationContext propagationContext);
+
+  CompletionStage<UUID> startCase(
+      CaseDefinition definition, Object inputData, Map<String, Object> semanticData);
+
+  CompletionStage<UUID> startCase(
+      CaseDefinition definition,
+      Object inputData,
+      Map<String, Object> semanticData,
       UUID parentCaseId,
       PropagationContext propagationContext);
 

@@ -60,6 +60,28 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
         definition, new CaseContextImpl(toContextMap(inputData)), parentCaseId, propagationContext);
   }
 
+  @Override
+  public CompletionStage<UUID> startCase(
+      CaseDefinition definition, Object inputData, Map<String, Object> semanticData) {
+    return reactor.startCase(
+        definition, new CaseContextImpl(toContextMap(inputData)), semanticData);
+  }
+
+  @Override
+  public CompletionStage<UUID> startCase(
+      CaseDefinition definition,
+      Object inputData,
+      Map<String, Object> semanticData,
+      UUID parentCaseId,
+      PropagationContext propagationContext) {
+    return reactor.startCase(
+        definition,
+        new CaseContextImpl(toContextMap(inputData)),
+        semanticData,
+        parentCaseId,
+        propagationContext);
+  }
+
   @SuppressWarnings("unchecked")
   private Map<String, Object> toContextMap(Object inputData) {
     if (inputData == null) return Map.of();
