@@ -63,4 +63,6 @@ public interface ReadablePanel {
   long getVersion();
 
   JsonNode asJsonNode();
+
+  ReadablePanel snapshot();
 }

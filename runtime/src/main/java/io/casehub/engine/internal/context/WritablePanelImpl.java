@@ -586,6 +586,11 @@ public class WritablePanelImpl implements WritablePanel {
     }
   }
 
+  @Override
+  public ReadablePanel snapshot() {
+    return deepCopy();
+  }
+
   /**
    * Returns a deep copy of this panel, detached from the original. The copy shares the same
    * panelName but has an independent data map.

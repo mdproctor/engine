@@ -38,6 +38,7 @@ public class CaseDefinition {
   private CaseCompletion completion;
   private Map<String, Object> semanticData;
   private EpisodicMemoryConfig episodicMemoryConfig;
+  private List<String> panelNames;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -138,6 +139,14 @@ public class CaseDefinition {
     this.episodicMemoryConfig = config;
   }
 
+  public List<String> getPanelNames() {
+    return panelNames;
+  }
+
+  public void setPanelNames(List<String> panelNames) {
+    this.panelNames = panelNames;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -157,6 +166,7 @@ public class CaseDefinition {
     private CaseCompletion completion;
     private Map<String, Object> semanticData;
     private EpisodicMemoryConfig episodicMemoryConfig;
+    private List<String> panelNames;
 
     private Builder() {}
 
@@ -264,6 +274,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder panelNames(List<String> panelNames) {
+      this.panelNames = panelNames;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -290,6 +305,7 @@ public class CaseDefinition {
       caseHubDefinition.setCompletion(completion);
       caseHubDefinition.setSemanticData(semanticData);
       caseHubDefinition.setEpisodicMemoryConfig(episodicMemoryConfig);
+      caseHubDefinition.setPanelNames(panelNames);
 
       return caseHubDefinition;
     }

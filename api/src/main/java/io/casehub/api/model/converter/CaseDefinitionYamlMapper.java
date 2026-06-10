@@ -25,6 +25,7 @@ import io.casehub.api.model.AnyOfGoalExpression;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.EpisodicMemoryConfig;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
@@ -121,9 +122,20 @@ public final class CaseDefinitionYamlMapper {
     if (yamlStream == null) {
       throw new IllegalArgumentException("InputStream cannot be null");
     }
+    // Read bytes once so we can parse both as JsonNode (for free-form fields) and typed schema
+    // model
+    final byte[] bytes = yamlStream.readAllBytes();
+    final JsonNode rawNode = objectMapper.readTree(bytes);
+    // Disable FAIL_ON_UNKNOWN_PROPERTIES so free-form schema fields (e.g. semanticData with
+    // additionalProperties:true) are silently ignored by the generated empty schema class.
+    final ObjectMapper lenient =
+        objectMapper
+            .copy()
+            .disable(
+                com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     final io.casehub.model.CaseDefinition schema =
-        objectMapper.readValue(yamlStream, io.casehub.model.CaseDefinition.class);
-    return convertToApiModel(schema, registry);
+        lenient.readValue(bytes, io.casehub.model.CaseDefinition.class);
+    return convertToApiModel(schema, rawNode, objectMapper, registry);
   }
 
   /**
@@ -149,7 +161,10 @@ public final class CaseDefinitionYamlMapper {
    * @return API model CaseDefinition
    */
   private static CaseDefinition convertToApiModel(
-      final io.casehub.model.CaseDefinition schema, final ExpressionEngineRegistry registry) {
+      final io.casehub.model.CaseDefinition schema,
+      final JsonNode rawNode,
+      final ObjectMapper objectMapper,
+      final ExpressionEngineRegistry registry) {
     final String expressionLang =
         schema.getExpressionLang() != null
             ? schema.getExpressionLang()
@@ -161,9 +176,36 @@ public final class CaseDefinitionYamlMapper {
     def.setDsl(schema.getDsl());
     def.setTitle(schema.getTitle());
 
+    // semanticData — free-form object; read directly from raw JsonNode to avoid empty generated
+    // class
+    final JsonNode semanticDataNode = rawNode.get("semanticData");
+    if (semanticDataNode != null && !semanticDataNode.isNull() && semanticDataNode.isObject()) {
+      @SuppressWarnings("unchecked")
+      final Map<String, Object> semData = objectMapper.convertValue(semanticDataNode, Map.class);
+      def.setSemanticData(semData);
+    }
+
+    // episodic.memory config — typed via generated Episodic/Memory classes
+    if (schema.getEpisodic() != null && schema.getEpisodic().getMemory() != null) {
+      final io.casehub.model.Memory mem = schema.getEpisodic().getMemory();
+      final int recent = mem.getRecent() != null ? mem.getRecent() : 10;
+      def.setEpisodicMemoryConfig(
+          EpisodicMemoryConfig.of(mem.getDomain(), mem.getEntityId(), recent));
+    }
+
+    // panels — user-defined panel names
+    if (schema.getPanels() != null && !schema.getPanels().isEmpty()) {
+      final List<String> panelNames =
+          schema.getPanels().stream()
+              .map(io.casehub.model.Panel::getName)
+              .filter(java.util.Objects::nonNull)
+              .toList();
+      def.setPanelNames(panelNames);
+    }
+
     // Convert capabilities
     final Map<String, Capability> capabilityMap = new LinkedHashMap<>();
-    if (schema.getSpec().getCapabilities() != null) {
+    if (schema.getSpec() != null && schema.getSpec().getCapabilities() != null) {
       for (io.casehub.model.Capability sc : schema.getSpec().getCapabilities()) {
         final Capability cap =
             new Capability(sc.getName(), sc.getInputSchema(), sc.getOutputSchema());
@@ -174,7 +216,7 @@ public final class CaseDefinitionYamlMapper {
     }
 
     // Convert workers
-    if (schema.getSpec().getWorkers() != null) {
+    if (schema.getSpec() != null && schema.getSpec().getWorkers() != null) {
       for (io.casehub.model.Worker sw : schema.getSpec().getWorkers()) {
         final List<Capability> workerCaps =
             sw.getCapabilities().stream().map(capabilityMap::get).collect(Collectors.toList());
@@ -192,7 +234,7 @@ public final class CaseDefinitionYamlMapper {
     }
 
     // Convert bindings
-    if (schema.getSpec().getBindings() != null) {
+    if (schema.getSpec() != null && schema.getSpec().getBindings() != null) {
       for (io.casehub.model.Binding sr : schema.getSpec().getBindings()) {
         final Binding binding = convertBinding(sr, capabilityMap, registry, expressionLang);
         def.getBindings().add(binding);
@@ -200,7 +242,7 @@ public final class CaseDefinitionYamlMapper {
     }
 
     // Convert milestones
-    if (schema.getSpec().getMilestones() != null) {
+    if (schema.getSpec() != null && schema.getSpec().getMilestones() != null) {
       for (io.casehub.model.Milestone sm : schema.getSpec().getMilestones()) {
         final Milestone.Builder milestoneBuilder =
             Milestone.builder()
@@ -258,7 +300,7 @@ public final class CaseDefinitionYamlMapper {
 
     // Convert goals
     final Map<String, Goal> goalMap = new LinkedHashMap<>();
-    if (schema.getSpec().getGoals() != null) {
+    if (schema.getSpec() != null && schema.getSpec().getGoals() != null) {
       for (io.casehub.model.Goal sg : schema.getSpec().getGoals()) {
         final Goal goal =
             new Goal(
@@ -272,7 +314,7 @@ public final class CaseDefinitionYamlMapper {
     }
 
     // Convert completion
-    if (schema.getSpec().getCompletion() != null) {
+    if (schema.getSpec() != null && schema.getSpec().getCompletion() != null) {
       final io.casehub.model.CaseCompletion sc = schema.getSpec().getCompletion();
       final GoalExpression successExpr = convertGoalExpression(sc.getSuccess(), goalMap);
       final GoalExpression failureExpr = convertGoalExpression(sc.getFailure(), goalMap);
@@ -374,8 +416,9 @@ public final class CaseDefinitionYamlMapper {
 
     if (schemaTrigger.getContextChange() != null) {
       final String filter = schemaTrigger.getContextChange().getFilter();
+      final String listenPanel = schemaTrigger.getContextChange().getListenPanel();
       return new io.casehub.api.model.ContextChangeTrigger(
-          filter != null ? registry.create(filter, expressionLang) : null);
+          filter != null ? registry.create(filter, expressionLang) : null, listenPanel);
     }
 
     // TODO: Add support for CloudEventTrigger and ScheduleTrigger

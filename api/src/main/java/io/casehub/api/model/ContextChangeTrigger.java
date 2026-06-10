@@ -21,16 +21,28 @@ import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 public class ContextChangeTrigger implements Trigger {
 
   private final ExpressionEvaluator filter;
+  private final String listenPanel;
 
   public ContextChangeTrigger(String filter) {
     this.filter = new JQExpressionEvaluator(filter);
+    this.listenPanel = null;
   }
 
   public ContextChangeTrigger(ExpressionEvaluator filter) {
     this.filter = filter;
+    this.listenPanel = null;
+  }
+
+  public ContextChangeTrigger(ExpressionEvaluator filter, String listenPanel) {
+    this.filter = filter;
+    this.listenPanel = listenPanel;
   }
 
   public ExpressionEvaluator getFilter() {
     return filter;
+  }
+
+  public String getListenPanel() {
+    return listenPanel;
   }
 }

@@ -81,6 +81,45 @@ properties:
       Declares external dependencies (secrets, config maps) required by this Case definition.
       Secrets are validated at load time for fail-fast behavior.
       ConfigMaps provide non-sensitive configuration accessible via ${$config.*} in JQ.
+  semanticData:
+    type: object
+    additionalProperties: true
+    description: Static domain knowledge injected into the semantic panel at case start
+  episodic:
+    type: object
+    description: Episodic memory configuration for this case definition
+    unevaluatedProperties: false
+    properties:
+      memory:
+        type: object
+        required:
+          - domain
+          - entityId
+        unevaluatedProperties: false
+        properties:
+          domain:
+            type: string
+            description: MemoryDomain name (e.g. "fraud-check")
+          entityId:
+            type: string
+            description: JQ expression evaluated against semantic panel to resolve entity ID(s)
+          recent:
+            type: integer
+            default: 10
+            minimum: 1
+            description: Max items to return; default 10
+  panels:
+    type: array
+    description: User-defined panel names for this case definition
+    items:
+      type: object
+      required:
+        - name
+      unevaluatedProperties: false
+      properties:
+        name:
+          type: string
+          description: User-defined panel name
   spec:
     $ref: "#/$defs/CaseDefinitionSpec"
   required: [ dsl, namespace, name, version ]
@@ -373,6 +412,9 @@ $defs:
       filter:
         type: string
         description: "JQ predicate over { context, event } where event is a synthetic ContextChanged envelope"
+      listenPanel:
+        type: string
+        description: "Optional panel name; if set, binding only re-evaluates when this panel changes"
     additionalProperties: false
 
   CloudEventTrigger:

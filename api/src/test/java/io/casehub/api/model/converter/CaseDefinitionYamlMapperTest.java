@@ -1086,4 +1086,135 @@ class CaseDefinitionYamlMapperTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("unknown-lang");
   }
+
+  // ── semanticData / episodic.memory / panels / listenPanel tests ────────────
+
+  @Test
+  void parseSemanticData() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: fraud
+        version: 1.0.0
+        semanticData:
+          threshold: 0.8
+          domain: "fraud-check"
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    assertThat(def.getSemanticData()).isNotNull();
+    assertThat(((Number) def.getSemanticData().get("threshold")).doubleValue())
+        .isCloseTo(0.8, org.assertj.core.data.Offset.offset(0.001));
+    assertThat(def.getSemanticData().get("domain")).isEqualTo("fraud-check");
+  }
+
+  @Test
+  void parseEpisodicMemoryConfig() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: fraud2
+        version: 1.0.0
+        episodic:
+          memory:
+            domain: "fraud-check"
+            entityId: ".semantic.customerId"
+            recent: 5
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    assertThat(def.getEpisodicMemoryConfig()).isNotNull();
+    assertThat(def.getEpisodicMemoryConfig().domain()).isEqualTo("fraud-check");
+    assertThat(def.getEpisodicMemoryConfig().entityId()).isEqualTo(".semantic.customerId");
+    assertThat(def.getEpisodicMemoryConfig().recent()).isEqualTo(5);
+  }
+
+  @Test
+  void parseEpisodicMemoryConfig_defaultRecent() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: fraud3
+        version: 1.0.0
+        episodic:
+          memory:
+            domain: "fraud-check"
+            entityId: ".semantic.customerId"
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    assertThat(def.getEpisodicMemoryConfig()).isNotNull();
+    assertThat(def.getEpisodicMemoryConfig().recent()).isEqualTo(10);
+  }
+
+  @Test
+  void parsePanels() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: multi-panel
+        version: 1.0.0
+        panels:
+          - name: "raw"
+          - name: "extracted"
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    assertThat(def.getPanelNames()).containsExactly("raw", "extracted");
+  }
+
+  @Test
+  void parseListenPanel() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: listen-panel-test
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: analyze
+          bindings:
+            - name: analysis-binding
+              capability: analyze
+              on:
+                contextChange:
+                  filter: ".raw != null"
+                  listenPanel: "raw"
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    assertThat(def.getBindings()).hasSize(1);
+    assertThat(def.getBindings().get(0).getOn()).isInstanceOf(ContextChangeTrigger.class);
+    ContextChangeTrigger trigger = (ContextChangeTrigger) def.getBindings().get(0).getOn();
+    assertThat(trigger.getListenPanel()).isEqualTo("raw");
+  }
+
+  @Test
+  void parseListenPanel_absent_isNull() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: no-listen-panel
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: analyze
+          bindings:
+            - name: b1
+              capability: analyze
+              on:
+                contextChange:
+                  filter: ".x == 1"
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    ContextChangeTrigger trigger = (ContextChangeTrigger) def.getBindings().get(0).getOn();
+    assertThat(trigger.getListenPanel()).isNull();
+  }
 }

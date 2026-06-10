@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.context.ContextPanel;
 import io.casehub.api.context.ReadOnlyPanelException;
+import io.casehub.api.context.ReadablePanel;
 import io.casehub.api.context.WritablePanel;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -154,5 +155,21 @@ class PanelTest {
   @Test
   void notFrozen_isReadOnlyFalse() {
     assertFalse(new WritablePanelImpl(ContextPanel.WORKING).isReadOnly());
+  }
+
+  @Test
+  void snapshot_isDetached() {
+    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.WORKING);
+    p.set("key", "original");
+    ReadablePanel snap = p.snapshot();
+    p.set("key", "modified");
+    assertEquals("original", snap.get("key")); // snapshot is unaffected
+  }
+
+  @Test
+  void snapshot_preservesPanelName() {
+    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.SEMANTIC);
+    ReadablePanel snap = p.snapshot();
+    assertEquals(ContextPanel.SEMANTIC, snap.panelName());
   }
 }

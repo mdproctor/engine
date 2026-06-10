@@ -126,6 +126,11 @@ public class CaseContextChangedEventHandler {
     final CaseContext contextSnapshot = event.contextSnapshot();
     final String changedPanel = event.changedPanel();
 
+    // Fire panel-scoped event for external subscribers (Claudony, monitoring, Drools)
+    if (changedPanel != null) {
+      eventBus.publish(EventBusAddresses.panelChanged(changedPanel), event);
+    }
+
     // Skip binding evaluation for episodic panel updates
     if (ContextPanel.EPISODIC.equals(changedPanel)) {
       return Uni.createFrom().voidItem();
