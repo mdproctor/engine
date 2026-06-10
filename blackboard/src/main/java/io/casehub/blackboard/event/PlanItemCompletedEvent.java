@@ -37,5 +37,7 @@ import java.util.UUID;
  * @param planItemId the exact PlanItem id that just completed
  * @param trackingKey the external identifier that triggered completion (workerName for
  *     CapabilityTarget; childCaseId string for SubCaseTarget)
+ * @param tenancyId the tenant that owns the case — available without a cross-tenant lookup
  */
-public record PlanItemCompletedEvent(UUID caseId, String planItemId, String trackingKey) {}
+public record PlanItemCompletedEvent(
+    UUID caseId, String planItemId, String trackingKey, String tenancyId) {}

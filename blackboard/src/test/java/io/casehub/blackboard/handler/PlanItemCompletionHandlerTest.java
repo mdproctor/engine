@@ -194,7 +194,7 @@ class PlanItemCompletionHandlerTest {
     UUID childCaseId = UUID.randomUUID();
     registry.indexForCompletion(caseId, childCaseId.toString(), item.getPlanItemId());
 
-    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId));
+    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId, "test-tenant"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }
@@ -213,7 +213,7 @@ class PlanItemCompletionHandlerTest {
     stage.activate();
     plan.addStage(stage);
 
-    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId));
+    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId, "test-tenant"));
 
     assertThat(stage.isTerminal()).isTrue();
     verify(mockBus).publish(eq(BlackboardEventBusAddresses.STAGE_COMPLETED), any());
@@ -221,7 +221,8 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void subcase_completion_unknown_tracking_key_does_not_throw() {
-    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, UUID.randomUUID()));
+    handler.onSubCaseFinished(
+        new SubCaseExecutionCompleted(caseId, UUID.randomUUID(), "test-tenant"));
   }
 
   @Test
@@ -236,7 +237,7 @@ class PlanItemCompletionHandlerTest {
     registry.indexForCompletion(caseId, child2.toString(), item.getPlanItemId());
 
     // Completion arrives for child2 (threshold-triggering child)
-    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, child2));
+    handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, child2, "test-tenant"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }
