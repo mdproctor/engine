@@ -95,15 +95,18 @@ class ContextDiffEndToEndTest {
 
     var changes = metadata.get("contextChanges");
 
-    // "status" was updated: before="start", after="done"
-    assertThat(changes.has("status")).isTrue();
-    assertThat(changes.get("status").get("before").asText()).isEqualTo("start");
-    assertThat(changes.get("status").get("after").asText()).isEqualTo("done");
+    // After panels migration, top-level diff key is "working" (the panel name).
+    // Before = working panel before worker ran; after = working panel after worker ran.
+    assertThat(changes.has("working")).isTrue();
+    var workingDiff = changes.get("working");
 
-    // "result" was added: no before, after="ok"
-    assertThat(changes.has("result")).isTrue();
-    assertThat(changes.get("result").has("before")).isFalse();
-    assertThat(changes.get("result").get("after").asText()).isEqualTo("ok");
+    // "status" was updated: before="start", after="done"
+    assertThat(workingDiff.get("before").get("status").asText()).isEqualTo("start");
+    assertThat(workingDiff.get("after").get("status").asText()).isEqualTo("done");
+
+    // "result" was added: not present before, present after
+    assertThat(workingDiff.get("before").has("result")).isFalse();
+    assertThat(workingDiff.get("after").get("result").asText()).isEqualTo("ok");
   }
 
   /**
@@ -135,7 +138,8 @@ class ContextDiffEndToEndTest {
     EventLog completedEvent = fetchCompletedEvent(caseId);
     var changes = completedEvent.getMetadata().get("contextChanges");
 
-    assertThat(changes.has("status")).isTrue();
+    // After panels, "working" panel changed (status updated); no top-level "unchanged" key.
+    assertThat(changes.has("working")).isTrue();
     assertThat(changes.has("unchanged")).isFalse();
   }
 

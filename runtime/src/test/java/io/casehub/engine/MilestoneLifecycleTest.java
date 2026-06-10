@@ -278,7 +278,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .entryCriteria(".requestSubmitted == true")
+                  .entryCriteria(".working.requestSubmitted == true")
                   .completionCriteria(".working.approved == true")
                   .build())
           .build();
@@ -350,7 +350,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("review")
-                  .entryCriteria(".stage == \"review\"")
+                  .entryCriteria(".working.stage == \"review\"")
                   .completionCriteria(".working.reviewComplete == true")
                   .build())
           .build();

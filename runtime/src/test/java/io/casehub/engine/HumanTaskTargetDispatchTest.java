@@ -169,7 +169,7 @@ class HumanTaskTargetDispatchTest {
       HumanTaskTarget target =
           HumanTaskTarget.inline()
               .title("IRB Review")
-              .candidateGroupsExpression(".irb.candidateGroups")
+              .candidateGroupsExpression(".working.irb.candidateGroups")
               .build();
 
       return CaseDefinition.builder()
@@ -194,7 +194,7 @@ class HumanTaskTargetDispatchTest {
       HumanTaskTarget target =
           HumanTaskTarget.inline()
               .title("Bad Groups")
-              .candidateGroupsExpression(".routing")
+              .candidateGroupsExpression(".working.routing")
               .build();
 
       return CaseDefinition.builder()
@@ -219,8 +219,8 @@ class HumanTaskTargetDispatchTest {
       HumanTaskTarget target =
           HumanTaskTarget.inline()
               .title("Conjunction")
-              .candidateGroupsExpression(".groups")
-              .candidateUsersExpression(".users")
+              .candidateGroupsExpression(".working.groups")
+              .candidateUsersExpression(".working.users")
               .build();
 
       return CaseDefinition.builder()
