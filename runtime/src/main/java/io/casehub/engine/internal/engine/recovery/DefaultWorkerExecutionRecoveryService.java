@@ -327,6 +327,13 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
    * "after" nodes. Missing "after" means removal.
    */
   private void applyTopLevelChanges(CaseContext caseContext, JsonNode changes) {
+    // After the panels migration, top-level keys in the diff are panel names (working, semantic,
+    // episodic). Each changeNode has "before"/"after" for the panel's full contents — not a
+    // single flat key. We must update the named panel rather than setting the panel name as a key
+    // inside the working panel (which is what CaseContext.set() would do via the flat API).
+    CaseContextImpl ctxImpl =
+        caseContext instanceof CaseContextImpl c ? c : null;
+
     changes
         .fieldNames()
         .forEachRemaining(
@@ -337,10 +344,16 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
               }
               JsonNode afterNode = changeNode.get("after");
               if (afterNode == null || afterNode.isNull()) {
-                // Removal
+                // Removal — panel cleared; call remove on flat API (no-op for panels but safe)
                 caseContext.remove(key);
+              } else if (ctxImpl != null && afterNode.isObject()) {
+                // Panel-level diff: afterNode is the panel's FULL new contents — replace, not merge.
+                // clear() then setAll() ensures removed keys are not left behind.
+                @SuppressWarnings("unchecked")
+                Map<String, Object> afterMap = OBJECT_MAPPER.convertValue(afterNode, Map.class);
+                ctxImpl.writablePanel(key).clear().setAll(afterMap);
               } else {
-                // Update/addition
+                // Flat scalar (rare/legacy): fall back to flat set
                 Object value = OBJECT_MAPPER.convertValue(afterNode, Object.class);
                 caseContext.set(key, value);
               }

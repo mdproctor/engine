@@ -108,7 +108,8 @@ public class SubCaseOutputMappingRecoveryTest {
     final UUID childId = createChildCase(parentId, "approved", Map.of("key", "value", "score", 95));
 
     // 3. Write SUBCASE_STARTED event
-    String outputMapping = "{ approval: .result, data: .processedData }";
+    // After panels migration, outputMapping evaluates against child's panel document
+    String outputMapping = "{ approval: .working.result, data: .working.processedData }";
     writeSubCaseStartedEvent(parentId, childId, outputMapping);
 
     // 4. Apply outputMapping to parent IN MEMORY (simulating SubCaseCompletionListener)
@@ -204,7 +205,9 @@ public class SubCaseOutputMappingRecoveryTest {
     caseStarted.setEventType(CaseHubEventType.CASE_STARTED);
     caseStarted.setStreamType(EventStreamType.CASE);
     caseStarted.setTimestamp(Instant.now());
-    caseStarted.setPayload(OBJECT_MAPPER.valueToTree(Map.of("orderId", orderId)));
+    // After panels migration, CASE_STARTED payload is a panel document
+    caseStarted.setPayload(OBJECT_MAPPER.valueToTree(
+        Map.of("working", Map.of("orderId", orderId), "semantic", Map.of(), "episodic", Map.of())));
     run(() -> eventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
 
     caseInstanceCache.put(savedParent);
@@ -390,8 +393,10 @@ public class SubCaseOutputMappingRecoveryTest {
     caseStarted.setEventType(CaseHubEventType.CASE_STARTED);
     caseStarted.setStreamType(EventStreamType.CASE);
     caseStarted.setTimestamp(Instant.now());
-    caseStarted.setPayload(
-        OBJECT_MAPPER.valueToTree(Map.of("orderId", orderId, "temp", tempValue)));
+    // After panels migration, CASE_STARTED payload is a panel document
+    caseStarted.setPayload(OBJECT_MAPPER.valueToTree(
+        Map.of("working", Map.of("orderId", orderId, "temp", tempValue),
+               "semantic", Map.of(), "episodic", Map.of())));
     run(() -> eventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
 
     caseInstanceCache.put(saved);
