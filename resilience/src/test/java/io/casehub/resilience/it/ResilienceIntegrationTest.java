@@ -216,14 +216,14 @@ class ResilienceIntegrationTest {
     private final Capability capability =
         Capability.builder()
             .name("combinedFail")
-            .inputSchema("{ trigger: .trigger }")
+            .inputSchema("{ trigger: .working.trigger }")
             .outputSchema("{ trigger: .trigger }")
             .build();
 
     private final Goal goal =
         Goal.builder()
             .name("done")
-            .condition(".trigger == \"done\"")
+            .condition(".working.trigger == \"done\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -249,7 +249,7 @@ class ResilienceIntegrationTest {
               Binding.builder()
                   .name("combined-trigger")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

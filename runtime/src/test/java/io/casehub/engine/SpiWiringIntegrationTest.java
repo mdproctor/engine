@@ -545,7 +545,7 @@ class SpiWiringIntegrationTest {
       Capability capability =
           Capability.builder()
               .name("external-task")
-              .inputSchema("{ taskId: .taskId }")
+              .inputSchema("{ taskId: .working.taskId }")
               .outputSchema("{ result: . }")
               .build();
 
@@ -558,7 +558,7 @@ class SpiWiringIntegrationTest {
               Binding.builder()
                   .name("trigger-on-pending")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".status == \"pending\""))
+                  .on(new ContextChangeTrigger(".working.status == \"pending\""))
                   .build())
           .build();
     }
@@ -581,7 +581,7 @@ class SpiWiringIntegrationTest {
       Capability capability =
           Capability.builder()
               .name("recordContext")
-              .inputSchema("{ documentId: .documentId }")
+              .inputSchema("{ documentId: .working.documentId }")
               .outputSchema("{ recorded: true }")
               .build();
 
@@ -609,7 +609,7 @@ class SpiWiringIntegrationTest {
               Binding.builder()
                   .name("trigger-on-processing")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".status == \"processing\""))
+                  .on(new ContextChangeTrigger(".working.status == \"processing\""))
                   .build())
           .build();
     }

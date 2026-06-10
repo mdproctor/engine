@@ -90,7 +90,7 @@ class SubCasePropagationContextTest {
     private static final Capability CAP =
         Capability.builder()
             .name("prop-child-cap")
-            .inputSchema("{ trigger: .trigger }")
+            .inputSchema("{ trigger: .working.trigger }")
             .outputSchema("{ trigger: .trigger }")
             .build();
 
@@ -127,7 +127,7 @@ class SubCasePropagationContextTest {
               Binding.builder()
                   .name("spawn-prop-child")
                   .subCase(child)
-                  .on(new ContextChangeTrigger(".trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
                   .build())
           .build();
     }

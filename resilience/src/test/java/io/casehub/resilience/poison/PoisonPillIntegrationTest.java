@@ -157,14 +157,14 @@ class PoisonPillIntegrationTest {
     private final Capability capability =
         Capability.builder()
             .name("checkedWork")
-            .inputSchema("{ status: .status }")
+            .inputSchema("{ status: .working.status }")
             .outputSchema("{ status: .status }")
             .build();
 
     private final Goal goal =
         Goal.builder()
             .name("done")
-            .condition(".status == \"complete\"")
+            .condition(".working.status == \"complete\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -190,7 +190,7 @@ class PoisonPillIntegrationTest {
               Binding.builder()
                   .name("trigger")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".status == \"run\""))
+                  .on(new ContextChangeTrigger(".working.status == \"run\""))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

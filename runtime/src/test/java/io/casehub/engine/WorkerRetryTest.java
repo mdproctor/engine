@@ -93,7 +93,7 @@ public class WorkerRetryTest {
     Capability capability =
         Capability.builder()
             .name("processDocument")
-            .inputSchema("{ documentId: .documentId, status: .status }")
+            .inputSchema("{ documentId: .working.documentId, status: .working.status }")
             .outputSchema("{ processedDocument: ., status: .status }")
             .description("Process a document from the case context")
             .build();
@@ -101,7 +101,7 @@ public class WorkerRetryTest {
     Goal goal =
         Goal.builder()
             .name("documentProcessingComplete")
-            .condition(".status == \"processed\"")
+            .condition(".working.status == \"processed\"")
             .kind(GoalKind.SUCCESS)
             .description("Goal achieved when document processing is complete")
             .build();
@@ -146,12 +146,12 @@ public class WorkerRetryTest {
               Binding.builder()
                   .name("trigger-on-processing-status")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".status == \"processing\""))
+                  .on(new ContextChangeTrigger(".working.status == \"processing\""))
                   .build())
           .milestones(
               Milestone.builder()
                   .name("documentProcessed")
-                  .completionCriteria(".status == \"processed\"")
+                  .completionCriteria(".working.status == \"processed\"")
                   .description("Milestone reached when document is processed")
                   .build())
           .goals(goal)

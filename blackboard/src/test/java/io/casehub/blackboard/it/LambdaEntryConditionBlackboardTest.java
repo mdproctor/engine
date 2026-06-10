@@ -111,7 +111,7 @@ class LambdaEntryConditionBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("lambda-cap")
-            .inputSchema("{ value: .value }")
+            .inputSchema("{ value: .working.value }")
             .outputSchema("{ done: .done }")
             .build();
 
@@ -132,7 +132,7 @@ class LambdaEntryConditionBlackboardTest {
               Binding.builder()
                   .name("trigger-on-value")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".value != null"))
+                  .on(new ContextChangeTrigger(".working.value != null"))
                   .build())
           .build();
     }

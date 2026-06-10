@@ -97,19 +97,23 @@ class WorkBrokerEndToEndTest {
     private final Capability stage1Cap =
         Capability.builder()
             .name("process")
-            .inputSchema("{ stage: .stage }")
+            .inputSchema("{ stage: .working.stage }")
             .outputSchema("{ stage: \"processed\" }")
             .build();
 
     private final Capability stage2Cap =
         Capability.builder()
             .name("finalise")
-            .inputSchema("{ stage: .stage }")
+            .inputSchema("{ stage: .working.stage }")
             .outputSchema("{ stage: \"final\" }")
             .build();
 
     private final Goal goal =
-        Goal.builder().name("done").condition(".stage == \"final\"").kind(GoalKind.SUCCESS).build();
+        Goal.builder()
+            .name("done")
+            .condition(".working.stage == \"final\"")
+            .kind(GoalKind.SUCCESS)
+            .build();
 
     @Override
     public CaseDefinition getDefinition() {
@@ -142,12 +146,12 @@ class WorkBrokerEndToEndTest {
               Binding.builder()
                   .name("start-process")
                   .capability(stage1Cap)
-                  .on(new ContextChangeTrigger(".stage == \"raw\""))
+                  .on(new ContextChangeTrigger(".working.stage == \"raw\""))
                   .build(),
               Binding.builder()
                   .name("start-finalise")
                   .capability(stage2Cap)
-                  .on(new ContextChangeTrigger(".stage == \"processed\""))
+                  .on(new ContextChangeTrigger(".working.stage == \"processed\""))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

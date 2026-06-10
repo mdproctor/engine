@@ -135,7 +135,7 @@ public class AgentWorkerExecutionTest {
           Agent.builder()
               .systemPrompt(
                   "You are a sentiment analyzer. Analyze the text and return POSITIVE, NEGATIVE, or NEUTRAL.")
-              .inputSchema("{ text: .text }")
+              .inputSchema("{ text: .working.text }")
               .outputSchema("{ sentiment: .sentiment }")
               .model(mockProvider)
               .build();
@@ -161,14 +161,16 @@ public class AgentWorkerExecutionTest {
           Binding.builder()
               .name("trigger-sentiment-analysis")
               .capability(sentimentCapability)
-              .on(new ContextChangeTrigger(new JQExpressionEvaluator(".status == \"pending\"")))
+              .on(
+                  new ContextChangeTrigger(
+                      new JQExpressionEvaluator(".working.status == \"pending\"")))
               .build();
 
       // Create goal
       Goal analysisComplete =
           new Goal(
               "analysisComplete",
-              new JQExpressionEvaluator(".status == \"analyzed\""),
+              new JQExpressionEvaluator(".working.status == \"analyzed\""),
               GoalKind.SUCCESS);
 
       // Create case definition

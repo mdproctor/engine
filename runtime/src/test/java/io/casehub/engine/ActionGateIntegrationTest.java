@@ -280,14 +280,14 @@ class ActionGateIntegrationTest {
       final Capability cap =
           Capability.builder()
               .name("file-sar-gate-test")
-              .inputSchema(".")
+              .inputSchema(".working")
               .outputSchema(".")
               .build();
       final Goal goal =
           Goal.builder()
               .name("filed")
               .kind(GoalKind.SUCCESS)
-              .condition(".filingResult != null")
+              .condition(".working.filingResult != null")
               .build();
       return CaseDefinition.builder()
           .namespace("test-action-gate")
@@ -316,9 +316,9 @@ class ActionGateIntegrationTest {
                   // Prevent re-triggering while gate is pending (deferred output not applied)
                   .on(
                       new ContextChangeTrigger(
-                          ".filingResult == null and .actionGateApproved == null"
-                              + " and .actionGateRejected == null"
-                              + " and .actionGateExpired == null"))
+                          ".working.filingResult == null and .working.actionGateApproved == null"
+                              + " and .working.actionGateRejected == null"
+                              + " and .working.actionGateExpired == null"))
                   .target(new CapabilityTarget(cap))
                   .build())
           .goals(goal)

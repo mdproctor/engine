@@ -221,14 +221,14 @@ class ActionGateResolutionTest {
       final Capability cap =
           Capability.builder()
               .name("resolution-gate-cap")
-              .inputSchema(".")
+              .inputSchema(".working")
               .outputSchema(".")
               .build();
       final Goal goal =
           Goal.builder()
               .name("complete")
               .kind(GoalKind.SUCCESS)
-              .condition(".gateWorkerOutput != null")
+              .condition(".working.gateWorkerOutput != null")
               .build();
       return CaseDefinition.builder()
           .namespace("test-gate-resolution")
@@ -257,9 +257,9 @@ class ActionGateResolutionTest {
                   // pendingActionGate is set (deferred output not yet applied to context)
                   .on(
                       new ContextChangeTrigger(
-                          ".gateWorkerOutput == null and .actionGateRejected == null"
-                              + " and .actionGateApproved == null"
-                              + " and .actionGateExpired == null"))
+                          ".working.gateWorkerOutput == null and .working.actionGateRejected == null"
+                              + " and .working.actionGateApproved == null"
+                              + " and .working.actionGateExpired == null"))
                   .target(new CapabilityTarget(cap))
                   .build())
           .goals(goal)

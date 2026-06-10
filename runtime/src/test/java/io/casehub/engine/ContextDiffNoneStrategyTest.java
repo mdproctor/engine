@@ -102,12 +102,16 @@ class ContextDiffNoneStrategyTest {
     private final Capability capability =
         Capability.builder()
             .name("doWork")
-            .inputSchema("{ status: .status }")
+            .inputSchema("{ status: .working.status }")
             .outputSchema("{ status: .status }")
             .build();
 
     private final Goal goal =
-        Goal.builder().name("done").condition(".status == \"done\"").kind(GoalKind.SUCCESS).build();
+        Goal.builder()
+            .name("done")
+            .condition(".working.status == \"done\"")
+            .kind(GoalKind.SUCCESS)
+            .build();
 
     @Override
     public CaseDefinition getDefinition() {
@@ -126,7 +130,7 @@ class ContextDiffNoneStrategyTest {
               Binding.builder()
                   .name("trigger")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".status == \"start\""))
+                  .on(new ContextChangeTrigger(".working.status == \"start\""))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

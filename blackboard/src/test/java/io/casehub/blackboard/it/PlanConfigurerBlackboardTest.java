@@ -197,7 +197,7 @@ class PlanConfigurerBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("configured-cap")
-            .inputSchema("{ probe: .probe }")
+            .inputSchema("{ probe: .working.probe }")
             .outputSchema("{ probe: .probe }")
             .build();
 
@@ -218,7 +218,7 @@ class PlanConfigurerBlackboardTest {
               Binding.builder()
                   .name("on-probe-tick")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".probe == \"tick\""))
+                  .on(new ContextChangeTrigger(".working.probe == \"tick\""))
                   .build())
           // No goals — case stays RUNNING for post-signal assertions
           .build();

@@ -455,14 +455,14 @@ public class WorkerRetryExtendedTest {
     private final Capability capability =
         Capability.builder()
             .name("flexibleRetryCapability")
-            .inputSchema("{ taskId: .taskId, status: .status }")
+            .inputSchema("{ taskId: .working.taskId, status: .working.status }")
             .outputSchema("{ status: .status, taskId: .taskId }")
             .build();
 
     private final Goal doneGoal =
         Goal.builder()
             .name("flexRetryDone")
-            .condition(".status == \"processed\"")
+            .condition(".working.status == \"processed\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -498,7 +498,7 @@ public class WorkerRetryExtendedTest {
               Binding.builder()
                   .name("on-pending")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".status == \"pending\""))
+                  .on(new ContextChangeTrigger(".working.status == \"pending\""))
                   .build())
           .goals(doneGoal)
           .completion(GoalExpression.allOf(doneGoal))
@@ -519,7 +519,7 @@ public class WorkerRetryExtendedTest {
     private final Capability capability =
         Capability.builder()
             .name("signalRetryCapability")
-            .inputSchema("{ request: .request, taskId: .taskId }")
+            .inputSchema("{ request: .working.request, taskId: .working.taskId }")
             .outputSchema("{ status: .status }")
             .build();
 
@@ -554,7 +554,7 @@ public class WorkerRetryExtendedTest {
               Binding.builder()
                   .name("on-request")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".request != null"))
+                  .on(new ContextChangeTrigger(".working.request != null"))
                   .build())
           .build();
     }
@@ -575,14 +575,14 @@ public class WorkerRetryExtendedTest {
     private final Capability alphaCapability =
         Capability.builder()
             .name("alphaRetryCapability")
-            .inputSchema("{ alpha: .alpha }")
+            .inputSchema("{ alpha: .working.alpha }")
             .outputSchema("{ alphaResult: .alphaResult }")
             .build();
 
     private final Capability betaCapability =
         Capability.builder()
             .name("betaRetryCapability")
-            .inputSchema("{ beta: .beta }")
+            .inputSchema("{ beta: .working.beta }")
             .outputSchema("{ betaResult: .betaResult }")
             .build();
 
@@ -621,12 +621,12 @@ public class WorkerRetryExtendedTest {
               Binding.builder()
                   .name("on-alpha-ready")
                   .capability(alphaCapability)
-                  .on(new ContextChangeTrigger(".alpha == \"ready\""))
+                  .on(new ContextChangeTrigger(".working.alpha == \"ready\""))
                   .build(),
               Binding.builder()
                   .name("on-beta-ready")
                   .capability(betaCapability)
-                  .on(new ContextChangeTrigger(".beta == \"ready\""))
+                  .on(new ContextChangeTrigger(".working.beta == \"ready\""))
                   .build())
           .build();
     }

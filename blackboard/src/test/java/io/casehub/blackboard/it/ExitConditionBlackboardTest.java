@@ -96,7 +96,7 @@ class ExitConditionBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("exit-writer")
-            .inputSchema("{ phase: .phase }")
+            .inputSchema("{ phase: .working.phase }")
             .outputSchema("{ phase: .phase }")
             .build();
 
@@ -117,7 +117,7 @@ class ExitConditionBlackboardTest {
               Binding.builder()
                   .name("trigger-on-active")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".phase == \"active\""))
+                  .on(new ContextChangeTrigger(".working.phase == \"active\""))
                   .build())
           .build();
     }

@@ -159,12 +159,16 @@ class CaseLifecycleCdiEventTest {
     private final Capability capability =
         Capability.builder()
             .name("do-work")
-            .inputSchema(".")
+            .inputSchema(".working")
             .outputSchema("{ done: true }")
             .build();
 
     private final Goal goal =
-        Goal.builder().name("all-done").condition(".done == true").kind(GoalKind.SUCCESS).build();
+        Goal.builder()
+            .name("all-done")
+            .condition(".working.done == true")
+            .kind(GoalKind.SUCCESS)
+            .build();
 
     @Override
     public CaseDefinition getDefinition() {
@@ -185,7 +189,9 @@ class CaseLifecycleCdiEventTest {
               Binding.builder()
                   .name("fire-when-triggered")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".trigger == true and .done != true"))
+                  .on(
+                      new ContextChangeTrigger(
+                          ".working.trigger == true and .working.done != true"))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

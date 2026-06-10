@@ -144,7 +144,7 @@ class HumanTaskTargetDispatchTest {
     public CaseDefinition getDefinition() {
       HumanTaskTarget target =
           HumanTaskTarget.template("irb-review-template")
-              .inputMapping("{ applicantId: .applicantId }")
+              .inputMapping("{ applicantId: .working.applicantId }")
               .build();
 
       return CaseDefinition.builder()
@@ -155,7 +155,7 @@ class HumanTaskTargetDispatchTest {
               Binding.builder()
                   .name("review-binding")
                   .humanTask(target)
-                  .on(new ContextChangeTrigger(".stage == \"review\""))
+                  .on(new ContextChangeTrigger(".working.stage == \"review\""))
                   .build())
           .build();
     }
@@ -180,7 +180,7 @@ class HumanTaskTargetDispatchTest {
               Binding.builder()
                   .name("review-binding")
                   .humanTask(target)
-                  .on(new ContextChangeTrigger(".stage == \"review\""))
+                  .on(new ContextChangeTrigger(".working.stage == \"review\""))
                   .build())
           .build();
     }
@@ -205,7 +205,7 @@ class HumanTaskTargetDispatchTest {
               Binding.builder()
                   .name("bad-binding")
                   .humanTask(target)
-                  .on(new ContextChangeTrigger(".stage == \"review\""))
+                  .on(new ContextChangeTrigger(".working.stage == \"review\""))
                   .build())
           .build();
     }
@@ -231,7 +231,7 @@ class HumanTaskTargetDispatchTest {
               Binding.builder()
                   .name("conjunction-binding")
                   .humanTask(target)
-                  .on(new ContextChangeTrigger(".stage == \"review\""))
+                  .on(new ContextChangeTrigger(".working.stage == \"review\""))
                   .build())
           .build();
     }

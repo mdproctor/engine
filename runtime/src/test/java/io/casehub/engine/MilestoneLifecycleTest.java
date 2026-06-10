@@ -279,7 +279,7 @@ class MilestoneLifecycleTest {
               Milestone.builder()
                   .name("approval")
                   .entryCriteria(".requestSubmitted == true")
-                  .completionCriteria(".approved == true")
+                  .completionCriteria(".working.approved == true")
                   .build())
           .build();
     }
@@ -296,7 +296,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .completionCriteria(".approved == true")
+                  .completionCriteria(".working.approved == true")
                   .slaDuration(java.time.Duration.ofSeconds(2))
                   .build())
           .build();
@@ -314,7 +314,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .completionCriteria(".approved == true")
+                  .completionCriteria(".working.approved == true")
                   .slaDuration(java.time.Duration.ofSeconds(2))
                   .build())
           .build();
@@ -332,7 +332,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .completionCriteria(".approved == true")
+                  .completionCriteria(".working.approved == true")
                   .slaDuration(java.time.Duration.ofHours(24))
                   .build())
           .build();
@@ -351,7 +351,7 @@ class MilestoneLifecycleTest {
               Milestone.builder()
                   .name("review")
                   .entryCriteria(".stage == \"review\"")
-                  .completionCriteria(".reviewComplete == true")
+                  .completionCriteria(".working.reviewComplete == true")
                   .build())
           .build();
     }
@@ -368,7 +368,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .completionCriteria(".approved == true")
+                  .completionCriteria(".working.approved == true")
                   .slaDuration(java.time.Duration.ofSeconds(5))
                   .build())
           .build();
