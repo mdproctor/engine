@@ -77,15 +77,16 @@ public class PlanItemCompletionHandler {
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED, blocking = true)
   public void onWorkerFinished(WorkflowExecutionCompleted event) {
-    completePlanItemByKey(event.caseInstance().getUuid(), event.worker().getName());
+    completePlanItemByKey(
+        event.caseInstance().getUuid(), event.worker().getName(), event.caseInstance().tenancyId);
   }
 
   @ConsumeEvent(value = BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED, blocking = true)
   public void onSubCaseFinished(SubCaseExecutionCompleted event) {
-    completePlanItemByKey(event.parentCaseId(), event.childCaseId().toString());
+    completePlanItemByKey(event.parentCaseId(), event.childCaseId().toString(), event.tenancyId());
   }
 
-  private void completePlanItemByKey(UUID caseId, String trackingKey) {
+  private void completePlanItemByKey(UUID caseId, String trackingKey, String tenancyId) {
     CasePlanModel plan = registry.get(caseId).orElse(null);
     if (plan == null) return;
 
@@ -112,7 +113,7 @@ public class PlanItemCompletionHandler {
               stageAutocompleteEvaluator.evaluate(caseId, plan, planItemId);
               // Fire after markCompleted() so observers see the exact planItemId that completed.
               planItemCompletedEvents.fireAsync(
-                  new PlanItemCompletedEvent(caseId, planItemId, trackingKey));
+                  new PlanItemCompletedEvent(caseId, planItemId, trackingKey, tenancyId));
             });
   }
 }

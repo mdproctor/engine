@@ -204,7 +204,7 @@ public class SubCaseCompletionService {
         // and evaluate stage autocomplete. childCaseId is the completion tracking key.
         eventBus.publish(
             BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED,
-            new SubCaseExecutionCompleted(parentCaseId, childCaseId));
+            new SubCaseExecutionCompleted(parentCaseId, childCaseId, event.tenancyId()));
 
       } else {
         // REJECTED — threshold is unreachable; cancel parent to prevent indefinite WAITING.
@@ -273,7 +273,7 @@ public class SubCaseCompletionService {
     // line — harmless, no transition occurs.
     eventBus.publish(
         BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED,
-        new SubCaseExecutionCompleted(parentCaseId, childCaseId));
+        new SubCaseExecutionCompleted(parentCaseId, childCaseId, event.tenancyId()));
   }
 
   /**

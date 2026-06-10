@@ -27,5 +27,6 @@ import java.util.UUID;
  *
  * @param parentCaseId the parent case whose SubCase binding produced the child
  * @param childCaseId the child case that just terminated
+ * @param tenancyId the tenant that owns the parent case
  */
-public record SubCaseExecutionCompleted(UUID parentCaseId, UUID childCaseId) {}
+public record SubCaseExecutionCompleted(UUID parentCaseId, UUID childCaseId, String tenancyId) {}
