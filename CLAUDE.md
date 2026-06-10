@@ -153,6 +153,15 @@ quarkus.flyway.migrate-at-start=false
 ```
 And add a `NoOpLedgerEntryRepository` (`@Alternative @Priority(1) @ApplicationScoped`) to the module's test sources — see `engine/src/test/java/io/casehub/engine/NoOpLedgerEntryRepository.java`. Applied to: `engine`, `casehub-blackboard`, `casehub-resilience`, `casehub-work-adapter`.
 
+**Modules with `casehub-engine-ledger` as a test dependency** (e.g. `casehub-engine` runtime) must additionally exclude the ledger capture beans from CDI — they observe `CaseLifecycleEvent` and call `LedgerSequenceAllocator` which requires a `ledger_subject_sequence` table not present in the runtime test schema. Without this, cases time out silently with no direct error:
+```properties
+quarkus.arc.exclude-types=\
+  ...,\
+  io.casehub.ledger.service.CaseLedgerEventCapture,\
+  io.casehub.ledger.service.WorkerDecisionEventCapture
+```
+See protocol PP-20260610-18a084.
+
 Domain objects (`CaseMetaModel`, `CaseInstance`, `EventLog`) are plain POJOs. The `id` field
 is public (`public Long id`) and set by the repository after save.
 
