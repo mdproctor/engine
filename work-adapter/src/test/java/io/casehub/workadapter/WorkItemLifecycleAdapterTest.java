@@ -394,7 +394,8 @@ class WorkItemLifecycleAdapterTest {
             0,
             3,
             GroupStatus.REJECTED,
-            PlanItemCallerRef.encode(caseId, delegatedItemId)));
+            PlanItemCallerRef.encode(caseId, delegatedItemId),
+            "test-tenant"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -426,7 +427,8 @@ class WorkItemLifecycleAdapterTest {
             2,
             0,
             GroupStatus.COMPLETED,
-            "some-other-system:xyz");
+            "some-other-system:xyz",
+            "test-tenant");
 
     groupLifecycleEvents.fireAsync(event);
 
@@ -458,6 +460,7 @@ class WorkItemLifecycleAdapterTest {
         2,
         0,
         status,
-        PlanItemCallerRef.encode(caseId, planItemId));
+        PlanItemCallerRef.encode(caseId, planItemId),
+        "test-tenant");
   }
 }
