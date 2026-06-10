@@ -279,6 +279,22 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder panel(String name) {
+      if (this.panelNames == null) {
+        this.panelNames = new java.util.ArrayList<>();
+      }
+      this.panelNames.add(name);
+      return this;
+    }
+
+    public Builder panels(String... names) {
+      if (this.panelNames == null) {
+        this.panelNames = new java.util.ArrayList<>();
+      }
+      java.util.Collections.addAll(this.panelNames, names);
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(

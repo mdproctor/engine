@@ -149,7 +149,7 @@ public class CaseContextChangedEventHandler {
 
     LOG.infof("Handling CaseStateContextChangedEvent for caseId: %s", caseInstance.getUuid());
 
-    return rules(caseInstance, contextSnapshot, caseDefinition)
+    return rules(caseInstance, contextSnapshot, caseDefinition, changedPanel)
         .chain(() -> milestones(caseInstance, contextSnapshot, caseDefinition))
         .chain(() -> goals(caseInstance, contextSnapshot, caseDefinition))
         .invoke(
@@ -166,7 +166,8 @@ public class CaseContextChangedEventHandler {
   private Uni<Void> rules(
       final CaseInstance caseInstance,
       final CaseContext contextSnapshot,
-      final CaseDefinition definition) {
+      final CaseDefinition definition,
+      final String changedPanel) {
     final List<Binding> bindings = definition.getBindings();
     if (bindings == null || bindings.isEmpty()) {
       return Uni.createFrom().voidItem();
@@ -177,6 +178,11 @@ public class CaseContextChangedEventHandler {
     final List<Binding> eligible = new ArrayList<>();
     for (final Binding binding : bindings) {
       if (!(binding.getOn() instanceof ContextChangeTrigger cct)) {
+        continue;
+      }
+      // listenPanel filter: skip binding if it declares a specific panel that doesn't match
+      final String listenPanel = cct.getListenPanel();
+      if (listenPanel != null && !listenPanel.equals(changedPanel)) {
         continue;
       }
       if (!expressionEngineRegistry.evaluate(cct.getFilter(), contextSnapshot)) {

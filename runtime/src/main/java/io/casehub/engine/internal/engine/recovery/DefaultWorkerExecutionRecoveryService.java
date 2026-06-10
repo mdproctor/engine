@@ -183,6 +183,10 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                       applyTopLevelChanges(caseContext, contextChanges);
                     }
                   } else {
+                    LOG.warnf(
+                        "WORKER_EXECUTION_COMPLETED has no contextChanges metadata — "
+                            + "falling back to payload merge for caseId=%s seq=%s",
+                        caseId, eventLog.getSeq());
                     caseContext.setAll(payloadAsMap(eventLog.getPayload()));
                   }
                   // Update episodic panel

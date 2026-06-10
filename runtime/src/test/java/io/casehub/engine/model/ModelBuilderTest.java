@@ -678,6 +678,81 @@ class ModelBuilderTest {
       final var trigger = new ContextChangeTrigger(evaluator);
       assertEquals(evaluator, trigger.getFilter());
     }
+
+    @Test
+    @DisplayName("listenPanel is null when constructed without a panel name")
+    void listenPanel_nullByDefault() {
+      final var trigger = new ContextChangeTrigger(".working.result != null");
+      assertNull(trigger.getListenPanel());
+    }
+
+    @Test
+    @DisplayName("listenPanel is stored when constructed with evaluator + panel name")
+    void listenPanel_storedWhenProvided() {
+      final var evaluator = new JQExpressionEvaluator(".working.result != null");
+      final var trigger = new ContextChangeTrigger(evaluator, "extracted");
+      assertEquals("extracted", trigger.getListenPanel());
+      assertEquals(evaluator, trigger.getFilter());
+    }
+  }
+
+  // ================================================================== //
+  //  CaseDefinition panel builder                                       //
+  // ================================================================== //
+
+  @Nested
+  @DisplayName("CaseDefinition panel builder")
+  class PanelBuilderTests {
+
+    @Test
+    @DisplayName("panel(String) accumulates panel names in order")
+    void panel_accumulatesNames() {
+      final var def =
+          CaseDefinition.builder()
+              .namespace("test")
+              .name("n")
+              .version("1.0")
+              .panel("raw")
+              .panel("extracted")
+              .panel("conclusions")
+              .build();
+      assertEquals(java.util.List.of("raw", "extracted", "conclusions"), def.getPanelNames());
+    }
+
+    @Test
+    @DisplayName("panels(String...) adds multiple names in one call")
+    void panels_varargs_addsAll() {
+      final var def =
+          CaseDefinition.builder()
+              .namespace("test")
+              .name("n")
+              .version("1.0")
+              .panels("alpha", "beta", "gamma")
+              .build();
+      assertEquals(java.util.List.of("alpha", "beta", "gamma"), def.getPanelNames());
+    }
+
+    @Test
+    @DisplayName("panel() and panels() can be mixed in the same builder chain")
+    void panel_and_panels_mixed() {
+      final var def =
+          CaseDefinition.builder()
+              .namespace("test")
+              .name("n")
+              .version("1.0")
+              .panel("first")
+              .panels("second", "third")
+              .panel("fourth")
+              .build();
+      assertEquals(java.util.List.of("first", "second", "third", "fourth"), def.getPanelNames());
+    }
+
+    @Test
+    @DisplayName("panelNames is null when no panel methods are called")
+    void panelNames_nullByDefault() {
+      final var def = CaseDefinition.builder().namespace("ns").name("test").version("1.0").build();
+      assertNull(def.getPanelNames());
+    }
   }
 
   // ================================================================== //

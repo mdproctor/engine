@@ -61,8 +61,17 @@ public class CaseContextImpl implements CaseContext {
     this(initial);
   }
 
+  @SuppressWarnings("unchecked")
   public CaseContextImpl(JsonNode asNode) {
-    this(asNode == null ? null : MAPPER.convertValue(asNode, Map.class));
+    this(
+        asNode == null
+            ? null
+            : (Map<String, Object>)
+                MAPPER.convertValue(
+                    asNode,
+                    MAPPER
+                        .getTypeFactory()
+                        .constructMapType(LinkedHashMap.class, String.class, Object.class)));
   }
 
   private void initBuiltinPanels() {

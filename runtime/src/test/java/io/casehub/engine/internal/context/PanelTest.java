@@ -172,4 +172,26 @@ class PanelTest {
     ReadablePanel snap = p.snapshot();
     assertEquals(ContextPanel.SEMANTIC, snap.panelName());
   }
+
+  @Test
+  void deepCopy_deepCopiesListsContainingMaps() {
+    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.WORKING);
+    java.util.List<java.util.Map<String, Object>> workers = new java.util.ArrayList<>();
+    java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
+    entry.put("name", "extractor");
+    entry.put("runs", 1);
+    workers.add(entry);
+    p.set("workers", workers);
+
+    WritablePanelImpl copy = p.deepCopy();
+    // Mutate original entry
+    ((java.util.Map<String, Object>) ((java.util.List<?>) p.get("workers")).get(0)).put("runs", 99);
+    // Copy should be unaffected
+    assertEquals(
+        1,
+        ((Number)
+                ((java.util.Map<?, ?>) ((java.util.List<?>) copy.get("workers")).get(0))
+                    .get("runs"))
+            .intValue());
+  }
 }

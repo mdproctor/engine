@@ -586,6 +586,26 @@ public class WritablePanelImpl implements WritablePanel {
     }
   }
 
+  /**
+   * Engine-internal atomic read-modify-write that bypasses the frozen check. Holds the write lock
+   * for the entire read-modify-write sequence, preventing lost updates under concurrent writes.
+   * Does NOT increment version — engine-internal, must not trigger binding re-evaluation.
+   */
+  public void engineUpdate(String key, java.util.function.UnaryOperator<Object> updater) {
+    lock.writeLock().lock();
+    try {
+      Object current = data.get(key);
+      Object updated = updater.apply(current);
+      if (updated != null) {
+        data.put(key, updated);
+      } else if (data.containsKey(key)) {
+        data.remove(key);
+      }
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
   @Override
   public ReadablePanel snapshot() {
     return deepCopy();
@@ -629,12 +649,21 @@ public class WritablePanelImpl implements WritablePanel {
   @SuppressWarnings("unchecked")
   private static Map<String, Object> deepCopyMap(Map<String, Object> source) {
     Map<String, Object> copy = new LinkedHashMap<>();
-    for (Map.Entry<String, Object> e : source.entrySet()) {
+    for (var e : source.entrySet()) {
       Object v = e.getValue();
       if (v instanceof Map) {
         v = deepCopyMap((Map<String, Object>) v);
       } else if (v instanceof List) {
-        v = new ArrayList<>((List<?>) v);
+        List<?> original = (List<?>) v;
+        List<Object> listCopy = new ArrayList<>(original.size());
+        for (Object item : original) {
+          if (item instanceof Map) {
+            listCopy.add(deepCopyMap((Map<String, Object>) item));
+          } else {
+            listCopy.add(item);
+          }
+        }
+        v = listCopy;
       }
       copy.put(e.getKey(), v);
     }

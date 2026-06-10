@@ -207,6 +207,127 @@ class CaseContextChangedEventHandlerRoutingTest {
   }
 
   @Test
+  void listenPanel_matching_allowsBindingToFire() {
+    // Binding with listenPanel="extracted" fires when changedPanel is "extracted"
+    final Capability cap =
+        Capability.builder()
+            .name("research")
+            .inputSchema("{ q: .q }")
+            .outputSchema("{ r: .r }")
+            .build();
+    final ContextChangeTrigger panelTrigger =
+        new ContextChangeTrigger(
+            new io.casehub.api.model.evaluator.JQExpressionEvaluator("."), "extracted");
+    final Binding panelBinding =
+        Binding.builder()
+            .name("panel-binding")
+            .on(panelTrigger)
+            .target(new CapabilityTarget(cap))
+            .build();
+    final Worker worker =
+        Worker.builder()
+            .name("analyst-worker")
+            .capabilities(cap)
+            .function(input -> WorkerResult.of(java.util.Map.of()))
+            .build();
+
+    final io.casehub.engine.common.internal.model.CaseMetaModel metaModel =
+        mock(io.casehub.engine.common.internal.model.CaseMetaModel.class);
+    final CaseDefinition panelDef =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("PanelTest")
+            .version("1.0")
+            .capabilities(cap)
+            .workers(worker)
+            .bindings(panelBinding)
+            .build();
+
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(panelDef);
+    when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(panelBinding)));
+    when(agentRoutingStrategy.select(any(), any()))
+        .thenReturn(Uni.createFrom().item(AgentAssignment.assign("analyst-worker")));
+
+    final CaseContext ctx = mock(CaseContext.class);
+    when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
+    when(ctx.snapshot()).thenReturn(ctx);
+
+    final CaseInstance inst = new CaseInstance();
+    inst.setUuid(UUID.randomUUID());
+    inst.setState(CaseStatus.RUNNING);
+    inst.setCaseMetaModel(metaModel);
+    inst.setCaseContext(ctx);
+
+    handler
+        .onCaseStateContextChangedEventHandler(new CaseContextChangedEvent(inst, ctx, "extracted"))
+        .await()
+        .indefinitely();
+
+    verify(eventBus).publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
+  }
+
+  @Test
+  void listenPanel_nonMatching_suppressesBinding() {
+    // Binding with listenPanel="extracted" must NOT fire when changedPanel is "working"
+    final Capability cap =
+        Capability.builder()
+            .name("research")
+            .inputSchema("{ q: .q }")
+            .outputSchema("{ r: .r }")
+            .build();
+    final ContextChangeTrigger panelTrigger =
+        new ContextChangeTrigger(
+            new io.casehub.api.model.evaluator.JQExpressionEvaluator("."), "extracted");
+    final Binding panelBinding =
+        Binding.builder()
+            .name("panel-binding")
+            .on(panelTrigger)
+            .target(new CapabilityTarget(cap))
+            .build();
+    final Worker worker =
+        Worker.builder()
+            .name("analyst-worker")
+            .capabilities(cap)
+            .function(input -> WorkerResult.of(java.util.Map.of()))
+            .build();
+
+    final io.casehub.engine.common.internal.model.CaseMetaModel metaModel =
+        mock(io.casehub.engine.common.internal.model.CaseMetaModel.class);
+    final CaseDefinition panelDef =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("PanelTest")
+            .version("1.0")
+            .capabilities(cap)
+            .workers(worker)
+            .bindings(panelBinding)
+            .build();
+
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(panelDef);
+    // loopControl.select is never reached because the binding is filtered out before it
+    when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of()));
+
+    final CaseContext ctx = mock(CaseContext.class);
+    when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
+    when(ctx.snapshot()).thenReturn(ctx);
+
+    final CaseInstance inst = new CaseInstance();
+    inst.setUuid(UUID.randomUUID());
+    inst.setState(CaseStatus.RUNNING);
+    inst.setCaseMetaModel(metaModel);
+    inst.setCaseContext(ctx);
+
+    handler
+        .onCaseStateContextChangedEventHandler(
+            new CaseContextChangedEvent(inst, ctx, ContextPanel.WORKING))
+        .await()
+        .indefinitely();
+
+    verify(eventBus, never())
+        .publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
+  }
+
+  @Test
   void tryProvision_provisionerHasCapability_firesWorkerStartedLifecycleEvent() {
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable()));

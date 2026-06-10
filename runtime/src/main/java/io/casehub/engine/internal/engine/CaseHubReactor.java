@@ -218,6 +218,17 @@ class CaseHubReactor {
             ctx.freezePanel(ContextPanel.EPISODIC);
           }
 
+          // Pre-create user-defined panels declared in the case definition (eager init so
+          // asJsonNode() and snapshot() include them even before any worker writes to them)
+          List<String> declaredPanels = definition.getPanelNames();
+          if (declaredPanels != null
+              && !declaredPanels.isEmpty()
+              && context instanceof CaseContextImpl ctx) {
+            for (String panelName : declaredPanels) {
+              ctx.writablePanel(panelName);
+            }
+          }
+
           CaseInstance instance = new CaseInstance();
           instance.setUuid(UUID.randomUUID());
           instance.setCaseMetaModel(model);

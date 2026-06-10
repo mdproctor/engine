@@ -36,66 +36,82 @@ public final class EpisodicPanelUpdater {
 
   /**
    * Updates or creates the worker entry in episodic.workers. Increments the runs counter; sets
-   * lastOutcome and lastTimestamp. Safe to call whether or not the episodic panel is frozen —
-   * writes use {@link WritablePanelImpl#engineSet} which bypasses the frozen check.
+   * lastOutcome and lastTimestamp. Safe to call whether or not the episodic panel is frozen. Uses
+   * {@link WritablePanelImpl#engineUpdate} to hold the write lock across the entire
+   * read-modify-write sequence, preventing lost increments under concurrent worker completions.
    */
-  @SuppressWarnings({"unchecked", "rawtypes"})
+  @SuppressWarnings("unchecked")
   public static void recordWorkerCompletion(
       CaseContextImpl ctx, String workerName, String outcome) {
     WritablePanelImpl episodic = ctx.writablePanel(ContextPanel.EPISODIC);
-    List<Map<String, Object>> workers =
-        (List<Map<String, Object>>) (List) episodic.getList("workers", Map.class);
-    if (workers == null) workers = new ArrayList<>();
-    else workers = new ArrayList<>(workers);
+    episodic.engineUpdate(
+        "workers",
+        currentValue -> {
+          List<Map<String, Object>> workers;
+          if (currentValue instanceof List) {
+            workers = new ArrayList<>((List<Map<String, Object>>) currentValue);
+          } else {
+            workers = new ArrayList<>();
+          }
 
-    Map<String, Object> entry = null;
-    for (Map<String, Object> w : workers) {
-      if (workerName.equals(w.get("name"))) {
-        entry = w;
-        break;
-      }
-    }
+          Map<String, Object> entry = null;
+          for (Map<String, Object> w : workers) {
+            if (workerName.equals(w.get("name"))) {
+              entry = w;
+              break;
+            }
+          }
 
-    if (entry == null) {
-      entry = new LinkedHashMap<>();
-      entry.put("name", workerName);
-      entry.put("runs", 0);
-      workers.add(entry);
-    }
+          if (entry == null) {
+            entry = new LinkedHashMap<>();
+            entry.put("name", workerName);
+            entry.put("runs", 0);
+            workers.add(entry);
+          }
 
-    entry.put("runs", ((Number) entry.getOrDefault("runs", 0)).intValue() + 1);
-    entry.put("lastOutcome", outcome);
-    entry.put("lastTimestamp", Instant.now().toString());
-    episodic.engineSet("workers", workers);
+          entry.put("runs", ((Number) entry.getOrDefault("runs", 0)).intValue() + 1);
+          entry.put("lastOutcome", outcome);
+          entry.put("lastTimestamp", Instant.now().toString());
+          return workers;
+        });
   }
 
   /**
    * Appends a milestone name to episodic.milestones (no duplicates). Safe to call whether or not
-   * the episodic panel is frozen.
+   * the episodic panel is frozen. Uses {@link WritablePanelImpl#engineUpdate} for atomic
+   * read-modify-write.
    */
+  @SuppressWarnings("unchecked")
   public static void recordMilestoneReached(CaseContextImpl ctx, String milestoneName) {
     WritablePanelImpl episodic = ctx.writablePanel(ContextPanel.EPISODIC);
-    List<String> milestones = episodic.getList("milestones", String.class);
-    if (milestones == null) milestones = new ArrayList<>();
-    else milestones = new ArrayList<>(milestones);
-    if (!milestones.contains(milestoneName)) {
-      milestones.add(milestoneName);
-      episodic.engineSet("milestones", milestones);
-    }
+    episodic.engineUpdate(
+        "milestones",
+        currentValue -> {
+          List<String> milestones =
+              currentValue instanceof List
+                  ? new ArrayList<>((List<String>) currentValue)
+                  : new ArrayList<>();
+          if (!milestones.contains(milestoneName)) milestones.add(milestoneName);
+          return milestones;
+        });
   }
 
   /**
    * Appends a goal name to episodic.goals (no duplicates). Safe to call whether or not the episodic
-   * panel is frozen.
+   * panel is frozen. Uses {@link WritablePanelImpl#engineUpdate} for atomic read-modify-write.
    */
+  @SuppressWarnings("unchecked")
   public static void recordGoalReached(CaseContextImpl ctx, String goalName) {
     WritablePanelImpl episodic = ctx.writablePanel(ContextPanel.EPISODIC);
-    List<String> goals = episodic.getList("goals", String.class);
-    if (goals == null) goals = new ArrayList<>();
-    else goals = new ArrayList<>(goals);
-    if (!goals.contains(goalName)) {
-      goals.add(goalName);
-      episodic.engineSet("goals", goals);
-    }
+    episodic.engineUpdate(
+        "goals",
+        currentValue -> {
+          List<String> goals =
+              currentValue instanceof List
+                  ? new ArrayList<>((List<String>) currentValue)
+                  : new ArrayList<>();
+          if (!goals.contains(goalName)) goals.add(goalName);
+          return goals;
+        });
   }
 }
