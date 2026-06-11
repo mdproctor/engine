@@ -206,8 +206,15 @@ public class SubCaseOutputMappingRecoveryTest {
     caseStarted.setStreamType(EventStreamType.CASE);
     caseStarted.setTimestamp(Instant.now());
     // After panels migration, CASE_STARTED payload is a panel document
-    caseStarted.setPayload(OBJECT_MAPPER.valueToTree(
-        Map.of("working", Map.of("orderId", orderId), "semantic", Map.of(), "episodic", Map.of())));
+    caseStarted.setPayload(
+        OBJECT_MAPPER.valueToTree(
+            Map.of(
+                "working",
+                Map.of("orderId", orderId),
+                "semantic",
+                Map.of(),
+                "episodic",
+                Map.of())));
     run(() -> eventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
 
     caseInstanceCache.put(savedParent);
@@ -394,9 +401,15 @@ public class SubCaseOutputMappingRecoveryTest {
     caseStarted.setStreamType(EventStreamType.CASE);
     caseStarted.setTimestamp(Instant.now());
     // After panels migration, CASE_STARTED payload is a panel document
-    caseStarted.setPayload(OBJECT_MAPPER.valueToTree(
-        Map.of("working", Map.of("orderId", orderId, "temp", tempValue),
-               "semantic", Map.of(), "episodic", Map.of())));
+    caseStarted.setPayload(
+        OBJECT_MAPPER.valueToTree(
+            Map.of(
+                "working",
+                Map.of("orderId", orderId, "temp", tempValue),
+                "semantic",
+                Map.of(),
+                "episodic",
+                Map.of())));
     run(() -> eventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
 
     caseInstanceCache.put(saved);
