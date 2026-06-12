@@ -138,7 +138,7 @@ class SubCaseCompletionServiceTest {
     verify(mockBus)
         .publish(
             eq(BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED),
-            eq(new SubCaseExecutionCompleted(parentCaseId, childCaseId)));
+            eq(new SubCaseExecutionCompleted(parentCaseId, childCaseId, null)));
   }
 
   @Test

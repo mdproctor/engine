@@ -17,6 +17,7 @@ package io.casehub.ledger.repository;
 
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.model.WorkerDecisionEntry;
+import io.casehub.ledger.runtime.persistence.LedgerPersistenceUnit;
 import io.casehub.ledger.runtime.repository.jpa.JpaLedgerEntryRepository;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -43,7 +44,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class CaseLedgerEntryRepository extends JpaLedgerEntryRepository {
 
-  @Inject EntityManager caseEm; // own field — parent's em is package-private
+  @Inject @LedgerPersistenceUnit EntityManager caseEm; // own field — parent's em is package-private
 
   /** All ledger entries for the given case, ordered by sequence number ascending. */
   @Transactional

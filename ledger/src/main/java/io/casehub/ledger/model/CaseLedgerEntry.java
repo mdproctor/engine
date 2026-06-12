@@ -20,6 +20,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
@@ -54,4 +55,15 @@ public class CaseLedgerEntry extends LedgerEntry {
   /** Snapshot of {@code CaseStatus} at transition time. */
   @Column(name = "case_status", length = 50)
   public String caseStatus;
+
+  @Override
+  protected byte[] domainContentBytes() {
+    return String.join(
+            "|",
+            caseId != null ? caseId.toString() : "",
+            commandType != null ? commandType : "",
+            eventType != null ? eventType : "",
+            caseStatus != null ? caseStatus : "")
+        .getBytes(StandardCharsets.UTF_8);
+  }
 }

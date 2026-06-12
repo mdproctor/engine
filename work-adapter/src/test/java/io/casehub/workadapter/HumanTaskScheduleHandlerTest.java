@@ -26,6 +26,7 @@ import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.persistence.memory.MemoryPlanItemStore;
+import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.model.WorkItemTemplate;
@@ -600,6 +601,7 @@ class HumanTaskScheduleHandlerTest {
     WorkItemTemplate t = new WorkItemTemplate();
     t.name = name;
     t.createdBy = "test";
+    t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
     t.defaultPayload = defaultPayload;
     WorkItemTemplate.persist(t);
     return t;

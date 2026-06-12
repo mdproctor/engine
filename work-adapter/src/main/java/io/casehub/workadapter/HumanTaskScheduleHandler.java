@@ -133,6 +133,9 @@ public class HumanTaskScheduleHandler {
             template, target.title(), null, "casehub-engine", callerRef);
 
     workItem.scope = target.scope();
+    if (workItem.tenancyId == null) {
+      workItem.tenancyId = event.tenancyId();
+    }
     if (event.resolvedCandidateGroups() != null) {
       workItem.candidateGroups = toCsv(event.resolvedCandidateGroups());
     }
