@@ -501,7 +501,7 @@ class SpiWiringIntegrationTest {
     }
 
     @Override
-    public void terminate(String workerId) {}
+    public void terminate(String workerId, String tenancyId) {}
 
     @Override
     public Set<String> getCapabilities() {
@@ -527,7 +527,7 @@ class SpiWiringIntegrationTest {
     }
 
     @Override
-    public Uni<Void> terminate(String workerId) {
+    public Uni<Void> terminate(String workerId, String tenancyId) {
       return Uni.createFrom().voidItem();
     }
 

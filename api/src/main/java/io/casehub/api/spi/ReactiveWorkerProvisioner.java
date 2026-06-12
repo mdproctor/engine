@@ -42,9 +42,11 @@ public interface ReactiveWorkerProvisioner {
    * Terminate a previously provisioned worker. No-op if the worker is unknown.
    *
    * @param workerId the worker name as returned by {@link Worker#getName()}
+   * @param tenancyId the tenant that owns the case — avoids ambiguous lookups when the same
+   *     workerId is used across tenants
    * @return a {@code Uni} completing with {@code null} on success
    */
-  Uni<Void> terminate(String workerId);
+  Uni<Void> terminate(String workerId, String tenancyId);
 
   /**
    * Returns the capability tags this provisioner can supply.
