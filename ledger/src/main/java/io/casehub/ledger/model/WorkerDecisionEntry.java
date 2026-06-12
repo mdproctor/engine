@@ -20,6 +20,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 /**
@@ -73,4 +74,16 @@ public class WorkerDecisionEntry extends LedgerEntry {
    */
   @Column(name = "threshold_applied")
   public Double thresholdApplied;
+
+  @Override
+  protected byte[] domainContentBytes() {
+    return String.join(
+            "|",
+            workerId != null ? workerId : "",
+            capabilityTag != null ? capabilityTag : "",
+            caseId != null ? caseId.toString() : "",
+            trustScoreAtRouting != null ? trustScoreAtRouting.toString() : "",
+            thresholdApplied != null ? thresholdApplied.toString() : "")
+        .getBytes(StandardCharsets.UTF_8);
+  }
 }
