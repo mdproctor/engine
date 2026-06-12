@@ -19,9 +19,9 @@ import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.ledger.api.model.LedgerEntryType;
 import io.casehub.ledger.model.WorkerDecisionEntry;
-import io.casehub.ledger.repository.CaseLedgerEntryRepository;
 import io.casehub.ledger.routing.TrustScoreCache;
 import io.casehub.ledger.runtime.config.LedgerConfig;
+import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
@@ -51,7 +51,7 @@ public class WorkerDecisionEventCapture {
 
   private static final Logger LOG = Logger.getLogger(WorkerDecisionEventCapture.class);
 
-  @Inject CaseLedgerEntryRepository ledgerRepo;
+  @Inject LedgerEntryRepository ledgerRepo;
 
   @Inject LedgerConfig ledgerConfig;
 
