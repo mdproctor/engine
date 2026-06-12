@@ -94,6 +94,12 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- H2 datasource for the default (persistence-memory) test profile. -->
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-jdbc-h2</artifactId>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-junit5</artifactId>
@@ -220,11 +226,22 @@
     </build>
 
     <profiles>
+        <!-- Default: in-memory profile — no Docker required, all runtime tests are behavioral.
+             JPA persistence is covered by casehub-engine-persistence-hibernate's own tests.
+             To test with PostgreSQL: mvn test -P persistence-hibernate,!persistence-memory -->
         <profile>
-            <id>persistence-hibernate</id>
+            <id>persistence-memory</id>
             <activation>
                 <activeByDefault>true</activeByDefault>
             </activation>
+            <properties>
+                <maven.deploy.skip>false</maven.deploy.skip>
+                <engine.test.extra.jvm.args>-Dquarkus.test.profile=memory</engine.test.extra.jvm.args>
+            </properties>
+        </profile>
+        <!-- Opt-in: PostgreSQL via Testcontainers. Deactivate memory with !persistence-memory. -->
+        <profile>
+            <id>persistence-hibernate</id>
             <dependencies>
                 <dependency>
                     <groupId>io.casehub</groupId>
@@ -235,26 +252,6 @@
                 <dependency>
                     <groupId>org.testcontainers</groupId>
                     <artifactId>testcontainers-postgresql</artifactId>
-                    <scope>test</scope>
-                </dependency>
-            </dependencies>
-        </profile>
-        <profile>
-            <id>persistence-memory</id>
-            <properties>
-                <maven.deploy.skip>false</maven.deploy.skip>
-                <engine.test.extra.jvm.args>-Dquarkus.test.profile=memory</engine.test.extra.jvm.args>
-            </properties>
-            <dependencies>
-                <dependency>
-                    <groupId>io.casehub</groupId>
-                    <artifactId>casehub-engine-persistence-memory</artifactId>
-                    <version>${project.version}</version>
-                    <scope>test</scope>
-                </dependency>
-                <dependency>
-                    <groupId>io.quarkus</groupId>
-                    <artifactId>quarkus-jdbc-h2</artifactId>
                     <scope>test</scope>
                 </dependency>
             </dependencies>
