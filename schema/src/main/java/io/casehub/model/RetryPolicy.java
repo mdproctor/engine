@@ -19,6 +19,7 @@ public class RetryPolicy {
 
   private Integer maxAttempts = 3;
   private Integer delayMs = 100;
+  private String backoffStrategy = "FIXED";
 
   public Integer getMaxAttempts() {
     return maxAttempts;
@@ -34,5 +35,13 @@ public class RetryPolicy {
 
   public void setDelayMs(Integer delayMs) {
     this.delayMs = delayMs;
+  }
+
+  public String getBackoffStrategy() {
+    return backoffStrategy;
+  }
+
+  public void setBackoffStrategy(String backoffStrategy) {
+    this.backoffStrategy = backoffStrategy;
   }
 }

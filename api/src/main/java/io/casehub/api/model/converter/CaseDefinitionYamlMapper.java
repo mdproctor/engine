@@ -22,16 +22,19 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.AllOfGoalExpression;
 import io.casehub.api.model.AnyOfGoalExpression;
+import io.casehub.api.model.BackoffStrategy;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.EpisodicMemoryConfig;
+import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
+import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
@@ -229,6 +232,9 @@ public final class CaseDefinitionYamlMapper {
           worker = new Worker(sw.getName(), workerCaps, sw.getWorkflowAsEmbedded());
         }
         worker.setDescription(sw.getDescription());
+        if (sw.getExecutionPolicy() != null) {
+          worker.setExecutionPolicy(convertExecutionPolicy(sw.getExecutionPolicy()));
+        }
         def.getWorkers().add(worker);
       }
     }
@@ -500,6 +506,17 @@ public final class CaseDefinitionYamlMapper {
       builder.expiresIn(duration);
     }
     return builder.build();
+  }
+
+  private static ExecutionPolicy convertExecutionPolicy(
+      final io.casehub.model.ExecutionPolicy schema) {
+    final io.casehub.model.RetryPolicy sr = schema.getRetries();
+    final BackoffStrategy strategy =
+        sr.getBackoffStrategy() != null
+            ? BackoffStrategy.valueOf(sr.getBackoffStrategy())
+            : BackoffStrategy.FIXED;
+    final RetryPolicy retries = new RetryPolicy(sr.getMaxAttempts(), sr.getDelayMs(), strategy);
+    return new ExecutionPolicy(schema.getTimeoutMs(), retries);
   }
 
   @SuppressWarnings("unchecked")

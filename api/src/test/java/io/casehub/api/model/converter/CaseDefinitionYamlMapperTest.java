@@ -23,10 +23,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngineRegistry;
+import io.casehub.api.model.BackoffStrategy;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalKind;
@@ -1216,5 +1218,94 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
     ContextChangeTrigger trigger = (ContextChangeTrigger) def.getBindings().get(0).getOn();
     assertThat(trigger.getListenPanel()).isNull();
+  }
+
+  @Test
+  void executionPolicy_withBackoffStrategy_allFieldsMapped() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Retry Case
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: process
+          workers:
+            - name: processor
+              capabilities:
+                - process
+              executionPolicy:
+                timeoutMs: 30000
+                retries:
+                  maxAttempts: 5
+                  delayMs: 2000
+                  backoffStrategy: EXPONENTIAL_WITH_JITTER
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    Worker worker = def.getWorkers().get(0);
+    ExecutionPolicy policy = worker.getExecutionPolicy();
+    assertThat(policy.timeoutMs()).isEqualTo(30000);
+    assertThat(policy.retries().maxAttempts()).isEqualTo(5);
+    assertThat(policy.retries().delayMs()).isEqualTo(2000);
+    assertThat(policy.retries().backoffStrategy())
+        .isEqualTo(BackoffStrategy.EXPONENTIAL_WITH_JITTER);
+  }
+
+  @Test
+  void executionPolicy_defaultBackoffStrategy_isFIXED() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Default Backoff Case
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: process
+          workers:
+            - name: processor
+              capabilities:
+                - process
+              executionPolicy:
+                timeoutMs: 10000
+                retries:
+                  maxAttempts: 3
+                  delayMs: 1000
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    Worker worker = def.getWorkers().get(0);
+    assertThat(worker.getExecutionPolicy().retries().backoffStrategy())
+        .isEqualTo(BackoffStrategy.FIXED);
+  }
+
+  @Test
+  void executionPolicy_notSpecified_usesDefaults() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: No Policy Case
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: process
+          workers:
+            - name: processor
+              capabilities:
+                - process
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    Worker worker = def.getWorkers().get(0);
+    ExecutionPolicy policy = worker.getExecutionPolicy();
+    assertThat(policy.timeoutMs()).isNull();
+    assertThat(policy.retries().maxAttempts()).isEqualTo(3);
+    assertThat(policy.retries().backoffStrategy()).isEqualTo(BackoffStrategy.FIXED);
   }
 }
