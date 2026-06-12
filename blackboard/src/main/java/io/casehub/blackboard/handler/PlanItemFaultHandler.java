@@ -15,13 +15,13 @@
  */
 package io.casehub.blackboard.handler;
 
-import io.casehub.blackboard.event.PlanItemFaultedEvent;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -83,7 +83,7 @@ public class PlanItemFaultHandler {
                   "PlanItem %s marked FAULTED for worker '%s' in case %s",
                   planItemId, event.workerId(), event.caseId());
               planItemFaultedEvents.fireAsync(
-                  new PlanItemFaultedEvent(event.caseId(), planItemId, event.workerId()));
+                  new PlanItemFaultedEvent(event.caseId(), planItemId, event.workerId(), null));
             });
   }
 }

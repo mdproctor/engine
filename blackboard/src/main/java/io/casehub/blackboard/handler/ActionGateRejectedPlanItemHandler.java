@@ -15,12 +15,12 @@
  */
 package io.casehub.blackboard.handler;
 
-import io.casehub.blackboard.event.PlanItemFaultedEvent;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.ActionGateWorkerFaultedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -74,7 +74,7 @@ public class ActionGateRejectedPlanItemHandler {
               }
               item.markFaulted();
               planItemFaultedEvents.fireAsync(
-                  new PlanItemFaultedEvent(event.caseId(), planItemId, event.workerId()));
+                  new PlanItemFaultedEvent(event.caseId(), planItemId, event.workerId(), null));
               LOG.infof(
                   "PlanItem %s faulted (gate worker faulted): caseId=%s workerId=%s",
                   planItemId, event.caseId(), event.workerId());
