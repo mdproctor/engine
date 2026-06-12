@@ -21,9 +21,11 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.api.spi.ActionRiskClassifier;
 import io.casehub.api.spi.PlannedAction;
+import io.casehub.api.spi.ReactiveActionRiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.time.Duration;
 import java.util.List;
@@ -45,6 +47,7 @@ class ChainedReactiveActionRiskClassifierTest {
   @BeforeEach
   void setUp() {
     chain = new ChainedReactiveActionRiskClassifier();
+    chain.reactiveClassifiers = unsatisfiedReactive();
   }
 
   // --- Empty chain ---
@@ -222,6 +225,69 @@ class ChainedReactiveActionRiskClassifierTest {
     assertThat(captured[0].caseId()).isEqualTo(caseId);
   }
 
+  // --- Reactive classifiers ---
+
+  @Test
+  void reactiveClassifier_returnsGateRequired_propagated() {
+    chain.classifiers = unsatisfied();
+    chain.reactiveClassifiers =
+        reactiveInstanceOf(
+            action ->
+                Uni.createFrom()
+                    .item(
+                        new GateRequired("async-check", false, List.of("compliance"), null, null)));
+
+    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+
+    assertThat(result).isInstanceOf(GateRequired.class);
+    assertThat(((GateRequired) result).candidateGroups()).containsExactly("compliance");
+  }
+
+  @Test
+  void blockingAndReactive_mostRestrictiveWinsAcrossBoth() {
+    chain.classifiers =
+        instanceOf(
+            action -> new GateRequired("blocking", false, List.of("mlro", "analyst"), null, null));
+    chain.reactiveClassifiers =
+        reactiveInstanceOf(
+            action ->
+                Uni.createFrom()
+                    .item(new GateRequired("reactive", false, List.of("mlro"), null, null)));
+
+    GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
+
+    assertThat(result.candidateGroups()).containsExactly("mlro");
+    assertThat(result.reason()).isEqualTo("reactive");
+  }
+
+  @Test
+  void reactiveClassifierThrows_failSafeApplied() {
+    chain.classifiers = unsatisfied();
+    chain.reactiveClassifiers =
+        reactiveInstanceOf(
+            action -> Uni.createFrom().failure(new RuntimeException("async DB down")));
+
+    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+
+    assertThat(result).isInstanceOf(GateRequired.class);
+    assertThat(((GateRequired) result).reason()).contains("Classifier error");
+  }
+
+  @Test
+  void reactiveClassifierThrowsSynchronously_failSafeApplied() {
+    chain.classifiers = unsatisfied();
+    chain.reactiveClassifiers =
+        reactiveInstanceOf(
+            action -> {
+              throw new NullPointerException("synchronous arg validation");
+            });
+
+    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+
+    assertThat(result).isInstanceOf(GateRequired.class);
+    assertThat(((GateRequired) result).reason()).contains("Classifier error");
+  }
+
   // --- Helpers ---
 
   @SuppressWarnings("unchecked")
@@ -232,8 +298,25 @@ class ChainedReactiveActionRiskClassifierTest {
   }
 
   @SuppressWarnings("unchecked")
+  private static Instance<ReactiveActionRiskClassifier> unsatisfiedReactive() {
+    Instance<ReactiveActionRiskClassifier> inst = mock(Instance.class);
+    when(inst.isUnsatisfied()).thenReturn(true);
+    return inst;
+  }
+
+  @SuppressWarnings("unchecked")
   private static Instance<ActionRiskClassifier> instanceOf(ActionRiskClassifier... classifiers) {
     Instance<ActionRiskClassifier> inst = mock(Instance.class);
+    when(inst.isUnsatisfied()).thenReturn(false);
+    when(inst.spliterator())
+        .thenReturn(Spliterators.spliteratorUnknownSize(List.of(classifiers).iterator(), 0));
+    return inst;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Instance<ReactiveActionRiskClassifier> reactiveInstanceOf(
+      ReactiveActionRiskClassifier... classifiers) {
+    Instance<ReactiveActionRiskClassifier> inst = mock(Instance.class);
     when(inst.isUnsatisfied()).thenReturn(false);
     when(inst.spliterator())
         .thenReturn(Spliterators.spliteratorUnknownSize(List.of(classifiers).iterator(), 0));
