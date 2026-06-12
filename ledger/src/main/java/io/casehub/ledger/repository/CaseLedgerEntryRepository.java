@@ -18,7 +18,6 @@ package io.casehub.ledger.repository;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.runtime.persistence.LedgerPersistenceUnit;
-import io.casehub.ledger.runtime.repository.jpa.JpaLedgerEntryRepository;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -29,50 +28,42 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * JPA repository for {@link CaseLedgerEntry}.
+ * Case-specific query helper for {@link CaseLedgerEntry} and {@link WorkerDecisionEntry}.
  *
- * <p>Extends {@link JpaLedgerEntryRepository} — adds case-specific query methods for {@link
- * CaseLedgerEntry} and {@link WorkerDecisionEntry}.
+ * <p>Uses composition — does not extend {@code JpaLedgerEntryRepository}. The capture services
+ * ({@code CaseLedgerEventCapture}, {@code WorkerDecisionEventCapture}) inject {@code
+ * LedgerEntryRepository} directly for save and cross-subtype query operations. This class provides
+ * case-scoped queries only.
  *
- * <p>{@code @DefaultBean} yields automatically to any explicitly selected alternative ({@code
- * selected-alternatives}, {@code @Priority}-activated alternative). Consumers that want a different
- * implementation (e.g. in-memory test doubles) need no exclusion configuration — their selected
- * alternative wins by default. This follows the engine SPI default pattern
- * (PP-20260514-engine-spi-noops-defaultbean).
+ * <p>{@code @DefaultBean} yields automatically to any explicitly selected alternative.
  */
 @DefaultBean
 @ApplicationScoped
-public class CaseLedgerEntryRepository extends JpaLedgerEntryRepository {
+public class CaseLedgerEntryRepository {
 
-  @Inject @LedgerPersistenceUnit EntityManager caseEm; // own field — parent's em is package-private
+  @Inject @LedgerPersistenceUnit EntityManager em;
 
-  /** All ledger entries for the given case, ordered by sequence number ascending. */
   @Transactional
   public List<CaseLedgerEntry> findByCaseId(final UUID caseId) {
-    return caseEm
-        .createQuery(
+    return em.createQuery(
             "SELECT e FROM CaseLedgerEntry e WHERE e.subjectId = :caseId ORDER BY e.sequenceNumber ASC",
             CaseLedgerEntry.class)
         .setParameter("caseId", caseId)
         .getResultList();
   }
 
-  /** All worker decision entries for the given case, ordered by sequence number ascending. */
   @Transactional
   public List<WorkerDecisionEntry> findWorkerDecisionsByCaseId(final UUID caseId) {
-    return caseEm
-        .createQuery(
+    return em.createQuery(
             "SELECT e FROM WorkerDecisionEntry e WHERE e.caseId = :caseId ORDER BY e.sequenceNumber ASC",
             WorkerDecisionEntry.class)
         .setParameter("caseId", caseId)
         .getResultList();
   }
 
-  /** The most recent ledger entry for the given case, or empty if none exist yet. */
   @Transactional
   public Optional<CaseLedgerEntry> findLatestByCaseId(final UUID caseId) {
-    return caseEm
-        .createQuery(
+    return em.createQuery(
             "SELECT e FROM CaseLedgerEntry e WHERE e.subjectId = :caseId ORDER BY e.sequenceNumber DESC",
             CaseLedgerEntry.class)
         .setParameter("caseId", caseId)
