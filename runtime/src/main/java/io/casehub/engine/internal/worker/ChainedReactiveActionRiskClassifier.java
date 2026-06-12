@@ -27,27 +27,26 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.stream.StreamSupport;
 import org.jboss.logging.Logger;
 
 /**
- * Chains all {@link RiskClassifier}-qualified {@link ActionRiskClassifier} beans and returns the
- * most restrictive {@link RiskDecision}.
+ * Chains all {@link RiskClassifier}-qualified {@link ActionRiskClassifier} and {@link
+ * ReactiveActionRiskClassifier} beans and returns the most restrictive {@link RiskDecision}.
  *
- * <p>When no consumer has registered a {@code @RiskClassifier} classifier, {@link #isUnsatisfied}
- * returns true and the method returns {@link Autonomous} immediately — the chain IS the default.
+ * <p>When no consumer has registered any {@code @RiskClassifier} classifier (blocking or reactive),
+ * both injection points are unsatisfied and the method returns {@link Autonomous} immediately.
  *
- * <p>Blocking classifiers (DB queries, external API calls) are offloaded to the worker thread pool
- * via {@link Infrastructure#getDefaultWorkerPool()} to avoid blocking the Vert.x IO thread.
+ * <p>Blocking classifiers are offloaded to the worker thread pool via {@link
+ * Infrastructure#getDefaultWorkerPool()}. Reactive classifiers run natively on the caller thread.
+ * Results from both paths are merged via most-restrictive-wins.
  *
- * <p>If any classifier throws, the fail-safe {@link GateRequired} is returned immediately — the
- * action is gated for manual review. Fail-safe is required for AML/clinical compliance: a
- * classifier failure must not permit a consequential action to proceed autonomously.
+ * <p>If any classifier throws, the fail-safe {@link GateRequired} is returned — the action is gated
+ * for manual review.
  *
  * <p>"Most restrictive" = fewest {@code candidateGroups}; tie → shorter {@code expiresIn}; tie →
- * CDI iteration order (first wins). Union semantics are intentionally rejected: ["mlro"] ∪
- * ["physician"] = ["mlro", "physician"] would allow a physician to approve a SAR filing they have
- * no authority over.
+ * CDI iteration order (first wins). Union semantics are intentionally rejected.
  */
 @ApplicationScoped
 public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskClassifier {
@@ -60,54 +59,96 @@ public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskCl
 
   @Inject @RiskClassifier Instance<ActionRiskClassifier> classifiers;
 
+  @Inject @RiskClassifier Instance<ReactiveActionRiskClassifier> reactiveClassifiers;
+
   @Override
   public Uni<RiskDecision> classify(final PlannedAction action) {
-    if (classifiers.isUnsatisfied()) {
+    final boolean noBlocking = classifiers.isUnsatisfied();
+    final boolean noReactive = reactiveClassifiers.isUnsatisfied();
+    if (noBlocking && noReactive) {
       return Uni.createFrom().item(new Autonomous());
     }
-    return Uni.createFrom()
-        .item(
-            () -> {
-              try {
-                return StreamSupport.stream(classifiers.spliterator(), false)
-                    .map(c -> c.classify(action))
-                    .reduce(new Autonomous(), this::mostRestrictive);
-              } catch (final Exception e) {
-                LOG.errorf(
-                    e,
-                    "ActionRiskClassifier threw for action type='%s' workerId='%s' caseId=%s — "
-                        + "applying fail-safe GateRequired",
-                    action.actionType(),
-                    action.workerId(),
-                    action.caseId());
-                return FAIL_SAFE;
-              }
-            })
-        .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+
+    final Uni<RiskDecision> blockingResult =
+        noBlocking
+            ? Uni.createFrom().item(new Autonomous())
+            : Uni.createFrom()
+                .item(
+                    () -> {
+                      try {
+                        return StreamSupport.stream(classifiers.spliterator(), false)
+                            .map(c -> c.classify(action))
+                            .reduce(
+                                (RiskDecision) new Autonomous(),
+                                ChainedReactiveActionRiskClassifier.this::mostRestrictive);
+                      } catch (final Exception e) {
+                        LOG.errorf(
+                            e,
+                            "ActionRiskClassifier threw for action type='%s' workerId='%s'"
+                                + " caseId=%s — applying fail-safe GateRequired",
+                            action.actionType(),
+                            action.workerId(),
+                            action.caseId());
+                        return (RiskDecision) FAIL_SAFE;
+                      }
+                    })
+                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+
+    if (noReactive) {
+      return blockingResult;
+    }
+
+    final List<Uni<RiskDecision>> reactiveUnis;
+    try {
+      reactiveUnis =
+          StreamSupport.stream(reactiveClassifiers.spliterator(), false)
+              .map(
+                  c ->
+                      c.classify(action)
+                          .onFailure()
+                          .recoverWithItem(
+                              t -> {
+                                LOG.errorf(
+                                    t,
+                                    "ReactiveActionRiskClassifier threw for action"
+                                        + " type='%s' — applying fail-safe GateRequired",
+                                    action.actionType());
+                                return FAIL_SAFE;
+                              }))
+              .toList();
+    } catch (final Exception e) {
+      LOG.errorf(
+          e,
+          "ReactiveActionRiskClassifier threw synchronously for action type='%s'"
+              + " — applying fail-safe GateRequired",
+          action.actionType());
+      return Uni.createFrom().item((RiskDecision) FAIL_SAFE);
+    }
+
+    final Uni<RiskDecision> reactiveResult =
+        Uni.join()
+            .all(reactiveUnis)
+            .andFailFast()
+            .map(results -> results.stream().reduce(new Autonomous(), this::mostRestrictive));
+
+    return Uni.combine().all().unis(blockingResult, reactiveResult).with(this::mostRestrictive);
   }
 
-  private RiskDecision mostRestrictive(final RiskDecision a, final RiskDecision b) {
+  RiskDecision mostRestrictive(final RiskDecision a, final RiskDecision b) {
     if (!(b instanceof GateRequired gb)) return a;
     if (!(a instanceof GateRequired ga)) return b;
     return narrower(ga, gb);
   }
 
-  /**
-   * Returns whichever gate is more restrictive (narrows the set of eligible approvers).
-   *
-   * <p>Fewer {@code candidateGroups} = more restrictive (a non-null group list with N members beats
-   * null, which means "no restriction" = {@link Integer#MAX_VALUE} effective groups).
-   */
   private GateRequired narrower(final GateRequired a, final GateRequired b) {
     final int sizeA = a.candidateGroups() == null ? Integer.MAX_VALUE : a.candidateGroups().size();
     final int sizeB = b.candidateGroups() == null ? Integer.MAX_VALUE : b.candidateGroups().size();
     if (sizeA != sizeB) return sizeA < sizeB ? a : b;
-    // Equal group count: a deadline is more restrictive than no deadline; shorter beats longer.
     if (a.expiresIn() != null && b.expiresIn() != null) {
       return a.expiresIn().compareTo(b.expiresIn()) <= 0 ? a : b;
     }
     if (a.expiresIn() != null) return a;
     if (b.expiresIn() != null) return b;
-    return a; // tie → CDI iteration order (first wins)
+    return a;
   }
 }
