@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.blackboard.event;
+package io.casehub.engine.common.spi.event;
 
 import java.util.UUID;
 
 /**
- * CDI event fired after a {@link io.casehub.blackboard.plan.PlanItem} is marked {@code COMPLETED}
- * (successful outcome only). Fired via {@code Event.fireAsync()} from {@link
- * io.casehub.blackboard.handler.PlanItemCompletionHandler}.
+ * CDI event fired after a PlanItem is marked {@code COMPLETED} (successful outcome only). Fired via
+ * {@code Event.fireAsync()} from the blackboard module's PlanItemCompletionHandler.
  *
  * <p><strong>Contract:</strong> This event fires only on {@code COMPLETED} terminal state. Faulted,
  * rejected, and cancelled PlanItems do NOT emit this event — observers must not assume every
@@ -29,15 +28,11 @@ import java.util.UUID;
  * <p>By the time observers receive this event, the specific {@code planItemId} is guaranteed to
  * have COMPLETED status in the registry — no polling required.
  *
- * <p>Use {@code planItemId} (not a subsequent {@code getPlanItemId()} lookup) to identify the
- * completed item, since the completion index may be overwritten by a re-triggered PlanItem for the
- * same worker.
- *
  * @param caseId the case the PlanItem belongs to
  * @param planItemId the exact PlanItem id that just completed
  * @param trackingKey the external identifier that triggered completion (workerName for
  *     CapabilityTarget; childCaseId string for SubCaseTarget)
- * @param tenancyId the tenant that owns the case — available without a cross-tenant lookup
+ * @param tenancyId the tenant that owns the case
  */
 public record PlanItemCompletedEvent(
     UUID caseId, String planItemId, String trackingKey, String tenancyId) {}
