@@ -72,6 +72,13 @@ public class SchedulerService {
 
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 
+  SchedulerService() {}
+
+  SchedulerService(JobScheduler scheduler, CaseDefinitionRegistry caseDefinitionRegistry) {
+    this.scheduler = scheduler;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+  }
+
   /**
    * Register all scheduled triggers for a case instance.
    *
@@ -86,10 +93,10 @@ public class SchedulerService {
         caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
 
     if (definition == null) {
-      return Uni.createFrom()
-          .failure(
-              new IllegalStateException(
-                  "CaseDefinition not found for case: " + caseInstance.getUuid()));
+      LOG.warnf(
+          "CaseDefinition not found for case %s — no scheduled triggers to register",
+          caseInstance.getUuid());
+      return Uni.createFrom().voidItem();
     }
 
     List<Binding> bindings = definition.getBindings();
