@@ -43,6 +43,11 @@ public sealed interface RiskDecision permits RiskDecision.Autonomous, RiskDecisi
    * <p>{@code reversible} — purely presentational. Shown to the approver as "This action cannot be
    * undone" when false. Does not affect engine routing or WorkItem creation.
    *
+   * <p>{@code scope} — hierarchical path for SLA preference resolution on the gate WorkItem,
+   * following the {@code Path.of("org", "app", "case-type")} convention (e.g. {@code
+   * "casehubio/life/oversight"}). Passed directly to {@code WorkItemCreateRequest.scope}. Not a
+   * Qhorus channel name — controls which SLA and escalation policies apply to the gate WorkItem.
+   *
    * <p>If {@link ActionRiskClassifier#classify(PlannedAction)} throws, the engine uses {@code new
    * GateRequired("Classifier error — manual review required", true, null, null, null)} as the
    * fail-safe default.
