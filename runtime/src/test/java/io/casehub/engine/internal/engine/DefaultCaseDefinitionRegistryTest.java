@@ -97,4 +97,44 @@ class DefaultCaseDefinitionRegistryTest {
     assertThat(second.getNamespace()).isEqualTo("test-ns-reg2");
     assertThat(second.getName()).isEqualTo(first.getName());
   }
+
+  @Test
+  void registerCaseDefinition_duplicateKeyFromDifferentObject_returnsExistingMetaModel() {
+    CaseDefinition first =
+        CaseDefinition.builder()
+            .namespace("test-collision")
+            .name("collision-case")
+            .version("1.0")
+            .build();
+
+    CaseDefinition second =
+        CaseDefinition.builder()
+            .namespace("test-collision")
+            .name("collision-case")
+            .version("1.0")
+            .build();
+
+    CaseMetaModel firstResult =
+        registry
+            .registerCaseDefinition(first)
+            .subscribe()
+            .asCompletionStage()
+            .toCompletableFuture()
+            .join();
+
+    CaseMetaModel secondResult =
+        registry
+            .registerCaseDefinition(second)
+            .subscribe()
+            .asCompletionStage()
+            .toCompletableFuture()
+            .join();
+
+    assertThat(secondResult).isNotNull();
+    assertThat(secondResult.getName()).isEqualTo(firstResult.getName());
+
+    // The registered definition should be the FIRST one — "first wins"
+    CaseDefinition resolved = registry.getCaseDefinition(firstResult);
+    assertThat(resolved).isSameAs(first);
+  }
 }

@@ -1,13 +1,13 @@
 dsl: "0.1"
 version: "1.0.0"
-name: Document Processing Test
-namespace: test
+name: Document Processing Test (YAML)
+namespace: test-yaml
 title: Test Case with Worker and Capability
 spec:
   capabilities:
     - name: processDocument
       description: Process a document from the case context
-      inputSchema: "{ documentId: .documentId, status: .status }"
+      inputSchema: "{ documentId: .working.documentId, status: .working.status }"
       outputSchema: "{ processedDocument: ., status: .status }"
   workers:
     - name: document-processor
@@ -26,15 +26,15 @@ spec:
       capability: processDocument
       on:
         contextChange:
-          filter: '.status == "processing"'
+          filter: '.working.status == "processing"'
   milestones:
     - name: documentProcessed
       description: Milestone reached when document is processed
-      condition: '.status == "processed"'
+      condition: '.working.status == "processed"'
   goals:
     - name: documentProcessingComplete
       description: Goal achieved when document processing is complete
-      condition: '.status == "processed"'
+      condition: '.working.status == "processed"'
   completion:
     success:
       allOf:

@@ -50,15 +50,15 @@ public class YamlSimpleCaseHubBeanTest {
 
     assertEquals("0.1", def.getDsl());
     assertEquals("1.0.0", def.getVersion());
-    assertEquals("Document Processing Test", def.getName());
-    assertEquals("test", def.getNamespace());
+    assertEquals("Document Processing Test (YAML)", def.getName());
+    assertEquals("test-yaml", def.getNamespace());
     assertEquals("Test Case with Worker and Capability", def.getTitle());
 
     // capabilities
     assertEquals(1, def.getCapabilities().size());
     assertEquals("processDocument", def.getCapabilities().get(0).getName());
     assertEquals(
-        "{ documentId: .documentId, status: .status }",
+        "{ documentId: .working.documentId, status: .working.status }",
         def.getCapabilities().get(0).getInputSchema());
     assertEquals(
         "{ processedDocument: ., status: .status }",
@@ -84,20 +84,21 @@ public class YamlSimpleCaseHubBeanTest {
     assertInstanceOf(ContextChangeTrigger.class, def.getBindings().get(0).getOn());
     ContextChangeTrigger cct = (ContextChangeTrigger) def.getBindings().get(0).getOn();
     assertEquals(
-        ".status == \"processing\"", ((JQExpressionEvaluator) cct.getFilter()).expression());
+        ".working.status == \"processing\"",
+        ((JQExpressionEvaluator) cct.getFilter()).expression());
 
     // milestones
     assertEquals(1, def.getMilestones().size());
     assertEquals("documentProcessed", def.getMilestones().get(0).getName());
     assertEquals(
-        ".status == \"processed\"",
+        ".working.status == \"processed\"",
         ((JQExpressionEvaluator) def.getMilestones().get(0).getCompletionCriteria()).expression());
 
     // goals
     assertEquals(1, def.getGoals().size());
     assertEquals("documentProcessingComplete", def.getGoals().get(0).getName());
     assertEquals(
-        ".status == \"processed\"",
+        ".working.status == \"processed\"",
         ((JQExpressionEvaluator) def.getGoals().get(0).getCondition()).expression());
 
     // completion

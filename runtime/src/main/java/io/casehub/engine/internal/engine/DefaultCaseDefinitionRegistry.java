@@ -82,6 +82,25 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   }
 
   Uni<Void> registerKnownDefinitions() {
+    // Fail-fast: detect CaseHub beans that produce definitions with the same key.
+    // Two different beans sharing a key is always a bug — the registry uses "first wins",
+    // so whichever registers first silently shadows the other (engine#480).
+    Map<CaseKey, String> seen = new java.util.LinkedHashMap<>();
+    for (CaseHub hub : caseHubInstance) {
+      CaseDefinition def = hub.getDefinition();
+      CaseKey key = CaseKey.of(def);
+      String beanName = hub.getClass().getName();
+      String existing = seen.get(key);
+      if (existing != null) {
+        throw new IllegalStateException(
+            String.format(
+                "Duplicate CaseDefinition key %s/%s/%s — registered by both [%s] and [%s]. "
+                    + "Each (namespace, name, version) tuple must be unique across all CaseHub beans.",
+                key.namespace(), key.name(), key.version(), existing, beanName));
+      }
+      seen.put(key, beanName);
+    }
+
     return Multi.createFrom()
         .iterable(caseHubInstance)
         .onItem()
@@ -110,7 +129,6 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
     CaseKey key = CaseKey.of(model);
 
-    // Early exit: already registered
     RegistryEntry existing = registry.get(key);
     if (existing != null) {
       return Uni.createFrom().item(existing.metaModel());
