@@ -1,5 +1,7 @@
 # Case Hub Engine
 
+[![Open PRs](https://img.shields.io/github/issues-pr/casehubio/engine)](https://github.com/casehubio/engine/pulls)
+
 **Case Hub** is a coordination and observability engine for managing complex, goal-driven work where execution cannot be defined by a fixed control flow.
 
 The central concept is the **Case** — a logical unit that brings together shared state (**CaseContext**), events, goals, milestones, and autonomous participants (**Workers**). Unlike workflow engines, Case Hub does not prescribe a sequence of steps. Instead, workers observe state changes and react independently based on their own capabilities and dispatch rules.
