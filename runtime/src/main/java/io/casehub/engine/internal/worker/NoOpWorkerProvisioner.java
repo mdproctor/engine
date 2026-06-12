@@ -39,7 +39,7 @@ public class NoOpWorkerProvisioner implements WorkerProvisioner {
   }
 
   @Override
-  public void terminate(String workerId) {
+  public void terminate(String workerId, String tenancyId) {
     // intentional no-op — nothing to terminate
   }
 

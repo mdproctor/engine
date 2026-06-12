@@ -38,7 +38,8 @@ class WorkerProvisionerContractTest {
 
   @Test
   void interface_hasTerminateMethod() throws Exception {
-    assertThat(WorkerProvisioner.class.getMethod("terminate", String.class)).isNotNull();
+    assertThat(WorkerProvisioner.class.getMethod("terminate", String.class, String.class))
+        .isNotNull();
   }
 
   @Test
@@ -55,7 +56,7 @@ class WorkerProvisionerContractTest {
   @Test
   void noOp_terminate_unknownWorkerId_isNoOp() {
     WorkerProvisioner noOp = new NoOpStub();
-    assertThatNoException().isThrownBy(() -> noOp.terminate("unknown-worker-id"));
+    assertThatNoException().isThrownBy(() -> noOp.terminate("unknown-worker-id", "tenant-1"));
   }
 
   @Test
@@ -86,7 +87,7 @@ class WorkerProvisionerContractTest {
     }
 
     @Override
-    public void terminate(String workerId) {}
+    public void terminate(String workerId, String tenancyId) {}
 
     @Override
     public Set<String> getCapabilities() {

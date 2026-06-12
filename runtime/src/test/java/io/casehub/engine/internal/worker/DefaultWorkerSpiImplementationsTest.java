@@ -57,7 +57,7 @@ class DefaultWorkerSpiImplementationsTest {
   @Test
   void noOpProvisioner_terminate_doesNotThrow() {
     var provisioner = new NoOpWorkerProvisioner();
-    assertThatNoException().isThrownBy(() -> provisioner.terminate("any-worker-id"));
+    assertThatNoException().isThrownBy(() -> provisioner.terminate("any-worker-id", "tenant-1"));
   }
 
   @Test
@@ -212,7 +212,7 @@ class DefaultWorkerSpiImplementationsTest {
   void noOpReactiveProvisioner_terminate_completesWithoutException() {
     var provisioner = new NoOpReactiveWorkerProvisioner();
     assertThatNoException()
-        .isThrownBy(() -> provisioner.terminate("worker-1").await().indefinitely());
+        .isThrownBy(() -> provisioner.terminate("worker-1", "tenant-1").await().indefinitely());
   }
 
   @Test

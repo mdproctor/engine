@@ -41,7 +41,8 @@ class ReactiveWorkerProvisionerContractTest {
 
   @Test
   void interface_hasTerminateMethod() throws Exception {
-    assertThat(ReactiveWorkerProvisioner.class.getMethod("terminate", String.class)).isNotNull();
+    assertThat(ReactiveWorkerProvisioner.class.getMethod("terminate", String.class, String.class))
+        .isNotNull();
   }
 
   @Test
@@ -69,7 +70,7 @@ class ReactiveWorkerProvisionerContractTest {
   void noOp_terminate_returnsCompletedUni() {
     ReactiveWorkerProvisioner provisioner = new NoOpStub();
     assertThatNoException()
-        .isThrownBy(() -> provisioner.terminate("worker-1").await().indefinitely());
+        .isThrownBy(() -> provisioner.terminate("worker-1", "tenant-1").await().indefinitely());
   }
 
   @Test
@@ -87,7 +88,7 @@ class ReactiveWorkerProvisionerContractTest {
     }
 
     @Override
-    public Uni<Void> terminate(String workerId) {
+    public Uni<Void> terminate(String workerId, String tenancyId) {
       return Uni.createFrom().voidItem();
     }
 
