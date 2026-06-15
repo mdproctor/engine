@@ -86,31 +86,29 @@ public class GoalReachedEventHandler {
 
     return eventLogRepository
         .append(eventLog, caseInstance.tenancyId)
-        .chain(
+        .invoke(
             () ->
-                Uni.createFrom()
-                    .completionStage(
-                        () ->
-                            lifecycleEvents.fireAsync(
-                                new CaseLifecycleEvent(
-                                    caseInstance.getUuid(),
-                                    caseInstance.tenancyId,
-                                    "ReachGoal",
-                                    "GoalReached",
-                                    caseInstance.getState().name(),
-                                    null,
-                                    "System",
-                                    traceId)))
-                    .onFailure()
-                    .recoverWithItem(
-                        t -> {
-                          LOG.warnf(
-                              t,
-                              "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
-                              caseInstance.getUuid());
-                          return null;
-                        })
-                    .replaceWithVoid())
+                // Fire-and-forget — evaluateCompletion (case status change) must not be
+                // gated on optional audit observer completion. Refs casehubio/engine#491.
+                lifecycleEvents
+                    .fireAsync(
+                        new CaseLifecycleEvent(
+                            caseInstance.getUuid(),
+                            caseInstance.tenancyId,
+                            "ReachGoal",
+                            "GoalReached",
+                            caseInstance.getState().name(),
+                            null,
+                            "System",
+                            traceId))
+                    .whenComplete(
+                        (v, t) -> {
+                          if (t != null)
+                            LOG.warnf(
+                                t,
+                                "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
+                                caseInstance.getUuid());
+                        }))
         .chain(() -> evaluateCompletion(caseInstance, definition.getCompletion()));
   }
 

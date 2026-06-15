@@ -348,7 +348,7 @@ class ScheduleTriggerSimpleTest {
               .name("conditional-work")
               .capability(cap)
               .on(ScheduleTrigger.delay(Duration.ofSeconds(2)))
-              .when(new JQExpressionEvaluator(".working.status == \"ready\""))
+              .when(new JQExpressionEvaluator(".status == \"ready\""))
               .build();
 
       return CaseDefinition.builder()
@@ -391,7 +391,7 @@ class ScheduleTriggerSimpleTest {
               .name("conditional-not-met-work")
               .capability(cap)
               .on(ScheduleTrigger.delay(Duration.ofSeconds(2)))
-              .when(new JQExpressionEvaluator(".working.status == \"ready\""))
+              .when(new JQExpressionEvaluator(".status == \"ready\""))
               .build();
 
       return CaseDefinition.builder()
@@ -434,7 +434,7 @@ class ScheduleTriggerSimpleTest {
               .name("conditional-becomes-ready-work")
               .capability(cap)
               .on(ScheduleTrigger.delay(Duration.ofSeconds(2)))
-              .when(new JQExpressionEvaluator(".working.status == \"ready\""))
+              .when(new JQExpressionEvaluator(".status == \"ready\""))
               .build();
 
       return CaseDefinition.builder()
@@ -477,7 +477,7 @@ class ScheduleTriggerSimpleTest {
               .name("conditional-becomes-blocked-work")
               .capability(cap)
               .on(ScheduleTrigger.delay(Duration.ofSeconds(2)))
-              .when(new JQExpressionEvaluator(".working.status == \"ready\""))
+              .when(new JQExpressionEvaluator(".status == \"ready\""))
               .build();
 
       return CaseDefinition.builder()
@@ -594,7 +594,7 @@ class ScheduleTriggerSimpleTest {
           Goal.builder()
               .name("complete")
               .kind(GoalKind.SUCCESS)
-              .condition(new JQExpressionEvaluator(".working.workDone == true"))
+              .condition(new JQExpressionEvaluator(".workDone == true"))
               .build();
 
       return CaseDefinition.builder()

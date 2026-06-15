@@ -160,13 +160,12 @@ class ModelBuilderTest {
               .namespace("ns")
               .name("test")
               .version("1.0")
-              .completion(".working.status == \"done\"")
+              .completion(".status == \"done\"")
               .build();
       assertInstanceOf(PredicateBasedCompletion.class, def.getCompletion());
       final var pbc = (PredicateBasedCompletion) def.getCompletion();
       assertInstanceOf(JQExpressionEvaluator.class, pbc.getDoneWhen());
-      assertEquals(
-          ".working.status == \"done\"", ((JQExpressionEvaluator) pbc.getDoneWhen()).expression());
+      assertEquals(".status == \"done\"", ((JQExpressionEvaluator) pbc.getDoneWhen()).expression());
     }
 
     @Test
@@ -260,15 +259,9 @@ class ModelBuilderTest {
     @DisplayName("when(String) creates JQExpressionEvaluator")
     void whenString_createsJQEvaluator() {
       final var binding =
-          Binding.builder()
-              .name("b")
-              .capability(cap)
-              .on(trigger)
-              .when(".working.flag == true")
-              .build();
+          Binding.builder().name("b").capability(cap).on(trigger).when(".flag == true").build();
       assertInstanceOf(JQExpressionEvaluator.class, binding.getWhen());
-      assertEquals(
-          ".working.flag == true", ((JQExpressionEvaluator) binding.getWhen()).expression());
+      assertEquals(".flag == true", ((JQExpressionEvaluator) binding.getWhen()).expression());
     }
   }
 
@@ -308,12 +301,10 @@ class ModelBuilderTest {
     @Test
     @DisplayName("condition(String) creates JQExpressionEvaluator")
     void conditionString_createsJQEvaluator() {
-      final var m =
-          Milestone.builder().name("m").completionCriteria(".working.done == true").build();
+      final var m = Milestone.builder().name("m").completionCriteria(".done == true").build();
       assertInstanceOf(JQExpressionEvaluator.class, m.getCompletionCriteria());
       assertEquals(
-          ".working.done == true",
-          ((JQExpressionEvaluator) m.getCompletionCriteria()).expression());
+          ".done == true", ((JQExpressionEvaluator) m.getCompletionCriteria()).expression());
     }
 
     @Test
@@ -440,14 +431,9 @@ class ModelBuilderTest {
     @DisplayName("condition(String) creates JQExpressionEvaluator")
     void conditionString_createsJQEvaluator() {
       final var g =
-          Goal.builder()
-              .name("g")
-              .condition(".working.done == true")
-              .kind(GoalKind.SUCCESS)
-              .build();
+          Goal.builder().name("g").condition(".done == true").kind(GoalKind.SUCCESS).build();
       assertInstanceOf(JQExpressionEvaluator.class, g.getCondition());
-      assertEquals(
-          ".working.done == true", ((JQExpressionEvaluator) g.getCondition()).expression());
+      assertEquals(".done == true", ((JQExpressionEvaluator) g.getCondition()).expression());
     }
 
     @Test
@@ -664,11 +650,10 @@ class ModelBuilderTest {
     @Test
     @DisplayName("String constructor wraps expression in JQExpressionEvaluator")
     void stringConstructor_wrapsInJQEvaluator() {
-      final var trigger = new ContextChangeTrigger(".working.status == \"active\"");
+      final var trigger = new ContextChangeTrigger(".status == \"active\"");
       assertInstanceOf(JQExpressionEvaluator.class, trigger.getFilter());
       assertEquals(
-          ".working.status == \"active\"",
-          ((JQExpressionEvaluator) trigger.getFilter()).expression());
+          ".status == \"active\"", ((JQExpressionEvaluator) trigger.getFilter()).expression());
     }
 
     @Test
@@ -682,14 +667,14 @@ class ModelBuilderTest {
     @Test
     @DisplayName("listenPanel is null when constructed without a panel name")
     void listenPanel_nullByDefault() {
-      final var trigger = new ContextChangeTrigger(".working.result != null");
+      final var trigger = new ContextChangeTrigger(".result != null");
       assertNull(trigger.getListenPanel());
     }
 
     @Test
     @DisplayName("listenPanel is stored when constructed with evaluator + panel name")
     void listenPanel_storedWhenProvided() {
-      final var evaluator = new JQExpressionEvaluator(".working.result != null");
+      final var evaluator = new JQExpressionEvaluator(".result != null");
       final var trigger = new ContextChangeTrigger(evaluator, "extracted");
       assertEquals("extracted", trigger.getListenPanel());
       assertEquals(evaluator, trigger.getFilter());

@@ -332,7 +332,7 @@ public class SignalDedupExtendedTest {
     private final Capability eventCapability =
         Capability.builder()
             .name("processEventDedup")
-            .inputSchema("{ event: .working.event, id: .working.id }")
+            .inputSchema("{ event: .event, id: .id }")
             .outputSchema("{ eventResult: .eventResult }")
             .build();
 
@@ -363,7 +363,7 @@ public class SignalDedupExtendedTest {
               Binding.builder()
                   .name("on-event-dedup")
                   .capability(eventCapability)
-                  .on(new ContextChangeTrigger(".working.event != null"))
+                  .on(new ContextChangeTrigger(".event != null"))
                   .build())
           .build();
     }
@@ -379,14 +379,14 @@ public class SignalDedupExtendedTest {
     private final Capability eventCapability =
         Capability.builder()
             .name("processEventDedupGoal")
-            .inputSchema("{ event: .working.event, id: .working.id }")
+            .inputSchema("{ event: .event, id: .id }")
             .outputSchema("{ eventResult: .eventResult }")
             .build();
 
     private final Goal doneGoal =
         Goal.builder()
             .name("eventProcessedGoal")
-            .condition(".working.eventResult == \"processed\"")
+            .condition(".eventResult == \"processed\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -417,7 +417,7 @@ public class SignalDedupExtendedTest {
               Binding.builder()
                   .name("on-event-dedup-goal")
                   .capability(eventCapability)
-                  .on(new ContextChangeTrigger(".working.event != null"))
+                  .on(new ContextChangeTrigger(".event != null"))
                   .build())
           .goals(doneGoal)
           .completion(GoalExpression.allOf(doneGoal))

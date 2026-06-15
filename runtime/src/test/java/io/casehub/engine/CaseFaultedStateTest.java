@@ -215,7 +215,7 @@ class CaseFaultedStateTest {
     private final Capability capability =
         Capability.builder()
             .name("alwaysFailCapability")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ status: .status }")
             .build();
 
@@ -242,7 +242,7 @@ class CaseFaultedStateTest {
               Binding.builder()
                   .name("trigger-on-processing")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.status == \"processing\""))
+                  .on(new ContextChangeTrigger(".status == \"processing\""))
                   .build())
           .build();
     }
@@ -258,21 +258,21 @@ class CaseFaultedStateTest {
     private final Capability capability =
         Capability.builder()
             .name("failureGoalCapability")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ status: .status }")
             .build();
 
     private final Goal failureGoal =
         Goal.builder()
             .name("processingFailed")
-            .condition(".working.status == \"error\"")
+            .condition(".status == \"error\"")
             .kind(GoalKind.FAILURE)
             .build();
 
     private final Goal successGoal =
         Goal.builder()
             .name("processingSucceeded")
-            .condition(".working.status == \"ok\"")
+            .condition(".status == \"ok\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -294,7 +294,7 @@ class CaseFaultedStateTest {
               Binding.builder()
                   .name("trigger-on-processing")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.status == \"processing\""))
+                  .on(new ContextChangeTrigger(".status == \"processing\""))
                   .build())
           .goals(failureGoal, successGoal)
           .completion(GoalExpression.allOf(successGoal), GoalExpression.allOf(failureGoal))

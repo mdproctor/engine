@@ -15,11 +15,15 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.CaseChannelProvider;
+import io.casehub.api.spi.CaseOutcomeEvent;
+import io.casehub.api.spi.CaseOutcomeObserver;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -34,8 +38,10 @@ import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
@@ -47,6 +53,7 @@ public class CaseStatusChangedHandler {
 
   private static final Logger LOG = Logger.getLogger(CaseStatusChangedHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject EventBus eventBus;
 
@@ -60,7 +67,9 @@ public class CaseStatusChangedHandler {
 
   @Inject LedgerTraceIdProvider traceIdProvider;
 
-  @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED)
+  @Inject Instance<CaseOutcomeObserver> outcomeObservers;
+
+  @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public Uni<Void> onCaseStatusChangedHandler(CaseStatusChanged event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.instance();
@@ -105,11 +114,27 @@ public class CaseStatusChangedHandler {
             })
         .invoke(
             () -> {
+              // Notify outcome observers on terminal state — CBR Retain step. Refs engine#477.
+              // Called before event bus publishes so observer failures don't block downstream
+              // events.
+              if (isTerminalState(newState)) {
+                fireOutcomeObservers(caseInstance, newState);
+              }
               // Fire-and-forget: downstream event bus consumers (CASE_COMPLETED, CASE_FAULTED,
               // CONTEXT_CHANGED) do not need to complete before this handler returns.
+              // Wrapped in try-catch: codec may not be registered in unit test contexts
+              // where the handler is called directly without the full event bus setup.
               String eventBusAddress = resolveStateAsString(newState);
               if (eventBusAddress != null) {
-                eventBus.publish(eventBusAddress, caseInstance);
+                try {
+                  eventBus.publish(eventBusAddress, caseInstance);
+                } catch (Exception e) {
+                  LOG.warnf(
+                      e,
+                      "Event bus publish failed for %s caseId=%s — non-fatal",
+                      eventBusAddress,
+                      caseInstance.getUuid());
+                }
               }
               // On resume (SUSPENDED → RUNNING), re-evaluate the context so eligible workers fire.
               if (newState == CaseStatus.RUNNING) {
@@ -149,6 +174,40 @@ public class CaseStatusChangedHandler {
                       })
                   .replaceWithVoid();
             });
+  }
+
+  private void fireOutcomeObservers(CaseInstance caseInstance, CaseStatus newState) {
+    final String caseType =
+        caseInstance.getCaseMetaModel() != null
+            ? caseInstance.getCaseMetaModel().getName()
+            : "unknown";
+    final Map<String, Object> snapshot;
+    try {
+      snapshot =
+          OBJECT_MAPPER.convertValue(
+              caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(), MAP_TYPE);
+    } catch (Exception e) {
+      LOG.warnf(
+          e,
+          "Failed to convert case context snapshot for CaseOutcomeEvent caseId=%s",
+          caseInstance.getUuid());
+      return;
+    }
+    final CaseOutcomeEvent outcomeEvent =
+        new CaseOutcomeEvent(
+            caseType, caseInstance.getUuid(), snapshot, newState.name(), Instant.now(), Map.of());
+
+    for (CaseOutcomeObserver observer : outcomeObservers) {
+      try {
+        observer.onOutcome(outcomeEvent);
+      } catch (Exception e) {
+        LOG.warnf(
+            e,
+            "CaseOutcomeObserver %s failed for caseId=%s — continuing",
+            observer.getClass().getSimpleName(),
+            caseInstance.getUuid());
+      }
+    }
   }
 
   private boolean isTerminalState(CaseStatus state) {

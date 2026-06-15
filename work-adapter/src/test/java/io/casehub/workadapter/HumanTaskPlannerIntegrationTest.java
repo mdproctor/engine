@@ -78,7 +78,7 @@ class HumanTaskPlannerIntegrationTest {
               Binding.builder()
                   .name("approval-binding")
                   .humanTask(HumanTaskTarget.inline().title("Approval Required").build())
-                  .on(new ContextChangeTrigger(".working.status == \"pending\""))
+                  .on(new ContextChangeTrigger(".status == \"pending\""))
                   .build())
           .build();
     }

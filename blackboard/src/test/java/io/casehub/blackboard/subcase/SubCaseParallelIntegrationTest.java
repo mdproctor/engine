@@ -149,7 +149,7 @@ class SubCaseParallelIntegrationTest {
     private static final Capability CAP =
         Capability.builder()
             .name("allof-child-cap")
-            .inputSchema("{ trigger: .working.trigger }")
+            .inputSchema("{ trigger: .trigger }")
             .outputSchema("{ trigger: .trigger }")
             .build();
 
@@ -193,17 +193,17 @@ class SubCaseParallelIntegrationTest {
               Binding.builder()
                   .name("spawn-site-a")
                   .subCase(child)
-                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".trigger == \"go\""))
                   .build(),
               Binding.builder()
                   .name("spawn-site-b")
                   .subCase(child)
-                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".trigger == \"go\""))
                   .build(),
               Binding.builder()
                   .name("spawn-site-c")
                   .subCase(child)
-                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".trigger == \"go\""))
                   .build())
           .build();
     }

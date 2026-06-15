@@ -197,7 +197,7 @@ class CaseLifecycleStateTest {
     private final Capability capability =
         Capability.builder()
             .name("idleCapability")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ status: .status }")
             .build();
 
@@ -218,9 +218,7 @@ class CaseLifecycleStateTest {
               Binding.builder()
                   .name("trigger-when-active")
                   .capability(capability)
-                  .on(
-                      new ContextChangeTrigger(
-                          ".working.status == \"active\"")) // never matches "idle"
+                  .on(new ContextChangeTrigger(".status == \"active\"")) // never matches "idle"
                   .build())
           .build();
     }
@@ -233,14 +231,14 @@ class CaseLifecycleStateTest {
     private final Capability capability =
         Capability.builder()
             .name("processDocumentLifecycle")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ status: .status }")
             .build();
 
     private final Goal successGoal =
         Goal.builder()
             .name("processingComplete")
-            .condition(".working.status == \"done\"")
+            .condition(".status == \"done\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -261,7 +259,7 @@ class CaseLifecycleStateTest {
               Binding.builder()
                   .name("trigger-on-processing")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.status == \"processing\""))
+                  .on(new ContextChangeTrigger(".status == \"processing\""))
                   .build())
           .goals(successGoal)
           .completion(GoalExpression.allOf(successGoal))

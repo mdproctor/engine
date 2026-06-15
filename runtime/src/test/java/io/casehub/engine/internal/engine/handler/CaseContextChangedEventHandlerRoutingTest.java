@@ -136,6 +136,11 @@ class CaseContextChangedEventHandlerRoutingTest {
         .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
 
     final CaseContext ctx = mock(CaseContext.class);
+    final io.casehub.api.context.ReadablePanel workingPanel =
+        mock(io.casehub.api.context.ReadablePanel.class);
+    when(workingPanel.asJsonNode())
+        .thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
+    when(ctx.panel(io.casehub.api.context.ContextPanel.WORKING)).thenReturn(workingPanel);
     when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
     when(ctx.snapshot()).thenReturn(ctx);
 
@@ -249,6 +254,11 @@ class CaseContextChangedEventHandlerRoutingTest {
         .thenReturn(Uni.createFrom().item(AgentAssignment.assign("analyst-worker")));
 
     final CaseContext ctx = mock(CaseContext.class);
+    final io.casehub.api.context.ReadablePanel workingPanel =
+        mock(io.casehub.api.context.ReadablePanel.class);
+    when(workingPanel.asJsonNode())
+        .thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
+    when(ctx.panel(io.casehub.api.context.ContextPanel.WORKING)).thenReturn(workingPanel);
     when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
     when(ctx.snapshot()).thenReturn(ctx);
 
@@ -308,6 +318,11 @@ class CaseContextChangedEventHandlerRoutingTest {
     when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of()));
 
     final CaseContext ctx = mock(CaseContext.class);
+    final io.casehub.api.context.ReadablePanel workingPanel =
+        mock(io.casehub.api.context.ReadablePanel.class);
+    when(workingPanel.asJsonNode())
+        .thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
+    when(ctx.panel(io.casehub.api.context.ContextPanel.WORKING)).thenReturn(workingPanel);
     when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
     when(ctx.snapshot()).thenReturn(ctx);
 

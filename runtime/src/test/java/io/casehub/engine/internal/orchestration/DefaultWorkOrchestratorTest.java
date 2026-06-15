@@ -342,8 +342,13 @@ class DefaultWorkOrchestratorTest {
     instance.setState(CaseStatus.RUNNING);
     instance.setCaseMetaModel(metaModel);
     final CaseContext ctx = mock(CaseContext.class);
-    when(ctx.asJsonNode())
-        .thenReturn(new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode());
+    final com.fasterxml.jackson.databind.node.ObjectNode emptyNode =
+        new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
+    final io.casehub.api.context.ReadablePanel workingPanel =
+        mock(io.casehub.api.context.ReadablePanel.class);
+    when(workingPanel.asJsonNode()).thenReturn(emptyNode);
+    when(ctx.panel(io.casehub.api.context.ContextPanel.WORKING)).thenReturn(workingPanel);
+    when(ctx.asJsonNode()).thenReturn(emptyNode);
     instance.setCaseContext(ctx);
     return instance;
   }

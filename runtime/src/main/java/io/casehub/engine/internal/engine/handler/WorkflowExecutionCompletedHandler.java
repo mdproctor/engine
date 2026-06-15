@@ -121,58 +121,49 @@ public class WorkflowExecutionCompletedHandler {
                     worker.getName(),
                     WorkResult.completed(
                         event.idempotency(), rawOutput, worker.getName(), caseInstance.getUuid())))
-        .chain(
-            () ->
-                Uni.createFrom()
-                    .completionStage(
-                        () ->
-                            lifecycleEvents.fireAsync(
-                                new CaseLifecycleEvent(
-                                    caseInstance.getUuid(),
-                                    caseInstance.tenancyId,
-                                    "ExecuteWorker",
-                                    "WorkerExecutionCompleted",
-                                    caseInstance.getState().name(),
-                                    // "system" — the engine applied the worker's output; the
-                                    // worker's
-                                    // decision record is written separately as WorkerDecisionEntry
-                                    // via WorkerDecisionEvent
-                                    "system",
-                                    "SYSTEM",
-                                    traceId)))
-                    .onFailure()
-                    .recoverWithItem(
-                        t -> {
+        .invoke(
+            () -> {
+              // Fire CDI audit events as true fire-and-forget — case state must not be gated
+              // on optional audit observer completion. Blocking observers (e.g. due to H2
+              // lock contention in consumer apps) must not prevent CONTEXT_CHANGED from
+              // being published. Refs casehubio/engine#491.
+              lifecycleEvents
+                  .fireAsync(
+                      new CaseLifecycleEvent(
+                          caseInstance.getUuid(),
+                          caseInstance.tenancyId,
+                          "ExecuteWorker",
+                          "WorkerExecutionCompleted",
+                          caseInstance.getState().name(),
+                          "system",
+                          "SYSTEM",
+                          traceId))
+                  .whenComplete(
+                      (v, t) -> {
+                        if (t != null)
                           LOG.warnf(
                               t,
                               "CaseLifecycleEvent observer failed for caseId=%s event=WorkerExecutionCompleted",
                               caseInstance.getUuid());
-                          return null;
-                        })
-                    .replaceWithVoid())
-        .chain(
-            () ->
-                Uni.createFrom()
-                    .completionStage(
-                        () ->
-                            workerDecisionEvents.fireAsync(
-                                new WorkerDecisionEvent(
-                                    caseInstance.getUuid(),
-                                    caseInstance.tenancyId,
-                                    worker.getName(),
-                                    extractCapabilityTag(caseInstance, worker),
-                                    traceId)))
-                    .onFailure()
-                    .recoverWithItem(
-                        t -> {
+                      });
+              workerDecisionEvents
+                  .fireAsync(
+                      new WorkerDecisionEvent(
+                          caseInstance.getUuid(),
+                          caseInstance.tenancyId,
+                          worker.getName(),
+                          extractCapabilityTag(caseInstance, worker),
+                          traceId))
+                  .whenComplete(
+                      (v, t) -> {
+                        if (t != null)
                           LOG.warnf(
                               t,
                               "WorkerDecisionEvent observer failed for caseId=%s worker=%s",
                               caseInstance.getUuid(),
                               worker.getName());
-                          return null;
-                        })
-                    .replaceWithVoid())
+                      });
+            })
         .invoke(
             () ->
                 eventBus.publish(
@@ -278,32 +269,27 @@ public class WorkflowExecutionCompletedHandler {
                         gateEventLog.id,
                         plannedAction,
                         gate)))
-        .chain(
+        .invoke(
             () ->
-                Uni.createFrom()
-                    .completionStage(
-                        () ->
-                            lifecycleEvents.fireAsync(
-                                new CaseLifecycleEvent(
-                                    caseInstance.getUuid(),
-                                    caseInstance.tenancyId,
-                                    "ActionGate",
-                                    "ActionGatePending",
-                                    caseInstance.getState().name(),
-                                    worker.getName(),
-                                    "WORKER",
-                                    traceId)))
-                    .onFailure()
-                    .recoverWithItem(
-                        t -> {
-                          LOG.warnf(
-                              t,
-                              "CaseLifecycleEvent observer failed for caseId=%s"
-                                  + " event=ActionGatePending",
-                              caseInstance.getUuid());
-                          return null;
-                        })
-                    .replaceWithVoid())
+                lifecycleEvents
+                    .fireAsync(
+                        new CaseLifecycleEvent(
+                            caseInstance.getUuid(),
+                            caseInstance.tenancyId,
+                            "ActionGate",
+                            "ActionGatePending",
+                            caseInstance.getState().name(),
+                            worker.getName(),
+                            "WORKER",
+                            traceId))
+                    .whenComplete(
+                        (v, t) -> {
+                          if (t != null)
+                            LOG.warnf(
+                                t,
+                                "CaseLifecycleEvent observer failed for caseId=%s event=ActionGatePending",
+                                caseInstance.getUuid());
+                        }))
         .replaceWithVoid()
         .onFailure()
         .invoke(

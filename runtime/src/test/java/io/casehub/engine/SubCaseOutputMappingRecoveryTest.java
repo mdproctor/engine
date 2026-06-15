@@ -109,13 +109,16 @@ public class SubCaseOutputMappingRecoveryTest {
 
     // 3. Write SUBCASE_STARTED event
     // After panels migration, outputMapping evaluates against child's panel document
-    String outputMapping = "{ approval: .working.result, data: .working.processedData }";
+    String outputMapping = "{ approval: .result, data: .processedData }";
     writeSubCaseStartedEvent(parentId, childId, outputMapping);
 
     // 4. Apply outputMapping to parent IN MEMORY (simulating SubCaseCompletionListener)
     CaseInstance child = caseInstanceCache.get(childId);
     CaseInstance parent = caseInstanceCache.get(parentId);
-    ValidationResult vr = jqEvaluator.eval(outputMapping, child.getCaseContext().asJsonNode());
+    ValidationResult vr =
+        jqEvaluator.eval(
+            outputMapping,
+            child.getCaseContext().panel(io.casehub.api.context.ContextPanel.WORKING).asJsonNode());
     Map<String, Object> mappedData =
         vr.ok() && vr.output() != null && !vr.output().isEmpty()
             ? new com.fasterxml.jackson.databind.ObjectMapper()

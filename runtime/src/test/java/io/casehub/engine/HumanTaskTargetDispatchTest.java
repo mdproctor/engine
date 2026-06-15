@@ -144,7 +144,7 @@ class HumanTaskTargetDispatchTest {
     public CaseDefinition getDefinition() {
       HumanTaskTarget target =
           HumanTaskTarget.template("irb-review-template")
-              .inputMapping("{ applicantId: .working.applicantId }")
+              .inputMapping("{ applicantId: .applicantId }")
               .build();
 
       return CaseDefinition.builder()
@@ -155,7 +155,7 @@ class HumanTaskTargetDispatchTest {
               Binding.builder()
                   .name("review-binding")
                   .humanTask(target)
-                  .on(new ContextChangeTrigger(".working.stage == \"review\""))
+                  .on(new ContextChangeTrigger(".stage == \"review\""))
                   .build())
           .build();
     }
@@ -169,7 +169,7 @@ class HumanTaskTargetDispatchTest {
       HumanTaskTarget target =
           HumanTaskTarget.inline()
               .title("IRB Review")
-              .candidateGroupsExpression(".working.irb.candidateGroups")
+              .candidateGroupsExpression(".irb.candidateGroups")
               .build();
 
       return CaseDefinition.builder()
@@ -180,7 +180,7 @@ class HumanTaskTargetDispatchTest {
               Binding.builder()
                   .name("review-binding")
                   .humanTask(target)
-                  .on(new ContextChangeTrigger(".working.stage == \"review\""))
+                  .on(new ContextChangeTrigger(".stage == \"review\""))
                   .build())
           .build();
     }
@@ -194,7 +194,7 @@ class HumanTaskTargetDispatchTest {
       HumanTaskTarget target =
           HumanTaskTarget.inline()
               .title("Bad Groups")
-              .candidateGroupsExpression(".working.routing")
+              .candidateGroupsExpression(".routing")
               .build();
 
       return CaseDefinition.builder()
@@ -205,7 +205,7 @@ class HumanTaskTargetDispatchTest {
               Binding.builder()
                   .name("bad-binding")
                   .humanTask(target)
-                  .on(new ContextChangeTrigger(".working.stage == \"review\""))
+                  .on(new ContextChangeTrigger(".stage == \"review\""))
                   .build())
           .build();
     }
@@ -219,8 +219,8 @@ class HumanTaskTargetDispatchTest {
       HumanTaskTarget target =
           HumanTaskTarget.inline()
               .title("Conjunction")
-              .candidateGroupsExpression(".working.groups")
-              .candidateUsersExpression(".working.users")
+              .candidateGroupsExpression(".groups")
+              .candidateUsersExpression(".users")
               .build();
 
       return CaseDefinition.builder()
@@ -231,7 +231,7 @@ class HumanTaskTargetDispatchTest {
               Binding.builder()
                   .name("conjunction-binding")
                   .humanTask(target)
-                  .on(new ContextChangeTrigger(".working.stage == \"review\""))
+                  .on(new ContextChangeTrigger(".stage == \"review\""))
                   .build())
           .build();
     }

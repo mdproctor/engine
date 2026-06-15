@@ -51,6 +51,26 @@ public interface CaseHubRuntime {
   void signal(UUID caseId, String path, Object value);
 
   /**
+   * Signals a case context update with Qhorus trigger context for causal lineage.
+   *
+   * <p>When a Qhorus COMMAND triggers a context update (e.g. Claudony notifying the engine that a
+   * worker has sent a response), the triggering COMMAND's {@code channelId} and {@code
+   * correlationId} can be threaded through to {@code ProvisionContext} so the provisioner can
+   * establish causal linkage in the ledger. Both fields are nullable — pass {@code null} when the
+   * signal is not triggered by a Qhorus COMMAND.
+   *
+   * <p>Refs casehubio/engine#231, claudony#94.
+   */
+  default void signal(
+      UUID caseId,
+      String path,
+      Object value,
+      String triggerChannelId,
+      String triggerCorrelationId) {
+    signal(caseId, path, value); // default: discard trigger context
+  }
+
+  /**
    * Cancels a case. Valid from any non-terminal state (RUNNING, SUSPENDED, WAITING).
    *
    * @throws IllegalArgumentException if the case is not found

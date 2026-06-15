@@ -58,7 +58,7 @@ public class YamlSimpleCaseHubBeanTest {
     assertEquals(1, def.getCapabilities().size());
     assertEquals("processDocument", def.getCapabilities().get(0).getName());
     assertEquals(
-        "{ documentId: .working.documentId, status: .working.status }",
+        "{ documentId: .documentId, status: .status }",
         def.getCapabilities().get(0).getInputSchema());
     assertEquals(
         "{ processedDocument: ., status: .status }",
@@ -84,21 +84,20 @@ public class YamlSimpleCaseHubBeanTest {
     assertInstanceOf(ContextChangeTrigger.class, def.getBindings().get(0).getOn());
     ContextChangeTrigger cct = (ContextChangeTrigger) def.getBindings().get(0).getOn();
     assertEquals(
-        ".working.status == \"processing\"",
-        ((JQExpressionEvaluator) cct.getFilter()).expression());
+        ".status == \"processing\"", ((JQExpressionEvaluator) cct.getFilter()).expression());
 
     // milestones
     assertEquals(1, def.getMilestones().size());
     assertEquals("documentProcessed", def.getMilestones().get(0).getName());
     assertEquals(
-        ".working.status == \"processed\"",
+        ".status == \"processed\"",
         ((JQExpressionEvaluator) def.getMilestones().get(0).getCompletionCriteria()).expression());
 
     // goals
     assertEquals(1, def.getGoals().size());
     assertEquals("documentProcessingComplete", def.getGoals().get(0).getName());
     assertEquals(
-        ".working.status == \"processed\"",
+        ".status == \"processed\"",
         ((JQExpressionEvaluator) def.getGoals().get(0).getCondition()).expression());
 
     // completion

@@ -295,7 +295,18 @@ class CaseHubReactor {
   }
 
   void signal(UUID caseId, String path, Object value) {
-    eventBus.publish(SIGNAL_RECEIVED, new SignalReceivedEvent(caseId, path, value));
+    signal(caseId, path, value, null, null);
+  }
+
+  void signal(
+      UUID caseId,
+      String path,
+      Object value,
+      String triggerChannelId,
+      String triggerCorrelationId) {
+    eventBus.publish(
+        SIGNAL_RECEIVED,
+        new SignalReceivedEvent(caseId, path, value, triggerChannelId, triggerCorrelationId));
   }
 
   void cancelCase(UUID caseId) {

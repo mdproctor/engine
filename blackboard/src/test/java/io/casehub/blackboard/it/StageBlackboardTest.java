@@ -407,7 +407,7 @@ class StageBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("signal-cap")
-            .inputSchema("{ probe: .working.probe }")
+            .inputSchema("{ probe: .probe }")
             .outputSchema("{ probe: .probe }")
             .build();
 
@@ -428,7 +428,7 @@ class StageBlackboardTest {
               Binding.builder()
                   .name("on-probe-tick")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.probe == \"tick\""))
+                  .on(new ContextChangeTrigger(".probe == \"tick\""))
                   .build())
           // No goals — case stays RUNNING
           .build();
@@ -446,7 +446,7 @@ class StageBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("once-signal-cap")
-            .inputSchema("{ go: .working.go }")
+            .inputSchema("{ go: .go }")
             .outputSchema("{ go: .go }")
             .build();
 
@@ -469,7 +469,7 @@ class StageBlackboardTest {
               Binding.builder()
                   .name("on-go-true")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.go == true"))
+                  .on(new ContextChangeTrigger(".go == true"))
                   .build())
           // No goals — case stays RUNNING
           .build();

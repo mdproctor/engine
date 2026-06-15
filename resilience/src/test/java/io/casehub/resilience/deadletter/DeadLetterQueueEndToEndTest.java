@@ -170,16 +170,12 @@ class DeadLetterQueueEndToEndTest {
     private final Capability capability =
         Capability.builder()
             .name("doWork")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ status: .status }")
             .build();
 
     private final Goal goal =
-        Goal.builder()
-            .name("done")
-            .condition(".working.status == \"done\"")
-            .kind(GoalKind.SUCCESS)
-            .build();
+        Goal.builder().name("done").condition(".status == \"done\"").kind(GoalKind.SUCCESS).build();
 
     @Override
     public CaseDefinition getDefinition() {
@@ -203,7 +199,7 @@ class DeadLetterQueueEndToEndTest {
               Binding.builder()
                   .name("trigger")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.status == \"start\""))
+                  .on(new ContextChangeTrigger(".status == \"start\""))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))
@@ -217,14 +213,14 @@ class DeadLetterQueueEndToEndTest {
     private final Capability capability =
         Capability.builder()
             .name("fastFail")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ status: .status }")
             .build();
 
     private final Goal goal =
         Goal.builder()
             .name("fastDone")
-            .condition(".working.status == \"done\"")
+            .condition(".status == \"done\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -250,7 +246,7 @@ class DeadLetterQueueEndToEndTest {
               Binding.builder()
                   .name("fast-trigger")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.status == \"start\""))
+                  .on(new ContextChangeTrigger(".status == \"start\""))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

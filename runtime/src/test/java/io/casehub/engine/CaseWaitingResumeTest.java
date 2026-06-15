@@ -122,16 +122,12 @@ class CaseWaitingResumeTest {
     private final Capability cap =
         Capability.builder()
             .name("analyse")
-            .inputSchema("{ doc: .working.doc }")
+            .inputSchema("{ doc: .doc }")
             .outputSchema("{ result: .result }")
             .build();
 
     private final Goal goal =
-        Goal.builder()
-            .name("done")
-            .condition(".working.result == \"done\"")
-            .kind(GoalKind.SUCCESS)
-            .build();
+        Goal.builder().name("done").condition(".result == \"done\"").kind(GoalKind.SUCCESS).build();
 
     @Override
     public CaseDefinition getDefinition() {
@@ -150,7 +146,7 @@ class CaseWaitingResumeTest {
               Binding.builder()
                   .name("start")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.trigger == \"start\""))
+                  .on(new ContextChangeTrigger(".trigger == \"start\""))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

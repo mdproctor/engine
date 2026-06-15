@@ -18,6 +18,7 @@ package io.casehub.blackboard.subcase;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.OnThresholdReached;
@@ -319,7 +320,9 @@ public class SubCaseCompletionService {
     CaseInstance child = caseInstanceCache.get(childCaseId);
     if (child != null) {
       try {
-        ValidationResult vr = jqEvaluator.eval(outputMapping, child.getCaseContext().asJsonNode());
+        ValidationResult vr =
+            jqEvaluator.eval(
+                outputMapping, child.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
         if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return null;
         Map<String, Object> mapped = OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
         mapped.forEach((k, v) -> parent.getCaseContext().set(k, v));

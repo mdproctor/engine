@@ -104,7 +104,7 @@ class SequentialStagesBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("phase-writer")
-            .inputSchema("{ phase: .working.phase }")
+            .inputSchema("{ phase: .phase }")
             .outputSchema("{ phase: .phase }")
             .build();
 
@@ -125,7 +125,7 @@ class SequentialStagesBlackboardTest {
               Binding.builder()
                   .name("trigger-on-start")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.phase == \"start\""))
+                  .on(new ContextChangeTrigger(".phase == \"start\""))
                   .build())
           .build();
     }

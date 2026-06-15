@@ -18,6 +18,7 @@ package io.casehub.engine.internal.engine.handler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.model.WorkRequest;
@@ -86,7 +87,9 @@ public class WorkerScheduleEventHandler {
     Capability capability = event.capability();
 
     Map<String, Object> inputData =
-        evalJqAsMap(instance.getCaseContext().asJsonNode(), capability.getInputSchema());
+        evalJqAsMap(
+            instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            capability.getInputSchema());
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(

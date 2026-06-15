@@ -91,7 +91,17 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
 
   @Override
   public void signal(UUID caseId, String path, Object value) {
-    reactor.signal(caseId, path, value);
+    reactor.signal(caseId, path, value, null, null);
+  }
+
+  @Override
+  public void signal(
+      UUID caseId,
+      String path,
+      Object value,
+      String triggerChannelId,
+      String triggerCorrelationId) {
+    reactor.signal(caseId, path, value, triggerChannelId, triggerCorrelationId);
   }
 
   @Override

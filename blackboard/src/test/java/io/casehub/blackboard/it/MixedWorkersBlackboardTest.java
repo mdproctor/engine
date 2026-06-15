@@ -133,14 +133,14 @@ class MixedWorkersBlackboardTest {
     private final Capability capA =
         Capability.builder()
             .name("cap-a")
-            .inputSchema("{ phaseA: .working.phaseA }")
+            .inputSchema("{ phaseA: .phaseA }")
             .outputSchema("{ phaseA: .phaseA }")
             .build();
 
     private final Capability capB =
         Capability.builder()
             .name("cap-b")
-            .inputSchema("{ phaseB: .working.phaseB }")
+            .inputSchema("{ phaseB: .phaseB }")
             .outputSchema("{ phaseB: .phaseB }")
             .build();
 
@@ -166,12 +166,12 @@ class MixedWorkersBlackboardTest {
               Binding.builder()
                   .name("trigger-a")
                   .capability(capA)
-                  .on(new ContextChangeTrigger(".working.phaseA == \"start\""))
+                  .on(new ContextChangeTrigger(".phaseA == \"start\""))
                   .build(),
               Binding.builder()
                   .name("trigger-b")
                   .capability(capB)
-                  .on(new ContextChangeTrigger(".working.phaseB == \"start\""))
+                  .on(new ContextChangeTrigger(".phaseB == \"start\""))
                   .build())
           .build();
     }

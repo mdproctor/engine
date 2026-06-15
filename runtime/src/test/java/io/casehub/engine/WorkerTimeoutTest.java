@@ -192,7 +192,7 @@ class WorkerTimeoutTest {
               Binding.builder()
                   .name("trigger-fast-worker")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.input != null"))
+                  .on(new ContextChangeTrigger(".input != null"))
                   .build())
           .build();
     }
@@ -245,7 +245,7 @@ class WorkerTimeoutTest {
               Binding.builder()
                   .name("trigger-slow-worker-default")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.input != null"))
+                  .on(new ContextChangeTrigger(".input != null"))
                   .build())
           .build();
     }
@@ -295,7 +295,7 @@ class WorkerTimeoutTest {
               Binding.builder()
                   .name("trigger-slow-worker-custom")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.input != null"))
+                  .on(new ContextChangeTrigger(".input != null"))
                   .build())
           .build();
     }
@@ -348,7 +348,7 @@ class WorkerTimeoutTest {
               Binding.builder()
                   .name("trigger-fast-worker-short")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.input != null"))
+                  .on(new ContextChangeTrigger(".input != null"))
                   .build())
           .build();
     }

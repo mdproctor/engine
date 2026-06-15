@@ -149,7 +149,16 @@ public class CaseContextChangedEventHandler {
 
     LOG.infof("Handling CaseStateContextChangedEvent for caseId: %s", caseInstance.getUuid());
 
-    return rules(caseInstance, contextSnapshot, caseDefinition, changedPanel)
+    final String triggerChannelId = event.triggerChannelId();
+    final String triggerCorrelationId = event.triggerCorrelationId();
+
+    return rules(
+            caseInstance,
+            contextSnapshot,
+            caseDefinition,
+            changedPanel,
+            triggerChannelId,
+            triggerCorrelationId)
         .chain(() -> milestones(caseInstance, contextSnapshot, caseDefinition))
         .chain(() -> goals(caseInstance, contextSnapshot, caseDefinition))
         .invoke(
@@ -167,7 +176,9 @@ public class CaseContextChangedEventHandler {
       final CaseInstance caseInstance,
       final CaseContext contextSnapshot,
       final CaseDefinition definition,
-      final String changedPanel) {
+      final String changedPanel,
+      final String triggerChannelId,
+      final String triggerCorrelationId) {
     final List<Binding> bindings = definition.getBindings();
     if (bindings == null || bindings.isEmpty()) {
       return Uni.createFrom().voidItem();
@@ -209,7 +220,9 @@ public class CaseContextChangedEventHandler {
             selected -> {
               final List<Uni<Void>> unis = new ArrayList<>(selected.size());
               for (final Binding b : selected) {
-                unis.add(publishByTarget(caseInstance, workers, b));
+                unis.add(
+                    publishByTarget(
+                        caseInstance, workers, b, triggerChannelId, triggerCorrelationId));
               }
               if (unis.isEmpty()) return Uni.createFrom().voidItem();
               return Uni.combine().all().unis(unis).discardItems();
@@ -257,10 +270,20 @@ public class CaseContextChangedEventHandler {
   }
 
   private Uni<Void> publishByTarget(
-      final CaseInstance caseInstance, final List<Worker> workers, final Binding binding) {
+      final CaseInstance caseInstance,
+      final List<Worker> workers,
+      final Binding binding,
+      final String triggerChannelId,
+      final String triggerCorrelationId) {
     return switch (binding.target()) {
       case CapabilityTarget ct ->
-          publishWorkerSchedule(caseInstance, workers, binding, ct.capability());
+          publishWorkerSchedule(
+              caseInstance,
+              workers,
+              binding,
+              ct.capability(),
+              triggerChannelId,
+              triggerCorrelationId);
       case SubCaseTarget st ->
           publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
       case HumanTaskTarget ht -> publishHumanTaskSchedule(caseInstance, binding, ht);
@@ -277,11 +300,13 @@ public class CaseContextChangedEventHandler {
       final CaseInstance caseInstance,
       final List<Worker> workers,
       final Binding binding,
-      final Capability capability) {
+      final Capability capability,
+      final String triggerChannelId,
+      final String triggerCorrelationId) {
 
     if (workers == null || workers.isEmpty()) {
       LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.getName());
-      return tryProvision(caseInstance, capability);
+      return tryProvision(caseInstance, capability, triggerChannelId, triggerCorrelationId);
     }
 
     final List<AgentCandidate> candidates =
@@ -292,14 +317,14 @@ public class CaseContextChangedEventHandler {
       LOG.warnf(
           "No eligible workers for capability '%s' (binding '%s') — all unavailable or no match",
           capability.getName(), binding.getName());
-      return tryProvision(caseInstance, capability);
+      return tryProvision(caseInstance, capability, triggerChannelId, triggerCorrelationId);
     }
 
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
             caseInstance.getUuid(),
             capability.getName(),
-            caseInstance.getCaseContext().asJsonNode());
+            caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
 
     return agentRoutingStrategy
         .select(ctx, candidates)
@@ -312,7 +337,8 @@ public class CaseContextChangedEventHandler {
                     LOG.warnf(
                         "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
                         capability.getName(), binding.getName());
-                    yield tryProvision(caseInstance, capability);
+                    yield tryProvision(
+                        caseInstance, capability, triggerChannelId, triggerCorrelationId);
                   }
                   case AgentAssignment.EscalateToOversight e ->
                       handleEscalation(caseInstance, e, binding);
@@ -415,7 +441,9 @@ public class CaseContextChangedEventHandler {
     if (target.inputMapping() instanceof JQExpressionEvaluator jq) {
       try {
         final ValidationResult vr =
-            jqEvaluator.eval(jq.expression(), caseInstance.getCaseContext().asJsonNode());
+            jqEvaluator.eval(
+                jq.expression(),
+                caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
         if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
           LOG.warnf("inputMapping evaluation failed for HumanTaskTarget: %s", vr.error());
           return Map.of();
@@ -433,6 +461,14 @@ public class CaseContextChangedEventHandler {
   }
 
   private Uni<Void> tryProvision(final CaseInstance caseInstance, final Capability capability) {
+    return tryProvision(caseInstance, capability, null, null);
+  }
+
+  private Uni<Void> tryProvision(
+      final CaseInstance caseInstance,
+      final Capability capability,
+      final String triggerChannelId,
+      final String triggerCorrelationId) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     return reactiveWorkerProvisioner
         .getCapabilities()
@@ -443,7 +479,8 @@ public class CaseContextChangedEventHandler {
               }
               final Map<String, Object> inputData =
                   evalJqAsMap(
-                      caseInstance.getCaseContext().asJsonNode(), capability.getInputSchema());
+                      caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+                      capability.getInputSchema());
               final WorkRequest workRequest = WorkRequest.of(capability.getName(), inputData);
               return reactiveWorkerContextProvider
                   .buildContext(null, caseInstance.getUuid(), workRequest)
@@ -455,8 +492,8 @@ public class CaseContextChangedEventHandler {
                                 capability.getName(),
                                 workerContext,
                                 PropagationContext.createRoot(),
-                                null, // triggerChannelId — see engine#231
-                                null); // triggerCorrelationId — see engine#231
+                                triggerChannelId,
+                                triggerCorrelationId);
                         return reactiveWorkerProvisioner
                             .provision(caps, provisionContext)
                             .chain(
@@ -502,7 +539,9 @@ public class CaseContextChangedEventHandler {
       final io.casehub.api.model.SubCase subCase,
       final String bindingName) {
     final Map<String, Object> childContext =
-        evalJqAsMap(caseInstance.getCaseContext().asJsonNode(), subCase.inputMapping());
+        evalJqAsMap(
+            caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            subCase.inputMapping());
 
     LOG.infof(
         "Publishing SubCaseScheduleEvent: parentCaseId=%s binding=%s subCase=%s/%s/%s waitForCompletion=%s",

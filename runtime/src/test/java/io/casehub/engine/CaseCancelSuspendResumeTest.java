@@ -356,7 +356,7 @@ class CaseCancelSuspendResumeTest {
     private final Capability capability =
         Capability.builder()
             .name("suspendableCapability")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ result: .status }")
             .build();
 
@@ -381,7 +381,7 @@ class CaseCancelSuspendResumeTest {
               Binding.builder()
                   .name("trigger-on-active")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.status == \"active\""))
+                  .on(new ContextChangeTrigger(".status == \"active\""))
                   .build())
           .build();
     }

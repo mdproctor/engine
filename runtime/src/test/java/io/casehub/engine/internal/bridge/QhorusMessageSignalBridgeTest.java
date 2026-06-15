@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseChannel;
@@ -58,7 +58,9 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime).signal(eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class));
+    verify(runtime)
+        .signal(
+            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class), any(), any());
   }
 
   @Test
@@ -74,7 +76,9 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime).signal(eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class));
+    verify(runtime)
+        .signal(
+            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class), any(), any());
   }
 
   @Test
@@ -90,7 +94,9 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime).signal(eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class));
+    verify(runtime)
+        .signal(
+            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class), any(), any());
   }
 
   @Test
@@ -106,7 +112,9 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime).signal(eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class));
+    verify(runtime)
+        .signal(
+            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class), any(), any());
   }
 
   // ---- Non-commitment types that should NOT signal ----
@@ -124,7 +132,7 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime, never()).signal(any(), any(), any());
+    verifyNoInteractions(runtime);
   }
 
   @Test
@@ -140,7 +148,7 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime, never()).signal(any(), any(), any());
+    verifyNoInteractions(runtime);
   }
 
   @Test
@@ -156,7 +164,7 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime, never()).signal(any(), any(), any());
+    verifyNoInteractions(runtime);
   }
 
   @Test
@@ -172,7 +180,7 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime, never()).signal(any(), any(), any());
+    verifyNoInteractions(runtime);
   }
 
   @Test
@@ -191,7 +199,7 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime, never()).signal(any(), any(), any());
+    verifyNoInteractions(runtime);
   }
 
   // ---- Non-case channels ignored ----
@@ -203,7 +211,7 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime, never()).signal(any(), any(), any());
+    verifyNoInteractions(runtime);
   }
 
   @Test
@@ -213,7 +221,7 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime, never()).signal(any(), any(), any());
+    verifyNoInteractions(runtime);
   }
 
   @Test
@@ -223,7 +231,7 @@ class QhorusMessageSignalBridgeTest {
 
     bridge.onMessage(event);
 
-    verify(runtime, never()).signal(any(), any(), any());
+    verifyNoInteractions(runtime);
   }
 
   // ---- Signal payload shape ----
@@ -247,7 +255,9 @@ class QhorusMessageSignalBridgeTest {
     bridge.onMessage(event);
 
     ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-    verify(runtime).signal(eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), captor.capture());
+    verify(runtime)
+        .signal(
+            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), captor.capture(), any(), any());
     Map<String, Object> payload = (Map<String, Object>) captor.getValue();
 
     assertThat(payload).containsEntry("messageType", "RESPONSE");
@@ -277,7 +287,9 @@ class QhorusMessageSignalBridgeTest {
     bridge.onMessage(event);
 
     ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-    verify(runtime).signal(eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), captor.capture());
+    verify(runtime)
+        .signal(
+            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), captor.capture(), any(), any());
     Map<String, Object> payload = (Map<String, Object>) captor.getValue();
 
     assertThat(payload).doesNotContainKey("correlationId");

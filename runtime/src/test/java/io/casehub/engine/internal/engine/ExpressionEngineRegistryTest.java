@@ -56,7 +56,7 @@ class ExpressionEngineRegistryTest {
     @DisplayName("JQ — returns true when expression matches context")
     void jq_returnsTrueOnMatch() {
       final var context = new CaseContextImpl(Map.of("status", "ready"));
-      final var evaluator = new JQExpressionEvaluator(".working.status == \"ready\"");
+      final var evaluator = new JQExpressionEvaluator(".status == \"ready\"");
       assertTrue(registry.evaluate(evaluator, context));
     }
 
@@ -64,7 +64,7 @@ class ExpressionEngineRegistryTest {
     @DisplayName("JQ — returns false when expression does not match context")
     void jq_returnsFalseOnNoMatch() {
       final var context = new CaseContextImpl(Map.of("status", "pending"));
-      final var evaluator = new JQExpressionEvaluator(".working.status == \"ready\"");
+      final var evaluator = new JQExpressionEvaluator(".status == \"ready\"");
       assertFalse(registry.evaluate(evaluator, context));
     }
 

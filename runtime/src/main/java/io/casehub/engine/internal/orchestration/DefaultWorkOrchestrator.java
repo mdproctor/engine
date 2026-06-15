@@ -18,6 +18,7 @@ package io.casehub.engine.internal.orchestration;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
@@ -143,7 +144,9 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     // 3. Route via AgentRoutingStrategy (blocking await — not on Vert.x IO thread)
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
-            instance.getUuid(), capability.getName(), instance.getCaseContext().asJsonNode());
+            instance.getUuid(),
+            capability.getName(),
+            instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
     final AgentAssignment assignment =
         agentRoutingStrategy.select(ctx, candidates).await().indefinitely();
 
@@ -191,7 +194,9 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     // 5. Build inputData and compute correlationKey (includes caseId to prevent cross-case
     // collision)
     final Map<String, Object> inputData =
-        evalJqAsMap(instance.getCaseContext().asJsonNode(), capability.getInputSchema());
+        evalJqAsMap(
+            instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            capability.getInputSchema());
     final String correlationKey =
         WorkerExecutionKeys.inputDataHash(
             instance.getUuid(), selectedWorker.getName(), capability.getName(), inputData);

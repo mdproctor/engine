@@ -7,7 +7,7 @@ spec:
   capabilities:
     - name: processDocument
       description: Process a document from the case context
-      inputSchema: "{ documentId: .working.documentId, status: .working.status }"
+      inputSchema: "{ documentId: .documentId, status: .status }"
       outputSchema: "{ processedDocument: ., status: .status }"
   workers:
     - name: document-processor
@@ -26,15 +26,15 @@ spec:
       capability: processDocument
       on:
         contextChange:
-          filter: '.working.status == "processing"'
+          filter: '.status == "processing"'
   milestones:
     - name: documentProcessed
       description: Milestone reached when document is processed
-      condition: '.working.status == "processed"'
+      condition: '.status == "processed"'
   goals:
     - name: documentProcessingComplete
       description: Goal achieved when document processing is complete
-      condition: '.working.status == "processed"'
+      condition: '.status == "processed"'
   completion:
     success:
       allOf:
