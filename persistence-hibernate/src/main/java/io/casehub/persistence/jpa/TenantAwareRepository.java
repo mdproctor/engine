@@ -20,6 +20,7 @@ import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import java.util.function.Supplier;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * Extends AbstractJpaRepository with RLS session-variable injection.
@@ -29,12 +30,15 @@ import java.util.function.Supplier;
  * in withTransaction() because SET LOCAL only applies within an explicit transaction.
  *
  * <p>withCrossTenantTransaction(): sets SET LOCAL ROLE casehub_crosstenancy (BYPASSRLS role). Used
- * by cross-tenant repositories. Requires casehub_crosstenancy role to exist. RlsPolicyApplicator
- * creates the role when casehub.rls.enabled=true.
+ * by cross-tenant repositories. Only issues the role switch when casehub.rls.enabled=true;
+ * otherwise runs the work in a plain transaction.
  */
 abstract class TenantAwareRepository extends AbstractJpaRepository {
 
   @Inject CurrentPrincipal currentPrincipal;
+
+  @ConfigProperty(name = "casehub.rls.enabled", defaultValue = "false")
+  boolean rlsEnabled;
 
   protected <T> Uni<T> withTenantTransaction(Supplier<Uni<T>> work) {
     // PostgreSQL does not support bind parameters in SET LOCAL — the value must be
@@ -60,6 +64,9 @@ abstract class TenantAwareRepository extends AbstractJpaRepository {
   }
 
   protected <T> Uni<T> withCrossTenantTransaction(Supplier<Uni<T>> work) {
+    if (!rlsEnabled) {
+      return withSafeContext(() -> Panache.withTransaction(work));
+    }
     return withSafeContext(
         () ->
             Panache.withTransaction(
