@@ -116,16 +116,12 @@ class ChoreographySelectionTest {
         Capability.builder()
             .name("do-work")
             // runId flows through so workers can record their invocation against the right key
-            .inputSchema("{ trigger: .working.trigger, runId: .working.runId }")
+            .inputSchema("{ trigger: .trigger, runId: .runId }")
             .outputSchema("{ result: \"done\" }")
             .build();
 
     private final Goal goal =
-        Goal.builder()
-            .name("done")
-            .condition(".working.result == \"done\"")
-            .kind(GoalKind.SUCCESS)
-            .build();
+        Goal.builder().name("done").condition(".result == \"done\"").kind(GoalKind.SUCCESS).build();
 
     @Override
     public CaseDefinition getDefinition() {
@@ -160,9 +156,7 @@ class ChoreographySelectionTest {
                   // Guard on .result == null: prevents re-firing after worker writes output.
                   // Without this, CONTEXT_CHANGED fires again post-completion and the binding
                   // re-evaluates while the case is still transitioning, scheduling a second worker.
-                  .on(
-                      new ContextChangeTrigger(
-                          ".working.trigger == \"go\" and .working.result == null"))
+                  .on(new ContextChangeTrigger(".trigger == \"go\" and .result == null"))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

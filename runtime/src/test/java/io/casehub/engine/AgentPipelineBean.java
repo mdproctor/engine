@@ -52,7 +52,7 @@ public class AgentPipelineBean extends CaseHub {
     Capability fetchCap =
         Capability.builder()
             .name("fetchDocument")
-            .inputSchema("{ documentId: .working.documentId }")
+            .inputSchema("{ documentId: .documentId }")
             .outputSchema("{ data: .data, step: .step }")
             .description("Fetch document data from external API")
             .build();
@@ -60,7 +60,7 @@ public class AgentPipelineBean extends CaseHub {
     Capability sentimentCap =
         Capability.builder()
             .name("analyzeSentiment")
-            .inputSchema("{ documentId: .working.documentId, content: .working.data.content }")
+            .inputSchema("{ documentId: .documentId, content: .data.content }")
             .outputSchema("{ sentiment: .sentiment, step: .step }")
             .description("Analyze document sentiment using LLM agent")
             .build();
@@ -68,7 +68,7 @@ public class AgentPipelineBean extends CaseHub {
     Capability summaryCap =
         Capability.builder()
             .name("summarizeContent")
-            .inputSchema("{ documentId: .working.documentId, content: .working.data.content }")
+            .inputSchema("{ documentId: .documentId, content: .data.content }")
             .outputSchema("{ summary: .summary, step: .step }")
             .description("Summarize document content using LLM agent")
             .build();
@@ -76,7 +76,7 @@ public class AgentPipelineBean extends CaseHub {
     Goal goal =
         Goal.builder()
             .name("reviewComplete")
-            .condition(".working.step == \"summarized\"")
+            .condition(".step == \"summarized\"")
             .kind(GoalKind.SUCCESS)
             .description("Document review is complete with sentiment and summary")
             .build();
@@ -128,32 +128,32 @@ public class AgentPipelineBean extends CaseHub {
             Binding.builder()
                 .name("trigger-on-submitted")
                 .capability(fetchCap)
-                .on(new ContextChangeTrigger(".working.step == \"submitted\""))
+                .on(new ContextChangeTrigger(".step == \"submitted\""))
                 .build(),
             Binding.builder()
                 .name("trigger-on-fetched")
                 .capability(sentimentCap)
-                .on(new ContextChangeTrigger(".working.step == \"fetched\""))
+                .on(new ContextChangeTrigger(".step == \"fetched\""))
                 .build(),
             Binding.builder()
                 .name("trigger-on-analyzed")
                 .capability(summaryCap)
-                .on(new ContextChangeTrigger(".working.step == \"analyzed\""))
+                .on(new ContextChangeTrigger(".step == \"analyzed\""))
                 .build())
         .milestones(
             Milestone.builder()
                 .name("documentFetched")
-                .completionCriteria(".working.step == \"fetched\"")
+                .completionCriteria(".step == \"fetched\"")
                 .description("Document data has been fetched from API")
                 .build(),
             Milestone.builder()
                 .name("sentimentAnalyzed")
-                .completionCriteria(".working.step == \"analyzed\"")
+                .completionCriteria(".step == \"analyzed\"")
                 .description("Document sentiment has been analyzed")
                 .build(),
             Milestone.builder()
                 .name("contentSummarized")
-                .completionCriteria(".working.step == \"summarized\"")
+                .completionCriteria(".step == \"summarized\"")
                 .description("Document content has been summarized")
                 .build())
         .goals(goal)

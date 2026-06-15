@@ -41,7 +41,7 @@ public class MultiWorkerPipelineBean extends CaseHub {
     Capability validateCap =
         Capability.builder()
             .name("validateDocument")
-            .inputSchema("{ documentId: .working.documentId, step: .working.step }")
+            .inputSchema("{ documentId: .documentId, step: .step }")
             .outputSchema("{ valid: .valid, step: .step }")
             .description("Validate a received document")
             .build();
@@ -49,7 +49,7 @@ public class MultiWorkerPipelineBean extends CaseHub {
     Capability enrichCap =
         Capability.builder()
             .name("enrichDocument")
-            .inputSchema("{ documentId: .working.documentId, valid: .working.valid }")
+            .inputSchema("{ documentId: .documentId, valid: .valid }")
             .outputSchema("{ enrichedData: .enrichedData, step: .step }")
             .description("Enrich a validated document with metadata")
             .build();
@@ -57,7 +57,7 @@ public class MultiWorkerPipelineBean extends CaseHub {
     Capability publishCap =
         Capability.builder()
             .name("publishDocument")
-            .inputSchema("{ documentId: .working.documentId, enrichedData: .working.enrichedData }")
+            .inputSchema("{ documentId: .documentId, enrichedData: .enrichedData }")
             .outputSchema("{ publishedUrl: .publishedUrl, step: .step }")
             .description("Publish an enriched document")
             .build();
@@ -65,7 +65,7 @@ public class MultiWorkerPipelineBean extends CaseHub {
     Goal goal =
         Goal.builder()
             .name("pipelineComplete")
-            .condition(".working.step == \"published\"")
+            .condition(".step == \"published\"")
             .kind(GoalKind.SUCCESS)
             .description("All pipeline steps completed successfully")
             .build();
@@ -146,34 +146,32 @@ public class MultiWorkerPipelineBean extends CaseHub {
             Binding.builder()
                 .name("trigger-on-received")
                 .capability(validateCap)
-                .on(new ContextChangeTrigger(".working.step == \"received\""))
+                .on(new ContextChangeTrigger(".step == \"received\""))
                 .build(),
             Binding.builder()
                 .name("trigger-on-validated")
                 .capability(enrichCap)
-                .on(
-                    new ContextChangeTrigger(
-                        ".working.step == \"validated\" and .working.valid == true"))
+                .on(new ContextChangeTrigger(".step == \"validated\" and .valid == true"))
                 .build(),
             Binding.builder()
                 .name("trigger-on-enriched")
                 .capability(publishCap)
-                .on(new ContextChangeTrigger(".working.step == \"enriched\""))
+                .on(new ContextChangeTrigger(".step == \"enriched\""))
                 .build())
         .milestones(
             Milestone.builder()
                 .name("documentValidated")
-                .completionCriteria(".working.step == \"validated\"")
+                .completionCriteria(".step == \"validated\"")
                 .description("Document has been validated")
                 .build(),
             Milestone.builder()
                 .name("documentEnriched")
-                .completionCriteria(".working.step == \"enriched\"")
+                .completionCriteria(".step == \"enriched\"")
                 .description("Document has been enriched")
                 .build(),
             Milestone.builder()
                 .name("documentPublished")
-                .completionCriteria(".working.step == \"published\"")
+                .completionCriteria(".step == \"published\"")
                 .description("Document has been published")
                 .build())
         .goals(goal)

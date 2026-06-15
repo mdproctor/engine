@@ -619,7 +619,7 @@ public class WorkerIdempotencyTest {
     private final Capability capability =
         Capability.builder()
             .name("idempotencyCapability")
-            .inputSchema("{ task: .working.task, taskId: .working.taskId }")
+            .inputSchema("{ task: .task, taskId: .taskId }")
             .outputSchema("{ taskResult: .taskResult }")
             .build();
 
@@ -652,7 +652,7 @@ public class WorkerIdempotencyTest {
               Binding.builder()
                   .name("on-task")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.task != null"))
+                  .on(new ContextChangeTrigger(".task != null"))
                   .build())
           .build();
     }
@@ -675,14 +675,14 @@ public class WorkerIdempotencyTest {
     private final Capability alphaCapability =
         Capability.builder()
             .name("alphaCapability")
-            .inputSchema("{ alpha: .working.alpha }")
+            .inputSchema("{ alpha: .alpha }")
             .outputSchema("{ alphaResult: .alphaResult }")
             .build();
 
     private final Capability betaCapability =
         Capability.builder()
             .name("betaCapability")
-            .inputSchema("{ beta: .working.beta }")
+            .inputSchema("{ beta: .beta }")
             .outputSchema("{ betaResult: .betaResult }")
             .build();
 
@@ -716,12 +716,12 @@ public class WorkerIdempotencyTest {
               Binding.builder()
                   .name("on-alpha")
                   .capability(alphaCapability)
-                  .on(new ContextChangeTrigger(".working.alpha != null"))
+                  .on(new ContextChangeTrigger(".alpha != null"))
                   .build(),
               Binding.builder()
                   .name("on-beta")
                   .capability(betaCapability)
-                  .on(new ContextChangeTrigger(".working.beta != null"))
+                  .on(new ContextChangeTrigger(".beta != null"))
                   .build())
           .build();
     }

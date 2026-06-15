@@ -40,7 +40,7 @@ public class SimpleCaseHubBean extends CaseHub {
     Capability capability =
         Capability.builder()
             .name("processDocument")
-            .inputSchema("{ documentId: .working.documentId, status: .working.status }")
+            .inputSchema("{ documentId: .documentId, status: .status }")
             .outputSchema("{ processedDocument: ., status: .status }")
             .description("Process a document from the case context")
             .build();
@@ -48,7 +48,7 @@ public class SimpleCaseHubBean extends CaseHub {
     Goal goal =
         Goal.builder()
             .name("documentProcessingComplete")
-            .condition(".working.status == \"processed\"")
+            .condition(".status == \"processed\"")
             .kind(GoalKind.SUCCESS)
             .description("Goal achieved when document processing is complete")
             .build();
@@ -94,12 +94,12 @@ public class SimpleCaseHubBean extends CaseHub {
             Binding.builder()
                 .name("trigger-on-processing-status")
                 .capability(capability)
-                .on(new ContextChangeTrigger(".working.status == \"processing\""))
+                .on(new ContextChangeTrigger(".status == \"processing\""))
                 .build())
         .milestones(
             Milestone.builder()
                 .name("documentProcessed")
-                .completionCriteria(".working.status == \"processed\"")
+                .completionCriteria(".status == \"processed\"")
                 .description("Milestone reached when document is processed")
                 .build())
         .goals(goal)

@@ -115,23 +115,19 @@ class ContextChangeWhenFilterTest {
     private final Capability guardedCap =
         Capability.builder()
             .name("guarded-work")
-            .inputSchema("{ flag: .working.flag }")
+            .inputSchema("{ flag: .flag }")
             .outputSchema("{ guardedRan: true }")
             .build();
 
     private final Capability finishCap =
         Capability.builder()
             .name("finish")
-            .inputSchema("{ flag: .working.flag }")
+            .inputSchema("{ flag: .flag }")
             .outputSchema("{ done: true }")
             .build();
 
     private final Goal goal =
-        Goal.builder()
-            .name("done")
-            .condition(".working.done == true")
-            .kind(GoalKind.SUCCESS)
-            .build();
+        Goal.builder().name("done").condition(".done == true").kind(GoalKind.SUCCESS).build();
 
     @Override
     public CaseDefinition getDefinition() {
@@ -166,7 +162,7 @@ class ContextChangeWhenFilterTest {
                   .on(
                       new io.casehub.api.model.ContextChangeTrigger(
                           (io.casehub.api.model.evaluator.ExpressionEvaluator) null))
-                  .when(".working.flag == true")
+                  .when(".flag == true")
                   .build(),
               Binding.builder()
                   .name("finish")

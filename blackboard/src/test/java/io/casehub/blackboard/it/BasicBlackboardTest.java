@@ -237,7 +237,7 @@ class BasicBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("once-cap")
-            .inputSchema("{ phase: .working.phase }")
+            .inputSchema("{ phase: .phase }")
             .outputSchema("{ phase: .phase }")
             .build();
 
@@ -259,7 +259,7 @@ class BasicBlackboardTest {
               Binding.builder()
                   .name("on-start-phase")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.phase == \"start\""))
+                  .on(new ContextChangeTrigger(".phase == \"start\""))
                   .build())
           // No goals — case stays RUNNING, enabling post-completion assertions
           .build();
@@ -276,7 +276,7 @@ class BasicBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("never-cap")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ status: .status }")
             .build();
 
@@ -299,7 +299,7 @@ class BasicBlackboardTest {
                   .capability(cap)
                   .on(
                       new ContextChangeTrigger(
-                          ".working.phase == \"start\"")) // context has "status", not "phase"
+                          ".phase == \"start\"")) // context has "status", not "phase"
                   .build())
           .build();
     }
@@ -315,14 +315,14 @@ class BasicBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("completing-cap")
-            .inputSchema("{ phase: .working.phase }")
+            .inputSchema("{ phase: .phase }")
             .outputSchema("{ phase: .phase }")
             .build();
 
     private final Goal successGoal =
         Goal.builder()
             .name("processingComplete")
-            .condition(".working.phase == \"done\"")
+            .condition(".phase == \"done\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -343,7 +343,7 @@ class BasicBlackboardTest {
               Binding.builder()
                   .name("trigger-on-active")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.phase == \"active\""))
+                  .on(new ContextChangeTrigger(".phase == \"active\""))
                   .build())
           .goals(successGoal)
           .completion(GoalExpression.allOf(successGoal))
@@ -362,14 +362,14 @@ class BasicBlackboardTest {
     private final Capability cap =
         Capability.builder()
             .name("milestone-cap")
-            .inputSchema("{ go: .working.go }")
+            .inputSchema("{ go: .go }")
             .outputSchema("{ go: .go, docsUploaded: .docsUploaded }")
             .build();
 
     private final Milestone docsReceived =
         Milestone.builder()
             .name("docs-received")
-            .completionCriteria(".working.docsUploaded == true")
+            .completionCriteria(".docsUploaded == true")
             .build();
 
     @Override
@@ -389,7 +389,7 @@ class BasicBlackboardTest {
               Binding.builder()
                   .name("on-go-true")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.go == true"))
+                  .on(new ContextChangeTrigger(".go == true"))
                   .build())
           .milestones(docsReceived)
           // No goals — case stays RUNNING for milestone assertions

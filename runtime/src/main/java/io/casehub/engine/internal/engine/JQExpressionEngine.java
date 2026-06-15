@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine;
 
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.engine.ExpressionEngine;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
@@ -43,7 +44,8 @@ public class JQExpressionEngine implements ExpressionEngine {
     if (expr == null || expr.isBlank()) {
       return true;
     }
-    final ValidationResult result = jqEvaluator.eval(expr, context.asJsonNode());
+    final ValidationResult result =
+        jqEvaluator.eval(expr, context.panel(ContextPanel.WORKING).asJsonNode());
     return result.ok() && result.isTrue();
   }
 

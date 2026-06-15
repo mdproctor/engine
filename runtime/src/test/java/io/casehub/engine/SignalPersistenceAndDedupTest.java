@@ -271,7 +271,7 @@ public class SignalPersistenceAndDedupTest {
     private final Capability paymentCapability =
         Capability.builder()
             .name("processPayment")
-            .inputSchema("{ payment: .working.payment }")
+            .inputSchema("{ payment: .payment }")
             .outputSchema("{ status: .status, lastProcessedAmount: .lastProcessedAmount }")
             .build();
 
@@ -300,7 +300,7 @@ public class SignalPersistenceAndDedupTest {
               Binding.builder()
                   .name("on-payment-received")
                   .capability(paymentCapability)
-                  .on(new ContextChangeTrigger(".working.payment != null"))
+                  .on(new ContextChangeTrigger(".payment != null"))
                   .build())
           .build();
     }

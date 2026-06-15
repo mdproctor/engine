@@ -147,7 +147,7 @@ class SubCaseMofNIntegrationTest {
     private static final Capability CAP =
         Capability.builder()
             .name("mofn-child-cap")
-            .inputSchema("{ trigger: .working.trigger }")
+            .inputSchema("{ trigger: .trigger }")
             .outputSchema("{ trigger: .trigger }")
             .build();
 
@@ -191,17 +191,17 @@ class SubCaseMofNIntegrationTest {
               Binding.builder()
                   .name("spawn-a")
                   .subCase(child)
-                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".trigger == \"go\""))
                   .build(),
               Binding.builder()
                   .name("spawn-b")
                   .subCase(child)
-                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".trigger == \"go\""))
                   .build(),
               Binding.builder()
                   .name("spawn-c")
                   .subCase(child)
-                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".trigger == \"go\""))
                   .build())
           .build();
     }

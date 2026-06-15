@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.evaluator.ListEvaluator;
 import io.casehub.api.model.evaluator.ListEvaluator.JQList;
 import io.casehub.api.model.evaluator.ListEvaluator.StaticList;
@@ -67,7 +68,9 @@ public class ListExpressionResolver {
     if (spec == null) return null;
     return switch (spec) {
       case StaticList s -> s.values();
-      case JQList jq -> resolveJq(instance.getCaseContext().asJsonNode(), jq, fieldName);
+      case JQList jq ->
+          resolveJq(
+              instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(), jq, fieldName);
     };
   }
 

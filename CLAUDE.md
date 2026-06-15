@@ -169,6 +169,18 @@ is public (`public Long id`) and set by the repository after save.
 
 **`@CrossTenant` qualifier:** Cross-tenant SPIs (`CrossTenantEventLogRepository`, `CrossTenantCaseInstanceRepository`) are only injectable via `@CrossTenant`. `CrossTenantProducer` (in `runtime/internal/identity/`) produces both beans, guarded by `@EngineSystem SystemCurrentPrincipal`. Convention-based — CDI does not prevent unqualified injection; code review and the qualifier annotation are the enforcement mechanism. `SystemCurrentPrincipal` is `@ApplicationScoped @EngineSystem` (not `@DefaultBean`) — it does not conflict with `MockCurrentPrincipal`. All 6 engine injection sites (`PendingWorkRegistry`, `DefaultWorkerExecutionRecoveryService`, `QuartzWorkerExecutionJob`, `QuartzWorkerExecutionManager`, `MilestoneSLATimeoutJob`, `DeadLetterReplayService`) use `@CrossTenant`. See protocol PP-20260520-e6a5f0.
 
+## CaseOutcomeObserver SPI
+
+`CaseOutcomeObserver` — lifecycle hook called by the engine when a case reaches a terminal state (COMPLETED, FAULTED, CANCELLED). Implementations write CBR case entries to `CaseMemoryStore` or perform other outcome-based learning operations. Fired from `CaseStatusChangedHandler` on a worker thread (`blocking = true`). `@DefaultBean` no-op in `runtime/internal/worker/`. Consumer implementations are `@ApplicationScoped` and discovered automatically via CDI `Instance<CaseOutcomeObserver>`. Refs engine#477.
+
+`ActionGatePolicy` — shared enum (`ALWAYS`, `THRESHOLD`, `CONDITIONAL`) in `api/spi/` for domain classifiers (AML, clinical, devtown, life) to reference instead of defining their own gate policy vocabulary. Refs engine#472.
+
+## JQ Expression Evaluation Surface
+
+All JQ expressions (binding filters, `when` conditions, goals, milestones, `inputSchema`, `outputSchema`) evaluate against the **working panel** (`context.panel(ContextPanel.WORKING).asJsonNode()`), NOT the full panel document (`context.asJsonNode()`). YAML definitions use unqualified field paths (`.transaction`, `.entityResolution`) — the panel structure is an engine implementation detail.
+
+`CaseHubRuntime.signal()` has a 5-arg overload carrying `triggerChannelId` and `triggerCorrelationId` (both nullable). When a Qhorus COMMAND triggers a context update, the triggering COMMAND's channel and correlation IDs are threaded through `SignalReceivedEvent` → `CaseContextChangedEvent` → `ProvisionContext` so provisioners can establish causal lineage. Refs engine#231.
+
 ## Worker Provisioner SPIs
 
 Eight interfaces in `api/src/main/java/io/casehub/api/spi/` (four blocking + four reactive mirrors):

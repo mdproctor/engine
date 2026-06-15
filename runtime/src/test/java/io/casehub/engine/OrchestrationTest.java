@@ -128,14 +128,14 @@ class OrchestrationTest {
     private final Capability cap =
         Capability.builder()
             .name("analyse")
-            .inputSchema("{ doc: .working.doc }")
+            .inputSchema("{ doc: .doc }")
             .outputSchema("{ analysis: \"complete\" }")
             .build();
 
     private final Goal goal =
         Goal.builder()
             .name("done")
-            .condition(".working.trigger == \"ready\"")
+            .condition(".trigger == \"ready\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -156,7 +156,7 @@ class OrchestrationTest {
               Binding.builder()
                   .name("start")
                   .capability(cap)
-                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".trigger == \"go\""))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

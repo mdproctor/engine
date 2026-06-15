@@ -118,7 +118,11 @@ public class SignalReceivedEventHandler {
                 eventBus.publish(
                     CONTEXT_CHANGED,
                     new CaseContextChangedEvent(
-                        instance, instance.getCaseContext().snapshot(), ContextPanel.WORKING)))
+                        instance,
+                        instance.getCaseContext().snapshot(),
+                        ContextPanel.WORKING,
+                        event.triggerChannelId(),
+                        event.triggerCorrelationId())))
         .chain(
             () ->
                 Uni.createFrom()

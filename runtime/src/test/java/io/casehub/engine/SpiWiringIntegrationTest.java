@@ -332,6 +332,36 @@ class SpiWiringIntegrationTest {
         .isEqualTo("external-task");
   }
 
+  /**
+   * Verifies that trigger context (channelId + correlationId) passed to {@code
+   * CaseHubRuntime.signal()} is threaded through to {@code ProvisionContext} when {@code
+   * tryProvision()} is called. Refs casehubio/engine#231, claudony#94.
+   */
+  @Test
+  void signal_with_trigger_context_propagates_to_ProvisionContext() {
+    // Start without "status:pending" so the binding does NOT fire on case start.
+    UUID caseId =
+        provisionerTriggerBean
+            .startCase(Map.of("taskId", "task-trigger-ctx-1"))
+            .toCompletableFuture()
+            .join();
+
+    // Signal with trigger context — sets status=pending, fires "external-task" binding.
+    // No workers match → tryProvision() is called → ProvisionContext receives trigger fields.
+    runtime.signal(caseId, "status", "pending", "ch-qhorus-test-abc", "corr-cmd-123");
+
+    await()
+        .atMost(15, TimeUnit.SECONDS)
+        .until(() -> RecordingWorkerProvisioner.lastProvisionContext != null);
+
+    assertThat(RecordingWorkerProvisioner.lastProvisionContext.triggerChannelId())
+        .as("triggerChannelId from signal() must reach ProvisionContext — engine#231")
+        .isEqualTo("ch-qhorus-test-abc");
+    assertThat(RecordingWorkerProvisioner.lastProvisionContext.triggerCorrelationId())
+        .as("triggerCorrelationId from signal() must reach ProvisionContext — engine#231")
+        .isEqualTo("corr-cmd-123");
+  }
+
   @Test
   void provisioningExceptionCaughtGracefully() {
     RecordingWorkerProvisioner.shouldThrow.set(true);
@@ -545,7 +575,7 @@ class SpiWiringIntegrationTest {
       Capability capability =
           Capability.builder()
               .name("external-task")
-              .inputSchema("{ taskId: .working.taskId }")
+              .inputSchema("{ taskId: .taskId }")
               .outputSchema("{ result: . }")
               .build();
 
@@ -558,7 +588,7 @@ class SpiWiringIntegrationTest {
               Binding.builder()
                   .name("trigger-on-pending")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.status == \"pending\""))
+                  .on(new ContextChangeTrigger(".status == \"pending\""))
                   .build())
           .build();
     }
@@ -581,7 +611,7 @@ class SpiWiringIntegrationTest {
       Capability capability =
           Capability.builder()
               .name("recordContext")
-              .inputSchema("{ documentId: .working.documentId }")
+              .inputSchema("{ documentId: .documentId }")
               .outputSchema("{ recorded: true }")
               .build();
 
@@ -609,7 +639,7 @@ class SpiWiringIntegrationTest {
               Binding.builder()
                   .name("trigger-on-processing")
                   .capability(capability)
-                  .on(new ContextChangeTrigger(".working.status == \"processing\""))
+                  .on(new ContextChangeTrigger(".status == \"processing\""))
                   .build())
           .build();
     }

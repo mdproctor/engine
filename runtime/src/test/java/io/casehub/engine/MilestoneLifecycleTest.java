@@ -278,8 +278,8 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .entryCriteria(".working.requestSubmitted == true")
-                  .completionCriteria(".working.approved == true")
+                  .entryCriteria(".requestSubmitted == true")
+                  .completionCriteria(".approved == true")
                   .build())
           .build();
     }
@@ -296,7 +296,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .completionCriteria(".working.approved == true")
+                  .completionCriteria(".approved == true")
                   .slaDuration(java.time.Duration.ofSeconds(2))
                   .build())
           .build();
@@ -314,7 +314,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .completionCriteria(".working.approved == true")
+                  .completionCriteria(".approved == true")
                   .slaDuration(java.time.Duration.ofSeconds(2))
                   .build())
           .build();
@@ -332,7 +332,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .completionCriteria(".working.approved == true")
+                  .completionCriteria(".approved == true")
                   .slaDuration(java.time.Duration.ofHours(24))
                   .build())
           .build();
@@ -350,8 +350,8 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("review")
-                  .entryCriteria(".working.stage == \"review\"")
-                  .completionCriteria(".working.reviewComplete == true")
+                  .entryCriteria(".stage == \"review\"")
+                  .completionCriteria(".reviewComplete == true")
                   .build())
           .build();
     }
@@ -368,7 +368,7 @@ class MilestoneLifecycleTest {
           .milestones(
               Milestone.builder()
                   .name("approval")
-                  .completionCriteria(".working.approved == true")
+                  .completionCriteria(".approved == true")
                   .slaDuration(java.time.Duration.ofSeconds(5))
                   .build())
           .build();

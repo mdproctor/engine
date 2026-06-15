@@ -81,7 +81,7 @@ class SubCaseIntegrationTest {
     private final Capability cap =
         Capability.builder()
             .name("child-work")
-            .inputSchema("{ status: .working.status }")
+            .inputSchema("{ status: .status }")
             .outputSchema("{ status: .status }")
             .build();
 
@@ -122,7 +122,7 @@ class SubCaseIntegrationTest {
               Binding.builder()
                   .name("spawn-child")
                   .subCase(child)
-                  .on(new ContextChangeTrigger(".working.trigger == \"go\""))
+                  .on(new ContextChangeTrigger(".trigger == \"go\""))
                   .build())
           .build();
     }

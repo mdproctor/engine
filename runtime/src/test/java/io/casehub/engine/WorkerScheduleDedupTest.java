@@ -283,7 +283,7 @@ public class WorkerScheduleDedupTest {
     private final Capability capability =
         Capability.builder()
             .name("dedupCapability")
-            .inputSchema("{ documentId: .working.documentId, status: .working.status }")
+            .inputSchema("{ documentId: .documentId, status: .status }")
             .outputSchema("{ status: .status, processedDocument: .processedDocument }")
             .build();
 

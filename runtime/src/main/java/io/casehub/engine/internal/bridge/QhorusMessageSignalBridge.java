@@ -69,7 +69,14 @@ public class QhorusMessageSignalBridge {
         "Signalling case %s from channel '%s' (type=%s sender=%s)",
         caseId, event.channelName(), event.messageType(), event.senderId());
 
-    runtime.signal(caseId, SIGNAL_PATH, buildPayload(event));
+    // Thread the message's channelId and correlationId so provisioners can establish
+    // causal lineage back to the Qhorus message. Refs engine#231.
+    runtime.signal(
+        caseId,
+        SIGNAL_PATH,
+        buildPayload(event),
+        event.channelId().toString(),
+        event.correlationId());
   }
 
   private static boolean isCommitmentResolving(MessageType type) {

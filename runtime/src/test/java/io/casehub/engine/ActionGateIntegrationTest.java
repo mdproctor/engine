@@ -287,7 +287,7 @@ class ActionGateIntegrationTest {
           Goal.builder()
               .name("filed")
               .kind(GoalKind.SUCCESS)
-              .condition(".working.filingResult != null")
+              .condition(".filingResult != null")
               .build();
       return CaseDefinition.builder()
           .namespace("test-action-gate")
@@ -316,9 +316,9 @@ class ActionGateIntegrationTest {
                   // Prevent re-triggering while gate is pending (deferred output not applied)
                   .on(
                       new ContextChangeTrigger(
-                          ".working.filingResult == null and .working.actionGateApproved == null"
-                              + " and .working.actionGateRejected == null"
-                              + " and .working.actionGateExpired == null"))
+                          ".filingResult == null and .actionGateApproved == null"
+                              + " and .actionGateRejected == null"
+                              + " and .actionGateExpired == null"))
                   .target(new CapabilityTarget(cap))
                   .build())
           .goals(goal)

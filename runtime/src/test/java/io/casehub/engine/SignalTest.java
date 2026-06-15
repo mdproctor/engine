@@ -232,14 +232,14 @@ public class SignalTest {
     private final Capability paymentCapability =
         Capability.builder()
             .name("processPayment")
-            .inputSchema("{ payment: .working.payment, orderId: .working.orderId }")
+            .inputSchema("{ payment: .payment, orderId: .orderId }")
             .outputSchema("{ status: .status }")
             .build();
 
     private final Goal paidGoal =
         Goal.builder()
             .name("paymentProcessed")
-            .condition(".working.status == \"paid\"")
+            .condition(".status == \"paid\"")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -271,7 +271,7 @@ public class SignalTest {
               Binding.builder()
                   .name("on-payment-received")
                   .capability(paymentCapability)
-                  .on(new ContextChangeTrigger(".working.payment != null"))
+                  .on(new ContextChangeTrigger(".payment != null"))
                   .build())
           .goals(paidGoal)
           .completion(GoalExpression.allOf(paidGoal))
@@ -292,21 +292,21 @@ public class SignalTest {
     private final Capability paymentCapability =
         Capability.builder()
             .name("processPayment2")
-            .inputSchema("{ paymentApproved: .working.paymentApproved }")
+            .inputSchema("{ paymentApproved: .paymentApproved }")
             .outputSchema("{ paymentProcessed: .paymentProcessed }")
             .build();
 
     private final Capability documentCapability =
         Capability.builder()
             .name("processDocument2")
-            .inputSchema("{ documentUploaded: .working.documentUploaded }")
+            .inputSchema("{ documentUploaded: .documentUploaded }")
             .outputSchema("{ documentProcessed: .documentProcessed }")
             .build();
 
     private final Goal allDoneGoal =
         Goal.builder()
             .name("allDone")
-            .condition(".working.paymentProcessed == true and .working.documentProcessed == true")
+            .condition(".paymentProcessed == true and .documentProcessed == true")
             .kind(GoalKind.SUCCESS)
             .build();
 
@@ -340,12 +340,12 @@ public class SignalTest {
               Binding.builder()
                   .name("on-payment-approved")
                   .capability(paymentCapability)
-                  .on(new ContextChangeTrigger(".working.paymentApproved != null"))
+                  .on(new ContextChangeTrigger(".paymentApproved != null"))
                   .build(),
               Binding.builder()
                   .name("on-document-uploaded")
                   .capability(documentCapability)
-                  .on(new ContextChangeTrigger(".working.documentUploaded != null"))
+                  .on(new ContextChangeTrigger(".documentUploaded != null"))
                   .build())
           .goals(allDoneGoal)
           .completion(GoalExpression.allOf(allDoneGoal))

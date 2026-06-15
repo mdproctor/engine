@@ -19,13 +19,29 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.Objects;
 
+/**
+ * @param triggerChannelId Qhorus channel ID of the COMMAND that caused this context change, or
+ *     null. Threaded through to ProvisionContext by CaseContextChangedEventHandler so provisioners
+ *     can establish causal lineage. Refs engine#231.
+ * @param triggerCorrelationId Qhorus correlationId of the triggering COMMAND, or null.
+ */
 public record CaseContextChangedEvent(
-    CaseInstance instance, CaseContext contextSnapshot, String changedPanel) {
+    CaseInstance instance,
+    CaseContext contextSnapshot,
+    String changedPanel,
+    String triggerChannelId,
+    String triggerCorrelationId) {
 
   public CaseContextChangedEvent {
     instance = Objects.requireNonNull(instance, "instance cannot be null");
     contextSnapshot = Objects.requireNonNull(contextSnapshot, "contextSnapshot cannot be null");
-    // changedPanel may be null (case started/resumed — evaluate all bindings)
+    // changedPanel, triggerChannelId, triggerCorrelationId may be null
+  }
+
+  /** Convenience constructor for context changes not triggered by a Qhorus COMMAND. */
+  public CaseContextChangedEvent(
+      CaseInstance instance, CaseContext contextSnapshot, String changedPanel) {
+    this(instance, contextSnapshot, changedPanel, null, null);
   }
 
   @Override
@@ -38,7 +54,20 @@ public record CaseContextChangedEvent(
   }
 
   @Override
+  public int hashCode() {
+    return Objects.hash(instance, changedPanel);
+  }
+
+  @Override
   public String toString() {
-    return "CaseContextChangedEvent{uuid=" + instance.getUuid() + ", panel=" + changedPanel + '}';
+    return "CaseContextChangedEvent{uuid="
+        + instance.getUuid()
+        + ", panel="
+        + changedPanel
+        + ", triggerChannelId="
+        + triggerChannelId
+        + ", triggerCorrelationId="
+        + triggerCorrelationId
+        + '}';
   }
 }
