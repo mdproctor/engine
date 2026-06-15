@@ -65,11 +65,24 @@ public class StageAutocompleteEvaluator {
                       plan.getPlanItem(itemId).map(pi -> isTerminal(pi.getStatus())).orElse(false));
 
       if (allTerminal) {
+        int completingIndex = stage.getInstanceIndex();
         stage.complete();
         eventBus.publish(
-            BlackboardEventBusAddresses.STAGE_COMPLETED, new StageCompletedEvent(caseId, stage));
+            BlackboardEventBusAddresses.STAGE_COMPLETED,
+            new StageCompletedEvent(caseId, stage, completingIndex));
+        if (stage.isRepeatable()) {
+          if (!stage.getContainedStageIds().isEmpty()
+              || !stage.getContainedMilestoneIds().isEmpty()) {
+            LOG.warnf(
+                "Repeatable stage '%s' contains nested stages or milestones — skipping reset",
+                stage.getName());
+          } else {
+            stage.resetForRepetition();
+          }
+        }
         LOG.debugf(
-            "Stage autocomplete fired for caseId=%s after item=%s settled", caseId, changedItemId);
+            "Stage autocomplete fired for caseId=%s after item=%s settled (instance=%d)",
+            caseId, changedItemId, completingIndex);
       }
     }
   }

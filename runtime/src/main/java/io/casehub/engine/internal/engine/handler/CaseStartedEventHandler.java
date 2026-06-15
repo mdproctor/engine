@@ -72,35 +72,32 @@ public class CaseStartedEventHandler {
         .append(eventLog, instance.tenancyId)
         .chain(() -> schedulerService.registerScheduledTriggers(instance))
         .invoke(
-            () ->
-                eventBus.publish(
-                    EventBusAddresses.CONTEXT_CHANGED,
-                    new CaseContextChangedEvent(
-                        instance, instance.getCaseContext().snapshot(), null)))
-        .chain(
-            () ->
-                Uni.createFrom()
-                    .completionStage(
-                        () ->
-                            lifecycleEvents.fireAsync(
-                                new CaseLifecycleEvent(
-                                    instance.getUuid(),
-                                    instance.tenancyId,
-                                    "StartCase",
-                                    "CaseStarted",
-                                    instance.getState().name(),
-                                    null,
-                                    "System",
-                                    traceId)))
-                    .onFailure()
-                    .recoverWithItem(
-                        t -> {
+            () -> {
+              lifecycleEvents
+                  .fireAsync(
+                      new CaseLifecycleEvent(
+                          instance.getUuid(),
+                          instance.tenancyId,
+                          "StartCase",
+                          "CaseStarted",
+                          instance.getState().name(),
+                          null,
+                          "System",
+                          traceId))
+                  .whenComplete(
+                      (v, t) -> {
+                        if (t != null)
                           LOG.warnf(
                               t,
                               "CaseLifecycleEvent observer failed for caseId=%s event=CaseStarted",
                               instance.getUuid());
-                          return null;
-                        })
-                    .replaceWithVoid());
+                      });
+            })
+        .invoke(
+            () ->
+                eventBus.publish(
+                    EventBusAddresses.CONTEXT_CHANGED,
+                    new CaseContextChangedEvent(
+                        instance, instance.getCaseContext().snapshot(), null)));
   }
 }

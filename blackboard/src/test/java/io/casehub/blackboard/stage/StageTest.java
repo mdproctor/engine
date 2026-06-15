@@ -272,4 +272,88 @@ class StageTest {
     s.addBinding("b2");
     assertThat(snapshot).containsExactly("b1"); // snapshot unaffected by later add
   }
+
+  // ------------------------------------------------------------------ //
+  // Repeatable Stage (casehubio/engine#482)                             //
+  // ------------------------------------------------------------------ //
+
+  @Test
+  void repeatable_defaults_to_false() {
+    assertThat(Stage.create("intake").isRepeatable()).isFalse();
+  }
+
+  @Test
+  void builder_repeatable_sets_flag() {
+    Stage s = Stage.builder("intake").entryCondition(ctx -> true).repeatable(true).build();
+    assertThat(s.isRepeatable()).isTrue();
+  }
+
+  @Test
+  void resetForRepetition_on_repeatable_completed_stage() {
+    Stage s = Stage.builder("intake").entryCondition(ctx -> true).repeatable(true).build();
+    s.activate();
+    s.addPlanItem("pi-1");
+    s.addRequiredItem("pi-1");
+    s.complete();
+
+    boolean reset = s.resetForRepetition();
+
+    assertThat(reset).isTrue();
+    assertThat(s.getStatus()).isEqualTo(StageStatus.PENDING);
+    assertThat(s.getInstanceIndex()).isEqualTo(1);
+    assertThat(s.getContainedPlanItemIds()).isEmpty();
+    assertThat(s.getRequiredItemIds()).isEmpty();
+    assertThat(s.getContainedMilestoneIds()).isEmpty();
+    assertThat(s.getActivatedAt()).isNull();
+    assertThat(s.getCompletedAt()).isNull();
+  }
+
+  @Test
+  void resetForRepetition_on_non_repeatable_returns_false() {
+    Stage s = Stage.create("intake");
+    s.activate();
+    s.complete();
+
+    assertThat(s.resetForRepetition()).isFalse();
+    assertThat(s.getStatus()).isEqualTo(StageStatus.COMPLETED);
+  }
+
+  @Test
+  void resetForRepetition_on_non_completed_returns_false() {
+    Stage s = Stage.builder("intake").entryCondition(ctx -> true).repeatable(true).build();
+    s.activate();
+
+    assertThat(s.resetForRepetition()).isFalse();
+    assertThat(s.getStatus()).isEqualTo(StageStatus.ACTIVE);
+    assertThat(s.getInstanceIndex()).isEqualTo(0);
+  }
+
+  @Test
+  void instanceIndex_increments_on_each_reset() {
+    Stage s = Stage.builder("intake").entryCondition(ctx -> true).repeatable(true).build();
+    assertThat(s.getInstanceIndex()).isEqualTo(0);
+
+    s.activate();
+    s.complete();
+    s.resetForRepetition();
+    assertThat(s.getInstanceIndex()).isEqualTo(1);
+
+    s.activate();
+    s.complete();
+    s.resetForRepetition();
+    assertThat(s.getInstanceIndex()).isEqualTo(2);
+  }
+
+  @Test
+  void resetForRepetition_preserves_binding_names() {
+    Stage s =
+        Stage.builder("intake").entryCondition(ctx -> true).repeatable(true).binding("b1").build();
+    s.activate();
+    s.complete();
+    s.resetForRepetition();
+
+    assertThat(s.getContainedBindingNames())
+        .as("containedBindingNames must persist across resets — they are design-time declarations")
+        .containsExactly("b1");
+  }
 }

@@ -179,7 +179,7 @@ is public (`public Long id`) and set by the repository after save.
 
 All JQ expressions (binding filters, `when` conditions, goals, milestones, `inputSchema`, `outputSchema`) evaluate against the **working panel** (`context.panel(ContextPanel.WORKING).asJsonNode()`), NOT the full panel document (`context.asJsonNode()`). YAML definitions use unqualified field paths (`.transaction`, `.entityResolution`) — the panel structure is an engine implementation detail.
 
-`CaseHubRuntime.signal()` has a 5-arg overload carrying `triggerChannelId` and `triggerCorrelationId` (both nullable). When a Qhorus COMMAND triggers a context update, the triggering COMMAND's channel and correlation IDs are threaded through `SignalReceivedEvent` → `CaseContextChangedEvent` → `ProvisionContext` so provisioners can establish causal lineage. Refs engine#231.
+`CaseHubRuntime.signal()` returns `CompletionStage<Void>` (engine#493). The CompletionStage resolves when the signal has been applied, the event log written, and CONTEXT_CHANGED dispatched — it does NOT guarantee goal evaluation completion. The 5-arg overload carries `triggerChannelId` and `triggerCorrelationId` (both nullable) for Qhorus causal lineage. CDI lifecycle events in all handlers (`SignalReceivedEventHandler`, `CaseStartedEventHandler`, `WorkflowExecutionCompletedHandler`) use fire-and-forget `.invoke()` — never `.chain()` — to prevent slow observers from blocking case state progression. Refs engine#231, engine#493.
 
 ## Worker Provisioner SPIs
 
@@ -279,6 +279,30 @@ public class AmlActionRiskClassifier implements ActionRiskClassifier {
 **New event bus addresses** (in `EventBusAddresses`): `ACTION_GATE_SCHEDULE`, `ACTION_GATE_APPROVED`, `ACTION_GATE_REJECTED`, `ACTION_GATE_EXPIRED`, `ACTION_GATE_CANCELLED`, `ACTION_GATE_WORKER_FAULTED` (distinct from `WORKER_RETRIES_EXHAUSTED` — gate faults must not fault the CaseInstance).
 
 See design spec: `docs/specs/2026-06-05-action-risk-classifier-design.md`. Consumer exploration issues: life#20, devtown#56, aml#42, clinical#47, openclaw#6.
+
+## ImplementationRoutingStrategy SPI
+
+Selects which binding(s) handle a capability when multiple bindings target the same capability. Symmetric to `AgentRoutingStrategy` (which selects which worker instance handles a task). Package: `io.casehub.api.spi.routing`. Refs engine#476.
+
+**Pipeline:** Binding eligibility → Stage gating → **ImplementationRouting** → PlanningStrategy → **AgentRouting** → Worker scheduling.
+
+**Sealed result:** `ImplementationSelection` — `Selected(List<String> bindingNames)` | `RunAll()` | `RunNone()`. `Selected` enforces non-empty via constructor validation.
+
+**Default:** `NoOpImplementationRoutingStrategy` (`@DefaultBean @ApplicationScoped` in `runtime/internal/routing/`) returns `RunAll`.
+
+**Integration:** `PlanningStrategyLoopControl.applyImplementationRouting()` runs at step 3.5 — after `stageLifecycleEvaluator.evaluate()`, before `planningStrategy.select()`. Routing filters bindings before PlanItem creation (no create-then-cancel).
+
+## Repeatable Stage
+
+Stage gains `repeatable` (final boolean, builder-only) and `instanceIndex` (AtomicInteger, 0-based). When a repeatable stage autocompletes, `StageAutocompleteEvaluator` calls `resetForRepetition()` — CAS COMPLETED→PENDING, clears `containedPlanItemIds`/`requiredItemIds`/`containedMilestoneIds`, increments `instanceIndex`. Binding names persist across resets (design-time declarations).
+
+**Event records:** `StageCompletedEvent(caseId, stage, instanceIndex)` and `StageActivatedEvent(caseId, stage, instanceIndex)` carry an explicit `instanceIndex` snapshot — use the field, not `stage.getInstanceIndex()` which may have advanced.
+
+**V1 constraint:** Repeatable stages must not contain nested stages or milestones. Runtime enforcement in `StageAutocompleteEvaluator` — logs warning and skips reset.
+
+**Fan-out race:** `WORKER_EXECUTION_FINISHED` fan-out means auto-registration and `resetForRepetition()` may interleave. Self-healing — at worst one cycle skipped. Refs engine#482.
+
+**Stage-PlanItem auto-registration:** `PlanningStrategyLoopControl` auto-registers newly created PlanItems with their owning stage's `containedPlanItemIds` and `requiredItemIds` via `registerWithOwningStages()`. This makes stage autocomplete work in production (previously test-only). Refs engine#497.
 
 ## Agent Worker AI Model
 

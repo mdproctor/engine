@@ -114,6 +114,28 @@ public class SignalReceivedEventHandler {
     return eventLogRepository
         .append(eventLog, instance.tenancyId)
         .invoke(
+            () -> {
+              lifecycleEvents
+                  .fireAsync(
+                      new CaseLifecycleEvent(
+                          instance.getUuid(),
+                          instance.tenancyId,
+                          "SignalCase",
+                          "SignalReceived",
+                          instance.getState().name(),
+                          null,
+                          "System",
+                          traceId))
+                  .whenComplete(
+                      (v, t) -> {
+                        if (t != null)
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s event=SignalReceived",
+                              instance.getUuid());
+                      });
+            })
+        .invoke(
             () ->
                 eventBus.publish(
                     CONTEXT_CHANGED,
@@ -123,31 +145,6 @@ public class SignalReceivedEventHandler {
                         ContextPanel.WORKING,
                         event.triggerChannelId(),
                         event.triggerCorrelationId())))
-        .chain(
-            () ->
-                Uni.createFrom()
-                    .completionStage(
-                        () ->
-                            lifecycleEvents.fireAsync(
-                                new CaseLifecycleEvent(
-                                    instance.getUuid(),
-                                    instance.tenancyId,
-                                    "SignalCase",
-                                    "SignalReceived",
-                                    instance.getState().name(),
-                                    null,
-                                    "System",
-                                    traceId)))
-                    .onFailure()
-                    .recoverWithItem(
-                        t -> {
-                          LOG.warnf(
-                              t,
-                              "CaseLifecycleEvent observer failed for caseId=%s event=SignalReceived",
-                              instance.getUuid());
-                          return null;
-                        })
-                    .replaceWithVoid())
         .replaceWithVoid()
         .onFailure()
         .invoke(

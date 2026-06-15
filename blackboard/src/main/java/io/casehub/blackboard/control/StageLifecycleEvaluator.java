@@ -96,7 +96,7 @@ public class StageLifecycleEvaluator {
         stage.activate();
         eventBus.publish(
             BlackboardEventBusAddresses.STAGE_ACTIVATED,
-            new StageActivatedEvent(ctx.caseId(), stage));
+            new StageActivatedEvent(ctx.caseId(), stage, stage.getInstanceIndex()));
       }
     }
   }

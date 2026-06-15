@@ -24,9 +24,14 @@ import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.Worker;
+import io.casehub.api.spi.routing.ImplementationCandidate;
+import io.casehub.api.spi.routing.ImplementationRoutingContext;
+import io.casehub.api.spi.routing.ImplementationRoutingStrategy;
+import io.casehub.api.spi.routing.ImplementationSelection;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
+import io.casehub.blackboard.stage.Stage;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
@@ -34,7 +39,10 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -59,17 +67,20 @@ public class PlanningStrategyLoopControl implements LoopControl {
   private final PlanningStrategy planningStrategy;
   private final StageLifecycleEvaluator stageLifecycleEvaluator;
   private final Instance<BlackboardPlanConfigurer> configurers;
+  private final ImplementationRoutingStrategy implementationRoutingStrategy;
 
   @Inject
   public PlanningStrategyLoopControl(
       BlackboardRegistry registry,
       PlanningStrategy planningStrategy,
       StageLifecycleEvaluator stageLifecycleEvaluator,
-      Instance<BlackboardPlanConfigurer> configurers) {
+      Instance<BlackboardPlanConfigurer> configurers,
+      ImplementationRoutingStrategy implementationRoutingStrategy) {
     this.registry = registry;
     this.planningStrategy = planningStrategy;
     this.stageLifecycleEvaluator = stageLifecycleEvaluator;
     this.configurers = configurers;
+    this.implementationRoutingStrategy = implementationRoutingStrategy;
   }
 
   @Override
@@ -115,20 +126,92 @@ public class PlanningStrategyLoopControl implements LoopControl {
                             || activeStagedNames.contains(b.getName())) // staged → only if ACTIVE
                 .collect(Collectors.toList());
 
-    // Create a PlanItem for each gated-eligible Binding and add to agenda, skipping duplicates.
-    // addPlanItemIfAbsent performs the check-and-insert atomically — no TOCTOU window.
-    gatedEligible.forEach(
-        binding -> {
-          String workerName = resolveWorkerName(binding, ctx);
-          plan.addPlanItemIfAbsent(
-              PlanItem.create(binding.getName(), workerName, 0, binding.target()));
-        });
-
     return stageLifecycleEvaluator
         .evaluate(plan, ctx)
-        .chain(() -> planningStrategy.select(plan, ctx, gatedEligible))
+        .chain(() -> applyImplementationRouting(ctx, gatedEligible))
+        .invoke(
+            routed -> {
+              // Create PlanItems only for surviving bindings — routing decision is upstream.
+              // addPlanItemIfAbsent is atomic (no TOCTOU). Auto-register with owning stages
+              // for autocomplete tracking. Refs casehubio/engine#497, engine#476.
+              routed.forEach(
+                  binding -> {
+                    String workerName = resolveWorkerName(binding, ctx);
+                    PlanItem item =
+                        PlanItem.create(binding.getName(), workerName, 0, binding.target());
+                    if (plan.addPlanItemIfAbsent(item)) {
+                      registerWithOwningStages(plan, binding.getName(), item.getPlanItemId());
+                    }
+                  });
+            })
+        .chain(routed -> planningStrategy.select(plan, ctx, routed))
         .map(selected -> filterToDispatchable(plan, selected))
         .invoke(dispatchable -> indexSelectedForCompletion(caseId, dispatchable, plan));
+  }
+
+  /**
+   * Groups gated-eligible bindings by capability name. Groups with a single binding pass through
+   * unchanged. Groups with multiple bindings consult {@link ImplementationRoutingStrategy} to
+   * select which binding(s) survive. Non-capability bindings are never grouped. Refs
+   * casehubio/engine#476.
+   */
+  private Uni<List<Binding>> applyImplementationRouting(
+      PlanExecutionContext ctx, List<Binding> gatedEligible) {
+    Map<String, List<Binding>> byCapability = new LinkedHashMap<>();
+    List<Binding> nonCapability = new ArrayList<>();
+    for (Binding b : gatedEligible) {
+      if (b.target() instanceof CapabilityTarget ct) {
+        byCapability.computeIfAbsent(ct.capability().getName(), k -> new ArrayList<>()).add(b);
+      } else {
+        nonCapability.add(b);
+      }
+    }
+
+    Uni<List<Binding>> result = Uni.createFrom().item(new ArrayList<>(nonCapability));
+    for (var entry : byCapability.entrySet()) {
+      String capName = entry.getKey();
+      List<Binding> group = entry.getValue();
+      if (group.size() == 1) {
+        result = result.invoke(acc -> acc.addAll(group));
+      } else {
+        result =
+            result.chain(
+                acc -> {
+                  List<ImplementationCandidate> candidates =
+                      group.stream()
+                          .map(
+                              b ->
+                                  new ImplementationCandidate(
+                                      b.getName(), resolveWorkerName(b, ctx), capName))
+                          .toList();
+                  var routingCtx =
+                      new ImplementationRoutingContext(
+                          ctx.caseId(),
+                          capName,
+                          ctx.caseContext() != null ? ctx.caseContext().asJsonNode() : null);
+                  return implementationRoutingStrategy
+                      .select(routingCtx, candidates)
+                      .map(
+                          selection ->
+                              switch (selection) {
+                                case ImplementationSelection.Selected s -> {
+                                  Set<String> kept = Set.copyOf(s.bindingNames());
+                                  acc.addAll(
+                                      group.stream()
+                                          .filter(b -> kept.contains(b.getName()))
+                                          .toList());
+                                  yield acc;
+                                }
+                                case ImplementationSelection.RunAll ignored -> {
+                                  acc.addAll(group);
+                                  yield acc;
+                                }
+                                case ImplementationSelection.RunNone ignored -> acc;
+                              });
+                });
+      }
+    }
+    return result;
   }
 
   /**
@@ -221,6 +304,21 @@ public class PlanningStrategyLoopControl implements LoopControl {
                 pi.markRunning();
                 registry.indexForCompletion(caseId, pi.getWorkerName(), pi.getPlanItemId());
               });
+    }
+  }
+
+  /**
+   * Registers a newly created PlanItem with all stages that declare ownership of its binding name
+   * via {@link Stage#getContainedBindingNames()}. Enables {@link
+   * io.casehub.blackboard.handler.StageAutocompleteEvaluator} to detect when all required items in
+   * a stage have reached terminal states. Refs casehubio/engine#497.
+   */
+  private void registerWithOwningStages(CasePlanModel plan, String bindingName, String planItemId) {
+    for (Stage stage : plan.getAllStages()) {
+      if (stage.getContainedBindingNames().contains(bindingName)) {
+        stage.addPlanItem(planItemId);
+        stage.addRequiredItem(planItemId);
+      }
     }
   }
 }

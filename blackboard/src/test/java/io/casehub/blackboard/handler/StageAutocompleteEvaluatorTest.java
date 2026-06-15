@@ -15,6 +15,7 @@
  */
 package io.casehub.blackboard.handler;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -22,6 +23,7 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.blackboard.event.StageCompletedEvent;
 import io.casehub.blackboard.plan.CasePlanModel;
+import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
@@ -64,7 +66,7 @@ class StageAutocompleteEvaluatorTest {
     verify(eventBus)
         .publish(
             io.casehub.blackboard.event.BlackboardEventBusAddresses.STAGE_COMPLETED,
-            new StageCompletedEvent(caseId, stage));
+            new StageCompletedEvent(caseId, stage, 0));
   }
 
   @Test
@@ -201,5 +203,38 @@ class StageAutocompleteEvaluatorTest {
     when(stage.isAutocomplete()).thenReturn(true);
     when(stage.getRequiredItemIds()).thenReturn(List.of(requiredIds));
     return stage;
+  }
+
+  // --- repeatable stage reset through evaluator ---
+
+  @Test
+  void repeatable_stage_resets_to_pending_after_autocomplete() {
+    UUID caseId = UUID.randomUUID();
+    DefaultCasePlanModel plan = new DefaultCasePlanModel(caseId);
+
+    Stage stage =
+        Stage.builder("decision")
+            .entryCondition(ctx -> true)
+            .repeatable(true)
+            .binding("do-work")
+            .build();
+    stage.activate();
+    plan.addStage(stage);
+
+    PlanItem item = PlanItem.create("do-work", "worker-a", 0);
+    plan.addPlanItem(item);
+    stage.addPlanItem(item.getPlanItemId());
+    stage.addRequiredItem(item.getPlanItemId());
+    item.markRunning();
+    item.markCompleted();
+
+    evaluator.evaluate(caseId, plan, item.getPlanItemId());
+
+    assertThat(stage.getStatus())
+        .as("repeatable stage must reset to PENDING after autocomplete")
+        .isEqualTo(io.casehub.blackboard.stage.StageStatus.PENDING);
+    assertThat(stage.getInstanceIndex()).isEqualTo(1);
+    assertThat(stage.getContainedPlanItemIds()).isEmpty();
+    assertThat(stage.getRequiredItemIds()).isEmpty();
   }
 }

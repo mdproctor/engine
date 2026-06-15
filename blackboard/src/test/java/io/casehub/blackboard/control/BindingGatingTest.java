@@ -76,7 +76,13 @@ class BindingGatingTest {
     Instance<BlackboardPlanConfigurer> emptyConfigurers = mock(Instance.class);
     when(emptyConfigurers.stream()).thenReturn(Stream.empty());
 
-    loopControl = new PlanningStrategyLoopControl(registry, strategy, evaluator, emptyConfigurers);
+    loopControl =
+        new PlanningStrategyLoopControl(
+            registry,
+            strategy,
+            evaluator,
+            emptyConfigurers,
+            new io.casehub.engine.internal.routing.NoOpImplementationRoutingStrategy());
 
     caseId = UUID.randomUUID();
     CaseDefinition def = mock(CaseDefinition.class);
@@ -374,5 +380,70 @@ class BindingGatingTest {
     assertThat(result.stream().map(Binding::getName))
         .as("RUNNING case must not re-dispatch a binding whose PlanItem is already RUNNING")
         .doesNotContain("in-flight-b");
+  }
+
+  // ------------------------------------------------------------------ //
+  // Auto-registration: PlanItems registered with owning stage           //
+  // Refs casehubio/engine#497                                           //
+  // ------------------------------------------------------------------ //
+
+  @Test
+  void staged_binding_auto_registers_planItem_with_owning_stage() {
+    Stage stage = Stage.alwaysActivate("intake");
+    stage.activate();
+    stage.addBinding("staged-b");
+    plan().addStage(stage);
+
+    Binding b = binding("staged-b");
+    loopControl.select(ctx, List.of(b)).await().indefinitely();
+
+    assertThat(stage.getContainedPlanItemIds())
+        .as("PlanItem must be auto-registered in stage's containedPlanItemIds")
+        .hasSize(1);
+    assertThat(stage.getRequiredItemIds())
+        .as("PlanItem must be auto-registered in stage's requiredItemIds")
+        .hasSize(1);
+    assertThat(stage.getContainedPlanItemIds())
+        .as("containedPlanItemIds and requiredItemIds must contain the same PlanItem")
+        .containsExactlyElementsOf(stage.getRequiredItemIds());
+  }
+
+  @Test
+  void free_floating_binding_does_not_register_with_any_stage() {
+    Stage stage = Stage.alwaysActivate("intake");
+    stage.activate();
+    stage.addBinding("other-b");
+    plan().addStage(stage);
+
+    Binding b = binding("free-b");
+    loopControl.select(ctx, List.of(b)).await().indefinitely();
+
+    assertThat(stage.getContainedPlanItemIds())
+        .as("free-floating binding must not register with unrelated stage")
+        .isEmpty();
+    assertThat(stage.getRequiredItemIds())
+        .as("free-floating binding must not register with unrelated stage")
+        .isEmpty();
+  }
+
+  @Test
+  void auto_registration_skipped_when_planItem_already_exists() {
+    Stage stage = Stage.alwaysActivate("intake");
+    stage.activate();
+    stage.addBinding("staged-b");
+    plan().addStage(stage);
+
+    Binding b = binding("staged-b");
+    // First select creates and registers the PlanItem
+    loopControl.select(ctx, List.of(b)).await().indefinitely();
+    int afterFirst = stage.getRequiredItemIds().size();
+
+    // Second select — PlanItem exists (RUNNING after indexSelectedForCompletion),
+    // addPlanItemIfAbsent returns false, no duplicate registration
+    loopControl.select(ctx, List.of(b)).await().indefinitely();
+
+    assertThat(stage.getRequiredItemIds())
+        .as("second select must not duplicate registration")
+        .hasSize(afterFirst);
   }
 }

@@ -294,19 +294,21 @@ class CaseHubReactor {
     }
   }
 
-  void signal(UUID caseId, String path, Object value) {
-    signal(caseId, path, value, null, null);
+  Uni<Void> signal(UUID caseId, String path, Object value) {
+    return signal(caseId, path, value, null, null);
   }
 
-  void signal(
+  Uni<Void> signal(
       UUID caseId,
       String path,
       Object value,
       String triggerChannelId,
       String triggerCorrelationId) {
-    eventBus.publish(
-        SIGNAL_RECEIVED,
-        new SignalReceivedEvent(caseId, path, value, triggerChannelId, triggerCorrelationId));
+    return eventBus
+        .<Void>request(
+            SIGNAL_RECEIVED,
+            new SignalReceivedEvent(caseId, path, value, triggerChannelId, triggerCorrelationId))
+        .replaceWithVoid();
   }
 
   void cancelCase(UUID caseId) {

@@ -48,7 +48,15 @@ public interface CaseHubRuntime {
       UUID parentCaseId,
       PropagationContext propagationContext);
 
-  void signal(UUID caseId, String path, Object value);
+  /**
+   * Signals a case context update. The returned {@code CompletionStage} resolves when the signal
+   * has been applied to the context, the event log written, and {@code CONTEXT_CHANGED} dispatched.
+   * It does NOT guarantee that goal evaluation has completed — callers that need to await case
+   * state transitions should use Awaitility on the case status.
+   *
+   * <p>Refs casehubio/engine#493.
+   */
+  CompletionStage<Void> signal(UUID caseId, String path, Object value);
 
   /**
    * Signals a case context update with Qhorus trigger context for causal lineage.
@@ -59,15 +67,15 @@ public interface CaseHubRuntime {
    * establish causal linkage in the ledger. Both fields are nullable — pass {@code null} when the
    * signal is not triggered by a Qhorus COMMAND.
    *
-   * <p>Refs casehubio/engine#231, claudony#94.
+   * <p>Refs casehubio/engine#231, casehubio/engine#493, claudony#94.
    */
-  default void signal(
+  default CompletionStage<Void> signal(
       UUID caseId,
       String path,
       Object value,
       String triggerChannelId,
       String triggerCorrelationId) {
-    signal(caseId, path, value); // default: discard trigger context
+    return signal(caseId, path, value);
   }
 
   /**

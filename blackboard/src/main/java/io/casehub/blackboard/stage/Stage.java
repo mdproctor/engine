@@ -24,6 +24,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 
@@ -68,11 +69,18 @@ public class Stage {
   // Behaviour
   private boolean autocomplete = true;
   private boolean manualActivation = false;
+  private final boolean repeatable;
+  private final AtomicInteger instanceIndex = new AtomicInteger(0);
 
-  private Stage(String name) {
+  private Stage(String name, boolean repeatable) {
     this.stageId = UUID.randomUUID().toString();
     this.name = name;
     this.createdAt = Instant.now();
+    this.repeatable = repeatable;
+  }
+
+  private Stage(String name) {
+    this(name, false);
   }
 
   /**
@@ -109,6 +117,7 @@ public class Stage {
     private ExpressionEvaluator exitCondition;
     private boolean manualActivation = false;
     private boolean autocomplete = true;
+    private boolean repeatable = false;
     private String parentStageId;
     private final java.util.Set<String> bindingNames = new java.util.HashSet<>();
 
@@ -161,6 +170,11 @@ public class Stage {
       return this;
     }
 
+    public Builder repeatable(boolean repeatable) {
+      this.repeatable = repeatable;
+      return this;
+    }
+
     public Stage build() {
       if (entryCondition == null) {
         throw new IllegalStateException(
@@ -171,7 +185,7 @@ public class Stage {
                 + name
                 + "\") if the stage should activate on every cycle.");
       }
-      Stage stage = new Stage(name);
+      Stage stage = new Stage(name, this.repeatable);
       stage.entryCondition = this.entryCondition;
       stage.exitCondition = this.exitCondition;
       stage.manualActivation = this.manualActivation;
@@ -405,5 +419,36 @@ public class Stage {
 
   public boolean isManualActivation() {
     return manualActivation;
+  }
+
+  public boolean isRepeatable() {
+    return repeatable;
+  }
+
+  public int getInstanceIndex() {
+    return instanceIndex.get();
+  }
+
+  /**
+   * Resets a repeatable Stage from COMPLETED to PENDING for the next instance. Clears all
+   * containment sets (PlanItems, milestones) so the next instance starts fresh. Binding names are
+   * preserved — they are design-time declarations, not instance state.
+   *
+   * <p>Refs casehubio/engine#482.
+   *
+   * @return true if reset succeeded; false if the stage is not repeatable or not COMPLETED
+   */
+  public boolean resetForRepetition() {
+    if (!repeatable) return false;
+    if (status.compareAndSet(StageStatus.COMPLETED, StageStatus.PENDING)) {
+      instanceIndex.incrementAndGet();
+      containedPlanItemIds.clear();
+      requiredItemIds.clear();
+      containedMilestoneIds.clear();
+      activatedAt = null;
+      completedAt = null;
+      return true;
+    }
+    return false;
   }
 }
