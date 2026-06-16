@@ -45,6 +45,7 @@ class CasehubDispatchTest {
   private FlowExecutionRegistry registry;
   private WorkOrchestrator orchestrator;
   private EventLogRepository eventLogRepository;
+  private io.casehub.engine.common.spi.cache.CaseInstanceCache caseInstanceCache;
   private CasehubDispatch dispatch;
 
   @BeforeEach
@@ -56,7 +57,8 @@ class CasehubDispatchTest {
     // Default: fire-and-forget subscribe returns immediately
     when(eventLogRepository.appendAndReturnId(any(), any())).thenReturn(Uni.createFrom().item(1L));
 
-    dispatch = new CasehubDispatch(registry, orchestrator, eventLogRepository);
+    caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
+    dispatch = new CasehubDispatch(registry, orchestrator, eventLogRepository, caseInstanceCache);
   }
 
   // ---- happy path -----------------------------------------------------
@@ -171,13 +173,15 @@ class CasehubDispatchTest {
 
   private CaseInstance mockInstance() {
     final CaseInstance instance = mock(CaseInstance.class);
-    when(instance.getUuid()).thenReturn(UUID.randomUUID());
-    // tenancyId is a public field — null is fine for unit tests that don't verify it
+    UUID caseId = UUID.randomUUID();
+    when(instance.getUuid()).thenReturn(caseId);
+    when(caseInstanceCache.get(caseId)).thenReturn(instance);
     return instance;
   }
 
   private void stubRegistry(final String instanceId, final CaseInstance instance) {
+    UUID caseId = instance.getUuid();
     when(registry.get(instanceId))
-        .thenReturn(new FlowExecution(instance, "my-flow-worker", "hash-xyz"));
+        .thenReturn(new FlowExecution(caseId, "my-flow-worker", "hash-xyz"));
   }
 }

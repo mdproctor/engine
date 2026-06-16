@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.flow;
 
-import io.casehub.engine.common.internal.model.CaseInstance;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -31,10 +31,10 @@ public class FlowExecutionRegistry {
 
   public void register(
       final String instanceId,
-      final CaseInstance caseInstance,
+      final UUID caseId,
       final String workerName,
       final String inputDataHash) {
-    executions.put(instanceId, new FlowExecution(caseInstance, workerName, inputDataHash));
+    executions.put(instanceId, new FlowExecution(caseId, workerName, inputDataHash));
   }
 
   public FlowExecution get(final String instanceId) {

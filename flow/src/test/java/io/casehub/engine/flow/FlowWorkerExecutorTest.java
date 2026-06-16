@@ -30,6 +30,7 @@ import io.serverlessworkflow.impl.WorkflowDefinition;
 import io.serverlessworkflow.impl.WorkflowInstance;
 import io.serverlessworkflow.impl.WorkflowModel;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,11 +60,12 @@ class FlowWorkerExecutorTest {
 
     stubApp(wfInstance);
 
+    UUID caseId = caseInstance.getUuid();
     final CompletableFuture<WorkflowModel> result =
-        executor.execute(mock(Workflow.class), Map.of(), caseInstance, "worker-A", "hash-1");
+        executor.execute(mock(Workflow.class), Map.of(), caseId, "worker-A", "hash-1");
 
     assertThat(result.get()).isSameAs(model);
-    verify(registry).register(eq(instanceId), eq(caseInstance), eq("worker-A"), eq("hash-1"));
+    verify(registry).register(eq(instanceId), eq(caseId), eq("worker-A"), eq("hash-1"));
     verify(registry).remove(instanceId);
   }
 
@@ -80,7 +82,8 @@ class FlowWorkerExecutorTest {
     stubApp(wfInstance);
 
     final CompletableFuture<WorkflowModel> result =
-        executor.execute(mock(Workflow.class), Map.of(), caseInstance, "worker-B", "hash-2");
+        executor.execute(
+            mock(Workflow.class), Map.of(), caseInstance.getUuid(), "worker-B", "hash-2");
 
     assertThat(result).isCompletedExceptionally();
     verify(registry).remove(instanceId);
@@ -97,7 +100,9 @@ class FlowWorkerExecutorTest {
     stubApp(wfInstance);
 
     assertThatThrownBy(
-            () -> executor.execute(mock(Workflow.class), Map.of(), caseInstance, "worker-C", "h"))
+            () ->
+                executor.execute(
+                    mock(Workflow.class), Map.of(), caseInstance.getUuid(), "worker-C", "h"))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("sync exception from start()");
 
@@ -117,7 +122,7 @@ class FlowWorkerExecutorTest {
     stubApp(wfInstance);
 
     final CompletableFuture<WorkflowModel> result =
-        executor.execute(mock(Workflow.class), Map.of(), mock(CaseInstance.class), "w", "h");
+        executor.execute(mock(Workflow.class), Map.of(), java.util.UUID.randomUUID(), "w", "h");
 
     assertThat(result.isDone()).isFalse();
     future.complete(model);

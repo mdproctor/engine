@@ -13,33 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.scheduler.quartz;
+package io.casehub.engine.common.internal.executor;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-/**
- * Configuration for worker execution behavior.
- *
- * <p>Provides default timeout and other execution-related settings that can be overridden per
- * worker via {@link io.casehub.api.model.ExecutionPolicy}.
- */
 @ApplicationScoped
-class WorkerExecutionConfig {
+public class WorkerExecutionConfig {
 
   @ConfigProperty(name = "casehub.engine.worker.default-timeout-ms", defaultValue = "60000")
   int defaultTimeoutMs;
 
-  /**
-   * Returns the effective timeout for a worker execution.
-   *
-   * <p>If the worker's ExecutionPolicy specifies a timeout, uses that. Otherwise uses the
-   * configured default.
-   *
-   * @param workerTimeoutMs worker-specific timeout from ExecutionPolicy, or null
-   * @return effective timeout in milliseconds
-   */
-  int getEffectiveTimeout(Integer workerTimeoutMs) {
+  public int getEffectiveTimeout(Integer workerTimeoutMs) {
     return workerTimeoutMs != null ? workerTimeoutMs : defaultTimeoutMs;
   }
 }

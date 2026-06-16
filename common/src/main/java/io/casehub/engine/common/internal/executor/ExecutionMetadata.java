@@ -13,13 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.flow;
-
-import java.util.UUID;
+package io.casehub.engine.common.internal.executor;
 
 /**
- * Holds the engine-side context for an in-flight workflow execution. Keyed by the workflow instance
- * ID in {@link FlowExecutionRegistry} so {@link CasehubDispatch} can emit correct lineage events
- * when a workflow step dispatches a capability.
+ * Lineage metadata for worker execution. Carries the worker name and input data hash needed by the
+ * flow path ({@code FlowExecutionRegistry}) but meaningless for sync/agent execution.
+ *
+ * <p>Kept separate from {@code WorkerContext} (which is an API type visible to worker functions) to
+ * avoid polluting the API with engine internals.
+ *
+ * <p>Refs casehubio/engine#463.
  */
-public record FlowExecution(UUID caseId, String workerName, String inputDataHash) {}
+public record ExecutionMetadata(String workerName, String inputDataHash) {}

@@ -19,10 +19,8 @@ import java.util.UUID;
 import org.quartz.JobExecutionContext;
 
 /**
- * Plain value object carrying the data needed for retry scheduling and failure counting. Allows
- * {@code QuartzWorkerExecutionJobListener.maybeRescheduleWorker()} to be called from both the
- * synchronous path (built from {@link JobExecutionContext}) and the asynchronous path (built from a
- * {@code WorkflowExecutionFailed} event) without requiring a live Quartz context.
+ * Value object carrying the data needed by {@link QuartzRetryService} for retry scheduling and
+ * failure counting. Built from the Quartz {@link JobExecutionContext} job data map.
  */
 record WorkerRetryContext(
     UUID caseId, String workerId, String inputDataHash, String tenancyId, String eventLogId) {

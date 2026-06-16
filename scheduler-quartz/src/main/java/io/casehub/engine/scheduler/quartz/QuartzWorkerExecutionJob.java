@@ -17,27 +17,21 @@ package io.casehub.engine.scheduler.quartz;
 
 import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.WorkerExecutionContext;
-import io.casehub.api.model.WorkerResult;
-import io.casehub.api.model.ai.Agent;
 import io.casehub.api.spi.PlannedAction;
 import io.casehub.api.spi.WorkerContextProvider;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
-import io.casehub.engine.common.internal.event.WorkflowExecutionFailed;
+import io.casehub.engine.common.internal.executor.ExecutionMetadata;
+import io.casehub.engine.common.internal.executor.WorkerExecutionConfig;
+import io.casehub.engine.common.internal.executor.WorkerExecutor;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.internal.jq.JQEvaluator;
-import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
-import io.casehub.engine.common.internal.worker.WorkflowExecutor;
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
@@ -49,21 +43,26 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-import org.quartz.JobExecutionException;
 
+/**
+ * Thin Quartz adapter — resolves context, delegates execution to {@link WorkerExecutor}, and
+ * publishes the outcome. Fire-and-forget: the Quartz thread is freed immediately after
+ * subscription; success publishes {@code WORKER_EXECUTION_FINISHED}, failure routes to {@link
+ * QuartzRetryService}.
+ *
+ * <p>Refs casehubio/engine#463.
+ */
 @SuppressWarnings("unchecked")
 @ApplicationScoped
 class QuartzWorkerExecutionJob implements Job {
 
-  @Inject WorkflowExecutor workflowExecutor;
+  private static final Logger LOG = Logger.getLogger(QuartzWorkerExecutionJob.class);
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+  @Inject WorkerExecutor workerExecutor;
 
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 
@@ -79,140 +78,100 @@ class QuartzWorkerExecutionJob implements Job {
 
   @Inject WorkerExecutionConfig executionConfig;
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
-
-  private static final Logger LOG = Logger.getLogger(QuartzWorkerExecutionJob.class);
-
-  @Inject JQEvaluator jqEvaluator;
+  @Inject QuartzRetryService retryService;
 
   @Override
-  public void execute(JobExecutionContext executionContext) throws JobExecutionException {
+  public void execute(JobExecutionContext executionContext) {
     LOG.infof("Executing workflow task: %s", executionContext.getJobDetail().getKey());
 
-    String inputDataHash = executionContext.getMergedJobDataMap().getString("inputDataHash");
-    String eventLogId = executionContext.getMergedJobDataMap().getString("eventLogId");
+    WorkerRetryContext retryCtx = WorkerRetryContext.from(executionContext);
 
-    execute(inputDataHash, eventLogId);
+    try {
+      String inputDataHash = executionContext.getMergedJobDataMap().getString("inputDataHash");
+      String eventLogId = executionContext.getMergedJobDataMap().getString("eventLogId");
+
+      EventLog eventLog =
+          findEventLog(eventLogId).subscribe().asCompletionStage().toCompletableFuture().join();
+
+      if (eventLog == null) {
+        onFailure(retryCtx, new RuntimeException("EventLog not found: id=" + eventLogId));
+        return;
+      }
+
+      Map<String, Object> inputData = OBJECT_MAPPER.convertValue(eventLog.getPayload(), Map.class);
+
+      CaseInstance instance =
+          workerExecutionRecoveryService
+              .loadOrRestoreCaseInstance(eventLog.getCaseId())
+              .await()
+              .atMost(Duration.ofSeconds(10));
+
+      CaseDefinition definition =
+          caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+
+      if (definition == null) {
+        onFailure(
+            retryCtx,
+            new RuntimeException("CaseDefinition not found for caseId=" + eventLog.getCaseId()));
+        return;
+      }
+
+      String workerId = eventLog.getWorkerId();
+      String capabilityName = eventLog.getMetadata().get("capabilityName").asText();
+
+      Worker worker =
+          definition.getWorkers().stream()
+              .filter(w -> w.getName().equals(workerId))
+              .findFirst()
+              .orElse(null);
+
+      if (worker == null) {
+        onFailure(retryCtx, new RuntimeException("Worker not found: " + workerId));
+        return;
+      }
+
+      Capability capability =
+          definition.getCapabilities().stream()
+              .filter(c -> c.getName().equals(capabilityName))
+              .findFirst()
+              .orElse(null);
+
+      if (capability == null) {
+        onFailure(retryCtx, new RuntimeException("Capability not found: " + capabilityName));
+        return;
+      }
+
+      int timeoutMs = executionConfig.getEffectiveTimeout(worker.getExecutionPolicy().timeoutMs());
+
+      WorkerContext workerContext =
+          workerContextProvider.buildContext(
+              workerId, eventLog.getCaseId(), WorkRequest.of(capabilityName, inputData));
+
+      ExecutionMetadata metadata = new ExecutionMetadata(workerId, inputDataHash);
+
+      workerExecutor
+          .execute(
+              worker.getFunction(),
+              inputData,
+              workerContext,
+              timeoutMs,
+              capability.getOutputSchema(),
+              metadata)
+          .subscribe()
+          .with(
+              workerResult -> onSuccess(instance, worker, inputDataHash, workerResult),
+              failure -> onFailure(retryCtx, failure));
+    } catch (Exception e) {
+      onFailure(retryCtx, e);
+    }
   }
 
-  private void execute(String inputDataHash, String eventLogId) throws JobExecutionException {
-    EventLog eventLog =
-        findEventLog(eventLogId)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join(); // TODO
-
-    if (eventLog == null) {
-      throw new JobExecutionException("EventLog not found: id=" + eventLogId);
-    }
-
-    Map<String, Object> inputData = OBJECT_MAPPER.convertValue(eventLog.getPayload(), Map.class);
-
-    // TODO
-    CaseInstance instance =
-        workerExecutionRecoveryService
-            .loadOrRestoreCaseInstance(eventLog.getCaseId())
-            .await()
-            .atMost(Duration.ofSeconds(10));
-
-    CaseDefinition definition =
-        caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
-
-    if (definition == null) {
-      throw new JobExecutionException(
-          "CaseDefinition not found for caseId=" + eventLog.getCaseId());
-    }
-    String workflowId = eventLog.getWorkerId();
-    String capabilityName = eventLog.getMetadata().get("capabilityName").asText();
-
-    // TODO use map
-    Worker worker =
-        definition.getWorkers().stream()
-            .filter(w -> w.getName().equals(workflowId))
-            .findFirst()
-            .orElseThrow(
-                () -> new RuntimeException("Worker not found in case definition: " + workflowId));
-
-    // TODO use map
-    Capability capability =
-        definition.getCapabilities().stream()
-            .filter(c -> c.getName().equals(capabilityName))
-            .findFirst()
-            .orElseThrow(
-                () ->
-                    new RuntimeException(
-                        "Capability not found in case definition: " + capabilityName));
-
-    int timeoutMs = executionConfig.getEffectiveTimeout(worker.getExecutionPolicy().timeoutMs());
-
-    WorkerContext workerContext =
-        workerContextProvider.buildContext(
-            workflowId, eventLog.getCaseId(), WorkRequest.of(capabilityName, inputData));
-
-    // Type dispatch via sealed WorkerFunction hierarchy — exhaustive switch.
-    // TODO(engine#463): This entire block moves to DefaultWorkerExecutor in the next step.
-    if (worker.getFunction() instanceof io.casehub.api.model.WorkerFunction.Flow flow) {
-      final Capability capabilityForClosure = capability;
-      final Worker workerForClosure = worker;
-      workflowExecutor
-          .execute(flow.workflow(), inputData, instance, worker.getName(), inputDataHash)
-          .thenApply(
-              model ->
-                  model
-                      .asMap()
-                      .orElseThrow(
-                          () ->
-                              new RuntimeException(
-                                  "Workflow produced non-serializable model: " + worker.getName())))
-          .thenApply(output -> evalJqAsMap(output, capabilityForClosure.getOutputSchema()))
-          .whenComplete(
-              (output, ex) -> {
-                if (ex != null) {
-                  handleWorkflowFailure(
-                      instance,
-                      workerForClosure,
-                      capabilityForClosure,
-                      inputDataHash,
-                      eventLogId,
-                      ex);
-                } else {
-                  eventBus.publish(
-                      WORKER_EXECUTION_FINISHED,
-                      new WorkflowExecutionCompleted(
-                          instance, workerForClosure, inputDataHash, output, null));
-                }
-              });
-      return;
-    }
-
-    WorkerResult workerResult;
-    try {
-      if (worker.getFunction() instanceof io.casehub.api.model.WorkerFunction.Sync sync) {
-        workerResult = function(sync.fn(), inputData, workerContext, timeoutMs);
-      } else if (worker.getFunction()
-          instanceof io.casehub.api.model.WorkerFunction.AgentExec agentExec) {
-        workerResult = agent(agentExec.agent(), inputData, workerContext, timeoutMs);
-      } else {
-        throw new RuntimeException(
-            "Unknown WorkerFunction variant: "
-                + worker.getFunction().getClass().getCanonicalName());
-      }
-    } catch (TimeoutException e) {
-      throw new JobExecutionException(
-          "Worker execution timed out after " + timeoutMs + "ms: " + worker.getName(), e);
-    } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
-      throw new JobExecutionException("Worker execution interrupted: " + worker.getName(), e);
-    } catch (ExecutionException e) {
-      throw new JobExecutionException("Worker execution failed: " + worker.getName(), e.getCause());
-    }
-
-    final Map<String, Object> outputData =
-        evalJqAsMap(workerResult.output(), capability.getOutputSchema());
-    // Enrich PlannedAction with workerId and caseId before passing to the completion handler.
-    final PlannedAction enrichedAction =
+  private void onSuccess(
+      CaseInstance instance,
+      Worker worker,
+      String inputDataHash,
+      io.casehub.api.model.WorkerResult workerResult) {
+    PlannedAction enrichedAction =
         workerResult.plannedAction() != null
             ? workerResult.plannedAction().withIdentity(worker.getName(), instance.getUuid())
             : null;
@@ -220,78 +179,20 @@ class QuartzWorkerExecutionJob implements Job {
     eventBus.publish(
         WORKER_EXECUTION_FINISHED,
         new WorkflowExecutionCompleted(
-            instance, worker, inputDataHash, outputData, enrichedAction));
+            instance, worker, inputDataHash, workerResult.output(), enrichedAction));
   }
 
-  private void handleWorkflowFailure(
-      final CaseInstance instance,
-      final Worker worker,
-      final Capability capability,
-      final String inputDataHash,
-      final String eventLogId,
-      final Throwable cause) {
+  private void onFailure(WorkerRetryContext retryCtx, Throwable failure) {
     LOG.errorf(
-        "Workflow execution failed: caseId=%s worker=%s cause=%s",
-        instance.getUuid(), worker.getName(), cause.getMessage());
-    eventBus.publish(
-        EventBusAddresses.WORKFLOW_EXECUTION_FAILED,
-        new WorkflowExecutionFailed(
-            instance, worker, capability, inputDataHash, eventLogId, cause));
-  }
+        "Worker execution failed: caseId=%s worker=%s cause=%s",
+        retryCtx.caseId(), retryCtx.workerId(), failure.getMessage());
 
-  private WorkerResult function(
-      Function<Map<String, Object>, WorkerResult> function,
-      Map<String, Object> inputData,
-      WorkerContext workerContext,
-      int timeoutMs)
-      throws TimeoutException, InterruptedException, ExecutionException {
-
-    LOG.debugf("Executing function with timeout: %d ms", timeoutMs);
-
-    CompletableFuture<WorkerResult> cf =
-        CompletableFuture.supplyAsync(
-            () -> {
-              WorkerExecutionContext.set(workerContext);
-              try {
-                return function.apply(inputData);
-              } finally {
-                WorkerExecutionContext.clear();
-              }
-            });
-
-    return cf.get(timeoutMs, TimeUnit.MILLISECONDS);
-  }
-
-  private WorkerResult agent(
-      Agent agent, Map<String, Object> inputData, WorkerContext workerContext, int timeoutMs)
-      throws TimeoutException, InterruptedException, ExecutionException {
-
-    LOG.debugf("Executing agent with timeout: %d ms", timeoutMs);
-
-    CompletableFuture<WorkerResult> cf =
-        CompletableFuture.supplyAsync(
-            () -> {
-              WorkerExecutionContext.set(workerContext);
-              try {
-                return agent.execute(inputData);
-              } finally {
-                WorkerExecutionContext.clear();
-              }
-            });
-
-    return cf.get(timeoutMs, TimeUnit.MILLISECONDS);
-  }
-
-  private Map<String, Object> evalJqAsMap(Map<String, Object> data, String expression) {
-    if (expression == null || expression.isBlank()) return data;
-    try {
-      ValidationResult vr = jqEvaluator.eval(expression, OBJECT_MAPPER.valueToTree(data));
-      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return data;
-      return OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
-    } catch (Exception e) {
-      LOG.warnf(e, "outputSchema jq evaluation failed — returning raw output data");
-      return data;
-    }
+    retryService
+        .handleFailure(retryCtx, failure.getMessage())
+        .subscribe()
+        .with(
+            ignored -> {},
+            ex -> LOG.errorf(ex, "Retry handling failed for worker %s", retryCtx.workerId()));
   }
 
   private Uni<EventLog> findEventLog(String eventLogId) {

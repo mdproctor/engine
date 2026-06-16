@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.flow;
 
-import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.worker.WorkflowExecutor;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
@@ -24,6 +23,7 @@ import io.serverlessworkflow.impl.WorkflowModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -50,7 +50,7 @@ public class FlowWorkerExecutor implements WorkflowExecutor {
   public CompletableFuture<WorkflowModel> execute(
       final Workflow workflow,
       final Map<String, Object> inputData,
-      final CaseInstance caseInstance,
+      final UUID caseId,
       final String workerName,
       final String inputDataHash) {
 
@@ -58,7 +58,7 @@ public class FlowWorkerExecutor implements WorkflowExecutor {
     // id() is assigned in WorkflowMutableInstance constructor — available before start()
     final String instanceId = wfInstance.id();
 
-    registry.register(instanceId, caseInstance, workerName, inputDataHash);
+    registry.register(instanceId, caseId, workerName, inputDataHash);
     try {
       final CompletableFuture<WorkflowModel> future = wfInstance.start();
       future.whenComplete((model, ex) -> registry.remove(instanceId));

@@ -13,13 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.flow;
+package io.casehub.engine.common.internal.executor;
 
-import java.util.UUID;
+import java.time.Duration;
 
 /**
- * Holds the engine-side context for an in-flight workflow execution. Keyed by the workflow instance
- * ID in {@link FlowExecutionRegistry} so {@link CasehubDispatch} can emit correct lineage events
- * when a workflow step dispatches a capability.
+ * Result of retry evaluation. Sealed type — callers must handle both variants exhaustively.
+ *
+ * <p>Refs casehubio/engine#463.
  */
-public record FlowExecution(UUID caseId, String workerName, String inputDataHash) {}
+public sealed interface RetryDecision permits RetryDecision.Retry, RetryDecision.Exhaust {
+
+  record Retry(Duration delay) implements RetryDecision {}
+
+  record Exhaust(String reason) implements RetryDecision {}
+}

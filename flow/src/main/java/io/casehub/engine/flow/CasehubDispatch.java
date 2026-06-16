@@ -25,6 +25,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
@@ -50,15 +51,18 @@ public class CasehubDispatch {
   private final FlowExecutionRegistry registry;
   private final WorkOrchestrator orchestrator;
   private final EventLogRepository eventLogRepository;
+  private final CaseInstanceCache caseInstanceCache;
 
   @Inject
   public CasehubDispatch(
       final FlowExecutionRegistry registry,
       final WorkOrchestrator orchestrator,
-      final EventLogRepository eventLogRepository) {
+      final EventLogRepository eventLogRepository,
+      final CaseInstanceCache caseInstanceCache) {
     this.registry = registry;
     this.orchestrator = orchestrator;
     this.eventLogRepository = eventLogRepository;
+    this.caseInstanceCache = caseInstanceCache;
   }
 
   public CompletableFuture<Map<String, Object>> dispatch(
@@ -67,8 +71,10 @@ public class CasehubDispatch {
     appendStepLog(
         execution, capability, workflowInstanceId, CaseHubEventType.WORKFLOW_STEP_DISPATCHED, null);
 
+    final CaseInstance instance = caseInstanceCache.get(execution.caseId());
+
     return orchestrator
-        .submit(execution.caseInstance(), WorkRequest.of(capability, Map.of()))
+        .submit(instance, WorkRequest.of(capability, Map.of()))
         .whenComplete(
             (result, ex) -> {
               // whenComplete always fires — success and failure both get a terminal event.
@@ -99,7 +105,7 @@ public class CasehubDispatch {
       final String workflowInstanceId,
       final CaseHubEventType eventType,
       final WorkResult result) {
-    final CaseInstance instance = execution.caseInstance();
+    final CaseInstance instance = caseInstanceCache.get(execution.caseId());
     final EventLog log = new EventLog();
     log.setCaseId(instance.getUuid());
     log.setWorkerId(execution.workerName());

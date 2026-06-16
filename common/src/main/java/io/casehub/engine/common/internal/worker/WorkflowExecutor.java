@@ -15,10 +15,10 @@
  */
 package io.casehub.engine.common.internal.worker;
 
-import io.casehub.engine.common.internal.model.CaseInstance;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowModel;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -27,13 +27,16 @@ import java.util.concurrent.CompletableFuture;
  * <p>{@code workerName} and {@code inputDataHash} are passed for lineage — {@code
  * FlowWorkerExecutor} stores them in {@code FlowExecutionRegistry} so {@code CasehubDispatch} can
  * emit {@code WORKFLOW_STEP_DISPATCHED} events with the correct parent execution metadata.
+ *
+ * <p>{@code caseId} replaces {@code CaseInstance} (engine#463) — consumers that need the full
+ * instance look it up from {@code CaseInstanceCache}.
  */
 public interface WorkflowExecutor {
 
   CompletableFuture<WorkflowModel> execute(
       Workflow workflow,
       Map<String, Object> inputData,
-      CaseInstance caseInstance,
+      UUID caseId,
       String workerName,
       String inputDataHash);
 }

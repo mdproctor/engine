@@ -15,13 +15,13 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.worker.WorkflowExecutor;
 import io.quarkus.arc.DefaultBean;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowModel;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -37,7 +37,7 @@ public class NoOpWorkflowExecutor implements WorkflowExecutor {
   public CompletableFuture<WorkflowModel> execute(
       final Workflow workflow,
       final Map<String, Object> inputData,
-      final CaseInstance caseInstance,
+      final UUID caseId,
       final String workerName,
       final String inputDataHash) {
     return CompletableFuture.failedFuture(

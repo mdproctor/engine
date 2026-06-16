@@ -17,11 +17,10 @@ package io.casehub.engine.flow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
 
-import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,21 +38,21 @@ class FlowExecutionRegistryTest {
 
   @Test
   void register_then_get_returns_the_registered_execution() {
-    final CaseInstance instance = mock(CaseInstance.class);
+    UUID caseId = UUID.randomUUID();
 
-    registry.register("id-1", instance, "my-worker", "hash-abc");
+    registry.register("id-1", caseId, "my-worker", "hash-abc");
     final FlowExecution execution = registry.get("id-1");
 
-    assertThat(execution.caseInstance()).isSameAs(instance);
+    assertThat(execution.caseId()).isEqualTo(caseId);
     assertThat(execution.workerName()).isEqualTo("my-worker");
     assertThat(execution.inputDataHash()).isEqualTo("hash-abc");
   }
 
   @Test
   void get_after_remove_throws_IllegalStateException() {
-    final CaseInstance instance = mock(CaseInstance.class);
+    UUID caseId = UUID.randomUUID();
 
-    registry.register("id-2", instance, "worker", "hash");
+    registry.register("id-2", caseId, "worker", "hash");
     registry.remove("id-2");
 
     assertThatThrownBy(() -> registry.get("id-2"))
@@ -70,11 +69,11 @@ class FlowExecutionRegistryTest {
 
   @Test
   void remove_is_idempotent() {
-    final CaseInstance instance = mock(CaseInstance.class);
-    registry.register("id-3", instance, "worker", "hash");
+    UUID caseId = UUID.randomUUID();
+    registry.register("id-3", caseId, "worker", "hash");
 
     registry.remove("id-3");
-    registry.remove("id-3"); // second remove must not throw
+    registry.remove("id-3");
   }
 
   @Test
@@ -89,13 +88,13 @@ class FlowExecutionRegistryTest {
     for (int i = 0; i < threads; i++) {
       final String id = "concurrent-" + i;
       final String worker = "worker-" + i;
-      final CaseInstance inst = mock(CaseInstance.class);
+      final UUID caseId = UUID.randomUUID();
       pool.submit(
           () -> {
             ready.countDown();
             try {
               go.await();
-              registry.register(id, inst, worker, "hash-" + id);
+              registry.register(id, caseId, worker, "hash-" + id);
               final FlowExecution exec = registry.get(id);
               if (!exec.workerName().equals(worker)) {
                 errors.add(

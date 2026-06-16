@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.worker.WorkflowExecutor;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
@@ -46,7 +45,7 @@ public class ServerlessWorkflowExecutor implements WorkflowExecutor {
   public CompletableFuture<WorkflowModel> execute(
       final Workflow workflow,
       final Map<String, Object> inputData,
-      final CaseInstance caseInstance,
+      final java.util.UUID caseId,
       final String workerName,
       final String inputDataHash) {
     try (WorkflowApplication app = WorkflowApplication.builder().build()) {

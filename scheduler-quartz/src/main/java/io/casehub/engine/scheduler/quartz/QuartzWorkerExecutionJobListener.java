@@ -15,49 +15,36 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
-import static org.quartz.JobBuilder.newJob;
-import static org.quartz.TriggerBuilder.newTrigger;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.api.model.BackoffStrategy;
-import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.ExecutionPolicy;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.WorkerStatusListener;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
-import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
-import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
-import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.function.Supplier;
 import org.jboss.logging.Logger;
-import org.quartz.JobDataMap;
-import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
-import org.quartz.JobKey;
 import org.quartz.JobListener;
-import org.quartz.Trigger;
 
+/**
+ * Quartz lifecycle listener — fires {@code WorkerExecutionStarted} events and persists the start
+ * event log. Completion and failure handling is owned by {@link QuartzWorkerExecutionJob} via
+ * {@link QuartzRetryService}.
+ *
+ * <p>Refs casehubio/engine#463.
+ */
 @ApplicationScoped
 class QuartzWorkerExecutionJobListener implements JobListener {
 
@@ -66,14 +53,6 @@ class QuartzWorkerExecutionJobListener implements JobListener {
   @Inject WorkerStatusListener workerStatusListener;
 
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-
-  @Inject QuartzWorkerSchedulerService workerExecutionScheduler;
-
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-
-  @Inject EventBus eventBus;
-
-  @Inject WorkerExecutionRecoveryService workerExecutionRecoveryService;
 
   @Inject EventLogRepository eventLogRepository;
 
@@ -140,185 +119,15 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     LOG.info("Job execution was vetoed for job: " + jobName);
   }
 
-  /** We log success at WorkflowExecutionCompletedHandler.onWorkflowExecutionCompletedHandler */
   @Override
   public void jobWasExecuted(JobExecutionContext context, JobExecutionException jobException) {
-    if (isNotWorkerExecutionJob(context)) {
-      return;
-    }
-
-    if (jobException != null) {
-      String jobName = context.getJobDetail().getKey().toString();
-      String idempotency = context.getMergedJobDataMap().getString("inputDataHash");
-      String tenancyId = context.getMergedJobDataMap().getString("tenancyId");
-      LOG.errorf("Job failed: %s, Error: %s", jobName, jobException.getMessage());
-
-      EventLog eventLog =
-          createEventLog(
-              context,
-              CaseHubEventType.WORKER_EXECUTION_FAILED,
-              OBJECT_MAPPER
-                  .createObjectNode()
-                  .put("inputDataHash", idempotency)
-                  .put("errorMessage", jobException.getMessage()));
-
-      persistEventLog(jobName, eventLog, tenancyId)
-          .subscribe()
-          .with(
-              success -> maybeRescheduleWorker(WorkerRetryContext.from(context)),
-              ex -> LOG.errorf(ex, "Failed to persist and reschedule job: %s", jobName));
-    }
+    // No-op: fire-and-forget job handles success/failure via WorkerExecutor callbacks.
+    // jobException is always null because execute() never throws — errors are handled
+    // asynchronously by QuartzRetryService.
   }
 
   private boolean isNotWorkerExecutionJob(JobExecutionContext context) {
     return !QuartzWorkerExecutionJob.class.equals(context.getJobDetail().getJobClass());
-  }
-
-  private void maybeRescheduleWorker(final WorkerRetryContext ctx) {
-    workerExecutionRecoveryService
-        .loadOrRestoreCaseInstance(ctx.caseId())
-        .map(instance -> resolveRetryPolicy(ctx.caseId().toString(), instance, ctx.workerId()))
-        .subscribe()
-        .with(
-            retryPolicy -> {
-              // TODO use default policy
-              if (retryPolicy == null) {
-                return;
-              }
-              countFailedAttempts(
-                      ctx.caseId(), ctx.workerId(), ctx.inputDataHash(), ctx.tenancyId())
-                  .subscribe()
-                  .with(
-                      failureCount -> {
-                        if (failureCount < retryPolicy.maxAttempts()) {
-                          LOG.infof(
-                              "Rescheduling worker %s: attempt %d/%d, strategy=%s",
-                              ctx.workerId(),
-                              failureCount + 1,
-                              retryPolicy.maxAttempts(),
-                              retryPolicy.backoffStrategy());
-                          rescheduleWorker(ctx, retryPolicy, failureCount + 1);
-                        } else {
-                          LOG.warnf(
-                              "Worker %s exhausted all %d retry attempts for case %s",
-                              ctx.workerId(), retryPolicy.maxAttempts(), ctx.caseId());
-                          eventBus.publish(
-                              EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-                              new WorkerRetriesExhaustedEvent(
-                                  ctx.caseId(), ctx.workerId(), ctx.inputDataHash()));
-                        }
-                      },
-                      ex ->
-                          LOG.errorf(
-                              ex, "Failed to count failed attempts for worker %s", ctx.workerId()));
-            },
-            ex ->
-                LOG.errorf(
-                    ex,
-                    "Failed to reschedule worker %s for case %s",
-                    ctx.workerId(),
-                    ctx.caseId()));
-  }
-
-  @io.quarkus.vertx.ConsumeEvent(
-      value = EventBusAddresses.WORKFLOW_EXECUTION_FAILED,
-      blocking = true)
-  public void onWorkflowExecutionFailed(
-      final io.casehub.engine.common.internal.event.WorkflowExecutionFailed event) {
-    final WorkerRetryContext ctx =
-        new WorkerRetryContext(
-            event.caseInstance().getUuid(),
-            event.worker().getName(),
-            event.inputDataHash(),
-            event.caseInstance().tenancyId,
-            event.eventLogId());
-
-    // Persist WORKER_EXECUTION_FAILED first — countFailedAttempts() queries this count
-    final EventLog failureLog = new EventLog();
-    failureLog.setCaseId(event.caseInstance().getUuid());
-    failureLog.setWorkerId(event.worker().getName());
-    failureLog.setEventType(CaseHubEventType.WORKER_EXECUTION_FAILED);
-    failureLog.setStreamType(EventStreamType.CASE);
-    failureLog.setTimestamp(java.time.Instant.now());
-    failureLog.setMetadata(
-        OBJECT_MAPPER
-            .createObjectNode()
-            .put("inputDataHash", event.inputDataHash())
-            .put("errorMessage", event.cause() != null ? event.cause().getMessage() : "unknown"));
-
-    persistEventLog(event.worker().getName(), failureLog, event.caseInstance().tenancyId)
-        .subscribe()
-        .with(
-            ignored -> maybeRescheduleWorker(ctx),
-            ex ->
-                LOG.errorf(
-                    ex,
-                    "Failed to persist WORKER_EXECUTION_FAILED for workflow worker %s",
-                    event.worker().getName()));
-  }
-
-  private RetryPolicy resolveRetryPolicy(String jobName, CaseInstance instance, String workerId) {
-    CaseDefinition definition =
-        caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
-    if (definition == null) {
-      LOG.errorf("Cannot reschedule job %s: CaseDefinition not found", jobName);
-      throw new RuntimeException("CaseDefinition not found for caseId=" + instance.getUuid());
-    }
-
-    Worker worker =
-        definition.getWorkers().stream()
-            .filter(w -> w.getName().equals(workerId))
-            .findFirst()
-            .orElse(null);
-
-    if (worker == null) {
-      LOG.errorf("Cannot reschedule job %s: Worker not found: %s", jobName, workerId);
-      throw new RuntimeException("Worker not found in case definition: " + workerId);
-    }
-
-    ExecutionPolicy executionPolicy = worker.getExecutionPolicy();
-    if (executionPolicy == null || executionPolicy.retries() == null) {
-      return new ExecutionPolicy().retries();
-    }
-    return executionPolicy.retries();
-  }
-
-  private void rescheduleWorker(
-      final WorkerRetryContext ctx, final RetryPolicy retryPolicy, final long attemptNumber) {
-    final String idempotency = ctx.inputDataHash();
-    final String group = ctx.caseId().toString();
-    final JobKey jobKey = new JobKey(idempotency, group);
-
-    // Reconstruct the JobDataMap from WorkerRetryContext fields
-    final JobDataMap dataMap = new JobDataMap();
-    dataMap.put("inputDataHash", ctx.inputDataHash());
-    dataMap.put("eventLogId", ctx.eventLogId());
-    dataMap.put("workerId", ctx.workerId());
-    dataMap.put("caseHubInstanceUuid", ctx.caseId().toString());
-    dataMap.put("tenancyId", ctx.tenancyId());
-
-    JobDetail job =
-        newJob(QuartzWorkerExecutionJob.class)
-            .withIdentity(jobKey)
-            .storeDurably(false)
-            .usingJobData(dataMap)
-            .build();
-
-    long delayMs = computeBackoffDelayMs(retryPolicy, attemptNumber);
-
-    Trigger trigger =
-        newTrigger()
-            .withIdentity(idempotency, group)
-            .startAt(new Date(System.currentTimeMillis() + delayMs))
-            .forJob(jobKey)
-            .build();
-
-    workerExecutionScheduler
-        .scheduleRetryAsync(job, trigger)
-        .subscribe()
-        .with(
-            ignored -> LOG.infof("Rescheduled job: %s", jobKey),
-            ex -> LOG.errorf(ex, "Failed to reschedule job: %s", jobKey));
   }
 
   private static EventLog createEventLog(
@@ -340,51 +149,6 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     return runOnSafeVertxContext(() -> eventLogRepository.append(eventLog, tenancyId))
         .onFailure()
         .invoke(ex -> LOG.errorf(ex, "Failed to persist event for job: %s", jobName));
-  }
-
-  // TODO metadata->>'idempotency' way faster but not very stable
-  private Uni<Long> countFailedAttempts(
-      UUID caseId, String workerId, String idempotency, String tenancyId) {
-    return runOnSafeVertxContext(
-        () ->
-            eventLogRepository
-                .findByCaseAndWorkerAndType(
-                    caseId, workerId, CaseHubEventType.WORKER_EXECUTION_FAILED, tenancyId)
-                .map(
-                    eventLogs ->
-                        eventLogs.stream()
-                            .filter(
-                                eventLog -> {
-                                  JsonNode metadata = eventLog.getMetadata();
-                                  JsonNode idempotencyNode =
-                                      metadata == null ? null : metadata.get("inputDataHash");
-                                  return idempotencyNode != null
-                                      && idempotency.equals(idempotencyNode.asText());
-                                })
-                            .count()));
-  }
-
-  /**
-   * Computes the retry delay using the policy's {@link BackoffStrategy}. FIXED: constant delayMs.
-   * EXPONENTIAL: delayMs * 2^(attempt-1), capped at 30s. EXPONENTIAL_WITH_JITTER: random in [0,
-   * exponential cap].
-   */
-  private static long computeBackoffDelayMs(RetryPolicy policy, long attemptNumber) {
-    long baseDelayMs = policy.delayMs() != null ? policy.delayMs() : 0L;
-    BackoffStrategy strategy =
-        policy.backoffStrategy() != null ? policy.backoffStrategy() : BackoffStrategy.FIXED;
-    return switch (strategy) {
-      case FIXED -> baseDelayMs;
-      case EXPONENTIAL -> {
-        long shift = Math.min(attemptNumber - 1, 30);
-        yield Math.min(baseDelayMs * (1L << shift), 30_000L);
-      }
-      case EXPONENTIAL_WITH_JITTER -> {
-        long shift = Math.min(attemptNumber - 1, 30);
-        long cap = Math.min(baseDelayMs * (1L << shift), 30_000L);
-        yield cap == 0 ? 0 : ThreadLocalRandom.current().nextLong(cap + 1);
-      }
-    };
   }
 
   private <T> Uni<T> runOnSafeVertxContext(Supplier<Uni<? extends T>> action) {

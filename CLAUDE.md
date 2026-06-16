@@ -108,6 +108,7 @@ Domain objects, SPI interfaces, and shared CDI infrastructure live in `casehub-e
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/history/` — `EventLog`, `CaseHubEventType`, `EventStreamType`
 - `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `CaseInstanceRepository`, `EventLogRepository`, `SubCaseGroupRepository`, `PlanItemStore` (blocking), `ReactivePlanItemStore` (Uni<>)
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/jq/` — `JQEvaluator` (@ApplicationScoped), `ValidationResult` — canonical jq evaluation; lives here so `scheduler-quartz` can inject it without circular dependency. See protocol `PP-20260522-jq-evaluation-canonical`. Follow-on platform extraction tracked in engine#317.
+- `casehub-engine-common/src/main/java/io/casehub/engine/common/internal/executor/` — `WorkerExecutor` (SPI), `WorkerExecutionConfig` (@ApplicationScoped, default timeout), `RetryPolicies` (static utility, backoff computation), `RetryDecision` (sealed: Retry | Exhaust), `ExecutionMetadata` (lineage record for flow path)
 
 Both `engine` and both persistence modules depend on `casehub-engine-common`. Neither persistence module depends on `engine`. `scheduler-quartz` also depends on `casehub-engine-common` directly.
 
@@ -423,6 +424,18 @@ Optional module providing a unified actor workload view (`GET /actors/{actorId}/
 Optional module enabling `Worker(Workflow)` to dispatch casehub workers from within Serverless Workflow steps and await their results. Fixes two bugs in the previous `ServerlessWorkflowExecutor` (new `WorkflowApplication` per call; try-with-resources closed the app before the future resolved). Activated by adding `casehub-engine-flow` to the consumer's classpath.
 
 `FlowWorkerExecutor` is plain `@ApplicationScoped` — it wins over the `NoOpWorkflowExecutor @DefaultBean` fallback in `runtime` when the flow module is present. The `WorkflowApplication` singleton is managed by the `quarkus-flow` CDI extension; no manual producer is needed. `CasehubCallableTaskBuilder implements CallableTaskBuilder<CallFunction>` (registered via Java SPI) handles `call: casehub:dispatch` YAML steps. Note: `CallFunction` and `FunctionArguments` are in `io.serverlessworkflow.api.types` — not the `.func` experimental subpackage.
+
+## Worker Execution Architecture
+
+`WorkerExecutor` (`common/internal/executor/`) abstracts how to run a worker function — independent of any scheduler. `DefaultWorkerExecutor` (`runtime/internal/executor/`) runs sync/agent functions on `@VirtualThreads ExecutorService` and delegates flow workers to `WorkflowExecutor`. Output schema evaluation is applied uniformly for all paths.
+
+`QuartzWorkerExecutionJob` is a thin fire-and-forget Quartz adapter: resolves context (EventLog, CaseInstance, Worker, Capability), delegates to `WorkerExecutor.execute()`, and subscribes with success/failure callbacks. Success publishes `WORKER_EXECUTION_FINISHED`; failure routes to `QuartzRetryService`.
+
+`QuartzRetryService` (`scheduler-quartz`) owns failure handling: persists `WORKER_EXECUTION_FAILED` event log, resolves retry policy from the worker's `ExecutionPolicy`, counts prior failures, and uses `RetryPolicies.evaluate()` to decide retry vs exhaust. On retry, reschedules via `QuartzWorkerSchedulerService`; on exhaust, publishes `WORKER_RETRIES_EXHAUSTED`.
+
+`RetryPolicies` (`common/internal/executor/`) is a pure static utility for backoff computation — no CDI, no dependencies. `RetryDecision` is a sealed type: `Retry(Duration delay)` or `Exhaust(String reason)`. Moved from `QuartzWorkerExecutionJobListener` so any scheduler adapter can reuse the same backoff logic.
+
+`WorkerExecutionConfig` (`common/internal/executor/`) provides the default worker timeout (`casehub.engine.worker.default-timeout-ms`, default 60000ms). Per-worker overrides come from `ExecutionPolicy.timeoutMs()`.
 
 ## Writing Style Guide
 

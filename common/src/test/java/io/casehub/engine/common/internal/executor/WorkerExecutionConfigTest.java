@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.scheduler.quartz;
+package io.casehub.engine.common.internal.executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -49,7 +49,6 @@ class WorkerExecutionConfigTest {
 
   @Test
   void shouldUseWorkerSpecificTimeoutEvenIfZero() {
-    // Edge case: worker explicitly sets timeout to 0 (immediate timeout)
     int effectiveTimeout = config.getEffectiveTimeout(0);
 
     assertThat(effectiveTimeout).isEqualTo(0);
