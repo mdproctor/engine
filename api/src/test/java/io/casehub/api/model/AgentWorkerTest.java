@@ -78,7 +78,7 @@ class AgentWorkerTest {
     assertEquals("text-processing", worker.getCapabilities().get(0).getName());
 
     assertNotNull(worker.getFunction());
-    assertInstanceOf(Agent.class, worker.getFunction().getValue());
+    assertInstanceOf(WorkerFunction.AgentExec.class, worker.getFunction());
   }
 
   @Test
@@ -100,7 +100,7 @@ class AgentWorkerTest {
             .function(agent)
             .build();
 
-    Agent extractedAgent = (Agent) worker.getFunction().getValue();
+    Agent extractedAgent = ((WorkerFunction.AgentExec) worker.getFunction()).agent();
     Map<String, Object> result = extractedAgent.execute(Map.of("text", "hello world")).output();
 
     assertEquals("HELLO WORLD", result.get("result"));

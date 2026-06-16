@@ -15,13 +15,10 @@
  */
 package io.casehub.api.model;
 
-import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.ai.Agent;
-import io.casehub.api.model.holder.WorkerFunctionHolder;
 import io.casehub.api.plan.PlanElement;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.serverlessworkflow.api.types.Workflow;
-import java.io.File;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
@@ -32,43 +29,31 @@ public class Worker implements PlanElement {
 
   private final String name;
   private final List<Capability> capabilities;
-  private final WorkerFunctionHolder<?> functionHolder;
+  private final WorkerFunction workerFunction;
   private ExecutionPolicy executionPolicy;
   private String description;
   private AgentDescriptor agentDescriptor;
 
-  public Worker(
-      String name,
-      List<Capability> capabilities,
-      Function<CaseContext, Map<String, Object>> function) {
-    this(name, capabilities, new WorkerFunctionHolder<>(function));
-  }
-
   public Worker(String name, List<Capability> capabilities, Workflow workflow) {
-    this(name, capabilities, new WorkerFunctionHolder<>(workflow));
-  }
-
-  public Worker(String name, List<Capability> capabilities, File file) {
-    this(name, capabilities, new WorkerFunctionHolder<>(file));
+    this(name, capabilities, new WorkerFunction.Flow(workflow));
   }
 
   public Worker(String name, List<Capability> capabilities, Agent agent) {
-    this(name, capabilities, new WorkerFunctionHolder<>(agent));
+    this(name, capabilities, new WorkerFunction.AgentExec(agent));
   }
 
-  private Worker(
-      String name, List<Capability> capabilities, WorkerFunctionHolder<?> functionHolder) {
-    this(name, capabilities, functionHolder, new ExecutionPolicy());
+  private Worker(String name, List<Capability> capabilities, WorkerFunction workerFunction) {
+    this(name, capabilities, workerFunction, new ExecutionPolicy());
   }
 
   private Worker(
       String name,
       List<Capability> capabilities,
-      WorkerFunctionHolder<?> functionHolder,
+      WorkerFunction workerFunction,
       ExecutionPolicy executionPolicy) {
     this.name = name;
     this.capabilities = capabilities;
-    this.functionHolder = functionHolder;
+    this.workerFunction = workerFunction;
     this.executionPolicy = executionPolicy;
   }
 
@@ -96,8 +81,8 @@ public class Worker implements PlanElement {
     return executionPolicy;
   }
 
-  public WorkerFunctionHolder<?> getFunction() {
-    return functionHolder;
+  public WorkerFunction getFunction() {
+    return workerFunction;
   }
 
   public AgentDescriptor agentDescriptor() {
@@ -116,7 +101,7 @@ public class Worker implements PlanElement {
 
     private String name;
     private List<Capability> capabilities;
-    private WorkerFunctionHolder<?> functionHolder;
+    private WorkerFunction workerFunction;
     private ExecutionPolicy executionPolicy;
     private String description;
     private AgentDescriptor agentDescriptor;
@@ -139,22 +124,17 @@ public class Worker implements PlanElement {
     }
 
     public Builder function(Function<Map<String, Object>, WorkerResult> function) {
-      this.functionHolder = new WorkerFunctionHolder<>(function);
+      this.workerFunction = new WorkerFunction.Sync(function);
       return this;
     }
 
     public Builder function(Workflow workflow) {
-      this.functionHolder = new WorkerFunctionHolder<>(workflow);
-      return this;
-    }
-
-    public Builder function(File file) {
-      this.functionHolder = new WorkerFunctionHolder<>(file);
+      this.workerFunction = new WorkerFunction.Flow(workflow);
       return this;
     }
 
     public Builder function(Agent agent) {
-      this.functionHolder = new WorkerFunctionHolder<>(agent);
+      this.workerFunction = new WorkerFunction.AgentExec(agent);
       return this;
     }
 
@@ -178,7 +158,7 @@ public class Worker implements PlanElement {
           new Worker(
               Objects.requireNonNull(name),
               Objects.requireNonNull(capabilities),
-              Objects.requireNonNull(functionHolder));
+              Objects.requireNonNull(workerFunction));
       if (executionPolicy != null) {
         worker.setExecutionPolicy(executionPolicy);
       }

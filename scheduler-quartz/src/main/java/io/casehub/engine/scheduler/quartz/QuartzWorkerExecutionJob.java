@@ -42,7 +42,6 @@ import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
-import io.serverlessworkflow.api.types.Workflow;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -152,13 +151,13 @@ class QuartzWorkerExecutionJob implements Job {
         workerContextProvider.buildContext(
             workflowId, eventLog.getCaseId(), WorkRequest.of(capabilityName, inputData));
 
-    // Workflow workers run non-blocking — Quartz thread returns immediately.
-    // Success/failure is communicated via event bus from the async whenComplete.
-    if (worker.getFunction().getValue() instanceof Workflow workflow) {
+    // Type dispatch via sealed WorkerFunction hierarchy — exhaustive switch.
+    // TODO(engine#463): This entire block moves to DefaultWorkerExecutor in the next step.
+    if (worker.getFunction() instanceof io.casehub.api.model.WorkerFunction.Flow flow) {
       final Capability capabilityForClosure = capability;
       final Worker workerForClosure = worker;
       workflowExecutor
-          .execute(workflow, inputData, instance, worker.getName(), inputDataHash)
+          .execute(flow.workflow(), inputData, instance, worker.getName(), inputDataHash)
           .thenApply(
               model ->
                   model
@@ -179,28 +178,26 @@ class QuartzWorkerExecutionJob implements Job {
                       eventLogId,
                       ex);
                 } else {
-                  // Workflow workers don't support PlannedAction in v1 — plannedAction=null.
                   eventBus.publish(
                       WORKER_EXECUTION_FINISHED,
                       new WorkflowExecutionCompleted(
                           instance, workerForClosure, inputDataHash, output, null));
                 }
               });
-      return; // Quartz marks the job complete; async path handles the rest
+      return;
     }
 
     WorkerResult workerResult;
     try {
-      if (worker.getFunction().getValue() instanceof Function function) {
-        workerResult = function(function, inputData, workerContext, timeoutMs);
-      } else if (worker.getFunction().getValue() instanceof Agent agent) {
-        workerResult = agent(agent, inputData, workerContext, timeoutMs);
+      if (worker.getFunction() instanceof io.casehub.api.model.WorkerFunction.Sync sync) {
+        workerResult = function(sync.fn(), inputData, workerContext, timeoutMs);
+      } else if (worker.getFunction()
+          instanceof io.casehub.api.model.WorkerFunction.AgentExec agentExec) {
+        workerResult = agent(agentExec.agent(), inputData, workerContext, timeoutMs);
       } else {
         throw new RuntimeException(
-            "Worker function is not a function or agent: "
-                + worker.getName()
-                + " "
-                + worker.getFunction().getValue().getClass().getCanonicalName());
+            "Unknown WorkerFunction variant: "
+                + worker.getFunction().getClass().getCanonicalName());
       }
     } catch (TimeoutException e) {
       throw new JobExecutionException(

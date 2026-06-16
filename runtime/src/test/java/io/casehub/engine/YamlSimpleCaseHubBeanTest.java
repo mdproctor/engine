@@ -28,7 +28,6 @@ import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.test.junit.QuarkusTest;
-import io.serverlessworkflow.api.types.Workflow;
 import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
@@ -69,7 +68,8 @@ public class YamlSimpleCaseHubBeanTest {
     assertEquals("document-processor", def.getWorkers().get(0).getName());
     assertEquals(1, def.getWorkers().get(0).getCapabilities().size());
     assertEquals("processDocument", def.getWorkers().get(0).getCapabilities().get(0).getName());
-    assertInstanceOf(Workflow.class, def.getWorkers().get(0).getFunction().getValue());
+    assertInstanceOf(
+        io.casehub.api.model.WorkerFunction.Flow.class, def.getWorkers().get(0).getFunction());
 
     // rules
     assertEquals(1, def.getBindings().size());

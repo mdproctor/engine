@@ -36,7 +36,7 @@ import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.Worker;
-import io.casehub.api.model.ai.Agent;
+import io.casehub.api.model.WorkerFunction;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.ListEvaluator;
@@ -261,9 +261,7 @@ class CaseDefinitionYamlMapperTest {
     assertThat(worker.getName()).isEqualTo("analyzer-worker");
     assertThat(worker.getFunction()).isNotNull();
 
-    // Verify that the agent was converted to API model (Agent is the value in the function holder)
-    Object value = worker.getFunction().getValue();
-    assertThat(value).isInstanceOf(Agent.class);
+    assertThat(worker.getFunction()).isInstanceOf(WorkerFunction.AgentExec.class);
   }
 
   @Test

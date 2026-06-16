@@ -16,6 +16,7 @@
 package io.casehub.engine.scheduler.quartz;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -134,8 +135,8 @@ class AgentExecutionTest {
             .build();
 
     assertEquals("doc-classifier", worker.getName());
-    assertNotNull(worker.getFunction().getValue());
-    assertEquals(Agent.class, worker.getFunction().getValue().getClass());
+    assertNotNull(worker.getFunction());
+    assertInstanceOf(io.casehub.api.model.WorkerFunction.AgentExec.class, worker.getFunction());
   }
 
   // Helper methods

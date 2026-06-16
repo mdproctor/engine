@@ -62,6 +62,10 @@
             <artifactId>quarkus-arc</artifactId>
         </dependency>
         <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-virtual-threads</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkiverse.flow</groupId>
             <artifactId>quarkus-flow</artifactId>
         </dependency>
