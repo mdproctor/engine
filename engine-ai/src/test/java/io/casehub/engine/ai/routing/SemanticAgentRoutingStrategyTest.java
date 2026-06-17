@@ -404,7 +404,8 @@ class SemanticAgentRoutingStrategyTest {
             null,
             null,
             null,
-            "casehubio");
+            "casehubio",
+            null);
     return new AgentCandidate(workerId, Set.of("research"), jobs, AgentHealth.READY, descriptor);
   }
 }

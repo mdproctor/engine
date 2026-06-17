@@ -211,7 +211,8 @@ class DefaultWorkOrchestratorTest {
           null,
           null,
           null,
-          "casehubio");
+          "casehubio",
+          null);
 
   @Test
   @SuppressWarnings("unchecked")

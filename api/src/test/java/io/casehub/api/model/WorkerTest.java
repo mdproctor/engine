@@ -42,7 +42,8 @@ class WorkerTest {
           null,
           null,
           null,
-          "casehubio");
+          "casehubio",
+          null);
 
   @Test
   void hasDescriptor_withDescriptor_returnsTrue() {

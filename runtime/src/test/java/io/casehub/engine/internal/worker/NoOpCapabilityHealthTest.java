@@ -46,7 +46,8 @@ class NoOpCapabilityHealthTest {
             null,
             null,
             null,
-            "casehubio");
+            "casehubio",
+            null);
 
     CapabilityStatus status = health.probe(descriptor, "code-review", ProbeContext.of(null));
 
