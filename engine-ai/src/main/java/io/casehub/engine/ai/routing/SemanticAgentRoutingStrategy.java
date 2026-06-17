@@ -28,11 +28,11 @@ import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.engine.ai.spi.AgentEmbeddingProvider;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ScoredCandidate;
-import io.casehub.ledger.routing.TrustScoreCache;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.annotation.Priority;
@@ -79,7 +79,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
   private static final Logger LOG = Logger.getLogger(SemanticAgentRoutingStrategy.class);
 
   private final TrustCandidateClassifier classifier;
-  private final TrustScoreCache cache;
+  private final TrustScoreSource source;
   private final TrustRoutingPolicyProvider policyProvider;
   private final AgentEmbeddingProvider embeddingProvider;
   private final EmbeddingCache embeddingCache;
@@ -90,7 +90,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
   @Inject
   public SemanticAgentRoutingStrategy(
       final TrustCandidateClassifier classifier,
-      final TrustScoreCache cache,
+      final TrustScoreSource source,
       final TrustRoutingPolicyProvider policyProvider,
       final AgentEmbeddingProvider embeddingProvider,
       final EmbeddingCache embeddingCache,
@@ -100,7 +100,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
       @ConfigProperty(name = "casehub.engine.ai.context-summary-jq", defaultValue = ".")
           final String contextSummaryJq) {
     this.classifier = classifier;
-    this.cache = cache;
+    this.source = source;
     this.policyProvider = policyProvider;
     this.embeddingProvider = embeddingProvider;
     this.embeddingCache = embeddingCache;
@@ -118,7 +118,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
 
     final TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
     final List<ClassifiedCandidate> classified =
-        classifier.classify(candidates, context.capabilityName(), policy, cache);
+        classifier.classify(candidates, context.capabilityName(), policy, source);
 
     // Bootstrap guard: pre-screen before entering worker pool — avoids embedding cost
     if (policy.bootstrapEscalationRequired()) {

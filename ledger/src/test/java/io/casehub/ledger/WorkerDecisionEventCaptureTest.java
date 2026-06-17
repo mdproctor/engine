@@ -20,10 +20,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.ledger.api.model.ActorTrustScore.ScoreType;
 import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.repository.CaseLedgerEntryRepository;
-import io.casehub.ledger.routing.TrustScoreCache;
 import io.casehub.ledger.runtime.model.ActorTrustScore;
+import io.casehub.ledger.runtime.service.CachedTrustScoreSource;
 import io.casehub.ledger.runtime.service.routing.TrustScoreFullPayload;
 import io.casehub.platform.api.identity.ActorType;
 import io.quarkus.test.junit.QuarkusTest;
@@ -48,7 +49,10 @@ class WorkerDecisionEventCaptureTest {
 
   @Inject CaseLedgerEntryRepository repository;
 
-  @Inject TrustScoreCache trustScoreCache;
+  @Inject TrustScoreSource trustScoreSource;
+
+  // Concrete type needed to call onFull() directly for test seeding
+  @Inject CachedTrustScoreSource cachedTrustScoreSource;
 
   @Test
   void happyPath_workerDecisionEvent_writesWorkerDecisionEntry() {
@@ -79,7 +83,7 @@ class WorkerDecisionEventCaptureTest {
               assertThat(entry.id).isNotNull();
               assertThat(entry.tenancyId).isEqualTo("test-tenant");
               assertThat(entry.traceId).isEqualTo("trace-abc");
-              // Trust score fields are null when no scores exist in TrustScoreCache for this actor
+              // Trust score fields are null when no scores exist in TrustScoreSource for this actor
               assertThat(entry.trustScoreAtRouting).isNull();
               assertThat(entry.thresholdApplied).isNull();
             });
@@ -110,13 +114,13 @@ class WorkerDecisionEventCaptureTest {
     final String workerId = "trust-worker-v1";
     final String capabilityTag = "trust-cap";
 
-    // Pre-populate TrustScoreCache via onFull() — same path as the production scoring cycle.
+    // Pre-populate CachedTrustScoreSource via onFull() — same path as the production scoring cycle.
     final ActorTrustScore score = new ActorTrustScore();
     score.actorId = workerId;
     score.scoreType = ScoreType.CAPABILITY;
     score.capabilityKey = capabilityTag;
     score.trustScore = 0.85;
-    trustScoreCache.onFull(new TrustScoreFullPayload(List.of(score)));
+    cachedTrustScoreSource.onFull(new TrustScoreFullPayload(List.of(score)));
 
     workerDecisionEvents.fireAsync(
         new WorkerDecisionEvent(caseId, "test-tenant", workerId, capabilityTag, "trace-trust"));

@@ -35,8 +35,8 @@ import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.engine.ai.spi.AgentEmbeddingProvider;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier;
-import io.casehub.ledger.routing.TrustScoreCache;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -47,7 +47,7 @@ import org.junit.jupiter.api.Test;
 
 class SemanticAgentRoutingStrategyTest {
 
-  private TrustScoreCache cache;
+  private TrustScoreSource source;
   private TrustRoutingPolicyProvider policyProvider;
   private AgentEmbeddingProvider embeddingProvider;
   private JQEvaluator jqEvaluator;
@@ -61,20 +61,20 @@ class SemanticAgentRoutingStrategyTest {
 
   @BeforeEach
   void setUp() {
-    cache = mock(TrustScoreCache.class);
+    source = mock(TrustScoreSource.class);
     policyProvider = mock(TrustRoutingPolicyProvider.class);
     embeddingProvider = mock(AgentEmbeddingProvider.class);
     jqEvaluator = mock(JQEvaluator.class);
 
     when(policyProvider.forCapability(any())).thenReturn(POLICY);
-    when(cache.getCapabilityScore(any(), any())).thenReturn(OptionalDouble.empty());
-    when(cache.getDecisionCount(any(), any())).thenReturn(0);
-    when(cache.getCapabilityDimensionScore(any(), any(), any())).thenReturn(OptionalDouble.empty());
+    when(source.capabilityScore(any(), any())).thenReturn(OptionalDouble.empty());
+    when(source.decisionCount(any(), any())).thenReturn(0);
+    when(source.capabilityDimensionScore(any(), any(), any())).thenReturn(OptionalDouble.empty());
 
     strategy =
         new SemanticAgentRoutingStrategy(
             new TrustCandidateClassifier(),
-            cache,
+            source,
             policyProvider,
             embeddingProvider,
             new EmbeddingCache(100),
@@ -107,10 +107,10 @@ class SemanticAgentRoutingStrategyTest {
   void qualifiedCandidates_semanticAndTrustCombined() {
     // agent-a: trust=0.85 (qualified), semantic similarity high
     // agent-b: trust=0.82 (qualified), semantic similarity low
-    when(cache.getCapabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-a", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.82));
-    when(cache.getDecisionCount("agent-b", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-a", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.82));
+    when(source.decisionCount("agent-b", "research")).thenReturn(10);
 
     // Use sequential returns:
     // call 1: query text (JQ fallback = capability name)
@@ -138,10 +138,10 @@ class SemanticAgentRoutingStrategyTest {
   @Test
   void allBorderlineCandidates_escalates() {
     // Both candidates are borderline — should escalate just like TrustWeightedAgentStrategy
-    when(cache.getCapabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-1", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-2", "research")).thenReturn(OptionalDouble.of(0.75));
-    when(cache.getDecisionCount("agent-2", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-1", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-2", "research")).thenReturn(OptionalDouble.of(0.75));
+    when(source.decisionCount("agent-2", "research")).thenReturn(10);
 
     final List<AgentCandidate> candidates =
         List.of(
@@ -219,8 +219,8 @@ class SemanticAgentRoutingStrategyTest {
   void bootstrap_noQualified_bootstrapPlusBorderline_escalatesNoQualifiedAgent() {
     // Mixed-pool gap: BOOTSTRAP + BORDERLINE → pre-screen fires, no embedding cost
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-border", "research")).thenReturn(10);
 
     final List<AgentCandidate> candidates =
         List.of(
@@ -237,8 +237,8 @@ class SemanticAgentRoutingStrategyTest {
   @Test
   void bootstrap_noQualified_bootstrapPlusExcluded_escalatesNoQualifiedAgent() {
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
-    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
+    when(source.decisionCount("agent-low", "research")).thenReturn(10);
 
     final List<AgentCandidate> candidates =
         List.of(
@@ -257,9 +257,8 @@ class SemanticAgentRoutingStrategyTest {
     // QUALIFIED exists → pre-screen skips, enters worker pool; BOOTSTRAP stripped from eligible
     // Embedding mocks needed because QUALIFIED candidate triggers semantic scoring
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-qualified", "research"))
-        .thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed(any()))
@@ -281,9 +280,8 @@ class SemanticAgentRoutingStrategyTest {
   void bootstrap_qualifiedExists_bootstrapStripped_busyQualifiedWinsOverIdleBootstrap() {
     // Explicit: flag overrides workload comparison. Busy QUALIFIED beats idle BOOTSTRAP.
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-qualified", "research"))
-        .thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed(any()))
@@ -306,11 +304,10 @@ class SemanticAgentRoutingStrategyTest {
     // [BOOTSTRAP, QUALIFIED, BORDERLINE]: BOOTSTRAP stripped; eligible=[QUALIFIED, BORDERLINE]
     // QUALIFIED wins positive score; BORDERLINE_STALEMATE must NOT fire
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-qualified", "research"))
-        .thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-border", "research")).thenReturn(10);
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed(any()))
@@ -332,8 +329,8 @@ class SemanticAgentRoutingStrategyTest {
   @Test
   void bootstrap_allExcluded_noBootstrap_returnsUnresolvable() {
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
-    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
+    when(source.decisionCount("agent-low", "research")).thenReturn(10);
     // EXCLUDED_PHASE2B: scores 0.0 — still enters worker pool, query text gets embedded
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));

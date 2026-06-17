@@ -22,6 +22,7 @@ import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ScoredCandidate;
@@ -63,16 +64,16 @@ import java.util.List;
 public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
 
   private final TrustCandidateClassifier classifier;
-  private final TrustScoreCache cache;
+  private final TrustScoreSource source;
   private final TrustRoutingPolicyProvider policyProvider;
 
   @Inject
   public TrustWeightedAgentStrategy(
       final TrustCandidateClassifier classifier,
-      final TrustScoreCache cache,
+      final TrustScoreSource source,
       final TrustRoutingPolicyProvider policyProvider) {
     this.classifier = classifier;
-    this.cache = cache;
+    this.source = source;
     this.policyProvider = policyProvider;
   }
 
@@ -85,7 +86,7 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
 
     final TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
     final List<ClassifiedCandidate> classified =
-        classifier.classify(candidates, context.capabilityName(), policy, cache);
+        classifier.classify(candidates, context.capabilityName(), policy, source);
 
     // Bootstrap guard: pre-screen before scoring
     if (policy.bootstrapEscalationRequired()) {

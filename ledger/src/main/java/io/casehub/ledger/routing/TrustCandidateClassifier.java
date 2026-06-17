@@ -19,6 +19,7 @@ import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
 import java.util.List;
@@ -97,11 +98,11 @@ public class TrustCandidateClassifier {
       final List<AgentCandidate> candidates,
       final String capabilityName,
       final TrustRoutingPolicy policy,
-      final TrustScoreCache cache) {
+      final TrustScoreSource source) {
 
     final List<ClassifiedCandidate> result = new ArrayList<>(candidates.size());
     for (final AgentCandidate candidate : candidates) {
-      result.add(classifyOne(candidate, capabilityName, policy, cache));
+      result.add(classifyOne(candidate, capabilityName, policy, source));
     }
     return result;
   }
@@ -110,13 +111,13 @@ public class TrustCandidateClassifier {
       final AgentCandidate candidate,
       final String capabilityName,
       final TrustRoutingPolicy policy,
-      final TrustScoreCache cache) {
+      final TrustScoreSource source) {
 
     final double workload = 1.0 / (1.0 + candidate.runningJobs());
-    final OptionalDouble capScore = cache.getCapabilityScore(candidate.workerId(), capabilityName);
+    final OptionalDouble capScore = source.capabilityScore(candidate.workerId(), capabilityName);
 
     if (capScore.isEmpty()
-        || policy.isBootstrap(cache.getDecisionCount(candidate.workerId(), capabilityName))) {
+        || policy.isBootstrap(source.decisionCount(candidate.workerId(), capabilityName))) {
       return new ClassifiedCandidate(candidate, Phase.BOOTSTRAP, OptionalDouble.empty(), workload);
     }
 
@@ -135,7 +136,7 @@ public class TrustCandidateClassifier {
     // Phase 3: quality floor checks
     for (final Map.Entry<String, Double> floor : policy.qualityFloors().entrySet()) {
       final OptionalDouble quality =
-          cache.getCapabilityDimensionScore(candidate.workerId(), capabilityName, floor.getKey());
+          source.capabilityDimensionScore(candidate.workerId(), capabilityName, floor.getKey());
       if (quality.isPresent() && quality.getAsDouble() < floor.getValue()) {
         return new ClassifiedCandidate(
             candidate, Phase.EXCLUDED_PHASE3, OptionalDouble.of(score), workload);

@@ -18,8 +18,8 @@ package io.casehub.ledger.service;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.model.WorkerDecisionEntry;
-import io.casehub.ledger.routing.TrustScoreCache;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.ledger.runtime.repository.LedgerEntryRepository;
 import io.casehub.platform.api.identity.ActorType;
@@ -55,7 +55,7 @@ public class WorkerDecisionEventCapture {
 
   @Inject LedgerConfig ledgerConfig;
 
-  @Inject TrustScoreCache trustScoreCache;
+  @Inject TrustScoreSource trustScoreSource;
 
   @Inject TrustRoutingPolicyProvider trustRoutingPolicyProvider;
 
@@ -87,7 +87,7 @@ public class WorkerDecisionEventCapture {
 
     if (event.capabilityTag() != null) {
       OptionalDouble score =
-          trustScoreCache.getCapabilityScore(event.workerId(), event.capabilityTag());
+          trustScoreSource.capabilityScore(event.workerId(), event.capabilityTag());
       if (score.isPresent()) {
         entry.trustScoreAtRouting = score.getAsDouble();
         entry.thresholdApplied =

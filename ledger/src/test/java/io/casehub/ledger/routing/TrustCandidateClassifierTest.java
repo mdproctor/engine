@@ -24,6 +24,7 @@ import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ScoredCandidate;
@@ -36,7 +37,7 @@ import org.junit.jupiter.api.Test;
 
 class TrustCandidateClassifierTest {
 
-  private TrustScoreCache cache;
+  private TrustScoreSource source;
   private TrustCandidateClassifier classifier;
 
   // threshold=0.7, minimumObservations=5, borderlineMargin=0.1
@@ -46,11 +47,11 @@ class TrustCandidateClassifierTest {
 
   @BeforeEach
   void setUp() {
-    cache = mock(TrustScoreCache.class);
+    source = mock(TrustScoreSource.class);
     classifier = new TrustCandidateClassifier();
-    when(cache.getCapabilityScore(any(), any())).thenReturn(OptionalDouble.empty());
-    when(cache.getDecisionCount(any(), any())).thenReturn(0);
-    when(cache.getCapabilityDimensionScore(any(), any(), any())).thenReturn(OptionalDouble.empty());
+    when(source.capabilityScore(any(), any())).thenReturn(OptionalDouble.empty());
+    when(source.decisionCount(any(), any())).thenReturn(0);
+    when(source.capabilityDimensionScore(any(), any(), any())).thenReturn(OptionalDouble.empty());
   }
 
   // ---- classify: BOOTSTRAP -------------------------------------------------
@@ -58,7 +59,7 @@ class TrustCandidateClassifierTest {
   @Test
   void classify_noTrustHistory_isBootstrap() {
     final List<ClassifiedCandidate> result =
-        classifier.classify(List.of(candidate("a", 2)), CAP, POLICY, cache);
+        classifier.classify(List.of(candidate("a", 2)), CAP, POLICY, source);
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).phase()).isEqualTo(Phase.BOOTSTRAP);
@@ -68,11 +69,11 @@ class TrustCandidateClassifierTest {
 
   @Test
   void classify_insufficientObservations_isBootstrap() {
-    when(cache.getCapabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.9));
-    when(cache.getDecisionCount("a", CAP)).thenReturn(3); // below minimumObservations=5
+    when(source.capabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.9));
+    when(source.decisionCount("a", CAP)).thenReturn(3); // below minimumObservations=5
 
     final List<ClassifiedCandidate> result =
-        classifier.classify(List.of(candidate("a", 0)), CAP, POLICY, cache);
+        classifier.classify(List.of(candidate("a", 0)), CAP, POLICY, source);
 
     assertThat(result.get(0).phase()).isEqualTo(Phase.BOOTSTRAP);
   }
@@ -81,11 +82,11 @@ class TrustCandidateClassifierTest {
 
   @Test
   void classify_borderlineScore_isBorderline() {
-    when(cache.getCapabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("a", CAP)).thenReturn(10);
+    when(source.capabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("a", CAP)).thenReturn(10);
 
     final List<ClassifiedCandidate> result =
-        classifier.classify(List.of(candidate("a", 0)), CAP, POLICY, cache);
+        classifier.classify(List.of(candidate("a", 0)), CAP, POLICY, source);
 
     assertThat(result.get(0).phase()).isEqualTo(Phase.BORDERLINE);
     assertThat(result.get(0).trustScore()).hasValue(0.65);
@@ -95,11 +96,11 @@ class TrustCandidateClassifierTest {
 
   @Test
   void classify_belowThresholdNotBorderline_isExcludedPhase2b() {
-    when(cache.getCapabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.5));
-    when(cache.getDecisionCount("a", CAP)).thenReturn(10);
+    when(source.capabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.5));
+    when(source.decisionCount("a", CAP)).thenReturn(10);
 
     final List<ClassifiedCandidate> result =
-        classifier.classify(List.of(candidate("a", 0)), CAP, POLICY, cache);
+        classifier.classify(List.of(candidate("a", 0)), CAP, POLICY, source);
 
     assertThat(result.get(0).phase()).isEqualTo(Phase.EXCLUDED_PHASE2B);
   }
@@ -112,13 +113,13 @@ class TrustCandidateClassifierTest {
         new io.casehub.api.spi.routing.TrustRoutingPolicy(
             0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false);
 
-    when(cache.getCapabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("a", CAP)).thenReturn(10);
-    when(cache.getCapabilityDimensionScore("a", CAP, "thoroughness"))
+    when(source.capabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("a", CAP)).thenReturn(10);
+    when(source.capabilityDimensionScore("a", CAP, "thoroughness"))
         .thenReturn(OptionalDouble.of(0.60)); // below floor
 
     final List<ClassifiedCandidate> result =
-        classifier.classify(List.of(candidate("a", 0)), CAP, policyWithFloor, cache);
+        classifier.classify(List.of(candidate("a", 0)), CAP, policyWithFloor, source);
 
     assertThat(result.get(0).phase()).isEqualTo(Phase.EXCLUDED_PHASE3);
   }
@@ -127,11 +128,11 @@ class TrustCandidateClassifierTest {
 
   @Test
   void classify_aboveThresholdNotBorderline_isQualified() {
-    when(cache.getCapabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("a", CAP)).thenReturn(10);
+    when(source.capabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("a", CAP)).thenReturn(10);
 
     final List<ClassifiedCandidate> result =
-        classifier.classify(List.of(candidate("a", 0)), CAP, POLICY, cache);
+        classifier.classify(List.of(candidate("a", 0)), CAP, POLICY, source);
 
     assertThat(result.get(0).phase()).isEqualTo(Phase.QUALIFIED);
     assertThat(result.get(0).trustScore()).hasValue(0.85);
@@ -142,12 +143,12 @@ class TrustCandidateClassifierTest {
     final io.casehub.api.spi.routing.TrustRoutingPolicy policyWithFloor =
         new io.casehub.api.spi.routing.TrustRoutingPolicy(
             0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false);
-    when(cache.getCapabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("a", CAP)).thenReturn(10);
+    when(source.capabilityScore("a", CAP)).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("a", CAP)).thenReturn(10);
     // no dimension data → graceful; not penalised
 
     final List<ClassifiedCandidate> result =
-        classifier.classify(List.of(candidate("a", 0)), CAP, policyWithFloor, cache);
+        classifier.classify(List.of(candidate("a", 0)), CAP, policyWithFloor, source);
 
     assertThat(result.get(0).phase()).isEqualTo(Phase.QUALIFIED);
   }

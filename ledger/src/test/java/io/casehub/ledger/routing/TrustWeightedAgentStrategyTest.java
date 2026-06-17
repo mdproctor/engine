@@ -28,6 +28,7 @@ import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
@@ -38,7 +39,7 @@ import org.junit.jupiter.api.Test;
 
 class TrustWeightedAgentStrategyTest {
 
-  private TrustScoreCache cache;
+  private TrustScoreSource source;
   private TrustRoutingPolicyProvider policyProvider;
   private TrustWeightedAgentStrategy strategy;
   private AgentRoutingContext ctx;
@@ -52,16 +53,16 @@ class TrustWeightedAgentStrategyTest {
 
   @BeforeEach
   void setUp() {
-    cache = mock(TrustScoreCache.class);
+    source = mock(TrustScoreSource.class);
     policyProvider = mock(TrustRoutingPolicyProvider.class);
     strategy =
-        new TrustWeightedAgentStrategy(new TrustCandidateClassifier(), cache, policyProvider);
+        new TrustWeightedAgentStrategy(new TrustCandidateClassifier(), source, policyProvider);
     ctx = new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance);
 
     when(policyProvider.forCapability("research")).thenReturn(DEFAULT_POLICY);
-    when(cache.getCapabilityScore(any(), any())).thenReturn(OptionalDouble.empty());
-    when(cache.getDecisionCount(any(), any())).thenReturn(0);
-    when(cache.getCapabilityDimensionScore(any(), any(), any())).thenReturn(OptionalDouble.empty());
+    when(source.capabilityScore(any(), any())).thenReturn(OptionalDouble.empty());
+    when(source.decisionCount(any(), any())).thenReturn(0);
+    when(source.capabilityDimensionScore(any(), any(), any())).thenReturn(OptionalDouble.empty());
   }
 
   // ---- Phase 0: no trust history → availability routing -------------------
@@ -86,11 +87,11 @@ class TrustWeightedAgentStrategyTest {
 
   @Test
   void phase1_insufficientObservations_fallsToAvailabilityRouting() {
-    when(cache.getCapabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.9));
-    when(cache.getDecisionCount("agent-1", "research")).thenReturn(3);
+    when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.9));
+    when(source.decisionCount("agent-1", "research")).thenReturn(3);
 
-    when(cache.getCapabilityScore("agent-2", "research")).thenReturn(OptionalDouble.empty());
-    when(cache.getDecisionCount("agent-2", "research")).thenReturn(0);
+    when(source.capabilityScore("agent-2", "research")).thenReturn(OptionalDouble.empty());
+    when(source.decisionCount("agent-2", "research")).thenReturn(0);
 
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-1", 2), candidate("agent-2", 0));
@@ -106,8 +107,8 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void phase2a_singleBorderlineCandidate_escalates() {
     // 0.65: |0.65 - 0.7| = 0.05 ≤ 0.1 → borderline
-    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-border", "research")).thenReturn(10);
 
     final AgentAssignment result = select(List.of(candidate("agent-border", 0)));
 
@@ -121,9 +122,9 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void phase2a_borderlineAboveThreshold_alsoEscalates() {
     // |0.75 - 0.7| = 0.05 ≤ 0.1 → borderline (high side)
-    when(cache.getCapabilityScore("agent-above-border", "research"))
+    when(source.capabilityScore("agent-above-border", "research"))
         .thenReturn(OptionalDouble.of(0.75));
-    when(cache.getDecisionCount("agent-above-border", "research")).thenReturn(10);
+    when(source.decisionCount("agent-above-border", "research")).thenReturn(10);
 
     final AgentAssignment result = select(List.of(candidate("agent-above-border", 0)));
     assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
@@ -133,10 +134,10 @@ class TrustWeightedAgentStrategyTest {
 
   @Test
   void phase2a_multipleBorderlineCandidates_escalates() {
-    when(cache.getCapabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-1", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-2", "research")).thenReturn(OptionalDouble.of(0.75));
-    when(cache.getDecisionCount("agent-2", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-1", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-2", "research")).thenReturn(OptionalDouble.of(0.75));
+    when(source.decisionCount("agent-2", "research")).thenReturn(10);
 
     final AgentAssignment result =
         select(List.of(candidate("agent-1", 0), candidate("agent-2", 0)));
@@ -149,10 +150,10 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void phase2a_borderlinePlusBelowThreshold_escalates() {
     // Mix of borderline + below-threshold → still escalates (borderline is present)
-    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.3));
-    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-border", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.3));
+    when(source.decisionCount("agent-low", "research")).thenReturn(10);
 
     final AgentAssignment result =
         select(List.of(candidate("agent-border", 0), candidate("agent-low", 0)));
@@ -164,8 +165,8 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void phase2a_bootstrapPlusBorderline_bootstrapWins() {
     // Phase 0 candidate has positive availability score → Assigned, not Escalate
-    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-border", "research")).thenReturn(10);
     // agent-new has no history → Phase 0
 
     final List<AgentCandidate> candidates =
@@ -182,8 +183,8 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void phase2b_belowThreshold_returnsUnresolvable() {
     // 0.5: |0.5 - 0.7| = 0.2 > 0.1 → not borderline → EXCLUDED_PHASE2B
-    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
-    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
+    when(source.decisionCount("agent-low", "research")).thenReturn(10);
 
     assertThat(select(List.of(candidate("agent-low", 0))))
         .isInstanceOf(AgentAssignment.Unresolvable.class);
@@ -191,8 +192,8 @@ class TrustWeightedAgentStrategyTest {
 
   @Test
   void phase2_aboveThreshold_selected() {
-    when(cache.getCapabilityScore("agent-good", "research")).thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-good", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-good", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-good", "research")).thenReturn(10);
 
     final AgentAssignment result = select(List.of(candidate("agent-good", 0)));
 
@@ -208,9 +209,9 @@ class TrustWeightedAgentStrategyTest {
         new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
-    when(cache.getCapabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-1", "research")).thenReturn(10);
-    when(cache.getCapabilityDimensionScore("agent-1", "research", "thoroughness"))
+    when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-1", "research")).thenReturn(10);
+    when(source.capabilityDimensionScore("agent-1", "research", "thoroughness"))
         .thenReturn(OptionalDouble.of(0.82));
 
     final AgentAssignment result = select(List.of(candidate("agent-1", 0)));
@@ -225,9 +226,9 @@ class TrustWeightedAgentStrategyTest {
         new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
-    when(cache.getCapabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-1", "research")).thenReturn(10);
-    when(cache.getCapabilityDimensionScore("agent-1", "research", "thoroughness"))
+    when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-1", "research")).thenReturn(10);
+    when(source.capabilityDimensionScore("agent-1", "research", "thoroughness"))
         .thenReturn(OptionalDouble.of(0.60)); // below floor → EXCLUDED_PHASE3
 
     assertThat(select(List.of(candidate("agent-1", 0))))
@@ -240,8 +241,8 @@ class TrustWeightedAgentStrategyTest {
         new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
-    when(cache.getCapabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-1", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-1", "research")).thenReturn(10);
     // no dimension data → OptionalDouble.empty() → graceful, not penalised
 
     assertThat(((AgentAssignment.Assigned) select(List.of(candidate("agent-1", 0)))).workerId())
@@ -252,13 +253,12 @@ class TrustWeightedAgentStrategyTest {
 
   @Test
   void blendScoring_higherTrustWinsOverWorkload() {
-    when(cache.getCapabilityScore("agent-high-trust", "research"))
+    when(source.capabilityScore("agent-high-trust", "research"))
         .thenReturn(OptionalDouble.of(0.95));
-    when(cache.getDecisionCount("agent-high-trust", "research")).thenReturn(10);
+    when(source.decisionCount("agent-high-trust", "research")).thenReturn(10);
 
-    when(cache.getCapabilityScore("agent-low-trust", "research"))
-        .thenReturn(OptionalDouble.of(0.82));
-    when(cache.getDecisionCount("agent-low-trust", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-low-trust", "research")).thenReturn(OptionalDouble.of(0.82));
+    when(source.decisionCount("agent-low-trust", "research")).thenReturn(10);
 
     // agent-high-trust: 0.95*0.6 + (1/4)*0.4 = 0.57 + 0.10 = 0.67
     // agent-low-trust:  0.82*0.6 + (1/1)*0.4 = 0.49 + 0.40 = 0.89
@@ -274,10 +274,10 @@ class TrustWeightedAgentStrategyTest {
     final TrustRoutingPolicy pureTrust = new TrustRoutingPolicy(0.7, 5, 0.1, 1.0, Map.of(), false);
     when(policyProvider.forCapability("research")).thenReturn(pureTrust);
 
-    when(cache.getCapabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.90));
-    when(cache.getDecisionCount("agent-a", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.80));
-    when(cache.getDecisionCount("agent-b", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.90));
+    when(source.decisionCount("agent-a", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.80));
+    when(source.decisionCount("agent-b", "research")).thenReturn(10);
 
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-a", 5), candidate("agent-b", 0));
@@ -291,10 +291,10 @@ class TrustWeightedAgentStrategyTest {
         new TrustRoutingPolicy(0.7, 5, 0.1, 0.0, Map.of(), false);
     when(policyProvider.forCapability("research")).thenReturn(pureWorkload);
 
-    when(cache.getCapabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.95));
-    when(cache.getDecisionCount("agent-a", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.80));
-    when(cache.getDecisionCount("agent-b", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.95));
+    when(source.decisionCount("agent-a", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.80));
+    when(source.decisionCount("agent-b", "research")).thenReturn(10);
 
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-a", 5), candidate("agent-b", 0));
@@ -306,10 +306,10 @@ class TrustWeightedAgentStrategyTest {
 
   @Test
   void allCandidatesBelowThreshold_noBorderline_returnsUnresolvable() {
-    when(cache.getCapabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.50));
-    when(cache.getDecisionCount("agent-1", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-2", "research")).thenReturn(OptionalDouble.of(0.30));
-    when(cache.getDecisionCount("agent-2", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.50));
+    when(source.decisionCount("agent-1", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-2", "research")).thenReturn(OptionalDouble.of(0.30));
+    when(source.decisionCount("agent-2", "research")).thenReturn(10);
 
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-1", 0), candidate("agent-2", 0));
@@ -338,8 +338,8 @@ class TrustWeightedAgentStrategyTest {
   void bootstrap_noQualified_bootstrapPlusBorderline_escalatesNoQualifiedAgent() {
     // Closes mixed-pool gap: without guard, BOOTSTRAP (workload>0) beats BORDERLINE (score=0)
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-border", "research")).thenReturn(10);
     // agent-new: BOOTSTRAP (no score in cache)
 
     final AgentAssignment result =
@@ -354,8 +354,8 @@ class TrustWeightedAgentStrategyTest {
   void bootstrap_noQualified_bootstrapPlusExcluded_escalatesNoQualifiedAgent() {
     // EXCLUDED_PHASE2B (score<threshold) + BOOTSTRAP: BOOTSTRAP would win by workload without guard
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
-    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
+    when(source.decisionCount("agent-low", "research")).thenReturn(10);
     // agent-new: BOOTSTRAP
 
     final AgentAssignment result =
@@ -370,9 +370,8 @@ class TrustWeightedAgentStrategyTest {
   void bootstrap_qualifiedExists_bootstrapStripped_qualifiedAssigned() {
     // QUALIFIED exists → pre-screen skips; BOOTSTRAP stripped from scoring pool
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-qualified", "research"))
-        .thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
     // agent-new: BOOTSTRAP, 0 jobs (would outscore QUALIFIED by workload without stripping)
 
     final AgentAssignment result =
@@ -387,9 +386,8 @@ class TrustWeightedAgentStrategyTest {
     // Explicit: flag overrides workload comparison. Busy QUALIFIED beats idle BOOTSTRAP.
     // Without flag: BOOTSTRAP workload=1.0 > QUALIFIED blended~0.55 (5 jobs) → BOOTSTRAP wins.
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-qualified", "research"))
-        .thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
 
     final AgentAssignment result =
         select(List.of(candidate("agent-qualified", 5), candidate("agent-new", 0)));
@@ -404,11 +402,10 @@ class TrustWeightedAgentStrategyTest {
     // BOOTSTRAP stripped → eligible=[QUALIFIED, BORDERLINE]
     // QUALIFIED wins positive score; BORDERLINE_STALEMATE must NOT fire
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-qualified", "research"))
-        .thenReturn(OptionalDouble.of(0.85));
-    when(cache.getDecisionCount("agent-qualified", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
-    when(cache.getDecisionCount("agent-border", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-border", "research")).thenReturn(10);
     // agent-new: BOOTSTRAP
 
     final AgentAssignment result =
@@ -426,10 +423,10 @@ class TrustWeightedAgentStrategyTest {
   void bootstrap_allExcluded_noBootstrap_returnsUnresolvable() {
     // Guard requires hasBootstrap=true; all-EXCLUDED pool has no BOOTSTRAP → guard must not fire
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    when(cache.getCapabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
-    when(cache.getDecisionCount("agent-low", "research")).thenReturn(10);
-    when(cache.getCapabilityScore("agent-lower", "research")).thenReturn(OptionalDouble.of(0.3));
-    when(cache.getDecisionCount("agent-lower", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
+    when(source.decisionCount("agent-low", "research")).thenReturn(10);
+    when(source.capabilityScore("agent-lower", "research")).thenReturn(OptionalDouble.of(0.3));
+    when(source.decisionCount("agent-lower", "research")).thenReturn(10);
 
     final AgentAssignment result =
         select(List.of(candidate("agent-low", 0), candidate("agent-lower", 0)));
