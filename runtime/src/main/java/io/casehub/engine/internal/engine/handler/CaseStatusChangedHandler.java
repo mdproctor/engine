@@ -241,6 +241,7 @@ public class CaseStatusChangedHandler {
       case SUSPENDED -> "SuspendCase";
       case WAITING -> "SubmitWork";
       case RUNNING -> "ResumeCase";
+      case STARTING -> "InitCase";
       default -> "TransitionCase";
     };
   }
@@ -253,6 +254,7 @@ public class CaseStatusChangedHandler {
       case SUSPENDED -> "CaseSuspended";
       case WAITING -> "WorkSubmitted";
       case RUNNING -> "CaseResumed";
+      case STARTING -> "CaseInitializing";
       default -> "CaseStatusChanged";
     };
   }

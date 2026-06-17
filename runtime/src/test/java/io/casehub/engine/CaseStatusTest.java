@@ -32,6 +32,7 @@ class CaseStatusTest {
   void containsExactlyTheExpectedValues() {
     assertThat(EnumSet.allOf(CaseStatus.class))
         .containsExactlyInAnyOrder(
+            CaseStatus.STARTING,
             CaseStatus.RUNNING,
             CaseStatus.WAITING,
             CaseStatus.SUSPENDED,

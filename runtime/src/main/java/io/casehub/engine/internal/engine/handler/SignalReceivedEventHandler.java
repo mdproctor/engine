@@ -20,6 +20,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.ContextPanel;
+import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -68,16 +69,44 @@ public class SignalReceivedEventHandler {
 
   @Inject LedgerTraceIdProvider traceIdProvider;
 
+  private static final int MAX_STARTING_RETRIES = 30;
+  private static final long STARTING_RETRY_DELAY_MS = 100L;
+
   @ConsumeEvent(value = EventBusAddresses.SIGNAL_RECEIVED)
   public Uni<Void> onSignalReceived(SignalReceivedEvent event) {
+    return onSignalReceivedWithRetry(event, 0);
+  }
+
+  private Uni<Void> onSignalReceivedWithRetry(SignalReceivedEvent event, int attempt) {
     CaseInstance cached = caseInstanceCache.get(event.caseId());
-    if (cached != null) {
+    if (cached == null) {
+      LOG.warnf("CaseInstance not found in cache for caseId=%s, trying recovery", event.caseId());
+      return recoveryService
+          .loadOrRestoreCaseInstance(event.caseId())
+          .chain(instance -> applySignal(instance, event));
+    }
+    CaseStatus state = cached.getState();
+    if (state == CaseStatus.RUNNING || state == CaseStatus.WAITING) {
       return applySignal(cached, event);
     }
-    LOG.warnf("CaseInstance not found in cache for caseId=%s, trying recovery", event.caseId());
-    return recoveryService
-        .loadOrRestoreCaseInstance(event.caseId())
-        .chain(instance -> applySignal(instance, event));
+    if (state != CaseStatus.STARTING) {
+      LOG.warnf(
+          "Ignoring signal path='%s' for caseId=%s — case is %s",
+          event.path(), event.caseId(), state);
+      return Uni.createFrom().voidItem();
+    }
+    if (attempt >= MAX_STARTING_RETRIES) {
+      LOG.warnf(
+          "CaseInstance caseId=%s still STARTING after %d retries, proceeding anyway",
+          event.caseId(), MAX_STARTING_RETRIES);
+      return applySignal(cached, event);
+    }
+    LOG.debugf(
+        "CaseInstance caseId=%s is still STARTING (attempt %d/%d), retrying in %dms",
+        event.caseId(), attempt + 1, MAX_STARTING_RETRIES, STARTING_RETRY_DELAY_MS);
+    return Uni.createFrom()
+        .emitter(em -> vertx.setTimer(STARTING_RETRY_DELAY_MS, id -> em.complete(null)))
+        .chain(() -> onSignalReceivedWithRetry(event, attempt + 1));
   }
 
   private Uni<Void> applySignal(CaseInstance instance, SignalReceivedEvent event) {
