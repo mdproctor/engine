@@ -28,4 +28,5 @@ import java.util.UUID;
  * which also faults the {@code CaseInstance} state — gate faults must leave the case RUNNING so the
  * rejection binding can react.
  */
-public record ActionGateWorkerFaultedEvent(UUID caseId, String workerId, String idempotency) {}
+public record ActionGateWorkerFaultedEvent(
+    UUID caseId, String workerId, String idempotency, String tenancyId) {}

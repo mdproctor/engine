@@ -18,4 +18,4 @@ package io.casehub.engine.common.internal.event;
 import java.util.UUID;
 
 public record WorkerRetriesExhaustedEvent(
-    UUID caseId, String workerId, String idempotency, String bindingName) {}
+    UUID caseId, String workerId, String idempotency, String bindingName, String tenancyId) {}

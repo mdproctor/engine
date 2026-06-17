@@ -104,7 +104,11 @@ public class WorkerScheduleEventHandler {
       eventBus.publish(
           EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
           new WorkerRetriesExhaustedEvent(
-              instance.getUuid(), worker.getName(), inputDataHash, bindingName));
+              instance.getUuid(),
+              worker.getName(),
+              inputDataHash,
+              bindingName,
+              instance.tenancyId));
       return Uni.createFrom().voidItem();
     }
 

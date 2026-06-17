@@ -74,7 +74,8 @@ public class ActionGateExpiredPlanItemHandler {
               }
               item.markFaulted();
               planItemFaultedEvents.fireAsync(
-                  new PlanItemFaultedEvent(event.caseId(), planItemId, event.workerId(), null));
+                  new PlanItemFaultedEvent(
+                      event.caseId(), planItemId, event.workerId(), event.tenancyId()));
               LOG.infof(
                   "PlanItem %s faulted (gate worker faulted): caseId=%s workerId=%s",
                   planItemId, event.caseId(), event.workerId());

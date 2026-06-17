@@ -83,7 +83,8 @@ public class PlanItemFaultHandler {
                   "PlanItem %s marked FAULTED for worker '%s' in case %s",
                   planItemId, event.workerId(), event.caseId());
               planItemFaultedEvents.fireAsync(
-                  new PlanItemFaultedEvent(event.caseId(), planItemId, event.workerId(), null));
+                  new PlanItemFaultedEvent(
+                      event.caseId(), planItemId, event.workerId(), event.tenancyId()));
             });
   }
 }

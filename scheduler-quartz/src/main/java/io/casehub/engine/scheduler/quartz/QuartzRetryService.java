@@ -127,7 +127,11 @@ class QuartzRetryService {
         eventBus.publish(
             EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
             new WorkerRetriesExhaustedEvent(
-                ctx.caseId(), ctx.workerId(), ctx.inputDataHash(), ctx.bindingName()));
+                ctx.caseId(),
+                ctx.workerId(),
+                ctx.inputDataHash(),
+                ctx.bindingName(),
+                ctx.tenancyId()));
         yield Uni.createFrom().voidItem();
       }
     };

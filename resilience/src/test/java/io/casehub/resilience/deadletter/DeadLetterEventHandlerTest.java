@@ -56,7 +56,7 @@ class DeadLetterEventHandlerTest {
 
     eventBus.publish(
         EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-        new WorkerRetriesExhaustedEvent(caseId, workerId, hash, null));
+        new WorkerRetriesExhaustedEvent(caseId, workerId, hash, null, "test-tenant"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -79,10 +79,10 @@ class DeadLetterEventHandlerTest {
 
     eventBus.publish(
         EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-        new WorkerRetriesExhaustedEvent(caseA, "worker-a", "hash-a", null));
+        new WorkerRetriesExhaustedEvent(caseA, "worker-a", "hash-a", null, "test-tenant"));
     eventBus.publish(
         EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-        new WorkerRetriesExhaustedEvent(caseB, "worker-b", "hash-b", null));
+        new WorkerRetriesExhaustedEvent(caseB, "worker-b", "hash-b", null, "test-tenant"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -100,7 +100,8 @@ class DeadLetterEventHandlerTest {
     UUID caseId = UUID.randomUUID();
     eventBus.publish(
         EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-        new WorkerRetriesExhaustedEvent(caseId, "specific-worker", "hash-xyz", null));
+        new WorkerRetriesExhaustedEvent(
+            caseId, "specific-worker", "hash-xyz", null, "test-tenant"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)

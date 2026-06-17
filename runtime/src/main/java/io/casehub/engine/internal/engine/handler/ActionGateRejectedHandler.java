@@ -126,7 +126,8 @@ public class ActionGateRejectedHandler {
     // transition.
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_WORKER_FAULTED,
-        new ActionGateWorkerFaultedEvent(instance.getUuid(), gate.workerId(), gate.idempotency()));
+        new ActionGateWorkerFaultedEvent(
+            instance.getUuid(), gate.workerId(), gate.idempotency(), instance.tenancyId));
 
     // EventLog write is best-effort and fire-and-forget — failures are logged, not propagated
     writeResolutionEventLog(instance, gate)

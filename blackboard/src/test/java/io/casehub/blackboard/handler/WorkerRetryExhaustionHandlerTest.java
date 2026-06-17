@@ -60,7 +60,8 @@ class WorkerRetryExhaustionHandlerTest {
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     handler.onWorkerRetriesExhausted(
-        new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123", "capability-binding"));
+        new WorkerRetriesExhaustedEvent(
+            caseId, "worker-a", "hash-123", "capability-binding", "test-tenant"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
@@ -68,14 +69,15 @@ class WorkerRetryExhaustionHandlerTest {
   @Test
   void unknown_case_is_a_noop() {
     handler.onWorkerRetriesExhausted(
-        new WorkerRetriesExhaustedEvent(UUID.randomUUID(), "worker-x", "hash", null));
+        new WorkerRetriesExhaustedEvent(
+            UUID.randomUUID(), "worker-x", "hash", null, "test-tenant"));
     // no exception
   }
 
   @Test
   void unknown_worker_is_a_noop() {
     handler.onWorkerRetriesExhausted(
-        new WorkerRetriesExhaustedEvent(caseId, "unknown-worker", "hash", null));
+        new WorkerRetriesExhaustedEvent(caseId, "unknown-worker", "hash", null, "test-tenant"));
     // no exception
   }
 
@@ -88,7 +90,8 @@ class WorkerRetryExhaustionHandlerTest {
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     handler.onWorkerRetriesExhausted(
-        new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123", "capability-binding"));
+        new WorkerRetriesExhaustedEvent(
+            caseId, "worker-a", "hash-123", "capability-binding", "test-tenant"));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED); // unchanged, no throw
   }
@@ -103,7 +106,8 @@ class WorkerRetryExhaustionHandlerTest {
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     handler.onWorkerRetriesExhausted(
-        new WorkerRetriesExhaustedEvent(caseId, "worker-a", "hash-123", "capability-binding"));
+        new WorkerRetriesExhaustedEvent(
+            caseId, "worker-a", "hash-123", "capability-binding", "test-tenant"));
 
     // PENDING is not RUNNING — handler must not transition it (guard fires before plan item
     // indexing in the guard-blocked path, so lookup returns empty; this tests a theoretical edge)
