@@ -59,7 +59,7 @@ jobs:
       - name: Trigger downstream CI
         if: github.event_name != 'pull_request' && success()
         run: |
-          for repo in flow openclaw claudony aml devtown life; do
+          for repo in flow openclaw claudony workers aml devtown life; do
             gh api repos/casehubio/$repo/dispatches \
               -f event_type=upstream-published \
               -f client_payload[source]="${GITHUB_REPOSITORY}" \
