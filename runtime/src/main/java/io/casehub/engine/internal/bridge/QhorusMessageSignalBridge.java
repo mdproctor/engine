@@ -15,14 +15,30 @@
  */
 package io.casehub.engine.internal.bridge;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseChannel;
+import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerOutcome;
+import io.casehub.api.model.WorkerResult;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.qualifier.CrossTenant;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
+import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
+import java.time.Duration;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.jboss.logging.Logger;
@@ -51,8 +67,14 @@ public class QhorusMessageSignalBridge {
   public static final String SIGNAL_PATH = "channelMessage";
 
   private static final Logger LOG = Logger.getLogger(QhorusMessageSignalBridge.class);
+  private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
   private final CaseHubRuntime runtime;
+
+  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
+  @Inject EventBus eventBus;
 
   @Inject
   public QhorusMessageSignalBridge(CaseHubRuntime runtime) {
@@ -65,18 +87,93 @@ public class QhorusMessageSignalBridge {
     UUID caseId = extractCaseId(event.channelName());
     if (caseId == null) return;
 
+    if (isFailureOutcome(event.messageType()) && handleWorkerOutcome(caseId, event)) {
+      return;
+    }
+
     LOG.debugf(
         "Signalling case %s from channel '%s' (type=%s sender=%s)",
         caseId, event.channelName(), event.messageType(), event.senderId());
 
-    // Thread the message's channelId and correlationId so provisioners can establish
-    // causal lineage back to the Qhorus message. Refs engine#231.
     runtime.signal(
         caseId,
         SIGNAL_PATH,
         buildPayload(event),
         event.channelId().toString(),
         event.correlationId());
+  }
+
+  private boolean handleWorkerOutcome(UUID caseId, MessageReceivedEvent event) {
+    Long eventLogId = parseEventLogId(event.correlationId());
+    if (eventLogId == null) return false;
+
+    EventLog eventLog = eventLogRepository.findById(eventLogId).await().atMost(TIMEOUT);
+    if (eventLog == null) return false;
+
+    JsonNode metadata = eventLog.getMetadata();
+    if (metadata == null || !metadata.has("workerName")) {
+      LOG.errorf(
+          "EventLog %d has no workerName in metadata — cannot route to failure cascade",
+          eventLogId);
+      return false;
+    }
+
+    CaseInstance caseInstance = caseInstanceRepository.findByUuid(caseId).await().atMost(TIMEOUT);
+    if (caseInstance == null) {
+      LOG.infof(
+          "CaseInstance %s not found — case already terminal, skipping failure cascade", caseId);
+      return true;
+    }
+
+    String workerName = metadata.get("workerName").asText();
+    String bindingName = metadata.has("bindingName") ? metadata.get("bindingName").asText() : null;
+    String idempotency =
+        metadata.has("inputDataHash") ? metadata.get("inputDataHash").asText() : null;
+
+    Worker worker = resolveWorker(caseInstance, workerName);
+
+    WorkerOutcome outcome =
+        event.messageType() == MessageType.DECLINE
+            ? new WorkerOutcome.Declined(event.content())
+            : new WorkerOutcome.Failed(event.content());
+
+    LOG.infof(
+        "Qhorus %s → WorkerOutcome for case %s worker '%s' binding '%s'",
+        event.messageType(), caseId, workerName, bindingName);
+
+    eventBus.publish(
+        EventBusAddresses.WORKER_EXECUTION_FINISHED,
+        new WorkflowExecutionCompleted(
+            caseInstance, worker, idempotency, Map.of(), null, bindingName, outcome));
+
+    return true;
+  }
+
+  private Worker resolveWorker(CaseInstance caseInstance, String workerName) {
+    CaseDefinition def = caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+    if (def != null && def.getWorkers() != null) {
+      for (Worker w : def.getWorkers()) {
+        if (w.getName().equals(workerName)) return w;
+      }
+    }
+    return Worker.builder()
+        .name(workerName)
+        .capabilities(List.of())
+        .function(input -> WorkerResult.of(Map.of()))
+        .build();
+  }
+
+  private static Long parseEventLogId(String correlationId) {
+    if (correlationId == null) return null;
+    try {
+      return Long.parseLong(correlationId);
+    } catch (NumberFormatException e) {
+      return null;
+    }
+  }
+
+  private static boolean isFailureOutcome(MessageType type) {
+    return type == MessageType.DECLINE || type == MessageType.FAILURE;
   }
 
   private static boolean isCommitmentResolving(MessageType type) {

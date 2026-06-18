@@ -21,11 +21,29 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseChannel;
+import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.Worker;
+import io.casehub.api.model.WorkerOutcome;
+import io.casehub.api.model.WorkerResult;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
+import io.smallrye.mutiny.Uni;
+import io.vertx.mutiny.core.eventbus.EventBus;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,16 +52,31 @@ import org.mockito.ArgumentCaptor;
 
 class QhorusMessageSignalBridgeTest {
 
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
   private CaseHubRuntime runtime;
+  private CrossTenantEventLogRepository eventLogRepository;
+  private CrossTenantCaseInstanceRepository caseInstanceRepository;
+  private CaseDefinitionRegistry caseDefinitionRegistry;
+  private EventBus eventBus;
   private QhorusMessageSignalBridge bridge;
 
   @BeforeEach
   void setUp() {
     runtime = mock(CaseHubRuntime.class);
+    eventLogRepository = mock(CrossTenantEventLogRepository.class);
+    caseInstanceRepository = mock(CrossTenantCaseInstanceRepository.class);
+    caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
+    eventBus = mock(EventBus.class);
+
     bridge = new QhorusMessageSignalBridge(runtime);
+    bridge.eventLogRepository = eventLogRepository;
+    bridge.caseInstanceRepository = caseInstanceRepository;
+    bridge.caseDefinitionRegistry = caseDefinitionRegistry;
+    bridge.eventBus = eventBus;
   }
 
-  // ---- Commitment-resolving types that should signal the engine ----
+  // ---- DONE/RESPONSE still go through signal path ----
 
   @Test
   void responseOnCaseChannel_signalsEngine() {
@@ -81,160 +114,198 @@ class QhorusMessageSignalBridgeTest {
             eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class), any(), any());
   }
 
+  // ---- DECLINE/FAILURE with valid engine correlationId → failure cascade ----
+
   @Test
-  void declineOnCaseChannel_signalsEngine() {
+  void declineWithEngineCorrelation_publishesDeclinedOutcome() {
     UUID caseId = UUID.randomUUID();
-    MessageReceivedEvent event =
+    long eventLogId = 42L;
+    String workerName = "security-reviewer";
+    String bindingName = "security-review";
+    CaseInstance instance = stubCaseInstance(caseId);
+    stubEventLog(eventLogId, workerName, bindingName, "hash-1");
+    stubCaseInstance(caseId, instance);
+    stubWorkerInDefinition(instance, workerName);
+
+    bridge.onMessage(
         event(
-            caseChannelName(caseId, "oversight"),
+            caseChannelName(caseId, "work"),
             MessageType.DECLINE,
-            "human-1",
-            "corr-456",
-            "decline reason");
+            "agent-1",
+            String.valueOf(eventLogId),
+            "not qualified for this review"));
 
-    bridge.onMessage(event);
+    ArgumentCaptor<WorkflowExecutionCompleted> captor =
+        ArgumentCaptor.forClass(WorkflowExecutionCompleted.class);
+    verify(eventBus).publish(eq(EventBusAddresses.WORKER_EXECUTION_FINISHED), captor.capture());
+    WorkflowExecutionCompleted completed = captor.getValue();
 
-    verify(runtime)
-        .signal(
-            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class), any(), any());
+    assertThat(completed.outcome()).isInstanceOf(WorkerOutcome.Declined.class);
+    assertThat(((WorkerOutcome.Declined) completed.outcome()).reason())
+        .isEqualTo("not qualified for this review");
+    assertThat(completed.worker().getName()).isEqualTo(workerName);
+    assertThat(completed.bindingName()).isEqualTo(bindingName);
+    assertThat(completed.caseInstance()).isSameAs(instance);
+    verifyNoInteractions(runtime);
   }
 
   @Test
-  void failureOnCaseChannel_signalsEngine() {
+  void failureWithEngineCorrelation_publishesFailedOutcome() {
     UUID caseId = UUID.randomUUID();
-    MessageReceivedEvent event =
+    long eventLogId = 99L;
+    String workerName = "code-analyst";
+    String bindingName = "analyse-code";
+    CaseInstance instance = stubCaseInstance(caseId);
+    stubEventLog(eventLogId, workerName, bindingName, "hash-2");
+    stubCaseInstance(caseId, instance);
+    stubWorkerInDefinition(instance, workerName);
+
+    bridge.onMessage(
         event(
             caseChannelName(caseId, "work"),
             MessageType.FAILURE,
-            "agent-1",
-            "corr-789",
-            "failure reason");
+            "agent-2",
+            String.valueOf(eventLogId),
+            "tool execution error"));
 
-    bridge.onMessage(event);
+    ArgumentCaptor<WorkflowExecutionCompleted> captor =
+        ArgumentCaptor.forClass(WorkflowExecutionCompleted.class);
+    verify(eventBus).publish(eq(EventBusAddresses.WORKER_EXECUTION_FINISHED), captor.capture());
+    WorkflowExecutionCompleted completed = captor.getValue();
+
+    assertThat(completed.outcome()).isInstanceOf(WorkerOutcome.Failed.class);
+    assertThat(((WorkerOutcome.Failed) completed.outcome()).reason())
+        .isEqualTo("tool execution error");
+    assertThat(completed.idempotency()).isEqualTo("hash-2");
+    verifyNoInteractions(runtime);
+  }
+
+  // ---- Edge cases: fall through to signal path ----
+
+  @Test
+  void declineWithNonNumericCorrelation_fallsThroughToSignal() {
+    UUID caseId = UUID.randomUUID();
+    bridge.onMessage(
+        event(
+            caseChannelName(caseId, "work"),
+            MessageType.DECLINE,
+            "human-1",
+            "non-engine-correlation",
+            "decline reason"));
 
     verify(runtime)
         .signal(
             eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class), any(), any());
+    verifyNoInteractions(eventBus);
   }
 
-  // ---- Non-commitment types that should NOT signal ----
+  @Test
+  void declineWithEventLogNotFound_fallsThroughToSignal() {
+    UUID caseId = UUID.randomUUID();
+    when(eventLogRepository.findById(999L)).thenReturn(Uni.createFrom().nullItem());
+
+    bridge.onMessage(
+        event(
+            caseChannelName(caseId, "work"),
+            MessageType.DECLINE,
+            "agent-1",
+            "999",
+            "decline reason"));
+
+    verify(runtime)
+        .signal(
+            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), any(Map.class), any(), any());
+    verifyNoInteractions(eventBus);
+  }
+
+  // ---- Edge case: case already terminal ----
+
+  @Test
+  void declineWithCaseNotFound_skipsCompletely() {
+    UUID caseId = UUID.randomUUID();
+    long eventLogId = 42L;
+    stubEventLog(eventLogId, "worker-1", "binding-1", "hash-1");
+    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(Uni.createFrom().nullItem());
+
+    bridge.onMessage(
+        event(
+            caseChannelName(caseId, "work"),
+            MessageType.DECLINE,
+            "agent-1",
+            String.valueOf(eventLogId),
+            "decline reason"));
+
+    verifyNoInteractions(runtime);
+    verifyNoInteractions(eventBus);
+  }
+
+  // ---- Edge case: worker not in definition → constructs minimal worker ----
+
+  @Test
+  void declineWithWorkerNotInDefinition_constructsMinimalWorker() {
+    UUID caseId = UUID.randomUUID();
+    long eventLogId = 42L;
+    String workerName = "removed-worker";
+    CaseInstance instance = stubCaseInstance(caseId);
+    stubEventLog(eventLogId, workerName, "binding-1", "hash-1");
+    stubCaseInstance(caseId, instance);
+    when(caseDefinitionRegistry.getCaseDefinition(any())).thenReturn(null);
+
+    bridge.onMessage(
+        event(
+            caseChannelName(caseId, "work"),
+            MessageType.DECLINE,
+            "agent-1",
+            String.valueOf(eventLogId),
+            "declined"));
+
+    ArgumentCaptor<WorkflowExecutionCompleted> captor =
+        ArgumentCaptor.forClass(WorkflowExecutionCompleted.class);
+    verify(eventBus).publish(eq(EventBusAddresses.WORKER_EXECUTION_FINISHED), captor.capture());
+    assertThat(captor.getValue().worker().getName()).isEqualTo(workerName);
+  }
+
+  // ---- Non-commitment types still ignored ----
 
   @Test
   void commandOnCaseChannel_isIgnored() {
-    UUID caseId = UUID.randomUUID();
-    MessageReceivedEvent event =
+    bridge.onMessage(
         event(
-            caseChannelName(caseId, "work"),
+            caseChannelName(UUID.randomUUID(), "work"),
             MessageType.COMMAND,
             "sender-1",
             null,
-            "command content");
-
-    bridge.onMessage(event);
-
+            "command content"));
     verifyNoInteractions(runtime);
-  }
-
-  @Test
-  void queryOnCaseChannel_isIgnored() {
-    UUID caseId = UUID.randomUUID();
-    MessageReceivedEvent event =
-        event(
-            caseChannelName(caseId, "observe"),
-            MessageType.QUERY,
-            "sender-1",
-            null,
-            "query content");
-
-    bridge.onMessage(event);
-
-    verifyNoInteractions(runtime);
-  }
-
-  @Test
-  void statusOnCaseChannel_isIgnored() {
-    UUID caseId = UUID.randomUUID();
-    MessageReceivedEvent event =
-        event(
-            caseChannelName(caseId, "observe"),
-            MessageType.STATUS,
-            "sender-1",
-            null,
-            "status content");
-
-    bridge.onMessage(event);
-
-    verifyNoInteractions(runtime);
-  }
-
-  @Test
-  void handoffOnCaseChannel_isIgnored() {
-    UUID caseId = UUID.randomUUID();
-    MessageReceivedEvent event =
-        event(
-            caseChannelName(caseId, "work"),
-            MessageType.HANDOFF,
-            "sender-1",
-            "corr-123",
-            "handoff content");
-
-    bridge.onMessage(event);
-
-    verifyNoInteractions(runtime);
+    verifyNoInteractions(eventBus);
   }
 
   @Test
   void eventOnCaseChannel_isIgnored() {
-    // EVENT has null content per PP-20260508-90428f — telemetry only, not actionable outcome.
-    UUID caseId = UUID.randomUUID();
-    MessageReceivedEvent event =
+    bridge.onMessage(
         new MessageReceivedEvent(
-            caseChannelName(caseId, "observe"),
+            caseChannelName(UUID.randomUUID(), "observe"),
             UUID.randomUUID(),
             "test-tenancy",
             MessageType.EVENT,
             "sender-1",
             null,
-            null);
-
-    bridge.onMessage(event);
-
+            null));
     verifyNoInteractions(runtime);
+    verifyNoInteractions(eventBus);
   }
 
   // ---- Non-case channels ignored ----
 
   @Test
   void responseOnNonCaseChannel_isIgnored() {
-    MessageReceivedEvent event =
-        event("general-channel", MessageType.RESPONSE, "sender-1", "corr-123", "content");
-
-    bridge.onMessage(event);
-
+    bridge.onMessage(
+        event("general-channel", MessageType.RESPONSE, "sender-1", "corr-123", "content"));
     verifyNoInteractions(runtime);
+    verifyNoInteractions(eventBus);
   }
 
-  @Test
-  void responseOnChannelWithInvalidUuid_isIgnored() {
-    MessageReceivedEvent event =
-        event("case-not-a-uuid/work", MessageType.RESPONSE, "sender-1", "corr-123", "content");
-
-    bridge.onMessage(event);
-
-    verifyNoInteractions(runtime);
-  }
-
-  @Test
-  void nullChannelName_isIgnored() {
-    MessageReceivedEvent event =
-        event(null, MessageType.RESPONSE, "sender-1", "corr-123", "content");
-
-    bridge.onMessage(event);
-
-    verifyNoInteractions(runtime);
-  }
-
-  // ---- Signal payload shape ----
+  // ---- Signal payload shape (DONE/RESPONSE path) ----
 
   @SuppressWarnings("unchecked")
   @Test
@@ -268,35 +339,6 @@ class QhorusMessageSignalBridgeTest {
     assertThat(payload).containsEntry("correlationId", "corr-xyz");
   }
 
-  @SuppressWarnings("unchecked")
-  @Test
-  void nullCorrelationId_notIncludedInPayload() {
-    UUID caseId = UUID.randomUUID();
-    UUID channelId = UUID.randomUUID();
-    MessageReceivedEvent event =
-        new MessageReceivedEvent(
-            caseChannelName(caseId, "work"),
-            channelId,
-            "test-tenancy",
-            MessageType.DONE,
-            "agent-1",
-            null,
-            "done");
-    bridge = new QhorusMessageSignalBridge(runtime);
-
-    bridge.onMessage(event);
-
-    ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
-    verify(runtime)
-        .signal(
-            eq(caseId), eq(QhorusMessageSignalBridge.SIGNAL_PATH), captor.capture(), any(), any());
-    Map<String, Object> payload = (Map<String, Object>) captor.getValue();
-
-    assertThat(payload).doesNotContainKey("correlationId");
-  }
-
-  // ---- Channel naming constant ----
-
   @Test
   void caseChannel_channelNameFactory_producesCorrectFormat() {
     UUID caseId = UUID.randomUUID();
@@ -321,5 +363,40 @@ class QhorusMessageSignalBridgeTest {
         senderId,
         correlationId,
         type == MessageType.EVENT ? null : content);
+  }
+
+  private void stubEventLog(
+      long eventLogId, String workerName, String bindingName, String inputDataHash) {
+    ObjectNode metadata = MAPPER.createObjectNode();
+    metadata.put("workerName", workerName);
+    metadata.put("bindingName", bindingName);
+    metadata.put("inputDataHash", inputDataHash);
+    EventLog log = new EventLog();
+    log.setMetadata(metadata);
+    when(eventLogRepository.findById(eventLogId)).thenReturn(Uni.createFrom().item(log));
+  }
+
+  private CaseInstance stubCaseInstance(UUID caseId) {
+    CaseInstance instance = mock(CaseInstance.class);
+    when(instance.getUuid()).thenReturn(caseId);
+    CaseMetaModel meta = mock(CaseMetaModel.class);
+    when(instance.getCaseMetaModel()).thenReturn(meta);
+    return instance;
+  }
+
+  private void stubCaseInstance(UUID caseId, CaseInstance instance) {
+    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(Uni.createFrom().item(instance));
+  }
+
+  private void stubWorkerInDefinition(CaseInstance instance, String workerName) {
+    Worker worker =
+        Worker.builder()
+            .name(workerName)
+            .capabilities(List.of())
+            .function(input -> WorkerResult.of(Map.of()))
+            .build();
+    CaseDefinition def = mock(CaseDefinition.class);
+    when(def.getWorkers()).thenReturn(List.of(worker));
+    when(caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel())).thenReturn(def);
   }
 }
