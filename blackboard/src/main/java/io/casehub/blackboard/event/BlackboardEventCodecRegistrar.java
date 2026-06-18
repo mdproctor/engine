@@ -39,9 +39,18 @@ public class BlackboardEventCodecRegistrar {
 
   void onStart(@Observes StartupEvent event) {
     var bus = vertx.getDelegate().eventBus();
-    bus.registerDefaultCodec(StageActivatedEvent.class, new LocalOnlyCodec<>("StageActivated"));
-    bus.registerDefaultCodec(StageTerminatedEvent.class, new LocalOnlyCodec<>("StageTerminated"));
-    bus.registerDefaultCodec(StageCompletedEvent.class, new LocalOnlyCodec<>("StageCompleted"));
+    registerIfAbsent(bus, StageActivatedEvent.class, "StageActivated");
+    registerIfAbsent(bus, StageTerminatedEvent.class, "StageTerminated");
+    registerIfAbsent(bus, StageCompletedEvent.class, "StageCompleted");
+  }
+
+  private <T> void registerIfAbsent(
+      io.vertx.core.eventbus.EventBus bus, Class<T> clazz, String name) {
+    try {
+      bus.registerDefaultCodec(clazz, new LocalOnlyCodec<>(name));
+    } catch (IllegalStateException ignored) {
+      // Already registered — Vert.x instance is shared across @QuarkusTest restarts
+    }
   }
 
   /**

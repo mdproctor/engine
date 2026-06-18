@@ -44,6 +44,8 @@ import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.OutcomeDisposition;
+import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -380,5 +382,48 @@ class CaseContextChangedEventHandlerRoutingTest {
                         && "System".equals(e.actorRole())));
     verify(eventBus, never())
         .publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
+  }
+
+  @Test
+  void allCandidatesExcluded_publishesWorkerOutcomeResolvedExhausted() {
+    com.fasterxml.jackson.databind.ObjectMapper mapper =
+        new com.fasterxml.jackson.databind.ObjectMapper();
+    com.fasterxml.jackson.databind.node.ObjectNode workingNode = mapper.createObjectNode();
+    com.fasterxml.jackson.databind.node.ObjectNode outcomesNode = mapper.createObjectNode();
+    com.fasterxml.jackson.databind.node.ObjectNode bindingOutcome = mapper.createObjectNode();
+    bindingOutcome.put("status", "DECLINED");
+    bindingOutcome.put("attempts", 1);
+    com.fasterxml.jackson.databind.node.ArrayNode excludedAgents = mapper.createArrayNode();
+    excludedAgents.add("analyst-worker");
+    bindingOutcome.set("excludedAgents", excludedAgents);
+    outcomesNode.set("research-binding", bindingOutcome);
+    workingNode.set("_outcomes", outcomesNode);
+
+    CaseContext ctx = mock(CaseContext.class);
+    io.casehub.api.context.ReadablePanel workingPanel =
+        mock(io.casehub.api.context.ReadablePanel.class);
+    when(workingPanel.asJsonNode()).thenReturn(workingNode);
+    when(ctx.panel(ContextPanel.WORKING)).thenReturn(workingPanel);
+    when(ctx.asJsonNode()).thenReturn(workingNode);
+    when(ctx.snapshot()).thenReturn(ctx);
+
+    caseInstance.setCaseContext(ctx);
+
+    handler
+        .onCaseStateContextChangedEventHandler(
+            new CaseContextChangedEvent(caseInstance, ctx, ContextPanel.WORKING))
+        .await()
+        .indefinitely();
+
+    verify(eventBus, never())
+        .publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
+    verify(eventBus)
+        .publish(
+            eq(EventBusAddresses.WORKER_OUTCOME_RESOLVED),
+            argThat(
+                (WorkerOutcomeResolvedEvent e) ->
+                    e.bindingName().equals("research-binding")
+                        && e.capabilityName().equals("research")
+                        && e.disposition() == OutcomeDisposition.EXHAUSTED));
   }
 }

@@ -48,6 +48,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -85,6 +86,7 @@ public class WorkerScheduleEventHandler {
     CaseInstance instance = event.caseInstance();
     Worker worker = event.worker();
     Capability capability = event.capability();
+    String bindingName = event.bindingName();
 
     Map<String, Object> inputData =
         evalJqAsMap(
@@ -108,7 +110,8 @@ public class WorkerScheduleEventHandler {
     workerContextProvider.buildContext(
         worker.getName(), instance.getUuid(), WorkRequest.of(capability.getName(), inputData));
 
-    EventLog eventLog = buildEventLog(instance, worker, capability, inputData, inputDataHash);
+    EventLog eventLog =
+        buildEventLog(instance, worker, capability, inputData, inputDataHash, bindingName);
 
     String lockKey = "wse:" + instance.getUuid() + ":" + worker.getName() + ":" + inputDataHash;
 
@@ -161,12 +164,16 @@ public class WorkerScheduleEventHandler {
       Worker worker,
       Capability capability,
       Map<String, Object> inputData,
-      String inputDataHash) {
-    Map<String, String> metadata =
-        Map.of(
-            "workerName", worker.getName(),
-            "capabilityName", capability.getName(),
-            "inputDataHash", inputDataHash);
+      String inputDataHash,
+      String bindingName) {
+    Map<String, String> metadataBuilder = new HashMap<>();
+    metadataBuilder.put("workerName", worker.getName());
+    metadataBuilder.put("capabilityName", capability.getName());
+    metadataBuilder.put("inputDataHash", inputDataHash);
+    if (bindingName != null) {
+      metadataBuilder.put("bindingName", bindingName);
+    }
+    Map<String, String> metadata = java.util.Collections.unmodifiableMap(metadataBuilder);
 
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(instance.getUuid());

@@ -80,6 +80,15 @@ public final class EventBusAddresses {
    */
   public static final String ACTION_GATE_CANCELLED = "casehub.action.gate.cancelled";
 
+  // --- Worker outcome lifecycle (semantic DECLINED/FAILED) ---
+
+  /**
+   * Published by WorkflowExecutionCompletedHandler when a worker returns a non-success outcome
+   * (DECLINED or FAILED). Consumed by WorkerOutcomeResolvedHandler in the blackboard module for
+   * PlanItem lifecycle management.
+   */
+  public static final String WORKER_OUTCOME_RESOLVED = "casehub.worker.outcome.resolved";
+
   /** Returns an event bus address scoped to a specific panel name. */
   public static String panelChanged(String panelName) {
     return "casehub.context.changed." + panelName;

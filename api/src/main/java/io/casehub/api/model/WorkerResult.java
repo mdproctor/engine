@@ -21,22 +21,48 @@ import java.util.Map;
 /**
  * The return type for all worker functions.
  *
- * <p>Replaces {@code Map<String, Object>} as the function/agent return type. Workers without
- * consequential actions use {@link #of(Map)} — behaviour is unchanged. Workers proposing a
- * consequential action include a {@link PlannedAction} via {@link #of(Map, PlannedAction)}.
+ * <p>Workers without consequential actions use {@link #of(Map)} — behaviour is unchanged. Workers
+ * proposing a consequential action include a {@link PlannedAction} via {@link #of(Map,
+ * PlannedAction)}.
  *
- * <p>{@link PlannedAction} is optional. If present, the engine calls {@link
- * io.casehub.api.spi.ReactiveActionRiskClassifier#classify(PlannedAction)} before applying output
- * to the case context. {@code WorkerResult} is unpacked at the {@code QuartzWorkerExecutionJob}
- * boundary; it does not propagate as a type beyond the job.
+ * <p>The {@code outcome} field allows workers to signal declined or failed execution. When outcome
+ * is not {@link WorkerOutcome.Success}, {@code plannedAction} must be null (validated in compact
+ * constructor).
  */
-public record WorkerResult(Map<String, Object> output, PlannedAction plannedAction) {
+public record WorkerResult(
+    Map<String, Object> output, PlannedAction plannedAction, WorkerOutcome outcome) {
+
+  public WorkerResult {
+    if (!(outcome instanceof WorkerOutcome.Success) && plannedAction != null) {
+      throw new IllegalArgumentException(
+          "plannedAction must be null when outcome is not Success (got: "
+              + outcome.getClass().getSimpleName()
+              + ")");
+    }
+  }
 
   public static WorkerResult of(final Map<String, Object> output) {
-    return new WorkerResult(output, null);
+    return new WorkerResult(output, null, WorkerOutcome.success());
   }
 
   public static WorkerResult of(final Map<String, Object> output, final PlannedAction action) {
-    return new WorkerResult(output, action);
+    return new WorkerResult(output, action, WorkerOutcome.success());
+  }
+
+  public static WorkerResult declined(final String reason) {
+    return new WorkerResult(Map.of(), null, new WorkerOutcome.Declined(reason));
+  }
+
+  public static WorkerResult declined(
+      final String reason, final Map<String, Object> partialOutput) {
+    return new WorkerResult(partialOutput, null, new WorkerOutcome.Declined(reason));
+  }
+
+  public static WorkerResult failed(final String reason) {
+    return new WorkerResult(Map.of(), null, new WorkerOutcome.Failed(reason));
+  }
+
+  public static WorkerResult failed(final String reason, final Map<String, Object> partialOutput) {
+    return new WorkerResult(partialOutput, null, new WorkerOutcome.Failed(reason));
   }
 }

@@ -31,6 +31,8 @@ public enum CaseHubEventType {
   WORKER_EXECUTION_STARTED,
   WORKER_EXECUTION_COMPLETED,
   WORKER_EXECUTION_FAILED,
+  WORKER_OUTCOME_DECLINED, // worker ran correctly but declined the work (semantic boundary)
+  WORKER_OUTCOME_FAILED, // worker ran correctly but could not complete (semantic failure)
 
   WORK_SUBMITTED, // orchestrated work submitted via WorkOrchestrator
   WORK_COMPLETED, // orchestrated work completed; case may resume from WAITING

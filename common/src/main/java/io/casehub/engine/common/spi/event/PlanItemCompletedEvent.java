@@ -31,7 +31,8 @@ import java.util.UUID;
  * @param caseId the case the PlanItem belongs to
  * @param planItemId the exact PlanItem id that just completed
  * @param trackingKey the external identifier that triggered completion (workerName for
- *     CapabilityTarget; childCaseId string for SubCaseTarget)
+ *     CapabilityTarget; childCaseId string for SubCaseTarget; bindingName when the binding-name
+ *     lookup path is used)
  * @param tenancyId the tenant that owns the case
  */
 public record PlanItemCompletedEvent(

@@ -152,7 +152,7 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
           mapper.convertValue(
               vr.output().get(0),
               new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-      return WorkerResult.of(evaluated, result.plannedAction());
+      return new WorkerResult(evaluated, result.plannedAction(), result.outcome());
     }
     return result;
   }

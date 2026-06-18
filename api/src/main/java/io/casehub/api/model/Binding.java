@@ -29,6 +29,7 @@ public class Binding {
   private final Trigger on;
   private ExpressionEvaluator when;
   private String conflictResolverStrategy;
+  private OutcomePolicy outcomePolicy;
 
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
@@ -42,6 +43,10 @@ public class Binding {
 
   public void setConflictResolverStrategy(String conflictResolverStrategy) {
     this.conflictResolverStrategy = conflictResolverStrategy;
+  }
+
+  public void setOutcomePolicy(OutcomePolicy outcomePolicy) {
+    this.outcomePolicy = outcomePolicy;
   }
 
   public BindingTarget target() {
@@ -69,6 +74,10 @@ public class Binding {
     return conflictResolverStrategy;
   }
 
+  public OutcomePolicy getOutcomePolicy() {
+    return outcomePolicy;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -80,6 +89,7 @@ public class Binding {
     private Trigger on;
     private ExpressionEvaluator when;
     private String conflictResolverStrategy;
+    private OutcomePolicy outcomePolicy;
 
     private Builder() {}
 
@@ -132,6 +142,11 @@ public class Binding {
       return this;
     }
 
+    public Builder outcomePolicy(OutcomePolicy outcomePolicy) {
+      this.outcomePolicy = outcomePolicy;
+      return this;
+    }
+
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -142,6 +157,7 @@ public class Binding {
       Binding b = new Binding(name, target, on);
       b.setWhen(when);
       b.setConflictResolverStrategy(conflictResolverStrategy);
+      b.setOutcomePolicy(outcomePolicy);
       return b;
     }
   }

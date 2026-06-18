@@ -71,8 +71,8 @@ class MixedWorkersBlackboardTest {
             .toCompletableFuture()
             .join();
 
-    CompletableFuture<String> aFuture = observer.awaitWorker(caseId, "worker-a");
-    CompletableFuture<String> bFuture = observer.awaitWorker(caseId, "worker-b");
+    CompletableFuture<String> aFuture = observer.awaitWorker(caseId, "trigger-a");
+    CompletableFuture<String> bFuture = observer.awaitWorker(caseId, "trigger-b");
 
     // Wait for both workers — futures carry the exact planItemId from the completion event.
     CompletableFuture.allOf(aFuture, bFuture).get(30, TimeUnit.SECONDS);

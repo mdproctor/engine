@@ -70,7 +70,7 @@ class PlanItemCompletionHandlerTest {
     when(instance.getUuid()).thenReturn(caseId);
     Worker worker = mock(Worker.class);
     when(worker.getName()).thenReturn(workerName);
-    return WorkflowExecutionCompleted.approved(instance, worker, "idempotency-key", Map.of());
+    return WorkflowExecutionCompleted.approved(instance, worker, "idempotency-key", Map.of(), null);
   }
 
   @Test
@@ -238,6 +238,25 @@ class PlanItemCompletionHandlerTest {
 
     // Completion arrives for child2 (threshold-triggering child)
     handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, child2, "test-tenant"));
+
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+  }
+
+  @Test
+  void binding_name_lookup_path_marks_plan_item_completed() {
+    PlanItem item = PlanItem.create("action-gate-handler", "worker-x", 0);
+    plan.addPlanItem(item);
+    item.markRunning();
+
+    CaseInstance instance = mock(CaseInstance.class);
+    when(instance.getUuid()).thenReturn(caseId);
+    Worker worker = mock(Worker.class);
+    when(worker.getName()).thenReturn("worker-x");
+    WorkflowExecutionCompleted event =
+        WorkflowExecutionCompleted.approved(
+            instance, worker, "idempotency-key", Map.of(), "action-gate-handler");
+
+    handler.onWorkerFinished(event);
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
   }

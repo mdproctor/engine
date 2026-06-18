@@ -368,6 +368,34 @@ $defs:
         enum: [ LAST_WRITER_WINS, FIRST_WRITER_WINS, FAIL ]
         default: LAST_WRITER_WINS
         description: "Strategy for resolving concurrent writes to the same CaseContext key"
+      outcomePolicy:
+        $ref: "#/$defs/OutcomePolicy"
+
+  OutcomePolicy:
+    type: object
+    description: "Policy for handling semantic worker outcomes (DECLINED, FAILED, EXPIRED)"
+    unevaluatedProperties: false
+    properties:
+      onDecline:
+        type: string
+        enum: [ REROUTE, FAULT ]
+        default: REROUTE
+        description: "Action when a worker returns DECLINED"
+      onFailure:
+        type: string
+        enum: [ REROUTE, FAULT ]
+        default: REROUTE
+        description: "Action when a worker returns FAILED"
+      onExpired:
+        type: string
+        enum: [ REROUTE, FAULT ]
+        default: REROUTE
+        description: "Action when a worker's commitment expires (not yet wired — engine#513)"
+      maxRerouteAttempts:
+        type: integer
+        minimum: 1
+        default: 3
+        description: "Maximum dispatch+outcome cycles before writing REROUTES_EXHAUSTED"
 
   Goal:
     type: object

@@ -15,13 +15,15 @@
  */
 package io.casehub.api.model;
 
-/** Lifecycle states of a unit of orchestrated work submitted via WorkOrchestrator. */
-public enum WorkStatus {
-  PENDING,
-  RUNNING,
-  COMPLETED,
-  DECLINED,
-  FAILED,
-  FAULTED,
-  CANCELLED
+/**
+ * Action the engine takes when a worker returns a non-success {@link WorkerOutcome}.
+ *
+ * <ul>
+ *   <li>{@code REROUTE} — write failure state, exclude the agent, re-dispatch to a different agent
+ *   <li>{@code FAULT} — mark the case FAULTED immediately
+ * </ul>
+ */
+public enum OutcomeAction {
+  REROUTE,
+  FAULT
 }

@@ -34,6 +34,8 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
+import io.casehub.api.model.OutcomeAction;
+import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.Worker;
@@ -379,6 +381,24 @@ public final class CaseDefinitionYamlMapper {
       builder.conflictResolverStrategy(schemaBinding.getConflictResolverStrategy().value());
     }
 
+    if (schemaBinding.getOutcomePolicy() != null) {
+      final io.casehub.model.OutcomePolicy sp = schemaBinding.getOutcomePolicy();
+      final OutcomeAction onDecline =
+          sp.getOnDecline() != null
+              ? OutcomeAction.valueOf(sp.getOnDecline().value())
+              : OutcomeAction.REROUTE;
+      final OutcomeAction onFailure =
+          sp.getOnFailure() != null
+              ? OutcomeAction.valueOf(sp.getOnFailure().value())
+              : OutcomeAction.REROUTE;
+      final OutcomeAction onExpired =
+          sp.getOnExpired() != null
+              ? OutcomeAction.valueOf(sp.getOnExpired().value())
+              : OutcomeAction.REROUTE;
+      final int maxAttempts = sp.getMaxRerouteAttempts() != null ? sp.getMaxRerouteAttempts() : 3;
+      builder.outcomePolicy(new OutcomePolicy(onDecline, onFailure, onExpired, maxAttempts));
+    }
+
     return builder.build();
   }
 
@@ -435,7 +455,9 @@ public final class CaseDefinitionYamlMapper {
 
   private static GoalExpression convertGoalExpression(
       final io.casehub.model.GoalExpression expr, final Map<String, Goal> goalMap) {
-    if (expr == null) return null;
+    if (expr == null) {
+      return null;
+    }
 
     if (expr.getAllOf() != null && !expr.getAllOf().isEmpty()) {
       final List<Goal> goals =

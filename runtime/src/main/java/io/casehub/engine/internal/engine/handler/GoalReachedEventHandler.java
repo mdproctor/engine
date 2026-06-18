@@ -24,6 +24,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
+import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -134,19 +135,37 @@ public class GoalReachedEventHandler {
 
               if (goalBasedCompletion.getFailure() != null
                   && isGoalExpressionSatisfied(goalBasedCompletion.getFailure(), reachedGoals)) {
-                LOG.infof("Case FAILED: caseId=%s", caseInstance.getUuid());
+                String failureGoalName =
+                    findSatisfiedGoalName(goalBasedCompletion.getFailure(), reachedGoals);
+                LOG.infof(
+                    "Failure goal '%s' satisfied: caseId=%s",
+                    failureGoalName, caseInstance.getUuid());
                 eventBus.publish(
                     EventBusAddresses.CASE_STATUS_CHANGED,
-                    new CaseStatusChanged(caseInstance, oldStatus, CaseStatus.FAULTED.name()));
+                    new CaseStatusChanged(
+                        caseInstance,
+                        oldStatus,
+                        CaseStatus.FAULTED.name(),
+                        failureGoalName,
+                        GoalKind.FAILURE));
                 return Uni.createFrom().voidItem();
               }
 
               if (goalBasedCompletion.getSuccess() != null
                   && isGoalExpressionSatisfied(goalBasedCompletion.getSuccess(), reachedGoals)) {
-                LOG.infof("Case COMPLETED: caseId=%s", caseInstance.getUuid());
+                String successGoalName =
+                    findSatisfiedGoalName(goalBasedCompletion.getSuccess(), reachedGoals);
+                LOG.infof(
+                    "Success goal '%s' satisfied: caseId=%s",
+                    successGoalName, caseInstance.getUuid());
                 eventBus.publish(
                     EventBusAddresses.CASE_STATUS_CHANGED,
-                    new CaseStatusChanged(caseInstance, oldStatus, CaseStatus.COMPLETED.name()));
+                    new CaseStatusChanged(
+                        caseInstance,
+                        oldStatus,
+                        CaseStatus.COMPLETED.name(),
+                        successGoalName,
+                        GoalKind.SUCCESS));
                 return Uni.createFrom().voidItem();
               }
 
@@ -167,5 +186,14 @@ public class GoalReachedEventHandler {
       return expressionGoalNames.stream().anyMatch(reachedGoals::contains);
     }
     return false;
+  }
+
+  private String findSatisfiedGoalName(GoalExpression expression, Set<String> reachedGoals) {
+    if (expression == null || expression.getGoals() == null) return null;
+    return expression.getGoals().stream()
+        .map(Goal::getName)
+        .filter(reachedGoals::contains)
+        .findFirst()
+        .orElse(null);
   }
 }

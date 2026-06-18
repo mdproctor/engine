@@ -305,6 +305,8 @@ Stage gains `repeatable` (final boolean, builder-only) and `instanceIndex` (Atom
 
 **Stage-PlanItem auto-registration:** `PlanningStrategyLoopControl` auto-registers newly created PlanItems with their owning stage's `containedPlanItemIds` and `requiredItemIds` via `registerWithOwningStages()`. This makes stage autocomplete work in production (previously test-only). Refs engine#497.
 
+**Outcomes cleanup:** `StageResetOutcomesCleaner` (blackboard) consumes `STAGE_ACTIVATED` and clears `_outcomes` entries for the stage's `getContainedBindingNames()` when `instanceIndex > 0`. Without this, excluded agents from iteration N carry over to iteration N+1. Refs engine#517.
+
 ## Agent Worker AI Model
 
 AI agent workers live in `api/src/main/java/io/casehub/api/model/ai/`:
@@ -436,6 +438,23 @@ Optional module enabling `Worker(Workflow)` to dispatch casehub workers from wit
 `RetryPolicies` (`common/internal/executor/`) is a pure static utility for backoff computation — no CDI, no dependencies. `RetryDecision` is a sealed type: `Retry(Duration delay)` or `Exhaust(String reason)`. Moved from `QuartzWorkerExecutionJobListener` so any scheduler adapter can reuse the same backoff logic.
 
 `WorkerExecutionConfig` (`common/internal/executor/`) provides the default worker timeout (`casehub.engine.worker.default-timeout-ms`, default 60000ms). Per-worker overrides come from `ExecutionPolicy.timeoutMs()`.
+
+## Worker Outcome Handling
+
+Workers declare semantic outcomes via `WorkerResult`: `Success` (default), `Declined(reason)`, `Failed(reason)`. The engine handles non-success outcomes via `OutcomePolicy` on the `Binding`:
+
+- `REROUTE` (default): writes failure state to `_outcomes.<bindingName>` in the working panel, marks PlanItem FAULTED, publishes CONTEXT_CHANGED. The binding re-fires with excluded agents filtered from candidates.
+- `FAULT`: publishes `CASE_STATUS_CHANGED(FAULTED)` (case-level fault) + `WORKER_OUTCOME_RESOLVED(FAULT)` (PlanItem fault + stage autocomplete).
+
+Failure state schema at `_outcomes.<bindingName>`: `{status, attempts, history[], excludedAgents[]}`. Status values: `DECLINED`, `FAILED`, `REROUTES_EXHAUSTED`, `COMPLETED`. Keyed by **binding name** (not capability name) — two bindings targeting the same capability maintain independent failure state. On successful completion after a reroute, `WorkflowExecutionCompletedHandler.recordSuccessOutcome()` updates status to `COMPLETED` and appends a history entry for the successful agent.
+
+`WorkerOutcomeResolvedHandler` (blackboard, `blocking=true`) consumes `WORKER_OUTCOME_RESOLVED` and owns PlanItem lifecycle for non-success outcomes. `PlanItemCompletionHandler` gates on `WorkerOutcome.Success` and returns early for DECLINED/FAILED — eliminates the fan-out race.
+
+Agent exclusion: `CaseContextChangedEventHandler.publishWorkerSchedule()` filters excluded agents from `_outcomes.<bindingName>.excludedAgents` before calling the routing strategy. All strategies benefit automatically. When all candidates are excluded, `handleAllCandidatesExhausted()` writes `REROUTES_EXHAUSTED` to `_outcomes` and publishes `WORKER_OUTCOME_RESOLVED(EXHAUSTED)` — the blackboard faults the PlanItem and triggers stage autocomplete.
+
+Failure goals: `GoalReachedEventHandler` produces `CaseStatus.FAULTED` with goal metadata (`satisfiedGoalName`, `satisfiedGoalKind`). Success goals produce `CaseStatus.COMPLETED`. `CaseStatusChanged` carries the goal metadata; `CaseOutcomeEvent.metadata()` propagates it to outcome observers.
+
+Binding name threading: `WorkerScheduleEvent`, `WorkerScheduleEventHandler` (EventLog metadata), `QuartzWorkerExecutionJob`, `WorkflowExecutionCompleted`, `PlanItemCompletionHandler` all carry `bindingName` for precise PlanItem lookup. `findBindingByName()` replaces `findMatchingCapabilityBinding()` for direct binding resolution.
 
 ## Writing Style Guide
 

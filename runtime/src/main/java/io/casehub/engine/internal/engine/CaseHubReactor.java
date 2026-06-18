@@ -46,7 +46,7 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.memory.Memory;
 import io.casehub.platform.api.memory.MemoryDomain;
 import io.casehub.platform.api.memory.MemoryQuery;
-import io.casehub.platform.memory.ReactiveCaseMemoryStore;
+import io.casehub.platform.api.memory.ReactiveCaseMemoryStore;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;

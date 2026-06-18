@@ -18,6 +18,7 @@ package io.casehub.engine.internal.engine.handler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextPanel;
 import io.casehub.api.context.PropagationContext;
@@ -53,7 +54,9 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.GoalReachedEvent;
 import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.common.internal.event.MilestoneReachedEvent;
+import io.casehub.engine.common.internal.event.OutcomeDisposition;
 import io.casehub.engine.common.internal.event.SubCaseScheduleEvent;
+import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
@@ -309,7 +312,7 @@ public class CaseContextChangedEventHandler {
       return tryProvision(caseInstance, capability, triggerChannelId, triggerCorrelationId);
     }
 
-    final List<AgentCandidate> candidates =
+    List<AgentCandidate> candidates =
         AgentCandidateFactory.buildCandidates(
             caseInstance, workers, capability, executionManager, capabilityHealth);
 
@@ -318,6 +321,34 @@ public class CaseContextChangedEventHandler {
           "No eligible workers for capability '%s' (binding '%s') — all unavailable or no match",
           capability.getName(), binding.getName());
       return tryProvision(caseInstance, capability, triggerChannelId, triggerCorrelationId);
+    }
+
+    // Filter agents excluded by previous DECLINED/FAILED outcomes for this binding
+    final JsonNode outcomeNode =
+        caseInstance
+            .getCaseContext()
+            .panel(ContextPanel.WORKING)
+            .asJsonNode()
+            .path("_outcomes")
+            .path(binding.getName());
+    if (outcomeNode.has("excludedAgents")) {
+      final java.util.Set<String> excluded =
+          java.util.stream.StreamSupport.stream(
+                  outcomeNode.get("excludedAgents").spliterator(), false)
+              .map(JsonNode::asText)
+              .collect(java.util.stream.Collectors.toSet());
+      candidates = candidates.stream().filter(c -> !excluded.contains(c.workerId())).toList();
+      if (!excluded.isEmpty()) {
+        LOG.debugf(
+            "Filtered %d excluded agents for binding '%s': %s",
+            excluded.size(), binding.getName(), excluded);
+      }
+      if (candidates.isEmpty()) {
+        LOG.warnf(
+            "All candidates excluded for capability '%s' binding '%s' — auto-exhausting",
+            capability.getName(), binding.getName());
+        return handleAllCandidatesExhausted(caseInstance, binding.getName(), capability.getName());
+      }
     }
 
     final AgentRoutingContext ctx =
@@ -345,6 +376,26 @@ public class CaseContextChangedEventHandler {
                 });
   }
 
+  @SuppressWarnings("unchecked")
+  private Uni<Void> handleAllCandidatesExhausted(
+      final CaseInstance caseInstance, final String bindingName, final String capabilityName) {
+    final Map<String, Object> existingOutcomes =
+        (Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
+    if (existingOutcomes != null) {
+      final ObjectNode outcomesRoot = MAPPER.valueToTree(existingOutcomes).deepCopy();
+      if (outcomesRoot.has(bindingName)) {
+        ((ObjectNode) outcomesRoot.get(bindingName)).put("status", "REROUTES_EXHAUSTED");
+        final Map<String, Object> outcomesMap = MAPPER.convertValue(outcomesRoot, MAP_TYPE);
+        caseInstance.getCaseContext().set("_outcomes", outcomesMap);
+      }
+    }
+    eventBus.publish(
+        EventBusAddresses.WORKER_OUTCOME_RESOLVED,
+        new WorkerOutcomeResolvedEvent(
+            caseInstance, null, bindingName, capabilityName, OutcomeDisposition.EXHAUSTED));
+    return Uni.createFrom().voidItem();
+  }
+
   private Uni<Void> scheduleWorker(
       final CaseInstance caseInstance,
       final List<Worker> workers,
@@ -367,7 +418,7 @@ public class CaseContextChangedEventHandler {
 
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
-        new WorkerScheduleEvent(caseInstance, selectedWorker, capability));
+        new WorkerScheduleEvent(caseInstance, selectedWorker, capability, binding.getName()));
 
     return Uni.createFrom().voidItem();
   }

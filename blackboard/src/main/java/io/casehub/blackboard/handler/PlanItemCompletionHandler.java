@@ -15,6 +15,7 @@
  */
 package io.casehub.blackboard.handler;
 
+import io.casehub.api.model.WorkerOutcome;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.CasePlanModel;
@@ -77,13 +78,48 @@ public class PlanItemCompletionHandler {
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED, blocking = true)
   public void onWorkerFinished(WorkflowExecutionCompleted event) {
-    completePlanItemByKey(
-        event.caseInstance().getUuid(), event.worker().getName(), event.caseInstance().tenancyId);
+    // Non-success outcomes are handled by WorkerOutcomeResolvedHandler — skip PlanItem completion.
+    if (!(event.outcome() instanceof WorkerOutcome.Success)) {
+      return;
+    }
+    // bindingName-first lookup: when non-null use direct binding lookup; fallback to completion
+    // index
+    if (event.bindingName() != null) {
+      completePlanItemByBindingName(
+          event.caseInstance().getUuid(), event.bindingName(), event.caseInstance().tenancyId);
+    } else {
+      completePlanItemByKey(
+          event.caseInstance().getUuid(), event.worker().getName(), event.caseInstance().tenancyId);
+    }
   }
 
   @ConsumeEvent(value = BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED, blocking = true)
   public void onSubCaseFinished(SubCaseExecutionCompleted event) {
     completePlanItemByKey(event.parentCaseId(), event.childCaseId().toString(), event.tenancyId());
+  }
+
+  private void completePlanItemByBindingName(UUID caseId, String bindingName, String tenancyId) {
+    CasePlanModel plan = registry.get(caseId).orElse(null);
+    if (plan == null) return;
+
+    plan.getPlanItemByBindingName(bindingName)
+        .ifPresentOrElse(
+            item -> {
+              if (!COMPLETABLE.contains(item.getStatus())) {
+                LOG.debugf(
+                    "PlanItem %s for binding '%s' in case %s has status %s — not completable, skipping",
+                    item.getPlanItemId(), bindingName, caseId, item.getStatus());
+                return;
+              }
+              item.markCompleted();
+              stageAutocompleteEvaluator.evaluate(caseId, plan, item.getPlanItemId());
+              planItemCompletedEvents.fireAsync(
+                  new PlanItemCompletedEvent(caseId, item.getPlanItemId(), bindingName, tenancyId));
+            },
+            () ->
+                LOG.debugf(
+                    "No PlanItem found for binding '%s' in case %s — pure choreography or already evicted",
+                    bindingName, caseId));
   }
 
   private void completePlanItemByKey(UUID caseId, String trackingKey, String tenancyId) {

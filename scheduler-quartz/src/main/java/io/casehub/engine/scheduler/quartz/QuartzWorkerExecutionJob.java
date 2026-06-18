@@ -118,6 +118,10 @@ class QuartzWorkerExecutionJob implements Job {
 
       String workerId = eventLog.getWorkerId();
       String capabilityName = eventLog.getMetadata().get("capabilityName").asText();
+      String bindingName =
+          eventLog.getMetadata().has("bindingName")
+              ? eventLog.getMetadata().get("bindingName").asText()
+              : null;
 
       Worker worker =
           definition.getWorkers().stream()
@@ -159,7 +163,7 @@ class QuartzWorkerExecutionJob implements Job {
               metadata)
           .subscribe()
           .with(
-              workerResult -> onSuccess(instance, worker, inputDataHash, workerResult),
+              workerResult -> onSuccess(instance, worker, inputDataHash, workerResult, bindingName),
               failure -> onFailure(retryCtx, failure));
     } catch (Exception e) {
       onFailure(retryCtx, e);
@@ -170,7 +174,8 @@ class QuartzWorkerExecutionJob implements Job {
       CaseInstance instance,
       Worker worker,
       String inputDataHash,
-      io.casehub.api.model.WorkerResult workerResult) {
+      io.casehub.api.model.WorkerResult workerResult,
+      String bindingName) {
     PlannedAction enrichedAction =
         workerResult.plannedAction() != null
             ? workerResult.plannedAction().withIdentity(worker.getName(), instance.getUuid())
@@ -179,7 +184,13 @@ class QuartzWorkerExecutionJob implements Job {
     eventBus.publish(
         WORKER_EXECUTION_FINISHED,
         new WorkflowExecutionCompleted(
-            instance, worker, inputDataHash, workerResult.output(), enrichedAction));
+            instance,
+            worker,
+            inputDataHash,
+            workerResult.output(),
+            enrichedAction,
+            bindingName,
+            workerResult.outcome()));
   }
 
   private void onFailure(WorkerRetryContext retryCtx, Throwable failure) {

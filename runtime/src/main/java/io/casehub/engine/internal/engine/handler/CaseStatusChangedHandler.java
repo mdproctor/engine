@@ -17,6 +17,7 @@ package io.casehub.engine.internal.engine.handler;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
@@ -87,11 +88,16 @@ public class CaseStatusChangedHandler {
     eventLog.setEventType(resolveState(newState));
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
-    eventLog.setMetadata(
+    final ObjectNode metadataNode =
         OBJECT_MAPPER
             .createObjectNode()
             .put("oldStatus", oldStatus)
-            .put("newStatus", event.newStatus()));
+            .put("newStatus", event.newStatus());
+    if (event.satisfiedGoalName() != null) {
+      metadataNode.put("goalName", event.satisfiedGoalName());
+      metadataNode.put("goalKind", event.satisfiedGoalKind().value());
+    }
+    eventLog.setMetadata(metadataNode);
 
     return caseInstanceRepository
         .updateStateAndAppendEvent(caseInstance, eventLog, caseInstance.tenancyId)
@@ -118,7 +124,8 @@ public class CaseStatusChangedHandler {
               // Called before event bus publishes so observer failures don't block downstream
               // events.
               if (isTerminalState(newState)) {
-                fireOutcomeObservers(caseInstance, newState);
+                fireOutcomeObservers(
+                    caseInstance, newState, event.satisfiedGoalName(), event.satisfiedGoalKind());
               }
               // Fire-and-forget: downstream event bus consumers (CASE_COMPLETED, CASE_FAULTED,
               // CONTEXT_CHANGED) do not need to complete before this handler returns.
@@ -176,7 +183,11 @@ public class CaseStatusChangedHandler {
             });
   }
 
-  private void fireOutcomeObservers(CaseInstance caseInstance, CaseStatus newState) {
+  private void fireOutcomeObservers(
+      CaseInstance caseInstance,
+      CaseStatus newState,
+      String goalName,
+      io.casehub.api.model.GoalKind goalKind) {
     final String caseType =
         caseInstance.getCaseMetaModel() != null
             ? caseInstance.getCaseMetaModel().getName()
@@ -193,9 +204,16 @@ public class CaseStatusChangedHandler {
           caseInstance.getUuid());
       return;
     }
+    final Map<String, Object> outcomeMetadata =
+        goalName != null ? Map.of("goalName", goalName, "goalKind", goalKind.value()) : Map.of();
     final CaseOutcomeEvent outcomeEvent =
         new CaseOutcomeEvent(
-            caseType, caseInstance.getUuid(), snapshot, newState.name(), Instant.now(), Map.of());
+            caseType,
+            caseInstance.getUuid(),
+            snapshot,
+            newState.name(),
+            Instant.now(),
+            outcomeMetadata);
 
     for (CaseOutcomeObserver observer : outcomeObservers) {
       try {

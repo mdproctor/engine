@@ -50,4 +50,12 @@ public record WorkResult(
   public static WorkResult faulted(String correlationKey, String workerId, UUID caseId) {
     return new WorkResult(correlationKey, WorkStatus.FAULTED, Map.of(), workerId, caseId);
   }
+
+  public static WorkResult declined(String correlationKey, String workerId, UUID caseId) {
+    return new WorkResult(correlationKey, WorkStatus.DECLINED, Map.of(), workerId, caseId);
+  }
+
+  public static WorkResult failed(String correlationKey, String workerId, UUID caseId) {
+    return new WorkResult(correlationKey, WorkStatus.FAILED, Map.of(), workerId, caseId);
+  }
 }

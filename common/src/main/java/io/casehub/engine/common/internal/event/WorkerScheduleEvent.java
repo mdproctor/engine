@@ -20,4 +20,10 @@ import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.model.CaseInstance;
 
 public record WorkerScheduleEvent(
-    CaseInstance caseInstance, Worker worker, Capability capability) {}
+    CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
+
+  /** Backward-compat 3-arg constructor — passes null for bindingName. */
+  public WorkerScheduleEvent(CaseInstance caseInstance, Worker worker, Capability capability) {
+    this(caseInstance, worker, capability, null);
+  }
+}
