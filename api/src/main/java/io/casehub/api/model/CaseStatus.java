@@ -26,6 +26,8 @@ package io.casehub.api.model;
  * {@code casehub-blackboard} module, not by {@code CaseInstance}.
  */
 public enum CaseStatus {
+  /** Case is initializing — cached but event handlers have not yet completed. */
+  STARTING,
   /** Case is actively executing. */
   RUNNING,
   /** Case is blocked waiting for an external event or signal. */

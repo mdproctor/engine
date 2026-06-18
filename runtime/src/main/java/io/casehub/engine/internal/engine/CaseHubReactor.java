@@ -233,7 +233,7 @@ class CaseHubReactor {
           instance.setUuid(UUID.randomUUID());
           instance.setCaseMetaModel(model);
           instance.setVersion(0L);
-          instance.setState(CaseStatus.RUNNING);
+          instance.setState(CaseStatus.STARTING);
           instance.setCaseContext(context);
           instance.setPropagationContext(propagationContext);
           instance.setParentCaseId(parentCaseId);
