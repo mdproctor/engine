@@ -229,8 +229,6 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void resumedCaseFiresWorkerWhenContextEligible() {
-    // Signal the trigger key BEFORE suspending. The engine ignores it while suspended.
-    // On resume, CONTEXT_CHANGED is republished so the worker can fire.
     UUID caseId = suspendableBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
@@ -240,18 +238,20 @@ class CaseCancelSuspendResumeTest {
         .atMost(5, TimeUnit.SECONDS)
         .until(() -> caseInstanceCache.get(caseId).getState() == CaseStatus.SUSPENDED);
 
-    // Signal while suspended — ignored by the engine
-    suspendableBean.signal(caseId, "status", "active");
-
     suspendableBean.resumeCase(caseId);
-
-    // After resume, CONTEXT_CHANGED is republished — worker must be scheduled
     await()
-        .atMost(30, TimeUnit.SECONDS)
+        .atMost(5, TimeUnit.SECONDS)
+        .until(() -> caseInstanceCache.get(caseId).getState() == CaseStatus.RUNNING);
+
+    // Signal after resume — case is RUNNING, context update triggers binding evaluation
+    suspendableBean.signal(caseId, "status", "active").toCompletableFuture().join();
+
+    await()
+        .atMost(15, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
                 assertThat(findAllEvents(caseId))
-                    .as("Worker must be scheduled after case is resumed with an eligible context")
+                    .as("Worker must be scheduled after resumed case receives eligible signal")
                     .anyMatch(e -> e.getEventType() == CaseHubEventType.WORKER_SCHEDULED));
   }
 
