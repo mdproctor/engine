@@ -19,7 +19,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.ContextPanel;
+import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
+import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.ConflictResolver;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.SubCaseTarget;
@@ -31,6 +34,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.event.PlanItemRejectedEvent;
 import io.casehub.work.runtime.model.WorkItem;
@@ -62,6 +66,7 @@ public class PlanItemCompletionApplier {
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject BlackboardRegistry registry;
+  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
   @Inject EventBus eventBus;
   @Inject JQEvaluator jqEvaluator;
@@ -163,12 +168,29 @@ public class PlanItemCompletionApplier {
       }
       List<JsonNode> output = vr.output();
       Map<String, Object> updates = MAPPER.convertValue(output.get(0), MAP_TYPE);
-      instance.getCaseContext().setAll(updates);
+      String strategy = resolveStrategy(item.getBindingName(), instance);
+      for (Map.Entry<String, Object> entry : updates.entrySet()) {
+        Object existing = instance.getCaseContext().get(entry.getKey());
+        Object resolved =
+            ConflictResolver.resolve(strategy, entry.getKey(), existing, entry.getValue());
+        instance.getCaseContext().set(entry.getKey(), resolved);
+      }
     } catch (Exception e) {
       LOG.warnf(
           e,
           "outputMapping failed for PlanItem %s — CONTEXT_CHANGED fires without output update",
           item.getPlanItemId());
     }
+  }
+
+  private String resolveStrategy(String bindingName, CaseInstance instance) {
+    if (bindingName == null || instance.getCaseMetaModel() == null) return null;
+    CaseDefinition def = caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+    if (def == null || def.getBindings() == null) return null;
+    return def.getBindings().stream()
+        .filter(b -> b.getName().equals(bindingName))
+        .map(Binding::getConflictResolverStrategy)
+        .findFirst()
+        .orElse(null);
   }
 }

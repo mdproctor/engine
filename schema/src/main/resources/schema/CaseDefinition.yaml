@@ -369,7 +369,7 @@ $defs:
       humanTask: { $ref: "#/$defs/HumanTask" }
       conflictResolverStrategy:
         type: string
-        enum: [ LAST_WRITER_WINS, FIRST_WRITER_WINS, FAIL ]
+        enum: [ LAST_WRITER_WINS, FIRST_WRITER_WINS, FAIL, DEEP_MERGE ]
         default: LAST_WRITER_WINS
         description: "Strategy for resolving concurrent writes to the same CaseContext key"
       outcomePolicy:

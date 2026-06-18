@@ -25,6 +25,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.ConflictResolver;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.WorkResult;
@@ -696,22 +697,6 @@ public class WorkflowExecutionCompletedHandler {
    * LAST_WRITER_WINS (return incoming). See casehubio/engine#45, #51.
    */
   private Object applyStrategy(String strategy, String key, Object existing, Object incoming) {
-    if (strategy == null) return incoming; // default: last writer wins
-    return switch (strategy) {
-      case "FIRST_WRITER_WINS" -> existing;
-      case "FAIL" ->
-          throw new IllegalStateException(
-              "Conflicting writes to key '"
-                  + key
-                  + "' — binding uses FAIL strategy. "
-                  + "Refs casehubio/engine#45");
-      default -> {
-        LOG.warnf(
-            "Unknown conflict resolver strategy '%s' for key '%s' — "
-                + "falling back to LAST_WRITER_WINS. Refs casehubio/engine#45",
-            strategy, key);
-        yield incoming;
-      }
-    };
+    return ConflictResolver.resolve(strategy, key, existing, incoming);
   }
 }
