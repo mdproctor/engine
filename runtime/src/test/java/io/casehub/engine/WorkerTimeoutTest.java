@@ -25,6 +25,8 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.ExecutionPolicy;
+import io.casehub.api.model.OutcomeAction;
+import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerResult;
@@ -94,7 +96,7 @@ class WorkerTimeoutTest {
         .untilAsserted(
             () -> assertThat(SlowWorkerDefaultTimeoutTestBean.executionCount.get()).isEqualTo(1));
 
-    // Case should eventually transition to FAULTED due to timeout (after retry exhaustion)
+    // Case should transition to FAULTED via OutcomePolicy.onExpired=FAULT
     // Default timeout is 2000ms in tests, worker sleeps 10s, so timeout happens ~2s after start
     await()
         .atMost(6, TimeUnit.SECONDS)
@@ -145,7 +147,7 @@ class WorkerTimeoutTest {
         .untilAsserted(
             () -> assertThat(FastWorkerWithShortTimeoutTestBean.executionCount.get()).isEqualTo(1));
 
-    // Case should eventually fault due to timeout (100ms is too short even for fast worker)
+    // Case should fault via OutcomePolicy.onExpired=FAULT (100ms timeout, worker sleeps 500ms)
     await()
         .atMost(10, TimeUnit.SECONDS)
         .pollInterval(200, TimeUnit.MILLISECONDS)
@@ -245,6 +247,9 @@ class WorkerTimeoutTest {
               Binding.builder()
                   .name("trigger-slow-worker-default")
                   .capability(cap)
+                  .outcomePolicy(
+                      new OutcomePolicy(
+                          OutcomeAction.REROUTE, OutcomeAction.REROUTE, OutcomeAction.FAULT, 1))
                   .on(new ContextChangeTrigger(".input != null"))
                   .build())
           .build();
@@ -348,6 +353,9 @@ class WorkerTimeoutTest {
               Binding.builder()
                   .name("trigger-fast-worker-short")
                   .capability(cap)
+                  .outcomePolicy(
+                      new OutcomePolicy(
+                          OutcomeAction.REROUTE, OutcomeAction.REROUTE, OutcomeAction.FAULT, 1))
                   .on(new ContextChangeTrigger(".input != null"))
                   .build())
           .build();

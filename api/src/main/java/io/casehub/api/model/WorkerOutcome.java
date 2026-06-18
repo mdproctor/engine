@@ -24,19 +24,26 @@ package io.casehub.api.model;
  *   <li>{@link Success} — normal completion
  *   <li>{@link Declined} — worker opted not to handle this work (guard-like)
  *   <li>{@link Failed} — worker attempted work but failed
+ *   <li>{@link Expired} — worker exceeded its deadline
  * </ul>
  *
- * <p>Declined and Failed map to distinct {@link WorkStatus} values ({@code DECLINED}, {@code
- * FAILED}), allowing case definitions to react differently to "not my job" vs "job failed".
+ * <p>Declined, Failed, and Expired map to distinct {@link WorkStatus} values ({@code DECLINED},
+ * {@code FAILED}, {@code EXPIRED}), allowing case definitions to react differently to "not my job"
+ * vs "job failed" vs "timed out".
  */
 public sealed interface WorkerOutcome
-    permits WorkerOutcome.Success, WorkerOutcome.Declined, WorkerOutcome.Failed {
+    permits WorkerOutcome.Success,
+        WorkerOutcome.Declined,
+        WorkerOutcome.Failed,
+        WorkerOutcome.Expired {
 
   record Success() implements WorkerOutcome {}
 
   record Declined(String reason) implements WorkerOutcome {}
 
   record Failed(String reason) implements WorkerOutcome {}
+
+  record Expired(String reason) implements WorkerOutcome {}
 
   static WorkerOutcome success() {
     return new Success();

@@ -65,4 +65,12 @@ public record WorkerResult(
   public static WorkerResult failed(final String reason, final Map<String, Object> partialOutput) {
     return new WorkerResult(partialOutput, null, new WorkerOutcome.Failed(reason));
   }
+
+  public static WorkerResult expired(final String reason) {
+    return new WorkerResult(Map.of(), null, new WorkerOutcome.Expired(reason));
+  }
+
+  public static WorkerResult expired(final String reason, final Map<String, Object> partialOutput) {
+    return new WorkerResult(partialOutput, null, new WorkerOutcome.Expired(reason));
+  }
 }

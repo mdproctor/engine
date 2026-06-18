@@ -58,4 +58,8 @@ public record WorkResult(
   public static WorkResult failed(String correlationKey, String workerId, UUID caseId) {
     return new WorkResult(correlationKey, WorkStatus.FAILED, Map.of(), workerId, caseId);
   }
+
+  public static WorkResult expired(String correlationKey, String workerId, UUID caseId) {
+    return new WorkResult(correlationKey, WorkStatus.EXPIRED, Map.of(), workerId, caseId);
+  }
 }

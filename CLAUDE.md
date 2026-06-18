@@ -441,14 +441,16 @@ Optional module enabling `Worker(Workflow)` to dispatch casehub workers from wit
 
 ## Worker Outcome Handling
 
-Workers declare semantic outcomes via `WorkerResult`: `Success` (default), `Declined(reason)`, `Failed(reason)`. The engine handles non-success outcomes via `OutcomePolicy` on the `Binding`:
+Workers declare semantic outcomes via `WorkerResult`: `Success` (default), `Declined(reason)`, `Failed(reason)`, `Expired(reason)`. The engine handles non-success outcomes via `OutcomePolicy` on the `Binding`:
 
 - `REROUTE` (default): writes failure state to `_outcomes.<bindingName>` in the working panel, marks PlanItem FAULTED, publishes CONTEXT_CHANGED. The binding re-fires with excluded agents filtered from candidates.
 - `FAULT`: publishes `CASE_STATUS_CHANGED(FAULTED)` (case-level fault) + `WORKER_OUTCOME_RESOLVED(FAULT)` (PlanItem fault + stage autocomplete).
 
-Failure state schema at `_outcomes.<bindingName>`: `{status, attempts, history[], excludedAgents[]}`. Status values: `DECLINED`, `FAILED`, `REROUTES_EXHAUSTED`, `COMPLETED`. Keyed by **binding name** (not capability name) — two bindings targeting the same capability maintain independent failure state. On successful completion after a reroute, `WorkflowExecutionCompletedHandler.recordSuccessOutcome()` updates status to `COMPLETED` and appends a history entry for the successful agent.
+`Expired` outcomes originate from two sources: engine-internal worker timeout (`DefaultWorkerExecutor` converts `TimeoutException` to `WorkerResult.expired()` — the SPI boundary never leaks exceptions) and Qhorus commitment expiration (future, qhorus#281). Both route through `OutcomePolicy.onExpired` using the same `handleSemanticFailure` path as `Declined` and `Failed`.
 
-`WorkerOutcomeResolvedHandler` (blackboard, `blocking=true`) consumes `WORKER_OUTCOME_RESOLVED` and owns PlanItem lifecycle for non-success outcomes. `PlanItemCompletionHandler` gates on `WorkerOutcome.Success` and returns early for DECLINED/FAILED — eliminates the fan-out race.
+Failure state schema at `_outcomes.<bindingName>`: `{status, attempts, history[], excludedAgents[]}`. Status values: `DECLINED`, `FAILED`, `EXPIRED`, `REROUTES_EXHAUSTED`, `COMPLETED`. Keyed by **binding name** (not capability name) — two bindings targeting the same capability maintain independent failure state. On successful completion after a reroute, `WorkflowExecutionCompletedHandler.recordSuccessOutcome()` updates status to `COMPLETED` and appends a history entry for the successful agent.
+
+`WorkerOutcomeResolvedHandler` (blackboard, `blocking=true`) consumes `WORKER_OUTCOME_RESOLVED` and owns PlanItem lifecycle for non-success outcomes. `PlanItemCompletionHandler` gates on `WorkerOutcome.Success` and returns early for DECLINED/FAILED/EXPIRED — eliminates the fan-out race.
 
 Agent exclusion: `CaseContextChangedEventHandler.publishWorkerSchedule()` filters excluded agents from `_outcomes.<bindingName>.excludedAgents` before calling the routing strategy. All strategies benefit automatically. When all candidates are excluded, `handleAllCandidatesExhausted()` writes `REROUTES_EXHAUSTED` to `_outcomes` and publishes `WORKER_OUTCOME_RESOLVED(EXHAUSTED)` — the blackboard faults the PlanItem and triggers stage autocomplete.
 

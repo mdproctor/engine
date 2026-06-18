@@ -58,6 +58,7 @@ import org.junit.jupiter.api.Test;
 class FailureCascadeIntegrationTest {
 
   @Inject FaultPolicyBean faultPolicyBean;
+  @Inject ExpiredFaultPolicyBean expiredFaultPolicyBean;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject EventLogRepository eventLogRepository;
 
@@ -93,6 +94,41 @@ class FailureCascadeIntegrationTest {
               assertEquals(
                   1, declined.size(), "Exactly one WORKER_OUTCOME_DECLINED event log entry");
               assertEquals("FAULT", declined.get(0).getMetadata().get("disposition").asText());
+            });
+  }
+
+  @Test
+  void expired_with_fault_policy_faults_case() {
+    UUID caseId =
+        expiredFaultPolicyBean.startCase(Map.of("task", "pending")).toCompletableFuture().join();
+
+    await()
+        .atMost(30, TimeUnit.SECONDS)
+        .untilAsserted(
+            () ->
+                assertEquals(
+                    CaseStatus.FAULTED,
+                    caseInstanceCache.get(caseId).getState(),
+                    "Case must be FAULTED when worker times out and onExpired is FAULT"));
+  }
+
+  @Test
+  void expired_produces_worker_outcome_expired_event_log() {
+    UUID caseId =
+        expiredFaultPolicyBean.startCase(Map.of("task", "pending")).toCompletableFuture().join();
+
+    await()
+        .atMost(30, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertEquals(CaseStatus.FAULTED, caseInstanceCache.get(caseId).getState()));
+
+    await()
+        .atMost(10, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              List<EventLog> expired = findEvents(caseId, CaseHubEventType.WORKER_OUTCOME_EXPIRED);
+              assertEquals(1, expired.size(), "Exactly one WORKER_OUTCOME_EXPIRED event log entry");
+              assertEquals("FAULT", expired.get(0).getMetadata().get("disposition").asText());
             });
   }
 
@@ -217,6 +253,51 @@ class FailureCascadeIntegrationTest {
                   .outcomePolicy(
                       new OutcomePolicy(
                           OutcomeAction.FAULT, OutcomeAction.FAULT, OutcomeAction.REROUTE, 1))
+                  .on(new ContextChangeTrigger(".task == \"pending\""))
+                  .build())
+          .build();
+    }
+  }
+
+  @ApplicationScoped
+  public static class ExpiredFaultPolicyBean extends CaseHub {
+
+    private final Capability cap =
+        Capability.builder()
+            .name("expired-cap")
+            .inputSchema("{ task: .task }")
+            .outputSchema(".")
+            .build();
+
+    @Override
+    public CaseDefinition getDefinition() {
+      return CaseDefinition.builder()
+          .namespace("test-failure-cascade-expired")
+          .name("Expired Fault Policy Test")
+          .version("1.0.0")
+          .capabilities(cap)
+          .workers(
+              Worker.builder()
+                  .name("slow-worker")
+                  .capabilities(cap)
+                  .function(
+                      input -> {
+                        try {
+                          Thread.sleep(5000);
+                        } catch (InterruptedException e) {
+                          Thread.currentThread().interrupt();
+                        }
+                        return WorkerResult.of(Map.of("result", "late"));
+                      })
+                  .executionPolicy(new ExecutionPolicy(200, new RetryPolicy(1, 100)))
+                  .build())
+          .bindings(
+              Binding.builder()
+                  .name("on-task")
+                  .capability(cap)
+                  .outcomePolicy(
+                      new OutcomePolicy(
+                          OutcomeAction.REROUTE, OutcomeAction.REROUTE, OutcomeAction.FAULT, 1))
                   .on(new ContextChangeTrigger(".task == \"pending\""))
                   .build())
           .build();

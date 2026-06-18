@@ -95,8 +95,7 @@ public class WorkflowExecutionCompletedHandler {
     final Worker worker = event.worker();
 
     // Outcome fork: non-success outcomes route to the semantic failure path.
-    if (event.outcome() instanceof WorkerOutcome.Declined
-        || event.outcome() instanceof WorkerOutcome.Failed) {
+    if (!(event.outcome() instanceof WorkerOutcome.Success)) {
       return handleSemanticFailure(event, traceId);
     }
 
@@ -262,15 +261,33 @@ public class WorkflowExecutionCompletedHandler {
             ? binding.getOutcomePolicy()
             : new OutcomePolicy();
 
-    final OutcomeAction action =
-        event.outcome() instanceof WorkerOutcome.Declined ? policy.onDecline() : policy.onFailure();
+    final String outcomeStatus;
+    final String reason;
+    final OutcomeAction action;
+    final CaseHubEventType eventType;
 
-    final String outcomeStatus =
-        event.outcome() instanceof WorkerOutcome.Declined ? "DECLINED" : "FAILED";
-    final String reason =
-        event.outcome() instanceof WorkerOutcome.Declined d
-            ? d.reason()
-            : ((WorkerOutcome.Failed) event.outcome()).reason();
+    switch (event.outcome()) {
+      case WorkerOutcome.Declined d -> {
+        outcomeStatus = "DECLINED";
+        reason = d.reason();
+        action = policy.onDecline();
+        eventType = CaseHubEventType.WORKER_OUTCOME_DECLINED;
+      }
+      case WorkerOutcome.Failed f -> {
+        outcomeStatus = "FAILED";
+        reason = f.reason();
+        action = policy.onFailure();
+        eventType = CaseHubEventType.WORKER_OUTCOME_FAILED;
+      }
+      case WorkerOutcome.Expired e -> {
+        outcomeStatus = "EXPIRED";
+        reason = e.reason();
+        action = policy.onExpired();
+        eventType = CaseHubEventType.WORKER_OUTCOME_EXPIRED;
+      }
+      case WorkerOutcome.Success s ->
+          throw new IllegalStateException("Success should not reach handleSemanticFailure");
+    }
 
     // Read or create _outcomes.<bindingName> in working panel
     @SuppressWarnings("unchecked")
@@ -332,10 +349,6 @@ public class WorkflowExecutionCompletedHandler {
     }
 
     // Event log
-    final CaseHubEventType eventType =
-        event.outcome() instanceof WorkerOutcome.Declined
-            ? CaseHubEventType.WORKER_OUTCOME_DECLINED
-            : CaseHubEventType.WORKER_OUTCOME_FAILED;
     final EventLog eventLog = new EventLog();
     eventLog.setCaseId(caseInstance.getUuid());
     eventLog.setWorkerId(worker.getName());
@@ -366,11 +379,20 @@ public class WorkflowExecutionCompletedHandler {
             () -> {
               // Report to listener
               final WorkResult workResult =
-                  outcomeStatus.equals("DECLINED")
-                      ? WorkResult.declined(
-                          event.idempotency(), worker.getName(), caseInstance.getUuid())
-                      : WorkResult.failed(
-                          event.idempotency(), worker.getName(), caseInstance.getUuid());
+                  switch (event.outcome()) {
+                    case WorkerOutcome.Declined d ->
+                        WorkResult.declined(
+                            event.idempotency(), worker.getName(), caseInstance.getUuid());
+                    case WorkerOutcome.Failed f ->
+                        WorkResult.failed(
+                            event.idempotency(), worker.getName(), caseInstance.getUuid());
+                    case WorkerOutcome.Expired e ->
+                        WorkResult.expired(
+                            event.idempotency(), worker.getName(), caseInstance.getUuid());
+                    case WorkerOutcome.Success s ->
+                        throw new IllegalStateException(
+                            "Success should not reach handleSemanticFailure");
+                  };
               workerStatusListener.onWorkerCompleted(worker.getName(), workResult);
 
               // CDI lifecycle events (fire-and-forget)

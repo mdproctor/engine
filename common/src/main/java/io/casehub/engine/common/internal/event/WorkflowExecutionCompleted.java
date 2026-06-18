@@ -25,8 +25,8 @@ import java.util.Map;
  * Published on {@link EventBusAddresses#WORKER_EXECUTION_FINISHED} when a worker function returns.
  *
  * <p>{@code outcome} carries the worker's semantic result: {@link WorkerOutcome.Success}, {@link
- * WorkerOutcome.Declined}, or {@link WorkerOutcome.Failed}. The completion handler branches on this
- * before checking {@code plannedAction}.
+ * WorkerOutcome.Declined}, {@link WorkerOutcome.Failed}, or {@link WorkerOutcome.Expired}. The
+ * completion handler branches on this before checking {@code plannedAction}.
  *
  * <p>{@code plannedAction} is non-null only when the worker returned a {@link
  * io.casehub.api.model.WorkerResult} with a declared action. The engine's completion handler forks

@@ -102,7 +102,9 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
         .runSubscriptionOn(virtualThreads)
         .ifNoItem()
         .after(Duration.ofMillis(timeoutMs))
-        .fail();
+        .fail()
+        .onFailure(io.smallrye.mutiny.TimeoutException.class)
+        .recoverWithItem(t -> WorkerResult.expired("Worker timed out after " + timeoutMs + "ms"));
   }
 
   private Uni<WorkerResult> executeFlow(

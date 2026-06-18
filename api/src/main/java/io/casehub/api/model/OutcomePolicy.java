@@ -21,12 +21,9 @@ package io.casehub.api.model;
  * <p>Each outcome type maps to an {@link OutcomeAction}: {@code REROUTE} writes failure state and
  * re-dispatches to a different agent; {@code FAULT} marks the case FAULTED immediately.
  *
- * <p>{@code onExpired} is declared for forward compatibility — the EXPIRED signal is not wired in
- * the initial implementation. See engine#513.
- *
  * @param onDecline action when a worker returns {@link WorkerOutcome.Declined}
  * @param onFailure action when a worker returns {@link WorkerOutcome.Failed}
- * @param onExpired action when a worker's commitment expires (not yet wired)
+ * @param onExpired action when a worker times out or its commitment expires
  * @param maxRerouteAttempts maximum dispatch+outcome cycles before writing REROUTES_EXHAUSTED
  */
 public record OutcomePolicy(

@@ -22,6 +22,7 @@ public enum WorkStatus {
   COMPLETED,
   DECLINED,
   FAILED,
+  EXPIRED,
   FAULTED,
   CANCELLED
 }
