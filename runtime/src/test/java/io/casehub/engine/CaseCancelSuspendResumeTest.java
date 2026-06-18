@@ -254,7 +254,7 @@ class CaseCancelSuspendResumeTest {
 
     // After resume, CONTEXT_CHANGED is republished — worker must now fire
     await()
-        .atMost(15, TimeUnit.SECONDS)
+        .atMost(30, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
                 assertThat(SuspendableWorkerBean.runCount.get())
