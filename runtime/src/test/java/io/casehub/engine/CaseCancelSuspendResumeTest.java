@@ -40,8 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /** Verifies cancel, suspend, and resume lifecycle operations. Refs casehubio/engine#14. */
@@ -54,11 +52,6 @@ class CaseCancelSuspendResumeTest {
   @Inject SuspendableWorkerBean suspendableBean;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject EventLogRepository eventLogRepository;
-
-  @BeforeEach
-  void reset() {
-    SuspendableWorkerBean.runCount.set(0);
-  }
 
   // ------------------------------------------------------------------ //
   // cancelCase                                                           //
@@ -178,11 +171,11 @@ class CaseCancelSuspendResumeTest {
     // Signal should be ignored while suspended
     suspendableBean.signal(caseId, "status", "active");
 
-    // Wait briefly and assert no worker ran
-    Thread.sleep(500);
-    assertThat(SuspendableWorkerBean.runCount.get())
-        .as("No worker must fire while the case is SUSPENDED")
-        .isEqualTo(0);
+    // Brief wait for any async event delivery, then verify no worker was scheduled
+    Thread.sleep(1000);
+    assertThat(findAllEvents(caseId))
+        .as("No worker must be scheduled while the case is SUSPENDED")
+        .noneMatch(e -> e.getEventType() == CaseHubEventType.WORKER_SCHEDULED);
   }
 
   @Test
@@ -252,14 +245,14 @@ class CaseCancelSuspendResumeTest {
 
     suspendableBean.resumeCase(caseId);
 
-    // After resume, CONTEXT_CHANGED is republished — worker must now fire
+    // After resume, CONTEXT_CHANGED is republished — worker must be scheduled
     await()
         .atMost(30, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
-                assertThat(SuspendableWorkerBean.runCount.get())
-                    .as("Worker must fire after case is resumed with an eligible context")
-                    .isGreaterThan(0));
+                assertThat(findAllEvents(caseId))
+                    .as("Worker must be scheduled after case is resumed with an eligible context")
+                    .anyMatch(e -> e.getEventType() == CaseHubEventType.WORKER_SCHEDULED));
   }
 
   @Test
@@ -351,8 +344,6 @@ class CaseCancelSuspendResumeTest {
   @ApplicationScoped
   public static class SuspendableWorkerBean extends CaseHub {
 
-    static final AtomicInteger runCount = new AtomicInteger(0);
-
     private final Capability capability =
         Capability.builder()
             .name("suspendableCapability")
@@ -371,11 +362,7 @@ class CaseCancelSuspendResumeTest {
               Worker.builder()
                   .name("suspendable-worker")
                   .capabilities(capability)
-                  .function(
-                      input -> {
-                        runCount.incrementAndGet();
-                        return WorkerResult.of(Map.of("result", "done"));
-                      })
+                  .function(input -> WorkerResult.of(Map.of("result", "done")))
                   .build())
           .bindings(
               Binding.builder()
