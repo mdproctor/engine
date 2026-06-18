@@ -18,6 +18,7 @@ package io.casehub.api.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import java.util.Map;
 import java.util.Objects;
 
 public class Binding {
@@ -30,6 +31,8 @@ public class Binding {
   private ExpressionEvaluator when;
   private String conflictResolverStrategy;
   private OutcomePolicy outcomePolicy;
+  private String inputSchemaOverride;
+  private Map<String, Object> contextWrite;
 
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
@@ -47,6 +50,14 @@ public class Binding {
 
   public void setOutcomePolicy(OutcomePolicy outcomePolicy) {
     this.outcomePolicy = outcomePolicy;
+  }
+
+  public void setInputSchemaOverride(String inputSchemaOverride) {
+    this.inputSchemaOverride = inputSchemaOverride;
+  }
+
+  public void setContextWrite(Map<String, Object> contextWrite) {
+    this.contextWrite = contextWrite;
   }
 
   public BindingTarget target() {
@@ -78,6 +89,18 @@ public class Binding {
     return outcomePolicy;
   }
 
+  public String getInputSchemaOverride() {
+    return inputSchemaOverride;
+  }
+
+  public Map<String, Object> getContextWrite() {
+    return contextWrite;
+  }
+
+  public String effectiveInputSchema(Capability capability) {
+    return inputSchemaOverride != null ? inputSchemaOverride : capability.getInputSchema();
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -90,6 +113,8 @@ public class Binding {
     private ExpressionEvaluator when;
     private String conflictResolverStrategy;
     private OutcomePolicy outcomePolicy;
+    private String inputSchemaOverride;
+    private Map<String, Object> contextWrite;
 
     private Builder() {}
 
@@ -147,6 +172,16 @@ public class Binding {
       return this;
     }
 
+    public Builder inputSchemaOverride(String inputSchemaOverride) {
+      this.inputSchemaOverride = inputSchemaOverride;
+      return this;
+    }
+
+    public Builder contextWrite(Map<String, Object> contextWrite) {
+      this.contextWrite = contextWrite;
+      return this;
+    }
+
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -158,6 +193,8 @@ public class Binding {
       b.setWhen(when);
       b.setConflictResolverStrategy(conflictResolverStrategy);
       b.setOutcomePolicy(outcomePolicy);
+      b.setInputSchemaOverride(inputSchemaOverride);
+      b.setContextWrite(contextWrite);
       return b;
     }
   }

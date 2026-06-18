@@ -91,7 +91,7 @@ public class WorkerScheduleEventHandler {
     Map<String, Object> inputData =
         evalJqAsMap(
             instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
-            capability.getInputSchema());
+            event.effectiveInputSchema());
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(

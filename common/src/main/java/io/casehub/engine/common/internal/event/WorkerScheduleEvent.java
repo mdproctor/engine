@@ -20,10 +20,22 @@ import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.model.CaseInstance;
 
 public record WorkerScheduleEvent(
-    CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
+    CaseInstance caseInstance,
+    Worker worker,
+    Capability capability,
+    String bindingName,
+    String inputSchemaOverride) {
 
-  /** Backward-compat 3-arg constructor — passes null for bindingName. */
+  public WorkerScheduleEvent(
+      CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
+    this(caseInstance, worker, capability, bindingName, null);
+  }
+
   public WorkerScheduleEvent(CaseInstance caseInstance, Worker worker, Capability capability) {
-    this(caseInstance, worker, capability, null);
+    this(caseInstance, worker, capability, null, null);
+  }
+
+  public String effectiveInputSchema() {
+    return inputSchemaOverride != null ? inputSchemaOverride : capability.getInputSchema();
   }
 }

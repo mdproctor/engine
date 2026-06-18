@@ -278,6 +278,11 @@ public class CaseContextChangedEventHandler {
       final Binding binding,
       final String triggerChannelId,
       final String triggerCorrelationId) {
+    if (binding.getContextWrite() != null && !binding.getContextWrite().isEmpty()) {
+      binding
+          .getContextWrite()
+          .forEach((key, value) -> caseInstance.getCaseContext().set(key, value));
+    }
     return switch (binding.target()) {
       case CapabilityTarget ct ->
           publishWorkerSchedule(
@@ -309,7 +314,12 @@ public class CaseContextChangedEventHandler {
 
     if (workers == null || workers.isEmpty()) {
       LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.getName());
-      return tryProvision(caseInstance, capability, triggerChannelId, triggerCorrelationId);
+      return tryProvision(
+          caseInstance,
+          capability,
+          triggerChannelId,
+          triggerCorrelationId,
+          binding.getInputSchemaOverride());
     }
 
     List<AgentCandidate> candidates =
@@ -320,7 +330,12 @@ public class CaseContextChangedEventHandler {
       LOG.warnf(
           "No eligible workers for capability '%s' (binding '%s') — all unavailable or no match",
           capability.getName(), binding.getName());
-      return tryProvision(caseInstance, capability, triggerChannelId, triggerCorrelationId);
+      return tryProvision(
+          caseInstance,
+          capability,
+          triggerChannelId,
+          triggerCorrelationId,
+          binding.getInputSchemaOverride());
     }
 
     // Filter agents excluded by previous DECLINED/FAILED outcomes for this binding
@@ -369,7 +384,11 @@ public class CaseContextChangedEventHandler {
                         "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
                         capability.getName(), binding.getName());
                     yield tryProvision(
-                        caseInstance, capability, triggerChannelId, triggerCorrelationId);
+                        caseInstance,
+                        capability,
+                        triggerChannelId,
+                        triggerCorrelationId,
+                        binding.getInputSchemaOverride());
                   }
                   case AgentAssignment.EscalateToOversight e ->
                       handleEscalation(caseInstance, e, binding);
@@ -418,7 +437,12 @@ public class CaseContextChangedEventHandler {
 
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
-        new WorkerScheduleEvent(caseInstance, selectedWorker, capability, binding.getName()));
+        new WorkerScheduleEvent(
+            caseInstance,
+            selectedWorker,
+            capability,
+            binding.getName(),
+            binding.getInputSchemaOverride()));
 
     return Uni.createFrom().voidItem();
   }
@@ -511,20 +535,27 @@ public class CaseContextChangedEventHandler {
     return Map.of();
   }
 
-  private Uni<Void> tryProvision(final CaseInstance caseInstance, final Capability capability) {
-    return tryProvision(caseInstance, capability, null, null);
+  private Uni<Void> tryProvision(
+      final CaseInstance caseInstance,
+      final Capability capability,
+      final String triggerChannelId,
+      final String triggerCorrelationId) {
+    return tryProvision(caseInstance, capability, triggerChannelId, triggerCorrelationId, null);
   }
 
   private Uni<Void> tryProvision(
       final CaseInstance caseInstance,
       final Capability capability,
       final String triggerChannelId,
-      final String triggerCorrelationId) {
+      final String triggerCorrelationId,
+      final String inputSchemaOverride) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
+    final String effectiveSchema =
+        inputSchemaOverride != null ? inputSchemaOverride : capability.getInputSchema();
     final Map<String, Object> inputData =
         evalJqAsMap(
             caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
-            capability.getInputSchema());
+            effectiveSchema);
     final WorkRequest workRequest = WorkRequest.of(capability.getName(), inputData);
     return reactiveWorkerContextProvider
         .buildContext(null, caseInstance.getUuid(), workRequest)

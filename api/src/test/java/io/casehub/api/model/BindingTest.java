@@ -18,6 +18,7 @@ package io.casehub.api.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class BindingTest {
@@ -76,5 +77,75 @@ class BindingTest {
     // ExtensionTarget is a non-sealed interface: any class implementing it is a BindingTarget
     assertThat(new ExtensionTarget() {}).isInstanceOf(BindingTarget.class);
     assertThat(CapabilityTarget.class.isSealed()).isFalse(); // record, not sealed itself
+  }
+
+  @Test
+  void inputSchemaOverride_storedAndReturned() {
+    Capability cap = Capability.builder().name("c").inputSchema(".full").outputSchema("{}").build();
+    Binding b =
+        Binding.builder()
+            .name("b")
+            .capability(cap)
+            .on(new ContextChangeTrigger(".x"))
+            .inputSchemaOverride(".reduced")
+            .build();
+
+    assertThat(b.getInputSchemaOverride()).isEqualTo(".reduced");
+  }
+
+  @Test
+  void inputSchemaOverride_nullByDefault() {
+    Capability cap = Capability.builder().name("c").inputSchema(".full").outputSchema("{}").build();
+    Binding b =
+        Binding.builder().name("b").capability(cap).on(new ContextChangeTrigger(".x")).build();
+
+    assertThat(b.getInputSchemaOverride()).isNull();
+  }
+
+  @Test
+  void effectiveInputSchema_usesOverrideWhenSet() {
+    Capability cap = Capability.builder().name("c").inputSchema(".full").outputSchema("{}").build();
+    Binding b =
+        Binding.builder()
+            .name("b")
+            .capability(cap)
+            .on(new ContextChangeTrigger(".x"))
+            .inputSchemaOverride(".reduced")
+            .build();
+
+    assertThat(b.effectiveInputSchema(cap)).isEqualTo(".reduced");
+  }
+
+  @Test
+  void effectiveInputSchema_fallsBackToCapabilityWhenNoOverride() {
+    Capability cap = Capability.builder().name("c").inputSchema(".full").outputSchema("{}").build();
+    Binding b =
+        Binding.builder().name("b").capability(cap).on(new ContextChangeTrigger(".x")).build();
+
+    assertThat(b.effectiveInputSchema(cap)).isEqualTo(".full");
+  }
+
+  @Test
+  void contextWrite_storedAndReturned() {
+    Capability cap = Capability.builder().name("c").inputSchema(".x").outputSchema("{}").build();
+    Map<String, Object> writes = Map.of("status", "PENDING", "reducedScope", true);
+    Binding b =
+        Binding.builder()
+            .name("b")
+            .capability(cap)
+            .on(new ContextChangeTrigger(".x"))
+            .contextWrite(writes)
+            .build();
+
+    assertThat(b.getContextWrite()).isEqualTo(writes);
+  }
+
+  @Test
+  void contextWrite_nullByDefault() {
+    Capability cap = Capability.builder().name("c").inputSchema(".x").outputSchema("{}").build();
+    Binding b =
+        Binding.builder().name("b").capability(cap).on(new ContextChangeTrigger(".x")).build();
+
+    assertThat(b.getContextWrite()).isNull();
   }
 }

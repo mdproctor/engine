@@ -374,6 +374,13 @@ $defs:
         description: "Strategy for resolving concurrent writes to the same CaseContext key"
       outcomePolicy:
         $ref: "#/$defs/OutcomePolicy"
+      inputSchemaOverride:
+        type: string
+        description: "JQ expression overriding the capability's inputSchema for this binding. Use for failure cascade scope reduction."
+      contextWrite:
+        type: object
+        additionalProperties: true
+        description: "Key-value pairs to write to the case context before dispatching. Prevents condition re-evaluation loops in failure cascades."
 
   OutcomePolicy:
     type: object

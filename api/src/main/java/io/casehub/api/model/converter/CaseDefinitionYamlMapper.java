@@ -62,6 +62,8 @@ import java.util.stream.Collectors;
  */
 public final class CaseDefinitionYamlMapper {
 
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
   /** JQ-only registry for non-CDI contexts. Does not support custom expression languages. */
   private static final ExpressionEngineRegistry JQ_ONLY =
       new ExpressionEngineRegistry() {
@@ -379,6 +381,19 @@ public final class CaseDefinitionYamlMapper {
 
     if (schemaBinding.getConflictResolverStrategy() != null) {
       builder.conflictResolverStrategy(schemaBinding.getConflictResolverStrategy().value());
+    }
+
+    if (schemaBinding.getInputSchemaOverride() != null) {
+      builder.inputSchemaOverride(schemaBinding.getInputSchemaOverride());
+    }
+
+    if (schemaBinding.getContextWrite() != null) {
+      @SuppressWarnings("unchecked")
+      final Map<String, Object> writeMap =
+          MAPPER.convertValue(schemaBinding.getContextWrite(), Map.class);
+      if (!writeMap.isEmpty()) {
+        builder.contextWrite(writeMap);
+      }
     }
 
     if (schemaBinding.getOutcomePolicy() != null) {
