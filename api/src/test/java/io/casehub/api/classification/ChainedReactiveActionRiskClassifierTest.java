@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker;
+package io.casehub.api.classification;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -111,8 +111,6 @@ class ChainedReactiveActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_fewerCandidateGroupsWins_notUnion() {
-    // AML returns ["mlro"] (1 group), clinical returns ["physician", "pharmacist"] (2 groups)
-    // Narrower (fewer groups) wins entirely — union ["mlro","physician","pharmacist"] is wrong
     chain.classifiers =
         instanceOf(
             action -> new GateRequired("AML", false, List.of("mlro"), Duration.ofHours(24), null),
@@ -151,14 +149,12 @@ class ChainedReactiveActionRiskClassifierTest {
 
     GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
 
-    // expiresIn non-null is more restrictive than null
     assertThat(result.expiresIn()).isEqualTo(Duration.ofHours(24));
     assertThat(result.reason()).isEqualTo("with-deadline");
   }
 
   @Test
   void twoClassifiers_nullCandidateGroupsVsRestricted_restrictedGroupsWins() {
-    // null candidateGroups means "no restriction" — fewer restrictions = effectively more groups
     chain.classifiers =
         instanceOf(
             action -> new GateRequired("unrestricted", false, null, null, null),
@@ -166,7 +162,6 @@ class ChainedReactiveActionRiskClassifierTest {
 
     GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
 
-    // ["mlro"] (1 group) beats null (Integer.MAX_VALUE groups) — narrower wins
     assertThat(result.candidateGroups()).containsExactly("mlro");
     assertThat(result.reason()).isEqualTo("restricted");
   }

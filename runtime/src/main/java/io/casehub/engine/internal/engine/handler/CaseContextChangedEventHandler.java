@@ -113,7 +113,7 @@ public class CaseContextChangedEventHandler {
 
   @Inject LedgerTraceIdProvider traceIdProvider;
 
-  @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
+  @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED, blocking = true)
   public Uni<Void> onCaseStateContextChangedEventHandler(final CaseContextChangedEvent event) {
     final CaseInstance caseInstance = event.instance();
     final CaseStatus state = caseInstance.getState();
@@ -317,6 +317,7 @@ public class CaseContextChangedEventHandler {
       return tryProvision(
           caseInstance,
           capability,
+          binding.getName(),
           triggerChannelId,
           triggerCorrelationId,
           binding.getInputSchemaOverride());
@@ -333,6 +334,7 @@ public class CaseContextChangedEventHandler {
       return tryProvision(
           caseInstance,
           capability,
+          binding.getName(),
           triggerChannelId,
           triggerCorrelationId,
           binding.getInputSchemaOverride());
@@ -386,6 +388,7 @@ public class CaseContextChangedEventHandler {
                     yield tryProvision(
                         caseInstance,
                         capability,
+                        binding.getName(),
                         triggerChannelId,
                         triggerCorrelationId,
                         binding.getInputSchemaOverride());
@@ -538,14 +541,7 @@ public class CaseContextChangedEventHandler {
   private Uni<Void> tryProvision(
       final CaseInstance caseInstance,
       final Capability capability,
-      final String triggerChannelId,
-      final String triggerCorrelationId) {
-    return tryProvision(caseInstance, capability, triggerChannelId, triggerCorrelationId, null);
-  }
-
-  private Uni<Void> tryProvision(
-      final CaseInstance caseInstance,
-      final Capability capability,
+      final String bindingName,
       final String triggerChannelId,
       final String triggerCorrelationId,
       final String inputSchemaOverride) {
@@ -601,13 +597,16 @@ public class CaseContextChangedEventHandler {
                   .replaceWithVoid();
             })
         .onFailure(ProvisioningException.class)
-        .invoke(
-            e ->
-                LOG.warnf(
-                    e,
-                    "WorkerProvisioner failed for capability '%s' on case %s — binding remains eligible",
-                    capability.getName(),
-                    caseInstance.getUuid()));
+        .recoverWithUni(
+            e -> {
+              LOG.warnf(
+                  e,
+                  "WorkerProvisioner failed for capability '%s' binding '%s' on case %s — auto-exhausting",
+                  capability.getName(),
+                  bindingName,
+                  caseInstance.getUuid());
+              return handleAllCandidatesExhausted(caseInstance, bindingName, capability.getName());
+            });
   }
 
   private Uni<Void> publishSubCaseSchedule(

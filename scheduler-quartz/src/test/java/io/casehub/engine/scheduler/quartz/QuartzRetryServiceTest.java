@@ -106,7 +106,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_underMaxAttempts_reschedulesWorker() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
 
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
@@ -126,7 +126,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_atMaxAttempts_publishesExhaustion() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
 
     CaseInstance instance = caseInstanceWithWorker(2, 1000, BackoffStrategy.FIXED);
 
@@ -148,7 +148,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_noRetryPolicyConfigured_usesDefault() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
 
     CaseInstance instance = caseInstanceWithDefaultPolicy();
 
@@ -167,7 +167,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_caseDefinitionNotFound_logsErrorWithoutCrash() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
 
     CaseInstance instance = new CaseInstance();
     instance.setUuid(caseId);
@@ -189,7 +189,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_persistsFailureEventLog() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
 
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
@@ -216,7 +216,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_countsOnlyMatchingInputDataHash() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
 
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 

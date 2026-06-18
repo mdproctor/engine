@@ -23,7 +23,12 @@ import org.quartz.JobExecutionContext;
  * failure counting. Built from the Quartz {@link JobExecutionContext} job data map.
  */
 record WorkerRetryContext(
-    UUID caseId, String workerId, String inputDataHash, String tenancyId, String eventLogId) {
+    UUID caseId,
+    String workerId,
+    String inputDataHash,
+    String tenancyId,
+    String eventLogId,
+    String bindingName) {
 
   static WorkerRetryContext from(final JobExecutionContext context) {
     return new WorkerRetryContext(
@@ -31,6 +36,12 @@ record WorkerRetryContext(
         context.getMergedJobDataMap().getString("workerId"),
         context.getMergedJobDataMap().getString("inputDataHash"),
         context.getMergedJobDataMap().getString("tenancyId"),
-        context.getMergedJobDataMap().getString("eventLogId"));
+        context.getMergedJobDataMap().getString("eventLogId"),
+        context.getMergedJobDataMap().getString("bindingName"));
+  }
+
+  WorkerRetryContext withBindingName(String bindingName) {
+    return new WorkerRetryContext(
+        caseId, workerId, inputDataHash, tenancyId, eventLogId, bindingName);
   }
 }

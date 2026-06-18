@@ -13,9 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.event;
+package io.casehub.api.spi;
 
+import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 
-public record WorkerRetriesExhaustedEvent(
-    UUID caseId, String workerId, String idempotency, String bindingName) {}
+public interface ReactiveOversightGateService {
+  Uni<GateDecision> openGate(String agentId, String commitmentId, String outcome, String tenancyId);
+
+  Uni<Void> fulfill(UUID gateId, String rawOutput);
+}

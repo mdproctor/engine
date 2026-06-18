@@ -16,6 +16,7 @@
 package io.casehub.blackboard.handler;
 
 import io.casehub.blackboard.plan.CasePlanModel;
+import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
@@ -61,11 +62,19 @@ public class WorkerRetryExhaustionHandler {
     final CasePlanModel plan = registry.get(event.caseId()).orElse(null);
     if (plan == null) return;
 
-    final String planItemId = registry.getPlanItemId(event.caseId(), event.workerId()).orElse(null);
+    final String planItemId;
+    if (event.bindingName() != null) {
+      planItemId =
+          plan.getPlanItemByBindingName(event.bindingName())
+              .map(PlanItem::getPlanItemId)
+              .orElse(null);
+    } else {
+      planItemId = registry.getPlanItemId(event.caseId(), event.workerId()).orElse(null);
+    }
     if (planItemId == null) {
       LOG.debugf(
-          "No PlanItem indexed for worker '%s' in case %s — guard-blocked or already evicted",
-          event.workerId(), event.caseId());
+          "No PlanItem found for binding='%s' worker='%s' in case %s — guard-blocked or already evicted",
+          event.bindingName(), event.workerId(), event.caseId());
       return;
     }
 

@@ -126,7 +126,8 @@ class QuartzRetryService {
             ctx.workerId(), retryPolicy.maxAttempts(), ctx.caseId(), exhaust.reason());
         eventBus.publish(
             EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-            new WorkerRetriesExhaustedEvent(ctx.caseId(), ctx.workerId(), ctx.inputDataHash()));
+            new WorkerRetriesExhaustedEvent(
+                ctx.caseId(), ctx.workerId(), ctx.inputDataHash(), ctx.bindingName()));
         yield Uni.createFrom().voidItem();
       }
     };
@@ -191,6 +192,9 @@ class QuartzRetryService {
     dataMap.put("workerId", ctx.workerId());
     dataMap.put("caseHubInstanceUuid", ctx.caseId().toString());
     dataMap.put("tenancyId", ctx.tenancyId());
+    if (ctx.bindingName() != null) {
+      dataMap.put("bindingName", ctx.bindingName());
+    }
 
     JobDetail job =
         newJob(QuartzWorkerExecutionJob.class)

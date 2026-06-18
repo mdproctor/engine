@@ -123,6 +123,9 @@ class QuartzWorkerExecutionJob implements Job {
               ? eventLog.getMetadata().get("bindingName").asText()
               : null;
 
+      final WorkerRetryContext effectiveRetryCtx =
+          bindingName != null ? retryCtx.withBindingName(bindingName) : retryCtx;
+
       Worker worker =
           definition.getWorkers().stream()
               .filter(w -> w.getName().equals(workerId))
@@ -130,7 +133,7 @@ class QuartzWorkerExecutionJob implements Job {
               .orElse(null);
 
       if (worker == null) {
-        onFailure(retryCtx, new RuntimeException("Worker not found: " + workerId));
+        onFailure(effectiveRetryCtx, new RuntimeException("Worker not found: " + workerId));
         return;
       }
 
@@ -141,7 +144,8 @@ class QuartzWorkerExecutionJob implements Job {
               .orElse(null);
 
       if (capability == null) {
-        onFailure(retryCtx, new RuntimeException("Capability not found: " + capabilityName));
+        onFailure(
+            effectiveRetryCtx, new RuntimeException("Capability not found: " + capabilityName));
         return;
       }
 
@@ -164,7 +168,7 @@ class QuartzWorkerExecutionJob implements Job {
           .subscribe()
           .with(
               workerResult -> onSuccess(instance, worker, inputDataHash, workerResult, bindingName),
-              failure -> onFailure(retryCtx, failure));
+              failure -> onFailure(effectiveRetryCtx, failure));
     } catch (Exception e) {
       onFailure(retryCtx, e);
     }

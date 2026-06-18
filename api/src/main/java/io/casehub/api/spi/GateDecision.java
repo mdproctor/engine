@@ -13,9 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.event;
+package io.casehub.api.spi;
 
 import java.util.UUID;
 
-public record WorkerRetriesExhaustedEvent(
-    UUID caseId, String workerId, String idempotency, String bindingName) {}
+public sealed interface GateDecision permits GateDecision.Autonomous, GateDecision.GatePending {
+  record Autonomous() implements GateDecision {}
+
+  record GatePending(UUID gateId, String reason) implements GateDecision {}
+}

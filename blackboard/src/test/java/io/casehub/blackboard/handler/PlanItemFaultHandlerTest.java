@@ -48,7 +48,7 @@ class PlanItemFaultHandlerTest {
   }
 
   private WorkerRetriesExhaustedEvent eventFor(String workerId) {
-    return new WorkerRetriesExhaustedEvent(caseId, workerId, "idempotency-key");
+    return new WorkerRetriesExhaustedEvent(caseId, workerId, "idempotency-key", null);
   }
 
   @Test
@@ -120,6 +120,6 @@ class PlanItemFaultHandlerTest {
   @Test
   void no_plan_registered_does_not_throw() {
     UUID otherCase = UUID.randomUUID();
-    handler.onWorkerRetriesExhausted(new WorkerRetriesExhaustedEvent(otherCase, "w", "key"));
+    handler.onWorkerRetriesExhausted(new WorkerRetriesExhaustedEvent(otherCase, "w", "key", null));
   }
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker;
+package io.casehub.api.classification;
 
 import io.casehub.api.spi.ActionRiskClassifier;
 import io.casehub.api.spi.PlannedAction;
