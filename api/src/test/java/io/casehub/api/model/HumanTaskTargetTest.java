@@ -209,4 +209,31 @@ class HumanTaskTargetTest {
 
     assertThat(target.claimDeadlineHours()).isNull();
   }
+
+  @Test
+  void outcomes_storedAndReturned() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Gate Review")
+            .outcomes(Set.of("APPROVED", "REJECTED", "BLOCKED"))
+            .build();
+
+    assertThat(target.outcomes()).containsExactlyInAnyOrder("APPROVED", "REJECTED", "BLOCKED");
+  }
+
+  @Test
+  void outcomes_nullByDefault() {
+    HumanTaskTarget target = HumanTaskTarget.template("t1").build();
+
+    assertThat(target.outcomes()).isNull();
+  }
+
+  @Test
+  void outcomes_templateMode_storedAndReturned() {
+    HumanTaskTarget target =
+        HumanTaskTarget.template("gate-template").outcomes(Set.of("APPROVED", "REJECTED")).build();
+
+    assertThat(target.outcomes()).containsExactlyInAnyOrder("APPROVED", "REJECTED");
+    assertThat(target.isTemplateMode()).isTrue();
+  }
 }

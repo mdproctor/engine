@@ -28,6 +28,7 @@ import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.PlanItemStore;
+import io.casehub.work.api.Outcome;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.model.WorkItemTemplate;
@@ -38,6 +39,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -145,6 +147,11 @@ public class HumanTaskScheduleHandler {
     if (event.inputData() != null && !event.inputData().isEmpty()) {
       workItem.payload = serializePayload(event.inputData());
     }
+    if (target.outcomes() != null && !target.outcomes().isEmpty()) {
+      workItem.permittedOutcomes =
+          io.casehub.work.runtime.model.OutcomeCodecs.encodeOutcomes(
+              toOutcomeList(target.outcomes()));
+    }
     workItem.persist();
 
     planItemStore.save(
@@ -197,7 +204,7 @@ public class HumanTaskScheduleHandler {
         target.expiresIn() != null ? Instant.now().plus(target.expiresIn()) : null;
     Instant effectiveDeadline = earliestOf(taskDeadline, caseBudgetDeadline);
 
-    WorkItemCreateRequest request =
+    WorkItemCreateRequest.Builder requestBuilder =
         WorkItemCreateRequest.builder()
             .title(target.title())
             .candidateGroups(toCsv(resolvedGroups))
@@ -207,8 +214,11 @@ public class HumanTaskScheduleHandler {
             .expiresAt(effectiveDeadline)
             .claimDeadlineBusinessHours(target.claimDeadlineHours())
             .callerRef(callerRef)
-            .scope(target.scope())
-            .build();
+            .scope(target.scope());
+    if (target.outcomes() != null && !target.outcomes().isEmpty()) {
+      requestBuilder.permittedOutcomes(toOutcomeList(target.outcomes()));
+    }
+    WorkItemCreateRequest request = requestBuilder.build();
 
     workItemService.create(request);
     LOG.infof(
@@ -230,6 +240,10 @@ public class HumanTaskScheduleHandler {
       LOG.warnf(e, "Failed to serialize inputData to JSON payload — using null");
       return null;
     }
+  }
+
+  private static List<Outcome> toOutcomeList(Set<String> outcomeNames) {
+    return outcomeNames.stream().map(name -> new Outcome(name, null, null)).toList();
   }
 
   private static String toCsv(Set<String> values) {

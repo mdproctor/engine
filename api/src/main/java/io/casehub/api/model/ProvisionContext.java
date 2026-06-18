@@ -27,6 +27,9 @@ import java.util.UUID;
  * tracing. {@code workerContext} is nullable — callers that have not yet built one may pass {@code
  * null}.
  *
+ * <p>{@code tenancyId} identifies the tenant that owns the case being provisioned. Provisioner
+ * implementations use this to resolve tenant-specific endpoints via {@code EndpointRegistry}.
+ *
  * <p>{@code triggerChannelId} and {@code triggerCorrelationId} carry the Qhorus channel ID and
  * {@code correlationId} of the COMMAND message that triggered this provisioning, when known. Both
  * are nullable: engine-internal call sites currently pass {@code null} because the engine does not
@@ -36,6 +39,7 @@ import java.util.UUID;
  */
 public record ProvisionContext(
     UUID caseId,
+    String tenancyId,
     String taskType,
     WorkerContext workerContext,
     PropagationContext propagationContext,

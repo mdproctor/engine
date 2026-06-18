@@ -47,6 +47,7 @@ public final class HumanTaskTarget implements BindingTarget {
   private final ExpressionEvaluator inputMapping;
   private final ExpressionEvaluator outputMapping;
   private final String scope;
+  private final Set<String> outcomes;
 
   private HumanTaskTarget(Builder builder) {
     this.templateRef = builder.templateRef;
@@ -59,6 +60,7 @@ public final class HumanTaskTarget implements BindingTarget {
     this.inputMapping = builder.inputMapping;
     this.outputMapping = builder.outputMapping;
     this.scope = builder.scope;
+    this.outcomes = builder.outcomes;
   }
 
   /**
@@ -126,6 +128,10 @@ public final class HumanTaskTarget implements BindingTarget {
     return scope;
   }
 
+  public Set<String> outcomes() {
+    return outcomes;
+  }
+
   public static final class Builder {
 
     private final String templateRef;
@@ -138,6 +144,7 @@ public final class HumanTaskTarget implements BindingTarget {
     private ExpressionEvaluator inputMapping;
     private ExpressionEvaluator outputMapping;
     private String scope;
+    private Set<String> outcomes;
 
     private Builder(String templateRef) {
       this.templateRef = templateRef;
@@ -205,6 +212,11 @@ public final class HumanTaskTarget implements BindingTarget {
 
     public Builder scope(String scope) {
       this.scope = scope;
+      return this;
+    }
+
+    public Builder outcomes(Set<String> outcomes) {
+      this.outcomes = outcomes;
       return this;
     }
 

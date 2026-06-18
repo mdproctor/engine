@@ -67,7 +67,13 @@ class DefaultWorkerSpiImplementationsTest {
         new WorkerContext("desc", null, null, List.of(), PropagationContext.createRoot(), Map.of());
     var ctx =
         new ProvisionContext(
-            UUID.randomUUID(), "task", workerContext, PropagationContext.createRoot(), null, null);
+            UUID.randomUUID(),
+            "tenant-1",
+            "task",
+            workerContext,
+            PropagationContext.createRoot(),
+            null,
+            null);
     assertThatThrownBy(() -> provisioner.provision(java.util.Set.of("cap"), ctx))
         .isInstanceOf(ProvisioningException.class)
         .hasMessageContaining("WorkerProvisioner");
@@ -198,6 +204,7 @@ class DefaultWorkerSpiImplementationsTest {
     var ctx =
         new ProvisionContext(
             UUID.randomUUID(),
+            "tenant-1",
             "task",
             new WorkerContext(
                 "desc", null, null, List.of(), PropagationContext.createRoot(), Map.of()),

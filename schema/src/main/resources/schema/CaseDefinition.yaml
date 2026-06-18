@@ -341,6 +341,10 @@ $defs:
         type: integer
         minimum: 1
         description: "Business hours allowed to claim this WorkItem before it escalates"
+      outcomes:
+        type: array
+        items: { type: string }
+        description: "Valid outcome names for this WorkItem (e.g. APPROVED, REJECTED). Enforced at completion by casehub-work."
 
   Binding:
     type: object

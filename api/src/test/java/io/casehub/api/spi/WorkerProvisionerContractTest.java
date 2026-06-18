@@ -65,6 +65,7 @@ class WorkerProvisionerContractTest {
     var ctx =
         new ProvisionContext(
             UUID.randomUUID(),
+            "tenant-1",
             "researcher",
             new WorkerContext(
                 "task", null, null, List.of(), PropagationContext.createRoot(), Map.of()),

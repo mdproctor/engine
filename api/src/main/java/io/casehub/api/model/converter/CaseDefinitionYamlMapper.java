@@ -527,6 +527,9 @@ public final class CaseDefinitionYamlMapper {
       }
       builder.expiresIn(duration);
     }
+    if (schema.getOutcomes() != null && !schema.getOutcomes().isEmpty()) {
+      builder.outcomes(new LinkedHashSet<>(schema.getOutcomes()));
+    }
     return builder.build();
   }
 

@@ -32,8 +32,9 @@ class ProvisionContextTest {
         new WorkerContext(
             "task", caseId, null, List.of(), PropagationContext.createRoot(), Map.of());
     var prop = PropagationContext.createRoot();
-    var pc = new ProvisionContext(caseId, "code-reviewer", wc, prop, null, null);
+    var pc = new ProvisionContext(caseId, "tenant-1", "code-reviewer", wc, prop, null, null);
     assertThat(pc.caseId()).isEqualTo(caseId);
+    assertThat(pc.tenancyId()).isEqualTo("tenant-1");
     assertThat(pc.taskType()).isEqualTo("code-reviewer");
     assertThat(pc.workerContext()).isEqualTo(wc);
     assertThat(pc.propagationContext()).isEqualTo(prop);
@@ -45,7 +46,13 @@ class ProvisionContextTest {
   void nullWorkerContext_isPermitted() {
     var pc =
         new ProvisionContext(
-            UUID.randomUUID(), "task-type", null, PropagationContext.createRoot(), null, null);
+            UUID.randomUUID(),
+            "tenant-1",
+            "task-type",
+            null,
+            PropagationContext.createRoot(),
+            null,
+            null);
     assertThat(pc.workerContext()).isNull();
   }
 
@@ -54,6 +61,7 @@ class ProvisionContextTest {
     var pc =
         new ProvisionContext(
             UUID.randomUUID(),
+            "tenant-1",
             "task-type",
             null,
             PropagationContext.createRoot(),

@@ -521,59 +521,53 @@ public class CaseContextChangedEventHandler {
       final String triggerChannelId,
       final String triggerCorrelationId) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
-    return reactiveWorkerProvisioner
-        .getCapabilities()
+    final Map<String, Object> inputData =
+        evalJqAsMap(
+            caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            capability.getInputSchema());
+    final WorkRequest workRequest = WorkRequest.of(capability.getName(), inputData);
+    return reactiveWorkerContextProvider
+        .buildContext(null, caseInstance.getUuid(), workRequest)
         .flatMap(
-            caps -> {
-              if (!caps.contains(capability.getName())) {
-                return Uni.createFrom().voidItem();
-              }
-              final Map<String, Object> inputData =
-                  evalJqAsMap(
-                      caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
-                      capability.getInputSchema());
-              final WorkRequest workRequest = WorkRequest.of(capability.getName(), inputData);
-              return reactiveWorkerContextProvider
-                  .buildContext(null, caseInstance.getUuid(), workRequest)
-                  .flatMap(
-                      workerContext -> {
-                        final ProvisionContext provisionContext =
-                            new ProvisionContext(
-                                caseInstance.getUuid(),
-                                capability.getName(),
-                                workerContext,
-                                PropagationContext.createRoot(),
-                                triggerChannelId,
-                                triggerCorrelationId);
-                        return reactiveWorkerProvisioner
-                            .provision(caps, provisionContext)
-                            .chain(
-                                result ->
-                                    Uni.createFrom()
-                                        .completionStage(
-                                            () ->
-                                                lifecycleEvents.fireAsync(
-                                                    new CaseLifecycleEvent(
-                                                        caseInstance.getUuid(),
-                                                        caseInstance.tenancyId,
-                                                        "ProvisionWorker",
-                                                        "WorkerStarted",
-                                                        caseInstance.getState().name(),
-                                                        null,
-                                                        "System",
-                                                        traceId)))
-                                        .onFailure()
-                                        .recoverWithItem(
-                                            t -> {
-                                              LOG.warnf(
-                                                  t,
-                                                  "CaseLifecycleEvent observer failed for caseId=%s event=WorkerStarted",
-                                                  caseInstance.getUuid());
-                                              return null;
-                                            })
-                                        .replaceWithVoid())
-                            .replaceWithVoid();
-                      });
+            workerContext -> {
+              final ProvisionContext provisionContext =
+                  new ProvisionContext(
+                      caseInstance.getUuid(),
+                      caseInstance.tenancyId,
+                      capability.getName(),
+                      workerContext,
+                      PropagationContext.createRoot(),
+                      triggerChannelId,
+                      triggerCorrelationId);
+              return reactiveWorkerProvisioner
+                  .getCapabilities()
+                  .flatMap(caps -> reactiveWorkerProvisioner.provision(caps, provisionContext))
+                  .chain(
+                      result ->
+                          Uni.createFrom()
+                              .completionStage(
+                                  () ->
+                                      lifecycleEvents.fireAsync(
+                                          new CaseLifecycleEvent(
+                                              caseInstance.getUuid(),
+                                              caseInstance.tenancyId,
+                                              "ProvisionWorker",
+                                              "WorkerStarted",
+                                              caseInstance.getState().name(),
+                                              null,
+                                              "System",
+                                              traceId)))
+                              .onFailure()
+                              .recoverWithItem(
+                                  t -> {
+                                    LOG.warnf(
+                                        t,
+                                        "CaseLifecycleEvent observer failed for caseId=%s event=WorkerStarted",
+                                        caseInstance.getUuid());
+                                    return null;
+                                  })
+                              .replaceWithVoid())
+                  .replaceWithVoid();
             })
         .onFailure(ProvisioningException.class)
         .invoke(
