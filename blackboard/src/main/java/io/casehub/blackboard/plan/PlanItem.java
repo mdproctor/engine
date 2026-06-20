@@ -199,6 +199,24 @@ public class PlanItem implements Comparable<PlanItem> {
     status = PlanItemStatus.OBSOLETE;
   }
 
+  /** Suspends from DELEGATED only. Workers and unscheduled items cannot be suspended. */
+  public void markSuspended() {
+    if (status != PlanItemStatus.DELEGATED) {
+      throw new IllegalStateException(
+          "Cannot suspend from " + status + " (planItemId=" + planItemId + ")");
+    }
+    status = PlanItemStatus.SUSPENDED;
+  }
+
+  /** Resumes from SUSPENDED → DELEGATED. */
+  public void markResumed() {
+    if (status != PlanItemStatus.SUSPENDED) {
+      throw new IllegalStateException(
+          "Cannot resume from " + status + " (planItemId=" + planItemId + ")");
+    }
+    status = PlanItemStatus.DELEGATED;
+  }
+
   /** Cancels from any active state. Throws if already terminal. */
   public void markCancelled() {
     if (status.isTerminal()) {

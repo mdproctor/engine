@@ -34,7 +34,11 @@ class PlanItemStatusTest {
           PlanItemStatus.CANCELLED);
 
   private static final Set<PlanItemStatus> EXPECTED_ACTIVE =
-      EnumSet.of(PlanItemStatus.PENDING, PlanItemStatus.RUNNING, PlanItemStatus.DELEGATED);
+      EnumSet.of(
+          PlanItemStatus.PENDING,
+          PlanItemStatus.RUNNING,
+          PlanItemStatus.DELEGATED,
+          PlanItemStatus.SUSPENDED);
 
   @ParameterizedTest
   @EnumSource(PlanItemStatus.class)
@@ -73,5 +77,10 @@ class PlanItemStatusTest {
   @Test
   void obsolete_exists() {
     assertThat(PlanItemStatus.valueOf("OBSOLETE")).isEqualTo(PlanItemStatus.OBSOLETE);
+  }
+
+  @Test
+  void suspended_exists() {
+    assertThat(PlanItemStatus.valueOf("SUSPENDED")).isEqualTo(PlanItemStatus.SUSPENDED);
   }
 }

@@ -225,6 +225,47 @@ class WorkItemLifecycleAdapterTest {
   }
 
   @Test
+  void workItemSuspended_marksPlanItemSuspended() {
+    PlanItem delegatedItem = PlanItem.create("review-ht-suspend", "ht-worker", 10);
+    delegatedItem.markDelegated();
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(delegatedItem);
+    String delegatedItemId = delegatedItem.getPlanItemId();
+
+    WorkItem workItem = new WorkItem();
+    workItem.id = UUID.randomUUID();
+    workItem.status = WorkItemStatus.SUSPENDED;
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, delegatedItemId);
+    lifecycleEvents.fireAsync(
+        WorkItemLifecycleEvent.of("workitem.suspended", workItem, "system", null));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(delegatedItem.getStatus()).isEqualTo(PlanItemStatus.SUSPENDED));
+  }
+
+  @Test
+  void workItemResumed_marksPlanItemDelegated() {
+    PlanItem delegatedItem = PlanItem.create("review-ht-resume", "ht-worker", 10);
+    delegatedItem.markDelegated();
+    delegatedItem.markSuspended();
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(delegatedItem);
+    String delegatedItemId = delegatedItem.getPlanItemId();
+
+    WorkItem workItem = new WorkItem();
+    workItem.id = UUID.randomUUID();
+    workItem.status = WorkItemStatus.IN_PROGRESS;
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, delegatedItemId);
+    lifecycleEvents.fireAsync(
+        WorkItemLifecycleEvent.of("workitem.resumed", workItem, "system", null));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(delegatedItem.getStatus()).isEqualTo(PlanItemStatus.DELEGATED));
+  }
+
+  @Test
   void workItemCancelled_marksPlanItemCancelled() {
     lifecycleEvents.fireAsync(buildEvent(WorkItemStatus.CANCELLED, null));
 

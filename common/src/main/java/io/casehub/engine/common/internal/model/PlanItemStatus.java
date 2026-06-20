@@ -50,6 +50,8 @@ public enum PlanItemStatus {
   PENDING,
   RUNNING,
   DELEGATED,
+  /** External actor has paused work. Slot remains occupied; work resumes without re-dispatch. */
+  SUSPENDED,
   COMPLETED,
   FAULTED,
   REJECTED,
@@ -65,6 +67,6 @@ public enum PlanItemStatus {
   }
 
   public boolean isActive() {
-    return this == PENDING || this == RUNNING || this == DELEGATED;
+    return this == PENDING || this == RUNNING || this == DELEGATED || this == SUSPENDED;
   }
 }

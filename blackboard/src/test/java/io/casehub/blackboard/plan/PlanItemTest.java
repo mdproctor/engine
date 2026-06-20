@@ -303,6 +303,70 @@ class PlanItemTest {
     assertThatThrownBy(item::markCancelled).isInstanceOf(IllegalStateException.class);
   }
 
+  // --- SUSPENDED state ---
+
+  @Test
+  void markSuspended_from_delegated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    item.markSuspended();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.SUSPENDED);
+  }
+
+  @Test
+  void markSuspended_from_pending_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    assertThatThrownBy(item::markSuspended).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markSuspended_from_running_throws() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    item.markRunning();
+    assertThatThrownBy(item::markSuspended).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markSuspended_from_completed_throws() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    item.markRunning();
+    item.markCompleted();
+    assertThatThrownBy(item::markSuspended).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markResumed_from_suspended_returns_to_delegated() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    item.markSuspended();
+    item.markResumed();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+  }
+
+  @Test
+  void markResumed_from_delegated_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    assertThatThrownBy(item::markResumed).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markResumed_from_pending_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    assertThatThrownBy(item::markResumed).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void suspend_resume_cycle_returns_to_delegated() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    item.markSuspended();
+    item.markResumed();
+    item.markSuspended();
+    item.markResumed();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+  }
+
   // --- restore() factory ---
 
   @Test

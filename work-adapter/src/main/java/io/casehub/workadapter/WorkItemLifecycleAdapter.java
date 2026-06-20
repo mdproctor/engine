@@ -22,6 +22,7 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.work.api.GroupStatus;
 import io.casehub.work.api.WorkItemGroupLifecycleEvent;
@@ -79,7 +80,15 @@ public class WorkItemLifecycleAdapter {
       return;
     }
 
-    if (!status.isTerminal()) return;
+    if (status == WorkItemStatus.SUSPENDED) {
+      handleSuspension(event);
+      return;
+    }
+
+    if (!status.isTerminal()) {
+      handlePossibleResume(event);
+      return;
+    }
 
     if (!(event.source() instanceof WorkItem workItem)) return;
 
@@ -220,6 +229,48 @@ public class WorkItemLifecycleAdapter {
     LOG.infof(
         "WorkItem escalation signal: caseId=%s planItemId=%s bindingName=%s newGroups=%s",
         piRef.caseId(), piRef.planItemId(), item.getBindingName(), newGroups);
+  }
+
+  private void handleSuspension(WorkItemLifecycleEvent event) {
+    if (!(event.source() instanceof WorkItem workItem)) return;
+
+    CallerRef ref = CallerRef.parse(workItem.callerRef);
+    if (!(ref instanceof PlanItemCallerRef piRef)) return;
+
+    CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
+    if (plan == null) return;
+
+    plan.getPlanItem(piRef.planItemId())
+        .ifPresent(
+            item -> {
+              try {
+                item.markSuspended();
+                LOG.infof("PlanItem %s suspended: caseId=%s", piRef.planItemId(), piRef.caseId());
+              } catch (IllegalStateException e) {
+                LOG.debugf(
+                    "Cannot suspend PlanItem %s (status=%s): %s",
+                    piRef.planItemId(), item.getStatus(), e.getMessage());
+              }
+            });
+  }
+
+  private void handlePossibleResume(WorkItemLifecycleEvent event) {
+    if (!(event.source() instanceof WorkItem workItem)) return;
+
+    CallerRef ref = CallerRef.parse(workItem.callerRef);
+    if (!(ref instanceof PlanItemCallerRef piRef)) return;
+
+    CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
+    if (plan == null) return;
+
+    plan.getPlanItem(piRef.planItemId())
+        .ifPresent(
+            item -> {
+              if (item.getStatus() == PlanItemStatus.SUSPENDED) {
+                item.markResumed();
+                LOG.infof("PlanItem %s resumed: caseId=%s", piRef.planItemId(), piRef.caseId());
+              }
+            });
   }
 
   private void routeGate(
