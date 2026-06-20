@@ -24,6 +24,8 @@ public final class AnthropicChatModelProvider implements ChatModelProvider {
 
   private final String apiKey;
   private final String modelName;
+  private final String baseUrl;
+  private final String version;
   private final Double temperature;
   private final Double topP;
   private final Integer topK;
@@ -33,6 +35,8 @@ public final class AnthropicChatModelProvider implements ChatModelProvider {
   public AnthropicChatModelProvider() {
     this.apiKey = System.getenv("ANTHROPIC_API_KEY");
     this.modelName = "claude-3-5-sonnet-20241022";
+    this.baseUrl = null;
+    this.version = null;
     this.temperature = null;
     this.topP = null;
     this.topK = null;
@@ -42,6 +46,8 @@ public final class AnthropicChatModelProvider implements ChatModelProvider {
   private AnthropicChatModelProvider(Builder b) {
     this.apiKey = b.apiKey;
     this.modelName = b.modelName;
+    this.baseUrl = b.baseUrl;
+    this.version = b.version;
     this.temperature = b.temperature;
     this.topP = b.topP;
     this.topK = b.topK;
@@ -62,6 +68,8 @@ public final class AnthropicChatModelProvider implements ChatModelProvider {
 
       invoke(builderClass, anthropicBuilder, "apiKey", String.class, apiKey);
       invoke(builderClass, anthropicBuilder, "modelName", String.class, modelName);
+      if (baseUrl != null) invoke(builderClass, anthropicBuilder, "baseUrl", String.class, baseUrl);
+      if (version != null) invoke(builderClass, anthropicBuilder, "version", String.class, version);
       if (temperature != null)
         invoke(builderClass, anthropicBuilder, "temperature", Double.class, temperature);
       if (topP != null) invoke(builderClass, anthropicBuilder, "topP", Double.class, topP);
@@ -91,6 +99,8 @@ public final class AnthropicChatModelProvider implements ChatModelProvider {
   public static final class Builder {
     private String apiKey;
     private String modelName = "claude-3-5-sonnet-20241022";
+    private String baseUrl;
+    private String version;
     private Double temperature;
     private Double topP;
     private Integer topK;
@@ -103,6 +113,16 @@ public final class AnthropicChatModelProvider implements ChatModelProvider {
 
     public Builder modelName(String modelName) {
       this.modelName = modelName;
+      return this;
+    }
+
+    public Builder baseUrl(String baseUrl) {
+      this.baseUrl = baseUrl;
+      return this;
+    }
+
+    public Builder version(String version) {
+      this.version = version;
       return this;
     }
 

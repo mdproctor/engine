@@ -46,6 +46,7 @@ class MistralAiChatModelProviderTest {
         MistralAiChatModelProvider.builder()
             .apiKey("test-key")
             .modelName("mistral-large-latest")
+            .baseUrl("https://custom-mistral.example.com")
             .temperature(0.7)
             .topP(0.9)
             .maxTokens(1000)

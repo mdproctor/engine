@@ -44,13 +44,28 @@ class OpenAiChatModelProviderTest {
         OpenAiChatModelProvider.builder()
             .apiKey("test-key")
             .modelName("gpt-4o")
+            .baseUrl("http://localhost:8080/v1")
+            .organizationId("org-test")
             .temperature(0.5)
             .topP(0.9)
             .maxTokens(500)
             .maxCompletionTokens(200)
+            .frequencyPenalty(0.5)
+            .presencePenalty(0.3)
             .build();
     ChatModel model = provider.get();
     assertNotNull(model);
+  }
+
+  @Test
+  void builderWithBaseUrlBuildsModel() {
+    OpenAiChatModelProvider provider =
+        OpenAiChatModelProvider.builder()
+            .apiKey("test-key")
+            .baseUrl("http://openclaw:3000/v1")
+            .modelName("openclaw")
+            .build();
+    assertNotNull(provider.get());
   }
 
   @Test

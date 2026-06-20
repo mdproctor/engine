@@ -24,28 +24,40 @@ public final class OpenAiChatModelProvider implements ChatModelProvider {
 
   private final String apiKey;
   private final String modelName;
+  private final String baseUrl;
+  private final String organizationId;
   private final Double temperature;
   private final Double topP;
   private final Integer maxTokens;
   private final Integer maxCompletionTokens;
+  private final Double frequencyPenalty;
+  private final Double presencePenalty;
 
   // no-arg constructor for ServiceLoader — reads from env vars
   public OpenAiChatModelProvider() {
     this.apiKey = System.getenv("OPENAI_API_KEY");
     this.modelName = "gpt-4o-mini";
+    this.baseUrl = null;
+    this.organizationId = null;
     this.temperature = null;
     this.topP = null;
     this.maxTokens = null;
     this.maxCompletionTokens = null;
+    this.frequencyPenalty = null;
+    this.presencePenalty = null;
   }
 
   private OpenAiChatModelProvider(Builder b) {
     this.apiKey = b.apiKey;
     this.modelName = b.modelName;
+    this.baseUrl = b.baseUrl;
+    this.organizationId = b.organizationId;
     this.temperature = b.temperature;
     this.topP = b.topP;
     this.maxTokens = b.maxTokens;
     this.maxCompletionTokens = b.maxCompletionTokens;
+    this.frequencyPenalty = b.frequencyPenalty;
+    this.presencePenalty = b.presencePenalty;
   }
 
   @Override
@@ -62,6 +74,9 @@ public final class OpenAiChatModelProvider implements ChatModelProvider {
 
       invoke(builderClass, openAiBuilder, "apiKey", String.class, apiKey);
       invoke(builderClass, openAiBuilder, "modelName", String.class, modelName);
+      if (baseUrl != null) invoke(builderClass, openAiBuilder, "baseUrl", String.class, baseUrl);
+      if (organizationId != null)
+        invoke(builderClass, openAiBuilder, "organizationId", String.class, organizationId);
       if (temperature != null)
         invoke(builderClass, openAiBuilder, "temperature", Double.class, temperature);
       if (topP != null) invoke(builderClass, openAiBuilder, "topP", Double.class, topP);
@@ -70,6 +85,10 @@ public final class OpenAiChatModelProvider implements ChatModelProvider {
       if (maxCompletionTokens != null)
         invoke(
             builderClass, openAiBuilder, "maxCompletionTokens", Integer.class, maxCompletionTokens);
+      if (frequencyPenalty != null)
+        invoke(builderClass, openAiBuilder, "frequencyPenalty", Double.class, frequencyPenalty);
+      if (presencePenalty != null)
+        invoke(builderClass, openAiBuilder, "presencePenalty", Double.class, presencePenalty);
 
       return (ChatModel) builderClass.getMethod("build").invoke(openAiBuilder);
     } catch (java.lang.reflect.InvocationTargetException e) {
@@ -93,10 +112,14 @@ public final class OpenAiChatModelProvider implements ChatModelProvider {
   public static final class Builder {
     private String apiKey;
     private String modelName = "gpt-4o-mini";
+    private String baseUrl;
+    private String organizationId;
     private Double temperature;
     private Double topP;
     private Integer maxTokens;
     private Integer maxCompletionTokens;
+    private Double frequencyPenalty;
+    private Double presencePenalty;
 
     public Builder apiKey(String apiKey) {
       this.apiKey = apiKey;
@@ -105,6 +128,16 @@ public final class OpenAiChatModelProvider implements ChatModelProvider {
 
     public Builder modelName(String modelName) {
       this.modelName = modelName;
+      return this;
+    }
+
+    public Builder baseUrl(String baseUrl) {
+      this.baseUrl = baseUrl;
+      return this;
+    }
+
+    public Builder organizationId(String organizationId) {
+      this.organizationId = organizationId;
       return this;
     }
 
@@ -125,6 +158,16 @@ public final class OpenAiChatModelProvider implements ChatModelProvider {
 
     public Builder maxCompletionTokens(int maxCompletionTokens) {
       this.maxCompletionTokens = maxCompletionTokens;
+      return this;
+    }
+
+    public Builder frequencyPenalty(double frequencyPenalty) {
+      this.frequencyPenalty = frequencyPenalty;
+      return this;
+    }
+
+    public Builder presencePenalty(double presencePenalty) {
+      this.presencePenalty = presencePenalty;
       return this;
     }
 

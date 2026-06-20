@@ -77,6 +77,12 @@ public class AgentConverter {
     OpenAiChatModelProvider.Builder builder =
         OpenAiChatModelProvider.builder().apiKey(model.getApiKey()).modelName(model.getModelName());
 
+    if (model.getBaseUrl() != null) {
+      builder.baseUrl(model.getBaseUrl());
+    }
+    if (model.getOrganizationId() != null) {
+      builder.organizationId(model.getOrganizationId());
+    }
     if (model.getTemperature() != null) {
       builder.temperature(model.getTemperature());
     }
@@ -85,6 +91,12 @@ public class AgentConverter {
     }
     if (model.getMaxTokens() != null) {
       builder.maxTokens(model.getMaxTokens());
+    }
+    if (model.getFrequencyPenalty() != null) {
+      builder.frequencyPenalty(model.getFrequencyPenalty());
+    }
+    if (model.getPresencePenalty() != null) {
+      builder.presencePenalty(model.getPresencePenalty());
     }
 
     return builder.build();
@@ -113,6 +125,12 @@ public class AgentConverter {
             .apiKey(model.getApiKey())
             .modelName(model.getModelName());
 
+    if (model.getBaseUrl() != null) {
+      builder.baseUrl(model.getBaseUrl());
+    }
+    if (model.getVersion() != null) {
+      builder.version(model.getVersion());
+    }
     if (model.getTemperature() != null) {
       builder.temperature(model.getTemperature());
     }
@@ -135,6 +153,9 @@ public class AgentConverter {
             .apiKey(model.getApiKey())
             .modelName(model.getModelName());
 
+    if (model.getBaseUrl() != null) {
+      builder.baseUrl(model.getBaseUrl());
+    }
     if (model.getTemperature() != null) {
       builder.temperature(model.getTemperature());
     }

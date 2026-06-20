@@ -75,9 +75,13 @@ class AgentConverterTest {
     OpenAiModel openai = new OpenAiModel();
     openai.setApiKey("sk-test-key");
     openai.setModelName("gpt-4");
+    openai.setBaseUrl("http://openclaw:3000/v1");
+    openai.setOrganizationId("org-test");
     openai.setTemperature(0.7);
     openai.setTopP(0.9);
     openai.setMaxTokens(1024);
+    openai.setFrequencyPenalty(0.5);
+    openai.setPresencePenalty(0.3);
     AgentModel model = new AgentModel();
     model.setOpenai(openai);
     schemaAgent.setModel(model);
@@ -140,6 +144,8 @@ class AgentConverterTest {
     AnthropicModel anthropic = new AnthropicModel();
     anthropic.setApiKey("sk-ant-test-key");
     anthropic.setModelName("claude-3-sonnet-20240229");
+    anthropic.setBaseUrl("https://custom-anthropic.example.com");
+    anthropic.setVersion("2023-06-01");
     anthropic.setTemperature(0.3);
     anthropic.setTopP(0.95);
     anthropic.setTopK(40);
@@ -174,6 +180,7 @@ class AgentConverterTest {
     MistralAiModel mistral = new MistralAiModel();
     mistral.setApiKey("mistral-test-key");
     mistral.setModelName("mistral-large-latest");
+    mistral.setBaseUrl("https://custom-mistral.example.com");
     mistral.setTemperature(0.6);
     mistral.setTopP(0.85);
     mistral.setMaxTokens(4096);

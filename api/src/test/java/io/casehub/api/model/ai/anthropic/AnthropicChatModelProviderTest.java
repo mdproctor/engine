@@ -46,6 +46,8 @@ class AnthropicChatModelProviderTest {
         AnthropicChatModelProvider.builder()
             .apiKey("test-key")
             .modelName("claude-3-5-sonnet-20241022")
+            .baseUrl("https://custom-anthropic.example.com")
+            .version("2023-06-01")
             .temperature(0.7)
             .topP(0.9)
             .topK(40)
