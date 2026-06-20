@@ -18,6 +18,7 @@ package io.casehub.engine.common.spi;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.smallrye.mutiny.Uni;
+import java.util.Optional;
 
 /**
  * Registry for case definitions.
@@ -72,4 +73,16 @@ public interface CaseDefinitionRegistry {
    * @throws RuntimeException if no metadata is found
    */
   CaseMetaModel getCaseMetaModel(CaseDefinition caseDefinition);
+
+  /**
+   * Find metadata by identity coordinates without throwing on not-found.
+   *
+   * @param namespace the case definition namespace
+   * @param name the case definition name
+   * @param version the case definition version
+   * @return Optional containing the CaseMetaModel if registered, empty otherwise
+   */
+  default Optional<CaseMetaModel> findByIdentity(String namespace, String name, String version) {
+    return Optional.empty();
+  }
 }

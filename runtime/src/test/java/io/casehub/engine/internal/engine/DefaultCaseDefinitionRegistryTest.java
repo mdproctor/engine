@@ -21,6 +21,7 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -136,5 +137,37 @@ class DefaultCaseDefinitionRegistryTest {
     // The registered definition should be the FIRST one — "first wins"
     CaseDefinition resolved = registry.getCaseDefinition(firstResult);
     assertThat(resolved).isSameAs(first);
+  }
+
+  @Test
+  void findByIdentity_registeredDefinition_returnsMetaModel() {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("test-find-id")
+            .name("findable-case")
+            .version("1.0")
+            .build();
+
+    CaseMetaModel registered =
+        registry
+            .registerCaseDefinition(def)
+            .subscribe()
+            .asCompletionStage()
+            .toCompletableFuture()
+            .join();
+
+    Optional<CaseMetaModel> found = registry.findByIdentity("test-find-id", "findable-case", "1.0");
+
+    assertThat(found).isPresent();
+    assertThat(found.get().getNamespace()).isEqualTo("test-find-id");
+    assertThat(found.get().getName()).isEqualTo("findable-case");
+    assertThat(found.get().getVersion()).isEqualTo("1.0");
+  }
+
+  @Test
+  void findByIdentity_unknownDefinition_returnsEmpty() {
+    Optional<CaseMetaModel> found = registry.findByIdentity("no-such-ns", "no-such-case", "99.0");
+
+    assertThat(found).isEmpty();
   }
 }

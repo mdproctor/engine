@@ -43,6 +43,7 @@ import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
@@ -162,6 +163,12 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   public CaseDefinition getCaseDefinition(CaseMetaModel definition) {
     RegistryEntry entry = registry.get(CaseKey.of(definition));
     return entry != null ? entry.definition() : null;
+  }
+
+  @Override
+  public Optional<CaseMetaModel> findByIdentity(String namespace, String name, String version) {
+    RegistryEntry entry = registry.get(new CaseKey(namespace, name, version));
+    return Optional.ofNullable(entry).map(RegistryEntry::metaModel);
   }
 
   @Override
