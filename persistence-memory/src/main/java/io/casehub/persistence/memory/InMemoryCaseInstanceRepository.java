@@ -15,6 +15,7 @@
  */
 package io.casehub.persistence.memory;
 
+import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
@@ -24,6 +25,7 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -115,6 +117,52 @@ public class InMemoryCaseInstanceRepository
       return eventLogRepository.append(eventLog, tenancyId);
     } finally {
       rwLock.writeLock().unlock();
+    }
+  }
+
+  @Override
+  public Uni<List<CaseInstance>> findByStatus(CaseStatus status, String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      List<CaseInstance> result =
+          store.values().stream()
+              .filter(ci -> tenancyId.equals(ci.tenancyId) && ci.getState() == status)
+              .toList();
+      return Uni.createFrom().item(result);
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public Uni<List<CaseInstance>> findAll(String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      List<CaseInstance> result =
+          store.values().stream().filter(ci -> tenancyId.equals(ci.tenancyId)).toList();
+      return Uni.createFrom().item(result);
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public Uni<List<CaseInstance>> findByNamespaceAndName(
+      String namespace, String name, String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      List<CaseInstance> result =
+          store.values().stream()
+              .filter(
+                  ci ->
+                      tenancyId.equals(ci.tenancyId)
+                          && ci.getCaseMetaModel() != null
+                          && namespace.equals(ci.getCaseMetaModel().getNamespace())
+                          && name.equals(ci.getCaseMetaModel().getName()))
+              .toList();
+      return Uni.createFrom().item(result);
+    } finally {
+      rwLock.readLock().unlock();
     }
   }
 }

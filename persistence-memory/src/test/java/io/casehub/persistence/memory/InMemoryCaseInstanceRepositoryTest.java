@@ -24,6 +24,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -207,6 +208,109 @@ class InMemoryCaseInstanceRepositoryTest {
             .join();
     assertThat(found).isNotNull();
     assertThat(found.getEventType()).isEqualTo(CaseHubEventType.CASE_COMPLETED);
+  }
+
+  // --- Query methods ---
+
+  @Test
+  void findByStatus_returnsMatchingInstances() {
+    repository.save(newInstance(CaseStatus.RUNNING), "test-tenant").await().indefinitely();
+    repository.save(newInstance(CaseStatus.RUNNING), "test-tenant").await().indefinitely();
+    repository.save(newInstance(CaseStatus.COMPLETED), "test-tenant").await().indefinitely();
+
+    List<CaseInstance> running =
+        repository.findByStatus(CaseStatus.RUNNING, "test-tenant").await().indefinitely();
+
+    assertThat(running).hasSize(2);
+    assertThat(running).allMatch(ci -> ci.getState() == CaseStatus.RUNNING);
+  }
+
+  @Test
+  void findByStatus_respectsTenancy() {
+    repository.save(newInstance(CaseStatus.RUNNING), "tenant-a").await().indefinitely();
+    repository.save(newInstance(CaseStatus.RUNNING), "tenant-b").await().indefinitely();
+
+    List<CaseInstance> result =
+        repository.findByStatus(CaseStatus.RUNNING, "tenant-a").await().indefinitely();
+
+    assertThat(result).hasSize(1);
+  }
+
+  @Test
+  void findByStatus_returnsEmptyForNoMatch() {
+    repository.save(newInstance(CaseStatus.RUNNING), "test-tenant").await().indefinitely();
+
+    List<CaseInstance> result =
+        repository.findByStatus(CaseStatus.COMPLETED, "test-tenant").await().indefinitely();
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void findAll_returnsAllForTenant() {
+    repository.save(newInstance(CaseStatus.RUNNING), "test-tenant").await().indefinitely();
+    repository.save(newInstance(CaseStatus.COMPLETED), "test-tenant").await().indefinitely();
+    repository.save(newInstance(CaseStatus.RUNNING), "other-tenant").await().indefinitely();
+
+    List<CaseInstance> result = repository.findAll("test-tenant").await().indefinitely();
+
+    assertThat(result).hasSize(2);
+  }
+
+  @Test
+  void findAll_returnsEmptyForUnknownTenant() {
+    repository.save(newInstance(CaseStatus.RUNNING), "test-tenant").await().indefinitely();
+
+    List<CaseInstance> result = repository.findAll("unknown-tenant").await().indefinitely();
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void findByNamespaceAndName_returnsMatchingInstances() {
+    CaseMetaModel otherMeta = new CaseMetaModel();
+    otherMeta.setName("other-case");
+    otherMeta.setNamespace("other-ns");
+    otherMeta.setVersion("1.0");
+    otherMeta.setId(2L);
+
+    CaseInstance matchA = newInstance(CaseStatus.RUNNING);
+    CaseInstance matchB = newInstance(CaseStatus.COMPLETED);
+    CaseInstance noMatch = new CaseInstance();
+    noMatch.setUuid(UUID.randomUUID());
+    noMatch.setState(CaseStatus.RUNNING);
+    noMatch.setCaseMetaModel(otherMeta);
+
+    repository.save(matchA, "test-tenant").await().indefinitely();
+    repository.save(matchB, "test-tenant").await().indefinitely();
+    repository.save(noMatch, "test-tenant").await().indefinitely();
+
+    List<CaseInstance> result =
+        repository
+            .findByNamespaceAndName("test-ns", "test-case", "test-tenant")
+            .await()
+            .indefinitely();
+
+    assertThat(result).hasSize(2);
+    assertThat(result)
+        .allMatch(
+            ci ->
+                ci.getCaseMetaModel().getNamespace().equals("test-ns")
+                    && ci.getCaseMetaModel().getName().equals("test-case"));
+  }
+
+  @Test
+  void findByNamespaceAndName_respectsTenancy() {
+    repository.save(newInstance(CaseStatus.RUNNING), "tenant-a").await().indefinitely();
+    repository.save(newInstance(CaseStatus.RUNNING), "tenant-b").await().indefinitely();
+
+    List<CaseInstance> result =
+        repository
+            .findByNamespaceAndName("test-ns", "test-case", "tenant-a")
+            .await()
+            .indefinitely();
+
+    assertThat(result).hasSize(1);
   }
 
   // --- Helper ---

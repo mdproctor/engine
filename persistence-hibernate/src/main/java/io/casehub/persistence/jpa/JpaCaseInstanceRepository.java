@@ -15,6 +15,7 @@
  */
 package io.casehub.persistence.jpa;
 
+import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
@@ -22,6 +23,7 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.List;
 import java.util.UUID;
 
 @ApplicationScoped
@@ -122,6 +124,46 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
                       eventLog.setSeq(logEntity.seq);
                     })
                 .replaceWithVoid());
+  }
+
+  @Override
+  public Uni<List<CaseInstance>> findByStatus(CaseStatus status, String tenancyId) {
+    return withTenantTransaction(
+        () ->
+            CaseInstanceEntity.<CaseInstanceEntity>find(
+                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
+                        + "where ci.state = ?1 and ci.tenancyId = ?2",
+                    status,
+                    tenancyId)
+                .list()
+                .map(entities -> entities.stream().map(this::fromEntity).toList()));
+  }
+
+  @Override
+  public Uni<List<CaseInstance>> findAll(String tenancyId) {
+    return withTenantTransaction(
+        () ->
+            CaseInstanceEntity.<CaseInstanceEntity>find(
+                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
+                        + "where ci.tenancyId = ?1",
+                    tenancyId)
+                .list()
+                .map(entities -> entities.stream().map(this::fromEntity).toList()));
+  }
+
+  @Override
+  public Uni<List<CaseInstance>> findByNamespaceAndName(
+      String namespace, String name, String tenancyId) {
+    return withTenantTransaction(
+        () ->
+            CaseInstanceEntity.<CaseInstanceEntity>find(
+                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel m "
+                        + "where m.namespace = ?1 and m.name = ?2 and ci.tenancyId = ?3",
+                    namespace,
+                    name,
+                    tenancyId)
+                .list()
+                .map(entities -> entities.stream().map(this::fromEntity).toList()));
   }
 
   private CaseInstance fromEntity(CaseInstanceEntity entity) {

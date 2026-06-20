@@ -15,9 +15,11 @@
  */
 package io.casehub.engine.common.spi;
 
+import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.smallrye.mutiny.Uni;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -38,4 +40,20 @@ public interface CaseInstanceRepository {
 
   /** Atomically update state and append event log entry within the same tenant. */
   Uni<Void> updateStateAndAppendEvent(CaseInstance instance, EventLog eventLog, String tenancyId);
+
+  /** List instances by status within the given tenant. */
+  default Uni<List<CaseInstance>> findByStatus(CaseStatus status, String tenancyId) {
+    return Uni.createFrom().item(List.of());
+  }
+
+  /** List all instances within the given tenant. */
+  default Uni<List<CaseInstance>> findAll(String tenancyId) {
+    return Uni.createFrom().item(List.of());
+  }
+
+  /** List instances by case definition namespace and name within the given tenant. */
+  default Uni<List<CaseInstance>> findByNamespaceAndName(
+      String namespace, String name, String tenancyId) {
+    return Uni.createFrom().item(List.of());
+  }
 }

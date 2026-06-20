@@ -429,9 +429,10 @@ Only orchestration transitions a case to WAITING. Choreography keeps the case RU
 
 The engine defines clean extension points via SPIs:
 
-- **`CaseInstanceRepository`** — persist and retrieve case state
+- **`CaseInstanceRepository`** — persist and retrieve case state; query by status, tenant, or case definition identity (`findByStatus`, `findAll`, `findByNamespaceAndName`)
 - **`EventLogRepository`** — persist and query the event log; supports filtering by event types and stream types via `findByCaseWithFilters()`
 - **`CaseMetaModelRepository`** — retrieve case definitions
+- **`CaseDefinitionRegistry`** — register and look up case definitions; `findByIdentity(namespace, name, version)` provides clean existence queries returning `Optional<CaseMetaModel>`
 
 External systems implement these SPIs to provide storage. The engine depends only on the SPIs, not on specific storage backends.
 

@@ -166,7 +166,9 @@ See protocol PP-20260610-18a084.
 Domain objects (`CaseMetaModel`, `CaseInstance`, `EventLog`) are plain POJOs. The `id` field
 is public (`public Long id`) and set by the repository after save.
 
-**`CaseDefinitionRegistry` uses `CaseKey` record:** `DefaultCaseDefinitionRegistry` stores definitions in `Map<CaseKey, RegistryEntry>`. `CaseKey` is an immutable record `(namespace, name, version)` — eliminates the mutable-hashCode map key bug (engine#410). `RegistryEntry` is an inner record `(CaseDefinition, CaseMetaModel)` — a single atomic map put covers both, with no consistency window between two separate maps.
+**`CaseDefinitionRegistry` uses `CaseKey` record:** `DefaultCaseDefinitionRegistry` stores definitions in `Map<CaseKey, RegistryEntry>`. `CaseKey` is an immutable record `(namespace, name, version)` — eliminates the mutable-hashCode map key bug (engine#410). `RegistryEntry` is an inner record `(CaseDefinition, CaseMetaModel)` — a single atomic map put covers both, with no consistency window between two separate maps. `findByIdentity(namespace, name, version)` returns `Optional<CaseMetaModel>` — clean existence query without the throw-on-not-found of `getCaseMetaModel()`. Added as a `default` method per SPI evolution protocol. Refs engine#525.
+
+**`CaseInstanceRepository` query methods:** `findByStatus(CaseStatus, tenancyId)`, `findAll(tenancyId)`, `findByNamespaceAndName(namespace, name, tenancyId)` — all return `Uni<List<CaseInstance>>`. Added as `default` methods (return `List.of()`) per SPI evolution protocol. Implemented in both `InMemoryCaseInstanceRepository` (stream filter) and `JpaCaseInstanceRepository` (JPQL with `join fetch` on `caseMetaModel`). Refs engine#523.
 
 **`@CrossTenant` qualifier:** Cross-tenant SPIs (`CrossTenantEventLogRepository`, `CrossTenantCaseInstanceRepository`) are only injectable via `@CrossTenant`. `CrossTenantProducer` (in `runtime/internal/identity/`) produces both beans, guarded by `@EngineSystem SystemCurrentPrincipal`. Convention-based — CDI does not prevent unqualified injection; code review and the qualifier annotation are the enforcement mechanism. `SystemCurrentPrincipal` is `@ApplicationScoped @EngineSystem` (not `@DefaultBean`) — it does not conflict with `MockCurrentPrincipal`. All 6 engine injection sites (`PendingWorkRegistry`, `DefaultWorkerExecutionRecoveryService`, `QuartzWorkerExecutionJob`, `QuartzWorkerExecutionManager`, `MilestoneSLATimeoutJob`, `DeadLetterReplayService`) use `@CrossTenant`. See protocol PP-20260520-e6a5f0.
 
@@ -320,7 +322,7 @@ AI agent workers live in `api/src/main/java/io/casehub/api/model/ai/`:
 - `JqTransformer` — standalone JQ evaluator (jackson-jq 1.6); thread-safe after construction
 - `AgentException` — unchecked exception for agent failures (invalid JSON, JQ errors, template errors)
 
-Provider implementations in sub-packages (`openai/`, `anthropic/`, `mistral/`, `gemini/`, `ollama/`) use `ServiceLoader` for discovery and reflection-based builder construction.
+Provider implementations in sub-packages (`openai/`, `anthropic/`, `mistral/`, `gemini/`, `ollama/`) use `ServiceLoader` for discovery and reflection-based builder construction. All schema-declared fields are wired through each provider's builder and `AgentConverter`: OpenAI supports `baseUrl`, `organizationId`, `frequencyPenalty`, `presencePenalty`; Anthropic supports `baseUrl`, `version`; Mistral supports `baseUrl`. `baseUrl` enables OpenAI-compatible servers (Ollama, vLLM, OpenClaw). Refs engine#527.
 
 `AgentConverter` (`api/.../converter/AgentConverter.java`) bridges jsonschema2pojo schema models (`io.casehub.model.Agent`) to API `Agent` instances. Called by `CaseDefinitionYamlMapper` when a worker has an `agent` YAML block.
 
