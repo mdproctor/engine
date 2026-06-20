@@ -71,13 +71,8 @@ public class DefaultCasePlanModel implements CasePlanModel {
     activeByBinding.compute(
         item.getBindingName(),
         (k, existing) -> {
-          if (existing != null) {
-            PlanItemStatus s = existing.getStatus();
-            if (s == PlanItemStatus.PENDING
-                || s == PlanItemStatus.RUNNING
-                || s == PlanItemStatus.DELEGATED) {
-              return existing; // active item present — reject
-            }
+          if (existing != null && existing.getStatus().isActive()) {
+            return existing; // active item present — reject
           }
           agenda.add(item);
           itemsById.put(item.getPlanItemId(), item);
@@ -117,25 +112,14 @@ public class DefaultCasePlanModel implements CasePlanModel {
   public Optional<PlanItem> getPlanItemByBindingName(String bindingName) {
     PlanItem item = activeByBinding.get(bindingName);
     if (item == null) return Optional.empty();
-    PlanItemStatus status = item.getStatus();
-    if (status == PlanItemStatus.PENDING
-        || status == PlanItemStatus.RUNNING
-        || status == PlanItemStatus.DELEGATED) {
-      return Optional.of(item);
-    }
-    return Optional.empty();
+    return item.getStatus().isActive() ? Optional.of(item) : Optional.empty();
   }
 
   @Override
   public boolean hasActivePlanItem(String bindingName) {
     PlanItem item = activeByBinding.get(bindingName);
     if (item == null) return false;
-    PlanItemStatus status = item.getStatus();
-    if (status == PlanItemStatus.PENDING
-        || status == PlanItemStatus.RUNNING
-        || status == PlanItemStatus.DELEGATED) {
-      return true;
-    }
+    if (item.getStatus().isActive()) return true;
     // Item exists but is terminal — clean up the stale entry
     activeByBinding.remove(bindingName, item);
     return false;

@@ -36,6 +36,8 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
+import io.casehub.engine.common.spi.event.PlanItemObsoleteEvent;
 import io.casehub.engine.common.spi.event.PlanItemRejectedEvent;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
@@ -71,6 +73,8 @@ public class PlanItemCompletionApplier {
   @Inject EventBus eventBus;
   @Inject JQEvaluator jqEvaluator;
   @Inject Event<PlanItemRejectedEvent> planItemRejectedEvents;
+  @Inject Event<PlanItemFaultedEvent> planItemFaultedEvents;
+  @Inject Event<PlanItemObsoleteEvent> planItemObsoleteEvents;
 
   /**
    * Applies the terminal WorkItemStatus to the PlanItem, runs outputMapping if configured, loads
@@ -104,10 +108,18 @@ public class PlanItemCompletionApplier {
 
     applyOutputMapping(item, workItem, instance);
 
+    final String bindingName = item.getBindingName();
     if (status == WorkItemStatus.REJECTED) {
-      String bindingName = item.getBindingName();
       planItemRejectedEvents.fireAsync(
           new PlanItemRejectedEvent(caseId, planItemId, bindingName, instance.tenancyId));
+    }
+    if (status == WorkItemStatus.FAULTED || status == WorkItemStatus.EXPIRED) {
+      planItemFaultedEvents.fireAsync(
+          new PlanItemFaultedEvent(caseId, planItemId, bindingName, instance.tenancyId));
+    }
+    if (status == WorkItemStatus.OBSOLETE) {
+      planItemObsoleteEvents.fireAsync(
+          new PlanItemObsoleteEvent(caseId, planItemId, bindingName, instance.tenancyId));
     }
 
     eventBus.publish(
@@ -121,9 +133,14 @@ public class PlanItemCompletionApplier {
       switch (status) {
         case COMPLETED -> item.markCompleted();
         case REJECTED -> item.markRejected();
+        case FAULTED -> item.markFaulted();
         case EXPIRED -> item.markFaulted();
+        case OBSOLETE -> item.markObsolete();
         case CANCELLED -> item.markCancelled();
         default -> {
+          LOG.warnf(
+              "Unhandled WorkItemStatus %s for PlanItem %s — no transition applied",
+              status, item.getPlanItemId());
           return false;
         }
       }

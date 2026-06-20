@@ -20,14 +20,11 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import java.util.EnumSet;
-import java.util.Set;
 import org.jboss.logging.Logger;
 
 /**
@@ -42,9 +39,6 @@ import org.jboss.logging.Logger;
 public class PlanItemFaultHandler {
 
   private static final Logger LOG = Logger.getLogger(PlanItemFaultHandler.class);
-
-  private static final Set<PlanItemStatus> FAULTABLE =
-      EnumSet.of(PlanItemStatus.PENDING, PlanItemStatus.RUNNING, PlanItemStatus.DELEGATED);
 
   private final BlackboardRegistry registry;
   private final Event<PlanItemFaultedEvent> planItemFaultedEvents;
@@ -72,9 +66,9 @@ public class PlanItemFaultHandler {
     plan.getPlanItem(planItemId)
         .ifPresent(
             item -> {
-              if (!FAULTABLE.contains(item.getStatus())) {
+              if (item.getStatus().isTerminal()) {
                 LOG.debugf(
-                    "PlanItem %s for worker '%s' in case %s has status %s — not faultable, skipping",
+                    "PlanItem %s for worker '%s' in case %s has status %s — already terminal, skipping",
                     planItemId, event.workerId(), event.caseId(), item.getStatus());
                 return;
               }
@@ -84,7 +78,7 @@ public class PlanItemFaultHandler {
                   planItemId, event.workerId(), event.caseId());
               planItemFaultedEvents.fireAsync(
                   new PlanItemFaultedEvent(
-                      event.caseId(), planItemId, event.workerId(), event.tenancyId()));
+                      event.caseId(), planItemId, item.getBindingName(), event.tenancyId()));
             });
   }
 }

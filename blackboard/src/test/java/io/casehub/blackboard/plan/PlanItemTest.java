@@ -235,6 +235,74 @@ class PlanItemTest {
     assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
   }
 
+  // --- OBSOLETE state ---
+
+  @Test
+  void markObsolete_from_pending_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markObsolete();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.OBSOLETE);
+  }
+
+  @Test
+  void markObsolete_from_running_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    item.markRunning();
+    item.markObsolete();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.OBSOLETE);
+  }
+
+  @Test
+  void markObsolete_from_delegated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markDelegated();
+    item.markObsolete();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.OBSOLETE);
+  }
+
+  @Test
+  void markObsolete_from_completed_throws() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    item.markRunning();
+    item.markCompleted();
+    assertThatThrownBy(item::markObsolete).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markObsolete_from_faulted_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markFaulted();
+    assertThatThrownBy(item::markObsolete).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markObsolete_from_obsolete_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markObsolete();
+    assertThatThrownBy(item::markObsolete).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markObsolete_from_cancelled_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markCancelled();
+    assertThatThrownBy(item::markObsolete).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markFaulted_from_obsolete_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markObsolete();
+    assertThatThrownBy(item::markFaulted).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void markCancelled_from_obsolete_throws() {
+    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    item.markObsolete();
+    assertThatThrownBy(item::markCancelled).isInstanceOf(IllegalStateException.class);
+  }
+
   // --- restore() factory ---
 
   @Test

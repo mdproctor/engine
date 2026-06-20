@@ -156,12 +156,9 @@ public class PlanItem implements Comparable<PlanItem> {
     status = PlanItemStatus.COMPLETED;
   }
 
-  /** Transitions to FAULTED from PENDING, RUNNING, or DELEGATED. Throws if already terminal. */
+  /** Transitions to FAULTED from any active state. Throws if already terminal. */
   public void markFaulted() {
-    if (status == PlanItemStatus.COMPLETED
-        || status == PlanItemStatus.FAULTED
-        || status == PlanItemStatus.REJECTED
-        || status == PlanItemStatus.CANCELLED) {
+    if (status.isTerminal()) {
       throw new IllegalStateException(
           "Cannot fault a terminal PlanItem (status="
               + status
@@ -189,12 +186,22 @@ public class PlanItem implements Comparable<PlanItem> {
     status = PlanItemStatus.REJECTED;
   }
 
-  /** Cancels from PENDING, RUNNING, or DELEGATED. Throws if already terminal. */
+  /** Obsoletes from any active state. Throws if already terminal. */
+  public void markObsolete() {
+    if (status.isTerminal()) {
+      throw new IllegalStateException(
+          "Cannot obsolete a terminal PlanItem (status="
+              + status
+              + ", planItemId="
+              + planItemId
+              + ")");
+    }
+    status = PlanItemStatus.OBSOLETE;
+  }
+
+  /** Cancels from any active state. Throws if already terminal. */
   public void markCancelled() {
-    if (status == PlanItemStatus.COMPLETED
-        || status == PlanItemStatus.FAULTED
-        || status == PlanItemStatus.REJECTED
-        || status == PlanItemStatus.CANCELLED) {
+    if (status.isTerminal()) {
       throw new IllegalStateException(
           "Cannot cancel a terminal PlanItem (status="
               + status

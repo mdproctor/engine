@@ -18,14 +18,14 @@ package io.casehub.engine.common.spi.event;
 import java.util.UUID;
 
 /**
- * CDI event fired after a PlanItem is marked {@code FAULTED}. Fired via {@code Event.fireAsync()}
- * from blackboard handlers when worker retries are exhausted, an action gate is rejected/expired, a
- * worker outcome is non-success, or a WorkItem reaches FAULTED/EXPIRED.
+ * CDI event fired after a PlanItem is marked {@code OBSOLETE}. Fired via {@code Event.fireAsync()}
+ * from the work-adapter when a WorkItem reaches OBSOLETE (case context changed, making the work
+ * irrelevant).
  *
  * @param caseId the case the PlanItem belongs to
- * @param planItemId the exact PlanItem id that faulted
- * @param bindingName the binding associated with the fault
+ * @param planItemId the exact PlanItem id that was obsoleted
+ * @param bindingName the binding associated with the obsoleted work
  * @param tenancyId the tenant that owns the case
  */
-public record PlanItemFaultedEvent(
+public record PlanItemObsoleteEvent(
     UUID caseId, String planItemId, String bindingName, String tenancyId) {}

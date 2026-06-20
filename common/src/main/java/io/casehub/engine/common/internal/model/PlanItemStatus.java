@@ -18,14 +18,33 @@ package io.casehub.engine.common.internal.model;
 /**
  * Lifecycle states for a {@link io.casehub.blackboard.plan.PlanItem}.
  *
- * <p>RUNNING: a Quartz job is actively executing this binding (CapabilityTarget only). DELEGATED:
- * control has passed to an external actor (SubCase, HumanTask, Extension) and the engine is waiting
- * for a completion signal. These two active states are semantically distinct — consumers and LLMs
- * must not conflate "local computation running" with "waiting for external actor".
+ * <p><b>Active states:</b>
  *
- * <p>REJECTED: an external actor explicitly refused the work (human task refusal or M-of-N group
- * threshold failure). Distinct from FAULTED (computation or timeout failure). Stored as STRING in
- * JPA — ordinal safety is not a concern.
+ * <ul>
+ *   <li>PENDING — waiting to be scheduled
+ *   <li>RUNNING — a Quartz job is actively executing this binding (CapabilityTarget only)
+ *   <li>DELEGATED — control passed to an external actor (HumanTask, SubCase, Extension); engine
+ *       waiting for completion signal. Non-terminal. Distinct from {@code WorkItemStatus.DELEGATED}
+ *       (pre-acceptance hold within the task) and {@code CommitmentState.DELEGATED} (terminal
+ *       obligation transfer)
+ * </ul>
+ *
+ * <p><b>Terminal states:</b>
+ *
+ * <ul>
+ *   <li>COMPLETED — work finished successfully
+ *   <li>FAULTED — work did not complete successfully: system failure (worker exception, retry
+ *       exhaustion), deadline breach (WorkItem EXPIRED), or gate resolution preventing the action
+ *       from being applied (gate rejected or expired). Distinct from REJECTED (actor refused the
+ *       work itself) and OBSOLETE (work became irrelevant)
+ *   <li>REJECTED — external actor deliberately refused the work (human task refusal or M-of-N group
+ *       threshold failure)
+ *   <li>OBSOLETE — case context changed, making this work irrelevant. Not stopped by anyone — it
+ *       stopped mattering. Distinct from CANCELLED (deliberate stop)
+ *   <li>CANCELLED — deliberate stop by a human or system
+ * </ul>
+ *
+ * <p>Stored as STRING in JPA — ordinal safety is not a concern.
  */
 public enum PlanItemStatus {
   PENDING,
@@ -34,5 +53,18 @@ public enum PlanItemStatus {
   COMPLETED,
   FAULTED,
   REJECTED,
-  CANCELLED
+  OBSOLETE,
+  CANCELLED;
+
+  public boolean isTerminal() {
+    return this == COMPLETED
+        || this == FAULTED
+        || this == REJECTED
+        || this == OBSOLETE
+        || this == CANCELLED;
+  }
+
+  public boolean isActive() {
+    return this == PENDING || this == RUNNING || this == DELEGATED;
+  }
 }

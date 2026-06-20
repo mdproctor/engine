@@ -48,10 +48,12 @@ import org.jboss.logging.Logger;
  * <p>Only processes events whose {@code callerRef} matches the CaseHub format {@code
  * case:{caseId}/pi:{planItemId}} — other WorkItems are ignored.
  *
- * <p>ESCALATED is not terminal: the WorkItem re-enters PENDING with new candidate groups; the
- * PlanItem stays in its current state. The adapter writes a {@code workItemEscalated} signal to the
- * case context, allowing definitions to react via {@code contextChange(".workItemEscalated")}. Refs
- * engine#338, engine#400.
+ * <p>ESCALATED is terminal — all SLA breach policy branches have been exhausted. The adapter writes
+ * a {@code workItemEscalated} signal to the case context so the engine can react (e.g. notify
+ * supervisor, create replacement task). The PlanItem stays DELEGATED. Note: SLA breach policies
+ * that re-route the WorkItem to new groups (the {@code EscalateTo} decision) do not set ESCALATED —
+ * the WorkItem stays PENDING with updated candidate groups, so the adapter's terminal filter skips
+ * it entirely. Refs engine#338, engine#400.
  */
 @ApplicationScoped
 public class WorkItemLifecycleAdapter {
@@ -77,10 +79,7 @@ public class WorkItemLifecycleAdapter {
       return;
     }
 
-    if (status != WorkItemStatus.COMPLETED
-        && status != WorkItemStatus.REJECTED
-        && status != WorkItemStatus.CANCELLED
-        && status != WorkItemStatus.EXPIRED) return;
+    if (!status.isTerminal()) return;
 
     if (!(event.source() instanceof WorkItem workItem)) return;
 

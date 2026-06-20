@@ -19,7 +19,6 @@ import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.StageCompletedEvent;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.stage.Stage;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -62,7 +61,9 @@ public class StageAutocompleteEvaluator {
           stage.getRequiredItemIds().stream()
               .allMatch(
                   itemId ->
-                      plan.getPlanItem(itemId).map(pi -> isTerminal(pi.getStatus())).orElse(false));
+                      plan.getPlanItem(itemId)
+                          .map(pi -> pi.getStatus().isTerminal())
+                          .orElse(false));
 
       if (allTerminal) {
         int completingIndex = stage.getInstanceIndex();
@@ -85,12 +86,5 @@ public class StageAutocompleteEvaluator {
             caseId, changedItemId, completingIndex);
       }
     }
-  }
-
-  public static boolean isTerminal(final PlanItemStatus status) {
-    return status == PlanItemStatus.COMPLETED
-        || status == PlanItemStatus.REJECTED
-        || status == PlanItemStatus.FAULTED
-        || status == PlanItemStatus.CANCELLED;
   }
 }

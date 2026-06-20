@@ -23,9 +23,11 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.OutcomeDisposition;
 import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
@@ -56,15 +58,18 @@ public class WorkerOutcomeResolvedHandler {
   private final BlackboardRegistry registry;
   private final StageAutocompleteEvaluator stageAutocompleteEvaluator;
   private final EventBus eventBus;
+  private final Event<PlanItemFaultedEvent> planItemFaultedEvents;
 
   @Inject
   public WorkerOutcomeResolvedHandler(
       BlackboardRegistry registry,
       StageAutocompleteEvaluator stageAutocompleteEvaluator,
-      EventBus eventBus) {
+      EventBus eventBus,
+      Event<PlanItemFaultedEvent> planItemFaultedEvents) {
     this.registry = registry;
     this.stageAutocompleteEvaluator = stageAutocompleteEvaluator;
     this.eventBus = eventBus;
+    this.planItemFaultedEvents = planItemFaultedEvents;
   }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_OUTCOME_RESOLVED, blocking = true)
@@ -83,6 +88,12 @@ public class WorkerOutcomeResolvedHandler {
               }
 
               item.markFaulted();
+              planItemFaultedEvents.fireAsync(
+                  new PlanItemFaultedEvent(
+                      event.caseInstance().getUuid(),
+                      item.getPlanItemId(),
+                      item.getBindingName(),
+                      event.caseInstance().tenancyId));
 
               if (event.disposition() == OutcomeDisposition.EXHAUSTED
                   || event.disposition() == OutcomeDisposition.FAULT) {

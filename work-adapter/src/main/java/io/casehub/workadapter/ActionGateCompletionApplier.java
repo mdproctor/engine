@@ -61,8 +61,8 @@ public class ActionGateCompletionApplier {
       final GateCallerRef gateRef, final WorkItemStatus status, final WorkItem workItem) {
     switch (status) {
       case COMPLETED -> handleApproved(gateRef, workItem);
-      case REJECTED, CANCELLED -> handleRejected(gateRef, workItem);
-      case EXPIRED -> handleExpired(gateRef);
+      case REJECTED, CANCELLED, OBSOLETE -> handleRejected(gateRef, workItem);
+      case EXPIRED, FAULTED -> handleExpired(gateRef);
       default ->
           LOG.debugf(
               "Gate WorkItem status %s for caseId=%s gateId=%d — no gate event published",

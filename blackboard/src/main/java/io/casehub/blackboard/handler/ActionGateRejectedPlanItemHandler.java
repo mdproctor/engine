@@ -19,14 +19,11 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.ActionGateWorkerFaultedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import java.util.EnumSet;
-import java.util.Set;
 import org.jboss.logging.Logger;
 
 /**
@@ -43,9 +40,6 @@ import org.jboss.logging.Logger;
 public class ActionGateRejectedPlanItemHandler {
 
   private static final Logger LOG = Logger.getLogger(ActionGateRejectedPlanItemHandler.class);
-
-  private static final Set<PlanItemStatus> FAULTABLE =
-      EnumSet.of(PlanItemStatus.RUNNING, PlanItemStatus.DELEGATED);
 
   @Inject BlackboardRegistry registry;
   @Inject Event<PlanItemFaultedEvent> planItemFaultedEvents;
@@ -65,9 +59,9 @@ public class ActionGateRejectedPlanItemHandler {
         .flatMap(plan -> plan.getPlanItem(planItemId))
         .ifPresent(
             item -> {
-              if (!FAULTABLE.contains(item.getStatus())) {
+              if (item.getStatus().isTerminal()) {
                 LOG.debugf(
-                    "PlanItem %s for worker '%s' in case %s has status %s — not faultable,"
+                    "PlanItem %s for worker '%s' in case %s has status %s — already terminal,"
                         + " skipping",
                     planItemId, event.workerId(), event.caseId(), item.getStatus());
                 return;
@@ -75,7 +69,7 @@ public class ActionGateRejectedPlanItemHandler {
               item.markFaulted();
               planItemFaultedEvents.fireAsync(
                   new PlanItemFaultedEvent(
-                      event.caseId(), planItemId, event.workerId(), event.tenancyId()));
+                      event.caseId(), planItemId, item.getBindingName(), event.tenancyId()));
               LOG.infof(
                   "PlanItem %s faulted (gate worker faulted): caseId=%s workerId=%s",
                   planItemId, event.caseId(), event.workerId());

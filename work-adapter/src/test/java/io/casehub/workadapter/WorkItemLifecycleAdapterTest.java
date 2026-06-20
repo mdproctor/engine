@@ -145,10 +145,49 @@ class WorkItemLifecycleAdapterTest {
   }
 
   @Test
+  void workItemFaulted_marksPlanItemFaulted() {
+    PlanItem delegatedItem = PlanItem.create("review-ht-faulted", "ht-worker", 10);
+    delegatedItem.markDelegated();
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(delegatedItem);
+    String delegatedItemId = delegatedItem.getPlanItemId();
+
+    WorkItem workItem = new WorkItem();
+    workItem.id = UUID.randomUUID();
+    workItem.status = WorkItemStatus.FAULTED;
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, delegatedItemId);
+    lifecycleEvents.fireAsync(
+        WorkItemLifecycleEvent.of("workitem.faulted", workItem, "system", null));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(delegatedItem.getStatus()).isEqualTo(PlanItemStatus.FAULTED));
+  }
+
+  @Test
+  void workItemObsolete_marksPlanItemObsolete() {
+    PlanItem delegatedItem = PlanItem.create("review-ht-obsolete", "ht-worker", 10);
+    delegatedItem.markDelegated();
+    registry.getOrCreate(caseId, "test-tenant").addPlanItem(delegatedItem);
+    String delegatedItemId = delegatedItem.getPlanItemId();
+
+    WorkItem workItem = new WorkItem();
+    workItem.id = UUID.randomUUID();
+    workItem.status = WorkItemStatus.OBSOLETE;
+    workItem.callerRef = PlanItemCallerRef.encode(caseId, delegatedItemId);
+    lifecycleEvents.fireAsync(
+        WorkItemLifecycleEvent.of("workitem.obsolete", workItem, "system", null));
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> assertThat(delegatedItem.getStatus()).isEqualTo(PlanItemStatus.OBSOLETE));
+  }
+
+  @Test
   void workItemEscalated_writesContextSignal_planItemUnchanged() {
-    // ESCALATED is not terminal — PlanItem stays in its current status.
-    // The adapter writes a workItemEscalated signal so case definitions can react via
-    // contextChange(".workItemEscalated") bindings. Refs engine#400.
+    // ESCALATED is terminal (all SLA breach policies exhausted) but the PlanItem stays
+    // DELEGATED — the adapter writes a workItemEscalated signal instead. Refs engine#400.
     WorkItem escalatedItem = new WorkItem();
     escalatedItem.id = UUID.randomUUID();
     escalatedItem.status = WorkItemStatus.ESCALATED;

@@ -18,7 +18,6 @@ package io.casehub.workadapter.recovery;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.work.runtime.model.WorkItem;
-import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.service.WorkItemService;
 import io.casehub.workadapter.PlanItemCallerRef;
 import io.casehub.workadapter.PlanItemCompletionApplier;
@@ -27,10 +26,8 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import java.util.EnumSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import org.jboss.logging.Logger;
 
 /**
@@ -49,13 +46,6 @@ import org.jboss.logging.Logger;
 public class HumanTaskRecoveryService {
 
   private static final Logger LOG = Logger.getLogger(HumanTaskRecoveryService.class);
-
-  private static final Set<WorkItemStatus> TERMINAL_STATUSES =
-      EnumSet.of(
-          WorkItemStatus.COMPLETED,
-          WorkItemStatus.REJECTED,
-          WorkItemStatus.CANCELLED,
-          WorkItemStatus.EXPIRED);
 
   @Inject PlanItemStore planItemStore;
   @Inject WorkItemService workItemService;
@@ -91,7 +81,7 @@ public class HumanTaskRecoveryService {
     }
 
     WorkItem workItem = workItemOpt.get();
-    if (!TERMINAL_STATUSES.contains(workItem.status)) {
+    if (!workItem.status.isTerminal()) {
       LOG.debugf(
           "WorkItem %s for callerRef=%s is still in-flight (status=%s) — skipping",
           workItem.id, callerRef, workItem.status);
