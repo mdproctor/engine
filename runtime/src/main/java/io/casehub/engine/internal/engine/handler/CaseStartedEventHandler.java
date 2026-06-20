@@ -30,7 +30,6 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -59,8 +58,6 @@ public class CaseStartedEventHandler {
 
   @Inject CaseInstanceRepository caseInstanceRepository;
 
-  @Inject CurrentPrincipal currentPrincipal;
-
   @Inject LedgerTraceIdProvider traceIdProvider;
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STARTED, blocking = true)
@@ -86,7 +83,7 @@ public class CaseStartedEventHandler {
             () -> {
               instance.setState(CaseStatus.RUNNING);
             })
-        .chain(() -> caseInstanceRepository.update(instance, currentPrincipal.tenancyId()))
+        .chain(() -> caseInstanceRepository.update(instance, instance.tenancyId))
         .chain(
             () -> {
               EventLog runningLog = new EventLog();
