@@ -21,6 +21,7 @@ import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.spi.ReactiveCaseChannelProvider;
 import io.casehub.api.spi.ReactiveWorkerContextProvider;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,8 +43,15 @@ public class EmptyReactiveWorkerContextProvider implements ReactiveWorkerContext
   @Inject
   ReactiveCaseChannelProvider reactiveCaseChannelProvider; // package-private for test injection
 
+  @Inject CurrentPrincipal currentPrincipal; // package-private for test injection
+
   @Override
   public Uni<WorkerContext> buildContext(String workerId, UUID caseId, WorkRequest task) {
+    PropagationContext propagationContext =
+        PropagationContext.createRoot(
+            Map.of(
+                "userId", currentPrincipal.actorId(),
+                "roles", String.join(",", currentPrincipal.roles())));
     Uni<List<CaseChannel>> channelsUni =
         caseId != null
             ? reactiveCaseChannelProvider.listChannels(caseId)
@@ -51,11 +59,6 @@ public class EmptyReactiveWorkerContextProvider implements ReactiveWorkerContext
     return channelsUni.map(
         channels ->
             new WorkerContext(
-                task.capability(),
-                caseId,
-                channels,
-                List.of(),
-                PropagationContext.createRoot(),
-                Map.of()));
+                task.capability(), caseId, channels, List.of(), propagationContext, Map.of()));
   }
 }

@@ -33,6 +33,7 @@ import io.casehub.api.spi.ReactiveCaseChannelProvider;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
 import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +46,13 @@ import org.junit.jupiter.api.Test;
  * to verify actual behaviour.
  */
 class DefaultWorkerSpiImplementationsTest {
+
+  private static CurrentPrincipal stubPrincipal() {
+    var p = mock(CurrentPrincipal.class);
+    when(p.actorId()).thenReturn("test-user");
+    when(p.roles()).thenReturn(Set.of("viewer"));
+    return p;
+  }
 
   // --- NoOpWorkerProvisioner ---
 
@@ -145,6 +153,7 @@ class DefaultWorkerSpiImplementationsTest {
   @Test
   void emptyContextProvider_buildContext_taskDescriptionMatchesCapability() {
     var provider = new EmptyWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     WorkerContext ctx =
         provider.buildContext("worker-1", null, WorkRequest.of("researcher", Map.of()));
     assertThat(ctx.taskDescription()).isEqualTo("researcher");
@@ -153,6 +162,7 @@ class DefaultWorkerSpiImplementationsTest {
   @Test
   void emptyContextProvider_buildContext_priorWorkersIsEmptyNotNull() {
     var provider = new EmptyWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.priorWorkers()).isNotNull().isEmpty();
   }
@@ -160,13 +170,24 @@ class DefaultWorkerSpiImplementationsTest {
   @Test
   void emptyContextProvider_buildContext_propagationContextIsNotNull() {
     var provider = new EmptyWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.propagationContext()).isNotNull();
   }
 
   @Test
+  void emptyContextProvider_buildContext_propagationContextCarriesIdentity() {
+    var provider = new EmptyWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
+    WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
+    assertThat(ctx.propagationContext().getAttribute("userId")).hasValue("test-user");
+    assertThat(ctx.propagationContext().getAttribute("roles")).hasValue("viewer");
+  }
+
+  @Test
   void emptyContextProvider_buildContext_caseIdPopulated() {
     var provider = new EmptyWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     UUID caseId = UUID.randomUUID();
     provider.caseChannelProvider = mock(CaseChannelProvider.class);
     when(provider.caseChannelProvider.listChannels(caseId)).thenReturn(List.of());
@@ -183,6 +204,7 @@ class DefaultWorkerSpiImplementationsTest {
     when(mockProvider.listChannels(caseId)).thenReturn(List.of(channel));
 
     var provider = new EmptyWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     provider.caseChannelProvider = mockProvider;
 
     WorkerContext ctx = provider.buildContext("worker-1", caseId, WorkRequest.of("task", Map.of()));
@@ -192,6 +214,7 @@ class DefaultWorkerSpiImplementationsTest {
   @Test
   void emptyContextProvider_buildContext_nullCaseId_channelsEmpty() {
     var provider = new EmptyWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.channels()).isEmpty();
   }
@@ -281,6 +304,7 @@ class DefaultWorkerSpiImplementationsTest {
   @Test
   void emptyReactiveContextProvider_buildContext_taskDescriptionMatchesCapability() {
     var provider = new EmptyReactiveWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     WorkerContext ctx =
         provider
             .buildContext("worker-1", null, WorkRequest.of("researcher", Map.of()))
@@ -292,6 +316,7 @@ class DefaultWorkerSpiImplementationsTest {
   @Test
   void emptyReactiveContextProvider_buildContext_priorWorkersIsEmpty() {
     var provider = new EmptyReactiveWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     WorkerContext ctx =
         provider
             .buildContext("worker-1", null, WorkRequest.of("task", Map.of()))
@@ -303,9 +328,20 @@ class DefaultWorkerSpiImplementationsTest {
   @Test
   void emptyReactiveContextProvider_buildContext_propagationContextIsNotNull() {
     var provider = new EmptyReactiveWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     WorkerContext ctx =
         provider.buildContext("w", null, WorkRequest.of("task", Map.of())).await().indefinitely();
     assertThat(ctx.propagationContext()).isNotNull();
+  }
+
+  @Test
+  void emptyReactiveContextProvider_buildContext_propagationContextCarriesIdentity() {
+    var provider = new EmptyReactiveWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
+    WorkerContext ctx =
+        provider.buildContext("w", null, WorkRequest.of("task", Map.of())).await().indefinitely();
+    assertThat(ctx.propagationContext().getAttribute("userId")).hasValue("test-user");
+    assertThat(ctx.propagationContext().getAttribute("roles")).hasValue("viewer");
   }
 
   @Test
@@ -314,6 +350,7 @@ class DefaultWorkerSpiImplementationsTest {
     ReactiveCaseChannelProvider mockProvider = mock(ReactiveCaseChannelProvider.class);
     when(mockProvider.listChannels(caseId)).thenReturn(Uni.createFrom().item(List.of()));
     var provider = new EmptyReactiveWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     provider.reactiveCaseChannelProvider = mockProvider;
     WorkerContext ctx =
         provider
@@ -332,6 +369,7 @@ class DefaultWorkerSpiImplementationsTest {
     when(mockProvider.listChannels(caseId)).thenReturn(Uni.createFrom().item(List.of(channel)));
 
     var provider = new EmptyReactiveWorkerContextProvider();
+    provider.currentPrincipal = stubPrincipal();
     provider.reactiveCaseChannelProvider = mockProvider;
 
     WorkerContext ctx =

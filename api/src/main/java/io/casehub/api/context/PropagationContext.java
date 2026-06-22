@@ -17,7 +17,6 @@ package io.casehub.api.context;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -52,7 +51,7 @@ public class PropagationContext {
       Instant deadline,
       Duration remainingBudget) {
     this.traceId = traceId;
-    this.inheritedAttributes = Collections.unmodifiableMap(new HashMap<>(inheritedAttributes));
+    this.inheritedAttributes = Map.copyOf(inheritedAttributes);
     this.deadline = deadline;
     this.remainingBudget = remainingBudget;
     this.createdAt = Instant.now();
@@ -97,6 +96,17 @@ public class PropagationContext {
   public static PropagationContext createRoot(String traceId) {
     Objects.requireNonNull(traceId, "traceId must not be null");
     return new PropagationContext(traceId, Map.of(), null, null);
+  }
+
+  /**
+   * Creates a root context with a caller-supplied trace ID and inherited attributes, but no budget.
+   *
+   * @param traceId the trace ID to use (must not be null)
+   * @param attributes key-value pairs to carry through the hierarchy (e.g. userId, roles)
+   */
+  public static PropagationContext createRoot(String traceId, Map<String, String> attributes) {
+    Objects.requireNonNull(traceId, "traceId must not be null");
+    return new PropagationContext(traceId, attributes, null, null);
   }
 
   /**

@@ -98,6 +98,36 @@ class PropagationContextTest {
     assertThat(ctx.getInheritedAttributes()).containsEntry("region", "eu");
   }
 
+  // ---- createRoot(traceId, attributes) — no budget -------------------------
+
+  @Test
+  void createRoot_withTraceIdAndAttributes_carriesProvidedAttributes() {
+    PropagationContext ctx =
+        PropagationContext.createRoot("trace-42", Map.of("userId", "u1", "roles", "admin,viewer"));
+    assertThat(ctx.getInheritedAttributes())
+        .containsEntry("userId", "u1")
+        .containsEntry("roles", "admin,viewer");
+  }
+
+  @Test
+  void createRoot_withTraceIdAndAttributes_usesProvidedTraceId() {
+    PropagationContext ctx = PropagationContext.createRoot("trace-42", Map.of("k", "v"));
+    assertThat(ctx.getTraceId()).isEqualTo("trace-42");
+  }
+
+  @Test
+  void createRoot_withTraceIdAndAttributes_hasNoDeadline() {
+    PropagationContext ctx = PropagationContext.createRoot("trace-42", Map.of("k", "v"));
+    assertThat(ctx.getDeadline()).isEmpty();
+    assertThat(ctx.getRemainingBudget()).isEmpty();
+  }
+
+  @Test
+  void createRoot_withTraceIdAndAttributes_nullTraceId_throws() {
+    assertThatThrownBy(() -> PropagationContext.createRoot(null, Map.of("k", "v")))
+        .isInstanceOf(NullPointerException.class);
+  }
+
   // ---- createChild() --------------------------------------------------------
 
   @Test

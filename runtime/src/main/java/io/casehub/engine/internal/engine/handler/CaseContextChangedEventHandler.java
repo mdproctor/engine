@@ -563,7 +563,7 @@ public class CaseContextChangedEventHandler {
                       caseInstance.tenancyId,
                       capability.getName(),
                       workerContext,
-                      PropagationContext.createRoot(),
+                      caseInstance.getPropagationContext(),
                       triggerChannelId,
                       triggerCorrelationId);
               return reactiveWorkerProvisioner

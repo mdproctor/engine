@@ -73,6 +73,20 @@ class SubCasePropagationContextTest {
     assertThat(child.getPropagationContext().getTraceId())
         .as("child must inherit parent's trace ID")
         .isEqualTo(parentTraceId);
+
+    // Identity propagation (engine#455): userId and roles must flow from root to child
+    assertThat(parent.getPropagationContext().getAttribute("userId"))
+        .as("parent must carry userId from CurrentPrincipal")
+        .isPresent();
+    assertThat(parent.getPropagationContext().getAttribute("roles"))
+        .as("parent must carry roles from CurrentPrincipal")
+        .isPresent();
+    assertThat(child.getPropagationContext().getAttribute("userId"))
+        .as("child must inherit userId from parent")
+        .hasValue(parent.getPropagationContext().getAttribute("userId").orElseThrow());
+    assertThat(child.getPropagationContext().getAttribute("roles"))
+        .as("child must inherit roles from parent")
+        .hasValue(parent.getPropagationContext().getAttribute("roles").orElseThrow());
   }
 
   // ------------------------------------------------------------------ //

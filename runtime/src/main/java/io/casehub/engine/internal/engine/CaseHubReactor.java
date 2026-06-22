@@ -158,12 +158,15 @@ class CaseHubReactor {
               .filter(id -> !id.isBlank())
               .orElseGet(() -> UUID.randomUUID().toString());
 
+      Map<String, String> identityAttrs =
+          Map.of(
+              "userId", currentPrincipal.actorId(),
+              "roles", String.join(",", currentPrincipal.roles()));
+
       propagationContext =
           maxDuration
-              .map(
-                  budget ->
-                      PropagationContext.createRoot(traceId, Map.<String, String>of(), budget))
-              .orElse(PropagationContext.createRoot(traceId));
+              .map(budget -> PropagationContext.createRoot(traceId, identityAttrs, budget))
+              .orElse(PropagationContext.createRoot(traceId, identityAttrs));
     }
 
     // Populate semantic panel: definition defaults first, call-site overrides second.
