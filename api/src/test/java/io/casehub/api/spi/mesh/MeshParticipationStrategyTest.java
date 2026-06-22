@@ -114,22 +114,11 @@ class MeshParticipationStrategyTest {
     assertThat(first).isEqualTo(second);
   }
 
-  @Test
-  void participationEnumHasExactlyThreeValues() {
-    assertThat(MeshParticipation.values()).hasSize(3);
-  }
-
-  @Test
-  void allThreeEnumValuesAreDistinct() {
-    assertThat(MeshParticipation.values()).doesNotHaveDuplicates();
-  }
-
-  @Test
-  void enumNameMatchesExpectedStrings() {
-    assertThat(MeshParticipation.ACTIVE.name()).isEqualTo("ACTIVE");
-    assertThat(MeshParticipation.REACTIVE.name()).isEqualTo("REACTIVE");
-    assertThat(MeshParticipation.SILENT.name()).isEqualTo("SILENT");
-  }
+  // Note: participationEnumHasExactlyThreeValues, allThreeEnumValuesAreDistinct, and
+  // enumNameMatchesExpectedStrings were removed — they tested Java language semantics
+  // (Enum.values().length, Enum.name()) rather than application behaviour. The named()
+  // factory tests below verify all three values are reachable and return correct behaviour.
+  // See engine#554 for the cleanup rationale.
 
   // ── named() factory — behavioral tests ───────────────────────────────
 
