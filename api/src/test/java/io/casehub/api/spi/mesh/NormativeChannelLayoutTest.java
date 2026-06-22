@@ -55,7 +55,7 @@ class NormativeChannelLayoutTest {
             .filter(s -> s.purpose().equals("observe"))
             .findFirst()
             .orElseThrow();
-    assertThat(observe.allowedTypes()).containsExactly(MessageType.EVENT);
+    assertThat(observe.allowedTypes()).containsExactlyInAnyOrder(MessageType.EVENT);
   }
 
   @Test
@@ -77,7 +77,7 @@ class NormativeChannelLayoutTest {
             .filter(s -> s.purpose().equals("oversight"))
             .findFirst()
             .orElseThrow();
-    assertThat(oversight.deniedTypes()).containsExactly(MessageType.EVENT);
+    assertThat(oversight.deniedTypes()).containsExactlyInAnyOrder(MessageType.EVENT);
   }
 
   @Test

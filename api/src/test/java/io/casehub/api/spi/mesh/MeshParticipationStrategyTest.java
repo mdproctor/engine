@@ -98,6 +98,9 @@ class MeshParticipationStrategyTest {
     var active = new ActiveParticipationStrategy();
     assertThat(active.strategyFor("alice", id)).isEqualTo(active.strategyFor("bob", id));
 
+    var reactive = new ReactiveParticipationStrategy();
+    assertThat(reactive.strategyFor("alice", id)).isEqualTo(reactive.strategyFor("bob", id));
+
     var silent = new SilentParticipationStrategy();
     assertThat(silent.strategyFor("alice", id)).isEqualTo(silent.strategyFor("bob", id));
   }
@@ -155,5 +158,10 @@ class MeshParticipationStrategyTest {
   void named_unknown_throwsIllegalArgumentException() {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> MeshParticipationStrategy.named("unknown-strategy"));
+  }
+
+  @Test
+  void named_null_throwsIllegalArgumentException() {
+    assertThatIllegalArgumentException().isThrownBy(() -> MeshParticipationStrategy.named(null));
   }
 }

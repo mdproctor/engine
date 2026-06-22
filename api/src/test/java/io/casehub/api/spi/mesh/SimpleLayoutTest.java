@@ -59,7 +59,7 @@ class SimpleLayoutTest {
             .filter(s -> s.purpose().equals("observe"))
             .findFirst()
             .orElseThrow();
-    assertThat(observe.allowedTypes()).containsExactly(MessageType.EVENT);
+    assertThat(observe.allowedTypes()).containsExactlyInAnyOrder(MessageType.EVENT);
   }
 
   @Test

@@ -49,6 +49,9 @@ public interface MeshParticipationStrategy {
    * @throws IllegalArgumentException for unknown config values
    */
   static MeshParticipationStrategy named(final String configValue) {
+    if (configValue == null) {
+      throw new IllegalArgumentException("Mesh participation config value must not be null");
+    }
     return switch (configValue) {
       case "active" -> new ActiveParticipationStrategy();
       case "reactive" -> new ReactiveParticipationStrategy();

@@ -27,40 +27,52 @@ import org.junit.jupiter.api.Test;
 
 class CaseChannelLayoutContractTest {
 
-  // ── SPI contract ───────────────────────────────────────────────────────
+  // ── SPI contract — exercised over both standard implementations ────────
 
   @Test
-  void channelsFor_withNullDefinition_mustNotThrow() {
+  void channelsFor_withNullDefinition_mustNotThrow_normative() {
     // CaseDefinition is always null at current call sites — intentional extensibility parameter
     CaseChannelLayout layout = new NormativeChannelLayout();
     assertThatNoException().isThrownBy(() -> layout.channelsFor(UUID.randomUUID(), null));
   }
 
   @Test
+  void channelsFor_withNullDefinition_mustNotThrow_simple() {
+    CaseChannelLayout layout = new SimpleLayout();
+    assertThatNoException().isThrownBy(() -> layout.channelsFor(UUID.randomUUID(), null));
+  }
+
+  @Test
   void channelsFor_returnsNonNullList() {
-    CaseChannelLayout layout = new NormativeChannelLayout();
-    assertThat(layout.channelsFor(UUID.randomUUID(), null)).isNotNull();
+    assertThat(new NormativeChannelLayout().channelsFor(UUID.randomUUID(), null)).isNotNull();
+    assertThat(new SimpleLayout().channelsFor(UUID.randomUUID(), null)).isNotNull();
   }
 
   @Test
   void channelsFor_noPurposeIsNull() {
-    CaseChannelLayout layout = new NormativeChannelLayout();
-    List<ChannelSpec> specs = layout.channelsFor(UUID.randomUUID(), null);
-    assertThat(specs).extracting(ChannelSpec::purpose).doesNotContainNull();
+    for (CaseChannelLayout layout :
+        new CaseChannelLayout[] {new NormativeChannelLayout(), new SimpleLayout()}) {
+      List<ChannelSpec> specs = layout.channelsFor(UUID.randomUUID(), null);
+      assertThat(specs).extracting(ChannelSpec::purpose).doesNotContainNull();
+    }
   }
 
   @Test
   void channelsFor_noDuplicatePurposes() {
-    CaseChannelLayout layout = new NormativeChannelLayout();
-    List<ChannelSpec> specs = layout.channelsFor(UUID.randomUUID(), null);
-    assertThat(specs).extracting(ChannelSpec::purpose).doesNotHaveDuplicates();
+    for (CaseChannelLayout layout :
+        new CaseChannelLayout[] {new NormativeChannelLayout(), new SimpleLayout()}) {
+      List<ChannelSpec> specs = layout.channelsFor(UUID.randomUUID(), null);
+      assertThat(specs).extracting(ChannelSpec::purpose).doesNotHaveDuplicates();
+    }
   }
 
   @Test
   void channelsFor_allUseAppendSemantic() {
-    CaseChannelLayout layout = new NormativeChannelLayout();
-    List<ChannelSpec> specs = layout.channelsFor(UUID.randomUUID(), null);
-    assertThat(specs).extracting(ChannelSpec::semantic).containsOnly(ChannelSemantic.APPEND);
+    for (CaseChannelLayout layout :
+        new CaseChannelLayout[] {new NormativeChannelLayout(), new SimpleLayout()}) {
+      List<ChannelSpec> specs = layout.channelsFor(UUID.randomUUID(), null);
+      assertThat(specs).extracting(ChannelSpec::semantic).containsOnly(ChannelSemantic.APPEND);
+    }
   }
 
   // ── named() factory ───────────────────────────────────────────────────
@@ -98,5 +110,10 @@ class CaseChannelLayoutContractTest {
   void named_unknown_throwsIllegalArgumentException() {
     assertThatIllegalArgumentException()
         .isThrownBy(() -> CaseChannelLayout.named("unknown-layout"));
+  }
+
+  @Test
+  void named_null_throwsIllegalArgumentException() {
+    assertThatIllegalArgumentException().isThrownBy(() -> CaseChannelLayout.named(null));
   }
 }

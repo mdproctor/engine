@@ -57,6 +57,9 @@ public interface CaseChannelLayout {
    * @throws IllegalArgumentException for unknown config values
    */
   static CaseChannelLayout named(final String configValue) {
+    if (configValue == null) {
+      throw new IllegalArgumentException("Channel layout config value must not be null");
+    }
     return switch (configValue) {
       case "normative" -> new NormativeChannelLayout();
       case "simple" -> new SimpleLayout();
@@ -69,11 +72,13 @@ public interface CaseChannelLayout {
    *
    * @param purpose channel name suffix; e.g. {@code "work"}, {@code "observe"}, {@code "oversight"}
    * @param semantic channel semantic; always {@link ChannelSemantic#APPEND} for mesh channels
-   * @param allowedTypes message types permitted; {@code null} = all types allowed
+   * @param allowedTypes message types permitted; {@code null} = all types allowed. Callers must
+   *     pass an unmodifiable set (e.g. {@link Set#of}) — not defensively copied; all standard
+   *     implementations use {@link Set#of}.
    * @param deniedTypes message types explicitly denied; {@code null} = no denial. Denial wins when
    *     a type appears in both sets. If a new {@link MessageType} is added with no commitment
    *     effect (like EVENT), add it here for governance channels — this comment is the mechanical
-   *     anchor for that obligation.
+   *     anchor for that obligation. Same unmodifiable-set contract as {@code allowedTypes}.
    * @param description human-readable channel description
    */
   record ChannelSpec(
