@@ -16,10 +16,13 @@
 package io.casehub.api.model;
 
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.eidos.api.AgentDescriptor;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 
 public class CaseDefinition {
 
@@ -39,6 +42,7 @@ public class CaseDefinition {
   private Map<String, Object> semanticData;
   private EpisodicMemoryConfig episodicMemoryConfig;
   private List<String> panelNames;
+  private Map<String, AgentDescriptor> agentDescriptors = Map.of();
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -147,6 +151,14 @@ public class CaseDefinition {
     this.panelNames = panelNames;
   }
 
+  public Optional<AgentDescriptor> agentDescriptorFor(String workerName) {
+    return Optional.ofNullable(agentDescriptors.get(workerName));
+  }
+
+  public void setAgentDescriptors(Map<String, AgentDescriptor> agentDescriptors) {
+    this.agentDescriptors = agentDescriptors != null ? Map.copyOf(agentDescriptors) : Map.of();
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -167,6 +179,7 @@ public class CaseDefinition {
     private Map<String, Object> semanticData;
     private EpisodicMemoryConfig episodicMemoryConfig;
     private List<String> panelNames;
+    private Map<String, AgentDescriptor> agentDescriptors = new HashMap<>();
 
     private Builder() {}
 
@@ -274,6 +287,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder agentDescriptor(String workerName, AgentDescriptor descriptor) {
+      this.agentDescriptors.put(workerName, descriptor);
+      return this;
+    }
+
     public Builder panelNames(List<String> panelNames) {
       this.panelNames = panelNames;
       return this;
@@ -322,6 +340,7 @@ public class CaseDefinition {
       caseHubDefinition.setSemanticData(semanticData);
       caseHubDefinition.setEpisodicMemoryConfig(episodicMemoryConfig);
       caseHubDefinition.setPanelNames(panelNames);
+      caseHubDefinition.setAgentDescriptors(agentDescriptors);
 
       return caseHubDefinition;
     }
