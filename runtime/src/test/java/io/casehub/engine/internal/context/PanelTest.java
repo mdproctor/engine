@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.context;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -171,6 +172,15 @@ class PanelTest {
     WritablePanelImpl p = new WritablePanelImpl(ContextPanel.SEMANTIC);
     ReadablePanel snap = p.snapshot();
     assertEquals(ContextPanel.SEMANTIC, snap.panelName());
+  }
+
+  @Test
+  void constructor_deepCopiesInitialSubMaps() {
+    Map<String, Object> initial = Map.of("pr", Map.of("headSha", "abc123"));
+    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.WORKING, initial);
+
+    assertDoesNotThrow(() -> p.setPath("pr.headSha", "def456"));
+    assertEquals("def456", p.getPath("pr.headSha"));
   }
 
   @Test

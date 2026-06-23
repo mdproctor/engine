@@ -50,9 +50,13 @@ public class WritablePanelImpl implements WritablePanel {
   }
 
   public WritablePanelImpl(String panelName, Map<String, Object> initial) {
+    this(panelName, initial, true);
+  }
+
+  private WritablePanelImpl(String panelName, Map<String, Object> initial, boolean deepCopy) {
     this.panelName = panelName;
     if (initial != null) {
-      data.putAll(initial);
+      data.putAll(deepCopy ? deepCopyMap(initial) : initial);
     }
   }
 
@@ -618,7 +622,7 @@ public class WritablePanelImpl implements WritablePanel {
   public WritablePanelImpl deepCopy() {
     lock.readLock().lock();
     try {
-      return new WritablePanelImpl(panelName, deepCopyMap(data));
+      return new WritablePanelImpl(panelName, deepCopyMap(data), false);
     } finally {
       lock.readLock().unlock();
     }
