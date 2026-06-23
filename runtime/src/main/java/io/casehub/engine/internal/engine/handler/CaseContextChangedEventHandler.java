@@ -646,7 +646,8 @@ public class CaseContextChangedEventHandler {
             effectiveSchema);
     final WorkRequest workRequest = WorkRequest.of(capability.name(), inputData);
     return reactiveWorkerContextProvider
-        .buildContext(null, caseInstance.getUuid(), workRequest)
+        .buildContext(
+            null, caseInstance.getUuid(), workRequest, caseInstance.getPropagationContext())
         .flatMap(
             workerContext -> {
               final ProvisionContext provisionContext =

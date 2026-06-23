@@ -54,4 +54,13 @@ public class EmptyWorkerContextProvider implements WorkerContextProvider {
     return new WorkerContext(
         task.capability(), caseId, channels, List.of(), propagationContext, Map.of());
   }
+
+  @Override
+  public WorkerContext buildContext(
+      String workerId, UUID caseId, WorkRequest task, PropagationContext parentContext) {
+    List<CaseChannel> channels =
+        caseId != null ? caseChannelProvider.listChannels(caseId) : List.of();
+    return new WorkerContext(
+        task.capability(), caseId, channels, List.of(), parentContext.createChild(), Map.of());
+  }
 }
