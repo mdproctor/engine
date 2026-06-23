@@ -21,9 +21,12 @@ import io.casehub.api.engine.ExpressionEngine;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.engine.internal.context.CaseContextImpl;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
@@ -41,22 +44,44 @@ public class DefaultExpressionEngineRegistry implements ExpressionEngineRegistry
 
   @Inject Instance<ExpressionEngine> engines;
 
+  private Map<String, ExpressionEngine> engineMap;
+
+  DefaultExpressionEngineRegistry() {}
+
+  DefaultExpressionEngineRegistry(final Map<String, ExpressionEngine> engineMap) {
+    this.engineMap = Map.copyOf(engineMap);
+  }
+
+  @PostConstruct
+  void init() {
+    final var map = new LinkedHashMap<String, ExpressionEngine>();
+    for (final ExpressionEngine engine : engines) {
+      map.put(engine.type(), engine);
+    }
+    engineMap = Map.copyOf(map);
+  }
+
+  private ExpressionEngine resolveEngine(final String type) {
+    final ExpressionEngine engine = engineMap.get(type);
+    if (engine == null) {
+      throw new IllegalArgumentException("No ExpressionEngine registered for type '" + type + "'");
+    }
+    return engine;
+  }
+
   @Override
   public boolean evaluate(final ExpressionEvaluator evaluator, final CaseContext context) {
     if (evaluator == null) {
       return true;
     }
-    final String type = evaluator.type();
-    for (ExpressionEngine engine : engines) {
-      if (engine.type().equals(type)) {
-        return engine.evaluate(evaluator, context);
-      }
-    }
-    throw new IllegalArgumentException("No ExpressionEngine registered for type '" + type + "'");
+    return resolveEngine(evaluator.type()).evaluate(evaluator, context);
   }
 
   @Override
   public boolean evaluate(final ExpressionEvaluator evaluator, final JsonNode asNode) {
+    if (asNode == null) {
+      throw new IllegalArgumentException("asNode must not be null");
+    }
     return evaluate(evaluator, new CaseContextImpl(asNode));
   }
 
@@ -65,54 +90,36 @@ public class DefaultExpressionEngineRegistry implements ExpressionEngineRegistry
     if (evaluator == null) {
       return;
     }
-    final String type = evaluator.type();
-    for (ExpressionEngine engine : engines) {
-      if (engine.type().equals(type)) {
-        engine.validate(evaluator);
-        return;
-      }
-    }
-    throw new IllegalArgumentException("No ExpressionEngine registered for type '" + type + "'");
+    resolveEngine(evaluator.type()).validate(evaluator);
   }
 
   @Override
   public ExpressionEvaluator create(final String expression, final String expressionLang) {
-    for (final ExpressionEngine engine : engines) {
-      if (engine.type().equals(expressionLang)) {
-        final ExpressionEvaluator evaluator = engine.create(expression);
-        if (!evaluator.type().equals(expressionLang)) {
-          throw new IllegalStateException(
-              "ExpressionEngine '"
-                  + engine.type()
-                  + "'.create() returned evaluator of type '"
-                  + evaluator.type()
-                  + "' — must equal '"
-                  + expressionLang
-                  + "'");
-        }
-        return evaluator;
-      }
+    final ExpressionEngine engine = resolveEngine(expressionLang);
+    final ExpressionEvaluator evaluator = engine.create(expression);
+    if (!evaluator.type().equals(expressionLang)) {
+      throw new IllegalStateException(
+          "ExpressionEngine '"
+              + engine.type()
+              + "'.create() returned evaluator of type '"
+              + evaluator.type()
+              + "' — must equal '"
+              + expressionLang
+              + "'");
     }
-    throw new IllegalArgumentException(
-        "No ExpressionEngine registered for expressionLang '" + expressionLang + "'");
+    return evaluator;
   }
 
   @Override
   public void assertLanguageSupported(final String expressionLang) {
-    for (final ExpressionEngine engine : engines) {
-      if (engine.type().equals(expressionLang)) {
-        if (!engine.supportsStringCreation()) {
-          throw new UnsupportedOperationException(
-              "expressionLang '"
-                  + expressionLang
-                  + "' is a Java-DSL-only type and cannot be used in YAML definitions. "
-                  + "Use expressionLang: jq or register a custom ExpressionEngine "
-                  + "that overrides supportsStringCreation().");
-        }
-        return;
-      }
+    final ExpressionEngine engine = resolveEngine(expressionLang);
+    if (!engine.supportsStringCreation()) {
+      throw new UnsupportedOperationException(
+          "expressionLang '"
+              + expressionLang
+              + "' is a Java-DSL-only type and cannot be used in YAML definitions. "
+              + "Use expressionLang: jq or register a custom ExpressionEngine "
+              + "that overrides supportsStringCreation().");
     }
-    throw new IllegalArgumentException(
-        "No ExpressionEngine registered for expressionLang '" + expressionLang + "'");
   }
 }
