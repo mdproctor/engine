@@ -16,7 +16,6 @@
 package io.casehub.engine.internal.engine.handler;
 
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
@@ -28,6 +27,7 @@ import io.casehub.engine.common.internal.model.PendingActionGate;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Worker;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -127,7 +127,7 @@ public class ActionGateApprovedHandler {
     final var def = caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
     if (def == null) return null;
     return def.getWorkers().stream()
-        .filter(w -> w.getName().equals(workerId))
+        .filter(w -> w.name().equals(workerId))
         .findFirst()
         .orElse(null);
   }

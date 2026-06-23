@@ -29,12 +29,9 @@ import io.casehub.api.model.ConflictResolver;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.WorkResult;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerOutcome;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.ContextDiffStrategy;
-import io.casehub.api.spi.PlannedAction;
 import io.casehub.api.spi.ReactiveActionRiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.WorkerStatusListener;
@@ -57,6 +54,9 @@ import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.context.EpisodicPanelUpdater;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
+import io.casehub.worker.api.PlannedAction;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerOutcome;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -101,8 +101,10 @@ public class WorkflowExecutionCompletedHandler {
     }
 
     // Gate fork: if the worker declared a PlannedAction, classify before applying output.
-    if (event.plannedAction() != null) {
-      return handleWithPlannedAction(event, traceId);
+    final PlannedAction topLevelAction =
+        event.outcome() instanceof WorkerOutcome.Success s ? s.plannedAction() : null;
+    if (topLevelAction != null) {
+      return handleWithPlannedAction(event, topLevelAction, traceId);
     }
 
     final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
@@ -112,9 +114,9 @@ public class WorkflowExecutionCompletedHandler {
     JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
     applyOutputWithConflictResolution(caseInstance, worker, rawOutput, bindingName);
     if (caseInstance.getCaseContext() instanceof CaseContextImpl ctx) {
-      EpisodicPanelUpdater.recordWorkerCompletion(ctx, worker.getName(), "COMPLETED");
+      EpisodicPanelUpdater.recordWorkerCompletion(ctx, worker.name(), "COMPLETED");
     }
-    recordSuccessOutcome(caseInstance, worker.getName(), bindingName, now);
+    recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
     JsonNode contextAfter = caseInstance.getCaseContext().asJsonNode();
     JsonNode diff = contextDiffStrategy.compute(contextBefore, contextAfter);
 
@@ -128,15 +130,15 @@ public class WorkflowExecutionCompletedHandler {
                 caseResumptionService.resumeIfWaiting(
                     caseInstance,
                     event.idempotency(),
-                    worker.getName(),
+                    worker.name(),
                     rawOutput,
                     CaseHubEventType.WORK_COMPLETED))
         .invoke(
             () ->
                 workerStatusListener.onWorkerCompleted(
-                    worker.getName(),
+                    worker.name(),
                     WorkResult.completed(
-                        event.idempotency(), rawOutput, worker.getName(), caseInstance.getUuid())))
+                        event.idempotency(), rawOutput, worker.name(), caseInstance.getUuid())))
         .invoke(
             () -> {
               // Fire CDI audit events as true fire-and-forget — case state must not be gated
@@ -167,7 +169,7 @@ public class WorkflowExecutionCompletedHandler {
                       new WorkerDecisionEvent(
                           caseInstance.getUuid(),
                           caseInstance.tenancyId,
-                          worker.getName(),
+                          worker.name(),
                           extractCapabilityTag(caseInstance, worker, bindingName),
                           traceId))
                   .whenComplete(
@@ -177,7 +179,7 @@ public class WorkflowExecutionCompletedHandler {
                               t,
                               "WorkerDecisionEvent observer failed for caseId=%s worker=%s",
                               caseInstance.getUuid(),
-                              worker.getName());
+                              worker.name());
                       });
             })
         .invoke(
@@ -199,10 +201,11 @@ public class WorkflowExecutionCompletedHandler {
   }
 
   private Uni<Void> handleWithPlannedAction(
-      final WorkflowExecutionCompleted event, final String traceId) {
+      final WorkflowExecutionCompleted event,
+      final PlannedAction plannedAction,
+      final String traceId) {
     final CaseInstance caseInstance = event.caseInstance();
     final Worker worker = event.worker();
-    final PlannedAction plannedAction = event.plannedAction();
     final String bindingName = event.bindingName();
 
     // v1 concurrent-gate constraint: only one pending gate per case.
@@ -210,7 +213,7 @@ public class WorkflowExecutionCompletedHandler {
       LOG.errorf(
           "Concurrent gate not supported in v1: caseId=%s worker=%s already has a pending gate"
               + " — proceeding as Autonomous for second action",
-          caseInstance.getUuid(), worker.getName());
+          caseInstance.getUuid(), worker.name());
       // Re-dispatch as if plannedAction was null so the normal completion path runs.
       final WorkflowExecutionCompleted withoutAction =
           WorkflowExecutionCompleted.approved(
@@ -218,8 +221,19 @@ public class WorkflowExecutionCompletedHandler {
       return onWorkflowExecutionCompletedHandler(withoutAction);
     }
 
+    final CaseDefinition definition =
+        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+    final io.casehub.api.spi.ClassificationContext classificationContext =
+        new io.casehub.api.spi.ClassificationContext(
+            worker.name(),
+            caseInstance.getUuid(),
+            caseInstance.tenancyId,
+            definition != null ? definition.getName() : null,
+            extractCapabilityTag(caseInstance, worker, bindingName),
+            bindingName);
+
     return actionRiskClassifier
-        .classify(plannedAction)
+        .classify(plannedAction, classificationContext)
         .onFailure()
         .recoverWithItem(
             t -> {
@@ -245,7 +259,8 @@ public class WorkflowExecutionCompletedHandler {
                         caseInstance, worker, event.idempotency(), event.output(), bindingName);
                 return onWorkflowExecutionCompletedHandler(withoutAction);
               }
-              return handleGate(event, (RiskDecision.GateRequired) decision, traceId);
+              return handleGate(
+                  event, plannedAction, (RiskDecision.GateRequired) decision, traceId);
             });
   }
 
@@ -320,7 +335,7 @@ public class WorkflowExecutionCompletedHandler {
     ObjectNode historyEntry =
         OBJECT_MAPPER
             .createObjectNode()
-            .put("agent", worker.getName())
+            .put("agent", worker.name())
             .put("status", outcomeStatus)
             .put("reason", reason)
             .put("timestamp", now.toString());
@@ -335,7 +350,7 @@ public class WorkflowExecutionCompletedHandler {
         bindingOutcome.has("excludedAgents")
             ? (ArrayNode) bindingOutcome.get("excludedAgents")
             : OBJECT_MAPPER.createArrayNode();
-    excluded.add(worker.getName());
+    excluded.add(worker.name());
     bindingOutcome.set("excludedAgents", excluded);
 
     // Write to context
@@ -346,13 +361,13 @@ public class WorkflowExecutionCompletedHandler {
 
     // Episodic
     if (caseInstance.getCaseContext() instanceof CaseContextImpl ctx) {
-      EpisodicPanelUpdater.recordWorkerCompletion(ctx, worker.getName(), outcomeStatus);
+      EpisodicPanelUpdater.recordWorkerCompletion(ctx, worker.name(), outcomeStatus);
     }
 
     // Event log
     final EventLog eventLog = new EventLog();
     eventLog.setCaseId(caseInstance.getUuid());
-    eventLog.setWorkerId(worker.getName());
+    eventLog.setWorkerId(worker.name());
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(now);
     eventLog.setEventType(eventType);
@@ -383,18 +398,18 @@ public class WorkflowExecutionCompletedHandler {
                   switch (event.outcome()) {
                     case WorkerOutcome.Declined d ->
                         WorkResult.declined(
-                            event.idempotency(), worker.getName(), caseInstance.getUuid());
+                            event.idempotency(), worker.name(), caseInstance.getUuid());
                     case WorkerOutcome.Failed f ->
                         WorkResult.failed(
-                            event.idempotency(), worker.getName(), caseInstance.getUuid());
+                            event.idempotency(), worker.name(), caseInstance.getUuid());
                     case WorkerOutcome.Expired e ->
                         WorkResult.expired(
-                            event.idempotency(), worker.getName(), caseInstance.getUuid());
+                            event.idempotency(), worker.name(), caseInstance.getUuid());
                     case WorkerOutcome.Success s ->
                         throw new IllegalStateException(
                             "Success should not reach handleSemanticFailure");
                   };
-              workerStatusListener.onWorkerCompleted(worker.getName(), workResult);
+              workerStatusListener.onWorkerCompleted(worker.name(), workResult);
 
               // CDI lifecycle events (fire-and-forget)
               lifecycleEvents
@@ -405,7 +420,7 @@ public class WorkflowExecutionCompletedHandler {
                           "WorkerOutcome",
                           outcomeStatus + "Outcome",
                           caseInstance.getState().name(),
-                          worker.getName(),
+                          worker.name(),
                           "WORKER",
                           traceId))
                   .whenComplete(
@@ -431,7 +446,7 @@ public class WorkflowExecutionCompletedHandler {
               eventBus.publish(
                   EventBusAddresses.WORKER_OUTCOME_RESOLVED,
                   new WorkerOutcomeResolvedEvent(
-                      caseInstance, worker.getName(), bindingName, capabilityName, disposition));
+                      caseInstance, worker.name(), bindingName, capabilityName, disposition));
             })
         .replaceWithVoid()
         .onFailure()
@@ -441,18 +456,18 @@ public class WorkflowExecutionCompletedHandler {
                     t,
                     "Failed to handle semantic failure for caseId=%s worker=%s binding=%s",
                     caseInstance.getUuid(),
-                    worker.getName(),
+                    worker.name(),
                     bindingName));
   }
 
   private Uni<Void> handleGate(
       final WorkflowExecutionCompleted event,
+      final PlannedAction plannedAction,
       final RiskDecision.GateRequired gate,
       final String traceId) {
     final CaseInstance caseInstance = event.caseInstance();
     final Worker worker = event.worker();
     final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
-    final PlannedAction plannedAction = event.plannedAction();
     final Instant now = Instant.now();
 
     final EventLog gateEventLog =
@@ -466,7 +481,7 @@ public class WorkflowExecutionCompletedHandler {
               caseInstance.setPendingActionGate(
                   new PendingActionGate(
                       gateEventLog.id,
-                      worker.getName(),
+                      worker.name(),
                       event.idempotency(),
                       rawOutput,
                       plannedAction));
@@ -492,7 +507,7 @@ public class WorkflowExecutionCompletedHandler {
                             "ActionGate",
                             "ActionGatePending",
                             caseInstance.getState().name(),
-                            worker.getName(),
+                            worker.name(),
                             "WORKER",
                             traceId))
                     .whenComplete(
@@ -520,18 +535,18 @@ public class WorkflowExecutionCompletedHandler {
       final Instant timestamp) {
     final EventLog eventLog = new EventLog();
     eventLog.setCaseId(caseInstance.getUuid());
-    eventLog.setWorkerId(worker.getName());
+    eventLog.setWorkerId(worker.name());
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(timestamp);
     eventLog.setEventType(CaseHubEventType.ACTION_GATE_PENDING);
     final ObjectNode payload = OBJECT_MAPPER.createObjectNode();
-    payload.put("workerId", worker.getName());
+    payload.put("workerId", worker.name());
     payload.put("idempotency", idempotency);
     payload.set("deferredOutput", OBJECT_MAPPER.valueToTree(rawOutput));
     final ObjectNode actionNode = OBJECT_MAPPER.createObjectNode();
     actionNode.put("description", plannedAction.description());
     actionNode.put("actionType", plannedAction.actionType());
-    actionNode.set("context", OBJECT_MAPPER.valueToTree(plannedAction.context()));
+    actionNode.set("context", OBJECT_MAPPER.valueToTree(plannedAction.parameters()));
     payload.set("plannedAction", actionNode);
     final ObjectNode gateNode = OBJECT_MAPPER.createObjectNode();
     gateNode.put("reason", gate.reason());
@@ -554,7 +569,7 @@ public class WorkflowExecutionCompletedHandler {
       JsonNode contextDiff) {
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(caseInstance.getUuid());
-    eventLog.setWorkerId(worker.getName());
+    eventLog.setWorkerId(worker.name());
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(timestamp);
     eventLog.setEventType(CaseHubEventType.WORKER_EXECUTION_COMPLETED);
@@ -655,17 +670,15 @@ public class WorkflowExecutionCompletedHandler {
       final CaseInstance caseInstance, final Worker worker) {
     final CaseDefinition definition =
         caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    if (definition == null
-        || definition.getBindings() == null
-        || worker.getCapabilities() == null) {
+    if (definition == null || definition.getBindings() == null || worker.capabilities() == null) {
       return null;
     }
     for (final Binding binding : definition.getBindings()) {
       if (!(binding.target() instanceof CapabilityTarget ct)) {
         continue;
       }
-      final String capabilityName = ct.capability().getName();
-      if (worker.getCapabilities().stream().anyMatch(c -> c.getName().equals(capabilityName))) {
+      final String capabilityName = ct.capability().name();
+      if (worker.capabilities().stream().anyMatch(c -> c.name().equals(capabilityName))) {
         return binding;
       }
     }
@@ -679,7 +692,7 @@ public class WorkflowExecutionCompletedHandler {
             ? findBindingByName(caseInstance, bindingName)
             : findMatchingCapabilityBinding(caseInstance, worker);
     return binding != null && binding.target() instanceof CapabilityTarget ct
-        ? ct.capability().getName()
+        ? ct.capability().name()
         : null;
   }
 

@@ -23,15 +23,17 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.Worker;
 import io.casehub.api.spi.routing.ImplementationRoutingStrategy;
 import io.casehub.api.spi.routing.ImplementationSelection;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.util.List;
@@ -76,13 +78,13 @@ class ImplementationRoutingTest {
         Worker.builder()
             .name("worker-a")
             .capabilities(cap)
-            .function(input -> io.casehub.api.model.WorkerResult.of(java.util.Map.of()))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
     Worker w2 =
         Worker.builder()
             .name("worker-b")
             .capabilities(cap)
-            .function(input -> io.casehub.api.model.WorkerResult.of(java.util.Map.of()))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
 
     CaseDefinition def = mock(CaseDefinition.class);

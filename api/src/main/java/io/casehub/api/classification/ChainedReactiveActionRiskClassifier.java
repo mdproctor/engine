@@ -16,12 +16,13 @@
 package io.casehub.api.classification;
 
 import io.casehub.api.spi.ActionRiskClassifier;
-import io.casehub.api.spi.PlannedAction;
+import io.casehub.api.spi.ClassificationContext;
 import io.casehub.api.spi.ReactiveActionRiskClassifier;
 import io.casehub.api.spi.RiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.worker.api.PlannedAction;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -62,7 +63,8 @@ public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskCl
   @Inject @RiskClassifier Instance<ReactiveActionRiskClassifier> reactiveClassifiers;
 
   @Override
-  public Uni<RiskDecision> classify(final PlannedAction action) {
+  public Uni<RiskDecision> classify(
+      final PlannedAction action, final ClassificationContext context) {
     final boolean noBlocking = classifiers.isUnsatisfied();
     final boolean noReactive = reactiveClassifiers.isUnsatisfied();
     if (noBlocking && noReactive) {
@@ -77,7 +79,7 @@ public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskCl
                     () -> {
                       try {
                         return StreamSupport.stream(classifiers.spliterator(), false)
-                            .map(c -> c.classify(action))
+                            .map(c -> c.classify(action, context))
                             .reduce(
                                 (RiskDecision) new Autonomous(),
                                 ChainedReactiveActionRiskClassifier.this::mostRestrictive);
@@ -87,8 +89,8 @@ public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskCl
                             "ActionRiskClassifier threw for action type='%s' workerId='%s'"
                                 + " caseId=%s — applying fail-safe GateRequired",
                             action.actionType(),
-                            action.workerId(),
-                            action.caseId());
+                            context.workerId(),
+                            context.caseId());
                         return (RiskDecision) FAIL_SAFE;
                       }
                     })
@@ -104,7 +106,7 @@ public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskCl
           StreamSupport.stream(reactiveClassifiers.spliterator(), false)
               .map(
                   c ->
-                      c.classify(action)
+                      c.classify(action, context)
                           .onFailure()
                           .recoverWithItem(
                               t -> {

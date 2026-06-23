@@ -17,6 +17,8 @@ package io.casehub.api.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -30,25 +32,26 @@ class WorkerFunctionTest {
   }
 
   @Test
-  void agentExec_holds_agent() {
-    // Agent requires ChatModelProvider which is complex to construct — test type membership only
-    assertThat(WorkerFunction.AgentExec.class).isAssignableTo(WorkerFunction.class);
+  void agentWorkerFunction_implements_workerFunction() {
+    assertThat(AgentWorkerFunction.class).isAssignableTo(WorkerFunction.class);
   }
 
   @Test
-  void flow_holds_workflow() {
-    assertThat(WorkerFunction.Flow.class).isAssignableTo(WorkerFunction.class);
+  void flowWorkerFunction_implements_workerFunction() {
+    assertThat(FlowWorkerFunction.class).isAssignableTo(WorkerFunction.class);
   }
 
   @Test
-  void exhaustive_switch_covers_all_variants() {
+  void instanceof_dispatch_covers_engine_variants() {
     WorkerFunction fn = new WorkerFunction.Sync(input -> WorkerResult.of(Map.of()));
-    String result =
-        switch (fn) {
-          case WorkerFunction.Sync s -> "sync";
-          case WorkerFunction.AgentExec a -> "agent";
-          case WorkerFunction.Flow f -> "flow";
-        };
+    String result;
+    if (fn instanceof FlowWorkerFunction) {
+      result = "flow";
+    } else if (fn instanceof AgentWorkerFunction) {
+      result = "agent";
+    } else {
+      result = "sync";
+    }
     assertThat(result).isEqualTo("sync");
   }
 }

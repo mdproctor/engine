@@ -391,8 +391,14 @@ class DefaultWorkerSpiImplementationsTest {
                     .submit(
                         1L,
                         mock(io.casehub.engine.common.internal.model.CaseInstance.class),
-                        mock(io.casehub.api.model.Worker.class),
-                        mock(io.casehub.api.model.Capability.class),
+                        io.casehub.worker.api.Worker.builder()
+                            .name("w")
+                            .capabilities(io.casehub.worker.api.Capability.of("c", "{}", "{}"))
+                            .function(
+                                new io.casehub.worker.api.WorkerFunction.Sync(
+                                    i -> io.casehub.worker.api.WorkerResult.of(Map.of())))
+                            .build(),
+                        io.casehub.worker.api.Capability.of("c", "{}", "{}"),
                         Map.of())
                     .await()
                     .indefinitely())

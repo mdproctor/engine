@@ -15,6 +15,8 @@
  */
 package io.casehub.api.spi;
 
+import io.casehub.worker.api.PlannedAction;
+
 /**
  * Classifies a worker's planned action to determine whether it may proceed autonomously or must be
  * gated for human approval.
@@ -29,11 +31,8 @@ package io.casehub.api.spi;
  *
  * <p>If {@code classify} throws, the engine applies a fail-safe {@link RiskDecision.GateRequired}
  * requiring manual review. Do not throw to bypass the gate — the fail-safe will catch it.
- *
- * <p>The {@link PlannedAction} passed to {@code classify} is always fully enriched: {@code
- * workerId} and {@code caseId} are non-null.
  */
 public interface ActionRiskClassifier {
 
-  RiskDecision classify(PlannedAction action);
+  RiskDecision classify(PlannedAction action, ClassificationContext context);
 }

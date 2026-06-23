@@ -20,14 +20,15 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -111,7 +112,8 @@ class ExitConditionBlackboardTest {
               Worker.builder()
                   .name("exit-writer-worker")
                   .capabilities(cap)
-                  .function(input -> WorkerResult.of(Map.of("phase", "exited")))
+                  .function(
+                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phase", "exited"))))
                   .build())
           .bindings(
               Binding.builder()

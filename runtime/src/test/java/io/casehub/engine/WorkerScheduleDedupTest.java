@@ -21,10 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.engine.CaseHub;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
@@ -37,6 +34,10 @@ import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -292,15 +293,16 @@ public class WorkerScheduleDedupTest {
             .name("dedup-worker")
             .capabilities(capability)
             .function(
-                input -> {
-                  runCount.incrementAndGet();
-                  return WorkerResult.of(
-                      Map.of(
-                          "status",
-                          "processed",
-                          "processedDocument",
-                          Map.of("id", input.get("documentId"))));
-                })
+                new WorkerFunction.Sync(
+                    input -> {
+                      runCount.incrementAndGet();
+                      return WorkerResult.of(
+                          Map.of(
+                              "status",
+                              "processed",
+                              "processedDocument",
+                              Map.of("id", input.get("documentId"))));
+                    }))
             .build();
 
     @Override

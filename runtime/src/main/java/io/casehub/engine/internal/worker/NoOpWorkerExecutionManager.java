@@ -15,12 +15,12 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.model.Capability;
-import io.casehub.api.model.Worker;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

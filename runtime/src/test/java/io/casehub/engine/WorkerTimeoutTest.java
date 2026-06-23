@@ -20,18 +20,19 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -177,11 +178,12 @@ class WorkerTimeoutTest {
               .capabilities(cap)
               .executionPolicy(new ExecutionPolicy()) // Uses default timeout
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    // Completes immediately
-                    return WorkerResult.of(Map.of("result", "fast-completed"));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        // Completes immediately
+                        return WorkerResult.of(Map.of("result", "fast-completed"));
+                      }))
               .build();
 
       return CaseDefinition.builder()
@@ -214,27 +216,25 @@ class WorkerTimeoutTest {
               .build();
 
       // No retry to make test faster
-      RetryPolicy noRetry = new RetryPolicy(0, null, null);
+      ExecutionPolicy noRetryPolicy = ExecutionPolicy.noRetry();
 
       Worker worker =
           Worker.builder()
               .name("slow-worker-default")
               .capabilities(cap)
-              .executionPolicy(
-                  new ExecutionPolicy(
-                      null, // Use default timeout (60000ms from config)
-                      noRetry))
+              .executionPolicy(noRetryPolicy)
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    try {
-                      // Sleep longer than default timeout (2000ms in tests)
-                      Thread.sleep(10000); // 10 seconds
-                    } catch (InterruptedException e) {
-                      Thread.currentThread().interrupt();
-                    }
-                    return WorkerResult.of(Map.of("result", "should-not-complete"));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        try {
+                          // Sleep longer than default timeout (2000ms in tests)
+                          Thread.sleep(10000); // 10 seconds
+                        } catch (InterruptedException e) {
+                          Thread.currentThread().interrupt();
+                        }
+                        return WorkerResult.of(Map.of("result", "should-not-complete"));
+                      }))
               .build();
 
       return CaseDefinition.builder()
@@ -278,16 +278,17 @@ class WorkerTimeoutTest {
                       10000, // 10 second custom timeout
                       new RetryPolicy()))
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    try {
-                      // Sleep 3 seconds - within custom timeout
-                      Thread.sleep(3000);
-                    } catch (InterruptedException e) {
-                      Thread.currentThread().interrupt();
-                    }
-                    return WorkerResult.of(Map.of("result", "slow-completed"));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        try {
+                          // Sleep 3 seconds - within custom timeout
+                          Thread.sleep(3000);
+                        } catch (InterruptedException e) {
+                          Thread.currentThread().interrupt();
+                        }
+                        return WorkerResult.of(Map.of("result", "slow-completed"));
+                      }))
               .build();
 
       return CaseDefinition.builder()
@@ -320,7 +321,7 @@ class WorkerTimeoutTest {
               .build();
 
       // No retry to make test faster
-      RetryPolicy noRetry = new RetryPolicy(0, null, null);
+      ExecutionPolicy noRetryPolicy = ExecutionPolicy.noRetry();
 
       Worker worker =
           Worker.builder()
@@ -329,18 +330,19 @@ class WorkerTimeoutTest {
               .executionPolicy(
                   new ExecutionPolicy(
                       100, // Very short timeout (100ms)
-                      noRetry))
+                      new RetryPolicy(1, 0, null)))
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    try {
-                      // Sleep 500ms - exceeds short timeout
-                      Thread.sleep(500);
-                    } catch (InterruptedException e) {
-                      Thread.currentThread().interrupt();
-                    }
-                    return WorkerResult.of(Map.of("result", "should-not-complete"));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        try {
+                          // Sleep 500ms - exceeds short timeout
+                          Thread.sleep(500);
+                        } catch (InterruptedException e) {
+                          Thread.currentThread().interrupt();
+                        }
+                        return WorkerResult.of(Map.of("result", "should-not-complete"));
+                      }))
               .build();
 
       return CaseDefinition.builder()

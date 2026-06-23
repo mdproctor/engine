@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.common.internal.model;
 
-import io.casehub.api.spi.PlannedAction;
+import io.casehub.worker.api.PlannedAction;
 import java.util.Map;
 
 /**

@@ -26,7 +26,6 @@ import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
@@ -38,7 +37,6 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.WorkRequest;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.ReactiveWorkerContextProvider;
@@ -68,6 +66,8 @@ import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.engine.ListExpressionResolver;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -225,7 +225,12 @@ public class CaseContextChangedEventHandler {
               for (final Binding b : selected) {
                 unis.add(
                     publishByTarget(
-                        caseInstance, workers, b, triggerChannelId, triggerCorrelationId));
+                        caseInstance,
+                        definition,
+                        workers,
+                        b,
+                        triggerChannelId,
+                        triggerCorrelationId));
               }
               if (unis.isEmpty()) return Uni.createFrom().voidItem();
               return Uni.combine().all().unis(unis).discardItems();
@@ -274,6 +279,7 @@ public class CaseContextChangedEventHandler {
 
   private Uni<Void> publishByTarget(
       final CaseInstance caseInstance,
+      final CaseDefinition caseDefinition,
       final List<Worker> workers,
       final Binding binding,
       final String triggerChannelId,
@@ -287,6 +293,7 @@ public class CaseContextChangedEventHandler {
       case CapabilityTarget ct ->
           publishWorkerSchedule(
               caseInstance,
+              caseDefinition,
               workers,
               binding,
               ct.capability(),
@@ -306,6 +313,7 @@ public class CaseContextChangedEventHandler {
 
   private Uni<Void> publishWorkerSchedule(
       final CaseInstance caseInstance,
+      final CaseDefinition caseDefinition,
       final List<Worker> workers,
       final Binding binding,
       final Capability capability,
@@ -313,7 +321,7 @@ public class CaseContextChangedEventHandler {
       final String triggerCorrelationId) {
 
     if (workers == null || workers.isEmpty()) {
-      LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.getName());
+      LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.name());
       return tryProvision(
           caseInstance,
           capability,
@@ -325,12 +333,12 @@ public class CaseContextChangedEventHandler {
 
     List<AgentCandidate> candidates =
         AgentCandidateFactory.buildCandidates(
-            caseInstance, workers, capability, executionManager, capabilityHealth);
+            caseInstance, caseDefinition, workers, capability, executionManager, capabilityHealth);
 
     if (candidates.isEmpty()) {
       LOG.warnf(
           "No eligible workers for capability '%s' (binding '%s') — all unavailable or no match",
-          capability.getName(), binding.getName());
+          capability.name(), binding.getName());
       return tryProvision(
           caseInstance,
           capability,
@@ -363,15 +371,15 @@ public class CaseContextChangedEventHandler {
       if (candidates.isEmpty()) {
         LOG.warnf(
             "All candidates excluded for capability '%s' binding '%s' — auto-exhausting",
-            capability.getName(), binding.getName());
-        return handleAllCandidatesExhausted(caseInstance, binding.getName(), capability.getName());
+            capability.name(), binding.getName());
+        return handleAllCandidatesExhausted(caseInstance, binding.getName(), capability.name());
       }
     }
 
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
             caseInstance.getUuid(),
-            capability.getName(),
+            capability.name(),
             caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
 
     return agentRoutingStrategy
@@ -384,7 +392,7 @@ public class CaseContextChangedEventHandler {
                   case AgentAssignment.Unresolvable() -> {
                     LOG.warnf(
                         "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
-                        capability.getName(), binding.getName());
+                        capability.name(), binding.getName());
                     yield tryProvision(
                         caseInstance,
                         capability,
@@ -426,7 +434,7 @@ public class CaseContextChangedEventHandler {
       final String workerId) {
 
     final Worker selectedWorker =
-        workers.stream().filter(w -> w.getName().equals(workerId)).findFirst().orElse(null);
+        workers.stream().filter(w -> w.name().equals(workerId)).findFirst().orElse(null);
 
     if (selectedWorker == null) {
       LOG.errorf(
@@ -436,7 +444,7 @@ public class CaseContextChangedEventHandler {
 
     LOG.infof(
         "Agent selected: worker='%s' capability='%s' binding='%s'",
-        workerId, capability.getName(), binding.getName());
+        workerId, capability.name(), binding.getName());
 
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
@@ -547,12 +555,12 @@ public class CaseContextChangedEventHandler {
       final String inputSchemaOverride) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final String effectiveSchema =
-        inputSchemaOverride != null ? inputSchemaOverride : capability.getInputSchema();
+        inputSchemaOverride != null ? inputSchemaOverride : capability.inputSchema();
     final Map<String, Object> inputData =
         evalJqAsMap(
             caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
             effectiveSchema);
-    final WorkRequest workRequest = WorkRequest.of(capability.getName(), inputData);
+    final WorkRequest workRequest = WorkRequest.of(capability.name(), inputData);
     return reactiveWorkerContextProvider
         .buildContext(null, caseInstance.getUuid(), workRequest)
         .flatMap(
@@ -561,7 +569,7 @@ public class CaseContextChangedEventHandler {
                   new ProvisionContext(
                       caseInstance.getUuid(),
                       caseInstance.tenancyId,
-                      capability.getName(),
+                      capability.name(),
                       workerContext,
                       caseInstance.getPropagationContext(),
                       triggerChannelId,
@@ -602,10 +610,10 @@ public class CaseContextChangedEventHandler {
               LOG.warnf(
                   e,
                   "WorkerProvisioner failed for capability '%s' binding '%s' on case %s — auto-exhausting",
-                  capability.getName(),
+                  capability.name(),
                   bindingName,
                   caseInstance.getUuid());
-              return handleAllCandidatesExhausted(caseInstance, bindingName, capability.getName());
+              return handleAllCandidatesExhausted(caseInstance, bindingName, capability.name());
             });
   }
 

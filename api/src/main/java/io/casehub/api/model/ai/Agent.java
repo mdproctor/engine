@@ -27,7 +27,7 @@ import dev.langchain4j.model.chat.request.ResponseFormatType;
 import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.input.PromptTemplate;
-import io.casehub.api.model.WorkerResult;
+import io.casehub.worker.api.WorkerResult;
 import java.util.List;
 import java.util.Map;
 import java.util.function.UnaryOperator;

@@ -15,15 +15,17 @@
  */
 package io.casehub.engine.internal.routing;
 
-import io.casehub.api.model.Capability;
-import io.casehub.api.model.Worker;
+import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
+import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
 import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -53,6 +55,7 @@ public final class AgentCandidateFactory {
    * descriptor is registered).
    *
    * @param caseInstance the case instance — provides the UUID for health probe context
+   * @param caseDefinition the case definition — provides agent descriptors for workers
    * @param workers the full list of workers from the case definition; null is treated as empty
    * @param capability the capability being routed
    * @param executionManager source of Quartz job counts for workload scoring
@@ -61,6 +64,7 @@ public final class AgentCandidateFactory {
    */
   public static List<AgentCandidate> buildCandidates(
       final CaseInstance caseInstance,
+      final CaseDefinition caseDefinition,
       final List<Worker> workers,
       final Capability capability,
       final WorkerExecutionManager executionManager,
@@ -71,29 +75,30 @@ public final class AgentCandidateFactory {
     }
 
     final List<AgentCandidate> candidates = new ArrayList<>();
-    final String capabilityName = capability.getName();
+    final String capabilityName = capability.name();
     final String probeContextId = caseInstance.getUuid().toString();
 
     for (final Worker w : workers) {
-      if (w.getCapabilities() == null) {
+      if (w.capabilities() == null) {
         continue;
       }
       final boolean hasCapability =
-          w.getCapabilities().stream().anyMatch(c -> c.getName().equals(capabilityName));
+          w.capabilities().stream().anyMatch(c -> c.name().equals(capabilityName));
       if (!hasCapability) {
         continue;
       }
 
+      final AgentDescriptor descriptor = caseDefinition.agentDescriptorFor(w.name()).orElse(null);
+
       final CapabilityStatus status =
-          w.hasDescriptor()
-              ? capabilityHealth.probe(
-                  w.agentDescriptor(), capabilityName, ProbeContext.of(probeContextId))
+          descriptor != null
+              ? capabilityHealth.probe(descriptor, capabilityName, ProbeContext.of(probeContextId))
               : new CapabilityHealth.CapabilityStatus.Ready();
 
       if (status instanceof CapabilityStatus.Unavailable u) {
         LOG.warnf(
             "Worker '%s' unavailable for capability '%s': %s — excluded",
-            w.getName(), capabilityName, u.reason());
+            w.name(), capabilityName, u.reason());
         continue;
       }
 
@@ -105,17 +110,15 @@ public final class AgentCandidateFactory {
           };
 
       final Set<String> capabilities =
-          w.getCapabilities().stream()
-              .map(Capability::getName)
-              .collect(Collectors.toUnmodifiableSet());
+          w.capabilities().stream().map(Capability::name).collect(Collectors.toUnmodifiableSet());
 
       candidates.add(
           new AgentCandidate(
-              w.getName(),
+              w.name(),
               capabilities,
-              executionManager.getActiveWorkCount(w.getName()),
+              executionManager.getActiveWorkCount(w.name()),
               health,
-              w.hasDescriptor() ? w.agentDescriptor() : null));
+              descriptor));
     }
     return candidates;
   }

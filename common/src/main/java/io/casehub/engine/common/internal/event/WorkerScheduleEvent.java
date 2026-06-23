@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import io.casehub.api.model.Capability;
-import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 
 public record WorkerScheduleEvent(
     CaseInstance caseInstance,
@@ -36,6 +36,6 @@ public record WorkerScheduleEvent(
   }
 
   public String effectiveInputSchema() {
-    return inputSchemaOverride != null ? inputSchemaOverride : capability.getInputSchema();
+    return inputSchemaOverride != null ? inputSchemaOverride : capability.inputSchema();
   }
 }

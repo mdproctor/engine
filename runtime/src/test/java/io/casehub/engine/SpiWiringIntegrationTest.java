@@ -22,7 +22,6 @@ import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
@@ -30,10 +29,8 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.ProvisionResult;
 import io.casehub.api.spi.ProvisioningException;
@@ -43,6 +40,10 @@ import io.casehub.api.spi.WorkerProvisioner;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
@@ -620,13 +621,14 @@ class SpiWiringIntegrationTest {
               .name("execution-context-recorder")
               .capabilities(capability)
               .function(
-                  input -> {
-                    WorkerContext ctx = WorkerExecutionContext.current();
-                    if (ctx != null) {
-                      RecordingExecutionContextWorker.capturedChannels.add(ctx.channels());
-                    }
-                    return WorkerResult.of(Map.of("recorded", true));
-                  })
+                  new WorkerFunction.Sync(
+                      input -> {
+                        WorkerContext ctx = WorkerExecutionContext.current();
+                        if (ctx != null) {
+                          RecordingExecutionContextWorker.capturedChannels.add(ctx.channels());
+                        }
+                        return WorkerResult.of(Map.of("recorded", true));
+                      }))
               .build();
 
       return CaseDefinition.builder()

@@ -15,7 +15,6 @@
  */
 package io.casehub.blackboard.handler;
 
-import io.casehub.api.model.WorkerOutcome;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.CasePlanModel;
@@ -25,6 +24,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemCompletedEvent;
+import io.casehub.worker.api.WorkerOutcome;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -89,7 +89,7 @@ public class PlanItemCompletionHandler {
           event.caseInstance().getUuid(), event.bindingName(), event.caseInstance().tenancyId);
     } else {
       completePlanItemByKey(
-          event.caseInstance().getUuid(), event.worker().getName(), event.caseInstance().tenancyId);
+          event.caseInstance().getUuid(), event.worker().name(), event.caseInstance().tenancyId);
     }
   }
 

@@ -20,11 +20,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.spi.ActionRiskClassifier;
-import io.casehub.api.spi.PlannedAction;
+import io.casehub.api.spi.ClassificationContext;
 import io.casehub.api.spi.ReactiveActionRiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.worker.api.PlannedAction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.time.Duration;
@@ -40,8 +41,12 @@ class ChainedReactiveActionRiskClassifierTest {
   private ChainedReactiveActionRiskClassifier chain;
 
   private static PlannedAction anyAction() {
-    return PlannedAction.of("desc", "spend.transfer", Map.of("amount", 100))
-        .withIdentity("w-1", UUID.randomUUID());
+    return PlannedAction.of("desc", "spend.transfer", Map.of("amount", 100));
+  }
+
+  private static ClassificationContext anyContext() {
+    return new ClassificationContext(
+        "w-1", UUID.randomUUID(), "tenant-1", "test-case", "cap", "binding");
   }
 
   @BeforeEach
@@ -56,7 +61,7 @@ class ChainedReactiveActionRiskClassifierTest {
   void emptyChain_returnsAutonomous() {
     chain.classifiers = unsatisfied();
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(Autonomous.class);
   }
@@ -65,9 +70,9 @@ class ChainedReactiveActionRiskClassifierTest {
 
   @Test
   void singleClassifier_returnsAutonomous_propagatesAutonomous() {
-    chain.classifiers = instanceOf(action -> new Autonomous());
+    chain.classifiers = instanceOf((action, context) -> new Autonomous());
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(Autonomous.class);
   }
@@ -76,9 +81,9 @@ class ChainedReactiveActionRiskClassifierTest {
   void singleClassifier_returnsGateRequired_propagatesGateRequired() {
     final GateRequired gate =
         new GateRequired("SAR filing", false, List.of("mlro"), Duration.ofHours(24), null);
-    chain.classifiers = instanceOf(action -> gate);
+    chain.classifiers = instanceOf((action, context) -> gate);
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
     assertThat(((GateRequired) result).reason()).isEqualTo("SAR filing");
@@ -89,9 +94,10 @@ class ChainedReactiveActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_bothAutonomous_returnsAutonomous() {
-    chain.classifiers = instanceOf(action -> new Autonomous(), action -> new Autonomous());
+    chain.classifiers =
+        instanceOf((action, context) -> new Autonomous(), (action, context) -> new Autonomous());
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(Autonomous.class);
   }
@@ -100,10 +106,11 @@ class ChainedReactiveActionRiskClassifierTest {
   void twoClassifiers_oneAutonomousOneGateRequired_returnsGateRequired() {
     chain.classifiers =
         instanceOf(
-            action -> new Autonomous(),
-            action -> new GateRequired("SUSAR filing", false, List.of("physician"), null, null));
+            (action, context) -> new Autonomous(),
+            (action, context) ->
+                new GateRequired("SUSAR filing", false, List.of("physician"), null, null));
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
     assertThat(((GateRequired) result).candidateGroups()).containsExactly("physician");
@@ -113,12 +120,14 @@ class ChainedReactiveActionRiskClassifierTest {
   void twoClassifiers_fewerCandidateGroupsWins_notUnion() {
     chain.classifiers =
         instanceOf(
-            action -> new GateRequired("AML", false, List.of("mlro"), Duration.ofHours(24), null),
-            action ->
+            (action, context) ->
+                new GateRequired("AML", false, List.of("mlro"), Duration.ofHours(24), null),
+            (action, context) ->
                 new GateRequired(
                     "clinical", false, List.of("physician", "pharmacist"), null, null));
 
-    GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
+    GateRequired result =
+        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result.candidateGroups()).containsExactly("mlro");
     assertThat(result.reason()).isEqualTo("AML");
@@ -128,11 +137,13 @@ class ChainedReactiveActionRiskClassifierTest {
   void twoClassifiers_sameGroupCount_shorterExpiresInWins() {
     chain.classifiers =
         instanceOf(
-            action -> new GateRequired("slow", false, List.of("mlro"), Duration.ofHours(48), null),
-            action ->
+            (action, context) ->
+                new GateRequired("slow", false, List.of("mlro"), Duration.ofHours(48), null),
+            (action, context) ->
                 new GateRequired("fast", false, List.of("analyst"), Duration.ofHours(24), null));
 
-    GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
+    GateRequired result =
+        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result.expiresIn()).isEqualTo(Duration.ofHours(24));
     assertThat(result.reason()).isEqualTo("fast");
@@ -142,12 +153,14 @@ class ChainedReactiveActionRiskClassifierTest {
   void twoClassifiers_sameGroupCount_deadlineBeatsNoDeadline() {
     chain.classifiers =
         instanceOf(
-            action -> new GateRequired("no-deadline", false, List.of("mlro"), null, null),
-            action ->
+            (action, context) ->
+                new GateRequired("no-deadline", false, List.of("mlro"), null, null),
+            (action, context) ->
                 new GateRequired(
                     "with-deadline", false, List.of("analyst"), Duration.ofHours(24), null));
 
-    GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
+    GateRequired result =
+        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result.expiresIn()).isEqualTo(Duration.ofHours(24));
     assertThat(result.reason()).isEqualTo("with-deadline");
@@ -157,10 +170,12 @@ class ChainedReactiveActionRiskClassifierTest {
   void twoClassifiers_nullCandidateGroupsVsRestricted_restrictedGroupsWins() {
     chain.classifiers =
         instanceOf(
-            action -> new GateRequired("unrestricted", false, null, null, null),
-            action -> new GateRequired("restricted", false, List.of("mlro"), null, null));
+            (action, context) -> new GateRequired("unrestricted", false, null, null, null),
+            (action, context) ->
+                new GateRequired("restricted", false, List.of("mlro"), null, null));
 
-    GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
+    GateRequired result =
+        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result.candidateGroups()).containsExactly("mlro");
     assertThat(result.reason()).isEqualTo("restricted");
@@ -172,11 +187,11 @@ class ChainedReactiveActionRiskClassifierTest {
   void classifierThrows_failSafeGateRequiredApplied() {
     chain.classifiers =
         instanceOf(
-            action -> {
+            (action, context) -> {
               throw new RuntimeException("DB unavailable");
             });
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
     GateRequired gate = (GateRequired) result;
@@ -189,35 +204,36 @@ class ChainedReactiveActionRiskClassifierTest {
   void classifierThrows_failSafeHasNullScope() {
     chain.classifiers =
         instanceOf(
-            action -> {
+            (action, context) -> {
               throw new IllegalStateException("config missing");
             });
 
-    GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
+    GateRequired result =
+        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result.scope()).isNull();
     assertThat(result.expiresIn()).isNull();
   }
 
-  // --- Enrichment — classifier receives workerId and caseId ---
+  // --- ClassificationContext is passed through to classifiers ---
 
   @Test
-  void classify_receivesEnrichedPlannedAction_withWorkerIdAndCaseId() {
-    final PlannedAction[] captured = {null};
+  void classify_passesContextToClassifiers() {
+    final ClassificationContext[] captured = {null};
     chain.classifiers =
         instanceOf(
-            action -> {
-              captured[0] = action;
+            (action, context) -> {
+              captured[0] = context;
               return new Autonomous();
             });
 
-    UUID caseId = UUID.randomUUID();
-    PlannedAction enriched =
-        PlannedAction.of("desc", "type", Map.of()).withIdentity("worker-x", caseId);
-    chain.classify(enriched).await().indefinitely();
+    ClassificationContext ctx =
+        new ClassificationContext(
+            "worker-x", UUID.randomUUID(), "tenant-1", "test-case", "cap", "binding");
+    chain.classify(anyAction(), ctx).await().indefinitely();
 
     assertThat(captured[0].workerId()).isEqualTo("worker-x");
-    assertThat(captured[0].caseId()).isEqualTo(caseId);
+    assertThat(captured[0]).isSameAs(ctx);
   }
 
   // --- Reactive classifiers ---
@@ -227,12 +243,12 @@ class ChainedReactiveActionRiskClassifierTest {
     chain.classifiers = unsatisfied();
     chain.reactiveClassifiers =
         reactiveInstanceOf(
-            action ->
+            (action, context) ->
                 Uni.createFrom()
                     .item(
                         new GateRequired("async-check", false, List.of("compliance"), null, null)));
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
     assertThat(((GateRequired) result).candidateGroups()).containsExactly("compliance");
@@ -242,14 +258,16 @@ class ChainedReactiveActionRiskClassifierTest {
   void blockingAndReactive_mostRestrictiveWinsAcrossBoth() {
     chain.classifiers =
         instanceOf(
-            action -> new GateRequired("blocking", false, List.of("mlro", "analyst"), null, null));
+            (action, context) ->
+                new GateRequired("blocking", false, List.of("mlro", "analyst"), null, null));
     chain.reactiveClassifiers =
         reactiveInstanceOf(
-            action ->
+            (action, context) ->
                 Uni.createFrom()
                     .item(new GateRequired("reactive", false, List.of("mlro"), null, null)));
 
-    GateRequired result = (GateRequired) chain.classify(anyAction()).await().indefinitely();
+    GateRequired result =
+        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result.candidateGroups()).containsExactly("mlro");
     assertThat(result.reason()).isEqualTo("reactive");
@@ -260,9 +278,9 @@ class ChainedReactiveActionRiskClassifierTest {
     chain.classifiers = unsatisfied();
     chain.reactiveClassifiers =
         reactiveInstanceOf(
-            action -> Uni.createFrom().failure(new RuntimeException("async DB down")));
+            (action, context) -> Uni.createFrom().failure(new RuntimeException("async DB down")));
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
     assertThat(((GateRequired) result).reason()).contains("Classifier error");
@@ -273,11 +291,11 @@ class ChainedReactiveActionRiskClassifierTest {
     chain.classifiers = unsatisfied();
     chain.reactiveClassifiers =
         reactiveInstanceOf(
-            action -> {
+            (action, context) -> {
               throw new NullPointerException("synchronous arg validation");
             });
 
-    RiskDecision result = chain.classify(anyAction()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
     assertThat(((GateRequired) result).reason()).contains("Classifier error");

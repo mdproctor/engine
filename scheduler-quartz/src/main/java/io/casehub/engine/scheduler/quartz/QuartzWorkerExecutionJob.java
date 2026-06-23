@@ -18,12 +18,9 @@ package io.casehub.engine.scheduler.quartz;
 import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.WorkRequest;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.spi.PlannedAction;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
@@ -36,6 +33,8 @@ import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -128,7 +127,7 @@ class QuartzWorkerExecutionJob implements Job {
 
       Worker worker =
           definition.getWorkers().stream()
-              .filter(w -> w.getName().equals(workerId))
+              .filter(w -> w.name().equals(workerId))
               .findFirst()
               .orElse(null);
 
@@ -139,7 +138,7 @@ class QuartzWorkerExecutionJob implements Job {
 
       Capability capability =
           definition.getCapabilities().stream()
-              .filter(c -> c.getName().equals(capabilityName))
+              .filter(c -> c.name().equals(capabilityName))
               .findFirst()
               .orElse(null);
 
@@ -149,7 +148,7 @@ class QuartzWorkerExecutionJob implements Job {
         return;
       }
 
-      int timeoutMs = executionConfig.getEffectiveTimeout(worker.getExecutionPolicy().timeoutMs());
+      int timeoutMs = executionConfig.getEffectiveTimeout(worker.executionPolicy().timeoutMs());
 
       WorkerContext workerContext =
           workerContextProvider.buildContext(
@@ -159,11 +158,11 @@ class QuartzWorkerExecutionJob implements Job {
 
       workerExecutor
           .execute(
-              worker.getFunction(),
+              worker.function(),
               inputData,
               workerContext,
               timeoutMs,
-              capability.getOutputSchema(),
+              capability.outputSchema(),
               metadata)
           .subscribe()
           .with(
@@ -178,13 +177,8 @@ class QuartzWorkerExecutionJob implements Job {
       CaseInstance instance,
       Worker worker,
       String inputDataHash,
-      io.casehub.api.model.WorkerResult workerResult,
+      io.casehub.worker.api.WorkerResult workerResult,
       String bindingName) {
-    PlannedAction enrichedAction =
-        workerResult.plannedAction() != null
-            ? workerResult.plannedAction().withIdentity(worker.getName(), instance.getUuid())
-            : null;
-
     eventBus.publish(
         WORKER_EXECUTION_FINISHED,
         new WorkflowExecutionCompleted(
@@ -192,7 +186,6 @@ class QuartzWorkerExecutionJob implements Job {
             worker,
             inputDataHash,
             workerResult.output(),
-            enrichedAction,
             bindingName,
             workerResult.outcome()));
   }

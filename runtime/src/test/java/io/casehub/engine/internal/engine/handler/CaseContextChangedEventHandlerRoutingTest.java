@@ -28,13 +28,10 @@ import io.casehub.api.context.ContextPanel;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.spi.ReactiveWorkerContextProvider;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.api.spi.routing.AgentAssignment;
@@ -52,6 +49,10 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
@@ -115,7 +116,7 @@ class CaseContextChangedEventHandlerRoutingTest {
         Worker.builder()
             .name("analyst-worker")
             .capabilities(capability)
-            .function(input -> WorkerResult.of(java.util.Map.of()))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
 
     final CaseMetaModel metaModel = mock(CaseMetaModel.class);
@@ -235,7 +236,7 @@ class CaseContextChangedEventHandlerRoutingTest {
         Worker.builder()
             .name("analyst-worker")
             .capabilities(cap)
-            .function(input -> WorkerResult.of(java.util.Map.of()))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
 
     final io.casehub.engine.common.internal.model.CaseMetaModel metaModel =
@@ -300,7 +301,7 @@ class CaseContextChangedEventHandlerRoutingTest {
         Worker.builder()
             .name("analyst-worker")
             .capabilities(cap)
-            .function(input -> WorkerResult.of(java.util.Map.of()))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
 
     final io.casehub.engine.common.internal.model.CaseMetaModel metaModel =

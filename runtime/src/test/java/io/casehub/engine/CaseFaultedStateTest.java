@@ -20,22 +20,23 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -231,10 +232,11 @@ class CaseFaultedStateTest {
                   .name("always-failing-worker")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        runCount.incrementAndGet();
-                        throw new RuntimeException("Simulated permanent failure");
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            runCount.incrementAndGet();
+                            throw new RuntimeException("Simulated permanent failure");
+                          }))
                   // 2 max attempts, 200 ms between retries — fast but realistic
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(2, 200)))
                   .build())
@@ -288,7 +290,7 @@ class CaseFaultedStateTest {
                   .name("error-producing-worker")
                   .capabilities(capability)
                   .function(
-                      input -> WorkerResult.of(Map.of("status", "error"))) // satisfies failure goal
+                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "error"))))
                   .build())
           .bindings(
               Binding.builder()

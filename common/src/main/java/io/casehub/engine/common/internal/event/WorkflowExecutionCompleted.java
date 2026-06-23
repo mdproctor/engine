@@ -15,10 +15,9 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerOutcome;
-import io.casehub.api.spi.PlannedAction;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerOutcome;
 import java.util.Map;
 
 /**
@@ -26,27 +25,21 @@ import java.util.Map;
  *
  * <p>{@code outcome} carries the worker's semantic result: {@link WorkerOutcome.Success}, {@link
  * WorkerOutcome.Declined}, {@link WorkerOutcome.Failed}, or {@link WorkerOutcome.Expired}. The
- * completion handler branches on this before checking {@code plannedAction}.
+ * completion handler extracts PlannedAction from {@code outcome} when it is {@code Success}.
  *
- * <p>{@code plannedAction} is non-null only when the worker returned a {@link
- * io.casehub.api.model.WorkerResult} with a declared action. The engine's completion handler forks
- * on this field: null means the normal path; non-null triggers {@link
- * io.casehub.api.spi.ReactiveActionRiskClassifier#classify(PlannedAction)} before applying output.
- *
- * <p>The gate approval path re-publishes this event with {@code plannedAction=null} and {@code
- * outcome=Success} so the normal completion machinery handles output application, PlanItem
- * completion, and stage autocomplete without re-classifying.
+ * <p>The gate approval path re-publishes this event with {@code outcome=Success(null)} so the
+ * normal completion machinery handles output application, PlanItem completion, and stage
+ * autocomplete without re-classifying.
  */
 public record WorkflowExecutionCompleted(
     CaseInstance caseInstance,
     Worker worker,
     String idempotency,
     Map<String, Object> output,
-    PlannedAction plannedAction,
     String bindingName,
     WorkerOutcome outcome) {
 
-  /** Convenience constructor for the gate-re-fire path — plannedAction is always null. */
+  /** Convenience constructor for the gate-re-fire path. */
   public static WorkflowExecutionCompleted approved(
       final CaseInstance caseInstance,
       final Worker worker,
@@ -54,6 +47,6 @@ public record WorkflowExecutionCompleted(
       final Map<String, Object> output,
       final String bindingName) {
     return new WorkflowExecutionCompleted(
-        caseInstance, worker, idempotency, output, null, bindingName, WorkerOutcome.success());
+        caseInstance, worker, idempotency, output, bindingName, WorkerOutcome.success());
   }
 }

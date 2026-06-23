@@ -17,6 +17,7 @@ package io.casehub.api.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.worker.api.Capability;
 import org.junit.jupiter.api.Test;
 
 class OutcomePolicyTest {
@@ -46,7 +47,7 @@ class OutcomePolicyTest {
     Binding binding =
         Binding.builder()
             .name("test")
-            .capability(new Capability("cap", null, null))
+            .capability(Capability.of("cap", "{}", "{}"))
             .on(new ContextChangeTrigger(null, null))
             .outcomePolicy(policy)
             .build();
@@ -58,7 +59,7 @@ class OutcomePolicyTest {
     Binding binding =
         Binding.builder()
             .name("test")
-            .capability(new Capability("cap", null, null))
+            .capability(Capability.of("cap", "{}", "{}"))
             .on(new ContextChangeTrigger(null, null))
             .build();
     assertThat(binding.getOutcomePolicy()).isNull();

@@ -19,12 +19,10 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.ContextPanel;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.routing.AgentAssignment;
@@ -47,6 +45,8 @@ import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -139,13 +139,18 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     // 2. Build AgentCandidate list — health-probed, Unavailable workers excluded
     final List<AgentCandidate> candidates =
         AgentCandidateFactory.buildCandidates(
-            instance, definition.getWorkers(), capability, executionManager, capabilityHealth);
+            instance,
+            definition,
+            definition.getWorkers(),
+            capability,
+            executionManager,
+            capabilityHealth);
 
     // 3. Route via AgentRoutingStrategy (blocking await — not on Vert.x IO thread)
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
             instance.getUuid(),
-            capability.getName(),
+            capability.name(),
             instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
     final AgentAssignment assignment =
         agentRoutingStrategy.select(ctx, candidates).await().indefinitely();
@@ -154,14 +159,13 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       case AgentAssignment.Unresolvable() -> {
         final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
         failed.completeExceptionally(
-            new IllegalStateException(
-                "No qualified agent for capability: " + capability.getName()));
+            new IllegalStateException("No qualified agent for capability: " + capability.name()));
         return failed;
       }
       case AgentAssignment.EscalateToOversight e -> {
         LOG.infof(
             "Agent routing escalated to oversight for capability '%s' caseId=%s",
-            capability.getName(), instance.getUuid());
+            capability.name(), instance.getUuid());
         eventBus.publish(
             EventBusAddresses.AGENT_ROUTING_ESCALATION,
             new AgentRoutingEscalationEvent(
@@ -170,7 +174,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
         failed.completeExceptionally(
             new IllegalStateException(
                 "Agent routing escalated to human oversight for capability: "
-                    + capability.getName()
+                    + capability.name()
                     + ". A QUERY has been posted to the oversight channel."));
         return failed;
       }
@@ -196,10 +200,10 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     final Map<String, Object> inputData =
         evalJqAsMap(
             instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
-            capability.getInputSchema());
+            capability.inputSchema());
     final String correlationKey =
         WorkerExecutionKeys.inputDataHash(
-            instance.getUuid(), selectedWorker.getName(), capability.getName(), inputData);
+            instance.getUuid(), selectedWorker.name(), capability.name(), inputData);
 
     // 6. Register future in PendingWorkRegistry
     final CompletableFuture<WorkResult> future = pendingWorkRegistry.register(correlationKey);
@@ -214,13 +218,13 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
             id ->
                 LOG.debugf(
                     "WORK_SUBMITTED persisted: caseId=%s worker=%s correlationKey=%s eventLogId=%d",
-                    instance.getUuid(), selectedWorker.getName(), correlationKey, id),
+                    instance.getUuid(), selectedWorker.name(), correlationKey, id),
             t ->
                 LOG.warnf(
                     t,
                     "Failed to persist WORK_SUBMITTED: caseId=%s worker=%s",
                     instance.getUuid(),
-                    selectedWorker.getName()));
+                    selectedWorker.name()));
 
     // 8. For waitMode: transition case to WAITING and persist
     if (waitMode) {
@@ -246,11 +250,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
 
     LOG.infof(
         "Work submitted: caseId=%s worker=%s capability=%s correlationKey=%s waitMode=%b",
-        instance.getUuid(),
-        selectedWorker.getName(),
-        capability.getName(),
-        correlationKey,
-        waitMode);
+        instance.getUuid(), selectedWorker.name(), capability.name(), correlationKey, waitMode);
 
     return future;
   }
@@ -260,7 +260,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       return null;
     }
     return definition.getCapabilities().stream()
-        .filter(c -> c.getName().equals(capabilityName))
+        .filter(c -> c.name().equals(capabilityName))
         .findFirst()
         .orElse(null);
   }
@@ -270,7 +270,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       return null;
     }
     return definition.getWorkers().stream()
-        .filter(w -> w.getName().equals(workerName))
+        .filter(w -> w.name().equals(workerName))
         .findFirst()
         .orElse(null);
   }
@@ -282,14 +282,14 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       final String correlationKey) {
     final EventLog log = new EventLog();
     log.setCaseId(instance.getUuid());
-    log.setWorkerId(worker.getName());
+    log.setWorkerId(worker.name());
     log.setEventType(CaseHubEventType.WORK_SUBMITTED);
     log.setStreamType(EventStreamType.CASE);
     log.setTimestamp(Instant.now());
     log.setMetadata(
         OBJECT_MAPPER
             .createObjectNode()
-            .put("capabilityName", capability.getName())
+            .put("capabilityName", capability.name())
             .put("correlationKey", correlationKey));
     return log;
   }

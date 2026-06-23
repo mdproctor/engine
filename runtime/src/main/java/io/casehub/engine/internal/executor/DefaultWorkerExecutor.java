@@ -15,15 +15,17 @@
  */
 package io.casehub.engine.internal.executor;
 
+import io.casehub.api.model.AgentWorkerFunction;
+import io.casehub.api.model.FlowWorkerFunction;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
-import io.casehub.api.model.WorkerFunction;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.WorkerExecutor;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.worker.WorkflowExecutor;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.virtual.threads.VirtualThreads;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -75,10 +77,13 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
     Uni<WorkerResult> execution =
         switch (function) {
           case WorkerFunction.Sync sync -> executeSync(sync.fn(), inputData, context, timeoutMs);
-          case WorkerFunction.AgentExec agent ->
+          case AgentWorkerFunction agent ->
               executeSync(agent.agent()::execute, inputData, context, timeoutMs);
-          case WorkerFunction.Flow flow ->
+          case FlowWorkerFunction flow ->
               executeFlow(flow.workflow(), inputData, context, metadata);
+          default ->
+              throw new UnsupportedOperationException(
+                  "Unsupported WorkerFunction type: " + function.getClass().getName());
         };
     return execution.map(result -> applyOutputSchema(result, outputSchema));
   }
@@ -159,7 +164,7 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
           mapper.convertValue(
               vr.output().get(0),
               new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-      return new WorkerResult(evaluated, result.plannedAction(), result.outcome());
+      return new WorkerResult(evaluated, result.outcome());
     }
     return result;
   }

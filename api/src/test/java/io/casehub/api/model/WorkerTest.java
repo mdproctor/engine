@@ -17,85 +17,53 @@ package io.casehub.api.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.eidos.api.AgentDescriptor;
-import java.util.List;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class WorkerTest {
 
-  private static final AgentDescriptor DESCRIPTOR =
-      new AgentDescriptor(
-          "agent-1",
-          "TestAgent",
-          "1.0",
-          "openai",
-          "gpt-4",
-          "4-turbo",
-          null,
-          null,
-          null,
-          null,
-          null,
-          "code-review",
-          List.of(),
-          null,
-          null,
-          null,
-          "casehubio",
-          null);
-
   @Test
-  void hasDescriptor_withDescriptor_returnsTrue() {
+  void builder_creates_worker_with_record_accessors() {
+    Capability cap = Capability.of("review", ".x", ".y");
     Worker worker =
         Worker.builder()
-            .name("agent-worker")
-            .capabilities(
-                Capability.builder().name("review").inputSchema(".x").outputSchema(".y").build())
-            .agentDescriptor(DESCRIPTOR)
-            .function(input -> WorkerResult.of(Map.of()))
+            .name("test-worker")
+            .capabilities(cap)
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
+            .description("a worker")
             .build();
 
-    assertThat(worker.hasDescriptor()).isTrue();
+    assertThat(worker.name()).isEqualTo("test-worker");
+    assertThat(worker.description()).isEqualTo("a worker");
+    assertThat(worker.capabilities()).containsExactly(cap);
+    assertThat(worker.function()).isInstanceOf(WorkerFunction.Sync.class);
   }
 
   @Test
-  void hasDescriptor_withoutDescriptor_returnsFalse() {
+  void worker_without_description_has_null_description() {
     Worker worker =
         Worker.builder()
             .name("plain-worker")
-            .capabilities(
-                Capability.builder().name("review").inputSchema(".x").outputSchema(".y").build())
-            .function(input -> WorkerResult.of(Map.of()))
+            .capabilities(Capability.of("cap", ".x", ".y"))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .build();
 
-    assertThat(worker.hasDescriptor()).isFalse();
+    assertThat(worker.description()).isNull();
   }
 
   @Test
-  void agentDescriptor_accessor_returnsStoredDescriptor() {
-    Worker worker =
-        Worker.builder()
-            .name("agent-worker")
-            .capabilities(
-                Capability.builder().name("review").inputSchema(".x").outputSchema(".y").build())
-            .agentDescriptor(DESCRIPTOR)
-            .function(input -> WorkerResult.of(Map.of()))
-            .build();
-
-    assertThat(worker.agentDescriptor()).isSameAs(DESCRIPTOR);
-  }
-
-  @Test
-  void agentDescriptor_notSet_returnsNull() {
+  void worker_executionPolicy_defaults_to_null() {
     Worker worker =
         Worker.builder()
             .name("plain-worker")
-            .capabilities(
-                Capability.builder().name("review").inputSchema(".x").outputSchema(".y").build())
-            .function(input -> WorkerResult.of(Map.of()))
+            .capabilities(Capability.of("cap", ".x", ".y"))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .build();
 
-    assertThat(worker.agentDescriptor()).isNull();
+    assertThat(worker.executionPolicy()).isNotNull();
   }
 }

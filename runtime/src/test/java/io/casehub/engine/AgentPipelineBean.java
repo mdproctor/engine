@@ -21,14 +21,15 @@ import static io.serverlessworkflow.fluent.func.dsl.FuncDSL.get;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.FlowWorkerFunction;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
-import io.casehub.api.model.Worker;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -92,36 +93,41 @@ public class AgentPipelineBean extends CaseHub {
                 .name("document-fetcher")
                 .capabilities(fetchCap)
                 .function(
-                    workflow("fetch-document")
-                        .tasks(
-                            get("fetchDocumentData", "http://localhost:8889/fetch/{id}")
-                                .inputFrom("{ id: .documentId }")
-                                .outputAs("{ data: ., step: \"fetched\" }"))
-                        .build())
+                    new FlowWorkerFunction(
+                        workflow("fetch-document")
+                            .tasks(
+                                get("fetchDocumentData", "http://localhost:8889/fetch/{id}")
+                                    .inputFrom("{ id: .documentId }")
+                                    .outputAs("{ data: ., step: \"fetched\" }"))
+                            .build()))
                 .description("Fetches document data from external API")
                 .build(),
             Worker.builder()
                 .name("sentiment-analyzer")
                 .capabilities(sentimentCap)
                 .function(
-                    workflow("analyze-sentiment")
-                        .tasks(
-                            agent(sentimentAgent::analyze, Agents.SentimentRequest.class)
-                                .inputFrom("{ documentId: .documentId, content: .data.content }")
-                                .outputAs("{ sentiment: ., step: \"analyzed\" }"))
-                        .build())
+                    new FlowWorkerFunction(
+                        workflow("analyze-sentiment")
+                            .tasks(
+                                agent(sentimentAgent::analyze, Agents.SentimentRequest.class)
+                                    .inputFrom(
+                                        "{ documentId: .documentId, content: .data.content }")
+                                    .outputAs("{ sentiment: ., step: \"analyzed\" }"))
+                            .build()))
                 .description("Analyzes document sentiment via LLM")
                 .build(),
             Worker.builder()
                 .name("content-summarizer")
                 .capabilities(summaryCap)
                 .function(
-                    workflow("summarize-content")
-                        .tasks(
-                            agent(summarizerAgent::summarize, Agents.SummaryRequest.class)
-                                .inputFrom("{ documentId: .documentId, content: .data.content }")
-                                .outputAs("{ summary: ., step: \"summarized\" }"))
-                        .build())
+                    new FlowWorkerFunction(
+                        workflow("summarize-content")
+                            .tasks(
+                                agent(summarizerAgent::summarize, Agents.SummaryRequest.class)
+                                    .inputFrom(
+                                        "{ documentId: .documentId, content: .data.content }")
+                                    .outputAs("{ summary: ., step: \"summarized\" }"))
+                            .build()))
                 .description("Summarizes document content via LLM")
                 .build())
         .bindings(

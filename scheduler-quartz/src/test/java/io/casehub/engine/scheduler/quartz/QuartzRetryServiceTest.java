@@ -24,13 +24,7 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.casehub.api.model.BackoffStrategy;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.ExecutionPolicy;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -39,6 +33,13 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -259,8 +260,8 @@ class QuartzRetryServiceTest {
     Worker worker =
         Worker.builder()
             .name(workerId)
-            .capabilities(new Capability("test-cap", null, null))
-            .function(input -> WorkerResult.of(Map.of()))
+            .capabilities(Capability.of("test-cap", "{}", "{}"))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .executionPolicy(executionPolicy)
             .build();
     CaseDefinition definition =
@@ -288,8 +289,8 @@ class QuartzRetryServiceTest {
     Worker worker =
         Worker.builder()
             .name(workerId)
-            .capabilities(new Capability("test-cap", null, null))
-            .function(input -> WorkerResult.of(Map.of()))
+            .capabilities(Capability.of("test-cap", "{}", "{}"))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .build();
     CaseDefinition definition =
         CaseDefinition.builder()

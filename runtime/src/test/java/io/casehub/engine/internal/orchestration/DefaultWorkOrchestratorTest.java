@@ -23,13 +23,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
@@ -47,6 +44,10 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
@@ -293,11 +294,10 @@ class DefaultWorkOrchestratorTest {
         Worker.builder()
             .name("agent-worker")
             .capabilities(capability)
-            .function(input -> WorkerResult.of(Map.of("result", "done")))
-            .agentDescriptor(AGENT_DESCRIPTOR)
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
             .build();
 
-    return buildInstance(capabilityName, worker);
+    return buildInstance(capabilityName, worker, AGENT_DESCRIPTOR);
   }
 
   private CaseInstance runningInstance(final String capabilityName) {
@@ -312,13 +312,18 @@ class DefaultWorkOrchestratorTest {
         Worker.builder()
             .name("analyst-worker")
             .capabilities(capability)
-            .function(input -> WorkerResult.of(Map.of("result", "done")))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
             .build();
 
     return buildInstance(capabilityName, worker);
   }
 
   private CaseInstance buildInstance(final String capabilityName, final Worker worker) {
+    return buildInstance(capabilityName, worker, null);
+  }
+
+  private CaseInstance buildInstance(
+      final String capabilityName, final Worker worker, final AgentDescriptor descriptor) {
     final Capability capability =
         Capability.builder()
             .name(capabilityName)
@@ -326,14 +331,17 @@ class DefaultWorkOrchestratorTest {
             .outputSchema("{ result: .result }")
             .build();
 
-    final CaseDefinition definition =
+    final CaseDefinition.Builder defBuilder =
         CaseDefinition.builder()
             .namespace("test-orch")
             .name("Orchestration Test Case")
             .version("1.0.0")
             .capabilities(capability)
-            .workers(worker)
-            .build();
+            .workers(worker);
+    if (descriptor != null) {
+      defBuilder.agentDescriptor(worker.name(), descriptor);
+    }
+    final CaseDefinition definition = defBuilder.build();
 
     final CaseMetaModel metaModel = mock(CaseMetaModel.class);
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);

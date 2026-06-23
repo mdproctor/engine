@@ -20,19 +20,20 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
@@ -179,7 +180,9 @@ class CaseLifecycleCdiEventTest {
                   .capabilities(capability)
                   // Return done:true, trigger:false — so the ContextChangeTrigger
                   // (.trigger==true and .done!=true) never re-fires after the first execution.
-                  .function(input -> WorkerResult.of(Map.of("done", true, "trigger", false)))
+                  .function(
+                      new WorkerFunction.Sync(
+                          input -> WorkerResult.of(Map.of("done", true, "trigger", false))))
                   .build())
           .bindings(
               Binding.builder()

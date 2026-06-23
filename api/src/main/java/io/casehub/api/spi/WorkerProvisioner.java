@@ -16,6 +16,7 @@
 package io.casehub.api.spi;
 
 import io.casehub.api.model.ProvisionContext;
+import io.casehub.worker.api.Worker;
 import java.util.Set;
 
 /**

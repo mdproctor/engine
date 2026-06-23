@@ -18,6 +18,7 @@ package io.casehub.api.model;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.worker.api.Capability;
 import java.util.Map;
 import java.util.Objects;
 
@@ -98,7 +99,7 @@ public class Binding {
   }
 
   public String effectiveInputSchema(Capability capability) {
-    return inputSchemaOverride != null ? inputSchemaOverride : capability.getInputSchema();
+    return inputSchemaOverride != null ? inputSchemaOverride : capability.inputSchema();
   }
 
   public static Builder builder() {

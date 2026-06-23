@@ -26,6 +26,11 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.api.model.ai.ModelType;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -62,23 +67,23 @@ class AgentWorkerTest {
             .build();
 
     Capability textProcessing =
-        new Capability("text-processing", "{ input: .text }", "{ text: .result }");
+        Capability.of("text-processing", "{ input: .text }", "{ text: .result }");
 
     Worker worker =
         Worker.builder()
             .name("ai-text-processor")
             .capabilities(textProcessing)
-            .function(agent)
+            .function(new AgentWorkerFunction(agent))
             .description("AI-powered text processing worker")
             .build();
 
-    assertEquals("ai-text-processor", worker.getName());
-    assertEquals("AI-powered text processing worker", worker.getDescription());
-    assertEquals(1, worker.getCapabilities().size());
-    assertEquals("text-processing", worker.getCapabilities().get(0).getName());
+    assertEquals("ai-text-processor", worker.name());
+    assertEquals("AI-powered text processing worker", worker.description());
+    assertEquals(1, worker.capabilities().size());
+    assertEquals("text-processing", worker.capabilities().get(0).name());
 
-    assertNotNull(worker.getFunction());
-    assertInstanceOf(WorkerFunction.AgentExec.class, worker.getFunction());
+    assertNotNull(worker.function());
+    assertInstanceOf(AgentWorkerFunction.class, worker.function());
   }
 
   @Test
@@ -91,16 +96,16 @@ class AgentWorkerTest {
             .model(fixedResponseProvider("{\"result\": \"HELLO WORLD\"}"))
             .build();
 
-    Capability textTransform = new Capability("transform", ".", ".");
+    Capability textTransform = Capability.of("transform", ".", ".");
 
     Worker worker =
         Worker.builder()
             .name("uppercase-transformer")
             .capabilities(textTransform)
-            .function(agent)
+            .function(new AgentWorkerFunction(agent))
             .build();
 
-    Agent extractedAgent = ((WorkerFunction.AgentExec) worker.getFunction()).agent();
+    Agent extractedAgent = ((AgentWorkerFunction) worker.function()).agent();
     Map<String, Object> result = extractedAgent.execute(Map.of("text", "hello world")).output();
 
     assertEquals("HELLO WORLD", result.get("result"));
@@ -122,14 +127,13 @@ class AgentWorkerTest {
     Worker worker =
         Worker.builder()
             .name("policy-test")
-            .capabilities(List.of(new Capability("test", ".", ".")))
-            .function(agent)
+            .capabilities(List.of(Capability.of("test", ".", ".")))
+            .function(new AgentWorkerFunction(agent))
             .executionPolicy(policy)
             .build();
 
-    assertEquals(5000, worker.getExecutionPolicy().timeoutMs());
-    assertEquals(3, worker.getExecutionPolicy().retries().maxAttempts());
-    assertEquals(
-        BackoffStrategy.EXPONENTIAL, worker.getExecutionPolicy().retries().backoffStrategy());
+    assertEquals(5000, worker.executionPolicy().timeoutMs());
+    assertEquals(3, worker.executionPolicy().retries().maxAttempts());
+    assertEquals(BackoffStrategy.EXPONENTIAL, worker.executionPolicy().retries().backoffStrategy());
   }
 }

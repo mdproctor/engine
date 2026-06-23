@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.common.internal.executor;
 
-import io.casehub.api.model.BackoffStrategy;
-import io.casehub.api.model.RetryPolicy;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.RetryPolicy;
 import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 

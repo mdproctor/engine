@@ -91,7 +91,7 @@ public class ActionGateWorkItemHandler {
     root.put("description", event.plannedAction().description());
     root.put("actionType", event.plannedAction().actionType());
     root.put("reversible", event.gateRequired().reversible());
-    root.set("context", MAPPER.valueToTree(event.plannedAction().context()));
+    root.set("context", MAPPER.valueToTree(event.plannedAction().parameters()));
     try {
       return MAPPER.writeValueAsString(root);
     } catch (final JsonProcessingException e) {

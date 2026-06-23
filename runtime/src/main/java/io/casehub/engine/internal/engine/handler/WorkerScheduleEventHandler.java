@@ -19,10 +19,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.ContextPanel;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.model.WorkRequest;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.CaseChannelProvider;
@@ -39,6 +37,8 @@ import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.Vertx;
@@ -95,30 +95,26 @@ public class WorkerScheduleEventHandler {
 
     String inputDataHash =
         WorkerExecutionKeys.inputDataHash(
-            instance.getUuid(), worker.getName(), capability.getName(), inputData);
+            instance.getUuid(), worker.name(), capability.name(), inputData);
 
-    if (workerExecutionGuard.isBlocked(worker.getName(), instance.getUuid())) {
+    if (workerExecutionGuard.isBlocked(worker.name(), instance.getUuid())) {
       LOG.warnf(
           "Worker blocked by guard (quarantined?): caseId=%s worker=%s — emitting retries exhausted",
-          instance.getUuid(), worker.getName());
+          instance.getUuid(), worker.name());
       eventBus.publish(
           EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
           new WorkerRetriesExhaustedEvent(
-              instance.getUuid(),
-              worker.getName(),
-              inputDataHash,
-              bindingName,
-              instance.tenancyId));
+              instance.getUuid(), worker.name(), inputDataHash, bindingName, instance.tenancyId));
       return Uni.createFrom().voidItem();
     }
 
     workerContextProvider.buildContext(
-        worker.getName(), instance.getUuid(), WorkRequest.of(capability.getName(), inputData));
+        worker.name(), instance.getUuid(), WorkRequest.of(capability.name(), inputData));
 
     EventLog eventLog =
         buildEventLog(instance, worker, capability, inputData, inputDataHash, bindingName);
 
-    String lockKey = "wse:" + instance.getUuid() + ":" + worker.getName() + ":" + inputDataHash;
+    String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
 
     return vertx
         .sharedData()
@@ -141,7 +137,7 @@ public class WorkerScheduleEventHandler {
 
     return eventLogRepository
         .findSchedulingEvents(
-            instance.getUuid(), worker.getName(), idempotencyAfter, instance.tenancyId)
+            instance.getUuid(), worker.name(), idempotencyAfter, instance.tenancyId)
         .map(existing -> decideAction(existing, inputDataHash))
         .chain(action -> executeAction(action, eventLog, instance, worker, capability))
         .chain(eventLogId -> submitIfNeeded(eventLogId, instance, worker, capability, inputData))
@@ -149,7 +145,7 @@ public class WorkerScheduleEventHandler {
             () ->
                 LOG.infof(
                     "WorkerScheduleEvent processed: caseId=%s worker=%s capability=%s",
-                    instance.getUuid(), worker.getName(), capability.getName()))
+                    instance.getUuid(), worker.name(), capability.name()))
         .invoke(lock::release)
         .replaceWithVoid()
         .onFailure()
@@ -159,8 +155,8 @@ public class WorkerScheduleEventHandler {
                     t,
                     "WorkerScheduleEvent FAILED: caseId=%s worker=%s capability=%s",
                     instance.getUuid(),
-                    worker.getName(),
-                    capability.getName()))
+                    worker.name(),
+                    capability.name()))
         .invoke(lock::release);
   }
 
@@ -172,8 +168,8 @@ public class WorkerScheduleEventHandler {
       String inputDataHash,
       String bindingName) {
     Map<String, String> metadataBuilder = new HashMap<>();
-    metadataBuilder.put("workerName", worker.getName());
-    metadataBuilder.put("capabilityName", capability.getName());
+    metadataBuilder.put("workerName", worker.name());
+    metadataBuilder.put("capabilityName", capability.name());
     metadataBuilder.put("inputDataHash", inputDataHash);
     if (bindingName != null) {
       metadataBuilder.put("bindingName", bindingName);
@@ -185,7 +181,7 @@ public class WorkerScheduleEventHandler {
     eventLog.setEventType(CaseHubEventType.WORKER_SCHEDULED);
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
-    eventLog.setWorkerId(worker.getName());
+    eventLog.setWorkerId(worker.name());
     eventLog.setMetadata(OBJECT_MAPPER.valueToTree(metadata));
     eventLog.setPayload(OBJECT_MAPPER.valueToTree(inputData));
     return eventLog;
@@ -201,7 +197,7 @@ public class WorkerScheduleEventHandler {
       case SKIP -> {
         LOG.infof(
             "Skipping WorkerScheduleEvent: already scheduled/started/completed caseId=%s worker=%s capability=%s",
-            instance.getUuid(), worker.getName(), capability.getName());
+            instance.getUuid(), worker.name(), capability.name());
         yield Uni.createFrom().nullItem();
       }
       case CREATE_NEW -> eventLogRepository.appendAndReturnId(eventLog, instance.tenancyId);
@@ -229,14 +225,14 @@ public class WorkerScheduleEventHandler {
       Map<String, Object> inputData,
       Long eventLogId) {
     CaseChannel channel =
-        caseChannelProvider.openChannel(instance.getUuid(), "worker:" + worker.getName());
+        caseChannelProvider.openChannel(instance.getUuid(), "worker:" + worker.name());
     // ISO-8601 via Instant.toString(); consumer must use Instant.parse() to handle
     // optional sub-second precision (e.g. "...00Z" vs "...00.123Z")
     final String deadline =
         instance.getPropagationContext().getDeadline().map(Object::toString).orElse(null);
     final CommandContent command =
         new CommandContent(
-            "COMMAND", capability.getName(), String.valueOf(eventLogId), inputData, deadline);
+            "COMMAND", capability.name(), String.valueOf(eventLogId), inputData, deadline);
     caseChannelProvider.postToChannel(
         channel,
         "casehub-engine:orchestrator",
@@ -246,7 +242,7 @@ public class WorkerScheduleEventHandler {
         deadline);
     LOG.debugf(
         "COMMAND dispatched: caseId=%s worker=%s capability=%s correlationId=%d",
-        instance.getUuid(), worker.getName(), capability.getName(), eventLogId);
+        instance.getUuid(), worker.name(), capability.name(), eventLogId);
   }
 
   private ScheduleAction decideAction(List<EventLog> existingEvents, String executionIdempotency) {

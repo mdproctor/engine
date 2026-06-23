@@ -20,16 +20,17 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 // ContextChangeTrigger is imported via FQN at call sites to avoid ambiguity with schema model
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -141,19 +142,21 @@ class ContextChangeWhenFilterTest {
                   .name("guarded-worker")
                   .capabilities(guardedCap)
                   .function(
-                      input -> {
-                        guardedWorkerCount.incrementAndGet();
-                        return WorkerResult.of(Map.of("guardedRan", true));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            guardedWorkerCount.incrementAndGet();
+                            return WorkerResult.of(Map.of("guardedRan", true));
+                          }))
                   .build(),
               Worker.builder()
                   .name("finish-worker")
                   .capabilities(finishCap)
                   .function(
-                      input -> {
-                        ungardedWorkerCount.incrementAndGet();
-                        return WorkerResult.of(Map.of("done", true));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            ungardedWorkerCount.incrementAndGet();
+                            return WorkerResult.of(Map.of("done", true));
+                          }))
                   .build())
           .bindings(
               Binding.builder()

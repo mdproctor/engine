@@ -19,14 +19,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemCompletedEvent;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
@@ -155,12 +156,14 @@ class MixedWorkersBlackboardTest {
               Worker.builder()
                   .name("worker-a")
                   .capabilities(capA)
-                  .function(input -> WorkerResult.of(Map.of("phaseA", "done")))
+                  .function(
+                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phaseA", "done"))))
                   .build(),
               Worker.builder()
                   .name("worker-b")
                   .capabilities(capB)
-                  .function(input -> WorkerResult.of(Map.of("phaseB", "done")))
+                  .function(
+                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phaseB", "done"))))
                   .build())
           .bindings(
               Binding.builder()

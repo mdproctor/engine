@@ -20,16 +20,17 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -348,16 +349,17 @@ public class SignalDedupExtendedTest {
                   .name("event-worker-dedup")
                   .capabilities(eventCapability)
                   .function(
-                      input -> {
-                        runCount.incrementAndGet();
-                        String id = (String) input.get("id");
-                        if (id != null) {
-                          runCountById
-                              .computeIfAbsent(id, k -> new AtomicInteger())
-                              .incrementAndGet();
-                        }
-                        return WorkerResult.of(Map.of("eventResult", "processed"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            runCount.incrementAndGet();
+                            String id = (String) input.get("id");
+                            if (id != null) {
+                              runCountById
+                                  .computeIfAbsent(id, k -> new AtomicInteger())
+                                  .incrementAndGet();
+                            }
+                            return WorkerResult.of(Map.of("eventResult", "processed"));
+                          }))
                   .build())
           .bindings(
               Binding.builder()
@@ -402,16 +404,17 @@ public class SignalDedupExtendedTest {
                   .name("event-worker-dedup-goal")
                   .capabilities(eventCapability)
                   .function(
-                      input -> {
-                        runCount.incrementAndGet();
-                        String id = (String) input.get("id");
-                        if (id != null) {
-                          runCountById
-                              .computeIfAbsent(id, k -> new AtomicInteger())
-                              .incrementAndGet();
-                        }
-                        return WorkerResult.of(Map.of("eventResult", "processed"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            runCount.incrementAndGet();
+                            String id = (String) input.get("id");
+                            if (id != null) {
+                              runCountById
+                                  .computeIfAbsent(id, k -> new AtomicInteger())
+                                  .incrementAndGet();
+                            }
+                            return WorkerResult.of(Map.of("eventResult", "processed"));
+                          }))
                   .build())
           .bindings(
               Binding.builder()

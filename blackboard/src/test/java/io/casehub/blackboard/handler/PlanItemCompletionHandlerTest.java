@@ -23,7 +23,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import io.casehub.api.model.Worker;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
@@ -33,6 +32,10 @@ import io.casehub.blackboard.stage.Stage;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.Map;
 import java.util.UUID;
@@ -68,8 +71,12 @@ class PlanItemCompletionHandlerTest {
   private WorkflowExecutionCompleted eventFor(String workerName) {
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);
-    Worker worker = mock(Worker.class);
-    when(worker.getName()).thenReturn(workerName);
+    Worker worker =
+        Worker.builder()
+            .name(workerName)
+            .capabilities(Capability.of("cap", "{}", "{}"))
+            .function(new WorkerFunction.Sync(i -> WorkerResult.of(Map.of())))
+            .build();
     return WorkflowExecutionCompleted.approved(instance, worker, "idempotency-key", Map.of(), null);
   }
 
@@ -250,8 +257,12 @@ class PlanItemCompletionHandlerTest {
 
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);
-    Worker worker = mock(Worker.class);
-    when(worker.getName()).thenReturn("worker-x");
+    Worker worker =
+        Worker.builder()
+            .name("worker-x")
+            .capabilities(Capability.of("cap", "{}", "{}"))
+            .function(new WorkerFunction.Sync(i -> WorkerResult.of(Map.of())))
+            .build();
     WorkflowExecutionCompleted event =
         WorkflowExecutionCompleted.approved(
             instance, worker, "idempotency-key", Map.of(), "action-gate-handler");

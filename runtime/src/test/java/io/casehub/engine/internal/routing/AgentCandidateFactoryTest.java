@@ -19,8 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.casehub.api.model.Capability;
-import io.casehub.api.model.Worker;
+import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.eidos.api.AgentDescriptor;
@@ -29,7 +28,12 @@ import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
 import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,21 +50,21 @@ class AgentCandidateFactoryTest {
     capabilityHealth = mock(CapabilityHealth.class);
     executionManager = mock(WorkerExecutionManager.class);
     caseInstance = mock(CaseInstance.class);
-    capability = mock(Capability.class);
+    capability = Capability.of("research", "{}", "{}");
 
     when(caseInstance.getUuid()).thenReturn(UUID.randomUUID());
-    when(capability.getName()).thenReturn("research");
     when(executionManager.getActiveWorkCount("agent-1")).thenReturn(2);
   }
 
   @Test
   void workerWithMatchingCapability_isIncluded() {
-    final Worker worker = workerWithCapability("agent-1", "research", false, null);
+    final Worker worker = workerWithCapability("agent-1", "research");
+    final CaseDefinition def = definitionFor(worker);
     when(executionManager.getActiveWorkCount("agent-1")).thenReturn(2);
 
     final List<AgentCandidate> result =
         AgentCandidateFactory.buildCandidates(
-            caseInstance, List.of(worker), capability, executionManager, capabilityHealth);
+            caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).workerId()).isEqualTo("agent-1");
@@ -71,11 +75,12 @@ class AgentCandidateFactoryTest {
 
   @Test
   void workerWithDifferentCapability_isExcluded() {
-    final Worker worker = workerWithCapability("agent-1", "other-capability", false, null);
+    final Worker worker = workerWithCapability("agent-1", "other-capability");
+    final CaseDefinition def = definitionFor(worker);
 
     final List<AgentCandidate> result =
         AgentCandidateFactory.buildCandidates(
-            caseInstance, List.of(worker), capability, executionManager, capabilityHealth);
+            caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).isEmpty();
   }
@@ -83,14 +88,15 @@ class AgentCandidateFactoryTest {
   @Test
   void unavailableWorker_isExcluded() {
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
-    final Worker worker = workerWithCapability("agent-1", "research", true, descriptor);
+    final Worker worker = workerWithCapability("agent-1", "research");
+    final CaseDefinition def = definitionFor(worker, descriptor);
     when(capabilityHealth.probe(
             descriptor, "research", ProbeContext.of(caseInstance.getUuid().toString())))
         .thenReturn(new CapabilityStatus.Unavailable("down"));
 
     final List<AgentCandidate> result =
         AgentCandidateFactory.buildCandidates(
-            caseInstance, List.of(worker), capability, executionManager, capabilityHealth);
+            caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).isEmpty();
   }
@@ -98,14 +104,15 @@ class AgentCandidateFactoryTest {
   @Test
   void workerWithDescriptor_descriptorPassedThrough() {
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
-    final Worker worker = workerWithCapability("agent-1", "research", true, descriptor);
+    final Worker worker = workerWithCapability("agent-1", "research");
+    final CaseDefinition def = definitionFor(worker, descriptor);
     when(capabilityHealth.probe(
             descriptor, "research", ProbeContext.of(caseInstance.getUuid().toString())))
         .thenReturn(new CapabilityStatus.Ready());
 
     final List<AgentCandidate> result =
         AgentCandidateFactory.buildCandidates(
-            caseInstance, List.of(worker), capability, executionManager, capabilityHealth);
+            caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).agentDescriptor()).isSameAs(descriptor);
@@ -114,14 +121,15 @@ class AgentCandidateFactoryTest {
   @Test
   void epistemicallyWeakWorker_includedWithCorrectHealth() {
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
-    final Worker worker = workerWithCapability("agent-1", "research", true, descriptor);
+    final Worker worker = workerWithCapability("agent-1", "research");
+    final CaseDefinition def = definitionFor(worker, descriptor);
     when(capabilityHealth.probe(
             descriptor, "research", ProbeContext.of(caseInstance.getUuid().toString())))
         .thenReturn(new CapabilityStatus.EpistemicallyWeak("domain", 0.3));
 
     final List<AgentCandidate> result =
         AgentCandidateFactory.buildCandidates(
-            caseInstance, List.of(worker), capability, executionManager, capabilityHealth);
+            caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).health()).isEqualTo(AgentHealth.EPISTEMICALLY_WEAK);
@@ -129,30 +137,35 @@ class AgentCandidateFactoryTest {
 
   @Test
   void nullWorkers_returnsEmpty() {
+    final CaseDefinition def =
+        CaseDefinition.builder().namespace("t").name("t").version("1").build();
+
     final List<AgentCandidate> result =
         AgentCandidateFactory.buildCandidates(
-            caseInstance, null, capability, executionManager, capabilityHealth);
+            caseInstance, def, null, capability, executionManager, capabilityHealth);
 
     assertThat(result).isEmpty();
   }
 
-  // ---- Helpers ---------------------------------------------------------------
+  private Worker workerWithCapability(final String name, final String capabilityName) {
+    final Capability cap = Capability.of(capabilityName, "{}", "{}");
+    return Worker.builder()
+        .name(name)
+        .capabilities(cap)
+        .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
+        .build();
+  }
 
-  private Worker workerWithCapability(
-      final String name,
-      final String capabilityName,
-      final boolean hasDescriptor,
-      final AgentDescriptor descriptor) {
-    final Worker worker = mock(Worker.class);
-    when(worker.getName()).thenReturn(name);
-    when(worker.hasDescriptor()).thenReturn(hasDescriptor);
-    if (hasDescriptor) {
-      when(worker.agentDescriptor()).thenReturn(descriptor);
+  private CaseDefinition definitionFor(final Worker worker) {
+    return definitionFor(worker, null);
+  }
+
+  private CaseDefinition definitionFor(final Worker worker, final AgentDescriptor descriptor) {
+    final CaseDefinition.Builder b =
+        CaseDefinition.builder().namespace("t").name("t").version("1").workers(worker);
+    if (descriptor != null) {
+      b.agentDescriptor(worker.name(), descriptor);
     }
-
-    final Capability cap = mock(Capability.class);
-    when(cap.getName()).thenReturn(capabilityName);
-    when(worker.getCapabilities()).thenReturn(List.of(cap));
-    return worker;
+    return b.build();
   }
 }

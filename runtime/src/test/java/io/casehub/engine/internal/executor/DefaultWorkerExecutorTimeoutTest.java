@@ -18,11 +18,11 @@ package io.casehub.engine.internal.executor;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.WorkerFunction;
-import io.casehub.api.model.WorkerOutcome;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.WorkerExecutor;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerOutcome;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.time.Duration;

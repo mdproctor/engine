@@ -23,7 +23,6 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.SubCaseTarget;
-import io.casehub.api.model.Worker;
 import io.casehub.api.spi.routing.ImplementationCandidate;
 import io.casehub.api.spi.routing.ImplementationRoutingContext;
 import io.casehub.api.spi.routing.ImplementationRoutingStrategy;
@@ -33,6 +32,7 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -161,7 +161,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
     List<Binding> nonCapability = new ArrayList<>();
     for (Binding b : gatedEligible) {
       if (b.target() instanceof CapabilityTarget ct) {
-        byCapability.computeIfAbsent(ct.capability().getName(), k -> new ArrayList<>()).add(b);
+        byCapability.computeIfAbsent(ct.capability().name(), k -> new ArrayList<>()).add(b);
       } else {
         nonCapability.add(b);
       }
@@ -242,14 +242,13 @@ public class PlanningStrategyLoopControl implements LoopControl {
     return switch (binding.target()) {
       case null -> "unknown";
       case io.casehub.api.model.CapabilityTarget ct -> {
-        String capName = ct.capability().getName();
+        String capName = ct.capability().name();
         List<Worker> matching =
             ctx.definition().getWorkers().stream()
                 .filter(
                     w ->
-                        w.getCapabilities() != null
-                            && w.getCapabilities().stream()
-                                .anyMatch(c -> c.getName().equals(capName)))
+                        w.capabilities() != null
+                            && w.capabilities().stream().anyMatch(c -> c.name().equals(capName)))
                 .toList();
         if (matching.size() > 1) {
           LOG.warnf(
@@ -259,13 +258,13 @@ public class PlanningStrategyLoopControl implements LoopControl {
                   + "Multi-worker fan-out requires per-worker PlanItems (casehubio/engine#82).",
               capName,
               matching.size(),
-              matching.get(0).getName(),
+              matching.get(0).name(),
               matching.stream()
                   .skip(1)
-                  .map(Worker::getName)
+                  .map(Worker::name)
                   .collect(java.util.stream.Collectors.joining(", ")));
         }
-        yield matching.isEmpty() ? capName : matching.get(0).getName();
+        yield matching.isEmpty() ? capName : matching.get(0).name();
       }
       case SubCaseTarget st -> "unknown";
       case HumanTaskTarget ht -> "unknown";

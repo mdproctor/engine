@@ -16,10 +16,8 @@
 package io.casehub.resilience.deadletter;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
@@ -29,6 +27,8 @@ import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -148,7 +148,7 @@ public class DeadLetterReplayService {
 
     Worker worker =
         definition.getWorkers().stream()
-            .filter(w -> w.getName().equals(workerId))
+            .filter(w -> w.name().equals(workerId))
             .findFirst()
             .orElse(null);
 
@@ -158,7 +158,7 @@ public class DeadLetterReplayService {
       return Optional.empty();
     }
 
-    Capability capability = worker.getCapabilities().stream().findFirst().orElse(null);
+    Capability capability = worker.capabilities().stream().findFirst().orElse(null);
     if (capability == null) {
       LOG.warnf("DLQ replay: worker '%s' has no capabilities", workerId);
       return Optional.empty();

@@ -19,21 +19,22 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
-import io.casehub.api.model.BackoffStrategy;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -161,14 +162,15 @@ class CaseTimeoutEnforcerIntegrationTest {
                   .name("hanging-worker")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        try {
-                          Thread.sleep(60_000); // 60s — far exceeds the 1s budget
-                        } catch (InterruptedException e) {
-                          Thread.currentThread().interrupt();
-                        }
-                        return WorkerResult.of(Map.of());
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            try {
+                              Thread.sleep(60_000); // 60s — far exceeds the 1s budget
+                            } catch (InterruptedException e) {
+                              Thread.currentThread().interrupt();
+                            }
+                            return WorkerResult.of(Map.of());
+                          }))
                   .executionPolicy(
                       // 30s per-execution timeout, 1 retry — budget expires at 1s, long before
                       // either execution timeout or retry kicks in.

@@ -24,21 +24,22 @@ import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import io.casehub.api.engine.CaseHub;
+import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.AllOfGoalExpression;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.api.model.ai.ModelType;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -142,7 +143,7 @@ public class AgentWorkerExecutionTest {
 
       // Create capability
       Capability sentimentCapability =
-          new Capability(
+          Capability.of(
               "analyzeSentiment",
               "{ text: .text }",
               "{ sentiment: .sentiment, status: \"analyzed\" }");
@@ -152,7 +153,7 @@ public class AgentWorkerExecutionTest {
           Worker.builder()
               .name("sentiment-worker")
               .capabilities(sentimentCapability)
-              .function(sentimentAgent)
+              .function(new AgentWorkerFunction(sentimentAgent))
               .description("AI-powered sentiment analysis worker")
               .build();
 

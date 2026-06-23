@@ -21,22 +21,23 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -478,19 +479,20 @@ public class WorkerRetryExtendedTest {
                   .name("flexible-retry-worker")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        String taskId = (String) input.get("taskId");
-                        int attempt =
-                            attempts
-                                .computeIfAbsent(taskId, k -> new AtomicInteger())
-                                .incrementAndGet();
-                        int maxFail = failUntil.getOrDefault(taskId, 0);
-                        if (attempt <= maxFail) {
-                          throw new RuntimeException(
-                              "Simulated failure on attempt " + attempt + " of " + maxFail);
-                        }
-                        return WorkerResult.of(Map.of("status", "processed", "taskId", taskId));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            String taskId = (String) input.get("taskId");
+                            int attempt =
+                                attempts
+                                    .computeIfAbsent(taskId, k -> new AtomicInteger())
+                                    .incrementAndGet();
+                            int maxFail = failUntil.getOrDefault(taskId, 0);
+                            if (attempt <= maxFail) {
+                              throw new RuntimeException(
+                                  "Simulated failure on attempt " + attempt + " of " + maxFail);
+                            }
+                            return WorkerResult.of(Map.of("status", "processed", "taskId", taskId));
+                          }))
                   // 5 max attempts, 100 ms between retries — allows tests up to 4 failures
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(5, 100)))
                   .build())
@@ -535,19 +537,20 @@ public class WorkerRetryExtendedTest {
                   .name("signal-retry-worker")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        String taskId = (String) input.get("taskId");
-                        int attempt =
-                            attempts
-                                .computeIfAbsent(taskId, k -> new AtomicInteger())
-                                .incrementAndGet();
-                        int maxFail = failUntil.getOrDefault(taskId, 0);
-                        if (attempt <= maxFail) {
-                          throw new RuntimeException(
-                              "Signal-triggered failure on attempt " + attempt);
-                        }
-                        return WorkerResult.of(Map.of("status", "processed"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            String taskId = (String) input.get("taskId");
+                            int attempt =
+                                attempts
+                                    .computeIfAbsent(taskId, k -> new AtomicInteger())
+                                    .incrementAndGet();
+                            int maxFail = failUntil.getOrDefault(taskId, 0);
+                            if (attempt <= maxFail) {
+                              throw new RuntimeException(
+                                  "Signal-triggered failure on attempt " + attempt);
+                            }
+                            return WorkerResult.of(Map.of("status", "processed"));
+                          }))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(5, 100)))
                   .build())
           .bindings(
@@ -598,23 +601,25 @@ public class WorkerRetryExtendedTest {
                   .name("alpha-always-success")
                   .capabilities(alphaCapability)
                   .function(
-                      input -> {
-                        alphaAttempts.incrementAndGet();
-                        return WorkerResult.of(Map.of("alphaResult", "alpha-done"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            alphaAttempts.incrementAndGet();
+                            return WorkerResult.of(Map.of("alphaResult", "alpha-done"));
+                          }))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(3, 100)))
                   .build(),
               Worker.builder()
                   .name("beta-retry-worker")
                   .capabilities(betaCapability)
                   .function(
-                      input -> {
-                        int attempt = betaAttempts.incrementAndGet();
-                        if (attempt <= betaFailUntil.get()) {
-                          throw new RuntimeException("Beta failure on attempt " + attempt);
-                        }
-                        return WorkerResult.of(Map.of("betaResult", "beta-done"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            int attempt = betaAttempts.incrementAndGet();
+                            if (attempt <= betaFailUntil.get()) {
+                              throw new RuntimeException("Beta failure on attempt " + attempt);
+                            }
+                            return WorkerResult.of(Map.of("betaResult", "beta-done"));
+                          }))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(5, 100)))
                   .build())
           .bindings(

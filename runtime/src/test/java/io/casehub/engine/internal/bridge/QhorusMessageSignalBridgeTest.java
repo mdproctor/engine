@@ -28,9 +28,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerOutcome;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -41,6 +38,10 @@ import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerOutcome;
+import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
@@ -143,7 +144,7 @@ class QhorusMessageSignalBridgeTest {
     assertThat(completed.outcome()).isInstanceOf(WorkerOutcome.Declined.class);
     assertThat(((WorkerOutcome.Declined) completed.outcome()).reason())
         .isEqualTo("not qualified for this review");
-    assertThat(completed.worker().getName()).isEqualTo(workerName);
+    assertThat(completed.worker().name()).isEqualTo(workerName);
     assertThat(completed.bindingName()).isEqualTo(bindingName);
     assertThat(completed.caseInstance()).isSameAs(instance);
     verifyNoInteractions(runtime);
@@ -262,7 +263,7 @@ class QhorusMessageSignalBridgeTest {
     ArgumentCaptor<WorkflowExecutionCompleted> captor =
         ArgumentCaptor.forClass(WorkflowExecutionCompleted.class);
     verify(eventBus).publish(eq(EventBusAddresses.WORKER_EXECUTION_FINISHED), captor.capture());
-    assertThat(captor.getValue().worker().getName()).isEqualTo(workerName);
+    assertThat(captor.getValue().worker().name()).isEqualTo(workerName);
   }
 
   // ---- Non-commitment types still ignored ----
@@ -393,7 +394,7 @@ class QhorusMessageSignalBridgeTest {
         Worker.builder()
             .name(workerName)
             .capabilities(List.of())
-            .function(input -> WorkerResult.of(Map.of()))
+            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .build();
     CaseDefinition def = mock(CaseDefinition.class);
     when(def.getWorkers()).thenReturn(List.of(worker));

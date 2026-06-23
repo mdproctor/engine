@@ -24,11 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -37,6 +34,10 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -287,14 +288,19 @@ public class SignalPersistenceAndDedupTest {
                   .name("payment-worker")
                   .capabilities(paymentCapability)
                   .function(
-                      input -> {
-                        runCount.incrementAndGet();
-                        Map<String, Object> payment = (Map<String, Object>) input.get("payment");
-                        Number amount = (Number) payment.get("amount");
-                        return WorkerResult.of(
-                            Map.of(
-                                "status", "processed", "lastProcessedAmount", amount.intValue()));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            runCount.incrementAndGet();
+                            Map<String, Object> payment =
+                                (Map<String, Object>) input.get("payment");
+                            Number amount = (Number) payment.get("amount");
+                            return WorkerResult.of(
+                                Map.of(
+                                    "status",
+                                    "processed",
+                                    "lastProcessedAmount",
+                                    amount.intValue()));
+                          }))
                   .build())
           .bindings(
               Binding.builder()

@@ -22,22 +22,23 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.platform.api.identity.TenancyConstants;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -206,7 +207,8 @@ class FailureCascadeIntegrationTest {
               Worker.builder()
                   .name("succeeding-worker")
                   .capabilities(cap)
-                  .function(input -> WorkerResult.of(Map.of("result", "done")))
+                  .function(
+                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(1, 100)))
                   .build())
           .bindings(
@@ -243,7 +245,8 @@ class FailureCascadeIntegrationTest {
               Worker.builder()
                   .name("always-declining")
                   .capabilities(cap)
-                  .function(input -> WorkerResult.declined("cannot handle"))
+                  .function(
+                      new WorkerFunction.Sync(input -> WorkerResult.declined("cannot handle")))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(1, 100)))
                   .build())
           .bindings(
@@ -281,14 +284,15 @@ class FailureCascadeIntegrationTest {
                   .name("slow-worker")
                   .capabilities(cap)
                   .function(
-                      input -> {
-                        try {
-                          Thread.sleep(5000);
-                        } catch (InterruptedException e) {
-                          Thread.currentThread().interrupt();
-                        }
-                        return WorkerResult.of(Map.of("result", "late"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            try {
+                              Thread.sleep(5000);
+                            } catch (InterruptedException e) {
+                              Thread.currentThread().interrupt();
+                            }
+                            return WorkerResult.of(Map.of("result", "late"));
+                          }))
                   .executionPolicy(new ExecutionPolicy(200, new RetryPolicy(1, 100)))
                   .build())
           .bindings(

@@ -17,16 +17,16 @@ package io.casehub.engine.scheduler.quartz;
 
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -165,14 +165,14 @@ public class ConditionalScheduledTriggerJob implements Job {
 
   private Worker findWorker(CaseDefinition definition, String workerName) {
     return definition.getWorkers().stream()
-        .filter(w -> w.getName().equals(workerName))
+        .filter(w -> w.name().equals(workerName))
         .findFirst()
         .orElse(null);
   }
 
   private Capability findCapability(CaseDefinition definition, String capabilityName) {
     return definition.getCapabilities().stream()
-        .filter(c -> c.getName().equals(capabilityName))
+        .filter(c -> c.name().equals(capabilityName))
         .findFirst()
         .orElse(null);
   }

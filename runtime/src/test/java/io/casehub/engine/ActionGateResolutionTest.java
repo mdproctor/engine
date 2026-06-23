@@ -20,7 +20,6 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
@@ -28,10 +27,8 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.spi.ActionRiskClassifier;
-import io.casehub.api.spi.PlannedAction;
+import io.casehub.api.spi.ClassificationContext;
 import io.casehub.api.spi.RiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.RiskDecision.GateRequired;
@@ -40,6 +37,11 @@ import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
 import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.PlannedAction;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -206,7 +208,7 @@ class ActionGateResolutionTest {
     }
 
     @Override
-    public RiskDecision classify(final PlannedAction action) {
+    public RiskDecision classify(final PlannedAction action, final ClassificationContext context) {
       return nextDecision;
     }
   }
@@ -240,15 +242,17 @@ class ActionGateResolutionTest {
                   .name("resolution-worker")
                   .capabilities(cap)
                   .function(
-                      input -> {
-                        final Map<String, Object> output = Map.of("gateWorkerOutput", "produced");
-                        if (declareAction.get()) {
-                          return WorkerResult.of(
-                              output,
-                              PlannedAction.of("File resolution", "resolution.file", Map.of()));
-                        }
-                        return WorkerResult.of(output);
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            final Map<String, Object> output =
+                                Map.of("gateWorkerOutput", "produced");
+                            if (declareAction.get()) {
+                              return WorkerResult.of(
+                                  output,
+                                  PlannedAction.of("File resolution", "resolution.file", Map.of()));
+                            }
+                            return WorkerResult.of(output);
+                          }))
                   .build())
           .bindings(
               Binding.builder()

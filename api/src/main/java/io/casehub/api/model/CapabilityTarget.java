@@ -15,5 +15,7 @@
  */
 package io.casehub.api.model;
 
+import io.casehub.worker.api.Capability;
+
 /** Binding target that routes to an available worker via capability matching. */
 public record CapabilityTarget(Capability capability) implements BindingTarget {}

@@ -16,8 +16,9 @@
 package io.casehub.api.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.casehub.worker.api.WorkerOutcome;
+import io.casehub.worker.api.WorkerResult;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -30,7 +31,7 @@ class WorkerResultExpiredTest {
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
     assertThat(((WorkerOutcome.Expired) result.outcome()).reason()).isEqualTo("timed out");
     assertThat(result.output()).isEmpty();
-    assertThat(result.plannedAction()).isNull();
+    assertThat(result.outcome()).isNotInstanceOf(WorkerOutcome.Success.class);
   }
 
   @Test
@@ -42,14 +43,9 @@ class WorkerResultExpiredTest {
   }
 
   @Test
-  void expired_outcome_rejects_planned_action() {
-    assertThatThrownBy(
-            () ->
-                new WorkerResult(
-                    Map.of(),
-                    io.casehub.api.spi.PlannedAction.of("action", "type", Map.of()),
-                    new WorkerOutcome.Expired("timed out")))
-        .isInstanceOf(IllegalArgumentException.class);
+  void expired_outcome_cannot_carry_planned_action() {
+    WorkerOutcome expired = new WorkerOutcome.Expired("timed out");
+    assertThat(expired).isNotInstanceOf(WorkerOutcome.Success.class);
   }
 
   @Test

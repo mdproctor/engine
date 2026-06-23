@@ -20,17 +20,18 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.ScheduleTrigger;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -253,10 +254,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker")
               .capabilities(cap)
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    return WorkerResult.of(Map.of("workDone", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        return WorkerResult.of(Map.of("workDone", true));
+                      }))
               .build();
 
       Binding binding =
@@ -295,10 +297,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker")
               .capabilities(cap)
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    return WorkerResult.of(Map.of("workDone", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        return WorkerResult.of(Map.of("workDone", true));
+                      }))
               .build();
 
       Binding binding =
@@ -337,10 +340,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker")
               .capabilities(cap)
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    return WorkerResult.of(Map.of("workDone", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        return WorkerResult.of(Map.of("workDone", true));
+                      }))
               .build();
 
       Binding binding =
@@ -380,10 +384,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker")
               .capabilities(cap)
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    return WorkerResult.of(Map.of("workDone", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        return WorkerResult.of(Map.of("workDone", true));
+                      }))
               .build();
 
       Binding binding =
@@ -423,10 +428,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker")
               .capabilities(cap)
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    return WorkerResult.of(Map.of("workDone", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        return WorkerResult.of(Map.of("workDone", true));
+                      }))
               .build();
 
       Binding binding =
@@ -466,10 +472,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker")
               .capabilities(cap)
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    return WorkerResult.of(Map.of("workDone", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        return WorkerResult.of(Map.of("workDone", true));
+                      }))
               .build();
 
       Binding binding =
@@ -517,10 +524,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker1")
               .capabilities(cap1)
               .function(
-                  ctx -> {
-                    worker1Count.incrementAndGet();
-                    return WorkerResult.of(Map.of("work1Done", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        worker1Count.incrementAndGet();
+                        return WorkerResult.of(Map.of("work1Done", true));
+                      }))
               .build();
 
       Worker worker2 =
@@ -528,10 +536,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker2")
               .capabilities(cap2)
               .function(
-                  ctx -> {
-                    worker2Count.incrementAndGet();
-                    return WorkerResult.of(Map.of("work2Done", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        worker2Count.incrementAndGet();
+                        return WorkerResult.of(Map.of("work2Done", true));
+                      }))
               .build();
 
       Binding binding1 =
@@ -577,10 +586,11 @@ class ScheduleTriggerSimpleTest {
               .name("worker")
               .capabilities(cap)
               .function(
-                  ctx -> {
-                    executionCount.incrementAndGet();
-                    return WorkerResult.of(Map.of("workDone", true));
-                  })
+                  new WorkerFunction.Sync(
+                      ctx -> {
+                        executionCount.incrementAndGet();
+                        return WorkerResult.of(Map.of("workDone", true));
+                      }))
               .build();
 
       Binding binding =

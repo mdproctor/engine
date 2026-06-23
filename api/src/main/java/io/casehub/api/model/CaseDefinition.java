@@ -17,6 +17,8 @@ package io.casehub.api.model;
 
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.eidos.api.AgentDescriptor;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;

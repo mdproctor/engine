@@ -23,23 +23,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngineRegistry;
-import io.casehub.api.model.BackoffStrategy;
+import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.SlaStartFrom;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerFunction;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.ListEvaluator;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -127,17 +127,17 @@ class CaseDefinitionYamlMapperTest {
     // Capabilities
     assertThat(def.getCapabilities()).hasSize(1);
     Capability cap = def.getCapabilities().get(0);
-    assertThat(cap.getName()).isEqualTo("validate");
-    assertThat(cap.getInputSchema()).isEqualTo(".request");
-    assertThat(cap.getOutputSchema()).isEqualTo(".valid");
-    assertThat(cap.getDescription()).isEqualTo("Validates input");
+    assertThat(cap.name()).isEqualTo("validate");
+    assertThat(cap.inputSchema()).isEqualTo(".request");
+    assertThat(cap.outputSchema()).isEqualTo(".valid");
+    assertThat(cap.description()).isEqualTo("Validates input");
 
     // Workers
     assertThat(def.getWorkers()).hasSize(1);
     Worker worker = def.getWorkers().get(0);
-    assertThat(worker.getName()).isEqualTo("validator-worker");
-    assertThat(worker.getCapabilities()).containsExactly(cap);
-    assertThat(worker.getDescription()).isEqualTo("Worker that validates");
+    assertThat(worker.name()).isEqualTo("validator-worker");
+    assertThat(worker.capabilities()).containsExactly(cap);
+    assertThat(worker.description()).isEqualTo("Worker that validates");
 
     // Bindings
     assertThat(def.getBindings()).hasSize(1);
@@ -258,10 +258,10 @@ class CaseDefinitionYamlMapperTest {
 
     assertThat(def.getWorkers()).hasSize(1);
     Worker worker = def.getWorkers().get(0);
-    assertThat(worker.getName()).isEqualTo("analyzer-worker");
-    assertThat(worker.getFunction()).isNotNull();
+    assertThat(worker.name()).isEqualTo("analyzer-worker");
+    assertThat(worker.function()).isNotNull();
 
-    assertThat(worker.getFunction()).isInstanceOf(WorkerFunction.AgentExec.class);
+    assertThat(worker.function()).isInstanceOf(AgentWorkerFunction.class);
   }
 
   @Test
@@ -1244,7 +1244,7 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
     Worker worker = def.getWorkers().get(0);
-    ExecutionPolicy policy = worker.getExecutionPolicy();
+    ExecutionPolicy policy = worker.executionPolicy();
     assertThat(policy.timeoutMs()).isEqualTo(30000);
     assertThat(policy.retries().maxAttempts()).isEqualTo(5);
     assertThat(policy.retries().delayMs()).isEqualTo(2000);
@@ -1277,7 +1277,7 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
     Worker worker = def.getWorkers().get(0);
-    assertThat(worker.getExecutionPolicy().retries().backoffStrategy())
+    assertThat(worker.executionPolicy().retries().backoffStrategy())
         .isEqualTo(BackoffStrategy.FIXED);
   }
 
@@ -1301,7 +1301,7 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
     Worker worker = def.getWorkers().get(0);
-    ExecutionPolicy policy = worker.getExecutionPolicy();
+    ExecutionPolicy policy = worker.executionPolicy();
     assertThat(policy.timeoutMs()).isNull();
     assertThat(policy.retries().maxAttempts()).isEqualTo(3);
     assertThat(policy.retries().backoffStrategy()).isEqualTo(BackoffStrategy.FIXED);

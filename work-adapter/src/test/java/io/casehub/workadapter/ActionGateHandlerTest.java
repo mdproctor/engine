@@ -18,7 +18,6 @@ package io.casehub.workadapter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.casehub.api.spi.PlannedAction;
 import io.casehub.api.spi.RiskDecision.GateRequired;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.ActionGateCancelledEvent;
@@ -30,6 +29,7 @@ import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.casehub.work.testing.InMemoryWorkItemStore;
+import io.casehub.worker.api.PlannedAction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;

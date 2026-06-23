@@ -21,9 +21,6 @@ import static org.quartz.TriggerBuilder.newTrigger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.ExecutionPolicy;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -36,6 +33,9 @@ import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -147,7 +147,7 @@ class QuartzRetryService {
 
     Worker worker =
         definition.getWorkers().stream()
-            .filter(w -> w.getName().equals(workerId))
+            .filter(w -> w.name().equals(workerId))
             .findFirst()
             .orElse(null);
 
@@ -156,7 +156,7 @@ class QuartzRetryService {
       return null;
     }
 
-    ExecutionPolicy executionPolicy = worker.getExecutionPolicy();
+    ExecutionPolicy executionPolicy = worker.executionPolicy();
     if (executionPolicy == null || executionPolicy.retries() == null) {
       return new ExecutionPolicy().retries();
     }

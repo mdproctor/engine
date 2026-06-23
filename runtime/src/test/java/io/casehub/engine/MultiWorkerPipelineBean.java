@@ -20,14 +20,15 @@ import static io.serverlessworkflow.fluent.func.dsl.FuncDSL.function;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.FlowWorkerFunction;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
-import io.casehub.api.model.Worker;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
@@ -81,65 +82,68 @@ public class MultiWorkerPipelineBean extends CaseHub {
                 .name("document-validator")
                 .capabilities(validateCap)
                 .function(
-                    workflow("validate-document")
-                        .tasks(
-                            function(
-                                s -> {
-                                  Map<String, Object> ctx = (Map<String, Object>) s;
-                                  if (!ctx.containsKey("documentId")) {
-                                    throw new RuntimeException("Missing documentId");
-                                  }
-                                  return Map.of("valid", true, "step", "validated");
-                                },
-                                Map.class))
-                        .build())
+                    new FlowWorkerFunction(
+                        workflow("validate-document")
+                            .tasks(
+                                function(
+                                    s -> {
+                                      Map<String, Object> ctx = (Map<String, Object>) s;
+                                      if (!ctx.containsKey("documentId")) {
+                                        throw new RuntimeException("Missing documentId");
+                                      }
+                                      return Map.of("valid", true, "step", "validated");
+                                    },
+                                    Map.class))
+                            .build()))
                 .description("Validates incoming documents")
                 .build(),
             Worker.builder()
                 .name("document-enricher")
                 .capabilities(enrichCap)
                 .function(
-                    workflow("enrich-document")
-                        .tasks(
-                            function(
-                                s -> {
-                                  Map<String, Object> ctx = (Map<String, Object>) s;
-                                  if (!ctx.containsKey("documentId")) {
-                                    throw new RuntimeException("Missing documentId");
-                                  }
-                                  return Map.of(
-                                      "enrichedData",
-                                      Map.of(
-                                          "source", "internal",
-                                          "tags", List.of("validated", "enriched"),
-                                          "documentId", ctx.get("documentId")),
-                                      "step",
-                                      "enriched");
-                                },
-                                Map.class))
-                        .build())
+                    new FlowWorkerFunction(
+                        workflow("enrich-document")
+                            .tasks(
+                                function(
+                                    s -> {
+                                      Map<String, Object> ctx = (Map<String, Object>) s;
+                                      if (!ctx.containsKey("documentId")) {
+                                        throw new RuntimeException("Missing documentId");
+                                      }
+                                      return Map.of(
+                                          "enrichedData",
+                                          Map.of(
+                                              "source", "internal",
+                                              "tags", List.of("validated", "enriched"),
+                                              "documentId", ctx.get("documentId")),
+                                          "step",
+                                          "enriched");
+                                    },
+                                    Map.class))
+                            .build()))
                 .description("Enriches validated documents with metadata")
                 .build(),
             Worker.builder()
                 .name("document-publisher")
                 .capabilities(publishCap)
                 .function(
-                    workflow("publish-document")
-                        .tasks(
-                            function(
-                                s -> {
-                                  Map<String, Object> ctx = (Map<String, Object>) s;
-                                  if (!ctx.containsKey("documentId")) {
-                                    throw new RuntimeException("Missing documentId");
-                                  }
-                                  return Map.of(
-                                      "publishedUrl",
-                                      "https://docs.example.com/" + ctx.get("documentId"),
-                                      "step",
-                                      "published");
-                                },
-                                Map.class))
-                        .build())
+                    new FlowWorkerFunction(
+                        workflow("publish-document")
+                            .tasks(
+                                function(
+                                    s -> {
+                                      Map<String, Object> ctx = (Map<String, Object>) s;
+                                      if (!ctx.containsKey("documentId")) {
+                                        throw new RuntimeException("Missing documentId");
+                                      }
+                                      return Map.of(
+                                          "publishedUrl",
+                                          "https://docs.example.com/" + ctx.get("documentId"),
+                                          "step",
+                                          "published");
+                                    },
+                                    Map.class))
+                            .build()))
                 .description("Publishes enriched documents")
                 .build())
         .bindings(

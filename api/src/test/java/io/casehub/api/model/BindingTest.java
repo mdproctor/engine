@@ -18,6 +18,7 @@ package io.casehub.api.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.casehub.worker.api.Capability;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 

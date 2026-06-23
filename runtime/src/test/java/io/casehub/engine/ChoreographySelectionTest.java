@@ -20,16 +20,17 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -135,19 +136,21 @@ class ChoreographySelectionTest {
                   .name("worker-a")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        record(input);
-                        return WorkerResult.of(Map.of("result", "done"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            record(input);
+                            return WorkerResult.of(Map.of("result", "done"));
+                          }))
                   .build(),
               Worker.builder()
                   .name("worker-b")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        record(input);
-                        return WorkerResult.of(Map.of("result", "done"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            record(input);
+                            return WorkerResult.of(Map.of("result", "done"));
+                          }))
                   .build())
           .bindings(
               Binding.builder()

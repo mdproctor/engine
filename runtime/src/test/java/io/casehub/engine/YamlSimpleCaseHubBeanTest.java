@@ -55,21 +55,19 @@ public class YamlSimpleCaseHubBeanTest {
 
     // capabilities
     assertEquals(1, def.getCapabilities().size());
-    assertEquals("processDocument", def.getCapabilities().get(0).getName());
+    assertEquals("processDocument", def.getCapabilities().get(0).name());
     assertEquals(
-        "{ documentId: .documentId, status: .status }",
-        def.getCapabilities().get(0).getInputSchema());
+        "{ documentId: .documentId, status: .status }", def.getCapabilities().get(0).inputSchema());
     assertEquals(
-        "{ processedDocument: ., status: .status }",
-        def.getCapabilities().get(0).getOutputSchema());
+        "{ processedDocument: ., status: .status }", def.getCapabilities().get(0).outputSchema());
 
     // workers
     assertEquals(1, def.getWorkers().size());
-    assertEquals("document-processor", def.getWorkers().get(0).getName());
-    assertEquals(1, def.getWorkers().get(0).getCapabilities().size());
-    assertEquals("processDocument", def.getWorkers().get(0).getCapabilities().get(0).getName());
+    assertEquals("document-processor", def.getWorkers().get(0).name());
+    assertEquals(1, def.getWorkers().get(0).capabilities().size());
+    assertEquals("processDocument", def.getWorkers().get(0).capabilities().get(0).name());
     assertInstanceOf(
-        io.casehub.api.model.WorkerFunction.Flow.class, def.getWorkers().get(0).getFunction());
+        io.casehub.api.model.FlowWorkerFunction.class, def.getWorkers().get(0).function());
 
     // rules
     assertEquals(1, def.getBindings().size());
@@ -80,7 +78,7 @@ public class YamlSimpleCaseHubBeanTest {
         "processDocument",
         ((io.casehub.api.model.CapabilityTarget) def.getBindings().get(0).target())
             .capability()
-            .getName());
+            .name());
     assertInstanceOf(ContextChangeTrigger.class, def.getBindings().get(0).getOn());
     ContextChangeTrigger cct = (ContextChangeTrigger) def.getBindings().get(0).getOn();
     assertEquals(

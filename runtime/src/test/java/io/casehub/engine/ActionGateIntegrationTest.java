@@ -20,7 +20,6 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
@@ -28,15 +27,18 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.spi.ActionRiskClassifier;
-import io.casehub.api.spi.PlannedAction;
+import io.casehub.api.spi.ClassificationContext;
 import io.casehub.api.spi.RiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.PlannedAction;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -88,9 +90,10 @@ class ActionGateIntegrationTest {
 
     assertThat(CapturingClassifier.capturedActions).hasSize(1);
     final PlannedAction action = CapturingClassifier.capturedActions.get(0);
+    final ClassificationContext ctx = CapturingClassifier.capturedContexts.get(0);
     assertThat(action.actionType()).isEqualTo("sar.file");
-    assertThat(action.workerId()).isNotNull();
-    assertThat(action.caseId()).isEqualTo(caseId);
+    assertThat(ctx.workerId()).isNotNull();
+    assertThat(ctx.caseId()).isEqualTo(caseId);
   }
 
   @Test
@@ -220,18 +223,23 @@ class ActionGateIntegrationTest {
         .atMost(10, TimeUnit.SECONDS)
         .until(
             () ->
-                CapturingClassifier.capturedActions.stream()
-                    .anyMatch(a -> caseId.equals(a.caseId())));
+                CapturingClassifier.capturedContexts.stream()
+                    .anyMatch(c -> caseId.equals(c.caseId())));
 
-    final PlannedAction action =
-        CapturingClassifier.capturedActions.stream()
-            .filter(a -> caseId.equals(a.caseId()))
-            .findFirst()
-            .orElseThrow();
-    assertThat(action.workerId()).isEqualTo("gate-worker");
-    assertThat(action.caseId()).isEqualTo(caseId);
+    int idx = -1;
+    for (int i = 0; i < CapturingClassifier.capturedContexts.size(); i++) {
+      if (caseId.equals(CapturingClassifier.capturedContexts.get(i).caseId())) {
+        idx = i;
+        break;
+      }
+    }
+    assertThat(idx).isGreaterThanOrEqualTo(0);
+    final PlannedAction action = CapturingClassifier.capturedActions.get(idx);
+    final ClassificationContext ctx = CapturingClassifier.capturedContexts.get(idx);
+    assertThat(ctx.workerId()).isEqualTo("gate-worker");
+    assertThat(ctx.caseId()).isEqualTo(caseId);
     assertThat(action.description()).isEqualTo("File SAR report");
-    assertThat(action.context()).containsEntry("accountId", "ACC-999");
+    assertThat(action.parameters()).containsEntry("accountId", "ACC-999");
   }
 
   // --- Test CDI beans ---
@@ -247,18 +255,21 @@ class ActionGateIntegrationTest {
   static class CapturingClassifier implements ActionRiskClassifier {
 
     static final List<PlannedAction> capturedActions = new CopyOnWriteArrayList<>();
+    static final List<ClassificationContext> capturedContexts = new CopyOnWriteArrayList<>();
     static volatile RiskDecision nextDecision = new Autonomous();
     static final AtomicBoolean throwOnClassify = new AtomicBoolean(false);
 
     static void reset() {
       capturedActions.clear();
+      capturedContexts.clear();
       nextDecision = new Autonomous();
       throwOnClassify.set(false);
     }
 
     @Override
-    public RiskDecision classify(final PlannedAction action) {
+    public RiskDecision classify(final PlannedAction action, final ClassificationContext context) {
       capturedActions.add(action);
+      capturedContexts.add(context);
       if (throwOnClassify.get()) {
         throw new RuntimeException("Simulated classifier failure for fail-safe test");
       }
@@ -299,16 +310,19 @@ class ActionGateIntegrationTest {
                   .name("gate-worker")
                   .capabilities(cap)
                   .function(
-                      input -> {
-                        final Map<String, Object> output = Map.of("filingResult", "pending");
-                        if (declareAction.get()) {
-                          return WorkerResult.of(
-                              output,
-                              PlannedAction.of(
-                                  "File SAR report", "sar.file", Map.of("accountId", "ACC-999")));
-                        }
-                        return WorkerResult.of(output);
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            final Map<String, Object> output = Map.of("filingResult", "pending");
+                            if (declareAction.get()) {
+                              return WorkerResult.of(
+                                  output,
+                                  PlannedAction.of(
+                                      "File SAR report",
+                                      "sar.file",
+                                      Map.of("accountId", "ACC-999")));
+                            }
+                            return WorkerResult.of(output);
+                          }))
                   .build())
           .bindings(
               Binding.builder()

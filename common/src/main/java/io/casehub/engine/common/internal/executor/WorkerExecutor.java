@@ -16,8 +16,8 @@
 package io.casehub.engine.common.internal.executor;
 
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.WorkerFunction;
-import io.casehub.api.model.WorkerResult;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import java.util.Map;
 

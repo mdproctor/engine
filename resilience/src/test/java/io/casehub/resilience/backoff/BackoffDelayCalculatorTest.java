@@ -17,8 +17,8 @@ package io.casehub.resilience.backoff;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.api.model.BackoffStrategy;
-import io.casehub.api.model.RetryPolicy;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.RetryPolicy;
 import org.junit.jupiter.api.Test;
 
 /** Pure unit tests — no Quarkus, no CDI. BackoffDelayCalculator is a stateless utility. */

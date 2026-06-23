@@ -20,14 +20,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngineRegistry;
+import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.AllOfGoalExpression;
 import io.casehub.api.model.AnyOfGoalExpression;
-import io.casehub.api.model.BackoffStrategy;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.EpisodicMemoryConfig;
-import io.casehub.api.model.ExecutionPolicy;
+import io.casehub.api.model.FlowWorkerFunction;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
@@ -36,11 +35,14 @@ import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
-import io.casehub.api.model.RetryPolicy;
 import io.casehub.api.model.SlaStartFrom;
-import io.casehub.api.model.Worker;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -215,8 +217,12 @@ public final class CaseDefinitionYamlMapper {
     if (schema.getSpec() != null && schema.getSpec().getCapabilities() != null) {
       for (io.casehub.model.Capability sc : schema.getSpec().getCapabilities()) {
         final Capability cap =
-            new Capability(sc.getName(), sc.getInputSchema(), sc.getOutputSchema());
-        cap.setDescription(sc.getDescription());
+            Capability.builder()
+                .name(sc.getName())
+                .inputSchema(sc.getInputSchema() != null ? sc.getInputSchema() : ".")
+                .outputSchema(sc.getOutputSchema() != null ? sc.getOutputSchema() : ".")
+                .description(sc.getDescription())
+                .build();
         capabilityMap.put(sc.getName(), cap);
         def.getCapabilities().add(cap);
       }
@@ -228,18 +234,23 @@ public final class CaseDefinitionYamlMapper {
         final List<Capability> workerCaps =
             sw.getCapabilities().stream().map(capabilityMap::get).collect(Collectors.toList());
 
-        final Worker worker;
+        final Worker.Builder workerBuilder =
+            Worker.builder().name(sw.getName()).capabilities(workerCaps);
         if (sw.getAgent() != null) {
           final io.casehub.api.model.ai.Agent apiAgent = AgentConverter.toApiAgent(sw.getAgent());
-          worker = new Worker(sw.getName(), workerCaps, apiAgent);
+          workerBuilder.function(new AgentWorkerFunction(apiAgent));
+        } else if (sw.getWorkflowAsEmbedded() != null) {
+          workerBuilder.function(new FlowWorkerFunction(sw.getWorkflowAsEmbedded()));
         } else {
-          worker = new Worker(sw.getName(), workerCaps, sw.getWorkflowAsEmbedded());
+          workerBuilder.function(
+              new io.casehub.worker.api.WorkerFunction.Sync(
+                  input -> io.casehub.worker.api.WorkerResult.of(input)));
         }
-        worker.setDescription(sw.getDescription());
+        workerBuilder.description(sw.getDescription());
         if (sw.getExecutionPolicy() != null) {
-          worker.setExecutionPolicy(convertExecutionPolicy(sw.getExecutionPolicy()));
+          workerBuilder.executionPolicy(convertExecutionPolicy(sw.getExecutionPolicy()));
         }
-        def.getWorkers().add(worker);
+        def.getWorkers().add(workerBuilder.build());
       }
     }
 

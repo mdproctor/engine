@@ -223,7 +223,9 @@ To add a new operational SPI: define the interface in `api/spi/`, add a `@Defaul
 | `ReactiveWorkerProvisioner.provision` (→ `ProvisionResult`) + `CaseLifecycleEvent("WorkerStarted")` | `CaseContextChangedEventHandler.tryProvision` | Successful external provisioning — fires `WorkerStarted` (commandType `ProvisionWorker`) after provisioner returns |
 | `WorkerProvisioner.provision` | `CaseContextChangedEventHandler.tryProvision` | No pre-defined workers match capability |
 
-`WorkerProvisioner.provision()` is called only when `workerProvisioner.getCapabilities()` contains the required capability. `ProvisioningException` is caught and logged; the binding stays eligible for the next context-change tick. The no-op default returns empty capabilities, so it is never called unless a real provisioner is wired in.
+`WorkerProvisioner.provision()` is called when a capability binding fires and no pre-defined workers match. `ProvisioningException` is caught and logged; the binding stays eligible for the next context-change tick. The no-op default returns empty capabilities, so it is never called unless a real provisioner is wired in.
+
+**AgentDescriptor association (engine#543):** `AgentDescriptor` is stored on `CaseDefinition` (not Worker). `CaseDefinition.agentDescriptorFor(workerName)` returns `Optional<AgentDescriptor>`. `AgentCandidateFactory.buildCandidates()` takes `CaseDefinition` as a parameter and looks up descriptors via this method. Workers are pure foundation-tier records with no eidos dependency.
 
 **`WorkerProvisioner.provision()` returns `ProvisionResult`** (blocking) / `Uni<ProvisionResult>` (reactive). `ProvisionResult(UUID causedByEntryId)` carries the ledger entry ID of the Qhorus COMMAND that triggered provisioning for causal audit linkage. Provisioner implementations that cannot resolve a causal entry return `ProvisionResult.empty()`. No-op defaults still throw `ProvisioningException` on `provision()`. `ProvisionResult` lives in `api/src/main/java/io/casehub/api/spi/ProvisionResult.java`. See protocol `PP-20260529-bcbbb5`. Claudony wiring tracked in claudony#140.
 
@@ -254,14 +256,15 @@ Platform-level oversight gate for consequential worker actions. Workers declare 
 - `ActionRiskClassifier` — blocking; consumer implementations use this
 - `ReactiveActionRiskClassifier` — primary (called by engine); `ChainedReactiveActionRiskClassifier` bridges blocking → reactive
 - `RiskDecision` — sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope)`
-- `PlannedAction` — what the worker declares; enriched by engine with `workerId` and `caseId` before classify()
+- `PlannedAction` — from `io.casehub.worker.api.PlannedAction` (foundation tier); carries `description`, `actionType`, `parameters` only — no identity fields
+- `ClassificationContext` — carries `workerId`, `caseId`, `tenancyId`, `caseDefinitionName`, `capabilityName`, `bindingName`; constructed by engine at classify() call site
 - `@RiskClassifier` — CDI qualifier; consumer implementations must use this to avoid CDI conflict with the chain
 
 **Composition pattern:** Multiple consumer classifiers are supported via `@RiskClassifier @ApplicationScoped`:
 ```java
 @RiskClassifier @ApplicationScoped
 public class AmlActionRiskClassifier implements ActionRiskClassifier {
-    @Override public RiskDecision classify(PlannedAction action) { ... }
+    @Override public RiskDecision classify(PlannedAction action, ClassificationContext context) { ... }
 }
 ```
 `ChainedReactiveActionRiskClassifier` (`@ApplicationScoped`, NOT `@DefaultBean`) discovers all `@RiskClassifier` beans and applies "most restrictive wins" (fewest candidateGroups beats more; GateRequired beats Autonomous). Classifier failure → fail-safe `GateRequired`. Blocking classifiers offloaded to worker pool via `runSubscriptionOn(workerPool)`.
@@ -271,7 +274,7 @@ public class AmlActionRiskClassifier implements ActionRiskClassifier {
 2. Publishes `ActionGateScheduleEvent` → `ActionGateWorkItemHandler` (work-adapter) creates a WorkItem
 3. Human approves/rejects via work inbox
 4. `ActionGateCompletionApplier` (work-adapter) publishes `ActionGateApprovedEvent` or `ActionGateRejectedEvent`
-5. `ActionGateApprovedHandler` (runtime) re-fires `WorkflowExecutionCompleted(plannedAction=null)` — normal completion path applies deferred output
+5. `ActionGateApprovedHandler` (runtime) re-fires `WorkflowExecutionCompleted` with `outcome=Success(null)` — normal completion path applies deferred output
 6. `ActionGateRejectedHandler`/`ActionGateExpiredHandler` write context signals (`actionGateRejected`, `actionGateExpired`), fire `CONTEXT_CHANGED`, publish `ACTION_GATE_WORKER_FAULTED` for blackboard PlanItem fault
 
 **Binding guard requirement:** Case definitions with consequential workers MUST include rejection handler bindings. The binding trigger condition must also exclude gate signal paths to prevent re-scheduling while a gate is pending:
@@ -315,7 +318,9 @@ Stage gains `repeatable` (final boolean, builder-only) and `instanceIndex` (Atom
 
 AI agent workers live in `api/src/main/java/io/casehub/api/model/ai/`:
 
-- `Agent` — immutable execution unit; holds systemPrompt, transformers, ChatModel, optional responseSchema. **`execute()` returns `WorkerResult`** (not `Map<String,Object>`) — engine#402 breaking change. Agent workers that want to declare a consequential action return `WorkerResult.of(output, PlannedAction.of(...))`.
+- `Agent` — immutable execution unit; holds systemPrompt, transformers, ChatModel, optional responseSchema. **`execute()` returns `io.casehub.worker.api.WorkerResult`** — worker-api foundation type. Agent workers that want to declare a consequential action return `WorkerResult.of(output, PlannedAction.of(...))`. PlannedAction is on `WorkerOutcome.Success` — the type system prevents non-success outcomes from carrying actions.
+- `AgentWorkerFunction(Agent)` — `implements io.casehub.worker.api.WorkerFunction`; `DefaultWorkerExecutor` dispatches via `agent.agent()::execute`
+- `FlowWorkerFunction(Workflow)` — `implements io.casehub.worker.api.WorkerFunction`; dispatch handled by `FlowWorkerExecutor`
 - `AgentBuilder` — fluent builder; JQ string mode (`inputSchema(String)`) or lambda mode (`inputTransformer(UnaryOperator<JsonNode>)`) for transformers; mutually exclusive per direction
 - `ChatModelProvider` — SPI interface; implementations use reflection (`Class.forName`) to avoid compile-time LLM SDK dependencies
 - `ModelType` — enum: OPENAI, OLLAMA, ANTHROPIC, MISTRAL, GOOGLE_AI_GEMINI
@@ -433,7 +438,7 @@ Optional module enabling `Worker(Workflow)` to dispatch casehub workers from wit
 
 ## Worker Execution Architecture
 
-`WorkerExecutor` (`common/internal/executor/`) abstracts how to run a worker function — independent of any scheduler. `DefaultWorkerExecutor` (`runtime/internal/executor/`) runs sync/agent functions on `@VirtualThreads ExecutorService` and delegates flow workers to `WorkflowExecutor`. Output schema evaluation is applied uniformly for all paths.
+`WorkerExecutor` (`common/internal/executor/`) abstracts how to run a worker function — independent of any scheduler. `DefaultWorkerExecutor` (`runtime/internal/executor/`) dispatches by type: `WorkerFunction.Sync` and `AgentWorkerFunction` run on `@VirtualThreads ExecutorService`; `FlowWorkerFunction` delegates to `WorkflowExecutor`. Output schema evaluation is applied uniformly for all paths. Worker/Capability/WorkerFunction/WorkerResult/WorkerOutcome are from `io.casehub.worker.api` (foundation tier); ExecutionPolicy/RetryPolicy/BackoffStrategy are from `io.casehub.platform.api.governance`.
 
 `QuartzWorkerExecutionJob` is a thin fire-and-forget Quartz adapter: resolves context (EventLog, CaseInstance, Worker, Capability), delegates to `WorkerExecutor.execute()`, and subscribes with success/failure callbacks. Success publishes `WORKER_EXECUTION_FINISHED`; failure routes to `QuartzRetryService`.
 

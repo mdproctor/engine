@@ -15,10 +15,10 @@
  */
 package io.casehub.engine.common.spi.scheduler;
 
-import io.casehub.api.model.Capability;
-import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Map;

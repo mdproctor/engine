@@ -15,6 +15,7 @@
  */
 package io.casehub.api.spi;
 
+import io.casehub.worker.api.PlannedAction;
 import java.time.Duration;
 import java.util.List;
 

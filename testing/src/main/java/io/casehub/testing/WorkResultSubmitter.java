@@ -15,11 +15,11 @@
  */
 package io.casehub.testing;
 
-import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -57,7 +57,7 @@ public class WorkResultSubmitter {
                   caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
               Worker worker =
                   definition.getWorkers().stream()
-                      .filter(w -> w.getName().equals(workerId))
+                      .filter(w -> w.name().equals(workerId))
                       .findFirst()
                       .orElseThrow(
                           () ->

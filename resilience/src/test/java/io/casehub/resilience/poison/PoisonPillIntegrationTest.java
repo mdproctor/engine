@@ -20,18 +20,19 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -180,10 +181,11 @@ class PoisonPillIntegrationTest {
                   .name("quarantine-checked-worker")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        runCount.incrementAndGet();
-                        return WorkerResult.of(Map.of("status", "complete"));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            runCount.incrementAndGet();
+                            return WorkerResult.of(Map.of("status", "complete"));
+                          }))
                   .executionPolicy(new ExecutionPolicy(5000, new RetryPolicy(1, 100)))
                   .build())
           .bindings(

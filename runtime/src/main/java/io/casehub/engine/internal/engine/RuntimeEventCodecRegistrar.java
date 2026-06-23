@@ -27,11 +27,10 @@ import jakarta.inject.Inject;
 /**
  * Registers Vert.x local-only message codecs for runtime event bus payloads.
  *
- * <p>{@link CaseInstance} is published on the event bus by {@link
- * handler.CaseStatusChangedHandler} for {@code casehub.case.completed} and {@code
- * casehub.case.faulted} addresses. Without codec registration the publish silently fails. A {@code
- * LocalOnlyCodec} passes the object by reference — no serialisation occurs. Fixes
- * casehubio/engine#545.
+ * <p>{@link CaseInstance} is published on the event bus by {@link handler.CaseStatusChangedHandler}
+ * for {@code casehub.case.completed} and {@code casehub.case.faulted} addresses. Without codec
+ * registration the publish silently fails. A {@code LocalOnlyCodec} passes the object by reference
+ * — no serialisation occurs. Fixes casehubio/engine#545.
  */
 @ApplicationScoped
 public class RuntimeEventCodecRegistrar {

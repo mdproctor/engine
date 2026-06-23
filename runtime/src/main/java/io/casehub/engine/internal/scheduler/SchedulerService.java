@@ -16,13 +16,11 @@
 package io.casehub.engine.internal.scheduler;
 
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.ScheduleTrigger;
 import io.casehub.api.model.SubCaseTarget;
-import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.scheduler.JobIdentifier;
 import io.casehub.engine.common.internal.scheduler.ScheduleStrategy;
@@ -31,6 +29,8 @@ import io.casehub.engine.common.internal.scheduler.ScheduleStrategy.DelaySchedul
 import io.casehub.engine.common.internal.scheduler.ScheduledJobRequest;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -138,7 +138,7 @@ public class SchedulerService {
       if (worker == null) {
         LOG.warnf(
             "No worker found for capability '%s' in binding '%s', skipping",
-            ct.capability().getName(), binding.getName());
+            ct.capability().name(), binding.getName());
         continue;
       }
 
@@ -279,7 +279,7 @@ public class SchedulerService {
     data.put("bindingName", binding.getName());
     switch (binding.target()) {
       case CapabilityTarget ct -> {
-        String capabilityName = ct.capability().getName();
+        String capabilityName = ct.capability().name();
         data.put("capabilityName", capabilityName);
       }
       case SubCaseTarget ignored ->
@@ -292,16 +292,13 @@ public class SchedulerService {
           throw new IllegalStateException(
               "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
     }
-    data.put("workerName", worker.getName());
+    data.put("workerName", worker.name());
     return data;
   }
 
   private Worker findWorkerForCapability(CaseDefinition definition, Capability capability) {
     return definition.getWorkers().stream()
-        .filter(
-            w ->
-                w.getCapabilities().stream()
-                    .anyMatch(c -> c.getName().equals(capability.getName())))
+        .filter(w -> w.capabilities().stream().anyMatch(c -> c.name().equals(capability.name())))
         .findFirst()
         .orElse(null);
   }

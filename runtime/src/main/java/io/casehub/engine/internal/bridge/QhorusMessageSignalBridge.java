@@ -19,9 +19,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerOutcome;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -32,6 +29,10 @@ import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerOutcome;
+import io.casehub.worker.api.WorkerResult;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
@@ -144,7 +145,7 @@ public class QhorusMessageSignalBridge {
     eventBus.publish(
         EventBusAddresses.WORKER_EXECUTION_FINISHED,
         new WorkflowExecutionCompleted(
-            caseInstance, worker, idempotency, Map.of(), null, bindingName, outcome));
+            caseInstance, worker, idempotency, Map.of(), bindingName, outcome));
 
     return true;
   }
@@ -153,13 +154,13 @@ public class QhorusMessageSignalBridge {
     CaseDefinition def = caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
     if (def != null && def.getWorkers() != null) {
       for (Worker w : def.getWorkers()) {
-        if (w.getName().equals(workerName)) return w;
+        if (w.name().equals(workerName)) return w;
       }
     }
     return Worker.builder()
         .name(workerName)
         .capabilities(List.of())
-        .function(input -> WorkerResult.of(Map.of()))
+        .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
         .build();
   }
 

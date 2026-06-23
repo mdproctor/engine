@@ -21,16 +21,17 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -255,17 +256,18 @@ public class SignalTest {
                   .name("payment-worker")
                   .capabilities(paymentCapability)
                   .function(
-                      input -> {
-                        LOG.warnf("WORKER INPUT: %s %s", input, runCount.incrementAndGet());
+                      new WorkerFunction.Sync(
+                          input -> {
+                            LOG.warnf("WORKER INPUT: %s %s", input, runCount.incrementAndGet());
 
-                        String orderId = (String) input.get("orderId");
-                        if (orderId != null) {
-                          runCountByOrderId
-                              .computeIfAbsent(orderId, k -> new AtomicInteger())
-                              .incrementAndGet();
-                        }
-                        return WorkerResult.of(Map.of("status", "paid"));
-                      })
+                            String orderId = (String) input.get("orderId");
+                            if (orderId != null) {
+                              runCountByOrderId
+                                  .computeIfAbsent(orderId, k -> new AtomicInteger())
+                                  .incrementAndGet();
+                            }
+                            return WorkerResult.of(Map.of("status", "paid"));
+                          }))
                   .build())
           .bindings(
               Binding.builder()
@@ -322,19 +324,21 @@ public class SignalTest {
                   .name("payment-worker-2")
                   .capabilities(paymentCapability)
                   .function(
-                      input -> {
-                        paymentRunCount.incrementAndGet();
-                        return WorkerResult.of(Map.of("paymentProcessed", true));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            paymentRunCount.incrementAndGet();
+                            return WorkerResult.of(Map.of("paymentProcessed", true));
+                          }))
                   .build(),
               Worker.builder()
                   .name("document-worker-2")
                   .capabilities(documentCapability)
                   .function(
-                      input -> {
-                        documentRunCount.incrementAndGet();
-                        return WorkerResult.of(Map.of("documentProcessed", true));
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            documentRunCount.incrementAndGet();
+                            return WorkerResult.of(Map.of("documentProcessed", true));
+                          }))
                   .build())
           .bindings(
               Binding.builder()

@@ -19,10 +19,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.BindingTarget;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.worker.api.Capability;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;

@@ -19,25 +19,26 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
-import io.casehub.api.model.BackoffStrategy;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.resilience.deadletter.DeadLetterEntry;
 import io.casehub.resilience.deadletter.DeadLetterQuery;
 import io.casehub.resilience.deadletter.DeadLetterQueue;
 import io.casehub.resilience.deadletter.DeadLetterStatus;
 import io.casehub.resilience.poison.PoisonPillDetector;
 import io.casehub.resilience.poison.PoisonPillWorkerExecutionGuard;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -239,9 +240,10 @@ class ResilienceIntegrationTest {
                   .name(WORKER_ID)
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        throw new RuntimeException("Resilience IT — intentional failure");
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            throw new RuntimeException("Resilience IT — intentional failure");
+                          }))
                   .executionPolicy(
                       new ExecutionPolicy(5000, new RetryPolicy(2, 50, BackoffStrategy.FIXED)))
                   .build())

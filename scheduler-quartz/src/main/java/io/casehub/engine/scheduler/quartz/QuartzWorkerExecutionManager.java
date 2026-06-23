@@ -20,13 +20,11 @@ import static org.quartz.JobBuilder.newJob;
 import static org.quartz.TriggerBuilder.newTrigger;
 
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.ScheduleTrigger;
 import io.casehub.api.model.SubCaseTarget;
-import io.casehub.api.model.Worker;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
@@ -34,6 +32,8 @@ import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
@@ -100,7 +100,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
 
     String idempotency =
         WorkerExecutionKeys.inputDataHash(
-            instance.getUuid(), worker.getName(), capability.getName(), inputData);
+            instance.getUuid(), worker.name(), capability.name(), inputData);
     String group = instance.getUuid().toString();
 
     return eventLogRepository
@@ -188,7 +188,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
       String idempotency,
       String group,
       String tenancyId) {
-    return scheduleQuartzJob(eventLogId, instance, worker.getName(), idempotency, group, tenancyId);
+    return scheduleQuartzJob(eventLogId, instance, worker.name(), idempotency, group, tenancyId);
   }
 
   private Uni<Void> scheduleQuartzJob(
@@ -349,7 +349,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
     data.put("caseId", caseId.toString());
     data.put("bindingName", binding.getName());
     switch (binding.target()) {
-      case CapabilityTarget ct -> data.put("capabilityName", ct.capability().getName());
+      case CapabilityTarget ct -> data.put("capabilityName", ct.capability().name());
       case SubCaseTarget ignored ->
           throw new IllegalStateException(
               "Schedule-triggered binding '" + binding.getName() + "' must target a Capability");
@@ -360,7 +360,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
           throw new IllegalStateException(
               "Schedule-triggered binding '" + binding.getName() + "' must target a Capability");
     }
-    data.put("workerName", worker.getName());
+    data.put("workerName", worker.name());
     return data;
   }
 

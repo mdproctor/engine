@@ -18,12 +18,13 @@ package io.casehub.engine.scheduler;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.ScheduleTrigger;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import java.time.Duration;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -57,7 +58,7 @@ class ConditionalTriggerConditionParameterTest {
         Worker.builder()
             .name("test-worker")
             .capabilities(cap)
-            .function(ctx -> WorkerResult.of(Map.of("workDone", true)))
+            .function(new WorkerFunction.Sync(ctx -> WorkerResult.of(Map.of("workDone", true))))
             .build();
 
     ExpressionEvaluator condition = new JQExpressionEvaluator(".status == \"ready\"");

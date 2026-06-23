@@ -20,7 +20,6 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
@@ -28,11 +27,13 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
-import io.casehub.api.model.Worker;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -253,7 +254,8 @@ class BasicBlackboardTest {
                   .name("once-worker")
                   .capabilities(cap)
                   // Write phase=done — trigger (.phase == "start") won't match again
-                  .function(input -> WorkerResult.of(Map.of("phase", "done")))
+                  .function(
+                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phase", "done"))))
                   .build())
           .bindings(
               Binding.builder()
@@ -291,7 +293,7 @@ class BasicBlackboardTest {
               Worker.builder()
                   .name("never-worker")
                   .capabilities(cap)
-                  .function(input -> WorkerResult.of(Map.of()))
+                  .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
                   .build())
           .bindings(
               Binding.builder()
@@ -337,7 +339,8 @@ class BasicBlackboardTest {
               Worker.builder()
                   .name("completing-worker")
                   .capabilities(cap)
-                  .function(input -> WorkerResult.of(Map.of("phase", "done")))
+                  .function(
+                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phase", "done"))))
                   .build())
           .bindings(
               Binding.builder()
@@ -383,7 +386,9 @@ class BasicBlackboardTest {
               Worker.builder()
                   .name("milestone-worker")
                   .capabilities(cap)
-                  .function(input -> WorkerResult.of(Map.of("go", false, "docsUploaded", true)))
+                  .function(
+                      new WorkerFunction.Sync(
+                          input -> WorkerResult.of(Map.of("go", false, "docsUploaded", true))))
                   .build())
           .bindings(
               Binding.builder()

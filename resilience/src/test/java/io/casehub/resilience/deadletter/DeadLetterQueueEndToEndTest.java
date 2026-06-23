@@ -19,19 +19,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
-import io.casehub.api.model.BackoffStrategy;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.ExecutionPolicy;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.RetryPolicy;
-import io.casehub.api.model.Worker;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.platform.api.governance.BackoffStrategy;
+import io.casehub.platform.api.governance.ExecutionPolicy;
+import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -189,9 +190,10 @@ class DeadLetterQueueEndToEndTest {
                   .name("always-failing-worker")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        throw new RuntimeException("Intentional failure for DLQ E2E test");
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            throw new RuntimeException("Intentional failure for DLQ E2E test");
+                          }))
                   .executionPolicy(
                       new ExecutionPolicy(5000, new RetryPolicy(2, 100, BackoffStrategy.FIXED)))
                   .build())
@@ -236,9 +238,10 @@ class DeadLetterQueueEndToEndTest {
                   .name("fast-failing-worker")
                   .capabilities(capability)
                   .function(
-                      input -> {
-                        throw new RuntimeException("Fast failure");
-                      })
+                      new WorkerFunction.Sync(
+                          input -> {
+                            throw new RuntimeException("Fast failure");
+                          }))
                   .executionPolicy(
                       new ExecutionPolicy(5000, new RetryPolicy(1, 50, BackoffStrategy.FIXED)))
                   .build())

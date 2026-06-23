@@ -27,7 +27,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.Binding;
-import io.casehub.api.model.Capability;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
@@ -39,6 +38,7 @@ import io.casehub.api.model.PredicateBasedCompletion;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
+import io.casehub.worker.api.Capability;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -619,10 +619,10 @@ class ModelBuilderTest {
                       .inputSchema("{input: .x}")
                       .outputSchema("{output: .y}")
                       .build());
-      assertEquals("cap", cap.getName());
-      assertEquals("{input: .x}", cap.getInputSchema());
-      assertEquals("{output: .y}", cap.getOutputSchema());
-      assertNull(cap.getDescription());
+      assertEquals("cap", cap.name());
+      assertEquals("{input: .x}", cap.inputSchema());
+      assertEquals("{output: .y}", cap.outputSchema());
+      assertNull(cap.description());
     }
 
     @Test
@@ -635,7 +635,7 @@ class ModelBuilderTest {
               .outputSchema("{}")
               .description("A capability")
               .build();
-      assertEquals("A capability", cap.getDescription());
+      assertEquals("A capability", cap.description());
     }
   }
 

@@ -15,6 +15,7 @@
  */
 package io.casehub.api.spi;
 
+import io.casehub.worker.api.PlannedAction;
 import io.smallrye.mutiny.Uni;
 
 /**
@@ -32,5 +33,5 @@ import io.smallrye.mutiny.Uni;
  */
 public interface ReactiveActionRiskClassifier {
 
-  Uni<RiskDecision> classify(PlannedAction action);
+  Uni<RiskDecision> classify(PlannedAction action, ClassificationContext context);
 }
