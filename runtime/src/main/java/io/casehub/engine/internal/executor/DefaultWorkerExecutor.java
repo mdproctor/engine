@@ -113,17 +113,22 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
       WorkerContext context,
       ExecutionMetadata metadata) {
 
-    // Flow execution delegates timeout to the workflow runtime — individual steps manage
-    // their own timeouts via the workflow definition. No overall execution timeout applied.
     return Uni.createFrom()
         .completionStage(
-            () ->
-                workflowExecutor.execute(
+            () -> {
+              WorkerExecutionContext.set(context);
+              try {
+                return workflowExecutor.execute(
                     workflow,
                     inputData,
                     context.caseId(),
                     metadata.workerName(),
-                    metadata.inputDataHash()))
+                    metadata.inputDataHash());
+              } finally {
+                WorkerExecutionContext.clear();
+              }
+            })
+        .runSubscriptionOn(virtualThreads)
         .map(
             model ->
                 WorkerResult.of(
