@@ -17,6 +17,7 @@ package io.casehub.actorstate;
 
 import io.quarkus.arc.properties.IfBuildProperty;
 import io.smallrye.mutiny.Uni;
+import jakarta.annotation.security.PermitAll;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
@@ -27,6 +28,7 @@ import jakarta.ws.rs.core.MediaType;
 
 /** Reactive variant — active when {@code casehub.qhorus.reactive.enabled=true}. */
 @IfBuildProperty(name = "casehub.qhorus.reactive.enabled", stringValue = "true")
+@PermitAll
 @Path("/actors")
 @Produces(MediaType.APPLICATION_JSON)
 @ApplicationScoped
