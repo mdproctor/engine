@@ -21,6 +21,7 @@ import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.WorkerContextProvider;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -39,12 +40,18 @@ import java.util.UUID;
 public class EmptyWorkerContextProvider implements WorkerContextProvider {
 
   @Inject CaseChannelProvider caseChannelProvider; // package-private for test injection
+  @Inject CurrentPrincipal currentPrincipal; // package-private for test injection
 
   @Override
   public WorkerContext buildContext(String workerId, UUID caseId, WorkRequest task) {
     List<CaseChannel> channels =
         caseId != null ? caseChannelProvider.listChannels(caseId) : List.of();
+    PropagationContext propagationContext =
+        PropagationContext.createRoot(
+            Map.of(
+                "userId", currentPrincipal.actorId(),
+                "roles", String.join(",", currentPrincipal.roles())));
     return new WorkerContext(
-        task.capability(), caseId, channels, List.of(), PropagationContext.createRoot(), Map.of());
+        task.capability(), caseId, channels, List.of(), propagationContext, Map.of());
   }
 }
