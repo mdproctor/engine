@@ -23,7 +23,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.HumanTaskTarget;
-import io.casehub.work.testing.InMemoryWorkItemStore;
+import io.casehub.work.memory.InMemoryWorkItemStore;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

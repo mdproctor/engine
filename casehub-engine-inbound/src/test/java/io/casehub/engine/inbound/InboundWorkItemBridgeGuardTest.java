@@ -27,6 +27,7 @@ import io.casehub.work.runtime.service.TenantContextRunner;
 import io.casehub.work.runtime.service.WorkItemService;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.inject.Instance;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,7 +55,7 @@ class InboundWorkItemBridgeGuardTest {
 
   private static MessageReceivedEvent anyEvent() {
     return new MessageReceivedEvent(
-        "ch", UUID.randomUUID(), "t1", MessageType.COMMAND, "sender", "corr", "{}");
+        "ch", UUID.randomUUID(), "t1", MessageType.COMMAND, "sender", "corr", Instant.now(), "{}");
   }
 
   @Test

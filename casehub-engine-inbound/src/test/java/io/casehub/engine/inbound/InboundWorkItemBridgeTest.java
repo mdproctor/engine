@@ -25,17 +25,18 @@ import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.work.api.WorkloadProvider;
+import io.casehub.work.memory.InMemoryWorkItemStore;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemCreateRequest;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.casehub.work.runtime.service.TenantContextRunner;
-import io.casehub.work.testing.InMemoryWorkItemStore;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -142,6 +143,7 @@ class InboundWorkItemBridgeTest {
         MessageType.COMMAND,
         "sender-id",
         "corr-id-1",
+        Instant.now(),
         "{\"msg\":\"hello\"}");
   }
 
@@ -231,6 +233,7 @@ class InboundWorkItemBridgeTest {
             MessageType.COMMAND,
             "sender",
             "corr-a",
+            Instant.now(),
             "{}");
     final MessageReceivedEvent channelB =
         new MessageReceivedEvent(
@@ -240,6 +243,7 @@ class InboundWorkItemBridgeTest {
             MessageType.COMMAND,
             "sender",
             "corr-b",
+            Instant.now(),
             "{}");
 
     bridge.onMessage(channelA);

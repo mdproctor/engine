@@ -44,6 +44,7 @@ import io.casehub.worker.api.WorkerOutcome;
 import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -291,6 +292,7 @@ class QhorusMessageSignalBridgeTest {
             MessageType.EVENT,
             "sender-1",
             null,
+            Instant.now(),
             null));
     verifyNoInteractions(runtime);
     verifyNoInteractions(eventBus);
@@ -322,6 +324,7 @@ class QhorusMessageSignalBridgeTest {
             MessageType.RESPONSE,
             "human-operator",
             "corr-xyz",
+            Instant.now(),
             "approved");
 
     bridge.onMessage(event);
@@ -363,6 +366,7 @@ class QhorusMessageSignalBridgeTest {
         type,
         senderId,
         correlationId,
+        Instant.now(),
         type == MessageType.EVENT ? null : content);
   }
 
