@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine;
+package io.casehub.engine.flow;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -27,6 +27,7 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.worker.api.WorkerFunction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.util.Map;
@@ -66,8 +67,7 @@ public class YamlSimpleCaseHubBeanTest {
     assertEquals("document-processor", def.getWorkers().get(0).name());
     assertEquals(1, def.getWorkers().get(0).capabilities().size());
     assertEquals("processDocument", def.getWorkers().get(0).capabilities().get(0).name());
-    assertInstanceOf(
-        io.casehub.api.model.FlowWorkerFunction.class, def.getWorkers().get(0).function());
+    assertInstanceOf(WorkerFunction.class, def.getWorkers().get(0).function());
 
     // rules
     assertEquals(1, def.getBindings().size());

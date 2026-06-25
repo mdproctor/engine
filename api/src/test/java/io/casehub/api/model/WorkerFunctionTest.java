@@ -35,23 +35,4 @@ class WorkerFunctionTest {
   void agentWorkerFunction_implements_workerFunction() {
     assertThat(AgentWorkerFunction.class).isAssignableTo(WorkerFunction.class);
   }
-
-  @Test
-  void flowWorkerFunction_implements_workerFunction() {
-    assertThat(FlowWorkerFunction.class).isAssignableTo(WorkerFunction.class);
-  }
-
-  @Test
-  void instanceof_dispatch_covers_engine_variants() {
-    WorkerFunction fn = new WorkerFunction.Sync(input -> WorkerResult.of(Map.of()));
-    String result;
-    if (fn instanceof FlowWorkerFunction) {
-      result = "flow";
-    } else if (fn instanceof AgentWorkerFunction) {
-      result = "agent";
-    } else {
-      result = "sync";
-    }
-    assertThat(result).isEqualTo("sync");
-  }
 }

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine;
+package io.casehub.engine.flow;
 
 import static io.serverlessworkflow.fluent.func.FuncWorkflowBuilder.workflow;
 import static io.serverlessworkflow.fluent.func.dsl.FuncDSL.agent;
@@ -23,7 +23,6 @@ import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.FlowWorkerFunction;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;

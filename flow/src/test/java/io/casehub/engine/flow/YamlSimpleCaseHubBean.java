@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine;
+package io.casehub.engine.flow;
 
 import io.casehub.api.engine.YamlCaseHub;
 import jakarta.enterprise.context.ApplicationScoped;

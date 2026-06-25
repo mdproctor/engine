@@ -15,53 +15,41 @@
  */
 package io.casehub.engine.internal.executor;
 
-import io.casehub.api.model.AgentWorkerFunction;
-import io.casehub.api.model.FlowWorkerFunction;
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.WorkerExecutor;
+import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
-import io.casehub.engine.common.internal.worker.WorkflowExecutor;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.quarkus.virtual.threads.VirtualThreads;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
 import org.jboss.logging.Logger;
 
 /**
- * Engine's own worker executor — runs sync/agent functions on Quarkus-managed virtual threads and
- * delegates flow workers to {@link WorkflowExecutor}. Applies output schema evaluation uniformly
- * for all paths.
+ * Engine's own worker executor — composite that dispatches to pluggable {@link
+ * WorkerFunctionHandler} implementations. Applies output schema evaluation uniformly for all paths.
  *
  * <p>{@code @ApplicationScoped} (not {@code @DefaultBean}) — this is the engine's implementation,
  * not a consumer-replaceable fallback.
  *
- * <p>Refs casehubio/engine#463.
+ * <p>Refs casehubio/engine#463, casehubio/engine#567.
  */
 @ApplicationScoped
 public class DefaultWorkerExecutor implements WorkerExecutor {
 
   private static final Logger LOG = Logger.getLogger(DefaultWorkerExecutor.class);
 
-  private final ExecutorService virtualThreads;
-  private final WorkflowExecutor workflowExecutor;
+  private final Instance<WorkerFunctionHandler> handlers;
   private final JQEvaluator jqEvaluator;
 
   @Inject
-  public DefaultWorkerExecutor(
-      @VirtualThreads ExecutorService virtualThreads,
-      WorkflowExecutor workflowExecutor,
-      JQEvaluator jqEvaluator) {
-    this.virtualThreads = virtualThreads;
-    this.workflowExecutor = workflowExecutor;
+  public DefaultWorkerExecutor(Instance<WorkerFunctionHandler> handlers, JQEvaluator jqEvaluator) {
+    this.handlers = handlers;
     this.jqEvaluator = jqEvaluator;
   }
 
@@ -74,76 +62,14 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
       String outputSchema,
       ExecutionMetadata metadata) {
 
-    Uni<WorkerResult> execution =
-        switch (function) {
-          case WorkerFunction.Sync sync -> executeSync(sync.fn(), inputData, context, timeoutMs);
-          case AgentWorkerFunction agent ->
-              executeSync(agent.agent()::execute, inputData, context, timeoutMs);
-          case FlowWorkerFunction flow ->
-              executeFlow(flow.workflow(), inputData, context, metadata);
-          default ->
-              throw new UnsupportedOperationException(
-                  "Unsupported WorkerFunction type: " + function.getClass().getName());
-        };
-    return execution.map(result -> applyOutputSchema(result, outputSchema));
-  }
-
-  private Uni<WorkerResult> executeSync(
-      Function<Map<String, Object>, WorkerResult> fn,
-      Map<String, Object> inputData,
-      WorkerContext context,
-      int timeoutMs) {
-
-    return Uni.createFrom()
-        .item(
-            () -> {
-              WorkerExecutionContext.set(context);
-              try {
-                return fn.apply(inputData);
-              } finally {
-                WorkerExecutionContext.clear();
-              }
-            })
-        .runSubscriptionOn(virtualThreads)
-        .ifNoItem()
-        .after(Duration.ofMillis(timeoutMs))
-        .fail()
-        .onFailure(io.smallrye.mutiny.TimeoutException.class)
-        .recoverWithItem(t -> WorkerResult.expired("Worker timed out after " + timeoutMs + "ms"));
-  }
-
-  private Uni<WorkerResult> executeFlow(
-      io.serverlessworkflow.api.types.Workflow workflow,
-      Map<String, Object> inputData,
-      WorkerContext context,
-      ExecutionMetadata metadata) {
-
-    return Uni.createFrom()
-        .completionStage(
-            () -> {
-              WorkerExecutionContext.set(context);
-              try {
-                return workflowExecutor.execute(
-                    workflow,
-                    inputData,
-                    context.caseId(),
-                    metadata.workerName(),
-                    metadata.inputDataHash());
-              } finally {
-                WorkerExecutionContext.clear();
-              }
-            })
-        .runSubscriptionOn(virtualThreads)
-        .map(
-            model ->
-                WorkerResult.of(
-                    model
-                        .asMap()
-                        .orElseThrow(
-                            () ->
-                                new RuntimeException(
-                                    "Workflow produced non-serializable model for worker: "
-                                        + metadata.workerName()))));
+    for (WorkerFunctionHandler handler : handlers) {
+      if (handler.supports(function)) {
+        return handler
+            .execute(function, inputData, context, timeoutMs, metadata)
+            .map(result -> applyOutputSchema(result, outputSchema));
+      }
+    }
+    throw new UnsupportedOperationException("No handler for: " + function.getClass().getName());
   }
 
   @SuppressWarnings("unchecked")

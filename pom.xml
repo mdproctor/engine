@@ -64,6 +64,7 @@
         <version.quarkus.flow>0.6.0</version.quarkus.flow>
         <version.io.fabric8.zjsonpatch>7.5.2</version.io.fabric8.zjsonpatch>
         <version.io.serverlessworkflow>7.13.4.Final</version.io.serverlessworkflow>
+        <version.jackson.jq>1.6.0</version.jackson.jq>
 
         <!-- casehubio ecosystem dependencies — aligned on same version as this project -->
         <version.io.casehub>0.2-SNAPSHOT</version.io.casehub>
@@ -159,6 +160,11 @@
                 <groupId>io.fabric8</groupId>
                 <artifactId>zjsonpatch</artifactId>
                 <version>${version.io.fabric8.zjsonpatch}</version>
+            </dependency>
+            <dependency>
+                <groupId>net.thisptr</groupId>
+                <artifactId>jackson-jq</artifactId>
+                <version>${version.jackson.jq}</version>
             </dependency>
             <dependency>
                 <groupId>dev.langchain4j</groupId>

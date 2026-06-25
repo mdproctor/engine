@@ -13,53 +13,41 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.flow;
 
+import static io.serverlessworkflow.fluent.func.FuncWorkflowBuilder.workflow;
+import static io.serverlessworkflow.fluent.func.dsl.FuncDSL.function;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.WorkerExecutionContext;
-import io.casehub.api.model.WorkerFunction;
-import io.casehub.api.model.WorkerResult;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.WorkerExecutor;
-import io.casehub.engine.common.internal.worker.WorkflowExecutor;
-import io.quarkus.test.InjectMock;
+import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
-import io.serverlessworkflow.api.types.Workflow;
-import io.serverlessworkflow.impl.WorkflowModel;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
+/**
+ * Tests flow worker execution context handling.
+ *
+ * <p>Flow module is a test dependency — these tests verify context lifecycle when flow workers
+ * execute.
+ *
+ * <p>Refs casehubio/engine#567 (Task 9).
+ */
 @QuarkusTest
 class DefaultWorkerExecutorFlowContextTest {
 
   @Inject WorkerExecutor workerExecutor;
 
-  @InjectMock WorkflowExecutor workflowExecutor;
-
   @Test
   void executeFlow_setsWorkerExecutionContext() {
     AtomicReference<WorkerContext> captured = new AtomicReference<>();
-
-    WorkflowModel model = Mockito.mock(WorkflowModel.class);
-    Mockito.when(model.asMap()).thenReturn(Optional.of(Map.of("result", "done")));
-
-    Mockito.when(
-            workflowExecutor.execute(
-                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
-        .thenAnswer(
-            inv -> {
-              captured.set(WorkerExecutionContext.current());
-              return CompletableFuture.completedFuture(model);
-            });
 
     WorkerContext context =
         new WorkerContext(
@@ -70,12 +58,21 @@ class DefaultWorkerExecutorFlowContextTest {
             io.casehub.api.context.PropagationContext.createRoot(),
             null);
 
-    Workflow workflow = Mockito.mock(Workflow.class);
+    var workflow =
+        workflow("context-test")
+            .tasks(
+                function(
+                    s -> {
+                      captured.set(WorkerExecutionContext.current());
+                      return Map.of("result", "done");
+                    },
+                    Map.class))
+            .build();
 
     WorkerResult result =
         workerExecutor
             .execute(
-                new WorkerFunction.Flow(workflow),
+                new FlowWorkerFunction(workflow),
                 Map.of(),
                 context,
                 60000,
@@ -93,14 +90,6 @@ class DefaultWorkerExecutorFlowContextTest {
 
   @Test
   void executeFlow_clearsContextAfterExecution() {
-    WorkflowModel model = Mockito.mock(WorkflowModel.class);
-    Mockito.when(model.asMap()).thenReturn(Optional.of(Map.of()));
-
-    Mockito.when(
-            workflowExecutor.execute(
-                Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any(), Mockito.any()))
-        .thenReturn(CompletableFuture.completedFuture(model));
-
     WorkerContext context =
         new WorkerContext(
             "cleanup-test",
@@ -110,9 +99,11 @@ class DefaultWorkerExecutorFlowContextTest {
             io.casehub.api.context.PropagationContext.createRoot(),
             null);
 
+    var workflow = workflow("cleanup-test").tasks(function(s -> Map.of(), Map.class)).build();
+
     workerExecutor
         .execute(
-            new WorkerFunction.Flow(Mockito.mock(Workflow.class)),
+            new FlowWorkerFunction(workflow),
             Map.of(),
             context,
             60000,

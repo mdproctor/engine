@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.marshaller.YamlMapper;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.converter.CaseDefinitionYamlMapper;
+import io.casehub.api.spi.WorkerFunctionProviderRegistry;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
@@ -35,6 +36,8 @@ public class YamlCaseHub extends CaseHub {
   @Inject ExpressionEngineRegistry expressionEngineRegistry;
 
   @Inject @YamlMapper ObjectMapper objectMapper;
+
+  @Inject WorkerFunctionProviderRegistry workerFunctionProviderRegistry;
 
   private final String path;
   private volatile CaseDefinition definition;
@@ -53,7 +56,9 @@ public class YamlCaseHub extends CaseHub {
             if (is == null) {
               throw new IllegalStateException("Resource " + path + " not found on classpath");
             }
-            definition = CaseDefinitionYamlMapper.load(is, objectMapper, expressionEngineRegistry);
+            definition =
+                CaseDefinitionYamlMapper.load(
+                    is, objectMapper, expressionEngineRegistry, workerFunctionProviderRegistry);
           } catch (IOException e) {
             throw new RuntimeException("Failed to load CaseHub definition from " + path, e);
           }

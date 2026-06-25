@@ -26,7 +26,6 @@ import io.casehub.api.model.AnyOfGoalExpression;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.EpisodicMemoryConfig;
-import io.casehub.api.model.FlowWorkerFunction;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
@@ -38,11 +37,14 @@ import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.spi.WorkerFunctionProviderRegistry;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
+import io.casehub.worker.api.WorkerResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -111,6 +113,12 @@ public final class CaseDefinitionYamlMapper {
         }
       };
 
+  /**
+   * Empty WorkerFunctionProviderRegistry for non-CDI contexts. Returns null for all worker nodes,
+   * causing mapper to use API-local construction (agent, sync).
+   */
+  private static final WorkerFunctionProviderRegistry EMPTY_PROVIDERS = rawWorkerNode -> null;
+
   private CaseDefinitionYamlMapper() {}
 
   /**
@@ -120,13 +128,15 @@ public final class CaseDefinitionYamlMapper {
    * @param yamlStream InputStream containing YAML CaseDefinition
    * @param objectMapper ObjectMapper configured for YAML (with config/secret placeholder support)
    * @param registry ExpressionEngineRegistry for creating evaluators from YAML expression strings
+   * @param providerRegistry WorkerFunctionProviderRegistry for SDK-dependent worker construction
    * @return API model CaseDefinition
    * @throws IOException if reading or parsing fails
    */
   public static CaseDefinition load(
       final InputStream yamlStream,
       final ObjectMapper objectMapper,
-      final ExpressionEngineRegistry registry)
+      final ExpressionEngineRegistry registry,
+      final WorkerFunctionProviderRegistry providerRegistry)
       throws IOException {
     if (yamlStream == null) {
       throw new IllegalArgumentException("InputStream cannot be null");
@@ -144,7 +154,7 @@ public final class CaseDefinitionYamlMapper {
                 com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     final io.casehub.model.CaseDefinition schema =
         lenient.readValue(bytes, io.casehub.model.CaseDefinition.class);
-    return convertToApiModel(schema, rawNode, objectMapper, registry);
+    return convertToApiModel(schema, rawNode, objectMapper, registry, providerRegistry);
   }
 
   /**
@@ -152,28 +162,33 @@ public final class CaseDefinitionYamlMapper {
    * expression support.
    *
    * <p>For non-CDI contexts (tests, tooling). Does not support custom expression languages — use
-   * {@link #load(InputStream, ObjectMapper, ExpressionEngineRegistry)} in CDI deployments.
+   * {@link #load(InputStream, ObjectMapper, ExpressionEngineRegistry,
+   * WorkerFunctionProviderRegistry)} in CDI deployments.
    *
    * @param yamlStream InputStream containing YAML CaseDefinition
    * @return API model CaseDefinition
    * @throws IOException if reading or parsing fails
    */
   public static CaseDefinition load(final InputStream yamlStream) throws IOException {
-    return load(yamlStream, new ObjectMapper(new YAMLFactory()), JQ_ONLY);
+    return load(yamlStream, new ObjectMapper(new YAMLFactory()), JQ_ONLY, EMPTY_PROVIDERS);
   }
 
   /**
    * Converts generated schema model to API model.
    *
    * @param schema generated CaseDefinition from YAML
+   * @param rawNode raw YAML parsed as JsonNode (for free-form fields)
+   * @param objectMapper ObjectMapper for converting JsonNode to Map
    * @param registry registry for creating ExpressionEvaluator instances from string expressions
+   * @param providerRegistry registry for SDK-dependent worker construction (flow, etc.)
    * @return API model CaseDefinition
    */
   private static CaseDefinition convertToApiModel(
       final io.casehub.model.CaseDefinition schema,
       final JsonNode rawNode,
       final ObjectMapper objectMapper,
-      final ExpressionEngineRegistry registry) {
+      final ExpressionEngineRegistry registry,
+      final WorkerFunctionProviderRegistry providerRegistry) {
     final String expressionLang =
         schema.getExpressionLang() != null
             ? schema.getExpressionLang()
@@ -230,27 +245,34 @@ public final class CaseDefinitionYamlMapper {
 
     // Convert workers
     if (schema.getSpec() != null && schema.getSpec().getWorkers() != null) {
+      final JsonNode rawWorkers = rawNode.get("spec").get("workers");
+      int workerIndex = 0;
       for (io.casehub.model.Worker sw : schema.getSpec().getWorkers()) {
         final List<Capability> workerCaps =
             sw.getCapabilities().stream().map(capabilityMap::get).collect(Collectors.toList());
 
         final Worker.Builder workerBuilder =
             Worker.builder().name(sw.getName()).capabilities(workerCaps);
-        if (sw.getAgent() != null) {
-          final io.casehub.api.model.ai.Agent apiAgent = AgentConverter.toApiAgent(sw.getAgent());
-          workerBuilder.function(new AgentWorkerFunction(apiAgent));
-        } else if (sw.getWorkflowAsEmbedded() != null) {
-          workerBuilder.function(new FlowWorkerFunction(sw.getWorkflowAsEmbedded()));
-        } else {
-          workerBuilder.function(
-              new io.casehub.worker.api.WorkerFunction.Sync(
-                  input -> io.casehub.worker.api.WorkerResult.of(input)));
+
+        // Try providers first (for SDK-dependent types like flow)
+        final JsonNode rawWorkerNode = rawWorkers.get(workerIndex);
+        WorkerFunction function = providerRegistry.createFunction(rawWorkerNode);
+        if (function == null) {
+          // API-local construction (no external SDK dependency)
+          if (sw.getAgent() != null) {
+            final io.casehub.api.model.ai.Agent apiAgent = AgentConverter.toApiAgent(sw.getAgent());
+            function = new AgentWorkerFunction(apiAgent);
+          } else {
+            function = new WorkerFunction.Sync(input -> WorkerResult.of(input));
+          }
         }
+        workerBuilder.function(function);
         workerBuilder.description(sw.getDescription());
         if (sw.getExecutionPolicy() != null) {
           workerBuilder.executionPolicy(convertExecutionPolicy(sw.getExecutionPolicy()));
         }
         def.getWorkers().add(workerBuilder.build());
+        workerIndex++;
       }
     }
 

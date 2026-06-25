@@ -27,9 +27,6 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.model.Agent;
 import io.casehub.model.ExecutionPolicy;
 import io.casehub.model.Worker;
-import io.serverlessworkflow.api.WorkflowFormat;
-import io.serverlessworkflow.api.WorkflowReader;
-import io.serverlessworkflow.api.types.Workflow;
 import java.io.IOException;
 import java.util.List;
 
@@ -63,31 +60,12 @@ public class WorkerMarshaller {
         if (value.isWorkflowRef()) {
           // String reference
           gen.writeStringField("workflow", value.getWorkflowAsRef());
-        } else if (value.isEmbeddedWorkflow()) {
-          // Workflow object - write inline fields
-          // Always write at least "do" field to mark workflow presence (even if empty)
-          Workflow workflow = value.getWorkflowAsEmbedded();
-          if (workflow.getDocument() != null) {
-            gen.writeObjectField("document", workflow.getDocument());
-          }
-          if (workflow.getInput() != null) {
-            gen.writeObjectField("input", workflow.getInput());
-          }
-          if (workflow.getUse() != null) {
-            gen.writeObjectField("use", workflow.getUse());
-          }
-          // Always write "do" field to mark embedded workflow presence
-          gen.writeObjectField(
-              "do",
-              workflow.getDo() != null ? workflow.getDo() : java.util.Collections.emptyList());
-          if (workflow.getTimeout() != null) {
-            gen.writeObjectField("timeout", workflow.getTimeout());
-          }
-          if (workflow.getOutput() != null) {
-            gen.writeObjectField("output", workflow.getOutput());
-          }
-          if (workflow.getSchedule() != null) {
-            gen.writeObjectField("schedule", workflow.getSchedule());
+        } else if (value.hasWorkflowDefinition()) {
+          // Write raw JSON node fields inline
+          JsonNode wfNode = value.getWorkflowDefinition();
+          for (var it = wfNode.fields(); it.hasNext(); ) {
+            var field = it.next();
+            gen.writeObjectField(field.getKey(), field.getValue());
           }
         }
       }
@@ -139,7 +117,7 @@ public class WorkerMarshaller {
         // String reference
         worker.setWorkflow(workflowNode.asText());
       } else if (root.has("do")) {
-        // Embedded workflow - extract workflow fields
+        // Embedded workflow - store raw workflow fields as JsonNode
         ObjectNode workflowFields = mapper.createObjectNode();
         if (root.has("document")) workflowFields.set("document", root.get("document"));
         if (root.has("do")) workflowFields.set("do", root.get("do"));
@@ -159,10 +137,7 @@ public class WorkerMarshaller {
           workflowFields.set("document", documentNode);
         }
 
-        Workflow workflow =
-            WorkflowReader.readWorkflowFromString(
-                mapper.writeValueAsString(workflowFields), WorkflowFormat.YAML);
-        worker.setWorkflow(workflow);
+        worker.setWorkflow(workflowFields);
       }
 
       // Deserialize agent field

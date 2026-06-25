@@ -66,14 +66,6 @@
             <artifactId>quarkus-virtual-threads</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.quarkiverse.flow</groupId>
-            <artifactId>quarkus-flow</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.serverlessworkflow</groupId>
-            <artifactId>serverlessworkflow-experimental-fluent-func</artifactId>
-        </dependency>
-        <dependency>
             <groupId>io.fabric8</groupId>
             <artifactId>zjsonpatch</artifactId>
         </dependency>

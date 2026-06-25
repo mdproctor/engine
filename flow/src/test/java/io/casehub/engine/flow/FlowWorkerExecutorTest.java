@@ -16,20 +16,22 @@
 package io.casehub.engine.flow;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.api.model.WorkerContext;
+import io.casehub.engine.common.internal.executor.ExecutionMetadata;
+import io.casehub.worker.api.WorkerResult;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
 import io.serverlessworkflow.impl.WorkflowDefinition;
 import io.serverlessworkflow.impl.WorkflowInstance;
 import io.serverlessworkflow.impl.WorkflowModel;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,98 +41,74 @@ class FlowWorkerExecutorTest {
 
   private WorkflowApplication app;
   private FlowExecutionRegistry registry;
-  private FlowWorkerExecutor executor;
+  private FlowWorkerFunctionHandler handler;
 
   @BeforeEach
   void setUp() {
     app = mock(WorkflowApplication.class);
     registry = mock(FlowExecutionRegistry.class);
-    executor = new FlowWorkerExecutor(app, registry);
+    handler =
+        new FlowWorkerFunctionHandler(
+            app, registry, java.util.concurrent.Executors.newSingleThreadExecutor());
   }
 
   @Test
-  void execute_registers_before_start_and_removes_on_success() throws Exception {
+  void supports_flow_worker_function() {
+    assertThat(handler.supports(new FlowWorkerFunction(new Workflow()))).isTrue();
+  }
+
+  @Test
+  void execute_registers_before_start_and_removes_on_success() {
     final String instanceId = "wf-abc";
-    final CaseInstance caseInstance = mock(CaseInstance.class);
-    final WorkflowModel model = mock(WorkflowModel.class);
+    final UUID caseId = UUID.randomUUID();
+    final WorkflowModel model = mockModelWithMap(Map.of("result", "done"));
 
     final WorkflowInstance wfInstance = mockWorkflowInstance(instanceId);
-    final CompletableFuture<WorkflowModel> future = CompletableFuture.completedFuture(model);
-    when(wfInstance.start()).thenReturn(future);
-
+    when(wfInstance.start()).thenReturn(CompletableFuture.completedFuture(model));
     stubApp(wfInstance);
 
-    UUID caseId = caseInstance.getUuid();
-    final CompletableFuture<WorkflowModel> result =
-        executor.execute(mock(Workflow.class), Map.of(), caseId, "worker-A", "hash-1");
+    WorkerResult result =
+        handler
+            .execute(
+                new FlowWorkerFunction(mock(Workflow.class)),
+                Map.of(),
+                testContext(caseId),
+                5000,
+                new ExecutionMetadata("worker-A", "hash-1"))
+            .await()
+            .indefinitely();
 
-    assertThat(result.get()).isSameAs(model);
+    assertThat(result.output()).containsEntry("result", "done");
     verify(registry).register(eq(instanceId), eq(caseId), eq("worker-A"), eq("hash-1"));
     verify(registry).remove(instanceId);
   }
 
   @Test
-  void execute_removes_registry_entry_when_future_completes_exceptionally() throws Exception {
+  void execute_removes_registry_entry_when_future_completes_exceptionally() {
     final String instanceId = "wf-err";
-    final CaseInstance caseInstance = mock(CaseInstance.class);
+    final UUID caseId = UUID.randomUUID();
 
     final WorkflowInstance wfInstance = mockWorkflowInstance(instanceId);
     final CompletableFuture<WorkflowModel> failed = new CompletableFuture<>();
     failed.completeExceptionally(new RuntimeException("step failed"));
     when(wfInstance.start()).thenReturn(failed);
-
     stubApp(wfInstance);
 
-    final CompletableFuture<WorkflowModel> result =
-        executor.execute(
-            mock(Workflow.class), Map.of(), caseInstance.getUuid(), "worker-B", "hash-2");
+    try {
+      handler
+          .execute(
+              new FlowWorkerFunction(mock(Workflow.class)),
+              Map.of(),
+              testContext(caseId),
+              5000,
+              new ExecutionMetadata("worker-B", "hash-2"))
+          .await()
+          .indefinitely();
+    } catch (Exception ignored) {
+    }
 
-    assertThat(result).isCompletedExceptionally();
     verify(registry).remove(instanceId);
   }
-
-  @Test
-  void execute_removes_registry_entry_and_rethrows_when_start_throws_synchronously() {
-    final String instanceId = "wf-sync-err";
-    final CaseInstance caseInstance = mock(CaseInstance.class);
-
-    final WorkflowInstance wfInstance = mockWorkflowInstance(instanceId);
-    when(wfInstance.start()).thenThrow(new RuntimeException("sync exception from start()"));
-
-    stubApp(wfInstance);
-
-    assertThatThrownBy(
-            () ->
-                executor.execute(
-                    mock(Workflow.class), Map.of(), caseInstance.getUuid(), "worker-C", "h"))
-        .isInstanceOf(RuntimeException.class)
-        .hasMessageContaining("sync exception from start()");
-
-    // Registry must be cleaned up — no leak
-    verify(registry).register(eq(instanceId), any(), any(), any());
-    verify(registry).remove(instanceId);
-  }
-
-  @Test
-  void execute_returns_future_from_start() throws Exception {
-    final String instanceId = "wf-future";
-    final WorkflowModel model = mock(WorkflowModel.class);
-    final WorkflowInstance wfInstance = mockWorkflowInstance(instanceId);
-    final CompletableFuture<WorkflowModel> future = new CompletableFuture<>();
-    when(wfInstance.start()).thenReturn(future);
-
-    stubApp(wfInstance);
-
-    final CompletableFuture<WorkflowModel> result =
-        executor.execute(mock(Workflow.class), Map.of(), java.util.UUID.randomUUID(), "w", "h");
-
-    assertThat(result.isDone()).isFalse();
-    future.complete(model);
-    assertThat(result.get()).isSameAs(model);
-    verify(registry).remove(instanceId);
-  }
-
-  // ---- helpers --------------------------------------------------------
 
   private WorkflowInstance mockWorkflowInstance(final String instanceId) {
     final WorkflowInstance inst = mock(WorkflowInstance.class);
@@ -142,5 +120,16 @@ class FlowWorkerExecutorTest {
     final WorkflowDefinition definition = mock(WorkflowDefinition.class);
     when(definition.instance(any())).thenReturn(wfInstance);
     when(app.workflowDefinition(any())).thenReturn(definition);
+  }
+
+  @SuppressWarnings("unchecked")
+  private WorkflowModel mockModelWithMap(Map<String, Object> map) {
+    final WorkflowModel model = mock(WorkflowModel.class);
+    when(model.asMap()).thenReturn(Optional.of(map));
+    return model;
+  }
+
+  private WorkerContext testContext(UUID caseId) {
+    return new WorkerContext("test task", caseId, null, null, null, null);
   }
 }

@@ -1,0 +1,41 @@
+dsl: "0.1"
+version: "1.0.0"
+name: Document Processing Test (YAML)
+namespace: test-yaml
+title: Test Case with Worker and Capability
+spec:
+  capabilities:
+    - name: processDocument
+      description: Process a document from the case context
+      inputSchema: "{ documentId: .documentId, status: .status }"
+      outputSchema: "{ processedDocument: ., status: .status }"
+  workers:
+    - name: document-processor
+      description: Processes documents and updates case context
+      capabilities:
+        - processDocument
+      do:
+        - setResult:
+            set:
+              processedDocument:
+                id: ${ .documentId }
+                content: ${ "Processed content for document " + .documentId }
+              status: processed
+  bindings:
+    - name: trigger-on-processing-status
+      capability: processDocument
+      on:
+        contextChange:
+          filter: '.status == "processing"'
+  milestones:
+    - name: documentProcessed
+      description: Milestone reached when document is processed
+      condition: '.status == "processed"'
+  goals:
+    - name: documentProcessingComplete
+      description: Goal achieved when document processing is complete
+      condition: '.status == "processed"'
+  completion:
+    success:
+      allOf:
+        - documentProcessingComplete

@@ -966,7 +966,10 @@ class CaseDefinitionYamlMapperTest {
     final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 
     CaseDefinitionYamlMapper.load(
-        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), mapper, registry);
+        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+        mapper,
+        registry,
+        r -> null);
 
     assertThat(registry.exprs).hasSize(5);
     assertThat(registry.exprs)
@@ -996,7 +999,10 @@ class CaseDefinitionYamlMapperTest {
     final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 
     CaseDefinitionYamlMapper.load(
-        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), mapper, registry);
+        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+        mapper,
+        registry,
+        r -> null);
 
     assertThat(registry.langs).containsOnly("jq");
   }
@@ -1024,7 +1030,10 @@ class CaseDefinitionYamlMapperTest {
     final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
 
     CaseDefinitionYamlMapper.load(
-        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)), mapper, registry);
+        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+        mapper,
+        registry,
+        r -> null);
 
     assertThat(registry.langs).containsOnly("drools");
   }
@@ -1082,7 +1091,8 @@ class CaseDefinitionYamlMapperTest {
                 CaseDefinitionYamlMapper.load(
                     new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
                     new ObjectMapper(new YAMLFactory()),
-                    strictRegistry))
+                    strictRegistry,
+                    r -> null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("unknown-lang");
   }

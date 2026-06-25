@@ -15,20 +15,17 @@
  */
 package io.casehub.engine;
 
-import static io.serverlessworkflow.fluent.func.FuncWorkflowBuilder.workflow;
-import static io.serverlessworkflow.fluent.func.dsl.FuncDSL.function;
-
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.model.FlowWorkerFunction;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 
@@ -65,31 +62,24 @@ public class SimpleCaseHubBean extends CaseHub {
                 .name("document-processor")
                 .capabilities(capability)
                 .function(
-                    new FlowWorkerFunction(
-                        workflow("step-function-export")
-                            .tasks(
-                                function(
-                                    s -> {
-                                      Map<String, Object> context = (Map<String, Object>) s;
-                                      if (!context.containsKey("documentId")) {
-                                        throw new RuntimeException("Missing documentId in context");
-                                      }
-                                      if (!context.containsKey("status")) {
-                                        throw new RuntimeException("Missing status in context");
-                                      }
-                                      return Map.of(
-                                          "processedDocument",
-                                          Map.of(
-                                              "id",
-                                              context.get("documentId"),
-                                              "content",
-                                              "Processed content for document "
-                                                  + context.get("documentId")),
-                                          "status",
-                                          "processed");
-                                    },
-                                    Map.class))
-                            .build()))
+                    input -> {
+                      if (!input.containsKey("documentId")) {
+                        throw new RuntimeException("Missing documentId in context");
+                      }
+                      if (!input.containsKey("status")) {
+                        throw new RuntimeException("Missing status in context");
+                      }
+                      return WorkerResult.of(
+                          Map.of(
+                              "processedDocument",
+                              Map.of(
+                                  "id",
+                                  input.get("documentId"),
+                                  "content",
+                                  "Processed content for document " + input.get("documentId")),
+                              "status",
+                              "processed"));
+                    })
                 .description("Processes documents and updates case context")
                 .build())
         .bindings(

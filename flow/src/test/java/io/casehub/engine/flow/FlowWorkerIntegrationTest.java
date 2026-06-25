@@ -17,9 +17,10 @@ package io.casehub.engine.flow;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.engine.common.internal.worker.WorkflowExecutor;
+import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.quarkus.test.junit.QuarkusTest;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
 
@@ -33,16 +34,21 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class FlowWorkerIntegrationTest {
 
-  @Inject WorkflowExecutor workflowExecutor;
+  @Inject Instance<WorkerFunctionHandler> handlers;
   @Inject WorkOrchestrator workOrchestrator;
   @Inject CasehubDispatch casehubDispatch;
   @Inject FlowExecutionRegistry flowExecutionRegistry;
 
   @Test
-  void flow_module_boots_and_FlowWorkerExecutor_is_resolved_over_NoOp() {
-    // FlowWorkerExecutor is plain @ApplicationScoped; NoOpWorkflowExecutor is @DefaultBean.
-    // When casehub-engine-flow is on the classpath, CDI must prefer FlowWorkerExecutor.
-    assertThat(workflowExecutor).isInstanceOf(FlowWorkerExecutor.class);
+  void flow_module_boots_and_FlowWorkerFunctionHandler_is_discovered() {
+    boolean hasFlowHandler = false;
+    for (WorkerFunctionHandler handler : handlers) {
+      if (handler instanceof FlowWorkerFunctionHandler) {
+        hasFlowHandler = true;
+        break;
+      }
+    }
+    assertThat(hasFlowHandler).isTrue();
   }
 
   @Test

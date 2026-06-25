@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import io.casehub.model.marshaller.WorkerMarshaller;
-import io.serverlessworkflow.api.types.Workflow;
 import java.util.List;
 
 @JsonSerialize(using = WorkerMarshaller.Serializer.class)
@@ -37,8 +36,8 @@ public class Worker {
   private ExecutionPolicy executionPolicy = new ExecutionPolicy();
 
   /**
-   * Workflow definition: either String (path to external workflow file) OR Workflow object
-   * (embedded). Type: String | Workflow
+   * Workflow definition: either String (path to external workflow file) OR JsonNode (embedded raw
+   * workflow definition). Type: String | JsonNode
    */
   private Object workflow;
 
@@ -105,16 +104,16 @@ public class Worker {
     return workflow instanceof String;
   }
 
-  public boolean isEmbeddedWorkflow() {
-    return workflow instanceof Workflow;
+  public boolean hasWorkflowDefinition() {
+    return workflow instanceof JsonNode;
   }
 
   public String getWorkflowAsRef() {
     return (String) workflow;
   }
 
-  public Workflow getWorkflowAsEmbedded() {
-    return (Workflow) workflow;
+  public JsonNode getWorkflowDefinition() {
+    return (JsonNode) workflow;
   }
 
   public Agent getAgent() {

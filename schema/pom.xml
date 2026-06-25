@@ -19,10 +19,6 @@
             <groupId>org.jsonschema2pojo</groupId>
             <artifactId>jsonschema2pojo-core</artifactId>
         </dependency>
-        <dependency>
-            <groupId>io.quarkiverse.flow</groupId>
-            <artifactId>quarkus-flow</artifactId>
-        </dependency>
 
         <!-- Test -->
         <dependency>

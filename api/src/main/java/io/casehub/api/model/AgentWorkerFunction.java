@@ -17,18 +17,10 @@ package io.casehub.api.model;
 
 import io.casehub.api.model.ai.Agent;
 import io.casehub.worker.api.WorkerFunction;
-import io.casehub.worker.api.WorkerResult;
-import java.util.Map;
 import java.util.Objects;
 
 public record AgentWorkerFunction(Agent agent) implements WorkerFunction {
   public AgentWorkerFunction {
     Objects.requireNonNull(agent);
-  }
-
-  @Override
-  public WorkerResult execute(Map<String, Object> input) {
-    throw new UnsupportedOperationException(
-        "Agent execution handled by DefaultWorkerExecutor — delegation wired after Agent migration");
   }
 }
