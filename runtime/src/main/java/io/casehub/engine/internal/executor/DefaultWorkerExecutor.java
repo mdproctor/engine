@@ -15,18 +15,22 @@
  */
 package io.casehub.engine.internal.executor;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.WorkerContext;
+import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.WorkerExecutor;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
-import io.casehub.engine.common.internal.jq.JQEvaluator;
-import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
@@ -44,13 +48,16 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
 
   private static final Logger LOG = Logger.getLogger(DefaultWorkerExecutor.class);
 
+  private static final ObjectMapper MAPPER = new ObjectMapper();
+
   private final Instance<WorkerFunctionHandler> handlers;
-  private final JQEvaluator jqEvaluator;
+  private final ExpressionEngineRegistry expressionEngineRegistry;
 
   @Inject
-  public DefaultWorkerExecutor(Instance<WorkerFunctionHandler> handlers, JQEvaluator jqEvaluator) {
+  public DefaultWorkerExecutor(
+      Instance<WorkerFunctionHandler> handlers, ExpressionEngineRegistry expressionEngineRegistry) {
     this.handlers = handlers;
-    this.jqEvaluator = jqEvaluator;
+    this.expressionEngineRegistry = expressionEngineRegistry;
   }
 
   @Override
@@ -72,25 +79,22 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
     throw new UnsupportedOperationException("No handler for: " + function.getClass().getName());
   }
 
-  @SuppressWarnings("unchecked")
   private WorkerResult applyOutputSchema(WorkerResult result, String outputSchema) {
     if (outputSchema == null || outputSchema.isBlank() || result.output() == null) {
       return result;
     }
-    com.fasterxml.jackson.databind.ObjectMapper mapper =
-        new com.fasterxml.jackson.databind.ObjectMapper();
-    com.fasterxml.jackson.databind.JsonNode outputNode = mapper.valueToTree(result.output());
-    ValidationResult vr = jqEvaluator.eval(outputSchema, outputNode);
-    if (!vr.ok()) {
-      LOG.warnf("Output schema evaluation error: %s", vr.error());
-      return result;
-    }
-    if (vr.output() != null && !vr.output().isEmpty()) {
-      Map<String, Object> evaluated =
-          mapper.convertValue(
-              vr.output().get(0),
-              new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
-      return new WorkerResult(evaluated, result.outcome());
+    try {
+      final JsonNode outputNode = MAPPER.valueToTree(result.output());
+      final var evaluator =
+          expressionEngineRegistry.create(outputSchema, JQExpressionEvaluator.TYPE);
+      final List<JsonNode> transformed = expressionEngineRegistry.transform(evaluator, outputNode);
+      if (!transformed.isEmpty()) {
+        Map<String, Object> evaluated =
+            MAPPER.convertValue(transformed.get(0), new TypeReference<Map<String, Object>>() {});
+        return new WorkerResult(evaluated, result.outcome());
+      }
+    } catch (Exception e) {
+      LOG.warnf("Output schema evaluation error: %s", e.getMessage());
     }
     return result;
   }

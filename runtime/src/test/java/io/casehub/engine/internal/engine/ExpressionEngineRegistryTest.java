@@ -23,6 +23,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
@@ -30,6 +32,7 @@ import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -217,6 +220,81 @@ class ExpressionEngineRegistryTest {
           .isInstanceOf(UnsupportedOperationException.class)
           .hasMessageContaining("Java-DSL-only")
           .hasMessageContaining("expressionLang: jq");
+    }
+  }
+
+  @Nested
+  @DisplayName("transform()")
+  class Transform {
+
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
+    @Test
+    @DisplayName("returns input as-is for null evaluator")
+    void nullEvaluator_returnsInput() {
+      final JsonNode input = MAPPER.valueToTree(Map.of("a", 1, "b", 2));
+      final List<JsonNode> result = registry.transform(null, input);
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0)).isEqualTo(input);
+    }
+
+    @Test
+    @DisplayName("JQ — extracts a field from input")
+    void jq_extractsField() {
+      final JsonNode input = MAPPER.valueToTree(Map.of("name", "Alice", "age", 30));
+      final var evaluator = new JQExpressionEvaluator("{name: .name}");
+      final List<JsonNode> result = registry.transform(evaluator, input);
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0).get("name").asText()).isEqualTo("Alice");
+      assertThat(result.get(0).has("age")).isFalse();
+    }
+
+    @Test
+    @DisplayName("JQ — identity expression returns input unchanged")
+    void jq_identity_returnsInput() {
+      final JsonNode input = MAPPER.valueToTree(Map.of("x", 42));
+      final var evaluator = new JQExpressionEvaluator(".");
+      final List<JsonNode> result = registry.transform(evaluator, input);
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0)).isEqualTo(input);
+    }
+
+    @Test
+    @DisplayName("JQ — null expression returns input as-is")
+    void jq_nullExpression_returnsInput() {
+      final JsonNode input = MAPPER.valueToTree(Map.of("x", 1));
+      final var evaluator = new JQExpressionEvaluator(null);
+      final List<JsonNode> result = registry.transform(evaluator, input);
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0)).isEqualTo(input);
+    }
+
+    @Test
+    @DisplayName("JQ — blank expression returns input as-is")
+    void jq_blankExpression_returnsInput() {
+      final JsonNode input = MAPPER.valueToTree(Map.of("x", 1));
+      final var evaluator = new JQExpressionEvaluator("   ");
+      final List<JsonNode> result = registry.transform(evaluator, input);
+      assertThat(result).hasSize(1);
+      assertThat(result.get(0)).isEqualTo(input);
+    }
+
+    @Test
+    @DisplayName("JQ — invalid expression throws IllegalArgumentException")
+    void jq_invalidExpression_throws() {
+      final JsonNode input = MAPPER.valueToTree(Map.of("x", 1));
+      final var evaluator = new JQExpressionEvaluator(".foo ??? broken");
+      assertThatThrownBy(() -> registry.transform(evaluator, input))
+          .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    @DisplayName("Lambda — throws UnsupportedOperationException")
+    void lambda_throwsUnsupported() {
+      final JsonNode input = MAPPER.valueToTree(Map.of("x", 1));
+      final var evaluator = new LambdaExpressionEvaluator(ctx -> true);
+      assertThatThrownBy(() -> registry.transform(evaluator, input))
+          .isInstanceOf(UnsupportedOperationException.class);
     }
   }
 }

@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.engine;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextPanel;
 import io.casehub.api.engine.ExpressionEngine;
@@ -24,6 +25,7 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.util.List;
 import net.thisptr.jackson.jq.JsonQuery;
 import net.thisptr.jackson.jq.Versions;
 
@@ -71,5 +73,19 @@ public class JQExpressionEngine implements ExpressionEngine {
   @Override
   public boolean supportsStringCreation() {
     return true;
+  }
+
+  @Override
+  public List<JsonNode> transform(final ExpressionEvaluator evaluator, final JsonNode input) {
+    final String expr = ((JQExpressionEvaluator) evaluator).expression();
+    if (expr == null || expr.isBlank()) {
+      return List.of(input);
+    }
+    final ValidationResult result = jqEvaluator.eval(expr, input);
+    if (!result.ok()) {
+      throw new IllegalArgumentException(
+          "JQ transform failed for '" + expr + "': " + result.error());
+    }
+    return result.output() != null ? result.output() : List.of();
   }
 }

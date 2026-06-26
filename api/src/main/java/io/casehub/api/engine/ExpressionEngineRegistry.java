@@ -18,6 +18,7 @@ package io.casehub.api.engine;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
+import java.util.List;
 
 /**
  * Registry for expression engines.
@@ -91,4 +92,19 @@ public interface ExpressionEngineRegistry {
    *     override {@code create()})
    */
   void assertLanguageSupported(String expressionLang);
+
+  /**
+   * Transforms the input JSON by applying the expression and returning the result(s).
+   *
+   * <p>Unlike {@link #evaluate}, which returns a boolean condition result, this method returns the
+   * actual transformed output — used for output/input schema evaluation where the expression
+   * reshapes data rather than testing a condition.
+   *
+   * @param evaluator the expression to apply; returns {@code List.of(input)} if {@code null}
+   * @param input the JSON to transform
+   * @return the transformation result(s); never {@code null}
+   * @throws IllegalArgumentException if no engine is registered for the evaluator type, or if
+   *     evaluation fails
+   */
+  List<JsonNode> transform(ExpressionEvaluator evaluator, JsonNode input);
 }

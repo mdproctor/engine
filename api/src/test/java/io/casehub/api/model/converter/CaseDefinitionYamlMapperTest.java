@@ -930,6 +930,12 @@ class CaseDefinitionYamlMapperTest {
     public void validate(final ExpressionEvaluator evaluator) {
       throw new UnsupportedOperationException();
     }
+
+    @Override
+    public java.util.List<JsonNode> transform(
+        final ExpressionEvaluator evaluator, final JsonNode input) {
+      throw new UnsupportedOperationException();
+    }
   }
 
   @Test
@@ -1082,6 +1088,11 @@ class CaseDefinitionYamlMapperTest {
 
           @Override
           public void validate(final ExpressionEvaluator e) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public java.util.List<JsonNode> transform(final ExpressionEvaluator e, final JsonNode n) {
             throw new UnsupportedOperationException();
           }
         };

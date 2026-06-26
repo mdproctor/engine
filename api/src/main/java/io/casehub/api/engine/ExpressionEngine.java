@@ -15,8 +15,10 @@
  */
 package io.casehub.api.engine;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
+import java.util.List;
 
 /**
  * SPI for pluggable expression evaluation engines.
@@ -84,5 +86,23 @@ public interface ExpressionEngine {
    */
   default boolean supportsStringCreation() {
     return false;
+  }
+
+  /**
+   * Transforms the input JSON by applying the expression and returning the result(s).
+   *
+   * <p>Unlike {@link #evaluate}, which returns a boolean condition result, this method returns the
+   * actual transformed output — used for output/input schema evaluation where the expression
+   * reshapes data rather than testing a condition.
+   *
+   * @param evaluator the expression to apply — guaranteed to match {@link #type()}
+   * @param input the JSON to transform
+   * @return the transformation result(s); never {@code null}
+   * @throws UnsupportedOperationException if this engine does not support transformation
+   * @throws IllegalArgumentException if evaluation fails
+   */
+  default List<JsonNode> transform(final ExpressionEvaluator evaluator, final JsonNode input) {
+    throw new UnsupportedOperationException(
+        "ExpressionEngine '" + type() + "' does not support transform operations.");
   }
 }

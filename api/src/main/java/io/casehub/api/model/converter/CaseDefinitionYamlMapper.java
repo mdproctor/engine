@@ -111,6 +111,13 @@ public final class CaseDefinitionYamlMapper {
           // no-op: loading-only registry; validation occurs through the CDI path
           // during case definition registration in DefaultCaseDefinitionRegistry
         }
+
+        @Override
+        public java.util.List<JsonNode> transform(
+            final ExpressionEvaluator evaluator, final JsonNode input) {
+          throw new UnsupportedOperationException(
+              "JQ_ONLY loading registry does not support transformation");
+        }
       };
 
   /**

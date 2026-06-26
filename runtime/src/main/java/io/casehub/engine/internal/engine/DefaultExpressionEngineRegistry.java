@@ -26,6 +26,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
@@ -108,6 +109,14 @@ public class DefaultExpressionEngineRegistry implements ExpressionEngineRegistry
               + "'");
     }
     return evaluator;
+  }
+
+  @Override
+  public List<JsonNode> transform(final ExpressionEvaluator evaluator, final JsonNode input) {
+    if (evaluator == null) {
+      return List.of(input);
+    }
+    return resolveEngine(evaluator.type()).transform(evaluator, input);
   }
 
   @Override
