@@ -37,6 +37,8 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.smallrye.mutiny.Uni;
 import java.util.Map;
@@ -58,6 +60,7 @@ class SubCaseExecutionHandlerTest {
   private SubCaseExecutionHandler handler;
   private UUID parentCaseId;
   private DefaultCasePlanModel plan;
+  private CaseInstanceCache caseInstanceCache;
 
   @BeforeEach
   void setUp() {
@@ -87,6 +90,8 @@ class SubCaseExecutionHandlerTest {
     when(subCaseGroupRepository.registerChild(any(), any(), any(), any()))
         .thenReturn(Uni.createFrom().item(stubGroup));
 
+    caseInstanceCache = new CaseInstanceCacheImpl();
+
     handler =
         new SubCaseExecutionHandler(
             caseHubRuntime,
@@ -95,7 +100,8 @@ class SubCaseExecutionHandlerTest {
             eventLogRepository,
             pendingWorkRegistry,
             subCaseGroupRepository,
-            registry);
+            registry,
+            caseInstanceCache);
 
     parentCaseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(parentCaseId, "test-tenant");
@@ -224,7 +230,8 @@ class SubCaseExecutionHandlerTest {
             mock(EventLogRepository.class),
             mock(PendingWorkRegistry.class),
             mock(SubCaseGroupRepository.class),
-            freshRegistry);
+            freshRegistry,
+            new CaseInstanceCacheImpl());
 
     handlerWithNullDef.onSubCaseSchedule(eventFor("spawn-child", true)).await().indefinitely();
 

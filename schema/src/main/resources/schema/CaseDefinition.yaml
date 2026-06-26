@@ -635,6 +635,12 @@ $defs:
       outputMapping:
         type: string
         description: "Optional JQ expression to map child final context back to parent (null = no merge)"
+      maxRecursionDepth:
+        type: integer
+        minimum: 0
+        maximum: 20
+        default: 0
+        description: "Maximum self-referencing depth. 0 = no recursion (default). N = allow N levels."
 
   Worker:
     description: >

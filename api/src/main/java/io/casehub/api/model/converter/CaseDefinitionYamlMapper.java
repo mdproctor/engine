@@ -475,6 +475,8 @@ public final class CaseDefinitionYamlMapper {
             schemaModel.getWaitForCompletion() != null ? schemaModel.getWaitForCompletion() : true)
         .inputMapping(schemaModel.getInputMapping() != null ? schemaModel.getInputMapping() : ".")
         .outputMapping(schemaModel.getOutputMapping())
+        .maxRecursionDepth(
+            schemaModel.getMaxRecursionDepth() != null ? schemaModel.getMaxRecursionDepth() : 0)
         .build();
   }
 

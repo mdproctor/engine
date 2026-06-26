@@ -33,6 +33,7 @@ public class SubCase {
   private final int totalInGroup;
   private final int requiredCount;
   private final OnThresholdReached onThresholdReached;
+  private final int maxRecursionDepth;
 
   private SubCase(Builder b) {
     this.namespace = Objects.requireNonNull(b.namespace, "namespace");
@@ -50,6 +51,11 @@ public class SubCase {
     this.requiredCount = b.requiredCount > 0 ? b.requiredCount : b.totalInGroup;
     this.onThresholdReached =
         b.onThresholdReached != null ? b.onThresholdReached : OnThresholdReached.KEEP;
+    if (b.maxRecursionDepth < 0) {
+      throw new IllegalArgumentException(
+          "maxRecursionDepth must be >= 0, got: " + b.maxRecursionDepth);
+    }
+    this.maxRecursionDepth = b.maxRecursionDepth;
   }
 
   public String namespace() {
@@ -96,6 +102,10 @@ public class SubCase {
     return onThresholdReached;
   }
 
+  public int maxRecursionDepth() {
+    return maxRecursionDepth;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -112,6 +122,7 @@ public class SubCase {
     private int totalInGroup = 0;
     private int requiredCount = 0;
     private OnThresholdReached onThresholdReached;
+    private int maxRecursionDepth = 0;
 
     public Builder namespace(String v) {
       namespace = v;
@@ -165,6 +176,11 @@ public class SubCase {
 
     public Builder onThresholdReached(OnThresholdReached v) {
       onThresholdReached = v;
+      return this;
+    }
+
+    public Builder maxRecursionDepth(int v) {
+      maxRecursionDepth = v;
       return this;
     }
 

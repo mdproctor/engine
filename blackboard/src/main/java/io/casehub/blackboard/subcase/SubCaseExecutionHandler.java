@@ -34,6 +34,7 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -57,6 +58,7 @@ public class SubCaseExecutionHandler {
   private final PendingWorkRegistry pendingWorkRegistry;
   private final SubCaseGroupRepository subCaseGroupRepository;
   private final BlackboardRegistry registry;
+  private final CaseInstanceCache caseInstanceCache;
 
   @Inject
   public SubCaseExecutionHandler(
@@ -66,7 +68,8 @@ public class SubCaseExecutionHandler {
       EventLogRepository eventLogRepository,
       PendingWorkRegistry pendingWorkRegistry,
       SubCaseGroupRepository subCaseGroupRepository,
-      BlackboardRegistry registry) {
+      BlackboardRegistry registry,
+      CaseInstanceCache caseInstanceCache) {
     this.caseHubRuntime = caseHubRuntime;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.caseInstanceRepository = caseInstanceRepository;
@@ -74,6 +77,7 @@ public class SubCaseExecutionHandler {
     this.pendingWorkRegistry = pendingWorkRegistry;
     this.subCaseGroupRepository = subCaseGroupRepository;
     this.registry = registry;
+    this.caseInstanceCache = caseInstanceCache;
   }
 
   @ConsumeEvent(value = EventBusAddresses.SUBCASE_SCHEDULE, blocking = true)
@@ -83,15 +87,27 @@ public class SubCaseExecutionHandler {
     String bindingName = event.bindingName();
 
     CaseMetaModel parentMeta = parent.getCaseMetaModel();
-    if (parentMeta != null
-        && subCase.namespace().equals(parentMeta.getNamespace())
-        && subCase.name().equals(parentMeta.getName())
-        && subCase.version().equals(parentMeta.getVersion())) {
-      LOG.errorf(
-          "SubCase circular dependency: case %s cannot spawn itself (%s/%s/%s)",
-          parent.getUuid(), subCase.namespace(), subCase.name(), subCase.version());
-      faultPlanItem(parent.getUuid(), bindingName);
-      return Uni.createFrom().voidItem();
+    boolean selfReference =
+        parentMeta != null
+            && subCase.namespace().equals(parentMeta.getNamespace())
+            && subCase.name().equals(parentMeta.getName())
+            && subCase.version().equals(parentMeta.getVersion());
+
+    if (selfReference) {
+      int maxDepth = subCase.maxRecursionDepth();
+      int depth = computeSameDefinitionDepth(parent, subCase, maxDepth);
+      if (depth >= maxDepth) {
+        LOG.warnf(
+            "SubCase recursion depth %d reached limit %d for case %s (%s/%s/%s)",
+            depth,
+            maxDepth,
+            parent.getUuid(),
+            subCase.namespace(),
+            subCase.name(),
+            subCase.version());
+        faultPlanItem(parent.getUuid(), bindingName);
+        return Uni.createFrom().voidItem();
+      }
     }
 
     CaseMetaModel childMeta = new CaseMetaModel();
@@ -169,6 +185,26 @@ public class SubCaseExecutionHandler {
         .get(parentCaseId)
         .flatMap(plan -> plan.getPlanItemByBindingName(bindingName))
         .ifPresent(PlanItem::markFaulted);
+  }
+
+  private int computeSameDefinitionDepth(CaseInstance parent, SubCase subCase, int maxDepth) {
+    int depth = 0;
+    UUID ancestorId = parent.getParentCaseId();
+    while (ancestorId != null && depth < maxDepth) {
+      CaseInstance ancestor = caseInstanceCache.get(ancestorId);
+      if (ancestor == null) {
+        break;
+      }
+      CaseMetaModel meta = ancestor.getCaseMetaModel();
+      if (meta != null
+          && subCase.namespace().equals(meta.getNamespace())
+          && subCase.name().equals(meta.getName())
+          && subCase.version().equals(meta.getVersion())) {
+        depth++;
+      }
+      ancestorId = ancestor.getParentCaseId();
+    }
+    return depth;
   }
 
   private Uni<Void> handleGrouped(
