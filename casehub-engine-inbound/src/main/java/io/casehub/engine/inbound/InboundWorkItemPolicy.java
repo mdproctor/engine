@@ -16,7 +16,7 @@
 package io.casehub.engine.inbound;
 
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
-import io.casehub.work.runtime.model.WorkItemCreateRequest;
+import io.casehub.work.api.WorkItemCreateRequest;
 import java.util.Optional;
 
 /**
