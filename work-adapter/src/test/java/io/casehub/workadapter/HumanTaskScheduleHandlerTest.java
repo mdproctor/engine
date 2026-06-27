@@ -28,14 +28,15 @@ import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.persistence.memory.MemoryPlanItemStore;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.memory.InMemoryWorkItemStore;
+import io.casehub.work.memory.InMemoryWorkItemTemplateStore;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.model.WorkItemStatus;
 import io.casehub.work.runtime.model.WorkItemTemplate;
 import io.casehub.work.runtime.repository.WorkItemStore;
+import io.casehub.work.runtime.repository.WorkItemTemplateStore;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
@@ -62,13 +63,13 @@ class HumanTaskScheduleHandlerTest {
   @Inject BlackboardRegistry registry;
   @Inject EventBus eventBus;
   @Inject WorkItemStore workItemStore;
+  @Inject WorkItemTemplateStore templateStore;
   @Inject PlanItemStore planItemStore;
 
   private UUID caseId;
   private PlanItem planItem;
 
   @BeforeEach
-  @Transactional
   void setUp() {
     if (workItemStore instanceof InMemoryWorkItemStore mem) {
       mem.clear();
@@ -76,7 +77,9 @@ class HumanTaskScheduleHandlerTest {
     if (planItemStore instanceof MemoryPlanItemStore mem) {
       mem.clear();
     }
-    WorkItemTemplate.deleteAll();
+    if (templateStore instanceof InMemoryWorkItemTemplateStore mem) {
+      mem.clear();
+    }
     caseId = UUID.randomUUID();
     planItem = PlanItem.create("irb-binding", "unused-worker", 5);
     registry.getOrCreate(caseId, "test-tenant").addPlanItem(planItem);
@@ -591,19 +594,16 @@ class HumanTaskScheduleHandlerTest {
         .isEmpty();
   }
 
-  @Transactional
   WorkItemTemplate persistTemplate(final String name) {
     return persistTemplate(name, null);
   }
 
-  @Transactional
   WorkItemTemplate persistTemplate(final String name, final String defaultPayload) {
     WorkItemTemplate t = new WorkItemTemplate();
     t.name = name;
     t.createdBy = "test";
     t.tenancyId = TenancyConstants.DEFAULT_TENANT_ID;
     t.defaultPayload = defaultPayload;
-    WorkItemTemplate.persist(t);
-    return t;
+    return templateStore.put(t);
   }
 }

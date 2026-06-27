@@ -105,8 +105,7 @@ public final class AgentBuilder {
     return this;
   }
 
-  // package-private — for tests only
-  AgentBuilder model(ChatModel model) {
+  public AgentBuilder model(ChatModel model) {
     this.model = model;
     return this;
   }

@@ -331,7 +331,7 @@ Provider implementations in sub-packages (`openai/`, `anthropic/`, `mistral/`, `
 
 `AgentConverter` (`api/.../converter/AgentConverter.java`) bridges jsonschema2pojo schema models (`io.casehub.model.Agent`) to API `Agent` instances. Called by `CaseDefinitionYamlMapper` when a worker has an `agent` YAML block.
 
-**Test pattern:** Mock `ChatModel` via package-private `AgentBuilder.model(ChatModel)` for unit tests. For `@QuarkusTest` integration tests, define inner `CaseHub` subclasses with mock `ChatModelProvider` returning canned JSON. No Mockito needed — use anonymous `ChatModel` implementations.
+**Test pattern:** Mock `ChatModel` via `AgentBuilder.model(ChatModel)` for unit tests. For `@QuarkusTest` integration tests, define inner `CaseHub` subclasses with mock `ChatModelProvider` returning canned JSON. No Mockito needed — use anonymous `ChatModel` implementations.
 
 ## casehub-blackboard Module
 
@@ -419,8 +419,8 @@ See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until al
 **Test setup** (when depending on `casehub-work` full module):
 - Add `casehub-work-persistence-memory` test dep — provides `InMemoryWorkItemStore @Alternative @Priority(1)`
 - Add `quarkus-jdbc-h2` test dep — casehub-work JPA entities require a datasource even in tests
-- Add `quarkus.arc.exclude-types=io.casehub.work.runtime.repository.jpa.JpaWorkItemStore` to `application.properties` — `@Alternative @Priority(1)` from an external jar does NOT automatically override a non-alternative `@ApplicationScoped` bean in Quarkus ARC 3.x; excluding the JPA store is required for `InMemoryWorkItemStore` to resolve correctly
-- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos AND `io.casehub.work.memory.InMemoryWorkItemStore` — omitting it causes boot failure: `Unsatisfied dependency for SubCaseGroupRepository`
+- Add `quarkus.arc.exclude-types=io.casehub.work.runtime.repository.jpa.JpaWorkItemStore,io.casehub.work.runtime.repository.jpa.JpaWorkItemTemplateStore` to `application.properties` — `@Alternative @Priority(1)` from an external jar does NOT automatically override a non-alternative `@ApplicationScoped` bean in Quarkus ARC 3.x; excluding the JPA stores is required for in-memory stores to resolve correctly
+- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos AND `io.casehub.work.memory.InMemoryWorkItemStore` AND `io.casehub.work.memory.InMemoryWorkItemTemplateStore` — omitting it causes boot failure: `Unsatisfied dependency for SubCaseGroupRepository`. Template-mode tests that use `persistTemplate()` must call `templateStore.put()` (not Panache `persist()`) to write to the in-memory store that the handler reads from (engine#576)
 - Add `@Alternative @Priority(1)` static inner class stub for `WorkloadProvider` — casehub-work ships `JpaWorkloadProvider` which would query the database for work counts; a zero-returning stub isolates tests from DB queries. (engine#337 removed `CasehubWorkloadProvider` — no CDI ambiguity exists, but the stub is still good test hygiene)
 - Set `quarkus.quartz.store-type=ram` and `quarkus.hibernate-orm.schema-management.strategy=drop-and-create`
 - `QuarkusTestProfile.getEnabledAlternatives()` **replaces** (not appends to) `quarkus.arc.selected-alternatives` — any profile using this method must re-declare all globally required alternatives, including persistence-memory repos and `InMemoryWorkItemStore`

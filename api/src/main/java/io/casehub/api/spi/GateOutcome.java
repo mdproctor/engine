@@ -17,8 +17,8 @@ package io.casehub.api.spi;
 
 import java.util.UUID;
 
-public sealed interface GateDecision permits GateDecision.Autonomous, GateDecision.GatePending {
-  record Autonomous() implements GateDecision {}
+public sealed interface GateOutcome permits GateOutcome.Autonomous, GateOutcome.GatePending {
+  record Autonomous() implements GateOutcome {}
 
-  record GatePending(UUID gateId, String reason) implements GateDecision {}
+  record GatePending(UUID gateId, String reason) implements GateOutcome {}
 }

@@ -19,7 +19,7 @@ import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 
 public interface ReactiveOversightGateService {
-  Uni<GateDecision> openGate(String agentId, String commitmentId, String outcome, String tenancyId);
+  Uni<GateOutcome> openGate(String agentId, String commitmentId, String outcome, String tenancyId);
 
   Uni<Void> fulfill(UUID gateId, String rawOutput);
 }

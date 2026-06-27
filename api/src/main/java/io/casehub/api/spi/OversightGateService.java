@@ -18,7 +18,7 @@ package io.casehub.api.spi;
 import java.util.UUID;
 
 public interface OversightGateService {
-  GateDecision openGate(String agentId, String commitmentId, String outcome, String tenancyId);
+  GateOutcome openGate(String agentId, String commitmentId, String outcome, String tenancyId);
 
   void fulfill(UUID gateId, String rawOutput);
 }

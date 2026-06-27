@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.GateDecision;
+import io.casehub.api.spi.GateOutcome;
 import io.casehub.api.spi.ReactiveOversightGateService;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
@@ -27,9 +27,9 @@ import java.util.UUID;
 public class NoOpReactiveOversightGateService implements ReactiveOversightGateService {
 
   @Override
-  public Uni<GateDecision> openGate(
+  public Uni<GateOutcome> openGate(
       String agentId, String commitmentId, String outcome, String tenancyId) {
-    return Uni.createFrom().item(new GateDecision.Autonomous());
+    return Uni.createFrom().item(new GateOutcome.Autonomous());
   }
 
   @Override

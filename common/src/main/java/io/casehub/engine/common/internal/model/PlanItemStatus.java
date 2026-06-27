@@ -27,6 +27,8 @@ package io.casehub.engine.common.internal.model;
  *       waiting for completion signal. Non-terminal. Distinct from {@code WorkItemStatus.DELEGATED}
  *       (pre-acceptance hold within the task) and {@code CommitmentState.DELEGATED} (terminal
  *       obligation transfer)
+ *   <li>SUSPENDED — external actor has paused work; slot remains occupied, work resumes without
+ *       re-dispatch
  * </ul>
  *
  * <p><b>Terminal states:</b>

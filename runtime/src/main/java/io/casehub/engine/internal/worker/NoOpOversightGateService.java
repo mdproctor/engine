@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.GateDecision;
+import io.casehub.api.spi.GateOutcome;
 import io.casehub.api.spi.OversightGateService;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.runtime.StartupEvent;
@@ -36,9 +36,9 @@ public class NoOpOversightGateService implements OversightGateService {
   }
 
   @Override
-  public GateDecision openGate(
+  public GateOutcome openGate(
       String agentId, String commitmentId, String outcome, String tenancyId) {
-    return new GateDecision.Autonomous();
+    return new GateOutcome.Autonomous();
   }
 
   @Override
