@@ -153,6 +153,11 @@ public class SubCaseCompletionService {
               .atMost(Duration.ofSeconds(10));
     }
 
+    Map<String, Object> appliedData = null;
+    if (childCompleted) {
+      appliedData = applyOutputMapping(startedEntry, childCaseId, parentCaseId);
+    }
+
     GroupStatus groupStatus = SubCaseGroupPolicy.evaluate(group);
     if (groupStatus == null) return; // policyTriggered — already handled
 
@@ -178,8 +183,6 @@ public class SubCaseCompletionService {
           cancelRemainingChildren(group, childCaseId);
         }
 
-        Map<String, Object> appliedData =
-            applyOutputMapping(startedEntry, childCaseId, parentCaseId);
         writeCompletedLog(
             parentCaseId, childCaseId, groupId, groupStatus, appliedData, event.tenancyId());
 
@@ -224,7 +227,8 @@ public class SubCaseCompletionService {
         }
       }
     } else {
-      writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null, event.tenancyId());
+      writeCompletedLog(
+          parentCaseId, childCaseId, groupId, groupStatus, appliedData, event.tenancyId());
     }
   }
 

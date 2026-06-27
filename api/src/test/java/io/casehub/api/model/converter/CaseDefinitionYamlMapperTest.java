@@ -212,6 +212,111 @@ class CaseDefinitionYamlMapperTest {
   }
 
   @Test
+  void load_subCaseBinding_mofnFields_convertsSuccessfully() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: MofN SubCase Test
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: bisect-binding
+              subCase:
+                namespace: devtown
+                name: bisect-half
+                version: 1.0.0
+                groupId: bisect-group
+                totalInGroup: 2
+                requiredCount: 2
+                onThresholdReached: KEEP
+                outputMapping: "{ result: .result }"
+              on:
+                contextChange:
+                  filter: ".ready"
+        """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getBindings()).hasSize(1);
+    Binding binding = def.getBindings().get(0);
+    io.casehub.api.model.SubCase subCase =
+        ((io.casehub.api.model.SubCaseTarget) binding.target()).subCase();
+    assertThat(subCase.groupId()).isEqualTo("bisect-group");
+    assertThat(subCase.totalInGroup()).isEqualTo(2);
+    assertThat(subCase.requiredCount()).isEqualTo(2);
+    assertThat(subCase.onThresholdReached())
+        .isEqualTo(io.casehub.api.model.OnThresholdReached.KEEP);
+    assertThat(subCase.outputMapping()).isEqualTo("{ result: .result }");
+  }
+
+  @Test
+  void load_subCaseBinding_mofnDefaults_convertsSuccessfully() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: MofN Defaults Test
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: simple-binding
+              subCase:
+                namespace: test
+                name: child
+                version: 1.0.0
+              on:
+                contextChange:
+                  filter: ".go"
+        """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    io.casehub.api.model.SubCase subCase =
+        ((io.casehub.api.model.SubCaseTarget) def.getBindings().get(0).target()).subCase();
+    assertThat(subCase.groupId()).isNull();
+    assertThat(subCase.totalInGroup()).isZero();
+    assertThat(subCase.requiredCount()).isZero();
+    assertThat(subCase.onThresholdReached())
+        .isEqualTo(io.casehub.api.model.OnThresholdReached.KEEP);
+  }
+
+  @Test
+  void load_subCaseBinding_cancelPolicy_convertsSuccessfully() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Cancel Policy Test
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: race-binding
+              subCase:
+                namespace: test
+                name: racer
+                version: 1.0.0
+                groupId: race
+                totalInGroup: 3
+                requiredCount: 1
+                onThresholdReached: CANCEL
+              on:
+                contextChange:
+                  filter: ".start"
+        """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    io.casehub.api.model.SubCase subCase =
+        ((io.casehub.api.model.SubCaseTarget) def.getBindings().get(0).target()).subCase();
+    assertThat(subCase.groupId()).isEqualTo("race");
+    assertThat(subCase.totalInGroup()).isEqualTo(3);
+    assertThat(subCase.requiredCount()).isEqualTo(1);
+    assertThat(subCase.onThresholdReached())
+        .isEqualTo(io.casehub.api.model.OnThresholdReached.CANCEL);
+  }
+
+  @Test
   void load_nullInputStream_throwsException() {
     assertThatThrownBy(() -> CaseDefinitionYamlMapper.load(null))
         .isInstanceOf(IllegalArgumentException.class)

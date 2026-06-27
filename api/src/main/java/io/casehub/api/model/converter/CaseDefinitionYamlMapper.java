@@ -477,6 +477,14 @@ public final class CaseDefinitionYamlMapper {
         .outputMapping(schemaModel.getOutputMapping())
         .maxRecursionDepth(
             schemaModel.getMaxRecursionDepth() != null ? schemaModel.getMaxRecursionDepth() : 0)
+        .groupId(schemaModel.getGroupId())
+        .totalInGroup(schemaModel.getTotalInGroup() != null ? schemaModel.getTotalInGroup() : 0)
+        .requiredCount(schemaModel.getRequiredCount() != null ? schemaModel.getRequiredCount() : 0)
+        .onThresholdReached(
+            schemaModel.getOnThresholdReached() != null
+                ? io.casehub.api.model.OnThresholdReached.valueOf(
+                    schemaModel.getOnThresholdReached().value())
+                : io.casehub.api.model.OnThresholdReached.KEEP)
         .build();
   }
 
