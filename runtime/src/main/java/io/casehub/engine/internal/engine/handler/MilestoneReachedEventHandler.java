@@ -35,7 +35,14 @@ import jakarta.inject.Inject;
 import java.time.Instant;
 import org.jboss.logging.Logger;
 
-/** Records a MILESTONE_REACHED event. */
+/**
+ * Records a MILESTONE_REACHED event.
+ *
+ * @deprecated No remaining publishers fire MILESTONE_REACHED. Milestone lifecycle is handled by
+ *     MilestoneActivatedEventHandler and MilestoneCompletedEventHandler. Retained for backwards
+ *     compatibility with any external publisher using the address.
+ */
+@Deprecated(forRemoval = true)
 @ApplicationScoped
 public class MilestoneReachedEventHandler {
 

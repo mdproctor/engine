@@ -37,7 +37,7 @@ class GoalTest {
   }
 
   @Test
-  void goal_equals_ignores_terminal() {
+  void goal_equality_with_same_fields() {
     Goal g1 =
         Goal.builder()
             .name("approved")

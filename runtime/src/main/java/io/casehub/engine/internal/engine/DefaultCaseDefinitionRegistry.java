@@ -43,6 +43,7 @@ import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -221,7 +222,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
     // Warn if goals are not referenced in any GoalExpression
     if (definition.getGoals() != null
         && definition.getCompletion() instanceof GoalBasedCompletion gbc) {
-      var referencedGoals = new java.util.HashSet<String>();
+      var referencedGoals = new HashSet<String>();
       if (gbc.getSuccess() != null) {
         gbc.getSuccess().getGoals().forEach(g -> referencedGoals.add(g.getName()));
       }

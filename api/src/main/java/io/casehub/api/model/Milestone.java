@@ -72,20 +72,21 @@ import java.util.function.Predicate;
  * <p>SLA status is orthogonal to lifecycle: a milestone can be COMPLETED + BREACHED (late
  * completion).
  *
- * <h3>Lightweight use</h3>
+ * <h3>Evaluation and Lifecycle Management</h3>
  *
- * <p>By default, when the completionCriteria becomes true, a {@code MilestoneReachedEvent} is
- * published on the event bus and recorded in the {@link
- * io.casehub.engine.internal.history.EventLog} as {@code MILESTONE_REACHED}. No further tracking
- * occurs. This is sufficient for observability, dashboards, and audit trails.
+ * <p>The engine evaluates milestones via {@code MilestoneLifecycleManager}, which owns the full
+ * lifecycle from PENDING to COMPLETED. Evaluation follows these steps:
  *
- * <h3>Lifecycle use (Phase 2 — with {@code CasePlanModel})</h3>
+ * <ol>
+ *   <li><b>PENDING → ACTIVE</b> — fires when {@code entryCriteria} becomes true; publishes {@code
+ *       MilestoneActivatedEvent}; starts SLA tracking if {@code slaDuration} is set
+ *   <li><b>ACTIVE → COMPLETED</b> — fires when {@code completionCriteria} becomes true; publishes
+ *       {@code MilestoneCompletedEvent}; stops SLA tracking
+ * </ol>
  *
- * <p>When a {@code CasePlanModel} is present (the CMMN/Blackboard layer), milestones are promoted
- * to lifecycle-tracked achievement markers with PENDING → ACHIEVED states. The {@code
- * MilestoneReachedEvent} triggers the PENDING → ACHIEVED transition, and the achieved state can be
- * referenced in stage exit criteria and case completion logic. The {@code Milestone} class itself
- * does not change — the lifecycle tracking is a {@code CasePlanModel} concern.
+ * <p>Lifecycle state is tracked in {@code CasePlanModel} (CMMN/Blackboard layer) when present. The
+ * {@code Milestone} class itself is immutable — the lifecycle manager owns the state transitions.
+ * Completed milestones can be referenced in stage exit criteria and case completion logic.
  */
 public class Milestone {
 

@@ -17,26 +17,27 @@ package io.casehub.blackboard.handler;
 
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
-import io.casehub.engine.common.internal.event.MilestoneReachedEvent;
+import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
+import io.casehub.engine.common.internal.event.MilestoneCompletedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
 /**
- * Promotes milestone to ACHIEVED in the {@link io.casehub.blackboard.plan.CasePlanModel} when a
- * {@code MilestoneReachedEvent} fires. Only acts if a plan model exists for the case — pure
- * choreography cases have no plan model.
+ * Promotes milestone lifecycle in the {@link io.casehub.blackboard.plan.CasePlanModel} when {@code
+ * MilestoneActivatedEvent} or {@code MilestoneCompletedEvent} fires. Only acts if a plan model
+ * exists for the case — pure choreography cases have no plan model.
  *
- * <p>Uses {@code MILESTONE_REACHED} which is published via {@code eventBus.publish()} (fan-out) —
- * this handler coexists with the engine's existing milestone processing. See casehubio/engine#76.
- * Milestone alignment: casehubio/engine#84.
+ * <p>Uses {@code MILESTONE_ACTIVATED} and {@code MILESTONE_COMPLETED} which are published via
+ * {@code eventBus.publish()} (fan-out) — this handler coexists with the engine's existing milestone
+ * processing. See casehubio/engine#76. Milestone alignment: casehubio/engine#84.
  *
- * <p><strong>Internal Event Use:</strong> {@link MilestoneReachedEvent} is in the {@code
- * engine.internal.event} package. For event consumption via {@code @ConsumeEvent}, the handler must
- * use the same event type that was published by the engine — there is no public API alternative.
- * Using internal event types in {@code @ConsumeEvent} handlers is the accepted pattern in this
- * codebase.
+ * <p><strong>Internal Event Use:</strong> {@link MilestoneActivatedEvent} and {@link
+ * MilestoneCompletedEvent} are in the {@code engine.internal.event} package. For event consumption
+ * via {@code @ConsumeEvent}, the handler must use the same event type that was published by the
+ * engine — there is no public API alternative. Using internal event types in {@code @ConsumeEvent}
+ * handlers is the accepted pattern in this codebase.
  */
 @ApplicationScoped
 public class MilestoneAchievementHandler {
@@ -48,11 +49,19 @@ public class MilestoneAchievementHandler {
     this.registry = registry;
   }
 
-  @ConsumeEvent(EventBusAddresses.MILESTONE_REACHED)
-  public Uni<Void> onMilestoneReached(MilestoneReachedEvent event) {
+  @ConsumeEvent(EventBusAddresses.MILESTONE_ACTIVATED)
+  public Uni<Void> onMilestoneActivated(MilestoneActivatedEvent event) {
     registry
         .get(event.caseInstance().getUuid())
-        .ifPresent(plan -> plan.achieveMilestone(event.milestone().getName()));
+        .ifPresent(plan -> plan.activateMilestone(event.milestone().getName()));
+    return Uni.createFrom().voidItem();
+  }
+
+  @ConsumeEvent(EventBusAddresses.MILESTONE_COMPLETED)
+  public Uni<Void> onMilestoneCompleted(MilestoneCompletedEvent event) {
+    registry
+        .get(event.caseInstance().getUuid())
+        .ifPresent(plan -> plan.completeMilestone(event.milestone().getName()));
     return Uni.createFrom().voidItem();
   }
 }

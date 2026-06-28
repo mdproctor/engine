@@ -32,11 +32,14 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.scheduler.JobIdentifier;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
+import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.HashMap;
@@ -56,6 +59,8 @@ public class MilestoneCompletedEventHandler {
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject JobScheduler scheduler;
+  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
+  @Inject LedgerTraceIdProvider traceIdProvider;
 
   @ConsumeEvent(value = EventBusAddresses.MILESTONE_COMPLETED)
   public Uni<Void> onMilestoneCompleted(MilestoneCompletedEvent event) {
@@ -67,6 +72,33 @@ public class MilestoneCompletedEventHandler {
     return recordEventLog(event)
         .chain(() -> updateCaseContext(caseInstance, milestone, completedAt, slaStatusAtCompletion))
         .chain(() -> cancelSlaTimeoutJob(caseInstance, milestone))
+        .chain(
+            () -> {
+              String traceId = traceIdProvider.currentTraceId().orElse(null);
+              return Uni.createFrom()
+                  .completionStage(
+                      () ->
+                          lifecycleEvents.fireAsync(
+                              new CaseLifecycleEvent(
+                                  caseInstance.getUuid(),
+                                  caseInstance.tenancyId,
+                                  "CompleteMilestone",
+                                  "MilestoneCompleted",
+                                  caseInstance.getState().name(),
+                                  null,
+                                  "System",
+                                  traceId)))
+                  .onFailure()
+                  .recoverWithItem(
+                      t -> {
+                        LOG.warnf(
+                            t,
+                            "CaseLifecycleEvent observer failed for caseId=%s event=MilestoneCompleted",
+                            caseInstance.getUuid());
+                        return null;
+                      })
+                  .replaceWithVoid();
+            })
         .onFailure()
         .invoke(
             t ->

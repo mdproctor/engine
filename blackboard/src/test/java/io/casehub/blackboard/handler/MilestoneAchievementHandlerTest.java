@@ -20,10 +20,14 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.Milestone;
+import io.casehub.api.model.MilestoneLifecycleStatus;
+import io.casehub.api.model.SlaStatus;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.common.internal.event.MilestoneReachedEvent;
+import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
+import io.casehub.engine.common.internal.event.MilestoneCompletedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +38,7 @@ import org.junit.jupiter.api.Test;
 class MilestoneAchievementHandlerTest {
 
   @Test
-  void achieves_tracked_milestone_in_plan_model() {
+  void activated_event_transitions_milestone_to_active() {
     BlackboardRegistry registry = new BlackboardRegistry();
     UUID caseId = UUID.randomUUID();
     DefaultCasePlanModel plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
@@ -47,11 +51,32 @@ class MilestoneAchievementHandlerTest {
     Milestone milestone = mock(Milestone.class);
     when(milestone.getName()).thenReturn("docs-received");
 
-    handler
-        .onMilestoneReached(new MilestoneReachedEvent(instance, milestone))
-        .await()
-        .indefinitely();
+    var event = new MilestoneActivatedEvent(instance, milestone, Instant.now(), null);
+    handler.onMilestoneActivated(event).await().indefinitely();
 
+    assertThat(plan.getMilestoneStatus("docs-received")).hasValue(MilestoneLifecycleStatus.ACTIVE);
+  }
+
+  @Test
+  void completed_event_transitions_milestone_to_completed() {
+    BlackboardRegistry registry = new BlackboardRegistry();
+    UUID caseId = UUID.randomUUID();
+    DefaultCasePlanModel plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
+    plan.trackMilestone("docs-received");
+    plan.activateMilestone("docs-received");
+
+    MilestoneAchievementHandler handler = new MilestoneAchievementHandler(registry);
+
+    CaseInstance instance = mock(CaseInstance.class);
+    when(instance.getUuid()).thenReturn(caseId);
+    Milestone milestone = mock(Milestone.class);
+    when(milestone.getName()).thenReturn("docs-received");
+
+    var event = new MilestoneCompletedEvent(instance, milestone, Instant.now(), SlaStatus.ON_TRACK);
+    handler.onMilestoneCompleted(event).await().indefinitely();
+
+    assertThat(plan.getMilestoneStatus("docs-received"))
+        .hasValue(MilestoneLifecycleStatus.COMPLETED);
     assertThat(plan.isMilestoneAchieved("docs-received")).isTrue();
   }
 
@@ -66,9 +91,11 @@ class MilestoneAchievementHandlerTest {
     when(milestone.getName()).thenReturn("docs-received");
 
     // No plan model exists for this caseId — should not throw
-    handler
-        .onMilestoneReached(new MilestoneReachedEvent(instance, milestone))
-        .await()
-        .indefinitely();
+    var activatedEvent = new MilestoneActivatedEvent(instance, milestone, Instant.now(), null);
+    handler.onMilestoneActivated(activatedEvent).await().indefinitely();
+
+    var completedEvent =
+        new MilestoneCompletedEvent(instance, milestone, Instant.now(), SlaStatus.ON_TRACK);
+    handler.onMilestoneCompleted(completedEvent).await().indefinitely();
   }
 }

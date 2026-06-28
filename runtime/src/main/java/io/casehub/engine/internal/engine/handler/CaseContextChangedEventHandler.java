@@ -33,7 +33,6 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.HumanTaskTarget;
-import io.casehub.api.model.Milestone;
 import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.WorkRequest;
@@ -51,7 +50,6 @@ import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.GoalReachedEvent;
 import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
-import io.casehub.engine.common.internal.event.MilestoneReachedEvent;
 import io.casehub.engine.common.internal.event.OutcomeDisposition;
 import io.casehub.engine.common.internal.event.SubCaseScheduleEvent;
 import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
@@ -162,12 +160,8 @@ public class CaseContextChangedEventHandler {
             changedPanel,
             triggerChannelId,
             triggerCorrelationId)
-        .chain(() -> milestones(caseInstance, contextSnapshot, caseDefinition))
         .chain(() -> goals(caseInstance, contextSnapshot, caseDefinition))
-        .invoke(
-            () ->
-                LOG.debugf(
-                    "Rules+milestones+goals processed for caseId: %s", caseInstance.getUuid()))
+        .invoke(() -> LOG.debugf("Rules+goals processed for caseId: %s", caseInstance.getUuid()))
         .onFailure()
         .invoke(
             t ->
@@ -235,27 +229,6 @@ public class CaseContextChangedEventHandler {
               if (unis.isEmpty()) return Uni.createFrom().voidItem();
               return Uni.combine().all().unis(unis).discardItems();
             });
-  }
-
-  private Uni<Void> milestones(
-      final CaseInstance caseInstance,
-      final CaseContext contextSnapshot,
-      final CaseDefinition definition) {
-    final List<Milestone> milestones = definition.getMilestones();
-    if (milestones == null || milestones.isEmpty()) {
-      return Uni.createFrom().voidItem();
-    }
-
-    for (final Milestone milestone : milestones) {
-      if (!expressionEngineRegistry.evaluate(milestone.getCompletionCriteria(), contextSnapshot))
-        continue;
-
-      LOG.infof("Milestone '%s' REACHED! Publishing MilestoneReachedEvent", milestone.getName());
-      eventBus.publish(
-          EventBusAddresses.MILESTONE_REACHED, new MilestoneReachedEvent(caseInstance, milestone));
-    }
-
-    return Uni.createFrom().voidItem();
   }
 
   private Uni<Void> goals(
