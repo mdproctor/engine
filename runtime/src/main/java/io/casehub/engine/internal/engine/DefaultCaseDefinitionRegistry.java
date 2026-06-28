@@ -21,6 +21,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
+import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.PredicateBasedCompletion;
 import io.casehub.engine.common.internal.config.ConfigManager;
@@ -215,6 +216,26 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
     }
     if (definition.getCompletion() instanceof PredicateBasedCompletion pbc) {
       expressionEngineRegistry.validate(pbc.getDoneWhen());
+    }
+
+    // Warn if goals are not referenced in any GoalExpression
+    if (definition.getGoals() != null
+        && definition.getCompletion() instanceof GoalBasedCompletion gbc) {
+      var referencedGoals = new java.util.HashSet<String>();
+      if (gbc.getSuccess() != null) {
+        gbc.getSuccess().getGoals().forEach(g -> referencedGoals.add(g.getName()));
+      }
+      if (gbc.getFailure() != null) {
+        gbc.getFailure().getGoals().forEach(g -> referencedGoals.add(g.getName()));
+      }
+      for (Goal goal : definition.getGoals()) {
+        if (!referencedGoals.contains(goal.getName())) {
+          LOG.warnf(
+              "Goal '%s' is not referenced in any GoalExpression. "
+                  + "Goals should drive case completion — use Milestone for non-terminal checkpoints.",
+              goal.getName());
+        }
+      }
     }
   }
 
