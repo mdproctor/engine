@@ -15,6 +15,7 @@
  */
 package io.casehub.blackboard.plan;
 
+import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SubCase;
 import io.casehub.blackboard.stage.Stage;
 import java.util.List;
@@ -29,8 +30,8 @@ import java.util.UUID;
  * io.casehub.blackboard.control.PlanningStrategy}; read by {@link
  * io.casehub.blackboard.control.PlanningStrategyLoopControl}.
  *
- * <p>Milestone lifecycle tracking here is an interim approach. Full alignment of Milestone, Stage,
- * and Goal is tracked in casehubio/engine#84. See casehubio/engine#76.
+ * <p>Milestone lifecycle tracks PENDING → ACTIVE → COMPLETED via {@link MilestoneLifecycleStatus}.
+ * See MilestoneLifecycleManager for the event-driven state machine.
  */
 public interface CasePlanModel {
 
@@ -88,9 +89,18 @@ public interface CasePlanModel {
 
   List<Stage> getAllStages();
 
-  // Milestone lifecycle (PENDING → ACHIEVED). See casehubio/engine#84.
+  // Milestone lifecycle (PENDING → ACTIVE → COMPLETED). See casehubio/engine#84.
   void trackMilestone(String milestoneName);
 
+  void trackMilestone(String milestoneName, String parentStageId);
+
+  void activateMilestone(String milestoneName);
+
+  void completeMilestone(String milestoneName);
+
+  Optional<MilestoneLifecycleStatus> getMilestoneStatus(String milestoneName);
+
+  @Deprecated(forRemoval = true)
   void achieveMilestone(String milestoneName);
 
   boolean isMilestoneAchieved(String milestoneName);

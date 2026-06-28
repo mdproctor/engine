@@ -15,6 +15,7 @@
  */
 package io.casehub.blackboard.plan;
 
+import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SubCase;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
@@ -28,6 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.stream.Collectors;
+import org.jboss.logging.Logger;
 
 /**
  * Thread-safe in-memory {@link CasePlanModel} implementation. Plan state is transient — rebuilt
@@ -36,13 +38,16 @@ import java.util.stream.Collectors;
  */
 public class DefaultCasePlanModel implements CasePlanModel {
 
+  private static final Logger LOG = Logger.getLogger(DefaultCasePlanModel.class);
+
   private final UUID caseId;
   private final PriorityBlockingQueue<PlanItem> agenda = new PriorityBlockingQueue<>();
   private final ConcurrentHashMap<String, PlanItem> itemsById = new ConcurrentHashMap<>();
   // bindingName → PlanItem (only PENDING or RUNNING items) — fast O(1) duplicate-prevention lookup
   private final ConcurrentHashMap<String, PlanItem> activeByBinding = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Stage> stages = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, Boolean> milestones = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, MilestoneLifecycleStatus> milestones =
+      new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Object> state = new ConcurrentHashMap<>();
   private final CopyOnWriteArrayList<SubCase> subCases = new CopyOnWriteArrayList<>();
   private volatile Map<String, Object> resourceBudget = Map.of();
@@ -173,17 +178,75 @@ public class DefaultCasePlanModel implements CasePlanModel {
 
   @Override
   public void trackMilestone(String name) {
-    milestones.putIfAbsent(name, Boolean.FALSE);
+    milestones.putIfAbsent(name, MilestoneLifecycleStatus.PENDING);
   }
 
   @Override
+  public void trackMilestone(String name, String parentStageId) {
+    milestones.putIfAbsent(name, MilestoneLifecycleStatus.PENDING);
+    if (parentStageId != null) {
+      Stage stage =
+          getStage(parentStageId)
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          "Stage '%s' not found in plan — register the stage before its milestones"
+                              .formatted(parentStageId)));
+      stage.addMilestone(name);
+    }
+  }
+
+  @Override
+  public void activateMilestone(String name) {
+    milestones.compute(
+        name,
+        (k, current) -> {
+          if (current == null) {
+            LOG.warnf("activateMilestone called for untracked milestone '%s' — ignoring", name);
+            return null;
+          }
+          if (current == MilestoneLifecycleStatus.PENDING) {
+            return MilestoneLifecycleStatus.ACTIVE;
+          }
+          LOG.warnf(
+              "activateMilestone called for milestone '%s' in state %s — ignoring", name, current);
+          return current;
+        });
+  }
+
+  @Override
+  public void completeMilestone(String name) {
+    milestones.compute(
+        name,
+        (k, current) -> {
+          if (current == null) {
+            LOG.warnf("completeMilestone called for untracked milestone '%s' — ignoring", name);
+            return null;
+          }
+          if (current == MilestoneLifecycleStatus.PENDING
+              || current == MilestoneLifecycleStatus.ACTIVE) {
+            return MilestoneLifecycleStatus.COMPLETED;
+          }
+          LOG.warnf(
+              "completeMilestone called for milestone '%s' in state %s — ignoring", name, current);
+          return current;
+        });
+  }
+
+  @Override
+  public Optional<MilestoneLifecycleStatus> getMilestoneStatus(String name) {
+    return Optional.ofNullable(milestones.get(name));
+  }
+
+  @Deprecated(forRemoval = true)
+  @Override
   public void achieveMilestone(String name) {
-    milestones.put(name, Boolean.TRUE);
+    completeMilestone(name);
   }
 
   @Override
   public boolean isMilestoneAchieved(String name) {
-    return Boolean.TRUE.equals(milestones.get(name));
+    return MilestoneLifecycleStatus.COMPLETED.equals(milestones.get(name));
   }
 
   @Override
