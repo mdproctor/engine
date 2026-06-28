@@ -97,6 +97,7 @@ public class Milestone {
   private final ExpressionEvaluator completionCriteria;
   private final Duration slaDuration;
   private final SlaStartFrom slaStartFrom;
+  private final String parentStageId;
   private String description;
 
   public Milestone(
@@ -104,12 +105,14 @@ public class Milestone {
       ExpressionEvaluator entryCriteria,
       ExpressionEvaluator completionCriteria,
       Duration slaDuration,
-      SlaStartFrom slaStartFrom) {
+      SlaStartFrom slaStartFrom,
+      String parentStageId) {
     this.name = name;
     this.entryCriteria = entryCriteria;
     this.completionCriteria = completionCriteria;
     this.slaDuration = slaDuration;
     this.slaStartFrom = slaStartFrom;
+    this.parentStageId = parentStageId;
   }
 
   public String getName() {
@@ -132,6 +135,10 @@ public class Milestone {
     return slaStartFrom;
   }
 
+  public String getParentStageId() {
+    return parentStageId;
+  }
+
   public String getDescription() {
     return description;
   }
@@ -151,6 +158,7 @@ public class Milestone {
     private ExpressionEvaluator completionCriteria;
     private Duration slaDuration;
     private SlaStartFrom slaStartFrom = SlaStartFrom.MILESTONE_ACTIVATED;
+    private String parentStageId;
     private String description;
 
     private Builder() {}
@@ -211,6 +219,11 @@ public class Milestone {
       return this;
     }
 
+    public Builder parentStageId(String parentStageId) {
+      this.parentStageId = parentStageId;
+      return this;
+    }
+
     public Builder description(String description) {
       this.description = description;
       return this;
@@ -229,7 +242,8 @@ public class Milestone {
               finalEntryCriteria,
               Objects.requireNonNull(completionCriteria, "completionCriteria must not be null"),
               slaDuration,
-              slaStartFrom);
+              slaStartFrom,
+              parentStageId);
       milestone.setDescription(description);
       return milestone;
     }
@@ -243,12 +257,19 @@ public class Milestone {
         && Objects.equals(completionCriteria, milestone.completionCriteria)
         && Objects.equals(slaDuration, milestone.slaDuration)
         && slaStartFrom == milestone.slaStartFrom
+        && Objects.equals(parentStageId, milestone.parentStageId)
         && Objects.equals(description, milestone.description);
   }
 
   @Override
   public int hashCode() {
     return Objects.hash(
-        name, entryCriteria, completionCriteria, slaDuration, slaStartFrom, description);
+        name,
+        entryCriteria,
+        completionCriteria,
+        slaDuration,
+        slaStartFrom,
+        parentStageId,
+        description);
   }
 }
