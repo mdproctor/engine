@@ -82,8 +82,7 @@ public class GoalReachedEventHandler {
             .createObjectNode()
             .put("name", goal.getName())
             .put("description", goal.getDescription())
-            .put("kind", goal.getKind().value())
-            .put("isTerminal", goal.getTerminal()));
+            .put("kind", goal.getKind().value()));
 
     return eventLogRepository
         .append(eventLog, caseInstance.tenancyId)

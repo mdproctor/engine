@@ -50,18 +50,14 @@ import java.util.function.Predicate;
  * <p>When a goal's condition becomes true, a {@code GoalReachedEvent} is published and recorded in
  * the {@link io.casehub.engine.internal.history.EventLog}. If the goal is referenced by a {@link
  * io.casehub.api.model.GoalBasedCompletion}, the engine evaluates whether the case should
- * transition to COMPLETED or FAILED.
- *
- * <p>Non-terminal goals — goals not referenced in completion logic — behave as observable
- * checkpoints with polarity. Use {@link Milestone} instead when the checkpoint has no
- * success/failure meaning.
+ * transition to COMPLETED or FAILED. Goals are always terminal — use {@link Milestone} for
+ * non-terminal checkpoints.
  */
 public class Goal {
 
   private final String name;
   private final ExpressionEvaluator condition;
   private final GoalKind kind;
-  private boolean terminal;
   private String description;
 
   public Goal(String name, ExpressionEvaluator condition, GoalKind kind) {
@@ -90,14 +86,6 @@ public class Goal {
     return kind;
   }
 
-  public Boolean getTerminal() {
-    return terminal;
-  }
-
-  public void setTerminal(boolean terminal) {
-    this.terminal = terminal;
-  }
-
   public static Builder builder() {
     return new Builder();
   }
@@ -107,7 +95,6 @@ public class Goal {
     private String name;
     private ExpressionEvaluator condition;
     private GoalKind kind;
-    private boolean terminal;
     private String description;
 
     private Builder() {}
@@ -141,11 +128,6 @@ public class Goal {
       return this;
     }
 
-    public Builder terminal(boolean terminal) {
-      this.terminal = terminal;
-      return this;
-    }
-
     public Builder description(String description) {
       this.description = description;
       return this;
@@ -157,7 +139,6 @@ public class Goal {
               Objects.requireNonNull(name),
               Objects.requireNonNull(condition),
               Objects.requireNonNull(kind));
-      goal.setTerminal(terminal);
       goal.setDescription(description);
       return goal;
     }
@@ -169,12 +150,11 @@ public class Goal {
     return Objects.equals(name, goal.name)
         && Objects.equals(condition, goal.condition)
         && kind == goal.kind
-        && Objects.equals(terminal, goal.terminal)
         && Objects.equals(description, goal.description);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(name, condition, kind, terminal, description);
+    return Objects.hash(name, condition, kind, description);
   }
 }

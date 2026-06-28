@@ -17,7 +17,6 @@ package io.casehub.engine.model;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -437,14 +436,13 @@ class ModelBuilderTest {
     }
 
     @Test
-    @DisplayName("equals: same name/condition/kind/terminal/description are equal")
+    @DisplayName("equals: same name/condition/kind/description are equal")
     void equals_sameFields_equal() {
       final var a =
           Goal.builder()
               .name("g")
               .condition(".x == true")
               .kind(GoalKind.SUCCESS)
-              .terminal(false)
               .description("d")
               .build();
       final var b =
@@ -452,7 +450,6 @@ class ModelBuilderTest {
               .name("g")
               .condition(".x == true")
               .kind(GoalKind.SUCCESS)
-              .terminal(false)
               .description("d")
               .build();
       assertEquals(a, b);
@@ -465,26 +462,6 @@ class ModelBuilderTest {
       final var a = Goal.builder().name("g").condition(".x == true").kind(GoalKind.SUCCESS).build();
       final var b = Goal.builder().name("g").condition(".x == true").kind(GoalKind.FAILURE).build();
       assertNotEquals(a, b);
-    }
-
-    @Test
-    @DisplayName("terminal defaults to false")
-    void terminalDefaultsFalse() {
-      final var g = Goal.builder().name("g").condition(".x == true").kind(GoalKind.SUCCESS).build();
-      assertFalse(g.getTerminal());
-    }
-
-    @Test
-    @DisplayName("terminal(true) is stored correctly")
-    void terminalTrue_stored() {
-      final var g =
-          Goal.builder()
-              .name("g")
-              .condition(".x == true")
-              .kind(GoalKind.SUCCESS)
-              .terminal(true)
-              .build();
-      assertTrue(g.getTerminal());
     }
 
     @Test

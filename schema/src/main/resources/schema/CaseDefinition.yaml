@@ -426,10 +426,6 @@ $defs:
       condition:
         type: string
         description: "JQ predicate over CaseContext"
-      terminal:
-        type: boolean
-        default: false
-        description: "If true, achieving this goal can close the case (depending on completion policy)"
 
   CaseCompletion:
     type: object
