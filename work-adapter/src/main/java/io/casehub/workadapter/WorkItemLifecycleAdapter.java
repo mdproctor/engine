@@ -73,7 +73,7 @@ public class WorkItemLifecycleAdapter {
   @Inject ActionGateCompletionApplier gateApplier;
 
   public void onWorkItemLifecycle(@ObservesAsync WorkItemLifecycleEvent event) {
-    WorkItemStatus status = event.status();
+    final WorkItemStatus status = event.status();
 
     if (status == WorkItemStatus.ESCALATED) {
       handleEscalation(event);
@@ -90,14 +90,11 @@ public class WorkItemLifecycleAdapter {
       return;
     }
 
-    if (!(event.source() instanceof WorkItem workItem)) return;
-
-    CallerRef ref = CallerRef.parse(workItem.callerRef);
+    final CallerRef ref = CallerRef.parse(event.callerRef());
     if (ref == null) return;
 
-    // Gate WorkItems bypass the blackboard guard — they have no PlanItem. Gate routing
-    // is handled by ActionGateCompletionApplier (wired in task #13 / engine#402).
     if (ref instanceof GateCallerRef gateRef) {
+      final WorkItem workItem = event.source() instanceof WorkItem wi ? wi : null;
       routeGate(gateRef, status, workItem);
       return;
     }
@@ -111,6 +108,7 @@ public class WorkItemLifecycleAdapter {
       return;
     }
 
+    final WorkItem workItem = event.source() instanceof WorkItem wi ? wi : null;
     applier.apply(piRef.caseId(), piRef.planItemId(), status, workItem);
   }
 
@@ -178,19 +176,17 @@ public class WorkItemLifecycleAdapter {
    * <p>Follows the same pattern as {@code QhorusMessageSignalBridge}: external events write to a
    * named context path; definitions bind on it. Refs engine#400.
    */
-  private void handleEscalation(WorkItemLifecycleEvent event) {
-    if (!(event.source() instanceof WorkItem workItem)) return;
-
-    CallerRef ref = CallerRef.parse(workItem.callerRef);
+  private void handleEscalation(final WorkItemLifecycleEvent event) {
+    final CallerRef ref = CallerRef.parse(event.callerRef());
     if (!(ref instanceof PlanItemCallerRef piRef)) return;
 
-    CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
+    final CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
     if (plan == null) {
       LOG.debugf("No CasePlanModel for caseId=%s — escalation signal skipped", piRef.caseId());
       return;
     }
 
-    PlanItem item = plan.getPlanItem(piRef.planItemId()).orElse(null);
+    final PlanItem item = plan.getPlanItem(piRef.planItemId()).orElse(null);
     if (item == null) {
       LOG.warnf(
           "PlanItem %s not found in case %s — escalation signal skipped",
@@ -198,26 +194,24 @@ public class WorkItemLifecycleAdapter {
       return;
     }
 
-    CaseInstance instance =
+    final CaseInstance instance =
         caseInstanceRepository.findByUuid(piRef.caseId()).await().atMost(TIMEOUT);
     if (instance == null) {
       LOG.warnf("CaseInstance not found for caseId=%s — escalation signal skipped", piRef.caseId());
       return;
     }
 
-    List<String> newGroups =
-        workItem.candidateGroups != null
-            ? List.of(workItem.candidateGroups.split("\\s*,\\s*"))
+    final List<String> newGroups =
+        event.candidateGroups() != null
+            ? List.of(event.candidateGroups().split("\\s*,\\s*"))
             : List.of();
 
-    // Overwrites any previous escalation signal for this case — last escalation wins.
-    // Same semantics as QhorusMessageSignalBridge (single fixed key, not a queue).
     instance
         .getCaseContext()
         .set(
             "workItemEscalated",
             Map.of(
-                "workItemId", workItem.id.toString(),
+                "workItemId", event.workItemId().toString(),
                 "newGroups", newGroups,
                 "bindingName", item.getBindingName()));
 
@@ -231,13 +225,11 @@ public class WorkItemLifecycleAdapter {
         piRef.caseId(), piRef.planItemId(), item.getBindingName(), newGroups);
   }
 
-  private void handleSuspension(WorkItemLifecycleEvent event) {
-    if (!(event.source() instanceof WorkItem workItem)) return;
-
-    CallerRef ref = CallerRef.parse(workItem.callerRef);
+  private void handleSuspension(final WorkItemLifecycleEvent event) {
+    final CallerRef ref = CallerRef.parse(event.callerRef());
     if (!(ref instanceof PlanItemCallerRef piRef)) return;
 
-    CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
+    final CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
     if (plan == null) return;
 
     plan.getPlanItem(piRef.planItemId())
@@ -254,13 +246,11 @@ public class WorkItemLifecycleAdapter {
             });
   }
 
-  private void handlePossibleResume(WorkItemLifecycleEvent event) {
-    if (!(event.source() instanceof WorkItem workItem)) return;
-
-    CallerRef ref = CallerRef.parse(workItem.callerRef);
+  private void handlePossibleResume(final WorkItemLifecycleEvent event) {
+    final CallerRef ref = CallerRef.parse(event.callerRef());
     if (!(ref instanceof PlanItemCallerRef piRef)) return;
 
-    CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
+    final CasePlanModel plan = registry.get(piRef.caseId()).orElse(null);
     if (plan == null) return;
 
     plan.getPlanItem(piRef.planItemId())
