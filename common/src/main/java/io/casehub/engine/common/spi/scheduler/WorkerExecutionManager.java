@@ -19,6 +19,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Map;
@@ -38,6 +39,21 @@ public interface WorkerExecutionManager {
    * @return {@code true} if this manager can execute the capability for this tenant
    */
   boolean supports(String capabilityName, String tenancyId);
+
+  /**
+   * Returns whether this manager can execute the given worker function type.
+   *
+   * <p>Called by routing strategies alongside {@code supports()} to determine backend eligibility.
+   * In-process backends (Quartz) override to reject function types they cannot handle. External
+   * backends inherit the default {@code true} — they dispatch externally regardless of function
+   * type.
+   *
+   * @param function the worker function to check
+   * @return {@code true} if this manager can execute the function type
+   */
+  default boolean canExecute(WorkerFunction function) {
+    return true;
+  }
 
   /**
    * Submit a worker for execution.

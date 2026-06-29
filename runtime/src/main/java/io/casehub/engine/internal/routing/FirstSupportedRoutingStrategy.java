@@ -35,7 +35,8 @@ public class FirstSupportedRoutingStrategy implements WorkerExecutionRoutingStra
       Capability capability,
       String tenancyId) {
     for (WorkerExecutionManager candidate : candidates) {
-      if (candidate.supports(capability.name(), tenancyId)) {
+      if (candidate.supports(capability.name(), tenancyId)
+          && candidate.canExecute(worker.function())) {
         return Optional.of(candidate);
       }
     }

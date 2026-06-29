@@ -22,6 +22,7 @@ import static org.mockito.Mockito.when;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import java.util.List;
 import java.util.Map;
@@ -89,9 +90,41 @@ class FirstSupportedRoutingStrategyTest {
     assertThat(result).isPresent().containsSame(highPriority);
   }
 
+  @Test
+  void rejectsBackendThatCannotExecuteFunction() {
+    WorkerExecutionManager backend = mock(WorkerExecutionManager.class);
+    when(backend.supports("test-cap", "tenant-1")).thenReturn(true);
+    when(backend.canExecute(worker.function())).thenReturn(false);
+
+    Optional<WorkerExecutionManager> result =
+        strategy.select(List.of(backend), worker, capability, "tenant-1");
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void skipsBackendThatCannotExecuteNone() {
+    Worker noneWorker =
+        Worker.builder().name("external").capability(capability).noFunction().build();
+
+    WorkerExecutionManager inProcess = mock(WorkerExecutionManager.class);
+    when(inProcess.supports("test-cap", "tenant-1")).thenReturn(true);
+    when(inProcess.canExecute(WorkerFunction.NONE)).thenReturn(false);
+
+    WorkerExecutionManager external = mock(WorkerExecutionManager.class);
+    when(external.supports("test-cap", "tenant-1")).thenReturn(true);
+    when(external.canExecute(WorkerFunction.NONE)).thenReturn(true);
+
+    Optional<WorkerExecutionManager> result =
+        strategy.select(List.of(inProcess, external), noneWorker, capability, "tenant-1");
+
+    assertThat(result).isPresent().containsSame(external);
+  }
+
   private WorkerExecutionManager mockBackend(boolean supports) {
     WorkerExecutionManager mock = mock(WorkerExecutionManager.class);
     when(mock.supports("test-cap", "tenant-1")).thenReturn(supports);
+    when(mock.canExecute(org.mockito.ArgumentMatchers.any())).thenReturn(true);
     return mock;
   }
 }

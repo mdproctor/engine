@@ -30,9 +30,7 @@ import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Worker;
-import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerOutcome;
-import io.casehub.worker.api.WorkerResult;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
@@ -157,11 +155,7 @@ public class QhorusMessageSignalBridge {
         if (w.name().equals(workerName)) return w;
       }
     }
-    return Worker.builder()
-        .name(workerName)
-        .capabilities(List.of())
-        .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
-        .build();
+    return Worker.builder().name(workerName).capabilities(List.of()).noFunction().build();
   }
 
   private static Long parseEventLogId(String correlationId) {

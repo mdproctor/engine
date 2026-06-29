@@ -23,6 +23,7 @@ import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -66,6 +67,14 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
       if (backend.supports(capabilityName, tenancyId)) {
         return true;
       }
+    }
+    return false;
+  }
+
+  @Override
+  public boolean canExecute(WorkerFunction function) {
+    for (WorkerExecutionManager backend : backends) {
+      if (backend.canExecute(function)) return true;
     }
     return false;
   }

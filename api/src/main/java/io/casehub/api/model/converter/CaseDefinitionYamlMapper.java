@@ -44,7 +44,6 @@ import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
-import io.casehub.worker.api.WorkerResult;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -270,7 +269,7 @@ public final class CaseDefinitionYamlMapper {
             final io.casehub.api.model.ai.Agent apiAgent = AgentConverter.toApiAgent(sw.getAgent());
             function = new AgentWorkerFunction(apiAgent);
           } else {
-            function = new WorkerFunction.Sync(input -> WorkerResult.of(input));
+            function = WorkerFunction.NONE;
           }
         }
         workerBuilder.function(function);

@@ -25,6 +25,7 @@ import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.ScheduleTrigger;
 import io.casehub.api.model.SubCaseTarget;
+import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
@@ -35,13 +36,14 @@ import io.casehub.engine.common.spi.scheduler.WorkerBackend;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
@@ -80,20 +82,48 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
     this.scheduler = scheduler;
   }
 
+  @Inject Instance<WorkerFunctionHandler> functionHandlers;
+
   @Override
   public boolean supports(String capabilityName, String tenancyId) {
     return true;
   }
 
-  // TODO this must be reworked
+  @Override
+  public boolean canExecute(WorkerFunction function) {
+    for (WorkerFunctionHandler handler : functionHandlers) {
+      if (handler.supports(function)) return true;
+    }
+    return false;
+  }
+
+  private volatile RecoveryStatus recoveryStatus = RecoveryStatus.PENDING;
+
+  public enum RecoveryStatus {
+    PENDING,
+    COMPLETED,
+    FAILED
+  }
+
   void onStart(@Observes @Priority(20) StartupEvent ev) throws SchedulerException {
     scheduler.getListenerManager().addJobListener(workflowExecutionJobListener);
 
-    // TODO fix it
     workerExecutionRecoveryService
         .recoverPendingScheduledWorkers()
-        .await()
-        .atMost(Duration.ofSeconds(30));
+        .subscribe()
+        .with(
+            v -> {
+              recoveryStatus = RecoveryStatus.COMPLETED;
+              LOG.info("Worker execution recovery completed");
+            },
+            t -> {
+              recoveryStatus = RecoveryStatus.FAILED;
+              LOG.errorf(t, "Worker execution recovery failed");
+            });
+  }
+
+  public RecoveryStatus getRecoveryStatus() {
+    return recoveryStatus;
   }
 
   // TODO, yes, here is id of  event object, because later it can be splitted into multiple jobs on
@@ -222,7 +252,11 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
   }
 
   /**
-   * Schedule unconditional trigger (ScheduledTriggerJob).
+   * Schedule an unconditional trigger ({@link ScheduledTriggerJob}).
+   *
+   * <p><b>Planned API — currently unwired.</b> This method has zero callers in the engine. It is
+   * staged for the binding/trigger scheduling feature. When wired, callers will inject {@code
+   * QuartzWorkerExecutionManager} via {@link WorkerBackend @WorkerBackend} qualifier.
    *
    * @param caseId case UUID
    * @param binding binding configuration
@@ -248,7 +282,9 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
   }
 
   /**
-   * Schedule conditional trigger (ConditionalScheduledTriggerJob).
+   * Schedule a conditional trigger ({@link ConditionalScheduledTriggerJob}).
+   *
+   * <p><b>Planned API — currently unwired.</b> See {@link #scheduleScheduledTrigger} for status.
    *
    * @param caseId case UUID
    * @param binding binding configuration
@@ -276,6 +312,8 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
   /**
    * Cancel a specific scheduled trigger.
    *
+   * <p><b>Planned API — currently unwired.</b> See {@link #scheduleScheduledTrigger} for status.
+   *
    * @param caseId case UUID
    * @param bindingName binding name
    * @return Uni with true if trigger was deleted
@@ -297,6 +335,8 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
 
   /**
    * Cancel all scheduled triggers for a case.
+   *
+   * <p><b>Planned API — currently unwired.</b> See {@link #scheduleScheduledTrigger} for status.
    *
    * @param caseId case UUID
    * @return Uni with count of cancelled triggers

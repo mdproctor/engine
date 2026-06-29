@@ -31,6 +31,7 @@ import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
@@ -139,6 +140,22 @@ class CompositeWorkerExecutionManagerTest {
     when(backend2.supports("cap-a", "t1")).thenReturn(false);
 
     assertThat(composite.supports("cap-a", "t1")).isFalse();
+  }
+
+  @Test
+  void canExecute_delegatesToBackends_returnsTrueWhenAnyCanExecute() {
+    when(backend1.canExecute(any())).thenReturn(false);
+    when(backend2.canExecute(any())).thenReturn(true);
+
+    assertThat(composite.canExecute(WorkerFunction.NONE)).isTrue();
+  }
+
+  @Test
+  void canExecute_returnsFalseWhenNoBackendCanExecute() {
+    when(backend1.canExecute(any())).thenReturn(false);
+    when(backend2.canExecute(any())).thenReturn(false);
+
+    assertThat(composite.canExecute(WorkerFunction.NONE)).isFalse();
   }
 
   @Test

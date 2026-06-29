@@ -17,6 +17,7 @@ package io.casehub.engine.common.spi.scheduler;
 
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import io.casehub.worker.api.WorkerFunction;
 import java.util.List;
 import java.util.Optional;
 
@@ -24,20 +25,23 @@ import java.util.Optional;
  * SPI: selects which {@link WorkerExecutionManager} should handle a worker execution when multiple
  * backends are available.
  *
- * <p>Called by {@code CompositeWorkerExecutionManager} after filtering backends via {@link
- * WorkerExecutionManager#supports(String, String)}. The strategy receives only eligible candidates
- * and must return one of them, or {@code Optional.empty()} if none are suitable.
+ * <p>Called by {@code CompositeWorkerExecutionManager} with all discovered backends sorted by
+ * priority (highest first). The strategy is responsible for selecting the appropriate backend,
+ * typically by checking {@link WorkerExecutionManager#supports(String, String)} and {@link
+ * WorkerExecutionManager#canExecute(WorkerFunction)} on each candidate. Returns the selected
+ * manager, or {@code Optional.empty()} if none are suitable.
  *
- * <p>The default implementation ({@code FirstSupportedRoutingStrategy}) returns the first
- * candidate. Consumer implementations can route based on worker metadata, capability properties, or
- * tenant configuration.
+ * <p>The default implementation ({@code FirstSupportedRoutingStrategy}) returns the first candidate
+ * where both {@code supports()} and {@code canExecute()} return {@code true}. Consumer
+ * implementations can route based on worker metadata, capability properties, or tenant
+ * configuration.
  */
 public interface WorkerExecutionRoutingStrategy {
 
   /**
-   * Selects a {@link WorkerExecutionManager} from the list of eligible candidates.
+   * Selects a {@link WorkerExecutionManager} from all discovered backends.
    *
-   * @param candidates all discovered backends sorted by priority (highest first)
+   * @param candidates all discovered backends sorted by priority (highest first), unfiltered
    * @param worker the worker to be executed
    * @param capability the capability being invoked
    * @param tenancyId the tenant ID for multi-tenant deployments
