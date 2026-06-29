@@ -25,21 +25,23 @@ import io.serverlessworkflow.impl.executors.CallableTaskBuilder;
 import java.util.Map;
 
 /**
- * Handles {@code call: casehub:dispatch} steps in Serverless Workflow YAML. Registered via {@code
+ * Routes {@code call:} steps in Serverless Workflow YAML to {@link CallableDispatcher}
+ * implementations registered in {@link CallableDispatchRegistry}. Registered via {@code
  * META-INF/services/io.serverlessworkflow.impl.executors.CallableTaskBuilder}; discovered by {@code
  * DefaultTaskExecutorFactory}'s ServiceLoader when routing {@code CallFunction} tasks.
  *
- * <p>In 7.13.4.Final, {@code call: casehub:dispatch} in YAML is parsed as a {@code CallFunction}
- * with {@code call = "casehub:dispatch"} and {@code with = FunctionArguments}. This builder handles
- * all {@code CallFunction} instances; unknown call names fail fast in {@code init()}.
+ * <p>Accepts all {@code CallFunction} instances. Unknown call names are not validated in {@code
+ * init()} (CDI is unavailable during ServiceLoader instantiation) — they fail at dispatch time with
+ * a clear error from {@link CallableDispatchRegistry#get(String)}.
  */
 public class CasehubCallableTaskBuilder implements CallableTaskBuilder<CallFunction> {
 
   // ServiceLoader caches a single instance of this builder. init() and build() are always called
   // sequentially on the same thread (per DefaultTaskExecutorFactory), but may be called
   // concurrently from different threads loading different workflow definitions. ThreadLocal
-  // passes capability between init() and build() without shared mutable state.
-  private final ThreadLocal<String> capabilityHolder = new ThreadLocal<>();
+  // passes state between init() and build() without shared mutable state.
+  private final ThreadLocal<String> callNameHolder = new ThreadLocal<>();
+  private final ThreadLocal<Map<String, Object>> argsHolder = new ThreadLocal<>();
 
   @Override
   public boolean accept(final Class<? extends TaskBase> clazz) {
@@ -51,30 +53,25 @@ public class CasehubCallableTaskBuilder implements CallableTaskBuilder<CallFunct
       final CallFunction task,
       final WorkflowDefinition definition,
       final WorkflowMutablePosition position) {
-    if (!"casehub:dispatch".equals(task.getCall())) {
-      throw new UnsupportedOperationException(
-          "CasehubCallableTaskBuilder only handles 'casehub:dispatch', got: " + task.getCall());
-    }
+    callNameHolder.set(task.getCall());
     final Map<String, Object> args =
-        task.getWith() != null ? task.getWith().getAdditionalProperties() : null;
-    if (args == null || args.get("capability") == null) {
-      throw new IllegalArgumentException(
-          "casehub:dispatch step is missing required 'capability' argument");
-    }
-    capabilityHolder.set(args.get("capability").toString());
+        task.getWith() != null ? task.getWith().getAdditionalProperties() : Map.of();
+    argsHolder.set(args);
   }
 
   @Override
   public CallableTask build() {
-    final String cap = capabilityHolder.get();
-    capabilityHolder.remove(); // prevent ThreadLocal leak
-    // CallableTask.apply() returns CompletableFuture<WorkflowModel> — fully async, no blocking.
+    final String callName = callNameHolder.get();
+    final Map<String, Object> args = argsHolder.get();
+    callNameHolder.remove();
+    argsHolder.remove();
     return (workflowContext, taskContext, input) -> {
       final String instanceId = workflowContext.instanceData().id();
       return Arc.container()
-          .instance(CasehubDispatch.class)
+          .instance(CallableDispatchRegistry.class)
           .get()
-          .dispatch(instanceId, cap)
+          .get(callName)
+          .dispatch(instanceId, args)
           .thenApply(
               output -> workflowContext.definition().application().modelFactory().from(output));
     };

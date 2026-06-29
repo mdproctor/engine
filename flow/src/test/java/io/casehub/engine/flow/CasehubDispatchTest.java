@@ -16,6 +16,7 @@
 package io.casehub.engine.flow;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
@@ -46,6 +47,7 @@ class CasehubDispatchTest {
   private WorkOrchestrator orchestrator;
   private EventLogRepository eventLogRepository;
   private io.casehub.engine.common.spi.cache.CaseInstanceCache caseInstanceCache;
+  private CallableDispatchRegistry dispatchRegistry;
   private CasehubDispatch dispatch;
 
   @BeforeEach
@@ -58,7 +60,44 @@ class CasehubDispatchTest {
     when(eventLogRepository.appendAndReturnId(any(), any())).thenReturn(Uni.createFrom().item(1L));
 
     caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
-    dispatch = new CasehubDispatch(registry, orchestrator, eventLogRepository, caseInstanceCache);
+    dispatchRegistry = new CallableDispatchRegistry();
+    dispatch =
+        new CasehubDispatch(
+            registry, orchestrator, eventLogRepository, caseInstanceCache, dispatchRegistry);
+    dispatch.register();
+  }
+
+  // ---- self-registration ----------------------------------------------
+
+  @Test
+  void register_registers_casehub_dispatch_in_registry() {
+    assertThat(dispatchRegistry.canHandle("casehub:dispatch")).isTrue();
+  }
+
+  @Test
+  void registered_dispatcher_delegates_to_dispatch_method() throws Exception {
+    final String instanceId = "wf-reg";
+    final CaseInstance instance = mockInstance();
+    stubRegistry(instanceId, instance);
+
+    final Map<String, Object> output = Map.of("delegated", true);
+    when(orchestrator.submit(eq(instance), any(WorkRequest.class)))
+        .thenReturn(CompletableFuture.completedStage(WorkResult.completed("k", output, "w")));
+
+    final Map<String, Object> result =
+        dispatchRegistry
+            .get("casehub:dispatch")
+            .dispatch(instanceId, Map.of("capability", "test-cap"))
+            .get();
+
+    assertThat(result).isEqualTo(output);
+  }
+
+  @Test
+  void registered_dispatcher_throws_on_missing_capability() {
+    assertThatThrownBy(() -> dispatchRegistry.get("casehub:dispatch").dispatch("wf-x", Map.of()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("capability");
   }
 
   // ---- happy path -----------------------------------------------------

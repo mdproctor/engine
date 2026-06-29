@@ -26,6 +26,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
@@ -52,17 +53,34 @@ public class CasehubDispatch {
   private final WorkOrchestrator orchestrator;
   private final EventLogRepository eventLogRepository;
   private final CaseInstanceCache caseInstanceCache;
+  private final CallableDispatchRegistry dispatchRegistry;
 
   @Inject
   public CasehubDispatch(
       final FlowExecutionRegistry registry,
       final WorkOrchestrator orchestrator,
       final EventLogRepository eventLogRepository,
-      final CaseInstanceCache caseInstanceCache) {
+      final CaseInstanceCache caseInstanceCache,
+      final CallableDispatchRegistry dispatchRegistry) {
     this.registry = registry;
     this.orchestrator = orchestrator;
     this.eventLogRepository = eventLogRepository;
     this.caseInstanceCache = caseInstanceCache;
+    this.dispatchRegistry = dispatchRegistry;
+  }
+
+  @PostConstruct
+  void register() {
+    dispatchRegistry.register(
+        "casehub:dispatch",
+        (instanceId, args) -> {
+          final String capability = (String) args.get("capability");
+          if (capability == null) {
+            throw new IllegalArgumentException(
+                "casehub:dispatch step is missing required 'capability' argument");
+          }
+          return dispatch(instanceId, capability);
+        });
   }
 
   public CompletableFuture<Map<String, Object>> dispatch(

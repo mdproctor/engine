@@ -16,7 +16,6 @@
 package io.casehub.engine.flow;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
 import io.serverlessworkflow.api.types.CallFunction;
@@ -29,9 +28,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Unit tests for pure-logic methods of {@link CasehubCallableTaskBuilder}: {@code accept()}, {@code
- * init()}, and that {@code build()} returns a non-null callable. The callable's dispatch behaviour
- * (which uses Arc CDI lookup) is covered by the flow integration test.
+ * Unit tests for {@link CasehubCallableTaskBuilder}: {@code accept()}, {@code init()}, and that
+ * {@code build()} returns a non-null callable. The callable's dispatch behaviour (which uses Arc
+ * CDI lookup) is covered by the flow integration test.
  */
 class CasehubCallableTaskBuilderTest {
 
@@ -57,53 +56,33 @@ class CasehubCallableTaskBuilderTest {
   // ---- init() ---------------------------------------------------------
 
   @Test
-  void init_with_valid_casehub_dispatch_succeeds() {
+  void init_stores_call_name_and_args() {
     builder.init(
-        dispatchTask("analyze-document"),
+        dispatchTask("casehub:dispatch", "analyze-document"),
         mock(WorkflowDefinition.class),
         mock(WorkflowMutablePosition.class));
-    // no exception — capability stored
   }
 
   @Test
-  void init_with_wrong_call_name_throws_UnsupportedOperationException() {
+  void init_accepts_any_call_name() {
     final CallFunction task = new CallFunction();
-    task.setCall("http");
+    task.setCall("desiredstate:dispatch");
+    final FunctionArguments args = new FunctionArguments();
+    args.setAdditionalProperty("nodeId", "node-1");
+    task.setWith(args);
 
-    assertThatThrownBy(
-            () ->
-                builder.init(
-                    task, mock(WorkflowDefinition.class), mock(WorkflowMutablePosition.class)))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("http");
+    builder.init(task, mock(WorkflowDefinition.class), mock(WorkflowMutablePosition.class));
   }
 
   @Test
-  void init_with_null_with_block_throws_IllegalArgumentException() {
+  void init_with_null_with_block_stores_empty_args() {
     final CallFunction task = new CallFunction();
     task.setCall("casehub:dispatch");
-    // task.with == null
 
-    assertThatThrownBy(
-            () ->
-                builder.init(
-                    task, mock(WorkflowDefinition.class), mock(WorkflowMutablePosition.class)))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("capability");
-  }
+    builder.init(task, mock(WorkflowDefinition.class), mock(WorkflowMutablePosition.class));
 
-  @Test
-  void init_with_empty_with_block_throws_IllegalArgumentException() {
-    final CallFunction task = new CallFunction();
-    task.setCall("casehub:dispatch");
-    task.setWith(new FunctionArguments()); // empty — no capability key
-
-    assertThatThrownBy(
-            () ->
-                builder.init(
-                    task, mock(WorkflowDefinition.class), mock(WorkflowMutablePosition.class)))
-        .isInstanceOf(IllegalArgumentException.class)
-        .hasMessageContaining("capability");
+    final CallableTask callable = builder.build();
+    assertThat(callable).isNotNull();
   }
 
   // ---- build() --------------------------------------------------------
@@ -111,7 +90,7 @@ class CasehubCallableTaskBuilderTest {
   @Test
   void build_after_valid_init_returns_non_null_callable() {
     builder.init(
-        dispatchTask("generate-report"),
+        dispatchTask("casehub:dispatch", "generate-report"),
         mock(WorkflowDefinition.class),
         mock(WorkflowMutablePosition.class));
 
@@ -120,11 +99,27 @@ class CasehubCallableTaskBuilderTest {
     assertThat(callable).isNotNull();
   }
 
+  @Test
+  void build_clears_thread_local_state() {
+    builder.init(
+        dispatchTask("casehub:dispatch", "cap-1"),
+        mock(WorkflowDefinition.class),
+        mock(WorkflowMutablePosition.class));
+    builder.build();
+
+    builder.init(
+        dispatchTask("casehub:dispatch", "cap-2"),
+        mock(WorkflowDefinition.class),
+        mock(WorkflowMutablePosition.class));
+    final CallableTask callable = builder.build();
+    assertThat(callable).isNotNull();
+  }
+
   // ---- helpers --------------------------------------------------------
 
-  private static CallFunction dispatchTask(final String capability) {
+  private static CallFunction dispatchTask(final String callName, final String capability) {
     final CallFunction task = new CallFunction();
-    task.setCall("casehub:dispatch");
+    task.setCall(callName);
     final FunctionArguments args = new FunctionArguments();
     args.setAdditionalProperty("capability", capability);
     task.setWith(args);
