@@ -27,6 +27,19 @@ import java.util.UUID;
 public interface WorkerExecutionManager {
 
   /**
+   * Returns whether this manager can handle the given capability for the specified tenant.
+   *
+   * <p>Called by {@code CompositeWorkerExecutionManager} during routing to filter eligible
+   * backends. The manager should return {@code true} if it has workers configured to execute the
+   * capability, {@code false} otherwise.
+   *
+   * @param capabilityName the capability name to check
+   * @param tenancyId the tenant ID for multi-tenant deployments
+   * @return {@code true} if this manager can execute the capability for this tenant
+   */
+  boolean supports(String capabilityName, String tenancyId);
+
+  /**
    * Submit a worker for execution.
    *
    * <p>{@code inputData} is {@code Map<String, Object>} at this layer because it is post-evaluation
@@ -43,7 +56,9 @@ public interface WorkerExecutionManager {
       Capability capability,
       Map<String, Object> inputData);
 
-  Uni<Void> schedulePersistedEvent(EventLog scheduledEventLog);
+  default Uni<Void> schedulePersistedEvent(EventLog scheduledEventLog) {
+    return Uni.createFrom().voidItem();
+  }
 
   int getActiveWorkCount(String workerId);
 

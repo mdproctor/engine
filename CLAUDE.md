@@ -198,9 +198,14 @@ Eight interfaces in `api/src/main/java/io/casehub/api/spi/` (four blocking + fou
 - `NoOpWorkerProvisioner`, `NoOpWorkerStatusListener`, `NoOpCaseChannelProvider`, `EmptyWorkerContextProvider`
 - Four `@DefaultBean` reactive mirrors: `NoOpReactiveWorkerProvisioner`, `NoOpReactiveCaseChannelProvider`, `NoOpReactiveWorkerStatusListener`, `EmptyReactiveWorkerContextProvider`
 - `NoOpCapabilityHealth` — returns `Ready` for all probes; deployments without `casehub-eidos-api` get transparent no-op
-- `NoOpWorkerExecutionManager` — `submit()` fails with `ProvisioningException`; other methods no-op. Required for deployments without `scheduler-quartz` or `workers-camel` on the classpath (engine#447)
 
-All ten are `@DefaultBean @ApplicationScoped` (`io.quarkus.arc.DefaultBean`) — they yield automatically to any consumer-provided implementation without requiring `selected-alternatives` configuration. See protocol `PP-20260514-engine-spi-noops-defaultbean`.
+Nine are `@DefaultBean @ApplicationScoped` (`io.quarkus.arc.DefaultBean`) — they yield automatically to any consumer-provided implementation without requiring `selected-alternatives` configuration. See protocol `PP-20260514-engine-spi-noops-defaultbean`.
+
+**Default routing strategies** in `runtime/src/main/java/io/casehub/engine/internal/routing/`:
+- `FirstSupportedRoutingStrategy` — `@DefaultBean @ApplicationScoped`; iterates `@WorkerBackend` managers by `@Priority` (descending), returns first where `supports()` is true (engine#461)
+
+**Composite execution manager** in `runtime/src/main/java/io/casehub/engine/internal/worker/`:
+- `CompositeWorkerExecutionManager` — `@ApplicationScoped` (not `@DefaultBean`); routes `submit()` via `WorkerExecutionRoutingStrategy`, aggregates `getActiveWorkCount`/`getActiveCaseIds` across `@WorkerBackend` backends. Replaces `NoOpWorkerExecutionManager` (engine#461). When no backends are discovered, `submit()` throws `ProvisioningException` (same behaviour as old no-op).
 
 **`ContextDiffStrategy`** is engine-internal strategy selection, not a consumer-replaceable SPI. Selected via `casehub.engine.diff-strategy` config (`none` | `top-level` | `json-patch`, default `none`). A `@Produces @DefaultBean` producer in `engine/internal/diff/ContextDiffStrategyProducer` instantiates the chosen POJO — consumer `@ApplicationScoped` impl still wins automatically.
 

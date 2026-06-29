@@ -28,7 +28,7 @@ import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.work.api.GroupStatus;
 import io.casehub.work.api.WorkItemGroupLifecycleEvent;
 import io.casehub.work.api.WorkItemStatus;
-import io.casehub.work.api.WorkloadProvider;
+import io.casehub.work.api.spi.WorkloadProvider;
 import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
 import io.casehub.work.runtime.model.WorkItem;
 import io.quarkus.test.junit.QuarkusTest;

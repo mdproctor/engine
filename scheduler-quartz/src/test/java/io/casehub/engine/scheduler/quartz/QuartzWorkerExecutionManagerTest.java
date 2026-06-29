@@ -113,4 +113,14 @@ class QuartzWorkerExecutionManagerTest {
     final QuartzWorkerExecutionManager manager = new QuartzWorkerExecutionManager(scheduler);
     assertTrue(manager.getActiveCaseIds("agent-x").isEmpty());
   }
+
+  @Test
+  void supports_alwaysReturnsTrue() {
+    final Scheduler scheduler = mock(Scheduler.class);
+    final QuartzWorkerExecutionManager manager = new QuartzWorkerExecutionManager(scheduler);
+
+    assertTrue(manager.supports("any-capability", "any-tenant"));
+    assertTrue(manager.supports("another-cap", null));
+    assertTrue(manager.supports("", ""));
+  }
 }

@@ -25,7 +25,7 @@ import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.work.api.WorkItemCreateRequest;
-import io.casehub.work.api.WorkloadProvider;
+import io.casehub.work.api.spi.WorkloadProvider;
 import io.casehub.work.memory.InMemoryWorkItemStore;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.repository.WorkItemStore;

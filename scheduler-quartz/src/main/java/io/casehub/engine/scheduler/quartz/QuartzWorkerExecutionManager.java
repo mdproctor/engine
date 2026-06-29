@@ -31,6 +31,7 @@ import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.engine.common.spi.scheduler.WorkerBackend;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -57,6 +58,8 @@ import org.quartz.SchedulerException;
 import org.quartz.Trigger;
 import org.quartz.impl.matchers.GroupMatcher;
 
+@WorkerBackend
+@Priority(0)
 @ApplicationScoped
 public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
 
@@ -75,6 +78,11 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
   @Inject
   public QuartzWorkerExecutionManager(Scheduler scheduler) {
     this.scheduler = scheduler;
+  }
+
+  @Override
+  public boolean supports(String capabilityName, String tenancyId) {
+    return true;
   }
 
   // TODO this must be reworked

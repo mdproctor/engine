@@ -29,7 +29,6 @@ import io.casehub.work.api.WorkItemEvent;
 import io.casehub.work.api.WorkItemGroupLifecycleEvent;
 import io.casehub.work.api.WorkItemRef;
 import io.casehub.work.api.WorkItemStatus;
-import io.casehub.work.api.WorkLifecycleEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
@@ -73,8 +72,7 @@ public class WorkItemLifecycleAdapter {
 
   @Inject ActionGateCompletionApplier gateApplier;
 
-  public void onWorkItemLifecycle(@ObservesAsync WorkLifecycleEvent event) {
-    if (!(event instanceof WorkItemEvent wie)) return;
+  public void onWorkItemLifecycle(@ObservesAsync WorkItemEvent wie) {
 
     final WorkItemStatus status = wie.status();
 
