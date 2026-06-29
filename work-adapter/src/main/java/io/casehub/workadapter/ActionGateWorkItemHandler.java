@@ -21,7 +21,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.work.api.WorkItemCreateRequest;
-import io.casehub.work.runtime.service.WorkItemService;
+import io.casehub.work.api.spi.WorkItemCreator;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -53,7 +53,7 @@ public class ActionGateWorkItemHandler {
   private static final Logger LOG = Logger.getLogger(ActionGateWorkItemHandler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject WorkItemService workItemService;
+  @Inject WorkItemCreator workItemCreator;
 
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_SCHEDULE, blocking = true)
   @Transactional
@@ -75,7 +75,7 @@ public class ActionGateWorkItemHandler {
             .scope(event.gateRequired().scope())
             .build();
 
-    workItemService.create(request);
+    workItemCreator.create(request);
     LOG.infof(
         "Gate WorkItem created: caseId=%s gateId=%d callerRef=%s expiresAt=%s",
         event.caseId(), event.gateId(), callerRef, expiresAt);

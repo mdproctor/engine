@@ -19,8 +19,8 @@ import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.ActionGateExpiredEvent;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.work.api.WorkItemRef;
 import io.casehub.work.api.WorkItemStatus;
-import io.casehub.work.runtime.model.WorkItem;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -58,10 +58,10 @@ public class ActionGateCompletionApplier {
   @Inject EventBus eventBus;
 
   public void apply(
-      final GateCallerRef gateRef, final WorkItemStatus status, final WorkItem workItem) {
+      final GateCallerRef gateRef, final WorkItemStatus status, final WorkItemRef ref) {
     switch (status) {
-      case COMPLETED -> handleApproved(gateRef, workItem);
-      case REJECTED, CANCELLED, OBSOLETE -> handleRejected(gateRef, workItem);
+      case COMPLETED -> handleApproved(gateRef, ref);
+      case REJECTED, CANCELLED, OBSOLETE -> handleRejected(gateRef, ref);
       case EXPIRED, FAULTED -> handleExpired(gateRef);
       default ->
           LOG.debugf(
@@ -70,23 +70,23 @@ public class ActionGateCompletionApplier {
     }
   }
 
-  private void handleApproved(final GateCallerRef gateRef, final WorkItem workItem) {
-    final String approvedBy = resolveActorId(workItem);
+  private void handleApproved(final GateCallerRef gateRef, final WorkItemRef ref) {
+    final String approvedBy = resolveActorId(ref);
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_APPROVED,
         new ActionGateApprovedEvent(
-            gateRef.caseId(), gateRef.gateId(), workItem.resolution, approvedBy));
+            gateRef.caseId(), gateRef.gateId(), ref != null ? ref.resolution() : null, approvedBy));
     LOG.infof(
         "Gate approved: caseId=%s gateId=%d approvedBy=%s",
         gateRef.caseId(), gateRef.gateId(), approvedBy);
   }
 
-  private void handleRejected(final GateCallerRef gateRef, final WorkItem workItem) {
-    final String rejectedBy = resolveActorId(workItem);
+  private void handleRejected(final GateCallerRef gateRef, final WorkItemRef ref) {
+    final String rejectedBy = resolveActorId(ref);
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_REJECTED,
         new ActionGateRejectedEvent(
-            gateRef.caseId(), gateRef.gateId(), workItem.resolution, rejectedBy));
+            gateRef.caseId(), gateRef.gateId(), ref != null ? ref.resolution() : null, rejectedBy));
     LOG.infof(
         "Gate rejected: caseId=%s gateId=%d rejectedBy=%s",
         gateRef.caseId(), gateRef.gateId(), rejectedBy);
@@ -99,19 +99,12 @@ public class ActionGateCompletionApplier {
     LOG.infof("Gate expired: caseId=%s gateId=%d", gateRef.caseId(), gateRef.gateId());
   }
 
-  /**
-   * Resolves the approver/rejector identity from the WorkItem.
-   *
-   * <p>{@code assigneeId} is the primary source (user who claimed and completed). If null, falls
-   * back to {@code resolution.completedBy} if parseable; otherwise null.
-   */
-  private static String resolveActorId(final WorkItem workItem) {
-    if (workItem == null) return null;
-    if (workItem.assigneeId != null) return workItem.assigneeId;
-    // Fallback: try resolution JSON for completedBy
-    if (workItem.resolution != null) {
+  private static String resolveActorId(final WorkItemRef ref) {
+    if (ref == null) return null;
+    if (ref.assigneeId() != null) return ref.assigneeId();
+    if (ref.resolution() != null) {
       try {
-        final com.fasterxml.jackson.databind.JsonNode node = MAPPER.readTree(workItem.resolution);
+        final com.fasterxml.jackson.databind.JsonNode node = MAPPER.readTree(ref.resolution());
         final com.fasterxml.jackson.databind.JsonNode completedBy = node.get("completedBy");
         if (completedBy != null && !completedBy.isNull()) return completedBy.asText();
       } catch (final Exception e) {

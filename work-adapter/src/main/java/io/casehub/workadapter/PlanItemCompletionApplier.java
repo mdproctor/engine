@@ -39,8 +39,8 @@ import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.casehub.engine.common.spi.event.PlanItemObsoleteEvent;
 import io.casehub.engine.common.spi.event.PlanItemRejectedEvent;
+import io.casehub.work.api.WorkItemRef;
 import io.casehub.work.api.WorkItemStatus;
-import io.casehub.work.runtime.model.WorkItem;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -85,10 +85,10 @@ public class PlanItemCompletionApplier {
    * @param caseId the case containing the PlanItem
    * @param planItemId the PlanItem to transition
    * @param status the terminal WorkItemStatus to apply
-   * @param workItem the source WorkItem (for outputMapping resolution JSON); may be null
+   * @param ref the source WorkItemRef (for outputMapping resolution JSON); may be null
    */
   @Transactional
-  public void apply(UUID caseId, String planItemId, WorkItemStatus status, WorkItem workItem) {
+  public void apply(UUID caseId, String planItemId, WorkItemStatus status, WorkItemRef ref) {
     PlanItem item = registry.get(caseId).flatMap(plan -> plan.getPlanItem(planItemId)).orElse(null);
 
     if (item == null) {
@@ -106,7 +106,7 @@ public class PlanItemCompletionApplier {
       return;
     }
 
-    applyOutputMapping(item, workItem, instance);
+    applyOutputMapping(item, ref, instance);
 
     final String bindingName = item.getBindingName();
     if (status == WorkItemStatus.REJECTED) {
@@ -153,7 +153,7 @@ public class PlanItemCompletionApplier {
     }
   }
 
-  private void applyOutputMapping(PlanItem item, WorkItem workItem, CaseInstance instance) {
+  private void applyOutputMapping(PlanItem item, WorkItemRef ref, CaseInstance instance) {
     if (instance.getCaseContext() == null) return;
     if (item.getTarget() == null) return;
     HumanTaskTarget ht =
@@ -165,7 +165,7 @@ public class PlanItemCompletionApplier {
         };
     if (ht == null) return;
     if (ht.outputMapping() == null) return;
-    if (workItem == null || workItem.resolution == null) return;
+    if (ref == null || ref.resolution() == null) return;
 
     if (!(ht.outputMapping() instanceof JQExpressionEvaluator jq)) {
       LOG.warnf(
@@ -175,7 +175,7 @@ public class PlanItemCompletionApplier {
     }
 
     try {
-      JsonNode resolutionNode = MAPPER.readTree(workItem.resolution);
+      JsonNode resolutionNode = MAPPER.readTree(ref.resolution());
       ValidationResult vr = jqEvaluator.eval(jq.expression(), resolutionNode);
       if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
         LOG.warnf(

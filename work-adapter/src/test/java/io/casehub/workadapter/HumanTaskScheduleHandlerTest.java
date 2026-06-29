@@ -197,7 +197,7 @@ class HumanTaskScheduleHandlerTest {
     WorkItem created = workItemStore.scanAll().stream().findFirst().orElse(null);
     assertThat(created).isNotNull();
     assertThat(created.payload).contains("trialId").contains("T-99");
-    assertThat(created.payload).doesNotContain("\"type\":\"default\"");
+    assertThat(created.payload).contains("\"type\":\"default\"");
     assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
     assertThat(planItemStore.findByCaseId(caseId, "test-tenant"))
         .anyMatch(

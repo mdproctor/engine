@@ -17,9 +17,9 @@ package io.casehub.workadapter;
 
 import io.casehub.engine.common.internal.event.ActionGateCancelledEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
-import io.casehub.work.runtime.model.WorkItem;
-import io.casehub.work.runtime.repository.WorkItemStore;
-import io.casehub.work.runtime.service.WorkItemService;
+import io.casehub.work.api.WorkItemRef;
+import io.casehub.work.api.spi.WorkItemCreator;
+import io.casehub.work.api.spi.WorkItemLifecycle;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -43,33 +43,33 @@ public class ActionGateCancelledHandler {
 
   private static final Logger LOG = Logger.getLogger(ActionGateCancelledHandler.class);
 
-  @Inject WorkItemStore workItemStore;
-  @Inject WorkItemService workItemService;
+  @Inject WorkItemCreator workItemCreator;
+  @Inject WorkItemLifecycle workItemLifecycle;
 
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_CANCELLED, blocking = true)
   @Transactional
   public void onActionGateCancelled(final ActionGateCancelledEvent event) {
     final String callerRef = GateCallerRef.encode(event.caseId(), event.gateId());
-    final Optional<WorkItem> workItemOpt = workItemStore.findByCallerRef(callerRef);
+    final Optional<WorkItemRef> refOpt = workItemCreator.findByCallerRef(callerRef);
 
-    if (workItemOpt.isEmpty()) {
+    if (refOpt.isEmpty()) {
       LOG.debugf(
           "Gate WorkItem not found for cancellation: caseId=%s gateId=%d callerRef=%s — may have already been resolved",
           event.caseId(), event.gateId(), callerRef);
       return;
     }
 
-    final WorkItem workItem = workItemOpt.get();
-    if (workItem.status != null && workItem.status.isTerminal()) {
+    final WorkItemRef ref = refOpt.get();
+    if (ref.status() != null && ref.status().isTerminal()) {
       LOG.debugf(
           "Gate WorkItem already terminal (status=%s): caseId=%s gateId=%d — skipping cancellation",
-          workItem.status, event.caseId(), event.gateId());
+          ref.status(), event.caseId(), event.gateId());
       return;
     }
 
     try {
-      workItemService.cancel(
-          workItem.id, "casehub-engine", "Case reached terminal state while gate was pending");
+      workItemLifecycle.cancel(
+          ref.id(), "casehub-engine", "Case reached terminal state while gate was pending");
       LOG.infof(
           "Gate WorkItem cancelled (case terminated): caseId=%s gateId=%d",
           event.caseId(), event.gateId());

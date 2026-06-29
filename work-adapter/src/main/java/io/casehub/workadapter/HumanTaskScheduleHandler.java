@@ -30,10 +30,7 @@ import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.work.api.Outcome;
 import io.casehub.work.api.WorkItemCreateRequest;
-import io.casehub.work.runtime.model.WorkItem;
-import io.casehub.work.runtime.model.WorkItemTemplate;
-import io.casehub.work.runtime.service.WorkItemService;
-import io.casehub.work.runtime.service.WorkItemTemplateService;
+import io.casehub.work.api.spi.WorkItemCreator;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -49,10 +46,10 @@ import org.jboss.logging.Logger;
  * Handles outbound human task creation when a {@link HumanTaskTarget} binding is selected.
  *
  * <p>Receives {@link HumanTaskScheduleEvent} from the engine event bus, looks up the {@link
- * PlanItem} in the {@link BlackboardRegistry} by binding name, creates a {@link WorkItem} via
- * {@link WorkItemService} (inline mode) or {@link
- * io.casehub.work.runtime.service.WorkItemTemplateService} (template mode), persists the DELEGATED
- * status to {@link PlanItemStore}, then marks the in-memory PlanItem DELEGATED.
+ * PlanItem} in the {@link BlackboardRegistry} by binding name, creates a WorkItem via {@link
+ * WorkItemCreator} (inline mode with direct request, or template mode with {@code templateId} set
+ * on the request), persists the DELEGATED status to {@link PlanItemStore}, then marks the in-memory
+ * PlanItem DELEGATED.
  *
  * <p>All three steps — WorkItem creation, {@code planItemStore.save(...DELEGATED...)}, and {@code
  * item.markDelegated()} — execute in a single {@code @Transactional} boundary. If WorkItem creation
@@ -70,8 +67,7 @@ public class HumanTaskScheduleHandler {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Inject BlackboardRegistry registry;
-  @Inject WorkItemService workItemService;
-  @Inject WorkItemTemplateService workItemTemplateService;
+  @Inject WorkItemCreator workItemCreator;
   @Inject PlanItemStore planItemStore;
 
   @ConsumeEvent(value = EventBusAddresses.HUMAN_TASK_SCHEDULE, blocking = true)
@@ -107,10 +103,9 @@ public class HumanTaskScheduleHandler {
   }
 
   private void handleTemplateMode(PlanItem item, HumanTaskScheduleEvent event) {
-    HumanTaskTarget target = event.target();
+    final HumanTaskTarget target = event.target();
 
-    // Parse templateRef as UUID
-    UUID templateId;
+    final UUID templateId;
     try {
       templateId = UUID.fromString(target.templateRef());
     } catch (IllegalArgumentException e) {
@@ -120,39 +115,34 @@ public class HumanTaskScheduleHandler {
       return;
     }
 
-    WorkItemTemplate template = workItemTemplateService.findById(templateId).orElse(null);
+    final String callerRef = PlanItemCallerRef.encode(event.caseId(), item.getPlanItemId());
+    final String payload =
+        (event.inputData() != null && !event.inputData().isEmpty())
+            ? serializePayload(event.inputData())
+            : null;
 
-    if (template == null) {
+    final WorkItemCreateRequest.Builder requestBuilder =
+        WorkItemCreateRequest.builder()
+            .templateId(templateId)
+            .title(target.title())
+            .createdBy("casehub-engine")
+            .callerRef(callerRef)
+            .scope(target.scope())
+            .payload(payload)
+            .candidateGroups(toCsv(event.resolvedCandidateGroups()))
+            .candidateUsers(toCsv(event.resolvedCandidateUsers()));
+    if (target.outcomes() != null && !target.outcomes().isEmpty()) {
+      requestBuilder.permittedOutcomes(toOutcomeList(target.outcomes()));
+    }
+
+    try {
+      workItemCreator.create(requestBuilder.build());
+    } catch (final Exception e) {
       LOG.warnf(
-          "No template found for ref '%s' binding '%s' case %s — PlanItem left PENDING",
-          target.templateRef(), event.bindingName(), event.caseId());
+          "Failed to create WorkItem from template '%s' binding '%s' case %s — PlanItem left PENDING: %s",
+          target.templateRef(), event.bindingName(), event.caseId(), e.getMessage());
       return;
     }
-
-    String callerRef = PlanItemCallerRef.encode(event.caseId(), item.getPlanItemId());
-    WorkItem workItem =
-        workItemTemplateService.instantiate(
-            template, target.title(), null, "casehub-engine", callerRef);
-
-    workItem.scope = target.scope();
-    if (workItem.tenancyId == null) {
-      workItem.tenancyId = event.tenancyId();
-    }
-    if (event.resolvedCandidateGroups() != null) {
-      workItem.candidateGroups = toCsv(event.resolvedCandidateGroups());
-    }
-    if (event.resolvedCandidateUsers() != null) {
-      workItem.candidateUsers = toCsv(event.resolvedCandidateUsers());
-    }
-    if (event.inputData() != null && !event.inputData().isEmpty()) {
-      workItem.payload = serializePayload(event.inputData());
-    }
-    if (target.outcomes() != null && !target.outcomes().isEmpty()) {
-      workItem.permittedOutcomes =
-          io.casehub.work.runtime.model.OutcomeCodecs.encodeOutcomes(
-              toOutcomeList(target.outcomes()));
-    }
-    workItem.persist();
 
     planItemStore.save(
         new PlanItemSaveRequest(
@@ -220,7 +210,7 @@ public class HumanTaskScheduleHandler {
     }
     WorkItemCreateRequest request = requestBuilder.build();
 
-    workItemService.create(request);
+    workItemCreator.create(request);
     LOG.infof(
         "WorkItem created (inline) for binding callerRef=%s title='%s' expiresAt=%s",
         callerRef, target.title(), effectiveDeadline);

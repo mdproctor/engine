@@ -25,10 +25,11 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.work.api.GroupStatus;
+import io.casehub.work.api.WorkItemEvent;
 import io.casehub.work.api.WorkItemGroupLifecycleEvent;
+import io.casehub.work.api.WorkItemRef;
 import io.casehub.work.api.WorkItemStatus;
-import io.casehub.work.runtime.event.WorkItemLifecycleEvent;
-import io.casehub.work.runtime.model.WorkItem;
+import io.casehub.work.api.WorkLifecycleEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
@@ -39,7 +40,7 @@ import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
- * Translates terminal quarkus-work {@link WorkItemLifecycleEvent}s and M-of-N {@link
+ * Translates terminal quarkus-work {@link WorkLifecycleEvent}s and M-of-N {@link
  * WorkItemGroupLifecycleEvent}s into CaseHub PlanItem transitions and fires {@code CONTEXT_CHANGED}
  * to trigger engine re-evaluation.
  *
@@ -72,30 +73,31 @@ public class WorkItemLifecycleAdapter {
 
   @Inject ActionGateCompletionApplier gateApplier;
 
-  public void onWorkItemLifecycle(@ObservesAsync WorkItemLifecycleEvent event) {
-    final WorkItemStatus status = event.status();
+  public void onWorkItemLifecycle(@ObservesAsync WorkLifecycleEvent event) {
+    if (!(event instanceof WorkItemEvent wie)) return;
+
+    final WorkItemStatus status = wie.status();
 
     if (status == WorkItemStatus.ESCALATED) {
-      handleEscalation(event);
+      handleEscalation(wie);
       return;
     }
 
     if (status == WorkItemStatus.SUSPENDED) {
-      handleSuspension(event);
+      handleSuspension(wie);
       return;
     }
 
     if (!status.isTerminal()) {
-      handlePossibleResume(event);
+      handlePossibleResume(wie);
       return;
     }
 
-    final CallerRef ref = CallerRef.parse(event.callerRef());
+    final CallerRef ref = CallerRef.parse(wie.callerRef());
     if (ref == null) return;
 
     if (ref instanceof GateCallerRef gateRef) {
-      final WorkItem workItem = event.source() instanceof WorkItem wi ? wi : null;
-      routeGate(gateRef, status, workItem);
+      routeGate(gateRef, status, wie.ref());
       return;
     }
 
@@ -108,8 +110,7 @@ public class WorkItemLifecycleAdapter {
       return;
     }
 
-    final WorkItem workItem = event.source() instanceof WorkItem wi ? wi : null;
-    applier.apply(piRef.caseId(), piRef.planItemId(), status, workItem);
+    applier.apply(piRef.caseId(), piRef.planItemId(), status, wie.ref());
   }
 
   public void onWorkItemGroupLifecycle(@ObservesAsync WorkItemGroupLifecycleEvent event) {
@@ -176,7 +177,7 @@ public class WorkItemLifecycleAdapter {
    * <p>Follows the same pattern as {@code QhorusMessageSignalBridge}: external events write to a
    * named context path; definitions bind on it. Refs engine#400.
    */
-  private void handleEscalation(final WorkItemLifecycleEvent event) {
+  private void handleEscalation(final WorkItemEvent event) {
     final CallerRef ref = CallerRef.parse(event.callerRef());
     if (!(ref instanceof PlanItemCallerRef piRef)) return;
 
@@ -225,7 +226,7 @@ public class WorkItemLifecycleAdapter {
         piRef.caseId(), piRef.planItemId(), item.getBindingName(), newGroups);
   }
 
-  private void handleSuspension(final WorkItemLifecycleEvent event) {
+  private void handleSuspension(final WorkItemEvent event) {
     final CallerRef ref = CallerRef.parse(event.callerRef());
     if (!(ref instanceof PlanItemCallerRef piRef)) return;
 
@@ -246,7 +247,7 @@ public class WorkItemLifecycleAdapter {
             });
   }
 
-  private void handlePossibleResume(final WorkItemLifecycleEvent event) {
+  private void handlePossibleResume(final WorkItemEvent event) {
     final CallerRef ref = CallerRef.parse(event.callerRef());
     if (!(ref instanceof PlanItemCallerRef piRef)) return;
 
@@ -264,7 +265,7 @@ public class WorkItemLifecycleAdapter {
   }
 
   private void routeGate(
-      final GateCallerRef gateRef, final WorkItemStatus status, final WorkItem workItem) {
-    gateApplier.apply(gateRef, status, workItem);
+      final GateCallerRef gateRef, final WorkItemStatus status, final WorkItemRef ref) {
+    gateApplier.apply(gateRef, status, ref);
   }
 }

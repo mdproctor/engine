@@ -25,6 +25,7 @@ import io.casehub.engine.common.internal.event.ActionGateExpiredEvent;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
 import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.work.api.WorkItemRef;
 import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.memory.InMemoryWorkItemStore;
 import io.casehub.work.runtime.model.WorkItem;
@@ -157,7 +158,7 @@ class ActionGateHandlerTest {
     workItem.resolution = "{\"note\": \"approved\"}";
 
     actionGateCompletionApplier.apply(
-        new GateCallerRef(caseId, gateId), WorkItemStatus.COMPLETED, workItem);
+        new GateCallerRef(caseId, gateId), WorkItemStatus.COMPLETED, toRef(workItem));
 
     await().atMost(2, TimeUnit.SECONDS).until(() -> !GateEventRecorder.approvedEvents.isEmpty());
 
@@ -180,7 +181,7 @@ class ActionGateHandlerTest {
     workItem.resolution = "{\"reason\": \"rejected\"}";
 
     actionGateCompletionApplier.apply(
-        new GateCallerRef(caseId, gateId), WorkItemStatus.REJECTED, workItem);
+        new GateCallerRef(caseId, gateId), WorkItemStatus.REJECTED, toRef(workItem));
 
     await().atMost(2, TimeUnit.SECONDS).until(() -> !GateEventRecorder.rejectedEvents.isEmpty());
 
@@ -197,7 +198,7 @@ class ActionGateHandlerTest {
     workItem.callerRef = GateCallerRef.encode(caseId, 30L);
 
     actionGateCompletionApplier.apply(
-        new GateCallerRef(caseId, 30L), WorkItemStatus.CANCELLED, workItem);
+        new GateCallerRef(caseId, 30L), WorkItemStatus.CANCELLED, toRef(workItem));
 
     await().atMost(2, TimeUnit.SECONDS).until(() -> !GateEventRecorder.rejectedEvents.isEmpty());
     assertThat(GateEventRecorder.rejectedEvents).hasSize(1);
@@ -211,7 +212,7 @@ class ActionGateHandlerTest {
     workItem.callerRef = GateCallerRef.encode(caseId, 40L);
 
     actionGateCompletionApplier.apply(
-        new GateCallerRef(caseId, 40L), WorkItemStatus.EXPIRED, workItem);
+        new GateCallerRef(caseId, 40L), WorkItemStatus.EXPIRED, toRef(workItem));
 
     await().atMost(2, TimeUnit.SECONDS).until(() -> !GateEventRecorder.expiredEvents.isEmpty());
     assertThat(GateEventRecorder.expiredEvents).hasSize(1);
@@ -255,5 +256,17 @@ class ActionGateHandlerTest {
     void onCancelled(final ActionGateCancelledEvent event) {
       cancelledEvents.add(event);
     }
+  }
+
+  private static WorkItemRef toRef(final WorkItem wi) {
+    return new WorkItemRef(
+        wi.id,
+        wi.status,
+        wi.callerRef,
+        wi.assigneeId,
+        wi.resolution,
+        wi.candidateGroups,
+        wi.outcome,
+        wi.tenancyId);
   }
 }

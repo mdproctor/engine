@@ -17,8 +17,8 @@ package io.casehub.workadapter.recovery;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.spi.PlanItemStore;
-import io.casehub.work.runtime.model.WorkItem;
-import io.casehub.work.runtime.service.WorkItemService;
+import io.casehub.work.api.WorkItemRef;
+import io.casehub.work.api.spi.WorkItemCreator;
 import io.casehub.workadapter.PlanItemCallerRef;
 import io.casehub.workadapter.PlanItemCompletionApplier;
 import io.quarkus.runtime.StartupEvent;
@@ -48,7 +48,7 @@ public class HumanTaskRecoveryService {
   private static final Logger LOG = Logger.getLogger(HumanTaskRecoveryService.class);
 
   @Inject PlanItemStore planItemStore;
-  @Inject WorkItemService workItemService;
+  @Inject WorkItemCreator workItemCreator;
   @Inject PlanItemCompletionApplier applier;
 
   void onStart(@Observes @Priority(25) StartupEvent ev) {
@@ -71,27 +71,27 @@ public class HumanTaskRecoveryService {
 
   private boolean tryRecover(PlanItemRecord r) {
     String callerRef = PlanItemCallerRef.encode(r.caseId(), r.planItemId());
-    Optional<WorkItem> workItemOpt = workItemService.findByCallerRef(callerRef);
+    Optional<WorkItemRef> refOpt = workItemCreator.findByCallerRef(callerRef);
 
-    if (workItemOpt.isEmpty()) {
+    if (refOpt.isEmpty()) {
       LOG.debugf(
           "No WorkItem found for callerRef=%s — WorkItem may have been cleaned up; skipping",
           callerRef);
       return false;
     }
 
-    WorkItem workItem = workItemOpt.get();
-    if (!workItem.status.isTerminal()) {
+    WorkItemRef ref = refOpt.get();
+    if (!ref.status().isTerminal()) {
       LOG.debugf(
           "WorkItem %s for callerRef=%s is still in-flight (status=%s) — skipping",
-          workItem.id, callerRef, workItem.status);
+          ref.id(), callerRef, ref.status());
       return false;
     }
 
     LOG.infof(
         "Recovering PlanItem %s in case %s — WorkItem %s was %s during downtime",
-        r.planItemId(), r.caseId(), workItem.id, workItem.status);
-    applier.apply(r.caseId(), r.planItemId(), workItem.status, workItem);
+        r.planItemId(), r.caseId(), ref.id(), ref.status());
+    applier.apply(r.caseId(), r.planItemId(), ref.status(), ref);
     return true;
   }
 }
