@@ -57,7 +57,7 @@ class ConditionalTriggerConditionParameterTest {
     Worker worker =
         Worker.builder()
             .name("test-worker")
-            .capabilities(cap)
+            .capabilityName("doWork")
             .function(new WorkerFunction.Sync(ctx -> WorkerResult.of(Map.of("workDone", true))))
             .build();
 

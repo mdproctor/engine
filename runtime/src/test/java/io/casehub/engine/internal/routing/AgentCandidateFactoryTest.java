@@ -151,7 +151,7 @@ class AgentCandidateFactoryTest {
     final Capability cap = Capability.of(capabilityName, "{}", "{}");
     return Worker.builder()
         .name(name)
-        .capabilities(cap)
+        .capabilityName(capabilityName)
         .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
         .build();
   }

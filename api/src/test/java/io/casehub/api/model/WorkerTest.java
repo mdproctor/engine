@@ -17,7 +17,6 @@ package io.casehub.api.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
@@ -28,18 +27,17 @@ class WorkerTest {
 
   @Test
   void builder_creates_worker_with_record_accessors() {
-    Capability cap = Capability.of("review", ".x", ".y");
     Worker worker =
         Worker.builder()
             .name("test-worker")
-            .capabilities(cap)
+            .capabilityName("review")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .description("a worker")
             .build();
 
     assertThat(worker.name()).isEqualTo("test-worker");
     assertThat(worker.description()).isEqualTo("a worker");
-    assertThat(worker.capabilities()).containsExactly(cap);
+    assertThat(worker.capabilityNames()).containsExactly("review");
     assertThat(worker.function()).isInstanceOf(WorkerFunction.Sync.class);
   }
 
@@ -48,7 +46,7 @@ class WorkerTest {
     Worker worker =
         Worker.builder()
             .name("plain-worker")
-            .capabilities(Capability.of("cap", ".x", ".y"))
+            .capabilityName("cap")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .build();
 
@@ -60,7 +58,7 @@ class WorkerTest {
     Worker worker =
         Worker.builder()
             .name("plain-worker")
-            .capabilities(Capability.of("cap", ".x", ".y"))
+            .capabilityName("cap")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .build();
 

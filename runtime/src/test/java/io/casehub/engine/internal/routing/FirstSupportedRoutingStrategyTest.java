@@ -43,7 +43,7 @@ class FirstSupportedRoutingStrategyTest {
     worker =
         Worker.builder()
             .name("test-worker")
-            .capability(capability)
+            .capabilityName("test-cap")
             .function(input -> WorkerResult.of(Map.of()))
             .build();
   }
@@ -105,7 +105,7 @@ class FirstSupportedRoutingStrategyTest {
   @Test
   void skipsBackendThatCannotExecuteNone() {
     Worker noneWorker =
-        Worker.builder().name("external").capability(capability).noFunction().build();
+        Worker.builder().name("external").capabilityName("test-cap").noFunction().build();
 
     WorkerExecutionManager inProcess = mock(WorkerExecutionManager.class);
     when(inProcess.supports("test-cap", "tenant-1")).thenReturn(true);

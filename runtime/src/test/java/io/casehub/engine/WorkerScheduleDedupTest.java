@@ -291,7 +291,7 @@ public class WorkerScheduleDedupTest {
     private final Worker worker =
         Worker.builder()
             .name("dedup-worker")
-            .capabilities(capability)
+            .capabilityName("dedupCapability")
             .function(
                 new WorkerFunction.Sync(
                     input -> {

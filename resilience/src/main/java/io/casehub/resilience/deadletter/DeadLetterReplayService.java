@@ -158,9 +158,28 @@ public class DeadLetterReplayService {
       return Optional.empty();
     }
 
-    Capability capability = worker.capabilities().stream().findFirst().orElse(null);
-    if (capability == null) {
+    String capabilityName = null;
+    JsonNode scheduledMeta = originalScheduled.getMetadata();
+    if (scheduledMeta != null && scheduledMeta.has("capabilityName")) {
+      capabilityName = scheduledMeta.get("capabilityName").asText();
+    }
+    if (capabilityName == null) {
+      capabilityName = worker.capabilityNames().stream().findFirst().orElse(null);
+    }
+    if (capabilityName == null) {
       LOG.warnf("DLQ replay: worker '%s' has no capabilities", workerId);
+      return Optional.empty();
+    }
+    String resolvedCapName = capabilityName;
+    Capability capability =
+        definition.getCapabilities().stream()
+            .filter(c -> c.name().equals(resolvedCapName))
+            .findFirst()
+            .orElse(null);
+    if (capability == null) {
+      LOG.warnf(
+          "DLQ replay: capability '%s' not found in CaseDefinition for worker '%s'",
+          capabilityName, workerId);
       return Optional.empty();
     }
 

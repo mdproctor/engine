@@ -77,7 +77,7 @@ public class MultiWorkerPipelineBean extends CaseHub {
         .workers(
             Worker.builder()
                 .name("document-validator")
-                .capabilities(validateCap)
+                .capabilityName("validateDocument")
                 .function(
                     input -> {
                       if (!input.containsKey("documentId")) {
@@ -89,7 +89,7 @@ public class MultiWorkerPipelineBean extends CaseHub {
                 .build(),
             Worker.builder()
                 .name("document-enricher")
-                .capabilities(enrichCap)
+                .capabilityName("enrichDocument")
                 .function(
                     input -> {
                       if (!input.containsKey("documentId")) {
@@ -109,7 +109,7 @@ public class MultiWorkerPipelineBean extends CaseHub {
                 .build(),
             Worker.builder()
                 .name("document-publisher")
-                .capabilities(publishCap)
+                .capabilityName("publishDocument")
                 .function(
                     input -> {
                       if (!input.containsKey("documentId")) {

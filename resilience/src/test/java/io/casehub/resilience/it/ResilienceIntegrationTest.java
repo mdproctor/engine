@@ -238,7 +238,7 @@ class ResilienceIntegrationTest {
           .workers(
               Worker.builder()
                   .name(WORKER_ID)
-                  .capabilities(capability)
+                  .capabilityName("combinedFail")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

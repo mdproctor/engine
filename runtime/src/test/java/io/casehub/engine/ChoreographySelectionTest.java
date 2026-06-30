@@ -134,7 +134,7 @@ class ChoreographySelectionTest {
           .workers(
               Worker.builder()
                   .name("worker-a")
-                  .capabilities(capability)
+                  .capabilityName("do-work")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -144,7 +144,7 @@ class ChoreographySelectionTest {
                   .build(),
               Worker.builder()
                   .name("worker-b")
-                  .capabilities(capability)
+                  .capabilityName("do-work")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

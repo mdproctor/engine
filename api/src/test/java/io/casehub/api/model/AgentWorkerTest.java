@@ -29,9 +29,7 @@ import io.casehub.api.model.ai.ModelType;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
-import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
@@ -66,21 +64,18 @@ class AgentWorkerTest {
             .model(fixedResponseProvider("{\"output\": \"processed\"}"))
             .build();
 
-    Capability textProcessing =
-        Capability.of("text-processing", "{ input: .text }", "{ text: .result }");
-
     Worker worker =
         Worker.builder()
             .name("ai-text-processor")
-            .capabilities(textProcessing)
+            .capabilityName("text-processing")
             .function(new AgentWorkerFunction(agent))
             .description("AI-powered text processing worker")
             .build();
 
     assertEquals("ai-text-processor", worker.name());
     assertEquals("AI-powered text processing worker", worker.description());
-    assertEquals(1, worker.capabilities().size());
-    assertEquals("text-processing", worker.capabilities().get(0).name());
+    assertEquals(1, worker.capabilityNames().size());
+    assertEquals("text-processing", worker.capabilityNames().iterator().next());
 
     assertNotNull(worker.function());
     assertInstanceOf(AgentWorkerFunction.class, worker.function());
@@ -96,12 +91,10 @@ class AgentWorkerTest {
             .model(fixedResponseProvider("{\"result\": \"HELLO WORLD\"}"))
             .build();
 
-    Capability textTransform = Capability.of("transform", ".", ".");
-
     Worker worker =
         Worker.builder()
             .name("uppercase-transformer")
-            .capabilities(textTransform)
+            .capabilityName("transform")
             .function(new AgentWorkerFunction(agent))
             .build();
 
@@ -127,7 +120,7 @@ class AgentWorkerTest {
     Worker worker =
         Worker.builder()
             .name("policy-test")
-            .capabilities(List.of(Capability.of("test", ".", ".")))
+            .capabilityName("test")
             .function(new AgentWorkerFunction(agent))
             .executionPolicy(policy)
             .build();

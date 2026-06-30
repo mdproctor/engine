@@ -119,7 +119,7 @@ class SequentialStagesBlackboardTest {
           .workers(
               Worker.builder()
                   .name("phase-writer-worker")
-                  .capabilities(cap)
+                  .capabilityName("phase-writer")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phase", "two"))))
                   .build())

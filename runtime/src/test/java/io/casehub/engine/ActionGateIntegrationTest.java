@@ -308,7 +308,7 @@ class ActionGateIntegrationTest {
           .workers(
               Worker.builder()
                   .name("gate-worker")
-                  .capabilities(cap)
+                  .capabilityName("file-sar-gate-test")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

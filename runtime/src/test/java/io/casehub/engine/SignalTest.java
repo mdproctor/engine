@@ -254,7 +254,7 @@ public class SignalTest {
           .workers(
               Worker.builder()
                   .name("payment-worker")
-                  .capabilities(paymentCapability)
+                  .capabilityName("processPayment")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -322,7 +322,7 @@ public class SignalTest {
           .workers(
               Worker.builder()
                   .name("payment-worker-2")
-                  .capabilities(paymentCapability)
+                  .capabilityName("processPayment2")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -332,7 +332,7 @@ public class SignalTest {
                   .build(),
               Worker.builder()
                   .name("document-worker-2")
-                  .capabilities(documentCapability)
+                  .capabilityName("processDocument2")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

@@ -252,7 +252,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker =
           Worker.builder()
               .name("worker")
-              .capabilities(cap)
+              .capabilityName("doWork")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {
@@ -295,7 +295,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker =
           Worker.builder()
               .name("worker")
-              .capabilities(cap)
+              .capabilityName("doWork")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {
@@ -338,7 +338,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker =
           Worker.builder()
               .name("worker")
-              .capabilities(cap)
+              .capabilityName("doWork")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {
@@ -382,7 +382,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker =
           Worker.builder()
               .name("worker")
-              .capabilities(cap)
+              .capabilityName("doWork")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {
@@ -426,7 +426,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker =
           Worker.builder()
               .name("worker")
-              .capabilities(cap)
+              .capabilityName("doWork")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {
@@ -470,7 +470,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker =
           Worker.builder()
               .name("worker")
-              .capabilities(cap)
+              .capabilityName("doWork")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {
@@ -522,7 +522,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker1 =
           Worker.builder()
               .name("worker1")
-              .capabilities(cap1)
+              .capabilityName("doWork1")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {
@@ -534,7 +534,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker2 =
           Worker.builder()
               .name("worker2")
-              .capabilities(cap2)
+              .capabilityName("doWork2")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {
@@ -584,7 +584,7 @@ class ScheduleTriggerSimpleTest {
       Worker worker =
           Worker.builder()
               .name("worker")
-              .capabilities(cap)
+              .capabilityName("doWork")
               .function(
                   new WorkerFunction.Sync(
                       ctx -> {

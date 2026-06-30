@@ -120,7 +120,7 @@ class ContextDiffNoneStrategyTest {
           .workers(
               Worker.builder()
                   .name("none-worker")
-                  .capabilities(capability)
+                  .capabilityName("doWork")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "done"))))
                   .build())

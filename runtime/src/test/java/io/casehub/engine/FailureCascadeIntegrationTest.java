@@ -206,7 +206,7 @@ class FailureCascadeIntegrationTest {
           .workers(
               Worker.builder()
                   .name("succeeding-worker")
-                  .capabilities(cap)
+                  .capabilityName("success-cap")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(1, 100)))
@@ -244,7 +244,7 @@ class FailureCascadeIntegrationTest {
           .workers(
               Worker.builder()
                   .name("always-declining")
-                  .capabilities(cap)
+                  .capabilityName("fault-cap")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.declined("cannot handle")))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(1, 100)))
@@ -282,7 +282,7 @@ class FailureCascadeIntegrationTest {
           .workers(
               Worker.builder()
                   .name("slow-worker")
-                  .capabilities(cap)
+                  .capabilityName("expired-cap")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

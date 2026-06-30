@@ -136,7 +136,7 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getWorkers()).hasSize(1);
     Worker worker = def.getWorkers().get(0);
     assertThat(worker.name()).isEqualTo("validator-worker");
-    assertThat(worker.capabilities()).containsExactly(cap);
+    assertThat(worker.capabilityNames()).containsExactly("validate");
     assertThat(worker.description()).isEqualTo("Worker that validates");
 
     // Bindings

@@ -117,7 +117,7 @@ public class WorkerRetryTest {
           .workers(
               Worker.builder()
                   .name("document-processor")
-                  .capabilities(capability)
+                  .capabilityName("processDocument")
                   .function(
                       new Function<>() {
                         @Override

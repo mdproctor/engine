@@ -240,7 +240,7 @@ class ActionGateResolutionTest {
           .workers(
               Worker.builder()
                   .name("resolution-worker")
-                  .capabilities(cap)
+                  .capabilityName("resolution-gate-cap")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

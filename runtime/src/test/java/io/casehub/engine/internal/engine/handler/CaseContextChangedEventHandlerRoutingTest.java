@@ -115,7 +115,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     final Worker worker =
         Worker.builder()
             .name("analyst-worker")
-            .capabilities(capability)
+            .capabilityName("research")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
 
@@ -235,7 +235,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     final Worker worker =
         Worker.builder()
             .name("analyst-worker")
-            .capabilities(cap)
+            .capabilityName("research")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
 
@@ -300,7 +300,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     final Worker worker =
         Worker.builder()
             .name("analyst-worker")
-            .capabilities(cap)
+            .capabilityName("research")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
 

@@ -619,7 +619,7 @@ class SpiWiringIntegrationTest {
       Worker worker =
           Worker.builder()
               .name("execution-context-recorder")
-              .capabilities(capability)
+              .capabilityName("recordContext")
               .function(
                   new WorkerFunction.Sync(
                       input -> {

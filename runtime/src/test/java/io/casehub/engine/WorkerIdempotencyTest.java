@@ -627,7 +627,7 @@ public class WorkerIdempotencyTest {
     private final Worker worker =
         Worker.builder()
             .name("idempotency-worker")
-            .capabilities(capability)
+            .capabilityName("idempotencyCapability")
             .function(
                 new WorkerFunction.Sync(
                     input -> {
@@ -698,7 +698,7 @@ public class WorkerIdempotencyTest {
           .workers(
               Worker.builder()
                   .name("alpha-worker")
-                  .capabilities(alphaCapability)
+                  .capabilityName("alphaCapability")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -708,7 +708,7 @@ public class WorkerIdempotencyTest {
                   .build(),
               Worker.builder()
                   .name("beta-worker")
-                  .capabilities(betaCapability)
+                  .capabilityName("betaCapability")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

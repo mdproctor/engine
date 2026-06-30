@@ -422,7 +422,7 @@ class StageBlackboardTest {
           .workers(
               Worker.builder()
                   .name("signal-worker")
-                  .capabilities(cap)
+                  .capabilityName("signal-cap")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("probe", "done"))))
                   .build())
@@ -462,7 +462,7 @@ class StageBlackboardTest {
           .workers(
               Worker.builder()
                   .name("once-signal-worker")
-                  .capabilities(cap)
+                  .capabilityName("once-signal-cap")
                   .function(
                       new WorkerFunction.Sync(
                           input ->

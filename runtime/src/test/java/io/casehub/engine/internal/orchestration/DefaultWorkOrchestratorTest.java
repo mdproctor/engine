@@ -293,7 +293,7 @@ class DefaultWorkOrchestratorTest {
     final Worker worker =
         Worker.builder()
             .name("agent-worker")
-            .capabilities(capability)
+            .capabilityName(capabilityName)
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
             .build();
 
@@ -311,7 +311,7 @@ class DefaultWorkOrchestratorTest {
     final Worker worker =
         Worker.builder()
             .name("analyst-worker")
-            .capabilities(capability)
+            .capabilityName(capabilityName)
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
             .build();
 

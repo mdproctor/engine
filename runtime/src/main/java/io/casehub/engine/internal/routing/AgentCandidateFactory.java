@@ -28,8 +28,6 @@ import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
 /**
@@ -79,11 +77,10 @@ public final class AgentCandidateFactory {
     final String probeContextId = caseInstance.getUuid().toString();
 
     for (final Worker w : workers) {
-      if (w.capabilities() == null) {
+      if (w.capabilityNames() == null) {
         continue;
       }
-      final boolean hasCapability =
-          w.capabilities().stream().anyMatch(c -> c.name().equals(capabilityName));
+      final boolean hasCapability = w.capabilityNames().contains(capabilityName);
       if (!hasCapability) {
         continue;
       }
@@ -109,13 +106,10 @@ public final class AgentCandidateFactory {
             default -> AgentHealth.READY;
           };
 
-      final Set<String> capabilities =
-          w.capabilities().stream().map(Capability::name).collect(Collectors.toUnmodifiableSet());
-
       candidates.add(
           new AgentCandidate(
               w.name(),
-              capabilities,
+              w.capabilityNames(),
               executionManager.getActiveWorkCount(w.name()),
               health,
               descriptor));

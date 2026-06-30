@@ -177,7 +177,7 @@ class CaseLifecycleCdiEventTest {
           .workers(
               Worker.builder()
                   .name("finisher")
-                  .capabilities(capability)
+                  .capabilityName("do-work")
                   // Return done:true, trigger:false — so the ContextChangeTrigger
                   // (.trigger==true and .done!=true) never re-fires after the first execution.
                   .function(

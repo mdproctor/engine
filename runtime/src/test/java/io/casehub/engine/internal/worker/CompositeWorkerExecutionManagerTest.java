@@ -62,7 +62,7 @@ class CompositeWorkerExecutionManagerTest {
     worker =
         Worker.builder()
             .name("test-worker")
-            .capability(capability)
+            .capabilityName("test-cap")
             .function(input -> WorkerResult.of(Map.of()))
             .build();
 

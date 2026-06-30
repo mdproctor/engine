@@ -140,7 +140,7 @@ class ContextChangeWhenFilterTest {
           .workers(
               Worker.builder()
                   .name("guarded-worker")
-                  .capabilities(guardedCap)
+                  .capabilityName("guarded-work")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -150,7 +150,7 @@ class ContextChangeWhenFilterTest {
                   .build(),
               Worker.builder()
                   .name("finish-worker")
-                  .capabilities(finishCap)
+                  .capabilityName("finish")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

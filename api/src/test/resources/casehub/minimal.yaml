@@ -1,0 +1,15 @@
+dsl: "0.1"
+version: "1.0.0"
+name: Minimal
+namespace: test
+spec:
+  capabilities:
+    - name: process
+      inputSchema: "."
+      outputSchema: "."
+  bindings:
+    - name: trigger
+      capability: process
+      on:
+        contextChange:
+          filter: '.ready == true'

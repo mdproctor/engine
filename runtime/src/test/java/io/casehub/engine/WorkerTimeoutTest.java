@@ -175,7 +175,7 @@ class WorkerTimeoutTest {
       Worker worker =
           Worker.builder()
               .name("fast-worker")
-              .capabilities(cap)
+              .capabilityName("fastWork")
               .executionPolicy(new ExecutionPolicy()) // Uses default timeout
               .function(
                   new WorkerFunction.Sync(
@@ -221,7 +221,7 @@ class WorkerTimeoutTest {
       Worker worker =
           Worker.builder()
               .name("slow-worker-default")
-              .capabilities(cap)
+              .capabilityName("slowWork")
               .executionPolicy(noRetryPolicy)
               .function(
                   new WorkerFunction.Sync(
@@ -272,7 +272,7 @@ class WorkerTimeoutTest {
       Worker worker =
           Worker.builder()
               .name("slow-worker-custom")
-              .capabilities(cap)
+              .capabilityName("slowWorkCustom")
               .executionPolicy(
                   new ExecutionPolicy(
                       10000, // 10 second custom timeout
@@ -326,7 +326,7 @@ class WorkerTimeoutTest {
       Worker worker =
           Worker.builder()
               .name("fast-worker-short-timeout")
-              .capabilities(cap)
+              .capabilityName("fastWorkShortTimeout")
               .executionPolicy(
                   new ExecutionPolicy(
                       100, // Very short timeout (100ms)

@@ -245,10 +245,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
         String capName = ct.capability().name();
         List<Worker> matching =
             ctx.definition().getWorkers().stream()
-                .filter(
-                    w ->
-                        w.capabilities() != null
-                            && w.capabilities().stream().anyMatch(c -> c.name().equals(capName)))
+                .filter(w -> w.capabilityNames() != null && w.capabilityNames().contains(capName))
                 .toList();
         if (matching.size() > 1) {
           LOG.warnf(

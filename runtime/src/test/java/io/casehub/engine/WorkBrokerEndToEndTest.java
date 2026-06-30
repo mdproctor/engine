@@ -122,7 +122,7 @@ class WorkBrokerEndToEndTest {
           .workers(
               Worker.builder()
                   .name("processor")
-                  .capabilities(stage1Cap)
+                  .capabilityName("process")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -133,7 +133,7 @@ class WorkBrokerEndToEndTest {
                   .build(),
               Worker.builder()
                   .name("finaliser")
-                  .capabilities(stage2Cap)
+                  .capabilityName("finalise")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

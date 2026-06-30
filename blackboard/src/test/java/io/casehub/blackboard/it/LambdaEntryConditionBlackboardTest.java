@@ -126,7 +126,7 @@ class LambdaEntryConditionBlackboardTest {
           .workers(
               Worker.builder()
                   .name("lambda-worker")
-                  .capabilities(cap)
+                  .capabilityName("lambda-cap")
                   .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("done", true))))
                   .build())
           .bindings(

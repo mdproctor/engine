@@ -286,7 +286,7 @@ public class SignalPersistenceAndDedupTest {
           .workers(
               Worker.builder()
                   .name("payment-worker")
-                  .capabilities(paymentCapability)
+                  .capabilityName("processPayment")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

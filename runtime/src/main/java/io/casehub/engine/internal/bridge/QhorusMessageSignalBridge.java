@@ -37,8 +37,8 @@ import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
@@ -155,7 +155,7 @@ public class QhorusMessageSignalBridge {
         if (w.name().equals(workerName)) return w;
       }
     }
-    return Worker.builder().name(workerName).capabilities(List.of()).noFunction().build();
+    return Worker.builder().name(workerName).capabilityNames(Set.of()).noFunction().build();
   }
 
   private static Long parseEventLogId(String correlationId) {

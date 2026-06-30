@@ -65,8 +65,8 @@ public class YamlSimpleCaseHubBeanTest {
     // workers
     assertEquals(1, def.getWorkers().size());
     assertEquals("document-processor", def.getWorkers().get(0).name());
-    assertEquals(1, def.getWorkers().get(0).capabilities().size());
-    assertEquals("processDocument", def.getWorkers().get(0).capabilities().get(0).name());
+    assertEquals(1, def.getWorkers().get(0).capabilityNames().size());
+    assertEquals("processDocument", def.getWorkers().get(0).capabilityNames().iterator().next());
     assertInstanceOf(WorkerFunction.class, def.getWorkers().get(0).function());
 
     // rules

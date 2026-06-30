@@ -152,7 +152,7 @@ public class AgentWorkerExecutionTest {
       Worker aiWorker =
           Worker.builder()
               .name("sentiment-worker")
-              .capabilities(sentimentCapability)
+              .capabilityName("analyzeSentiment")
               .function(new AgentWorkerFunction(sentimentAgent))
               .description("AI-powered sentiment analysis worker")
               .build();

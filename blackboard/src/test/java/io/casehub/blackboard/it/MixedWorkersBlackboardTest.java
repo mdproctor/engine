@@ -155,13 +155,13 @@ class MixedWorkersBlackboardTest {
           .workers(
               Worker.builder()
                   .name("worker-a")
-                  .capabilities(capA)
+                  .capabilityName("cap-a")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phaseA", "done"))))
                   .build(),
               Worker.builder()
                   .name("worker-b")
-                  .capabilities(capB)
+                  .capabilityName("cap-b")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phaseB", "done"))))
                   .build())

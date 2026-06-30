@@ -212,7 +212,7 @@ class CaseLifecycleStateTest {
           .workers(
               Worker.builder()
                   .name("idle-worker")
-                  .capabilities(capability)
+                  .capabilityName("idleCapability")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "done"))))
                   .build())
@@ -254,7 +254,7 @@ class CaseLifecycleStateTest {
           .workers(
               Worker.builder()
                   .name("completing-worker")
-                  .capabilities(capability)
+                  .capabilityName("processDocumentLifecycle")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "done"))))
                   .build())

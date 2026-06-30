@@ -188,7 +188,7 @@ class DeadLetterQueueEndToEndTest {
           .workers(
               Worker.builder()
                   .name("always-failing-worker")
-                  .capabilities(capability)
+                  .capabilityName("doWork")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -236,7 +236,7 @@ class DeadLetterQueueEndToEndTest {
           .workers(
               Worker.builder()
                   .name("fast-failing-worker")
-                  .capabilities(capability)
+                  .capabilityName("fastFail")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

@@ -150,7 +150,7 @@ class OrchestrationTest {
           .workers(
               Worker.builder()
                   .name("analyse-worker")
-                  .capabilities(cap)
+                  .capabilityName("analyse")
                   .function(
                       new WorkerFunction.Sync(
                           input -> WorkerResult.of(Map.of("analysis", "complete"))))

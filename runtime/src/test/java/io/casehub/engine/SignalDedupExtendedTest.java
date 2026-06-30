@@ -347,7 +347,7 @@ public class SignalDedupExtendedTest {
           .workers(
               Worker.builder()
                   .name("event-worker-dedup")
-                  .capabilities(eventCapability)
+                  .capabilityName("processEventDedup")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -402,7 +402,7 @@ public class SignalDedupExtendedTest {
           .workers(
               Worker.builder()
                   .name("event-worker-dedup-goal")
-                  .capabilities(eventCapability)
+                  .capabilityName("processEventDedupGoal")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

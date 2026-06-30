@@ -36,7 +36,6 @@ import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
-import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
@@ -260,7 +259,7 @@ class QuartzRetryServiceTest {
     Worker worker =
         Worker.builder()
             .name(workerId)
-            .capabilities(Capability.of("test-cap", "{}", "{}"))
+            .capabilityName("test-cap")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .executionPolicy(executionPolicy)
             .build();
@@ -289,7 +288,7 @@ class QuartzRetryServiceTest {
     Worker worker =
         Worker.builder()
             .name(workerId)
-            .capabilities(Capability.of("test-cap", "{}", "{}"))
+            .capabilityName("test-cap")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
             .build();
     CaseDefinition definition =

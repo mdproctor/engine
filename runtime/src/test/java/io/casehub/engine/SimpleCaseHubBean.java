@@ -60,7 +60,7 @@ public class SimpleCaseHubBean extends CaseHub {
         .workers(
             Worker.builder()
                 .name("document-processor")
-                .capabilities(capability)
+                .capabilityName("processDocument")
                 .function(
                     input -> {
                       if (!input.containsKey("documentId")) {

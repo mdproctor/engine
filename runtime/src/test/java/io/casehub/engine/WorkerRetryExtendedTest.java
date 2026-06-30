@@ -477,7 +477,7 @@ public class WorkerRetryExtendedTest {
           .workers(
               Worker.builder()
                   .name("flexible-retry-worker")
-                  .capabilities(capability)
+                  .capabilityName("flexibleRetryCapability")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -535,7 +535,7 @@ public class WorkerRetryExtendedTest {
           .workers(
               Worker.builder()
                   .name("signal-retry-worker")
-                  .capabilities(capability)
+                  .capabilityName("signalRetryCapability")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -599,7 +599,7 @@ public class WorkerRetryExtendedTest {
           .workers(
               Worker.builder()
                   .name("alpha-always-success")
-                  .capabilities(alphaCapability)
+                  .capabilityName("alphaRetryCapability")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -610,7 +610,7 @@ public class WorkerRetryExtendedTest {
                   .build(),
               Worker.builder()
                   .name("beta-retry-worker")
-                  .capabilities(betaCapability)
+                  .capabilityName("betaRetryCapability")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

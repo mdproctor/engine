@@ -134,7 +134,7 @@ public class WorkerRecoveryTest {
           .workers(
               Worker.builder()
                   .name("recovery-worker")
-                  .capabilities(capability)
+                  .capabilityName("recoverCapability")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

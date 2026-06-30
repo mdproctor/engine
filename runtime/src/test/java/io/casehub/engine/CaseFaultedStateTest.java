@@ -230,7 +230,7 @@ class CaseFaultedStateTest {
           .workers(
               Worker.builder()
                   .name("always-failing-worker")
-                  .capabilities(capability)
+                  .capabilityName("alwaysFailCapability")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
@@ -288,7 +288,7 @@ class CaseFaultedStateTest {
           .workers(
               Worker.builder()
                   .name("error-producing-worker")
-                  .capabilities(capability)
+                  .capabilityName("failureGoalCapability")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "error"))))
                   .build())

@@ -160,7 +160,7 @@ class CaseTimeoutEnforcerIntegrationTest {
           .workers(
               Worker.builder()
                   .name("hanging-worker")
-                  .capabilities(capability)
+                  .capabilityName("hang")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {

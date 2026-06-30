@@ -30,6 +30,10 @@ import java.io.InputStream;
  * <p>In CDI contexts, {@link ExpressionEngineRegistry} and {@link ObjectMapper} are injected
  * automatically; all registered expression languages are supported. Outside CDI (tests, tooling),
  * the no-arg constructor path falls back to JQ-only parsing.
+ *
+ * <p>Subclasses that need to add programmatic workers (backed by CDI-injected services) override
+ * {@link #augment(CaseDefinition)} instead of {@code getDefinition()}. The hook is called once,
+ * inside the double-checked lock, between YAML loading and caching.
  */
 public class YamlCaseHub extends CaseHub {
 
@@ -47,7 +51,7 @@ public class YamlCaseHub extends CaseHub {
   }
 
   @Override
-  public CaseDefinition getDefinition() {
+  public final CaseDefinition getDefinition() {
     if (definition == null) {
       synchronized (this) {
         if (definition == null) {
@@ -56,9 +60,11 @@ public class YamlCaseHub extends CaseHub {
             if (is == null) {
               throw new IllegalStateException("Resource " + path + " not found on classpath");
             }
-            definition =
+            CaseDefinition loaded =
                 CaseDefinitionYamlMapper.load(
                     is, objectMapper, expressionEngineRegistry, workerFunctionProviderRegistry);
+            augment(loaded);
+            definition = loaded;
           } catch (IOException e) {
             throw new RuntimeException("Failed to load CaseHub definition from " + path, e);
           }
@@ -67,4 +73,15 @@ public class YamlCaseHub extends CaseHub {
     }
     return definition;
   }
+
+  /**
+   * Hook for subclasses to augment the YAML-loaded definition with programmatic workers, agent
+   * descriptors, or other modifications.
+   *
+   * <p>Called once, inside the double-checked lock, between YAML loading and caching. CDI-injected
+   * fields are available. The default implementation is a no-op.
+   *
+   * @param definition the loaded definition to augment
+   */
+  protected void augment(CaseDefinition definition) {}
 }

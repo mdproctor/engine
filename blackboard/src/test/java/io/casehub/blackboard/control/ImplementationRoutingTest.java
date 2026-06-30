@@ -77,13 +77,13 @@ class ImplementationRoutingTest {
     Worker w1 =
         Worker.builder()
             .name("worker-a")
-            .capabilities(cap)
+            .capabilityName("analyse")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
     Worker w2 =
         Worker.builder()
             .name("worker-b")
-            .capabilities(cap)
+            .capabilityName("analyse")
             .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
             .build();
 

@@ -90,7 +90,7 @@ public class AgentPipelineBean extends CaseHub {
         .workers(
             Worker.builder()
                 .name("document-fetcher")
-                .capabilities(fetchCap)
+                .capabilityName("fetchDocument")
                 .function(
                     new FlowWorkerFunction(
                         workflow("fetch-document")
@@ -103,7 +103,7 @@ public class AgentPipelineBean extends CaseHub {
                 .build(),
             Worker.builder()
                 .name("sentiment-analyzer")
-                .capabilities(sentimentCap)
+                .capabilityName("analyzeSentiment")
                 .function(
                     new FlowWorkerFunction(
                         workflow("analyze-sentiment")
@@ -117,7 +117,7 @@ public class AgentPipelineBean extends CaseHub {
                 .build(),
             Worker.builder()
                 .name("content-summarizer")
-                .capabilities(summaryCap)
+                .capabilityName("summarizeContent")
                 .function(
                     new FlowWorkerFunction(
                         workflow("summarize-content")

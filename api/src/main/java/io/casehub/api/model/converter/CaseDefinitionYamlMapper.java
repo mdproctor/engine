@@ -44,6 +44,7 @@ import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
+import org.jboss.logging.Logger;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -64,6 +65,8 @@ import java.util.stream.Collectors;
  * {@link #load(InputStream)} for non-CDI contexts (tests, tooling) — JQ only.
  */
 public final class CaseDefinitionYamlMapper {
+
+  private static final Logger LOG = Logger.getLogger(CaseDefinitionYamlMapper.class);
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -254,11 +257,17 @@ public final class CaseDefinitionYamlMapper {
       final JsonNode rawWorkers = rawNode.get("spec").get("workers");
       int workerIndex = 0;
       for (io.casehub.model.Worker sw : schema.getSpec().getWorkers()) {
-        final List<Capability> workerCaps =
-            sw.getCapabilities().stream().map(capabilityMap::get).collect(Collectors.toList());
+        for (String capName : sw.getCapabilities()) {
+          if (!capabilityMap.containsKey(capName)) {
+            LOG.warnf(
+                "Worker '%s' references capability '%s' not defined in the capabilities section"
+                    + " — may be added programmatically via augment()",
+                sw.getName(), capName);
+          }
+        }
 
         final Worker.Builder workerBuilder =
-            Worker.builder().name(sw.getName()).capabilities(workerCaps);
+            Worker.builder().name(sw.getName()).capabilityNames(sw.getCapabilities());
 
         // Try providers first (for SDK-dependent types like flow)
         final JsonNode rawWorkerNode = rawWorkers.get(workerIndex);

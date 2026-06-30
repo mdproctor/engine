@@ -111,7 +111,7 @@ class ExitConditionBlackboardTest {
           .workers(
               Worker.builder()
                   .name("exit-writer-worker")
-                  .capabilities(cap)
+                  .capabilityName("exit-writer")
                   .function(
                       new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phase", "exited"))))
                   .build())

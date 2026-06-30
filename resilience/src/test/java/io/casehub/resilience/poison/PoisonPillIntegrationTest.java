@@ -179,7 +179,7 @@ class PoisonPillIntegrationTest {
           .workers(
               Worker.builder()
                   .name("quarantine-checked-worker")
-                  .capabilities(capability)
+                  .capabilityName("checkedWork")
                   .function(
                       new WorkerFunction.Sync(
                           input -> {
