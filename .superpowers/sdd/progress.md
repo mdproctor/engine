@@ -1,22 +1,23 @@
-# SDD Progress — engine#461
+# SDD Progress — engine#593, engine#594
 
-Plan: plans/2026-06-29-composite-worker-execution-manager.md (workspace)
-Branch: issue-461-composite-worker-execution-mgr
-Started: 2026-06-29
+Plan: docs/superpowers/plans/2026-06-30-recovery-health-quartz-cleanup.md
+Branch: issue-585-observer-health-quartz-cleanup
+Started: 2026-06-30
 
 ## Tasks
 
-Task 1: complete (commits 1d06a451..610ef67b, review approved — no issues)
-Task 2: complete (commits 610ef67b..752c01d3, review approved — no issues)
-Task 3: complete (commits 752c01d3..25dc8bee, review approved — no issues)
-Task 4: complete (commits 25dc8bee..cd0dca0b, review approved — no issues)
-Task 5: complete (mvn install + full test suite green — no test fixes needed)
-Task 6: complete (commits d2c23c4..f02a909 in workers repo — canResolve() default + Camel migration)
-Task 7: complete (merged with Task 6)
-Task 8: complete (commits f02a909..d8f7e94 in workers repo — HTTP, Script, MCP, GH Actions)
-Task 9: complete (merged with Task 8)
-Task 10: complete (commit ffa8e1b in claudony repo — backend + 4 injection sites)
-Task 11: complete (commit a4c6113b — CLAUDE.md sync)
-Final review: complete (commit 39f0d622 — 2 Important + 4 Minor fixes)
-Compatibility fix: commit 386bb144 — WorkLifecycleEvent removal (casehub-work#278)
-Full test suite: GREEN (all modules, latest work SNAPSHOT)
+Task 1: complete (commit ef25fdd..fecafba, trivial — inline, no review needed)
+Task 2: complete (commit fecafba..879ad97, review approved — 2 Minor, no fixes)
+Task 3: complete (commit 879ad97..02704e6, review approved — 1 Minor, no fixes)
+Task 4: complete (commit 02704e6..86e257d, review approved — no issues)
+Task 5: complete (commit 86e257d..c136f7a, CLAUDE.md updated, #593 closed, 775 tests green)
+
+Task 5: complete (commit 86e257d..c136f7a, CLAUDE.md updated, #593 closed, 775 tests green)
+Final review: APPROVED (3 Minor — integration tests deferred, Thread.sleep acceptable, formatting cosmetic)
+
+## Minor Findings
+
+- Integration tests (WorkerRecoveryCoordinatorIT, WorkerRecoveryHealthCheckIT) not implemented — follow-up
+- Thread.sleep() bridging in coordinator tests — accepted per spec
+- Switch expression formatting inconsistency in health check — cosmetic
+

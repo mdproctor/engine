@@ -39,7 +39,7 @@ import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
- * Translates terminal quarkus-work {@link WorkLifecycleEvent}s and M-of-N {@link
+ * Translates terminal quarkus-work {@link WorkItemEvent}s and M-of-N {@link
  * WorkItemGroupLifecycleEvent}s into CaseHub PlanItem transitions and fires {@code CONTEXT_CHANGED}
  * to trigger engine re-evaluation.
  *

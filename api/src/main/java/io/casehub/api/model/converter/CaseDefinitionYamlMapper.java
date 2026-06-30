@@ -44,7 +44,6 @@ import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
-import org.jboss.logging.Logger;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -54,6 +53,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.jboss.logging.Logger;
 
 /**
  * Centralized YAML marshaller for CaseDefinition.

@@ -31,7 +31,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
-import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerBackend;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.worker.api.Capability;
@@ -69,8 +68,6 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
 
   @Inject QuartzWorkerSchedulerService workerExecutionScheduler;
 
-  @Inject WorkerExecutionRecoveryService workerExecutionRecoveryService;
-
   @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
 
   private static final Logger LOG = Logger.getLogger(WorkerExecutionManager.class);
@@ -97,37 +94,10 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
     return false;
   }
 
-  private volatile RecoveryStatus recoveryStatus = RecoveryStatus.PENDING;
-
-  public enum RecoveryStatus {
-    PENDING,
-    COMPLETED,
-    FAILED
-  }
-
   void onStart(@Observes @Priority(20) StartupEvent ev) throws SchedulerException {
     scheduler.getListenerManager().addJobListener(workflowExecutionJobListener);
-
-    workerExecutionRecoveryService
-        .recoverPendingScheduledWorkers()
-        .subscribe()
-        .with(
-            v -> {
-              recoveryStatus = RecoveryStatus.COMPLETED;
-              LOG.info("Worker execution recovery completed");
-            },
-            t -> {
-              recoveryStatus = RecoveryStatus.FAILED;
-              LOG.errorf(t, "Worker execution recovery failed");
-            });
   }
 
-  public RecoveryStatus getRecoveryStatus() {
-    return recoveryStatus;
-  }
-
-  // TODO, yes, here is id of  event object, because later it can be splitted into multiple jobs on
-  // diff jvms
   @Override
   public Uni<Void> submit(
       Long eventLogId,
