@@ -61,6 +61,11 @@ class ImplementationRoutingTest {
     DefaultPlanningStrategy strategy = new DefaultPlanningStrategy();
     StageLifecycleEvaluator evaluator = mock(StageLifecycleEvaluator.class);
     when(evaluator.evaluate(any(), any())).thenReturn(Uni.createFrom().voidItem());
+
+    Instance<PlanningStrategy> strategyInstance = mock(Instance.class);
+    List<PlanningStrategy> strategies = List.of(strategy);
+    when(strategyInstance.spliterator()).thenReturn(strategies.spliterator());
+
     Instance<BlackboardPlanConfigurer> emptyConfigurers = mock(Instance.class);
     when(emptyConfigurers.stream()).thenReturn(Stream.empty());
 
@@ -68,7 +73,7 @@ class ImplementationRoutingTest {
 
     loopControl =
         new PlanningStrategyLoopControl(
-            registry, strategy, evaluator, emptyConfigurers, routingStrategy);
+            registry, strategyInstance, evaluator, emptyConfigurers, routingStrategy);
 
     caseId = UUID.randomUUID();
 

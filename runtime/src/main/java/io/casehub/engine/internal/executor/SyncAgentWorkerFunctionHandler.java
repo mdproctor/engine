@@ -45,10 +45,13 @@ import java.util.function.Function;
 public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
 
   private final ExecutorService virtualThreads;
+  private final WorkerRuntimeFactory workerRuntimeFactory;
 
   @Inject
-  public SyncAgentWorkerFunctionHandler(@VirtualThreads ExecutorService virtualThreads) {
+  public SyncAgentWorkerFunctionHandler(
+      @VirtualThreads ExecutorService virtualThreads, WorkerRuntimeFactory workerRuntimeFactory) {
     this.virtualThreads = virtualThreads;
+    this.workerRuntimeFactory = workerRuntimeFactory;
   }
 
   @Override
@@ -77,6 +80,7 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
         .item(
             () -> {
               WorkerExecutionContext.set(context);
+              WorkerExecutionContext.setRuntime(workerRuntimeFactory.create(context.caseId()));
               try {
                 return fn.apply(inputData);
               } finally {

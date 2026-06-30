@@ -19,11 +19,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
 import io.casehub.qhorus.api.message.CommitmentState;
-import io.casehub.qhorus.runtime.channel.Channel;
-import io.casehub.qhorus.runtime.message.Commitment;
+import io.casehub.qhorus.api.store.CommitmentStore;
+import io.casehub.qhorus.api.store.query.ChannelQuery;
+import io.casehub.qhorus.runtime.channel.ChannelEntity;
+import io.casehub.qhorus.runtime.message.CommitmentEntity;
 import io.casehub.qhorus.runtime.store.ChannelStore;
-import io.casehub.qhorus.runtime.store.CommitmentStore;
-import io.casehub.qhorus.runtime.store.query.ChannelQuery;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -43,7 +43,7 @@ class QhorusActorStateContributorTest {
     // The commitment must still be contributed (no NPE), with caseId=null.
     final UUID channelId = UUID.randomUUID();
 
-    final Commitment commitment = new Commitment();
+    final CommitmentEntity commitment = new CommitmentEntity();
     commitment.id = UUID.randomUUID();
     commitment.channelId = channelId;
     commitment.obligor = "agent-x";
@@ -65,45 +65,46 @@ class QhorusActorStateContributorTest {
   // ── Store stubs ───────────────────────────────────────────────────────────
 
   /** CommitmentStore that returns the given list from findOpenByObligor; all else unsupported. */
-  private static CommitmentStore openCommitmentsOnly(final List<Commitment> open) {
+  private static CommitmentStore openCommitmentsOnly(final List<CommitmentEntity> open) {
     return new CommitmentStore() {
       @Override
-      public List<Commitment> findAllOpen() {
+      public List<CommitmentEntity> findAllOpen() {
         return open;
       }
 
       @Override
-      public Commitment save(final Commitment c) {
+      public CommitmentEntity save(final CommitmentEntity c) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public Optional<Commitment> findById(final UUID id) {
+      public Optional<CommitmentEntity> findById(final UUID id) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public Optional<Commitment> findByCorrelationId(final String correlationId) {
+      public Optional<CommitmentEntity> findByCorrelationId(final String correlationId) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<Commitment> findOpenByObligor(final String obligor, final UUID channelId) {
+      public List<CommitmentEntity> findOpenByObligor(final String obligor, final UUID channelId) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<Commitment> findOpenByRequester(final String requester, final UUID channelId) {
+      public List<CommitmentEntity> findOpenByRequester(
+          final String requester, final UUID channelId) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<Commitment> findByState(final CommitmentState state, final UUID channelId) {
+      public List<CommitmentEntity> findByState(final CommitmentState state, final UUID channelId) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<Commitment> findExpiredBefore(final Instant cutoff) {
+      public List<CommitmentEntity> findExpiredBefore(final Instant cutoff) {
         throw new UnsupportedOperationException();
       }
 
@@ -128,27 +129,27 @@ class QhorusActorStateContributorTest {
   private static ChannelStore alwaysEmpty() {
     return new ChannelStore() {
       @Override
-      public Optional<Channel> find(final UUID id) {
+      public Optional<ChannelEntity> find(final UUID id) {
         return Optional.empty();
       }
 
       @Override
-      public List<Channel> findByIds(final Collection<UUID> ids) {
+      public List<ChannelEntity> findByIds(final Collection<UUID> ids) {
         return List.of();
       }
 
       @Override
-      public Channel put(final Channel channel) {
+      public ChannelEntity put(final ChannelEntity channel) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public Optional<Channel> findByName(final String name) {
+      public Optional<ChannelEntity> findByName(final String name) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<Channel> scan(final ChannelQuery query) {
+      public List<ChannelEntity> scan(final ChannelQuery query) {
         throw new UnsupportedOperationException();
       }
 

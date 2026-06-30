@@ -112,7 +112,8 @@ public class WorkerScheduleEventHandler {
         worker.name(), instance.getUuid(), WorkRequest.of(capability.name(), inputData));
 
     EventLog eventLog =
-        buildEventLog(instance, worker, capability, inputData, inputDataHash, bindingName);
+        buildEventLog(
+            instance, worker, capability, inputData, inputDataHash, bindingName, event.signalId());
 
     String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
 
@@ -166,13 +167,17 @@ public class WorkerScheduleEventHandler {
       Capability capability,
       Map<String, Object> inputData,
       String inputDataHash,
-      String bindingName) {
+      String bindingName,
+      java.util.UUID signalId) {
     Map<String, String> metadataBuilder = new HashMap<>();
     metadataBuilder.put("workerName", worker.name());
     metadataBuilder.put("capabilityName", capability.name());
     metadataBuilder.put("inputDataHash", inputDataHash);
     if (bindingName != null) {
       metadataBuilder.put("bindingName", bindingName);
+    }
+    if (signalId != null) {
+      metadataBuilder.put("signalId", signalId.toString());
     }
     Map<String, String> metadata = java.util.Collections.unmodifiableMap(metadataBuilder);
 

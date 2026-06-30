@@ -17,6 +17,7 @@ package io.casehub.engine.internal.engine;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
@@ -26,6 +27,7 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -104,6 +106,17 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
     return reactor
         .signal(caseId, path, value, triggerChannelId, triggerCorrelationId)
         .subscribeAsCompletionStage();
+  }
+
+  @Override
+  public CompletionStage<Void> signal(UUID caseId, Map<String, Object> updates) {
+    return reactor.signalBulk(caseId, updates).subscribeAsCompletionStage();
+  }
+
+  @Override
+  public CompletionStage<CaseContext> signalAndAwait(
+      UUID caseId, Map<String, Object> updates, Duration timeout) {
+    return reactor.signalAndAwait(caseId, updates, timeout).subscribeAsCompletionStage();
   }
 
   @Override

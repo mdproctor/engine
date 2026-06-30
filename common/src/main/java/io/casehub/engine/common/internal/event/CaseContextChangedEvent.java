@@ -18,30 +18,45 @@ package io.casehub.engine.common.internal.event;
 import io.casehub.api.context.CaseContext;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * @param triggerChannelId Qhorus channel ID of the COMMAND that caused this context change, or
  *     null. Threaded through to ProvisionContext by CaseContextChangedEventHandler so provisioners
  *     can establish causal lineage. Refs engine#231.
  * @param triggerCorrelationId Qhorus correlationId of the triggering COMMAND, or null.
+ * @param signalId Settlement tracking ID for {@code signalAndAwait()}, or null. Threaded through to
+ *     WorkerScheduleEvent so each dispatched worker can notify the tracker on completion. Refs
+ *     engine#483.
  */
 public record CaseContextChangedEvent(
     CaseInstance instance,
     CaseContext contextSnapshot,
     String changedPanel,
     String triggerChannelId,
-    String triggerCorrelationId) {
+    String triggerCorrelationId,
+    UUID signalId) {
 
   public CaseContextChangedEvent {
     instance = Objects.requireNonNull(instance, "instance cannot be null");
     contextSnapshot = Objects.requireNonNull(contextSnapshot, "contextSnapshot cannot be null");
-    // changedPanel, triggerChannelId, triggerCorrelationId may be null
+    // changedPanel, triggerChannelId, triggerCorrelationId, signalId may be null
   }
 
   /** Convenience constructor for context changes not triggered by a Qhorus COMMAND. */
   public CaseContextChangedEvent(
       CaseInstance instance, CaseContext contextSnapshot, String changedPanel) {
-    this(instance, contextSnapshot, changedPanel, null, null);
+    this(instance, contextSnapshot, changedPanel, null, null, null);
+  }
+
+  /** Convenience constructor for context changes with Qhorus trigger context but no settlement. */
+  public CaseContextChangedEvent(
+      CaseInstance instance,
+      CaseContext contextSnapshot,
+      String changedPanel,
+      String triggerChannelId,
+      String triggerCorrelationId) {
+    this(instance, contextSnapshot, changedPanel, triggerChannelId, triggerCorrelationId, null);
   }
 
   @Override
@@ -68,6 +83,8 @@ public record CaseContextChangedEvent(
         + triggerChannelId
         + ", triggerCorrelationId="
         + triggerCorrelationId
+        + ", signalId="
+        + signalId
         + '}';
   }
 }

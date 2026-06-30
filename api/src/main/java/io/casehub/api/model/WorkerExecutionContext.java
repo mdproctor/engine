@@ -15,6 +15,8 @@
  */
 package io.casehub.api.model;
 
+import io.casehub.api.engine.WorkerRuntime;
+
 /**
  * Thread-local holder for the {@link WorkerContext} active during worker function execution.
  *
@@ -29,6 +31,7 @@ package io.casehub.api.model;
 public final class WorkerExecutionContext {
 
   private static final ThreadLocal<WorkerContext> HOLDER = new ThreadLocal<>();
+  private static final ThreadLocal<WorkerRuntime> RUNTIME_HOLDER = new ThreadLocal<>();
 
   private WorkerExecutionContext() {}
 
@@ -42,8 +45,19 @@ public final class WorkerExecutionContext {
     HOLDER.set(context);
   }
 
+  /** Returns the {@link WorkerRuntime} for the currently executing worker, or {@code null}. */
+  public static WorkerRuntime currentRuntime() {
+    return RUNTIME_HOLDER.get();
+  }
+
+  /** Called by the engine before invoking a worker function. */
+  public static void setRuntime(WorkerRuntime runtime) {
+    RUNTIME_HOLDER.set(runtime);
+  }
+
   /** Called by the engine after the worker function returns (success or failure). */
   public static void clear() {
     HOLDER.remove();
+    RUNTIME_HOLDER.remove();
   }
 }

@@ -148,6 +148,11 @@ public class DefaultCasePlanModel implements CasePlanModel {
   }
 
   @Override
+  public List<PlanItem> getAllPlanItems() {
+    return List.copyOf(itemsById.values());
+  }
+
+  @Override
   public void addStage(Stage stage) {
     stages.put(stage.getStageId(), stage);
   }

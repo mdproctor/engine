@@ -45,6 +45,7 @@ public class CaseDefinition {
   private EpisodicMemoryConfig episodicMemoryConfig;
   private List<String> panelNames;
   private Map<String, AgentDescriptor> agentDescriptors = Map.of();
+  private String planningStrategy;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -161,6 +162,14 @@ public class CaseDefinition {
     this.agentDescriptors = agentDescriptors != null ? Map.copyOf(agentDescriptors) : Map.of();
   }
 
+  public String getPlanningStrategy() {
+    return planningStrategy;
+  }
+
+  public void setPlanningStrategy(String planningStrategy) {
+    this.planningStrategy = planningStrategy;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -182,6 +191,7 @@ public class CaseDefinition {
     private EpisodicMemoryConfig episodicMemoryConfig;
     private List<String> panelNames;
     private Map<String, AgentDescriptor> agentDescriptors = new HashMap<>();
+    private String planningStrategy;
 
     private Builder() {}
 
@@ -315,6 +325,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder planningStrategy(String planningStrategy) {
+      this.planningStrategy = planningStrategy;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -343,6 +358,7 @@ public class CaseDefinition {
       caseHubDefinition.setEpisodicMemoryConfig(episodicMemoryConfig);
       caseHubDefinition.setPanelNames(panelNames);
       caseHubDefinition.setAgentDescriptors(agentDescriptors);
+      caseHubDefinition.setPlanningStrategy(planningStrategy);
 
       return caseHubDefinition;
     }

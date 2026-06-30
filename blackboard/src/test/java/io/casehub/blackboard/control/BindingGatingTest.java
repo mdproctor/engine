@@ -72,6 +72,11 @@ class BindingGatingTest {
     StageLifecycleEvaluator evaluator = mock(StageLifecycleEvaluator.class);
     when(evaluator.evaluate(any(), any())).thenReturn(Uni.createFrom().voidItem());
 
+    // Mock Instance<PlanningStrategy> to return the default strategy.
+    Instance<PlanningStrategy> strategyInstance = mock(Instance.class);
+    List<PlanningStrategy> strategies = List.of(strategy);
+    when(strategyInstance.spliterator()).thenReturn(strategies.spliterator());
+
     // Mock an empty Instance<BlackboardPlanConfigurer> — no configurers needed for gating tests.
     Instance<BlackboardPlanConfigurer> emptyConfigurers = mock(Instance.class);
     when(emptyConfigurers.stream()).thenReturn(Stream.empty());
@@ -79,7 +84,7 @@ class BindingGatingTest {
     loopControl =
         new PlanningStrategyLoopControl(
             registry,
-            strategy,
+            strategyInstance,
             evaluator,
             emptyConfigurers,
             new io.casehub.engine.internal.routing.NoOpImplementationRoutingStrategy());

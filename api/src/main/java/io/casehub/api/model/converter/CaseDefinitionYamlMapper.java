@@ -35,6 +35,7 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.SlaStartFrom;
+import io.casehub.api.model.WorkerFunctions;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.WorkerFunctionProviderRegistry;
@@ -252,9 +253,12 @@ public final class CaseDefinitionYamlMapper {
       }
     }
 
-    // Convert workers
+    // Convert workers — two-pass for sequence resolution
+    final Map<String, Worker> builtWorkers = new LinkedHashMap<>();
     if (schema.getSpec() != null && schema.getSpec().getWorkers() != null) {
       final JsonNode rawWorkers = rawNode.get("spec").get("workers");
+
+      // First pass: build workers with explicit functions
       int workerIndex = 0;
       for (io.casehub.model.Worker sw : schema.getSpec().getWorkers()) {
         for (String capName : sw.getCapabilities()) {
@@ -269,26 +273,76 @@ public final class CaseDefinitionYamlMapper {
         final Worker.Builder workerBuilder =
             Worker.builder().name(sw.getName()).capabilityNames(sw.getCapabilities());
 
-        // Try providers first (for SDK-dependent types like flow)
-        final JsonNode rawWorkerNode = rawWorkers.get(workerIndex);
-        WorkerFunction function = providerRegistry.createFunction(rawWorkerNode);
-        if (function == null) {
-          // API-local construction (no external SDK dependency)
-          if (sw.getAgent() != null) {
-            final io.casehub.api.model.ai.Agent apiAgent = AgentConverter.toApiAgent(sw.getAgent());
-            function = new AgentWorkerFunction(apiAgent);
-          } else {
-            function = WorkerFunction.NONE;
+        // Skip sequence in first pass
+        if (sw.getSequence() == null || sw.getSequence().isEmpty()) {
+          // Try providers first (for SDK-dependent types like flow)
+          final JsonNode rawWorkerNode = rawWorkers.get(workerIndex);
+          WorkerFunction function = providerRegistry.createFunction(rawWorkerNode);
+          if (function == null) {
+            // API-local construction (no external SDK dependency)
+            if (sw.getAgent() != null) {
+              final io.casehub.api.model.ai.Agent apiAgent =
+                  AgentConverter.toApiAgent(sw.getAgent());
+              function = new AgentWorkerFunction(apiAgent);
+            } else {
+              function = WorkerFunction.NONE;
+            }
           }
+          workerBuilder.function(function);
+        } else {
+          // Placeholder for sequence workers
+          workerBuilder.function(WorkerFunction.NONE);
         }
-        workerBuilder.function(function);
+
         workerBuilder.description(sw.getDescription());
         if (sw.getExecutionPolicy() != null) {
           workerBuilder.executionPolicy(convertExecutionPolicy(sw.getExecutionPolicy()));
         }
-        def.getWorkers().add(workerBuilder.build());
+
+        final Worker worker = workerBuilder.build();
+        builtWorkers.put(sw.getName(), worker);
         workerIndex++;
       }
+
+      // Second pass: resolve sequence references
+      workerIndex = 0;
+      for (io.casehub.model.Worker sw : schema.getSpec().getWorkers()) {
+        if (sw.getSequence() != null && !sw.getSequence().isEmpty()) {
+          final Worker worker = builtWorkers.get(sw.getName());
+          final List<WorkerFunction> stepFunctions = new java.util.ArrayList<>();
+
+          for (String stepName : sw.getSequence()) {
+            final Worker stepWorker = builtWorkers.get(stepName);
+            if (stepWorker == null) {
+              throw new IllegalArgumentException(
+                  "Worker '"
+                      + sw.getName()
+                      + "' sequence references unknown worker '"
+                      + stepName
+                      + "'");
+            }
+            stepFunctions.add(stepWorker.function());
+          }
+
+          // Replace the placeholder function with the sequence
+          final WorkerFunction sequenceFunc =
+              WorkerFunctions.sequence(stepFunctions.toArray(new WorkerFunction[0]));
+          // Workers are immutable — need to rebuild
+          final Worker updatedWorker =
+              Worker.builder()
+                  .name(worker.name())
+                  .capabilityNames(worker.capabilityNames())
+                  .function(sequenceFunc)
+                  .executionPolicy(worker.executionPolicy())
+                  .description(worker.description())
+                  .build();
+          builtWorkers.put(sw.getName(), updatedWorker);
+        }
+        workerIndex++;
+      }
+
+      // Add all to definition
+      def.getWorkers().addAll(builtWorkers.values());
     }
 
     // Convert bindings
@@ -377,6 +431,11 @@ public final class CaseDefinitionYamlMapper {
       final GoalExpression successExpr = convertGoalExpression(sc.getSuccess(), goalMap);
       final GoalExpression failureExpr = convertGoalExpression(sc.getFailure(), goalMap);
       def.setCompletion(new GoalBasedCompletion(successExpr, failureExpr));
+    }
+
+    // Convert planningStrategy
+    if (schema.getSpec() != null && schema.getSpec().getPlanningStrategy() != null) {
+      def.setPlanningStrategy(schema.getSpec().getPlanningStrategy());
     }
 
     return def;

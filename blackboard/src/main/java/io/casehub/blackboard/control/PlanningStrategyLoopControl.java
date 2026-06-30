@@ -46,6 +46,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.StreamSupport;
 import org.jboss.logging.Logger;
 
 /**
@@ -64,7 +65,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
   private static final Logger LOG = Logger.getLogger(PlanningStrategyLoopControl.class);
 
   private final BlackboardRegistry registry;
-  private final PlanningStrategy planningStrategy;
+  private final Map<String, PlanningStrategy> strategies;
   private final StageLifecycleEvaluator stageLifecycleEvaluator;
   private final Instance<BlackboardPlanConfigurer> configurers;
   private final ImplementationRoutingStrategy implementationRoutingStrategy;
@@ -72,12 +73,14 @@ public class PlanningStrategyLoopControl implements LoopControl {
   @Inject
   public PlanningStrategyLoopControl(
       BlackboardRegistry registry,
-      PlanningStrategy planningStrategy,
+      Instance<PlanningStrategy> strategyBeans,
       StageLifecycleEvaluator stageLifecycleEvaluator,
       Instance<BlackboardPlanConfigurer> configurers,
       ImplementationRoutingStrategy implementationRoutingStrategy) {
     this.registry = registry;
-    this.planningStrategy = planningStrategy;
+    this.strategies =
+        StreamSupport.stream(strategyBeans.spliterator(), false)
+            .collect(Collectors.toMap(PlanningStrategy::getId, s -> s));
     this.stageLifecycleEvaluator = stageLifecycleEvaluator;
     this.configurers = configurers;
     this.implementationRoutingStrategy = implementationRoutingStrategy;
@@ -144,7 +147,22 @@ public class PlanningStrategyLoopControl implements LoopControl {
                     }
                   });
             })
-        .chain(routed -> planningStrategy.select(plan, ctx, routed))
+        .chain(
+            routed -> {
+              String strategyId = ctx.definition().getPlanningStrategy();
+              if (strategyId == null || strategyId.isEmpty()) {
+                strategyId = "default";
+              }
+              PlanningStrategy strategy = strategies.get(strategyId);
+              if (strategy == null) {
+                strategy = strategies.get("default");
+                if (strategy == null) {
+                  throw new IllegalStateException(
+                      "No default planning strategy found. Available: " + strategies.keySet());
+                }
+              }
+              return strategy.select(plan, ctx, routed);
+            })
         .map(selected -> filterToDispatchable(plan, selected))
         .invoke(dispatchable -> indexSelectedForCompletion(caseId, dispatchable, plan));
   }

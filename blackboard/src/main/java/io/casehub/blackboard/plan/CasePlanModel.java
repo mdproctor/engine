@@ -78,6 +78,9 @@ public interface CasePlanModel {
 
   List<PlanItem> getTopPlanItems(int maxCount);
 
+  /** Returns all PlanItems regardless of status. Used by planning strategies. */
+  List<PlanItem> getAllPlanItems();
+
   // Stage management
   void addStage(Stage stage);
 

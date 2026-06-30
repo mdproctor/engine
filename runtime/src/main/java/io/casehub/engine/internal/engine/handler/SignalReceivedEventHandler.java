@@ -23,6 +23,7 @@ import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.engine.common.internal.event.BulkSignalReceivedEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.SignalReceivedEvent;
@@ -75,6 +76,11 @@ public class SignalReceivedEventHandler {
   @ConsumeEvent(value = EventBusAddresses.SIGNAL_RECEIVED)
   public Uni<Void> onSignalReceived(SignalReceivedEvent event) {
     return onSignalReceivedWithRetry(event, 0);
+  }
+
+  @ConsumeEvent(value = EventBusAddresses.BULK_SIGNAL_RECEIVED)
+  public Uni<Void> onBulkSignalReceived(BulkSignalReceivedEvent event) {
+    return onBulkSignalReceivedWithRetry(event, 0);
   }
 
   private Uni<Void> onSignalReceivedWithRetry(SignalReceivedEvent event, int attempt) {
@@ -192,6 +198,105 @@ public class SignalReceivedEventHandler {
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
     eventLog.setPayload(OBJECT_MAPPER.createObjectNode().set("patch", diff.deepCopy()));
+    return eventLog;
+  }
+
+  private Uni<Void> onBulkSignalReceivedWithRetry(BulkSignalReceivedEvent event, int attempt) {
+    CaseInstance cached = caseInstanceCache.get(event.caseId());
+    if (cached == null) {
+      LOG.warnf("CaseInstance not found in cache for caseId=%s, trying recovery", event.caseId());
+      return recoveryService
+          .loadOrRestoreCaseInstance(event.caseId())
+          .chain(instance -> applyBulkSignal(instance, event));
+    }
+    CaseStatus state = cached.getState();
+    if (state == CaseStatus.RUNNING || state == CaseStatus.WAITING) {
+      return applyBulkSignal(cached, event);
+    }
+    if (state != CaseStatus.STARTING) {
+      LOG.warnf("Ignoring bulk signal for caseId=%s — case is %s", event.caseId(), state);
+      return Uni.createFrom().voidItem();
+    }
+    if (attempt >= MAX_STARTING_RETRIES) {
+      LOG.warnf(
+          "CaseInstance caseId=%s still STARTING after %d retries, proceeding anyway",
+          event.caseId(), MAX_STARTING_RETRIES);
+      return applyBulkSignal(cached, event);
+    }
+    LOG.debugf(
+        "CaseInstance caseId=%s is still STARTING (attempt %d/%d), retrying in %dms",
+        event.caseId(), attempt + 1, MAX_STARTING_RETRIES, STARTING_RETRY_DELAY_MS);
+    return Uni.createFrom()
+        .emitter(em -> vertx.setTimer(STARTING_RETRY_DELAY_MS, id -> em.complete(null)))
+        .chain(() -> onBulkSignalReceivedWithRetry(event, attempt + 1));
+  }
+
+  private Uni<Void> applyBulkSignal(CaseInstance instance, BulkSignalReceivedEvent event) {
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
+    String lockKey = "signal:bulk:" + instance.getUuid();
+    return vertx
+        .sharedData()
+        .getLocalLock(lockKey)
+        .chain(lock -> applyBulkSignalUnderLock(instance, event, lock, traceId));
+  }
+
+  private Uni<Void> applyBulkSignalUnderLock(
+      CaseInstance instance, BulkSignalReceivedEvent event, Lock lock, String traceId) {
+    try {
+      instance.getCaseContext().setAll(event.updates());
+    } finally {
+      lock.release();
+    }
+
+    EventLog eventLog = buildBulkSignalEventLog(instance);
+
+    return eventLogRepository
+        .append(eventLog, instance.tenancyId)
+        .invoke(
+            () -> {
+              lifecycleEvents
+                  .fireAsync(
+                      new CaseLifecycleEvent(
+                          instance.getUuid(),
+                          instance.tenancyId,
+                          "SignalCase",
+                          "BulkSignalReceived",
+                          instance.getState().name(),
+                          null,
+                          "System",
+                          traceId))
+                  .whenComplete(
+                      (v, t) -> {
+                        if (t != null)
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s event=BulkSignalReceived",
+                              instance.getUuid());
+                      });
+            })
+        .invoke(
+            () ->
+                eventBus.publish(
+                    CONTEXT_CHANGED,
+                    new CaseContextChangedEvent(
+                        instance,
+                        instance.getCaseContext().snapshot(),
+                        ContextPanel.WORKING,
+                        event.triggerChannelId(),
+                        event.triggerCorrelationId(),
+                        event.signalId())))
+        .replaceWithVoid()
+        .onFailure()
+        .invoke(t -> LOG.errorf(t, "Failed to process bulk signal for caseId=%s", event.caseId()));
+  }
+
+  private EventLog buildBulkSignalEventLog(CaseInstance instance) {
+    EventLog eventLog = new EventLog();
+    eventLog.setCaseId(instance.getUuid());
+    eventLog.setEventType(CaseHubEventType.SIGNAL_RECEIVED);
+    eventLog.setStreamType(EventStreamType.CASE);
+    eventLog.setTimestamp(Instant.now());
+    eventLog.setPayload(OBJECT_MAPPER.createObjectNode().put("type", "bulk_signal"));
     return eventLog;
   }
 }

@@ -95,6 +95,52 @@ class WorkerExecutionContextTest {
     assertThat(WorkerExecutionContext.current().channels()).containsExactly(channel);
   }
 
+  @Test
+  void runtimeThreadLocal_setAndClear() {
+    assertThat(WorkerExecutionContext.currentRuntime()).isNull();
+
+    io.casehub.api.engine.WorkerRuntime mockRuntime =
+        new io.casehub.api.engine.WorkerRuntime() {
+          @Override
+          public UUID caseId() {
+            return UUID.fromString("00000000-0000-0000-0000-000000000001");
+          }
+
+          @Override
+          public io.casehub.worker.api.WorkerResult execute(
+              io.casehub.worker.api.WorkerFunction f, Map<String, Object> i) {
+            return null;
+          }
+
+          @Override
+          public io.casehub.worker.api.WorkerResult execute(String n, Map<String, Object> i) {
+            return null;
+          }
+
+          @Override
+          public UUID spawnCase(String t, Map<String, Object> i) {
+            return null;
+          }
+
+          @Override
+          public io.casehub.api.context.CaseContext awaitCase(UUID id, java.time.Duration t) {
+            return null;
+          }
+
+          @Override
+          public io.casehub.api.context.CaseContext spawnAndAwaitCase(
+              String t, Map<String, Object> i, java.time.Duration d) {
+            return null;
+          }
+        };
+
+    WorkerExecutionContext.setRuntime(mockRuntime);
+    assertThat(WorkerExecutionContext.currentRuntime()).isSameAs(mockRuntime);
+
+    WorkerExecutionContext.clear();
+    assertThat(WorkerExecutionContext.currentRuntime()).isNull();
+  }
+
   private WorkerContext minimalContext(UUID caseId) {
     return new WorkerContext(
         "task", caseId, null, List.of(), PropagationContext.createRoot(), Map.of());

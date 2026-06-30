@@ -44,6 +44,9 @@ public class Worker {
   /** AI Agent configuration */
   private Agent agent;
 
+  /** Sequential composition of other workers */
+  private List<String> sequence;
+
   public String getName() {
     return name;
   }
@@ -122,5 +125,13 @@ public class Worker {
 
   public void setAgent(Agent agent) {
     this.agent = agent;
+  }
+
+  public List<String> getSequence() {
+    return sequence;
+  }
+
+  public void setSequence(List<String> sequence) {
+    this.sequence = sequence;
   }
 }

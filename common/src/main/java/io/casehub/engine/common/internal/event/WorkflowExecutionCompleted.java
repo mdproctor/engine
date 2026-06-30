@@ -19,6 +19,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerOutcome;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Published on {@link EventBusAddresses#WORKER_EXECUTION_FINISHED} when a worker function returns.
@@ -30,6 +31,10 @@ import java.util.Map;
  * <p>The gate approval path re-publishes this event with {@code outcome=Success(null)} so the
  * normal completion machinery handles output application, PlanItem completion, and stage
  * autocomplete without re-classifying.
+ *
+ * @param signalId Settlement tracking ID for {@code signalAndAwait()}, or null. Threaded through
+ *     from WorkerScheduleEvent via EventLog metadata so the completion handler can notify the
+ *     tracker. Refs engine#483.
  */
 public record WorkflowExecutionCompleted(
     CaseInstance caseInstance,
@@ -37,7 +42,19 @@ public record WorkflowExecutionCompleted(
     String idempotency,
     Map<String, Object> output,
     String bindingName,
-    WorkerOutcome outcome) {
+    WorkerOutcome outcome,
+    UUID signalId) {
+
+  /** Convenience constructor for non-awaiting worker completions. */
+  public WorkflowExecutionCompleted(
+      CaseInstance caseInstance,
+      Worker worker,
+      String idempotency,
+      Map<String, Object> output,
+      String bindingName,
+      WorkerOutcome outcome) {
+    this(caseInstance, worker, idempotency, output, bindingName, outcome, null);
+  }
 
   /** Convenience constructor for the gate-re-fire path. */
   public static WorkflowExecutionCompleted approved(
@@ -47,6 +64,6 @@ public record WorkflowExecutionCompleted(
       final Map<String, Object> output,
       final String bindingName) {
     return new WorkflowExecutionCompleted(
-        caseInstance, worker, idempotency, output, bindingName, WorkerOutcome.success());
+        caseInstance, worker, idempotency, output, bindingName, WorkerOutcome.success(), null);
   }
 }

@@ -44,7 +44,16 @@ class SyncAgentWorkerFunctionHandlerTest {
 
   @BeforeEach
   void setUp() {
-    handler = new SyncAgentWorkerFunctionHandler(Executors.newVirtualThreadPerTaskExecutor());
+    WorkerRuntimeFactory mockFactory =
+        new WorkerRuntimeFactory(null, null, null) {
+          @Override
+          public io.casehub.api.engine.WorkerRuntime create(UUID caseId) {
+            return new DefaultWorkerRuntime(caseId, null, null, null);
+          }
+        };
+    handler =
+        new SyncAgentWorkerFunctionHandler(
+            Executors.newVirtualThreadPerTaskExecutor(), mockFactory);
   }
 
   @Test

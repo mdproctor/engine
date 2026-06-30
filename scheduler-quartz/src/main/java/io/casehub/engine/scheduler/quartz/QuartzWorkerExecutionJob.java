@@ -121,6 +121,10 @@ class QuartzWorkerExecutionJob implements Job {
           eventLog.getMetadata().has("bindingName")
               ? eventLog.getMetadata().get("bindingName").asText()
               : null;
+      java.util.UUID signalId =
+          eventLog.getMetadata().has("signalId")
+              ? java.util.UUID.fromString(eventLog.getMetadata().get("signalId").asText())
+              : null;
 
       final WorkerRetryContext effectiveRetryCtx =
           bindingName != null ? retryCtx.withBindingName(bindingName) : retryCtx;
@@ -166,7 +170,8 @@ class QuartzWorkerExecutionJob implements Job {
               metadata)
           .subscribe()
           .with(
-              workerResult -> onSuccess(instance, worker, inputDataHash, workerResult, bindingName),
+              workerResult ->
+                  onSuccess(instance, worker, inputDataHash, workerResult, bindingName, signalId),
               failure -> onFailure(effectiveRetryCtx, failure));
     } catch (Exception e) {
       onFailure(retryCtx, e);
@@ -178,7 +183,8 @@ class QuartzWorkerExecutionJob implements Job {
       Worker worker,
       String inputDataHash,
       io.casehub.worker.api.WorkerResult workerResult,
-      String bindingName) {
+      String bindingName,
+      java.util.UUID signalId) {
     eventBus.publish(
         WORKER_EXECUTION_FINISHED,
         new WorkflowExecutionCompleted(
@@ -187,7 +193,8 @@ class QuartzWorkerExecutionJob implements Job {
             inputDataHash,
             workerResult.output(),
             bindingName,
-            workerResult.outcome()));
+            workerResult.outcome(),
+            signalId));
   }
 
   private void onFailure(WorkerRetryContext retryCtx, Throwable failure) {

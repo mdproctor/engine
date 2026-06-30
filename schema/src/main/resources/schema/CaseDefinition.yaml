@@ -231,6 +231,11 @@ $defs:
           (success) or terminally failed based on Goal satisfaction and/or a
           direct JQ predicate. The Reactor evaluates completion on every
           CaseContext change and may emit CaseCompleted/CaseFailed events.
+      planningStrategy:
+        type: string
+        description: >
+          Planning strategy for this case. Options: "parallel" (default), "sequential".
+          Controls how multiple eligible bindings are scheduled.
       bindings:
         type: array
         description: >
@@ -691,6 +696,13 @@ $defs:
             description: >
               Default execution policy for this Worker. These are defaults and may be
               overridden by workflow/state-specific settings (if present).
+          sequence:
+            type: array
+            description: >
+              Sequential composition of other workers. Each step name must reference
+              a worker defined earlier in the workers list.
+            items:
+              type: string
       - anyOf:
           - $ref: "https://raw.githubusercontent.com/serverlessworkflow/specification/main/schema/workflow.yaml"
           - type: string

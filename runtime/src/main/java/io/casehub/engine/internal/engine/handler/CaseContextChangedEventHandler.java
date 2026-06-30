@@ -111,6 +111,8 @@ public class CaseContextChangedEventHandler {
 
   @Inject LedgerTraceIdProvider traceIdProvider;
 
+  @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
+
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED, blocking = true)
   public Uni<Void> onCaseStateContextChangedEventHandler(final CaseContextChangedEvent event) {
     final CaseInstance caseInstance = event.instance();
@@ -152,6 +154,7 @@ public class CaseContextChangedEventHandler {
 
     final String triggerChannelId = event.triggerChannelId();
     final String triggerCorrelationId = event.triggerCorrelationId();
+    final java.util.UUID signalId = event.signalId();
 
     return rules(
             caseInstance,
@@ -159,9 +162,16 @@ public class CaseContextChangedEventHandler {
             caseDefinition,
             changedPanel,
             triggerChannelId,
-            triggerCorrelationId)
+            triggerCorrelationId,
+            signalId)
         .chain(() -> goals(caseInstance, contextSnapshot, caseDefinition))
-        .invoke(() -> LOG.debugf("Rules+goals processed for caseId: %s", caseInstance.getUuid()))
+        .invoke(
+            () -> {
+              if (signalId != null) {
+                settlementTracker.markFullyDispatched(signalId);
+              }
+              LOG.debugf("Rules+goals processed for caseId: %s", caseInstance.getUuid());
+            })
         .onFailure()
         .invoke(
             t ->
@@ -175,7 +185,8 @@ public class CaseContextChangedEventHandler {
       final CaseDefinition definition,
       final String changedPanel,
       final String triggerChannelId,
-      final String triggerCorrelationId) {
+      final String triggerCorrelationId,
+      final java.util.UUID signalId) {
     final List<Binding> bindings = definition.getBindings();
     if (bindings == null || bindings.isEmpty()) {
       return Uni.createFrom().voidItem();
@@ -224,7 +235,8 @@ public class CaseContextChangedEventHandler {
                         workers,
                         b,
                         triggerChannelId,
-                        triggerCorrelationId));
+                        triggerCorrelationId,
+                        signalId));
               }
               if (unis.isEmpty()) return Uni.createFrom().voidItem();
               return Uni.combine().all().unis(unis).discardItems();
@@ -256,7 +268,8 @@ public class CaseContextChangedEventHandler {
       final List<Worker> workers,
       final Binding binding,
       final String triggerChannelId,
-      final String triggerCorrelationId) {
+      final String triggerCorrelationId,
+      final java.util.UUID signalId) {
     if (binding.getContextWrite() != null && !binding.getContextWrite().isEmpty()) {
       binding
           .getContextWrite()
@@ -271,7 +284,8 @@ public class CaseContextChangedEventHandler {
               binding,
               ct.capability(),
               triggerChannelId,
-              triggerCorrelationId);
+              triggerCorrelationId,
+              signalId);
       case SubCaseTarget st ->
           publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
       case HumanTaskTarget ht -> publishHumanTaskSchedule(caseInstance, binding, ht);
@@ -291,7 +305,8 @@ public class CaseContextChangedEventHandler {
       final Binding binding,
       final Capability capability,
       final String triggerChannelId,
-      final String triggerCorrelationId) {
+      final String triggerCorrelationId,
+      final java.util.UUID signalId) {
 
     if (workers == null || workers.isEmpty()) {
       LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.name());
@@ -361,7 +376,8 @@ public class CaseContextChangedEventHandler {
             assignment ->
                 switch (assignment) {
                   case AgentAssignment.Assigned a ->
-                      scheduleWorker(caseInstance, workers, binding, capability, a.workerId());
+                      scheduleWorker(
+                          caseInstance, workers, binding, capability, a.workerId(), signalId);
                   case AgentAssignment.Unresolvable() -> {
                     LOG.warnf(
                         "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
@@ -404,7 +420,8 @@ public class CaseContextChangedEventHandler {
       final List<Worker> workers,
       final Binding binding,
       final Capability capability,
-      final String workerId) {
+      final String workerId,
+      final java.util.UUID signalId) {
 
     final Worker selectedWorker =
         workers.stream().filter(w -> w.name().equals(workerId)).findFirst().orElse(null);
@@ -419,6 +436,10 @@ public class CaseContextChangedEventHandler {
         "Agent selected: worker='%s' capability='%s' binding='%s'",
         workerId, capability.name(), binding.getName());
 
+    if (signalId != null) {
+      settlementTracker.incrementExpected(signalId);
+    }
+
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
         new WorkerScheduleEvent(
@@ -426,7 +447,8 @@ public class CaseContextChangedEventHandler {
             selectedWorker,
             capability,
             binding.getName(),
-            binding.getInputSchemaOverride()));
+            binding.getInputSchemaOverride(),
+            signalId));
 
     return Uni.createFrom().voidItem();
   }

@@ -85,6 +85,7 @@ public class WorkflowExecutionCompletedHandler {
   @Inject LedgerTraceIdProvider traceIdProvider;
   @Inject ReactiveActionRiskClassifier actionRiskClassifier;
   @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
@@ -94,6 +95,12 @@ public class WorkflowExecutionCompletedHandler {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.caseInstance();
     final Worker worker = event.worker();
+
+    // Settlement tracking: record completion for ALL outcomes. The worker has completed its
+    // execution — the gate is a separate lifecycle.
+    if (event.signalId() != null) {
+      settlementTracker.recordCompletion(event.signalId());
+    }
 
     // Outcome fork: non-success outcomes route to the semantic failure path.
     if (!(event.outcome() instanceof WorkerOutcome.Success)) {

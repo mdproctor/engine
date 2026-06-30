@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.engine;
 
+import static io.casehub.engine.common.internal.event.EventBusAddresses.BULK_SIGNAL_RECEIVED;
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STARTED;
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
 import static io.casehub.engine.common.internal.event.EventBusAddresses.SIGNAL_RECEIVED;
@@ -22,11 +23,13 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.SIGNAL_R
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextPanel;
 import io.casehub.api.context.PropagationContext;
+import io.casehub.api.engine.SettlementTimeoutException;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.EpisodicMemoryConfig;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.engine.common.internal.event.BulkSignalReceivedEvent;
 import io.casehub.engine.common.internal.event.CaseStartedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.SignalReceivedEvent;
@@ -89,6 +92,8 @@ class CaseHubReactor {
   @Inject ReactiveCaseMemoryStore reactiveCaseMemoryStore;
 
   @Inject JQEvaluator jqEvaluator;
+
+  @Inject SignalSettlementTracker settlementTracker;
 
   CompletionStage<UUID> startCase(CaseDefinition definition, CaseContext context) {
     return startCaseInternal(definition, context, null, null, null);
@@ -312,6 +317,39 @@ class CaseHubReactor {
             SIGNAL_RECEIVED,
             new SignalReceivedEvent(caseId, path, value, triggerChannelId, triggerCorrelationId))
         .replaceWithVoid();
+  }
+
+  Uni<Void> signalBulk(UUID caseId, Map<String, Object> updates) {
+    return eventBus
+        .<Void>request(BULK_SIGNAL_RECEIVED, new BulkSignalReceivedEvent(caseId, updates))
+        .replaceWithVoid();
+  }
+
+  Uni<CaseContext> signalAndAwait(UUID caseId, Map<String, Object> updates, Duration timeout) {
+    UUID signalId = settlementTracker.registerSignal(caseId);
+    return eventBus
+        .<Void>request(
+            BULK_SIGNAL_RECEIVED,
+            new BulkSignalReceivedEvent(caseId, updates, null, null, signalId))
+        .replaceWithVoid()
+        .chain(
+            () -> {
+              CompletableFuture<Void> future = settlementTracker.getFuture(signalId);
+              if (future == null) {
+                return Uni.createFrom().item(requireInstance(caseId).getCaseContext());
+              }
+              return Uni.createFrom()
+                  .completionStage(
+                      future.orTimeout(
+                          timeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS))
+                  .onFailure(java.util.concurrent.TimeoutException.class)
+                  .transform(
+                      t -> {
+                        settlementTracker.remove(signalId);
+                        return new SettlementTimeoutException(caseId, timeout);
+                      })
+                  .map(v -> requireInstance(caseId).getCaseContext());
+            });
   }
 
   void cancelCase(UUID caseId) {

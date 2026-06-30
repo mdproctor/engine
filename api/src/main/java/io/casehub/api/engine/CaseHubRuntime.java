@@ -15,11 +15,13 @@
  */
 package io.casehub.api.engine;
 
+import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -76,6 +78,54 @@ public interface CaseHubRuntime {
       String triggerChannelId,
       String triggerCorrelationId) {
     return signal(caseId, path, value);
+  }
+
+  /**
+   * Atomically signals multiple context updates. The returned {@code CompletionStage} resolves when
+   * all updates have been applied to the context, the event log written, and {@code
+   * CONTEXT_CHANGED} dispatched.
+   *
+   * <p>Use this instead of multiple {@code signal()} calls to avoid intermediate state where only
+   * some keys have been updated.
+   *
+   * <p>Refs casehubio/engine#483.
+   */
+  default CompletionStage<Void> signal(UUID caseId, Map<String, Object> updates) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Signals multiple context updates and waits for all triggered workers to complete. The returned
+   * {@code CompletionStage} resolves with the final {@code CaseContext} when:
+   *
+   * <ul>
+   *   <li>All updates have been applied
+   *   <li>All capability bindings triggered by the context change have been dispatched
+   *   <li>All dispatched workers have completed (success or failure)
+   * </ul>
+   *
+   * <p>If no workers are dispatched (no bindings match), the future resolves immediately with the
+   * updated context.
+   *
+   * <p>Times out with {@link SettlementTimeoutException} if settlement does not complete within the
+   * specified duration.
+   *
+   * <p>Refs casehubio/engine#483.
+   */
+  default CompletionStage<CaseContext> signalAndAwait(
+      UUID caseId, Map<String, Object> updates, Duration timeout) {
+    throw new UnsupportedOperationException();
+  }
+
+  /**
+   * Blocking variant of {@link #signalAndAwait(UUID, Map, Duration)}. Calls {@code
+   * toCompletableFuture().join()} on the async version.
+   *
+   * <p>Refs casehubio/engine#483.
+   */
+  default CaseContext signalAndAwaitSync(
+      UUID caseId, Map<String, Object> updates, Duration timeout) {
+    return signalAndAwait(caseId, updates, timeout).toCompletableFuture().join();
   }
 
   /**
