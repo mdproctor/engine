@@ -25,8 +25,8 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.memory.CaseMemoryObserver;
-import io.casehub.platform.api.memory.CaseMemoryStore;
-import io.casehub.platform.api.memory.MemoryInput;
+import io.casehub.memory.CaseMemoryStore;
+import io.casehub.memory.MemoryInput;
 import jakarta.enterprise.inject.Instance;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
