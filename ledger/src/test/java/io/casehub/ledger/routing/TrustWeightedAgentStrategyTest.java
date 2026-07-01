@@ -46,10 +46,10 @@ class TrustWeightedAgentStrategyTest {
 
   // Default policy: threshold=0.7, minimumObservations=5, borderlineMargin=0.1, blendFactor=0.6
   private static final TrustRoutingPolicy DEFAULT_POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false);
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null);
 
   private static final TrustRoutingPolicy BOOTSTRAP_GUARD_POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), true);
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), true, null);
 
   @BeforeEach
   void setUp() {
@@ -206,7 +206,7 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void phase3_qualityFloorMet_candidateSelected() {
     final TrustRoutingPolicy policyWithFloor =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false);
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
     when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
@@ -223,7 +223,7 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void phase3_qualityFloorFailed_returnsUnresolvable() {
     final TrustRoutingPolicy policyWithFloor =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false);
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
     when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
@@ -238,7 +238,7 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void phase3_noDimensionData_candidateNotPenalised() {
     final TrustRoutingPolicy policyWithFloor =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false);
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
     when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
@@ -271,7 +271,8 @@ class TrustWeightedAgentStrategyTest {
 
   @Test
   void blendScoring_purelyTrustBased_whenBlendFactorIsOne() {
-    final TrustRoutingPolicy pureTrust = new TrustRoutingPolicy(0.7, 5, 0.1, 1.0, Map.of(), false);
+    final TrustRoutingPolicy pureTrust =
+        new TrustRoutingPolicy(0.7, 5, 0.1, 1.0, Map.of(), false, null);
     when(policyProvider.forCapability("research")).thenReturn(pureTrust);
 
     when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.90));
@@ -288,7 +289,7 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void blendScoring_purelyWorkloadBased_whenBlendFactorIsZero() {
     final TrustRoutingPolicy pureWorkload =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.0, Map.of(), false);
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.0, Map.of(), false, null);
     when(policyProvider.forCapability("research")).thenReturn(pureWorkload);
 
     when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.95));

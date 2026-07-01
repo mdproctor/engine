@@ -32,6 +32,9 @@ import java.util.Map;
  *     pool; if no QUALIFIED agent exists, escalates to {@link
  *     io.casehub.api.spi.routing.EscalationReason#NO_QUALIFIED_AGENT} instead of assigning an
  *     unproven agent. Set to true for high-stakes, irreversible capabilities. Default: false.
+ * @param fallbackBinding binding name exempt from BORDERLINE exclusion; used as the backstop when
+ *     all candidates are excluded. Nullable — null means use first candidate (declaration order).
+ *     Refs engine#625.
  */
 public record TrustRoutingPolicy(
     double threshold,
@@ -39,11 +42,12 @@ public record TrustRoutingPolicy(
     double borderlineMargin,
     double blendFactor,
     Map<String, Double> qualityFloors,
-    boolean bootstrapEscalationRequired) {
+    boolean bootstrapEscalationRequired,
+    String fallbackBinding) {
 
   /** Conservative defaults: 0.7 threshold, 10 observations, 0.1 margin, 60% trust blend. */
   public static final TrustRoutingPolicy DEFAULT =
-      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false);
+      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false, null);
 
   /** True when an agent lacks sufficient decision history for trust-based routing (Phase 0/1). */
   public boolean isBootstrap(final int decisionCount) {
