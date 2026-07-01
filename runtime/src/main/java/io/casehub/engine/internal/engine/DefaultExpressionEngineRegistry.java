@@ -28,6 +28,7 @@ import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jboss.logging.Logger;
 
 /**
@@ -130,5 +131,26 @@ public class DefaultExpressionEngineRegistry implements ExpressionEngineRegistry
               + "Use expressionLang: jq or register a custom ExpressionEngine "
               + "that overrides supportsStringCreation().");
     }
+  }
+
+  @Override
+  public Optional<String> extractString(
+      final ExpressionEvaluator evaluator, final CaseContext context) {
+    if (evaluator == null) {
+      return Optional.empty();
+    }
+    final String type = evaluator.type();
+    for (ExpressionEngine engine : engines) {
+      if (engine.type().equals(type)) {
+        try {
+          return engine.extractString(evaluator, context);
+        } catch (UnsupportedOperationException e) {
+          LOG.warnf(
+              "ExpressionEngine '%s' does not support string extraction — returning empty", type);
+          return Optional.empty();
+        }
+      }
+    }
+    throw new IllegalArgumentException("No ExpressionEngine registered for type '" + type + "'");
   }
 }

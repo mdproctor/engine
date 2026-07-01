@@ -130,7 +130,8 @@ public class HumanTaskScheduleHandler {
             .scope(target.scope())
             .payload(payload)
             .candidateGroups(toCsv(event.resolvedCandidateGroups()))
-            .candidateUsers(toCsv(event.resolvedCandidateUsers()));
+            .candidateUsers(toCsv(event.resolvedCandidateUsers()))
+            .expiresAt(earliestOf(event.expiresAtDeadline(), event.caseBudgetDeadline()));
     if (target.outcomes() != null && !target.outcomes().isEmpty()) {
       requestBuilder.permittedOutcomes(toOutcomeList(target.outcomes()));
     }
@@ -167,6 +168,7 @@ public class HumanTaskScheduleHandler {
         event.resolvedCandidateGroups(),
         event.resolvedCandidateUsers(),
         callerRef,
+        event.expiresAtDeadline(),
         event.caseBudgetDeadline());
     planItemStore.save(
         new PlanItemSaveRequest(
@@ -188,11 +190,13 @@ public class HumanTaskScheduleHandler {
       Set<String> resolvedGroups,
       Set<String> resolvedUsers,
       String callerRef,
+      Instant expiresAtDeadline,
       Instant caseBudgetDeadline) {
     String payload = serializePayload(inputData);
     Instant taskDeadline =
         target.expiresIn() != null ? Instant.now().plus(target.expiresIn()) : null;
-    Instant effectiveDeadline = earliestOf(taskDeadline, caseBudgetDeadline);
+    Instant effectiveDeadline =
+        earliestOf(earliestOf(taskDeadline, expiresAtDeadline), caseBudgetDeadline);
 
     WorkItemCreateRequest.Builder requestBuilder =
         WorkItemCreateRequest.builder()

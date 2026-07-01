@@ -1002,6 +1002,31 @@ class CaseDefinitionYamlMapperTest {
         .hasMessageContaining("not yet implemented");
   }
 
+  @Test
+  void humanTaskBinding_withInvalidExpiresAtExpression_throwsIllegalArgumentAtLoadTime() {
+    String yaml =
+        """
+        namespace: test
+        name: Bad ExpiresAt Case
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: ind-report-binding
+              on: { contextChange: {} }
+              humanTask:
+                title: "IND Report"
+                expiresAtExpression: ".foo bar("
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("ind-report-binding")
+        .hasMessageContaining("expiresAtExpression");
+  }
+
   // ── ExpressionEvaluatorFactory / expressionLang tests ──────────────────────
 
   /** Stub registry that records all create() calls for assertion. */
@@ -1039,6 +1064,12 @@ class CaseDefinitionYamlMapperTest {
     @Override
     public java.util.List<JsonNode> transform(
         final ExpressionEvaluator evaluator, final JsonNode input) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public java.util.Optional<String> extractString(
+        final ExpressionEvaluator evaluator, final CaseContext context) {
       throw new UnsupportedOperationException();
     }
   }
@@ -1198,6 +1229,12 @@ class CaseDefinitionYamlMapperTest {
 
           @Override
           public java.util.List<JsonNode> transform(final ExpressionEvaluator e, final JsonNode n) {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public java.util.Optional<String> extractString(
+              final ExpressionEvaluator e, final CaseContext c) {
             throw new UnsupportedOperationException();
           }
         };

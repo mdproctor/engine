@@ -20,6 +20,7 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import java.util.List;
+import java.util.Optional;
 
 final class JqOnlyExpressionEngineRegistry implements ExpressionEngineRegistry {
 
@@ -49,6 +50,11 @@ final class JqOnlyExpressionEngineRegistry implements ExpressionEngineRegistry {
 
   @Override
   public List<JsonNode> transform(ExpressionEvaluator evaluator, JsonNode input) {
+    throw new UnsupportedOperationException("test-only loading registry");
+  }
+
+  @Override
+  public Optional<String> extractString(ExpressionEvaluator evaluator, CaseContext context) {
     throw new UnsupportedOperationException("test-only loading registry");
   }
 

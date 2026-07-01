@@ -495,9 +495,15 @@ public class CaseContextChangedEventHandler {
             .flatMap(PropagationContext::getDeadline)
             .orElse(null);
 
+    final java.time.Instant expiresAtDeadline = resolveExpiresAtDeadline(caseInstance, target);
+
     LOG.infof(
-        "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s deadline=%s",
-        caseInstance.getUuid(), binding.getName(), target.templateRef(), caseBudgetDeadline);
+        "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s deadline=%s expiresAtDeadline=%s",
+        caseInstance.getUuid(),
+        binding.getName(),
+        target.templateRef(),
+        caseBudgetDeadline,
+        expiresAtDeadline);
 
     eventBus.publish(
         EventBusAddresses.HUMAN_TASK_SCHEDULE,
@@ -509,9 +515,31 @@ public class CaseContextChangedEventHandler {
             resolvedGroups,
             resolvedUsers,
             caseBudgetDeadline,
+            expiresAtDeadline,
             caseInstance.tenancyId));
 
     return Uni.createFrom().voidItem();
+  }
+
+  private java.time.Instant resolveExpiresAtDeadline(
+      final CaseInstance caseInstance, final HumanTaskTarget target) {
+    if (target.expiresAtExpression() == null) {
+      return null;
+    }
+    return expressionEngineRegistry
+        .extractString(target.expiresAtExpression(), caseInstance.getCaseContext())
+        .map(
+            s -> {
+              try {
+                return java.time.Instant.parse(s);
+              } catch (Exception e) {
+                LOG.warnf(
+                    "expiresAtExpression result '%s' is not a valid ISO-8601 instant — ignoring",
+                    s);
+                return null;
+              }
+            })
+        .orElse(null);
   }
 
   private Map<String, Object> evaluateInputMapping(

@@ -32,6 +32,12 @@ import java.util.UUID;
  * no budget was set. The handler uses this to bound WorkItem {@code expiresAt} so a WorkItem cannot
  * outlive its parent case. See casehubio/parent#6.
  *
+ * <p>{@code expiresAtDeadline} is an absolute deadline resolved from {@link
+ * HumanTaskTarget#expiresAtExpression()} evaluated against the case context WORKING panel, or
+ * {@code null} if no expression was set or evaluation failed. The handler folds this into the
+ * earliest-deadline chain alongside {@code expiresIn} and {@code caseBudgetDeadline}. See
+ * casehubio/engine#549, casehubio/clinical#83.
+ *
  * <p>The binding name is the stable key for plan item lookup in the blackboard registry. See
  * engine#245.
  */
@@ -43,4 +49,5 @@ public record HumanTaskScheduleEvent(
     Set<String> resolvedCandidateGroups,
     Set<String> resolvedCandidateUsers,
     Instant caseBudgetDeadline,
+    Instant expiresAtDeadline,
     String tenancyId) {}

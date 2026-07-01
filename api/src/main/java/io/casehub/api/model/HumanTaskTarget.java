@@ -43,6 +43,7 @@ public final class HumanTaskTarget implements BindingTarget {
   private final ListEvaluator candidateUsers;
   private final Duration expiresIn;
   private final Integer claimDeadlineHours;
+  private final ExpressionEvaluator expiresAtExpression;
   private final String priority;
   private final ExpressionEvaluator inputMapping;
   private final ExpressionEvaluator outputMapping;
@@ -56,6 +57,7 @@ public final class HumanTaskTarget implements BindingTarget {
     this.candidateUsers = builder.candidateUsers;
     this.expiresIn = builder.expiresIn;
     this.claimDeadlineHours = builder.claimDeadlineHours;
+    this.expiresAtExpression = builder.expiresAtExpression;
     this.priority = builder.priority;
     this.inputMapping = builder.inputMapping;
     this.outputMapping = builder.outputMapping;
@@ -107,6 +109,14 @@ public final class HumanTaskTarget implements BindingTarget {
     return claimDeadlineHours;
   }
 
+  /**
+   * JQ expression evaluated against case context WORKING panel to produce an absolute deadline
+   * Instant.
+   */
+  public ExpressionEvaluator expiresAtExpression() {
+    return expiresAtExpression;
+  }
+
   public String priority() {
     return priority;
   }
@@ -140,6 +150,7 @@ public final class HumanTaskTarget implements BindingTarget {
     private ListEvaluator candidateUsers;
     private Duration expiresIn;
     private Integer claimDeadlineHours;
+    private ExpressionEvaluator expiresAtExpression;
     private String priority;
     private ExpressionEvaluator inputMapping;
     private ExpressionEvaluator outputMapping;
@@ -182,6 +193,17 @@ public final class HumanTaskTarget implements BindingTarget {
 
     public Builder claimDeadlineHours(Integer hours) {
       this.claimDeadlineHours = hours;
+      return this;
+    }
+
+    /** Absolute deadline from case context — string overload creates JQExpressionEvaluator. */
+    public Builder expiresAtExpression(String expression) {
+      this.expiresAtExpression = new JQExpressionEvaluator(expression);
+      return this;
+    }
+
+    public Builder expiresAtExpression(ExpressionEvaluator evaluator) {
+      this.expiresAtExpression = evaluator;
       return this;
     }
 

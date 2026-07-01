@@ -163,7 +163,7 @@ class HumanTaskScheduleHandlerAtomicityTest {
       eventBus.publish(
           EventBusAddresses.HUMAN_TASK_SCHEDULE,
           new HumanTaskScheduleEvent(
-              caseId, "irb-binding", target, Map.of(), null, null, null, TENANCY_ID));
+              caseId, "irb-binding", target, Map.of(), null, null, null, null, TENANCY_ID));
 
       try {
         assertThat(FailingWorkItemStore.putAttemptLatch.await(5, TimeUnit.SECONDS))

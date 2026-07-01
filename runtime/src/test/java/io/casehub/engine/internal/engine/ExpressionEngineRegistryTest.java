@@ -34,6 +34,7 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -295,6 +296,70 @@ class ExpressionEngineRegistryTest {
       final var evaluator = new LambdaExpressionEvaluator(ctx -> true);
       assertThatThrownBy(() -> registry.transform(evaluator, input))
           .isInstanceOf(UnsupportedOperationException.class);
+    }
+  }
+
+  @Nested
+  @DisplayName("extractString()")
+  class ExtractString {
+
+    @Test
+    @DisplayName("JQ — extracts string field from WORKING panel context")
+    void jq_extractsStringField() {
+      final var context =
+          new CaseContextImpl(Map.of("indReportingDeadline", "2026-07-16T10:00:00Z"));
+      final var evaluator = new JQExpressionEvaluator(".indReportingDeadline");
+      final Optional<String> result = registry.extractString(evaluator, context);
+      assertThat(result).contains("2026-07-16T10:00:00Z");
+    }
+
+    @Test
+    @DisplayName("JQ — missing field returns empty (JQ null output, isTextual guard)")
+    void jq_missingField_returnsEmpty() {
+      final var context = new CaseContextImpl(Map.of("otherField", "value"));
+      final var evaluator = new JQExpressionEvaluator(".indReportingDeadline");
+      final Optional<String> result = registry.extractString(evaluator, context);
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("JQ — expression produces no output returns empty (isEmpty guard)")
+    void jq_emptyOutput_returnsEmpty() {
+      final var context = new CaseContextImpl(Map.of("foo", "bar"));
+      final var evaluator = new JQExpressionEvaluator("empty");
+      final Optional<String> result = registry.extractString(evaluator, context);
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("JQ — non-text output (number) returns empty")
+    void jq_numericOutput_returnsEmpty() {
+      final var context = new CaseContextImpl(Map.of("count", 42));
+      final var evaluator = new JQExpressionEvaluator(".count");
+      final Optional<String> result = registry.extractString(evaluator, context);
+      assertThat(result).isEmpty();
+    }
+
+    @Test
+    @DisplayName("unsupported engine type returns empty with no exception")
+    void unsupportedEngine_returnsEmpty() {
+      // LambdaExpressionEvaluator type is registered but does not override extractString()
+      final var context = new CaseContextImpl(Map.of());
+      final var evaluator = new LambdaExpressionEvaluator(ctx -> true);
+      // Must not throw — registry catches UnsupportedOperationException
+      assertThatCode(
+              () -> {
+                Optional<String> r = registry.extractString(evaluator, context);
+                assertThat(r).isEmpty();
+              })
+          .doesNotThrowAnyException();
+    }
+
+    @Test
+    @DisplayName("null evaluator returns empty")
+    void nullEvaluator_returnsEmpty() {
+      final var context = new CaseContextImpl(Map.of());
+      assertThat(registry.extractString(null, context)).isEmpty();
     }
   }
 }

@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Registry for expression engines.
@@ -107,4 +108,20 @@ public interface ExpressionEngineRegistry {
    *     evaluation fails
    */
   List<JsonNode> transform(ExpressionEvaluator evaluator, JsonNode input);
+
+  /**
+   * Extracts a string value from the given context using the expression in {@code evaluator}.
+   *
+   * <p>Dispatches to the registered {@link ExpressionEngine} whose {@link ExpressionEngine#type()}
+   * matches {@link ExpressionEvaluator#type()}. If the matched engine does not override {@link
+   * ExpressionEngine#extractString(ExpressionEvaluator, CaseContext)}, this method returns {@link
+   * Optional#empty()} and logs a WARN — it does NOT propagate {@link
+   * UnsupportedOperationException}.
+   *
+   * @param evaluator the expression; returns empty if null
+   * @param context the current case state
+   * @return the extracted string, or empty if unavailable or unsupported
+   * @throws IllegalArgumentException if no engine is registered for the evaluator type
+   */
+  Optional<String> extractString(ExpressionEvaluator evaluator, CaseContext context);
 }

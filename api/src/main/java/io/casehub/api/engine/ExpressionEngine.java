@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * SPI for pluggable expression evaluation engines.
@@ -53,6 +54,29 @@ public interface ExpressionEngine {
    * @throws IllegalArgumentException if the expression is syntactically invalid
    */
   void validate(ExpressionEvaluator evaluator);
+
+  /**
+   * Extracts a string value from the given context using this evaluator.
+   *
+   * <p>Default implementation throws {@link UnsupportedOperationException}. Expression engines that
+   * support value extraction (not just boolean evaluation) must override this method.
+   *
+   * <p>The {@link io.casehub.engine.common.spi.ExpressionEngineRegistry} catches {@code
+   * UnsupportedOperationException} from this method and returns {@code Optional.empty()} + WARN —
+   * so callers never see the exception propagate unless they invoke this method directly on an
+   * engine that doesn't support it.
+   *
+   * @param evaluator the expression to evaluate — guaranteed to match {@link #type()}
+   * @param context the current case state; implementations evaluate against the WORKING panel
+   * @return the string value extracted from context, or empty if absent or evaluation fails
+   */
+  default Optional<String> extractString(ExpressionEvaluator evaluator, CaseContext context) {
+    throw new UnsupportedOperationException(
+        "ExpressionEngine '"
+            + type()
+            + "' does not support string extraction. "
+            + "Override extractString() to enable this capability.");
+  }
 
   /**
    * Creates an {@link ExpressionEvaluator} from a raw expression string.

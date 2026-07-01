@@ -121,6 +121,13 @@ public final class CaseDefinitionYamlMapper {
           throw new UnsupportedOperationException(
               "JQ_ONLY loading registry does not support transformation");
         }
+
+        @Override
+        public java.util.Optional<String> extractString(
+            final ExpressionEvaluator evaluator, final CaseContext context) {
+          throw new UnsupportedOperationException(
+              "JQ_ONLY loading registry does not support string extraction");
+        }
       };
 
   /**
@@ -658,6 +665,21 @@ public final class CaseDefinitionYamlMapper {
             "expiresIn must be positive, got '" + schema.getExpiresIn() + "'");
       }
       builder.expiresIn(duration);
+    }
+    if (schema.getExpiresAtExpression() != null && !schema.getExpiresAtExpression().isBlank()) {
+      // Validate JQ syntax at load time — a silent runtime null is a regulatory SLA failure
+      try {
+        net.thisptr.jackson.jq.JsonQuery.compile(
+            schema.getExpiresAtExpression(), net.thisptr.jackson.jq.Versions.JQ_1_6);
+      } catch (Exception e) {
+        throw new IllegalArgumentException(
+            "invalid expiresAtExpression '"
+                + schema.getExpiresAtExpression()
+                + "' — "
+                + e.getMessage(),
+            e);
+      }
+      builder.expiresAtExpression(schema.getExpiresAtExpression());
     }
     if (schema.getOutcomes() != null && !schema.getOutcomes().isEmpty()) {
       builder.outcomes(new LinkedHashSet<>(schema.getOutcomes()));

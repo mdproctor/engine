@@ -346,6 +346,14 @@ $defs:
         type: integer
         minimum: 1
         description: "Business hours allowed to claim this WorkItem before it escalates"
+      expiresAtExpression:
+        type: string
+        description: >
+          JQ expression evaluated against the case context WORKING panel at scheduling time.
+          Must produce an ISO-8601 Instant string (e.g. ".indReportingDeadline").
+          Validated at YAML load time. Used to enforce an absolute deadline derived from
+          domain data (e.g. ae.reportedAt + window) rather than a relative duration from
+          WorkItem creation.
       outcomes:
         type: array
         items: { type: string }

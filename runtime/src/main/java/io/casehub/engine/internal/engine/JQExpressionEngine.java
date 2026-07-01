@@ -26,12 +26,16 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.List;
+import java.util.Optional;
 import net.thisptr.jackson.jq.JsonQuery;
 import net.thisptr.jackson.jq.Versions;
+import org.jboss.logging.Logger;
 
 /** {@link ExpressionEngine} for JQ expressions. */
 @ApplicationScoped
 public class JQExpressionEngine implements ExpressionEngine {
+
+  private static final Logger LOG = Logger.getLogger(JQExpressionEngine.class);
 
   @Inject JQEvaluator jqEvaluator;
 
@@ -68,6 +72,35 @@ public class JQExpressionEngine implements ExpressionEngine {
   @Override
   public ExpressionEvaluator create(final String expression) {
     return new JQExpressionEvaluator(expression);
+  }
+
+  /**
+   * {@inheritDoc}
+   *
+   * <p>Evaluates the JQ expression against the WORKING panel. When JQ produces multiple output
+   * elements, only the first is inspected — callers should use scalar expressions. Non-textual
+   * first output (null, number, boolean, array, object) returns {@link Optional#empty()} silently.
+   */
+  @Override
+  public Optional<String> extractString(
+      final ExpressionEvaluator evaluator, final CaseContext context) {
+    final String expr = ((JQExpressionEvaluator) evaluator).expression();
+    if (expr == null || expr.isBlank()) {
+      return Optional.empty();
+    }
+    final ValidationResult vr =
+        jqEvaluator.eval(expr, context.panel(ContextPanel.WORKING).asJsonNode());
+    if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
+      if (!vr.ok()) {
+        LOG.warnf("extractString JQ evaluation failed: %s", vr.error());
+      }
+      return Optional.empty();
+    }
+    final JsonNode result = vr.output().get(0);
+    if (!result.isTextual()) {
+      return Optional.empty();
+    }
+    return Optional.of(result.asText());
   }
 
   @Override
