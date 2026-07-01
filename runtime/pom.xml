@@ -16,6 +16,18 @@
     <dependencies>
         <dependency>
             <groupId>io.casehub</groupId>
+            <artifactId>casehub-memory-api</artifactId>
+            <version>0.2-SNAPSHOT</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-memory</artifactId>
+            <version>0.2-SNAPSHOT</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
             <artifactId>casehub-engine-common</artifactId>
             <version>${project.version}</version>
         </dependency>
