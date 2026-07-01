@@ -16,9 +16,9 @@
 package io.casehub.engine.internal.memory;
 
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
-import io.casehub.memory.CaseMemoryStore;
-import io.casehub.memory.MemoryDomain;
-import io.casehub.memory.MemoryInput;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.neocortex.memory.MemoryDomain;
+import io.casehub.neocortex.memory.MemoryInput;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.enterprise.inject.Instance;

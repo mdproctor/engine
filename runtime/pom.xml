@@ -16,13 +16,13 @@
     <dependencies>
         <dependency>
             <groupId>io.casehub</groupId>
-            <artifactId>casehub-memory-api</artifactId>
+            <artifactId>casehub-neocortex-memory-api</artifactId>
             <version>0.2-SNAPSHOT</version>
         </dependency>
 
         <dependency>
             <groupId>io.casehub</groupId>
-            <artifactId>casehub-memory</artifactId>
+            <artifactId>casehub-neocortex-memory</artifactId>
             <version>0.2-SNAPSHOT</version>
             <scope>runtime</scope>
         </dependency>
