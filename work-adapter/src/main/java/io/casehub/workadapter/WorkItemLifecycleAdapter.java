@@ -113,7 +113,7 @@ public class WorkItemLifecycleAdapter {
 
   public void onWorkItemGroupLifecycle(@ObservesAsync WorkItemGroupLifecycleEvent event) {
     GroupStatus status = event.groupStatus();
-    if (status != GroupStatus.COMPLETED && status != GroupStatus.REJECTED) return;
+    if (!status.isTerminal()) return;
 
     CallerRef ref = CallerRef.parse(event.callerRef());
     if (!(ref instanceof PlanItemCallerRef piRef)) return;

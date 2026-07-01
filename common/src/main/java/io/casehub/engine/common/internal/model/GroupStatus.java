@@ -18,5 +18,13 @@ package io.casehub.engine.common.internal.model;
 public enum GroupStatus {
   IN_PROGRESS,
   COMPLETED,
-  REJECTED
+  REJECTED;
+
+  public boolean isTerminal() {
+    return this == COMPLETED || this == REJECTED;
+  }
+
+  public boolean isActive() {
+    return this == IN_PROGRESS;
+  }
 }
