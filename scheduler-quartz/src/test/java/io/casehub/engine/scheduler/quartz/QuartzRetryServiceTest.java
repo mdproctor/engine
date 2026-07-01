@@ -106,7 +106,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_underMaxAttempts_reschedulesWorker() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null, null);
 
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
@@ -126,7 +126,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_atMaxAttempts_publishesExhaustion() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null, null);
 
     CaseInstance instance = caseInstanceWithWorker(2, 1000, BackoffStrategy.FIXED);
 
@@ -148,7 +148,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_noRetryPolicyConfigured_usesDefault() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null, null);
 
     CaseInstance instance = caseInstanceWithDefaultPolicy();
 
@@ -167,7 +167,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_caseDefinitionNotFound_logsErrorWithoutCrash() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null, null);
 
     CaseInstance instance = new CaseInstance();
     instance.setUuid(caseId);
@@ -189,7 +189,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_persistsFailureEventLog() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null, null);
 
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
@@ -216,7 +216,7 @@ class QuartzRetryServiceTest {
   @Test
   void handleFailure_countsOnlyMatchingInputDataHash() {
     WorkerRetryContext ctx =
-        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null);
+        new WorkerRetryContext(caseId, workerId, inputDataHash, tenancyId, eventLogId, null, null);
 
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
@@ -236,6 +236,52 @@ class QuartzRetryServiceTest {
     retryService.handleFailure(ctx, "test error").await().indefinitely();
 
     verify(schedulerService).scheduleRetryAsync(any(JobDetail.class), any(Trigger.class));
+  }
+
+  @Test
+  void handleFailure_exhaustedWithSignalId_threadsSignalIdInEvent() {
+    UUID signalId = UUID.randomUUID();
+    WorkerRetryContext ctx =
+        new WorkerRetryContext(
+            caseId, workerId, inputDataHash, tenancyId, eventLogId, null, signalId);
+
+    CaseInstance instance = caseInstanceWithWorker(2, 1000, BackoffStrategy.FIXED);
+
+    stubPersistAndRecovery(instance);
+    when(eventLogRepository.findByCaseAndWorkerAndType(
+            eq(caseId), eq(workerId), any(), eq(tenancyId)))
+        .thenReturn(Uni.createFrom().item(List.of(failureLog(), failureLog())));
+
+    retryService.handleFailure(ctx, "test error").await().indefinitely();
+
+    ArgumentCaptor<WorkerRetriesExhaustedEvent> captor =
+        ArgumentCaptor.forClass(WorkerRetriesExhaustedEvent.class);
+    verify(eventBus).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), captor.capture());
+    assertThat(captor.getValue().signalId()).isEqualTo(signalId);
+  }
+
+  @Test
+  void handleFailure_retryWithSignalId_includesSignalIdInJobDataMap() {
+    UUID signalId = UUID.randomUUID();
+    WorkerRetryContext ctx =
+        new WorkerRetryContext(
+            caseId, workerId, inputDataHash, tenancyId, eventLogId, "binding-1", signalId);
+
+    CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
+
+    stubPersistAndRecovery(instance);
+    when(eventLogRepository.findByCaseAndWorkerAndType(
+            eq(caseId), eq(workerId), any(), eq(tenancyId)))
+        .thenReturn(Uni.createFrom().item(List.of()));
+
+    ArgumentCaptor<JobDetail> jobCaptor = ArgumentCaptor.forClass(JobDetail.class);
+    when(schedulerService.scheduleRetryAsync(jobCaptor.capture(), any(Trigger.class)))
+        .thenReturn(Uni.createFrom().voidItem());
+
+    retryService.handleFailure(ctx, "test error").await().indefinitely();
+
+    assertThat(jobCaptor.getValue().getJobDataMap().getString("signalId"))
+        .isEqualTo(signalId.toString());
   }
 
   private void stubPersistAndRecovery(CaseInstance instance) {

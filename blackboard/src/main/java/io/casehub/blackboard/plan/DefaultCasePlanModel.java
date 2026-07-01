@@ -43,8 +43,8 @@ public class DefaultCasePlanModel implements CasePlanModel {
   private final UUID caseId;
   private final PriorityBlockingQueue<PlanItem> agenda = new PriorityBlockingQueue<>();
   private final ConcurrentHashMap<String, PlanItem> itemsById = new ConcurrentHashMap<>();
-  // bindingName → PlanItem (only PENDING or RUNNING items) — fast O(1) duplicate-prevention lookup
-  private final ConcurrentHashMap<String, PlanItem> activeByBinding = new ConcurrentHashMap<>();
+  // bindingName → most recent PlanItem — fast O(1) lookup for strategies and duplicate prevention
+  private final ConcurrentHashMap<String, PlanItem> latestByBinding = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Stage> stages = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, MilestoneLifecycleStatus> milestones =
       new ConcurrentHashMap<>();
@@ -67,13 +67,13 @@ public class DefaultCasePlanModel implements CasePlanModel {
   public void addPlanItem(PlanItem item) {
     agenda.add(item);
     itemsById.put(item.getPlanItemId(), item);
-    activeByBinding.put(item.getBindingName(), item);
+    latestByBinding.put(item.getBindingName(), item);
   }
 
   @Override
   public boolean addPlanItemIfAbsent(PlanItem item) {
     boolean[] added = {false};
-    activeByBinding.compute(
+    latestByBinding.compute(
         item.getBindingName(),
         (k, existing) -> {
           if (existing != null && existing.getStatus().isActive()) {
@@ -90,13 +90,13 @@ public class DefaultCasePlanModel implements CasePlanModel {
   /**
    * Restores a PlanItem from persistent store into the live plan after a JVM restart.
    *
-   * <p>Adds the item to itemsById and activeByBinding so completion handlers can find it, but does
+   * <p>Adds the item to itemsById and latestByBinding so completion handlers can find it, but does
    * NOT add it to the agenda — restored items are not pending dispatch.
    */
   @Override
   public void restorePlanItem(PlanItem item) {
     itemsById.put(item.getPlanItemId(), item);
-    activeByBinding.put(item.getBindingName(), item);
+    latestByBinding.put(item.getBindingName(), item);
   }
 
   @Override
@@ -104,7 +104,7 @@ public class DefaultCasePlanModel implements CasePlanModel {
     PlanItem item = itemsById.remove(planItemId);
     if (item != null) {
       agenda.remove(item);
-      activeByBinding.remove(item.getBindingName(), item); // CAS: only removes if still this item
+      latestByBinding.remove(item.getBindingName(), item); // CAS: only removes if still this item
     }
   }
 
@@ -115,19 +115,20 @@ public class DefaultCasePlanModel implements CasePlanModel {
 
   @Override
   public Optional<PlanItem> getPlanItemByBindingName(String bindingName) {
-    PlanItem item = activeByBinding.get(bindingName);
+    PlanItem item = latestByBinding.get(bindingName);
     if (item == null) return Optional.empty();
     return item.getStatus().isActive() ? Optional.of(item) : Optional.empty();
   }
 
   @Override
   public boolean hasActivePlanItem(String bindingName) {
-    PlanItem item = activeByBinding.get(bindingName);
-    if (item == null) return false;
-    if (item.getStatus().isActive()) return true;
-    // Item exists but is terminal — clean up the stale entry
-    activeByBinding.remove(bindingName, item);
-    return false;
+    PlanItem item = latestByBinding.get(bindingName);
+    return item != null && item.getStatus().isActive();
+  }
+
+  @Override
+  public Optional<PlanItem> findPlanItemByBindingName(String bindingName) {
+    return Optional.ofNullable(latestByBinding.get(bindingName));
   }
 
   @Override

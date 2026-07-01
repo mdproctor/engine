@@ -23,8 +23,7 @@ import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @ApplicationScoped
 public class SequentialPlanningStrategy implements PlanningStrategy {
@@ -43,18 +42,14 @@ public class SequentialPlanningStrategy implements PlanningStrategy {
   public Uni<List<Binding>> select(
       CasePlanModel plan, PlanExecutionContext context, List<Binding> eligible) {
 
-    Map<String, PlanItem> itemsByBinding =
-        plan.getAllPlanItems().stream()
-            .collect(Collectors.toMap(PlanItem::getBindingName, item -> item, (a, b) -> a));
-
     for (Binding binding : eligible) {
-      PlanItem item = itemsByBinding.get(binding.getName());
+      Optional<PlanItem> itemOpt = plan.findPlanItemByBindingName(binding.getName());
 
-      if (item == null) {
+      if (itemOpt.isEmpty()) {
         return Uni.createFrom().item(List.of(binding));
       }
 
-      PlanItemStatus status = item.getStatus();
+      PlanItemStatus status = itemOpt.get().getStatus();
 
       if (status == PlanItemStatus.COMPLETED) {
         continue;

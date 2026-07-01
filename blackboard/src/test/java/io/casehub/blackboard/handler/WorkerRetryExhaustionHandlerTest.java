@@ -61,7 +61,7 @@ class WorkerRetryExhaustionHandlerTest {
 
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            caseId, "worker-a", "hash-123", "capability-binding", "test-tenant"));
+            caseId, "test-tenant", "worker-a", "hash-123", "capability-binding", null));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
@@ -70,14 +70,15 @@ class WorkerRetryExhaustionHandlerTest {
   void unknown_case_is_a_noop() {
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            UUID.randomUUID(), "worker-x", "hash", null, "test-tenant"));
+            UUID.randomUUID(), "test-tenant", "worker-x", "hash", null, null));
     // no exception
   }
 
   @Test
   void unknown_worker_is_a_noop() {
     handler.onWorkerRetriesExhausted(
-        new WorkerRetriesExhaustedEvent(caseId, "unknown-worker", "hash", null, "test-tenant"));
+        new WorkerRetriesExhaustedEvent(
+            caseId, "test-tenant", "unknown-worker", "hash", null, null));
     // no exception
   }
 
@@ -91,7 +92,7 @@ class WorkerRetryExhaustionHandlerTest {
 
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            caseId, "worker-a", "hash-123", "capability-binding", "test-tenant"));
+            caseId, "test-tenant", "worker-a", "hash-123", "capability-binding", null));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED); // unchanged, no throw
   }
@@ -107,7 +108,7 @@ class WorkerRetryExhaustionHandlerTest {
 
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            caseId, "worker-a", "hash-123", "capability-binding", "test-tenant"));
+            caseId, "test-tenant", "worker-a", "hash-123", "capability-binding", null));
 
     // PENDING is not RUNNING — handler must not transition it (guard fires before plan item
     // indexing in the guard-blocked path, so lookup returns empty; this tests a theoretical edge)

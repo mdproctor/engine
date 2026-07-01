@@ -19,6 +19,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
@@ -56,19 +57,31 @@ public class SignalReceivedEventHandler {
   private static final Logger LOG = Logger.getLogger(SignalReceivedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject Vertx vertx;
+  private final Vertx vertx;
+  private final EventBus eventBus;
+  private final CaseInstanceCache caseInstanceCache;
+  private final WorkerExecutionRecoveryService recoveryService;
+  private final EventLogRepository eventLogRepository;
+  private final Event<CaseLifecycleEvent> lifecycleEvents;
+  private final LedgerTraceIdProvider traceIdProvider;
 
-  @Inject EventBus eventBus;
-
-  @Inject CaseInstanceCache caseInstanceCache;
-
-  @Inject WorkerExecutionRecoveryService recoveryService;
-
-  @Inject EventLogRepository eventLogRepository;
-
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-
-  @Inject LedgerTraceIdProvider traceIdProvider;
+  @Inject
+  SignalReceivedEventHandler(
+      Vertx vertx,
+      EventBus eventBus,
+      CaseInstanceCache caseInstanceCache,
+      WorkerExecutionRecoveryService recoveryService,
+      EventLogRepository eventLogRepository,
+      Event<CaseLifecycleEvent> lifecycleEvents,
+      LedgerTraceIdProvider traceIdProvider) {
+    this.vertx = vertx;
+    this.eventBus = eventBus;
+    this.caseInstanceCache = caseInstanceCache;
+    this.recoveryService = recoveryService;
+    this.eventLogRepository = eventLogRepository;
+    this.lifecycleEvents = lifecycleEvents;
+    this.traceIdProvider = traceIdProvider;
+  }
 
   private static final int MAX_STARTING_RETRIES = 30;
   private static final long STARTING_RETRY_DELAY_MS = 100L;
@@ -248,7 +261,7 @@ public class SignalReceivedEventHandler {
       lock.release();
     }
 
-    EventLog eventLog = buildBulkSignalEventLog(instance);
+    EventLog eventLog = buildBulkSignalEventLog(instance, event.updates());
 
     return eventLogRepository
         .append(eventLog, instance.tenancyId)
@@ -290,13 +303,21 @@ public class SignalReceivedEventHandler {
         .invoke(t -> LOG.errorf(t, "Failed to process bulk signal for caseId=%s", event.caseId()));
   }
 
-  private EventLog buildBulkSignalEventLog(CaseInstance instance) {
+  private EventLog buildBulkSignalEventLog(
+      CaseInstance instance, java.util.Map<String, Object> updates) {
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(instance.getUuid());
     eventLog.setEventType(CaseHubEventType.SIGNAL_RECEIVED);
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
-    eventLog.setPayload(OBJECT_MAPPER.createObjectNode().put("type", "bulk_signal"));
+    ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+    payload.put("type", "bulk_signal");
+    payload.set("updates", OBJECT_MAPPER.valueToTree(updates));
+    eventLog.setPayload(payload);
+    eventLog.setMetadata(
+        OBJECT_MAPPER
+            .createObjectNode()
+            .set("updatedKeys", OBJECT_MAPPER.valueToTree(updates.keySet())));
     return eventLog;
   }
 }

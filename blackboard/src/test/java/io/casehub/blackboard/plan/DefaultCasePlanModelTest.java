@@ -439,6 +439,40 @@ class DefaultCasePlanModelTest {
     assertThat(model.getAgenda()).isEmpty();
   }
 
+  // --- findPlanItemByBindingName (any-status lookup) ---
+
+  @Test
+  void findPlanItemByBindingName_returnsCompletedItem() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    plan.addPlanItem(item);
+    item.markRunning();
+    item.markCompleted();
+    assertThat(plan.findPlanItemByBindingName("binding-a"))
+        .as("findPlanItemByBindingName must return items regardless of status")
+        .contains(item);
+  }
+
+  @Test
+  void findPlanItemByBindingName_returnsFaultedItem() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    plan.addPlanItem(item);
+    item.markRunning();
+    item.markFaulted();
+    assertThat(plan.findPlanItemByBindingName("binding-a")).contains(item);
+  }
+
+  @Test
+  void findPlanItemByBindingName_returnsPendingItem() {
+    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    plan.addPlanItem(item);
+    assertThat(plan.findPlanItemByBindingName("binding-a")).contains(item);
+  }
+
+  @Test
+  void findPlanItemByBindingName_emptyForUnknown() {
+    assertThat(plan.findPlanItemByBindingName("unknown")).isEmpty();
+  }
+
   // ---------------------------------------------------------------------------
 
 }

@@ -28,20 +28,28 @@ record WorkerRetryContext(
     String inputDataHash,
     String tenancyId,
     String eventLogId,
-    String bindingName) {
+    String bindingName,
+    UUID signalId) {
 
   static WorkerRetryContext from(final JobExecutionContext context) {
+    String signalIdStr = context.getMergedJobDataMap().getString("signalId");
     return new WorkerRetryContext(
         UUID.fromString(context.getMergedJobDataMap().getString("caseHubInstanceUuid")),
         context.getMergedJobDataMap().getString("workerId"),
         context.getMergedJobDataMap().getString("inputDataHash"),
         context.getMergedJobDataMap().getString("tenancyId"),
         context.getMergedJobDataMap().getString("eventLogId"),
-        context.getMergedJobDataMap().getString("bindingName"));
+        context.getMergedJobDataMap().getString("bindingName"),
+        signalIdStr != null ? UUID.fromString(signalIdStr) : null);
   }
 
   WorkerRetryContext withBindingName(String bindingName) {
     return new WorkerRetryContext(
-        caseId, workerId, inputDataHash, tenancyId, eventLogId, bindingName);
+        caseId, workerId, inputDataHash, tenancyId, eventLogId, bindingName, signalId);
+  }
+
+  WorkerRetryContext withSignalId(UUID signalId) {
+    return new WorkerRetryContext(
+        caseId, workerId, inputDataHash, tenancyId, eventLogId, bindingName, signalId);
   }
 }

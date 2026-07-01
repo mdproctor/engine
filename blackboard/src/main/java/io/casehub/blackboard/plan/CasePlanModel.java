@@ -59,6 +59,15 @@ public interface CasePlanModel {
   Optional<PlanItem> getPlanItemByBindingName(String bindingName);
 
   /**
+   * Returns the most recently registered PlanItem for the given binding name regardless of status.
+   * Used by planning strategies that need to see terminal states (e.g. COMPLETED) to make
+   * sequencing decisions. Refs engine#621.
+   */
+  default Optional<PlanItem> findPlanItemByBindingName(String bindingName) {
+    return Optional.empty();
+  }
+
+  /**
    * Returns true if there is already an active PlanItem (PENDING, RUNNING, or DELEGATED) for the
    * given binding name. Used to prevent duplicate scheduling.
    */

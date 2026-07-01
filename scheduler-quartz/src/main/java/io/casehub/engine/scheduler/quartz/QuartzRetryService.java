@@ -128,10 +128,11 @@ class QuartzRetryService {
             EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
             new WorkerRetriesExhaustedEvent(
                 ctx.caseId(),
+                ctx.tenancyId(),
                 ctx.workerId(),
                 ctx.inputDataHash(),
                 ctx.bindingName(),
-                ctx.tenancyId()));
+                ctx.signalId()));
         yield Uni.createFrom().voidItem();
       }
     };
@@ -198,6 +199,9 @@ class QuartzRetryService {
     dataMap.put("tenancyId", ctx.tenancyId());
     if (ctx.bindingName() != null) {
       dataMap.put("bindingName", ctx.bindingName());
+    }
+    if (ctx.signalId() != null) {
+      dataMap.put("signalId", ctx.signalId().toString());
     }
 
     JobDetail job =

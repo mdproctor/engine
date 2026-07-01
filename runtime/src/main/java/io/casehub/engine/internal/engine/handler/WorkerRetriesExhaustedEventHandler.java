@@ -45,16 +45,32 @@ public class WorkerRetriesExhaustedEventHandler {
   private static final Logger LOG = Logger.getLogger(WorkerRetriesExhaustedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject CaseInstanceCache caseInstanceCache;
+  private final CaseInstanceCache caseInstanceCache;
+  private final EventBus eventBus;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final WorkerStatusListener workerStatusListener;
+  private final io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
-  @Inject EventBus eventBus;
-
-  @Inject CaseInstanceRepository caseInstanceRepository;
-
-  @Inject WorkerStatusListener workerStatusListener;
+  @Inject
+  WorkerRetriesExhaustedEventHandler(
+      CaseInstanceCache caseInstanceCache,
+      EventBus eventBus,
+      CaseInstanceRepository caseInstanceRepository,
+      WorkerStatusListener workerStatusListener,
+      io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker) {
+    this.caseInstanceCache = caseInstanceCache;
+    this.eventBus = eventBus;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.workerStatusListener = workerStatusListener;
+    this.settlementTracker = settlementTracker;
+  }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED)
   public Uni<Void> onWorkerRetriesExhaustedEvent(WorkerRetriesExhaustedEvent event) {
+    if (event.signalId() != null) {
+      settlementTracker.recordCompletion(event.signalId());
+    }
+
     CaseInstance caseInstance = caseInstanceCache.get(event.caseId());
     String oldStatus = caseInstance.getState().name();
     caseInstance.setState(CaseStatus.FAULTED);

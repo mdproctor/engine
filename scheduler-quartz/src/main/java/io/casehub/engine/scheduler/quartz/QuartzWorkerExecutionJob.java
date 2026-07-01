@@ -127,7 +127,7 @@ class QuartzWorkerExecutionJob implements Job {
               : null;
 
       final WorkerRetryContext effectiveRetryCtx =
-          bindingName != null ? retryCtx.withBindingName(bindingName) : retryCtx;
+          retryCtx.withBindingName(bindingName).withSignalId(signalId);
 
       Worker worker =
           definition.getWorkers().stream()
