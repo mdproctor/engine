@@ -16,18 +16,23 @@
 package io.casehub.engine.internal.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
+import io.casehub.eidos.api.AgentCapability;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
 import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
+import io.casehub.eidos.api.MatchDegree;
+import io.casehub.eidos.api.VocabularyRegistry;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.engine.internal.worker.NoOpVocabularyRegistry;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -39,6 +44,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class AgentCandidateFactoryTest {
+
+  private static final String VOCAB_URI = "urn:casehub:vocab:capability";
 
   private CapabilityHealth capabilityHealth;
   private WorkerExecutionManager executionManager;
@@ -54,16 +61,20 @@ class AgentCandidateFactoryTest {
 
     when(caseInstance.getUuid()).thenReturn(UUID.randomUUID());
     when(executionManager.getActiveWorkCount("agent-1")).thenReturn(2);
+    when(capabilityHealth.probe(any(), any(), any())).thenReturn(new CapabilityStatus.Ready());
   }
+
+  // --- Existing behavior: exact string matching ---
 
   @Test
   void workerWithMatchingCapability_isIncluded() {
+    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
     final Worker worker = workerWithCapability("agent-1", "research");
     final CaseDefinition def = definitionFor(worker);
     when(executionManager.getActiveWorkCount("agent-1")).thenReturn(2);
 
     final List<AgentCandidate> result =
-        AgentCandidateFactory.buildCandidates(
+        factory.buildCandidates(
             caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).hasSize(1);
@@ -75,11 +86,12 @@ class AgentCandidateFactoryTest {
 
   @Test
   void workerWithDifferentCapability_isExcluded() {
+    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
     final Worker worker = workerWithCapability("agent-1", "other-capability");
     final CaseDefinition def = definitionFor(worker);
 
     final List<AgentCandidate> result =
-        AgentCandidateFactory.buildCandidates(
+        factory.buildCandidates(
             caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).isEmpty();
@@ -87,6 +99,7 @@ class AgentCandidateFactoryTest {
 
   @Test
   void unavailableWorker_isExcluded() {
+    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
     final Worker worker = workerWithCapability("agent-1", "research");
     final CaseDefinition def = definitionFor(worker, descriptor);
@@ -95,7 +108,7 @@ class AgentCandidateFactoryTest {
         .thenReturn(new CapabilityStatus.Unavailable("down"));
 
     final List<AgentCandidate> result =
-        AgentCandidateFactory.buildCandidates(
+        factory.buildCandidates(
             caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).isEmpty();
@@ -103,6 +116,7 @@ class AgentCandidateFactoryTest {
 
   @Test
   void workerWithDescriptor_descriptorPassedThrough() {
+    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
     final Worker worker = workerWithCapability("agent-1", "research");
     final CaseDefinition def = definitionFor(worker, descriptor);
@@ -111,7 +125,7 @@ class AgentCandidateFactoryTest {
         .thenReturn(new CapabilityStatus.Ready());
 
     final List<AgentCandidate> result =
-        AgentCandidateFactory.buildCandidates(
+        factory.buildCandidates(
             caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).hasSize(1);
@@ -120,6 +134,7 @@ class AgentCandidateFactoryTest {
 
   @Test
   void epistemicallyWeakWorker_includedWithCorrectHealth() {
+    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
     final Worker worker = workerWithCapability("agent-1", "research");
     final CaseDefinition def = definitionFor(worker, descriptor);
@@ -128,7 +143,7 @@ class AgentCandidateFactoryTest {
         .thenReturn(new CapabilityStatus.EpistemicallyWeak("domain", 0.3));
 
     final List<AgentCandidate> result =
-        AgentCandidateFactory.buildCandidates(
+        factory.buildCandidates(
             caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
 
     assertThat(result).hasSize(1);
@@ -137,18 +152,225 @@ class AgentCandidateFactoryTest {
 
   @Test
   void nullWorkers_returnsEmpty() {
+    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
     final CaseDefinition def =
         CaseDefinition.builder().namespace("t").name("t").version("1").build();
 
     final List<AgentCandidate> result =
-        AgentCandidateFactory.buildCandidates(
+        factory.buildCandidates(
             caseInstance, def, null, capability, executionManager, capabilityHealth);
 
     assertThat(result).isEmpty();
   }
 
+  // --- Subsumption matching via AgentDescriptor ---
+
+  @Test
+  void workerWithSubsumingDescriptorCapability_isIncludedViaPlugin() {
+    final VocabularyRegistry registry =
+        subsumptionRegistry(
+            VOCAB_URI, "code-review", "security-code-review", new MatchDegree.Plugin(1));
+    final AgentCandidateFactory factory = new AgentCandidateFactory(registry);
+
+    final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
+
+    final AgentCapability agentCap =
+        AgentCapability.builder().name("code-review").capabilityVocabulary(VOCAB_URI).build();
+    final AgentDescriptor descriptor =
+        AgentDescriptor.builder()
+            .agentId("agent-1-id")
+            .name("agent-1")
+            .slot("reviewer")
+            .tenancyId("t1")
+            .capabilities(List.of(agentCap))
+            .build();
+
+    final Worker worker = workerWithCapability("agent-1", "code-review");
+    final CaseDefinition def = definitionFor(worker, descriptor);
+    when(executionManager.getActiveWorkCount("agent-1")).thenReturn(0);
+
+    final List<AgentCandidate> result =
+        factory.buildCandidates(
+            caseInstance,
+            def,
+            List.of(worker),
+            requestedCapability,
+            executionManager,
+            capabilityHealth);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).workerId()).isEqualTo("agent-1");
+  }
+
+  @Test
+  void subsumptionMatchedWorker_excludedByHealthProbe() {
+    final VocabularyRegistry registry =
+        subsumptionRegistry(
+            VOCAB_URI, "code-review", "security-code-review", new MatchDegree.Plugin(1));
+    final AgentCandidateFactory factory = new AgentCandidateFactory(registry);
+
+    final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
+
+    final AgentCapability agentCap =
+        AgentCapability.builder().name("code-review").capabilityVocabulary(VOCAB_URI).build();
+    final AgentDescriptor descriptor =
+        AgentDescriptor.builder()
+            .agentId("agent-1-id")
+            .name("agent-1")
+            .slot("reviewer")
+            .tenancyId("t1")
+            .capabilities(List.of(agentCap))
+            .build();
+
+    final Worker worker = workerWithCapability("agent-1", "code-review");
+    final CaseDefinition def = definitionFor(worker, descriptor);
+    when(executionManager.getActiveWorkCount("agent-1")).thenReturn(0);
+    when(capabilityHealth.probe(
+            descriptor, "security-code-review", ProbeContext.of(caseInstance.getUuid().toString())))
+        .thenReturn(new CapabilityStatus.Unavailable("agent down"));
+
+    final List<AgentCandidate> result =
+        factory.buildCandidates(
+            caseInstance,
+            def,
+            List.of(worker),
+            requestedCapability,
+            executionManager,
+            capabilityHealth);
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void workerWithSubsumingDescriptorCapability_isIncludedViaSpecialization() {
+    final VocabularyRegistry registry =
+        subsumptionRegistry(
+            VOCAB_URI, "security-code-review", "code-review", new MatchDegree.Specialization(1));
+    final AgentCandidateFactory factory = new AgentCandidateFactory(registry);
+
+    final Capability requestedCapability = Capability.of("code-review", "{}", "{}");
+
+    final AgentCapability agentCap =
+        AgentCapability.builder()
+            .name("security-code-review")
+            .capabilityVocabulary(VOCAB_URI)
+            .build();
+    final AgentDescriptor descriptor =
+        AgentDescriptor.builder()
+            .agentId("agent-2-id")
+            .name("agent-2")
+            .slot("reviewer")
+            .tenancyId("t1")
+            .capabilities(List.of(agentCap))
+            .build();
+
+    final Worker worker = workerWithCapability("agent-2", "security-code-review");
+    final CaseDefinition def = definitionFor(worker, descriptor);
+    when(executionManager.getActiveWorkCount("agent-2")).thenReturn(0);
+
+    final List<AgentCandidate> result =
+        factory.buildCandidates(
+            caseInstance,
+            def,
+            List.of(worker),
+            requestedCapability,
+            executionManager,
+            capabilityHealth);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).workerId()).isEqualTo("agent-2");
+  }
+
+  @Test
+  void workerWithUngroundedDescriptorCapability_excludedWhenNoExactMatch() {
+    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+
+    final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
+
+    final AgentCapability agentCap = AgentCapability.builder().name("code-review").build();
+    final AgentDescriptor descriptor =
+        AgentDescriptor.builder()
+            .agentId("agent-1-id")
+            .name("agent-1")
+            .slot("reviewer")
+            .tenancyId("t1")
+            .capabilities(List.of(agentCap))
+            .build();
+
+    final Worker worker = workerWithCapability("agent-1", "code-review");
+    final CaseDefinition def = definitionFor(worker, descriptor);
+
+    final List<AgentCandidate> result =
+        factory.buildCandidates(
+            caseInstance,
+            def,
+            List.of(worker),
+            requestedCapability,
+            executionManager,
+            capabilityHealth);
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void workerWithoutDescriptor_noSubsumptionFallback() {
+    final VocabularyRegistry registry =
+        subsumptionRegistry(
+            VOCAB_URI, "code-review", "security-code-review", new MatchDegree.Plugin(1));
+    final AgentCandidateFactory factory = new AgentCandidateFactory(registry);
+
+    final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
+
+    final Worker worker = workerWithCapability("agent-1", "code-review");
+    final CaseDefinition def = definitionFor(worker);
+
+    final List<AgentCandidate> result =
+        factory.buildCandidates(
+            caseInstance,
+            def,
+            List.of(worker),
+            requestedCapability,
+            executionManager,
+            capabilityHealth);
+
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void noOpVocabularyRegistry_exactMatchOnly() {
+    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+
+    final AgentCapability agentCap =
+        AgentCapability.builder().name("code-review").capabilityVocabulary(VOCAB_URI).build();
+    final AgentDescriptor descriptor =
+        AgentDescriptor.builder()
+            .agentId("agent-1-id")
+            .name("agent-1")
+            .slot("reviewer")
+            .tenancyId("t1")
+            .capabilities(List.of(agentCap))
+            .build();
+
+    final Worker worker = workerWithCapability("agent-1", "code-review");
+    final CaseDefinition def = definitionFor(worker, descriptor);
+
+    final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
+
+    final List<AgentCandidate> result =
+        factory.buildCandidates(
+            caseInstance,
+            def,
+            List.of(worker),
+            requestedCapability,
+            executionManager,
+            capabilityHealth);
+
+    assertThat(result).isEmpty();
+  }
+
+  // --- Helpers ---
+
   private Worker workerWithCapability(final String name, final String capabilityName) {
-    final Capability cap = Capability.of(capabilityName, "{}", "{}");
     return Worker.builder()
         .name(name)
         .capabilityName(capabilityName)
@@ -167,5 +389,23 @@ class AgentCandidateFactoryTest {
       b.agentDescriptor(worker.name(), descriptor);
     }
     return b.build();
+  }
+
+  private static VocabularyRegistry subsumptionRegistry(
+      final String vocabUri,
+      final String declaredValue,
+      final String requestedValue,
+      final MatchDegree matchDegree) {
+    return new NoOpVocabularyRegistry() {
+      @Override
+      public MatchDegree match(final String uri, final String declared, final String requested) {
+        if (vocabUri.equals(uri)
+            && declaredValue.equals(declared)
+            && requestedValue.equals(requested)) {
+          return matchDegree;
+        }
+        return super.match(uri, declared, requested);
+      }
+    };
   }
 }

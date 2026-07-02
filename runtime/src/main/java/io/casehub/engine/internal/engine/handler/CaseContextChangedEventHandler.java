@@ -99,6 +99,8 @@ public class CaseContextChangedEventHandler {
 
   @Inject AgentRoutingStrategy agentRoutingStrategy;
 
+  @Inject AgentCandidateFactory agentCandidateFactory;
+
   @Inject WorkerExecutionManager executionManager;
 
   @Inject CapabilityHealth capabilityHealth;
@@ -320,7 +322,7 @@ public class CaseContextChangedEventHandler {
     }
 
     List<AgentCandidate> candidates =
-        AgentCandidateFactory.buildCandidates(
+        agentCandidateFactory.buildCandidates(
             caseInstance, caseDefinition, workers, capability, executionManager, capabilityHealth);
 
     if (candidates.isEmpty()) {

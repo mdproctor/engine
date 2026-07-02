@@ -97,6 +97,8 @@ class DefaultWorkOrchestratorTest {
 
     orchestrator =
         new DefaultWorkOrchestrator(
+            new io.casehub.engine.internal.routing.AgentCandidateFactory(
+                new io.casehub.engine.internal.worker.NoOpVocabularyRegistry()),
             agentRoutingStrategy,
             executionManager,
             capabilityHealth,

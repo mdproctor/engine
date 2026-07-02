@@ -72,6 +72,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
+  private final AgentCandidateFactory agentCandidateFactory;
   private final AgentRoutingStrategy agentRoutingStrategy;
   private final WorkerExecutionManager executionManager;
   private final CapabilityHealth capabilityHealth;
@@ -84,6 +85,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
 
   @Inject
   public DefaultWorkOrchestrator(
+      final AgentCandidateFactory agentCandidateFactory,
       final AgentRoutingStrategy agentRoutingStrategy,
       final WorkerExecutionManager executionManager,
       final CapabilityHealth capabilityHealth,
@@ -93,6 +95,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       final CaseInstanceRepository caseInstanceRepository,
       final EventLogRepository eventLogRepository,
       final JQEvaluator jqEvaluator) {
+    this.agentCandidateFactory = agentCandidateFactory;
     this.agentRoutingStrategy = agentRoutingStrategy;
     this.executionManager = executionManager;
     this.capabilityHealth = capabilityHealth;
@@ -138,7 +141,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
 
     // 2. Build AgentCandidate list — health-probed, Unavailable workers excluded
     final List<AgentCandidate> candidates =
-        AgentCandidateFactory.buildCandidates(
+        agentCandidateFactory.buildCandidates(
             instance,
             definition,
             definition.getWorkers(),

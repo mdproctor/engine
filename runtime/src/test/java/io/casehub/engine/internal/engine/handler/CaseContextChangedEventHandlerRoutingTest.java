@@ -83,6 +83,12 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Mock AgentRoutingStrategy agentRoutingStrategy;
   @Mock WorkerExecutionManager executionManager;
   @Mock CapabilityHealth capabilityHealth;
+
+  @org.mockito.Spy
+  io.casehub.engine.internal.routing.AgentCandidateFactory agentCandidateFactory =
+      new io.casehub.engine.internal.routing.AgentCandidateFactory(
+          new io.casehub.engine.internal.worker.NoOpVocabularyRegistry());
+
   @Mock ReactiveWorkerContextProvider reactiveWorkerContextProvider;
   @Mock ReactiveWorkerProvisioner reactiveWorkerProvisioner;
 

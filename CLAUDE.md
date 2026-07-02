@@ -198,8 +198,9 @@ Eight interfaces in `api/src/main/java/io/casehub/api/spi/` (four blocking + fou
 - `NoOpWorkerProvisioner`, `NoOpWorkerStatusListener`, `NoOpCaseChannelProvider`, `EmptyWorkerContextProvider`
 - Four `@DefaultBean` reactive mirrors: `NoOpReactiveWorkerProvisioner`, `NoOpReactiveCaseChannelProvider`, `NoOpReactiveWorkerStatusListener`, `EmptyReactiveWorkerContextProvider`
 - `NoOpCapabilityHealth` — returns `Ready` for all probes; deployments without `casehub-eidos-api` get transparent no-op
+- `NoOpVocabularyRegistry` — exact-match-only semantics; when `casehub-eidos-runtime` is on the classpath, `CdiVocabularyRegistry` displaces this automatically. Injected by `AgentCandidateFactory` for vocabulary-grounded subsumption matching. Refs engine#609.
 
-Nine are `@DefaultBean @ApplicationScoped` (`io.quarkus.arc.DefaultBean`) — they yield automatically to any consumer-provided implementation without requiring `selected-alternatives` configuration. See protocol `PP-20260514-engine-spi-noops-defaultbean`.
+Ten are `@DefaultBean @ApplicationScoped` (`io.quarkus.arc.DefaultBean`) — they yield automatically to any consumer-provided implementation without requiring `selected-alternatives` configuration. See protocol `PP-20260514-engine-spi-noops-defaultbean`.
 
 **Default routing strategies** in `runtime/src/main/java/io/casehub/engine/internal/routing/`:
 - `FirstSupportedRoutingStrategy` — `@DefaultBean @ApplicationScoped`; iterates `@WorkerBackend` managers by `@Priority` (descending), returns first where both `supports()` and `canExecute()` return true (engine#461, engine#587)
@@ -231,6 +232,8 @@ To add a new operational SPI: define the interface in `api/spi/`, add a `@Defaul
 `WorkerProvisioner.provision()` is called when a capability binding fires and no pre-defined workers match. `ProvisioningException` is caught and logged; the binding stays eligible for the next context-change tick. The no-op default returns empty capabilities, so it is never called unless a real provisioner is wired in.
 
 **AgentDescriptor association (engine#543):** `AgentDescriptor` is stored on `CaseDefinition` (not Worker). `CaseDefinition.agentDescriptorFor(workerName)` returns `Optional<AgentDescriptor>`. `AgentCandidateFactory.buildCandidates()` takes `CaseDefinition` as a parameter and looks up descriptors via this method. Workers are pure foundation-tier records with no eidos dependency.
+
+**`AgentCandidateFactory` subsumption matching (engine#609):** `AgentCandidateFactory` is `@ApplicationScoped` (not a static utility), injecting `VocabularyRegistry` for vocabulary-grounded capability matching. Two-tier matching: exact string match on `Worker.capabilityNames()` first (fast path), then `CapabilityResolver.resolve()` when the worker has an `AgentDescriptor` with grounded capabilities (subsumption fallback). Workers without descriptors get exact-only matching. `MatchDegree` is not surfaced on `AgentCandidate` — subsumption is a binary include/exclude filter. Three auxiliary matching points (`SchedulerService`, `WorkflowExecutionCompletedHandler`, `PlanningStrategyLoopControl`) remain exact-only.
 
 **`WorkerProvisioner.provision()` returns `ProvisionResult`** (blocking) / `Uni<ProvisionResult>` (reactive). `ProvisionResult(UUID causedByEntryId)` carries the ledger entry ID of the Qhorus COMMAND that triggered provisioning for causal audit linkage. Provisioner implementations that cannot resolve a causal entry return `ProvisionResult.empty()`. No-op defaults still throw `ProvisioningException` on `provision()`. `ProvisionResult` lives in `api/src/main/java/io/casehub/api/spi/ProvisionResult.java`. See protocol `PP-20260529-bcbbb5`. Claudony wiring tracked in claudony#140.
 
