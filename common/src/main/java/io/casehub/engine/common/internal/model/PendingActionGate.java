@@ -22,10 +22,10 @@ import java.util.Map;
  * Operational state for an in-flight action gate stored on {@link CaseInstance}.
  *
  * <p>Set when a worker declares a {@link PlannedAction} and the engine's {@link
- * io.casehub.api.spi.ActionRiskClassifier} returns {@link
- * io.casehub.api.spi.RiskDecision.GateRequired}. Cleared by the gate resolution handlers ({@code
- * ActionGateApprovedHandler}, {@code ActionGateRejectedHandler}, {@code ActionGateExpiredHandler})
- * after they finish processing.
+ * io.casehub.blocks.oversight.ActionRiskClassifier} returns {@link
+ * io.casehub.blocks.oversight.RiskDecision.GateRequired}. Cleared by the gate resolution handlers
+ * ({@code ActionGateApprovedHandler}, {@code ActionGateRejectedHandler}, {@code
+ * ActionGateExpiredHandler}) after they finish processing.
  *
  * <p>{@code gateId} is the EventLog entry id of the {@code ACTION_GATE_PENDING} entry. It is
  * embedded in the WorkItem callerRef as {@code "case:{caseId}/gate:{gateId}"} and used to correlate

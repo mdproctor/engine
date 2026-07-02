@@ -18,7 +18,7 @@ package io.casehub.workadapter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
-import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.blocks.oversight.RiskDecision.GateRequired;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.ActionGateCancelledEvent;
 import io.casehub.engine.common.internal.event.ActionGateExpiredEvent;

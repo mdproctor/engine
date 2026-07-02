@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.GateOutcome;
-import io.casehub.api.spi.ReactiveOversightGateService;
+import io.casehub.blocks.oversight.GateOutcome;
+import io.casehub.blocks.oversight.ReactiveOversightGateService;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;

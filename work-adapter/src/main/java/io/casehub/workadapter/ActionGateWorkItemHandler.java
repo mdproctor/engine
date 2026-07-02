@@ -38,7 +38,7 @@ import org.jboss.logging.Logger;
  * <ul>
  *   <li>callerRef: {@code "case:{caseId}/gate:{gateId}"} — routes back to {@link
  *       ActionGateCompletionApplier}
- *   <li>title: {@link io.casehub.api.spi.RiskDecision.GateRequired#reason()}
+ *   <li>title: {@link io.casehub.blocks.oversight.RiskDecision.GateRequired#reason()}
  *   <li>candidateGroups: from the gate decision (CSV)
  *   <li>expiresAt: from {@code expiresIn} (if set)
  *   <li>payload: full PlannedAction as JSON (approver sees what the agent proposed)

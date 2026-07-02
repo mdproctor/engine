@@ -114,8 +114,8 @@ public class CaseInstance {
 
   /**
    * Non-null while an action gate is pending human approval. Set by the engine when {@link
-   * io.casehub.api.spi.RiskDecision.GateRequired} fires; cleared by the gate resolution handlers
-   * after processing.
+   * io.casehub.blocks.oversight.RiskDecision.GateRequired} fires; cleared by the gate resolution
+   * handlers after processing.
    *
    * <p><strong>In-memory only in v1 — not persisted by {@code CaseInstanceEntity}.</strong> If the
    * engine restarts while a gate is pending, the gate is lost from memory. The WorkItem in

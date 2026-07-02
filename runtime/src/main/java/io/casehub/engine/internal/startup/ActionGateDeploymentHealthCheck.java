@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.startup;
 
-import io.casehub.api.spi.ActionRiskClassifier;
-import io.casehub.api.spi.RiskClassifier;
+import io.casehub.blocks.oversight.ActionRiskClassifier;
+import io.casehub.blocks.oversight.RiskClassifier;
 import io.quarkus.runtime.Startup;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -28,7 +28,7 @@ import org.jboss.logging.Logger;
  * Startup check that warns if consumer-provided {@link ActionRiskClassifier} beans are registered
  * but {@code casehub-engine-work-adapter} is not on the classpath.
  *
- * <p>If a classifier returns {@link io.casehub.api.spi.RiskDecision.GateRequired} without
+ * <p>If a classifier returns {@link io.casehub.blocks.oversight.RiskDecision.GateRequired} without
  * work-adapter present, the gate WorkItem is never created and the case stalls indefinitely. The
  * warning appears in logs at startup so operators can fix the configuration before it causes
  * production incidents.
