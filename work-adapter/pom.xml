@@ -26,10 +26,6 @@
         </dependency>
         <dependency>
             <groupId>io.casehub</groupId>
-            <artifactId>casehub-blocks</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.casehub</groupId>
             <artifactId>casehub-work-api</artifactId>
         </dependency>
         <dependency>

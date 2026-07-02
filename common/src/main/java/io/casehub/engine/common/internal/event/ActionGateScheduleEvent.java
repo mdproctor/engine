@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import io.casehub.blocks.oversight.RiskDecision;
+import io.casehub.api.spi.RiskDecision;
 import io.casehub.worker.api.PlannedAction;
 import java.util.UUID;
 

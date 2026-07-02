@@ -32,9 +32,9 @@ import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.ContextDiffStrategy;
+import io.casehub.api.spi.ReactiveActionRiskClassifier;
+import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.WorkerStatusListener;
-import io.casehub.blocks.oversight.ReactiveActionRiskClassifier;
-import io.casehub.blocks.oversight.RiskDecision;
 import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
@@ -230,8 +230,8 @@ public class WorkflowExecutionCompletedHandler {
 
     final CaseDefinition definition =
         caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    final io.casehub.blocks.oversight.ClassificationContext classificationContext =
-        new io.casehub.blocks.oversight.ClassificationContext(
+    final io.casehub.api.spi.ClassificationContext classificationContext =
+        new io.casehub.api.spi.ClassificationContext(
             worker.name(),
             caseInstance.getUuid(),
             caseInstance.tenancyId,

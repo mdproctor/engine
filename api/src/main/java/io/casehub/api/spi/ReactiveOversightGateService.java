@@ -13,27 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker;
+package io.casehub.api.spi;
 
-import io.casehub.api.spi.GateOutcome;
-import io.casehub.api.spi.ReactiveOversightGateService;
-import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 
-@DefaultBean
-@ApplicationScoped
-public class NoOpReactiveOversightGateService implements ReactiveOversightGateService {
+public interface ReactiveOversightGateService {
+  Uni<GateOutcome> openGate(String agentId, String commitmentId, String outcome, String tenancyId);
 
-  @Override
-  public Uni<GateOutcome> openGate(
-      String agentId, String commitmentId, String outcome, String tenancyId) {
-    return Uni.createFrom().item(new GateOutcome.Autonomous());
-  }
-
-  @Override
-  public Uni<Void> fulfill(UUID gateId, String rawOutput) {
-    return Uni.createFrom().voidItem();
-  }
+  Uni<Void> fulfill(UUID gateId, String rawOutput);
 }
