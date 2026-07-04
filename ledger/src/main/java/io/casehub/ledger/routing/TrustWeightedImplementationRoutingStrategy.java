@@ -95,6 +95,11 @@ public class TrustWeightedImplementationRoutingStrategy implements Implementatio
   }
 
   @Override
+  public String id() {
+    return "trust-weighted";
+  }
+
+  @Override
   public Uni<ImplementationSelection> select(
       final ImplementationRoutingContext context, final List<ImplementationCandidate> candidates) {
     if (candidates.isEmpty() || candidates.size() == 1) {

@@ -630,18 +630,16 @@ public final class CaseDefinitionYamlMapper {
     if (schema.getOutputMapping() != null) {
       builder.outputMapping(schema.getOutputMapping());
     }
-    final Object rawGroups = schema.getCandidateGroups();
-    if (rawGroups instanceof List<?> list && !list.isEmpty()) {
-      builder.candidateGroups(new LinkedHashSet<>(castStringList("candidateGroups", list)));
-    } else if (rawGroups instanceof String expr && !expr.isBlank()) {
-      builder.candidateGroupsExpression(expr);
+    final io.casehub.api.spi.routing.CandidateSetSpec groupsSpec =
+        parseCandidateSet(schema.getCandidateGroups(), "candidateGroups");
+    if (groupsSpec != null) {
+      builder.candidateGroups(groupsSpec);
     }
 
-    final Object rawUsers = schema.getCandidateUsers();
-    if (rawUsers instanceof List<?> list && !list.isEmpty()) {
-      builder.candidateUsers(new LinkedHashSet<>(castStringList("candidateUsers", list)));
-    } else if (rawUsers instanceof String expr && !expr.isBlank()) {
-      builder.candidateUsersExpression(expr);
+    final io.casehub.api.spi.routing.CandidateSetSpec usersSpec =
+        parseCandidateSet(schema.getCandidateUsers(), "candidateUsers");
+    if (usersSpec != null) {
+      builder.candidateUsers(usersSpec);
     }
     if (schema.getScope() != null) {
       builder.scope(schema.getScope());
@@ -685,6 +683,36 @@ public final class CaseDefinitionYamlMapper {
       builder.outcomes(new LinkedHashSet<>(schema.getOutcomes()));
     }
     return builder.build();
+  }
+
+  @SuppressWarnings("unchecked")
+  private static io.casehub.api.spi.routing.CandidateSetSpec parseCandidateSet(
+      final Object raw, final String fieldName) {
+    if (raw instanceof List<?> list && !list.isEmpty()) {
+      return new io.casehub.api.spi.routing.CandidateSetSpec.Inline(
+          io.casehub.api.spi.routing.StaticSetStrategy.of(
+              new LinkedHashSet<>(castStringList(fieldName, list))));
+    } else if (raw instanceof String expr && !expr.isBlank()) {
+      return new io.casehub.api.spi.routing.CandidateSetSpec.Inline(
+          new io.casehub.api.spi.routing.JqCandidateSetStrategy(expr));
+    } else if (raw instanceof Map<?, ?> map) {
+      if (map.containsKey("strategy")) {
+        final String strategyId = (String) map.get("strategy");
+        final Map<String, Object> config =
+            map.containsKey("config") ? (Map<String, Object>) map.get("config") : Map.of();
+        return new io.casehub.api.spi.routing.CandidateSetSpec.Named(strategyId, config);
+      } else if (map.containsKey("expression")) {
+        final String expression = (String) map.get("expression");
+        final String lang = map.containsKey("lang") ? (String) map.get("lang") : "jq";
+        if ("jq".equals(lang)) {
+          return new io.casehub.api.spi.routing.CandidateSetSpec.Inline(
+              new io.casehub.api.spi.routing.JqCandidateSetStrategy(expression));
+        }
+        return new io.casehub.api.spi.routing.CandidateSetSpec.Named(
+            "expression-" + lang, Map.of("expression", expression, "lang", lang));
+      }
+    }
+    return null;
   }
 
   private static ExecutionPolicy convertExecutionPolicy(

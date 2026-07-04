@@ -20,7 +20,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
-import io.casehub.api.model.evaluator.ListEvaluator;
+import io.casehub.api.spi.routing.CandidateSetSpec;
+import io.casehub.api.spi.routing.JqCandidateSetStrategy;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import java.time.Duration;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -85,7 +87,7 @@ class HumanTaskTargetTest {
   }
 
   @Test
-  void candidateGroups_staticSet_wrapsInStaticList() {
+  void candidateGroups_staticSet_wrapsInInlineStaticStrategy() {
     HumanTaskTarget target =
         HumanTaskTarget.inline()
             .title("Review")
@@ -93,20 +95,23 @@ class HumanTaskTargetTest {
             .expiresIn(Duration.ofHours(72))
             .build();
 
-    assertThat(target.candidateGroups()).isInstanceOf(ListEvaluator.StaticList.class);
-    assertThat(((ListEvaluator.StaticList) target.candidateGroups()).values())
+    assertThat(target.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
+    CandidateSetSpec.Inline inline = (CandidateSetSpec.Inline) target.candidateGroups();
+    assertThat(inline.strategy()).isInstanceOf(StaticSetStrategy.class);
+    assertThat(((StaticSetStrategy) inline.strategy()).values())
         .containsExactlyInAnyOrder("ethics-committee");
     assertThat(target.expiresIn()).isEqualTo(Duration.ofHours(72));
   }
 
   @Test
-  void candidateGroups_jqExpression_wrapsInJQList() {
+  void candidateGroups_jqExpression_wrapsInInlineJqStrategy() {
     HumanTaskTarget target =
         HumanTaskTarget.inline().title("Review").candidateGroupsExpression(".irb.groups").build();
 
-    assertThat(target.candidateGroups()).isInstanceOf(ListEvaluator.JQList.class);
-    assertThat(((ListEvaluator.JQList) target.candidateGroups()).expression())
-        .isEqualTo(".irb.groups");
+    assertThat(target.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
+    CandidateSetSpec.Inline inline = (CandidateSetSpec.Inline) target.candidateGroups();
+    assertThat(inline.strategy()).isInstanceOf(JqCandidateSetStrategy.class);
+    assertThat(((JqCandidateSetStrategy) inline.strategy()).expression()).isEqualTo(".irb.groups");
   }
 
   @Test
@@ -117,25 +122,29 @@ class HumanTaskTargetTest {
   }
 
   @Test
-  void candidateUsers_staticSet_wrapsInStaticList() {
+  void candidateUsers_staticSet_wrapsInInlineStaticStrategy() {
     HumanTaskTarget target =
         HumanTaskTarget.inline().title("Review").candidateUsers(Set.of("user-a")).build();
 
-    assertThat(target.candidateUsers()).isInstanceOf(ListEvaluator.StaticList.class);
-    assertThat(((ListEvaluator.StaticList) target.candidateUsers()).values())
+    assertThat(target.candidateUsers()).isInstanceOf(CandidateSetSpec.Inline.class);
+    CandidateSetSpec.Inline inline = (CandidateSetSpec.Inline) target.candidateUsers();
+    assertThat(inline.strategy()).isInstanceOf(StaticSetStrategy.class);
+    assertThat(((StaticSetStrategy) inline.strategy()).values())
         .containsExactlyInAnyOrder("user-a");
   }
 
   @Test
-  void candidateUsers_jqExpression_wrapsInJQList() {
+  void candidateUsers_jqExpression_wrapsInInlineJqStrategy() {
     HumanTaskTarget target =
         HumanTaskTarget.inline()
             .title("Review")
             .candidateUsersExpression(".approver.id | [.]")
             .build();
 
-    assertThat(target.candidateUsers()).isInstanceOf(ListEvaluator.JQList.class);
-    assertThat(((ListEvaluator.JQList) target.candidateUsers()).expression())
+    assertThat(target.candidateUsers()).isInstanceOf(CandidateSetSpec.Inline.class);
+    CandidateSetSpec.Inline inline = (CandidateSetSpec.Inline) target.candidateUsers();
+    assertThat(inline.strategy()).isInstanceOf(JqCandidateSetStrategy.class);
+    assertThat(((JqCandidateSetStrategy) inline.strategy()).expression())
         .isEqualTo(".approver.id | [.]");
   }
 

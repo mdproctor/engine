@@ -42,7 +42,7 @@ class SequentialPlanningStrategyTest {
 
   @Test
   void id_isSequential() {
-    assertEquals("sequential", strategy.getId());
+    assertEquals("sequential", strategy.id());
   }
 
   @Test

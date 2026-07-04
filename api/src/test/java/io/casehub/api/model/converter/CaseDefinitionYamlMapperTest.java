@@ -35,7 +35,9 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
-import io.casehub.api.model.evaluator.ListEvaluator;
+import io.casehub.api.spi.routing.CandidateSetSpec;
+import io.casehub.api.spi.routing.JqCandidateSetStrategy;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.worker.api.Capability;
@@ -462,11 +464,17 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
     HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
-    assertThat(ht.candidateGroups()).isInstanceOf(ListEvaluator.StaticList.class);
-    assertThat(((ListEvaluator.StaticList) ht.candidateGroups()).values())
+    assertThat(ht.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+        .isInstanceOf(StaticSetStrategy.class);
+    assertThat(
+            ((StaticSetStrategy) ((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+                .values())
         .containsExactlyInAnyOrder("architects", "seniors");
-    assertThat(ht.candidateUsers()).isInstanceOf(ListEvaluator.StaticList.class);
-    assertThat(((ListEvaluator.StaticList) ht.candidateUsers()).values())
+    assertThat(ht.candidateUsers()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(
+            ((StaticSetStrategy) ((CandidateSetSpec.Inline) ht.candidateUsers()).strategy())
+                .values())
         .containsExactlyInAnyOrder("alice");
     assertThat(ht.expiresIn()).isEqualTo(Duration.parse("PT24H"));
     assertThat(ht.inputMapping()).isInstanceOf(JQExpressionEvaluator.class);
@@ -671,8 +679,12 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
     HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
 
-    assertThat(ht.candidateGroups()).isInstanceOf(ListEvaluator.JQList.class);
-    assertThat(((ListEvaluator.JQList) ht.candidateGroups()).expression())
+    assertThat(ht.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+        .isInstanceOf(JqCandidateSetStrategy.class);
+    assertThat(
+            ((JqCandidateSetStrategy) ((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+                .expression())
         .isEqualTo(".irb.candidateGroups");
   }
 
@@ -697,8 +709,12 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
     HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
 
-    assertThat(ht.candidateUsers()).isInstanceOf(ListEvaluator.JQList.class);
-    assertThat(((ListEvaluator.JQList) ht.candidateUsers()).expression())
+    assertThat(ht.candidateUsers()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(((CandidateSetSpec.Inline) ht.candidateUsers()).strategy())
+        .isInstanceOf(JqCandidateSetStrategy.class);
+    assertThat(
+            ((JqCandidateSetStrategy) ((CandidateSetSpec.Inline) ht.candidateUsers()).strategy())
+                .expression())
         .isEqualTo(".approver.id | [.]");
   }
 
@@ -725,8 +741,12 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
     HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
 
-    assertThat(ht.candidateGroups()).isInstanceOf(ListEvaluator.StaticList.class);
-    assertThat(((ListEvaluator.StaticList) ht.candidateGroups()).values())
+    assertThat(ht.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+        .isInstanceOf(StaticSetStrategy.class);
+    assertThat(
+            ((StaticSetStrategy) ((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+                .values())
         .containsExactlyInAnyOrder("architects", "seniors");
   }
 

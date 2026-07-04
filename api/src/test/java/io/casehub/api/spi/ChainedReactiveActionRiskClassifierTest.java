@@ -21,6 +21,7 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.worker.api.PlannedAction;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
@@ -76,14 +77,17 @@ class ChainedReactiveActionRiskClassifierTest {
   @Test
   void singleClassifier_returnsGateRequired_propagatesGateRequired() {
     final GateRequired gate =
-        new GateRequired("SAR filing", false, List.of("mlro"), Duration.ofHours(24), null);
+        new GateRequired(
+            "SAR filing", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null);
     chain.classifiers = instanceOf((action, context) -> gate);
 
     RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
     assertThat(((GateRequired) result).reason()).isEqualTo("SAR filing");
-    assertThat(((GateRequired) result).candidateGroups()).containsExactly("mlro");
+    assertThat(((GateRequired) result).candidateGroups()).isInstanceOf(StaticSetStrategy.class);
+    assertThat(((StaticSetStrategy) ((GateRequired) result).candidateGroups()).values())
+        .containsExactly("mlro");
   }
 
   // --- Two classifiers, merge semantics ---
@@ -104,12 +108,15 @@ class ChainedReactiveActionRiskClassifierTest {
         instanceOf(
             (action, context) -> new Autonomous(),
             (action, context) ->
-                new GateRequired("SUSAR filing", false, List.of("physician"), null, null));
+                new GateRequired(
+                    "SUSAR filing", false, StaticSetStrategy.of("physician"), null, null));
 
     RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
-    assertThat(((GateRequired) result).candidateGroups()).containsExactly("physician");
+    assertThat(((GateRequired) result).candidateGroups()).isInstanceOf(StaticSetStrategy.class);
+    assertThat(((StaticSetStrategy) ((GateRequired) result).candidateGroups()).values())
+        .containsExactly("physician");
   }
 
   @Test
@@ -117,15 +124,21 @@ class ChainedReactiveActionRiskClassifierTest {
     chain.classifiers =
         instanceOf(
             (action, context) ->
-                new GateRequired("AML", false, List.of("mlro"), Duration.ofHours(24), null),
+                new GateRequired(
+                    "AML", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null),
             (action, context) ->
                 new GateRequired(
-                    "clinical", false, List.of("physician", "pharmacist"), null, null));
+                    "clinical",
+                    false,
+                    StaticSetStrategy.of("physician", "pharmacist"),
+                    null,
+                    null));
 
     GateRequired result =
         (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
-    assertThat(result.candidateGroups()).containsExactly("mlro");
+    assertThat(result.candidateGroups()).isInstanceOf(StaticSetStrategy.class);
+    assertThat(((StaticSetStrategy) result.candidateGroups()).values()).containsExactly("mlro");
     assertThat(result.reason()).isEqualTo("AML");
   }
 
@@ -134,9 +147,11 @@ class ChainedReactiveActionRiskClassifierTest {
     chain.classifiers =
         instanceOf(
             (action, context) ->
-                new GateRequired("slow", false, List.of("mlro"), Duration.ofHours(48), null),
+                new GateRequired(
+                    "slow", false, StaticSetStrategy.of("mlro"), Duration.ofHours(48), null),
             (action, context) ->
-                new GateRequired("fast", false, List.of("analyst"), Duration.ofHours(24), null));
+                new GateRequired(
+                    "fast", false, StaticSetStrategy.of("analyst"), Duration.ofHours(24), null));
 
     GateRequired result =
         (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
@@ -150,10 +165,14 @@ class ChainedReactiveActionRiskClassifierTest {
     chain.classifiers =
         instanceOf(
             (action, context) ->
-                new GateRequired("no-deadline", false, List.of("mlro"), null, null),
+                new GateRequired("no-deadline", false, StaticSetStrategy.of("mlro"), null, null),
             (action, context) ->
                 new GateRequired(
-                    "with-deadline", false, List.of("analyst"), Duration.ofHours(24), null));
+                    "with-deadline",
+                    false,
+                    StaticSetStrategy.of("analyst"),
+                    Duration.ofHours(24),
+                    null));
 
     GateRequired result =
         (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
@@ -168,12 +187,13 @@ class ChainedReactiveActionRiskClassifierTest {
         instanceOf(
             (action, context) -> new GateRequired("unrestricted", false, null, null, null),
             (action, context) ->
-                new GateRequired("restricted", false, List.of("mlro"), null, null));
+                new GateRequired("restricted", false, StaticSetStrategy.of("mlro"), null, null));
 
     GateRequired result =
         (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
-    assertThat(result.candidateGroups()).containsExactly("mlro");
+    assertThat(result.candidateGroups()).isInstanceOf(StaticSetStrategy.class);
+    assertThat(((StaticSetStrategy) result.candidateGroups()).values()).containsExactly("mlro");
     assertThat(result.reason()).isEqualTo("restricted");
   }
 
@@ -242,12 +262,15 @@ class ChainedReactiveActionRiskClassifierTest {
             (action, context) ->
                 Uni.createFrom()
                     .item(
-                        new GateRequired("async-check", false, List.of("compliance"), null, null)));
+                        new GateRequired(
+                            "async-check", false, StaticSetStrategy.of("compliance"), null, null)));
 
     RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
     assertThat(result).isInstanceOf(GateRequired.class);
-    assertThat(((GateRequired) result).candidateGroups()).containsExactly("compliance");
+    assertThat(((GateRequired) result).candidateGroups()).isInstanceOf(StaticSetStrategy.class);
+    assertThat(((StaticSetStrategy) ((GateRequired) result).candidateGroups()).values())
+        .containsExactly("compliance");
   }
 
   @Test
@@ -255,17 +278,21 @@ class ChainedReactiveActionRiskClassifierTest {
     chain.classifiers =
         instanceOf(
             (action, context) ->
-                new GateRequired("blocking", false, List.of("mlro", "analyst"), null, null));
+                new GateRequired(
+                    "blocking", false, StaticSetStrategy.of("mlro", "analyst"), null, null));
     chain.reactiveClassifiers =
         reactiveInstanceOf(
             (action, context) ->
                 Uni.createFrom()
-                    .item(new GateRequired("reactive", false, List.of("mlro"), null, null)));
+                    .item(
+                        new GateRequired(
+                            "reactive", false, StaticSetStrategy.of("mlro"), null, null)));
 
     GateRequired result =
         (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
 
-    assertThat(result.candidateGroups()).containsExactly("mlro");
+    assertThat(result.candidateGroups()).isInstanceOf(StaticSetStrategy.class);
+    assertThat(((StaticSetStrategy) result.candidateGroups()).values()).containsExactly("mlro");
     assertThat(result.reason()).isEqualTo("reactive");
   }
 

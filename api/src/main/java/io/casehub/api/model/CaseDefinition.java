@@ -46,6 +46,9 @@ public class CaseDefinition {
   private List<String> panelNames;
   private Map<String, AgentDescriptor> agentDescriptors = Map.of();
   private String planningStrategy;
+  private String agentRouting;
+  private String implementationRouting;
+  private String candidateMatching;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -170,6 +173,30 @@ public class CaseDefinition {
     this.planningStrategy = planningStrategy;
   }
 
+  public String getAgentRouting() {
+    return agentRouting;
+  }
+
+  public void setAgentRouting(String agentRouting) {
+    this.agentRouting = agentRouting;
+  }
+
+  public String getImplementationRouting() {
+    return implementationRouting;
+  }
+
+  public void setImplementationRouting(String implementationRouting) {
+    this.implementationRouting = implementationRouting;
+  }
+
+  public String getCandidateMatching() {
+    return candidateMatching;
+  }
+
+  public void setCandidateMatching(String candidateMatching) {
+    this.candidateMatching = candidateMatching;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -192,6 +219,9 @@ public class CaseDefinition {
     private List<String> panelNames;
     private Map<String, AgentDescriptor> agentDescriptors = new HashMap<>();
     private String planningStrategy;
+    private String agentRouting;
+    private String implementationRouting;
+    private String candidateMatching;
 
     private Builder() {}
 
@@ -330,6 +360,21 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder agentRouting(String agentRouting) {
+      this.agentRouting = agentRouting;
+      return this;
+    }
+
+    public Builder implementationRouting(String implementationRouting) {
+      this.implementationRouting = implementationRouting;
+      return this;
+    }
+
+    public Builder candidateMatching(String candidateMatching) {
+      this.candidateMatching = candidateMatching;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -359,6 +404,9 @@ public class CaseDefinition {
       caseHubDefinition.setPanelNames(panelNames);
       caseHubDefinition.setAgentDescriptors(agentDescriptors);
       caseHubDefinition.setPlanningStrategy(planningStrategy);
+      caseHubDefinition.setAgentRouting(agentRouting);
+      caseHubDefinition.setImplementationRouting(implementationRouting);
+      caseHubDefinition.setCandidateMatching(candidateMatching);
 
       return caseHubDefinition;
     }

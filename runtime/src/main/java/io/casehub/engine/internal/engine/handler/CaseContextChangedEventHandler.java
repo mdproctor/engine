@@ -44,6 +44,9 @@ import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.CandidateSetContext;
+import io.casehub.api.spi.routing.CandidateSetSpec;
+import io.casehub.api.spi.routing.CandidateSetStrategy;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -61,9 +64,9 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
-import io.casehub.engine.internal.engine.ListExpressionResolver;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.quarkus.vertx.ConsumeEvent;
@@ -89,15 +92,13 @@ public class CaseContextChangedEventHandler {
 
   @Inject JQEvaluator jqEvaluator;
 
-  @Inject ListExpressionResolver listExpressionResolver;
-
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 
   @Inject ExpressionEngineRegistry expressionEngineRegistry;
 
   @Inject LoopControl loopControl;
 
-  @Inject AgentRoutingStrategy agentRoutingStrategy;
+  @Inject StrategyResolver strategyResolver;
 
   @Inject AgentCandidateFactory agentCandidateFactory;
 
@@ -372,7 +373,9 @@ public class CaseContextChangedEventHandler {
             capability.name(),
             caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
 
-    return agentRoutingStrategy
+    final AgentRoutingStrategy routingStrategy =
+        strategyResolver.resolve(AgentRoutingStrategy.class, caseDefinition.getAgentRouting());
+    return routingStrategy
         .select(ctx, candidates)
         .chain(
             assignment ->
@@ -479,48 +482,80 @@ public class CaseContextChangedEventHandler {
   private Uni<Void> publishHumanTaskSchedule(
       final CaseInstance caseInstance, final Binding binding, final HumanTaskTarget target) {
     final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
-    final Set<String> resolvedGroups =
-        listExpressionResolver.resolve(caseInstance, target.candidateGroups(), "candidateGroups");
-    final Set<String> resolvedUsers =
-        listExpressionResolver.resolve(caseInstance, target.candidateUsers(), "candidateUsers");
+    final JsonNode caseContext =
+        caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode();
 
-    if (ListExpressionResolver.isFailed(resolvedGroups)
-        || ListExpressionResolver.isFailed(resolvedUsers)) {
-      LOG.warnf(
-          "HumanTask list expression resolution failed for caseId=%s binding=%s — PlanItem stays PENDING",
-          caseInstance.getUuid(), binding.getName());
-      return Uni.createFrom().voidItem();
+    final Uni<Set<String>> groupsUni =
+        resolveCandidateSet(target.candidateGroups(), caseContext, "candidateGroups");
+    final Uni<Set<String>> usersUni =
+        resolveCandidateSet(target.candidateUsers(), caseContext, "candidateUsers");
+
+    return Uni.combine()
+        .all()
+        .unis(groupsUni, usersUni)
+        .asTuple()
+        .chain(
+            tuple -> {
+              final Set<String> resolvedGroups = tuple.getItem1();
+              final Set<String> resolvedUsers = tuple.getItem2();
+
+              final java.time.Instant caseBudgetDeadline =
+                  java.util.Optional.ofNullable(caseInstance.getPropagationContext())
+                      .flatMap(PropagationContext::getDeadline)
+                      .orElse(null);
+
+              final java.time.Instant expiresAtDeadline =
+                  resolveExpiresAtDeadline(caseInstance, target);
+
+              LOG.infof(
+                  "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s deadline=%s expiresAtDeadline=%s",
+                  caseInstance.getUuid(),
+                  binding.getName(),
+                  target.templateRef(),
+                  caseBudgetDeadline,
+                  expiresAtDeadline);
+
+              eventBus.publish(
+                  EventBusAddresses.HUMAN_TASK_SCHEDULE,
+                  new HumanTaskScheduleEvent(
+                      caseInstance.getUuid(),
+                      binding.getName(),
+                      target,
+                      inputData,
+                      resolvedGroups,
+                      resolvedUsers,
+                      caseBudgetDeadline,
+                      expiresAtDeadline,
+                      caseInstance.tenancyId));
+
+              return Uni.createFrom().voidItem();
+            })
+        .onFailure()
+        .recoverWithUni(
+            t -> {
+              LOG.warnf(
+                  t,
+                  "HumanTask candidate set resolution failed for caseId=%s binding=%s — PlanItem stays PENDING",
+                  caseInstance.getUuid(),
+                  binding.getName());
+              return Uni.createFrom().voidItem();
+            });
+  }
+
+  private Uni<Set<String>> resolveCandidateSet(
+      final CandidateSetSpec spec, final JsonNode caseContext, final String fieldName) {
+    if (spec == null) {
+      return Uni.createFrom().nullItem();
     }
-
-    final java.time.Instant caseBudgetDeadline =
-        java.util.Optional.ofNullable(caseInstance.getPropagationContext())
-            .flatMap(PropagationContext::getDeadline)
-            .orElse(null);
-
-    final java.time.Instant expiresAtDeadline = resolveExpiresAtDeadline(caseInstance, target);
-
-    LOG.infof(
-        "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s deadline=%s expiresAtDeadline=%s",
-        caseInstance.getUuid(),
-        binding.getName(),
-        target.templateRef(),
-        caseBudgetDeadline,
-        expiresAtDeadline);
-
-    eventBus.publish(
-        EventBusAddresses.HUMAN_TASK_SCHEDULE,
-        new HumanTaskScheduleEvent(
-            caseInstance.getUuid(),
-            binding.getName(),
-            target,
-            inputData,
-            resolvedGroups,
-            resolvedUsers,
-            caseBudgetDeadline,
-            expiresAtDeadline,
-            caseInstance.tenancyId));
-
-    return Uni.createFrom().voidItem();
+    return switch (spec) {
+      case CandidateSetSpec.Inline inline ->
+          inline.strategy().evaluate(new CandidateSetContext(caseContext));
+      case CandidateSetSpec.Named named -> {
+        final CandidateSetStrategy resolved =
+            strategyResolver.resolve(CandidateSetStrategy.class, named.strategyId());
+        yield resolved.evaluate(new CandidateSetContext(caseContext, named.config()));
+      }
+    };
   }
 
   private java.time.Instant resolveExpiresAtDeadline(

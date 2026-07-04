@@ -78,6 +78,11 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
 
   private static final Logger LOG = Logger.getLogger(SemanticAgentRoutingStrategy.class);
 
+  @Override
+  public String id() {
+    return "semantic";
+  }
+
   private final TrustCandidateClassifier classifier;
   private final TrustScoreSource source;
   private final TrustRoutingPolicyProvider policyProvider;

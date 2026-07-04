@@ -67,7 +67,7 @@ public class ActionGateWorkItemHandler {
     final WorkItemCreateRequest request =
         WorkItemCreateRequest.builder()
             .title(event.gateRequired().reason())
-            .candidateGroups(candidateGroupsCsv(event.gateRequired().candidateGroups()))
+            .candidateGroups(candidateGroupsCsv(event.gateRequired()))
             .createdBy("casehub-engine")
             .payload(buildPayload(event))
             .expiresAt(expiresAt)
@@ -81,7 +81,14 @@ public class ActionGateWorkItemHandler {
         event.caseId(), event.gateId(), callerRef, expiresAt);
   }
 
-  private static String candidateGroupsCsv(final java.util.List<String> groups) {
+  private static String candidateGroupsCsv(
+      final io.casehub.api.spi.RiskDecision.GateRequired gate) {
+    if (gate.candidateGroups() == null) return null;
+    final java.util.Set<String> groups =
+        gate.candidateGroups()
+            .evaluate(new io.casehub.api.spi.routing.CandidateSetContext(null))
+            .await()
+            .indefinitely();
     if (groups == null || groups.isEmpty()) return null;
     return String.join(",", groups);
   }

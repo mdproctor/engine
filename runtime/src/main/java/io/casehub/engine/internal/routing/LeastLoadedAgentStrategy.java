@@ -20,6 +20,7 @@ import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.quarkus.arc.DefaultBean;
+import io.quarkus.arc.Unremovable;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Comparator;
@@ -29,13 +30,16 @@ import java.util.List;
  * Default {@link AgentRoutingStrategy} — selects the candidate with the fewest active Quartz jobs.
  * Ties are broken by list order (deterministic). Health is not considered here; trust-aware
  * demotion is left to {@code TrustWeightedAgentStrategy} when deployed.
- *
- * <p>Yields automatically to any {@code @ApplicationScoped} or {@code @Alternative @Priority(N)}
- * implementation present on the classpath.
  */
 @DefaultBean
 @ApplicationScoped
+@Unremovable
 public class LeastLoadedAgentStrategy implements AgentRoutingStrategy {
+
+  @Override
+  public String id() {
+    return "least-loaded";
+  }
 
   @Override
   public Uni<AgentAssignment> select(

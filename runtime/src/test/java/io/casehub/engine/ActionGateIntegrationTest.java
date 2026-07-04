@@ -33,6 +33,7 @@ import io.casehub.api.spi.RiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.PlannedAction;
@@ -99,7 +100,8 @@ class ActionGateIntegrationTest {
   @Test
   void gateRequiredDecision_caseRemainsRunning_gateIsPending() {
     CapturingClassifier.nextDecision =
-        new GateRequired("SAR filing requires MLRO sign-off", false, List.of("mlro"), null, null);
+        new GateRequired(
+            "SAR filing requires MLRO sign-off", false, StaticSetStrategy.of("mlro"), null, null);
     GateCaseHub.declareAction.set(true);
 
     final UUID caseId = startCase();
@@ -134,7 +136,8 @@ class ActionGateIntegrationTest {
     // CaseInstance.
     // This test verifies the constraint is enforced and the first gate is not corrupted.
     CapturingClassifier.nextDecision =
-        new GateRequired("SAR filing requires MLRO sign-off", false, List.of("mlro"), null, null);
+        new GateRequired(
+            "SAR filing requires MLRO sign-off", false, StaticSetStrategy.of("mlro"), null, null);
     GateCaseHub.declareAction.set(true);
 
     final UUID caseId = startCase();

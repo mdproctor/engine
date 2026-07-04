@@ -18,6 +18,7 @@ package io.casehub.blackboard.control;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.blackboard.plan.CasePlanModel;
+import io.quarkus.arc.Unremovable;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
@@ -28,10 +29,11 @@ import java.util.List;
  * state to accumulate for custom strategies. See casehubio/engine#76. Epic casehubio/engine#30.
  */
 @ApplicationScoped
+@Unremovable
 public class DefaultPlanningStrategy implements PlanningStrategy {
 
   @Override
-  public String getId() {
+  public String id() {
     return "default";
   }
 

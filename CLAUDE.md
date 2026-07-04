@@ -263,7 +263,7 @@ Platform-level oversight gate for consequential worker actions. Workers declare 
 **SPI interfaces** in `api/src/main/java/io/casehub/api/spi/`:
 - `ActionRiskClassifier` — blocking; consumer implementations use this
 - `ReactiveActionRiskClassifier` — primary (called by engine); `ChainedReactiveActionRiskClassifier` bridges blocking → reactive
-- `RiskDecision` — sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope)`
+- `RiskDecision` — sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope)`. `candidateGroups` is `CandidateSetStrategy` (not `List<String>`) — supports dynamic evaluation via `StaticSetStrategy.of(...)`, `ExpressionSetStrategy`, or named CDI strategies resolved via `StrategyResolver`. Refs engine#634.
 - `PlannedAction` — from `io.casehub.worker.api.PlannedAction` (foundation tier); carries `description`, `actionType`, `parameters` only — no identity fields
 - `ClassificationContext` — carries `workerId`, `caseId`, `tenancyId`, `caseDefinitionName`, `capabilityName`, `bindingName`; constructed by engine at classify() call site
 - `@RiskClassifier` — CDI qualifier; consumer implementations must use this to avoid CDI conflict with the chain
@@ -307,6 +307,18 @@ Selects which binding(s) handle a capability when multiple bindings target the s
 **Default:** `NoOpImplementationRoutingStrategy` (`@DefaultBean @ApplicationScoped` in `runtime/internal/routing/`) returns `RunAll`.
 
 **Integration:** `PlanningStrategyLoopControl.applyImplementationRouting()` runs at step 3.5 — after `stageLifecycleEvaluator.evaluate()`, before `planningStrategy.select()`. Routing filters bindings before PlanItem creation (no create-then-cancel).
+
+## Universal Routing Strategy Architecture
+
+`NamedStrategy` marker interface (`io.casehub.platform.api.routing`) and `StrategyResolver` CDI bean provide a consistent named-strategy convention across the platform. All per-case-selectable routing strategies extend `NamedStrategy`, declare `id()`, and are resolved by `StrategyResolver`. Resolution: YAML-specified ID → `@DefaultBean` fallback.
+
+**CandidateSetStrategy** (`api/spi/routing/`) — replaces sealed `ListEvaluator`. Returns `Uni<Set<String>>`. Two creation modes: value objects (`StaticSetStrategy`, `ExpressionSetStrategy`, `JqCandidateSetStrategy`) for YAML mapper/builder, and named CDI beans for `StrategyResolver` lookup. `HumanTaskTarget` stores `CandidateSetSpec` (sealed: `Inline(CandidateSetStrategy)` | `Named(strategyId, config)`).
+
+**CandidateMatchingStrategy** (`api/spi/routing/`) — replaces hardcoded `AgentCandidateFactory` matching. Returns `Uni<List<Worker>>`. Built-in: `ExactMatchStrategy` (id=`"exact"`), `SubsumptionMatchStrategy` (id=`"subsumption"`, `@DefaultBean`). `AgentCandidateFactory` delegates matching, retains health probing and candidate construction.
+
+**CaseDefinition** gains `agentRouting`, `implementationRouting`, `candidateMatching` (all nullable String strategy IDs). Resolved at dispatch time via `StrategyResolver`.
+
+**EngineStrategyResolver** (`runtime/internal/routing/`) — `@Alternative @Priority(1)` resolver using per-domain `Instance<>` injection (Quarkus ARC workaround — `Instance<NamedStrategy>` does not discover sub-interface beans). Adding new strategy SPI types requires updating this resolver's constructor. Refs engine#634, GE-20260704-d6aacc.
 
 ## Repeatable Stage
 

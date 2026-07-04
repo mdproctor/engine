@@ -20,6 +20,7 @@ import io.casehub.api.spi.routing.ImplementationRoutingContext;
 import io.casehub.api.spi.routing.ImplementationRoutingStrategy;
 import io.casehub.api.spi.routing.ImplementationSelection;
 import io.quarkus.arc.DefaultBean;
+import io.quarkus.arc.Unremovable;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
@@ -31,7 +32,13 @@ import java.util.List;
  */
 @DefaultBean
 @ApplicationScoped
+@Unremovable
 public class NoOpImplementationRoutingStrategy implements ImplementationRoutingStrategy {
+
+  @Override
+  public String id() {
+    return "run-all";
+  }
 
   @Override
   public Uni<ImplementationSelection> select(

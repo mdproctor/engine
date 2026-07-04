@@ -15,6 +15,7 @@
  */
 package io.casehub.api.spi.routing;
 
+import io.casehub.platform.api.routing.NamedStrategy;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 
@@ -43,7 +44,7 @@ import java.util.List;
  *       candidates
  * </ul>
  */
-public interface AgentRoutingStrategy {
+public interface AgentRoutingStrategy extends NamedStrategy {
 
   /**
    * Select a worker from the pre-filtered candidate list.

@@ -15,6 +15,8 @@
  */
 package io.casehub.api.spi.routing;
 
+import io.casehub.platform.api.routing.NamedStrategy;
+
 /**
  * SPI for resolving the routing policy to apply for a given capability.
  *
@@ -25,7 +27,7 @@ package io.casehub.api.spi.routing;
  * <p>The default implementation returns {@link
  * io.casehub.api.spi.routing.TrustRoutingPolicy#DEFAULT} for all capabilities.
  */
-public interface TrustRoutingPolicyProvider {
+public interface TrustRoutingPolicyProvider extends NamedStrategy {
 
   /**
    * Return the routing policy for the given capability name. Never returns null — use {@link

@@ -18,6 +18,7 @@ package io.casehub.blackboard.control;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.blackboard.plan.CasePlanModel;
+import io.casehub.platform.api.routing.NamedStrategy;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 
@@ -37,8 +38,9 @@ import java.util.List;
  *   <li>Handle empty {@code eligible} gracefully
  * </ul>
  */
-public interface PlanningStrategy {
-  String getId();
+public interface PlanningStrategy extends NamedStrategy {
+  @Override
+  String id();
 
   String getName();
 

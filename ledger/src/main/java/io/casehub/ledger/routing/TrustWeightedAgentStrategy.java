@@ -78,6 +78,11 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
   }
 
   @Override
+  public String id() {
+    return "trust-weighted";
+  }
+
+  @Override
   public Uni<AgentAssignment> select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
     if (candidates.isEmpty()) {

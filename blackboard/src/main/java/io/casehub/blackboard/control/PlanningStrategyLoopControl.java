@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 import org.jboss.logging.Logger;
 
 /**
@@ -79,8 +78,8 @@ public class PlanningStrategyLoopControl implements LoopControl {
       ImplementationRoutingStrategy implementationRoutingStrategy) {
     this.registry = registry;
     this.strategies =
-        StreamSupport.stream(strategyBeans.spliterator(), false)
-            .collect(Collectors.toMap(PlanningStrategy::getId, s -> s));
+        java.util.stream.StreamSupport.stream(strategyBeans.spliterator(), false)
+            .collect(java.util.stream.Collectors.toMap(PlanningStrategy::id, s -> s));
     this.stageLifecycleEvaluator = stageLifecycleEvaluator;
     this.configurers = configurers;
     this.implementationRoutingStrategy = implementationRoutingStrategy;

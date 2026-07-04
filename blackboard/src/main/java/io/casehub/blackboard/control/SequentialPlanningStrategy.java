@@ -20,16 +20,18 @@ import io.casehub.api.model.Binding;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.quarkus.arc.Unremovable;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
 
 @ApplicationScoped
+@Unremovable
 public class SequentialPlanningStrategy implements PlanningStrategy {
 
   @Override
-  public String getId() {
+  public String id() {
     return "sequential";
   }
 

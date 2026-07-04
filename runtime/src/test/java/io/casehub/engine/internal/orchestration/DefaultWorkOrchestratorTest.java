@@ -30,6 +30,7 @@ import io.casehub.api.model.WorkResult;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.CandidateMatchingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
@@ -43,7 +44,10 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.engine.internal.routing.SubsumptionMatchStrategy;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
+import io.casehub.platform.api.routing.NamedStrategy;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -97,8 +101,7 @@ class DefaultWorkOrchestratorTest {
 
     orchestrator =
         new DefaultWorkOrchestrator(
-            new io.casehub.engine.internal.routing.AgentCandidateFactory(
-                new io.casehub.engine.internal.worker.NoOpVocabularyRegistry()),
+            new io.casehub.engine.internal.routing.AgentCandidateFactory(testStrategyResolver()),
             agentRoutingStrategy,
             executionManager,
             capabilityHealth,
@@ -362,5 +365,36 @@ class DefaultWorkOrchestratorTest {
     when(ctx.asJsonNode()).thenReturn(emptyNode);
     instance.setCaseContext(ctx);
     return instance;
+  }
+
+  private static StrategyResolver testStrategyResolver() {
+    final SubsumptionMatchStrategy matchStrategy =
+        new SubsumptionMatchStrategy(
+            new io.casehub.engine.internal.worker.NoOpVocabularyRegistry());
+    return new StrategyResolver() {
+      @Override
+      @SuppressWarnings("unchecked")
+      public <T extends NamedStrategy> T resolve(Class<T> type, String id) {
+        if (type == CandidateMatchingStrategy.class) return (T) matchStrategy;
+        throw new IllegalStateException("No strategy for " + type);
+      }
+
+      @Override
+      public <T extends NamedStrategy> java.util.Optional<T> find(Class<T> type, String id) {
+        return java.util.Optional.empty();
+      }
+
+      @Override
+      @SuppressWarnings("unchecked")
+      public <T extends NamedStrategy> T defaultStrategy(Class<T> type) {
+        if (type == CandidateMatchingStrategy.class) return (T) matchStrategy;
+        throw new IllegalStateException("No default for " + type);
+      }
+
+      @Override
+      public <T extends NamedStrategy> java.util.List<T> available(Class<T> type) {
+        return java.util.List.of();
+      }
+    };
   }
 }

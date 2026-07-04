@@ -78,10 +78,20 @@ class AgentRoutingStrategyContractTest {
   @Test
   void implementation_canReturnAssigned() {
     final AgentRoutingStrategy strategy =
-        (ctx, candidates) ->
-            candidates.isEmpty()
+        new AgentRoutingStrategy() {
+          @Override
+          public String id() {
+            return "test";
+          }
+
+          @Override
+          public Uni<AgentAssignment> select(
+              AgentRoutingContext ctx, List<AgentCandidate> candidates) {
+            return candidates.isEmpty()
                 ? Uni.createFrom().item(AgentAssignment.unresolvable())
                 : Uni.createFrom().item(AgentAssignment.assign(candidates.get(0).workerId()));
+          }
+        };
 
     final UUID caseId = UUID.randomUUID();
     final AgentRoutingContext ctx = new AgentRoutingContext(caseId, "research", NullNode.instance);
@@ -97,7 +107,18 @@ class AgentRoutingStrategyContractTest {
   @Test
   void implementation_emptyCandidates_returnsUnresolvable() {
     final AgentRoutingStrategy strategy =
-        (ctx, candidates) -> Uni.createFrom().item(AgentAssignment.unresolvable());
+        new AgentRoutingStrategy() {
+          @Override
+          public String id() {
+            return "test";
+          }
+
+          @Override
+          public Uni<AgentAssignment> select(
+              AgentRoutingContext ctx, List<AgentCandidate> candidates) {
+            return Uni.createFrom().item(AgentAssignment.unresolvable());
+          }
+        };
     final AgentRoutingContext ctx =
         new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance);
 
@@ -109,11 +130,21 @@ class AgentRoutingStrategyContractTest {
   @Test
   void implementation_canReturnEscalateToOversight() {
     final AgentRoutingStrategy strategy =
-        (ctx, candidates) ->
-            Uni.createFrom()
+        new AgentRoutingStrategy() {
+          @Override
+          public String id() {
+            return "test";
+          }
+
+          @Override
+          public Uni<AgentAssignment> select(
+              AgentRoutingContext ctx, List<AgentCandidate> candidates) {
+            return Uni.createFrom()
                 .item(
                     AgentAssignment.escalate(
                         ctx.capabilityName(), EscalationReason.BORDERLINE_STALEMATE));
+          }
+        };
     final AgentRoutingContext ctx =
         new AgentRoutingContext(UUID.randomUUID(), "sensitive-review", NullNode.instance);
 

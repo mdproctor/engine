@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.casehub.api.spi.routing.ImplementationCandidate;
 import io.casehub.api.spi.routing.ImplementationRoutingContext;
 import io.casehub.api.spi.routing.ImplementationSelection;
-import io.quarkus.arc.DefaultBean;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -44,9 +43,7 @@ class NoOpImplementationRoutingStrategyTest {
   }
 
   @Test
-  void is_annotated_defaultBean() {
-    assertThat(NoOpImplementationRoutingStrategy.class.isAnnotationPresent(DefaultBean.class))
-        .as("NoOpImplementationRoutingStrategy must be @DefaultBean")
-        .isTrue();
+  void id_is_run_all() {
+    assertThat(strategy.id()).isEqualTo("run-all");
   }
 }

@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.common.spi.scheduler;
 
+import io.casehub.platform.api.routing.NamedStrategy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -36,7 +37,7 @@ import java.util.Optional;
  * implementations can route based on worker metadata, capability properties, or tenant
  * configuration.
  */
-public interface WorkerExecutionRoutingStrategy {
+public interface WorkerExecutionRoutingStrategy extends NamedStrategy {
 
   /**
    * Selects a {@link WorkerExecutionManager} from all discovered backends.

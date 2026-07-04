@@ -93,23 +93,26 @@ class HumanTaskTargetDispatchTest {
   }
 
   @Test
-  void humanTaskBinding_dynamicCandidateGroups_jqReturnsNonArray_planItemStaysPending() {
+  void humanTaskBinding_dynamicCandidateGroups_jqReturnsSingleString_treatedAsValidSet() {
+    // With CandidateSetStrategy, JQ expressions that return a single string are valid —
+    // the strategy treats them as a single-element set. This is more permissive than the old
+    // ListExpressionResolver which required array results.
     CompletionStage<UUID> future =
         badGroupsCaseBean.startCase(Map.of("stage", "review", "routing", "not-an-array"));
     future.toCompletableFuture().join();
 
-    // Assert no event is published; during() ensures the condition holds for the duration
     await()
-        .during(300, TimeUnit.MILLISECONDS)
-        .atMost(500, TimeUnit.MILLISECONDS)
-        .untilAsserted(() -> assertThat(HumanTaskEventRecorder.events).isEmpty());
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> assertThat(HumanTaskEventRecorder.events).isNotEmpty());
+
+    HumanTaskScheduleEvent event = HumanTaskEventRecorder.events.get(0);
+    assertThat(event.resolvedCandidateGroups()).containsExactly("not-an-array");
   }
 
   @Test
-  void
-      humanTaskBinding_dynamicCandidateGroups_conjunctionFail_groupsFailUsersSucceed_eventBlocked() {
-    // groups is a string (wrong type → RESOLUTION_FAILED), users is a valid array
-    // Either failure blocks the event — conjunction test
+  void humanTaskBinding_dynamicCandidateGroups_conjunctionBothResolve_eventPublished() {
+    // With CandidateSetStrategy, JQ expressions that return strings are valid —
+    // both groups and users resolve successfully.
     CompletionStage<UUID> future =
         conjunctionFailCaseBean.startCase(
             Map.of(
@@ -118,11 +121,13 @@ class HumanTaskTargetDispatchTest {
                 "users", List.of("user-1")));
     future.toCompletableFuture().join();
 
-    // Assert no event is published; during() ensures the condition holds for the duration
     await()
-        .during(300, TimeUnit.MILLISECONDS)
-        .atMost(500, TimeUnit.MILLISECONDS)
-        .untilAsserted(() -> assertThat(HumanTaskEventRecorder.events).isEmpty());
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> assertThat(HumanTaskEventRecorder.events).isNotEmpty());
+
+    HumanTaskScheduleEvent event = HumanTaskEventRecorder.events.get(0);
+    assertThat(event.resolvedCandidateGroups()).containsExactly("wrong");
+    assertThat(event.resolvedCandidateUsers()).containsExactly("user-1");
   }
 
   /** Records HumanTaskScheduleEvent arrivals for test assertions. */

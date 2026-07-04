@@ -23,6 +23,7 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
+import io.casehub.api.spi.routing.CandidateMatchingStrategy;
 import io.casehub.eidos.api.AgentCapability;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
@@ -33,12 +34,15 @@ import io.casehub.eidos.api.VocabularyRegistry;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.worker.NoOpVocabularyRegistry;
+import io.casehub.platform.api.routing.NamedStrategy;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -68,7 +72,8 @@ class AgentCandidateFactoryTest {
 
   @Test
   void workerWithMatchingCapability_isIncluded() {
-    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
     final Worker worker = workerWithCapability("agent-1", "research");
     final CaseDefinition def = definitionFor(worker);
     when(executionManager.getActiveWorkCount("agent-1")).thenReturn(2);
@@ -86,7 +91,8 @@ class AgentCandidateFactoryTest {
 
   @Test
   void workerWithDifferentCapability_isExcluded() {
-    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
     final Worker worker = workerWithCapability("agent-1", "other-capability");
     final CaseDefinition def = definitionFor(worker);
 
@@ -99,7 +105,8 @@ class AgentCandidateFactoryTest {
 
   @Test
   void unavailableWorker_isExcluded() {
-    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
     final Worker worker = workerWithCapability("agent-1", "research");
     final CaseDefinition def = definitionFor(worker, descriptor);
@@ -116,7 +123,8 @@ class AgentCandidateFactoryTest {
 
   @Test
   void workerWithDescriptor_descriptorPassedThrough() {
-    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
     final Worker worker = workerWithCapability("agent-1", "research");
     final CaseDefinition def = definitionFor(worker, descriptor);
@@ -134,7 +142,8 @@ class AgentCandidateFactoryTest {
 
   @Test
   void epistemicallyWeakWorker_includedWithCorrectHealth() {
-    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
     final AgentDescriptor descriptor = mock(AgentDescriptor.class);
     final Worker worker = workerWithCapability("agent-1", "research");
     final CaseDefinition def = definitionFor(worker, descriptor);
@@ -152,7 +161,8 @@ class AgentCandidateFactoryTest {
 
   @Test
   void nullWorkers_returnsEmpty() {
-    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
     final CaseDefinition def =
         CaseDefinition.builder().namespace("t").name("t").version("1").build();
 
@@ -170,7 +180,7 @@ class AgentCandidateFactoryTest {
     final VocabularyRegistry registry =
         subsumptionRegistry(
             VOCAB_URI, "code-review", "security-code-review", new MatchDegree.Plugin(1));
-    final AgentCandidateFactory factory = new AgentCandidateFactory(registry);
+    final AgentCandidateFactory factory = new AgentCandidateFactory(resolverFor(registry));
 
     final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
 
@@ -207,7 +217,7 @@ class AgentCandidateFactoryTest {
     final VocabularyRegistry registry =
         subsumptionRegistry(
             VOCAB_URI, "code-review", "security-code-review", new MatchDegree.Plugin(1));
-    final AgentCandidateFactory factory = new AgentCandidateFactory(registry);
+    final AgentCandidateFactory factory = new AgentCandidateFactory(resolverFor(registry));
 
     final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
 
@@ -246,7 +256,7 @@ class AgentCandidateFactoryTest {
     final VocabularyRegistry registry =
         subsumptionRegistry(
             VOCAB_URI, "security-code-review", "code-review", new MatchDegree.Specialization(1));
-    final AgentCandidateFactory factory = new AgentCandidateFactory(registry);
+    final AgentCandidateFactory factory = new AgentCandidateFactory(resolverFor(registry));
 
     final Capability requestedCapability = Capability.of("code-review", "{}", "{}");
 
@@ -283,7 +293,8 @@ class AgentCandidateFactoryTest {
 
   @Test
   void workerWithUngroundedDescriptorCapability_excludedWhenNoExactMatch() {
-    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
 
     final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
 
@@ -317,7 +328,7 @@ class AgentCandidateFactoryTest {
     final VocabularyRegistry registry =
         subsumptionRegistry(
             VOCAB_URI, "code-review", "security-code-review", new MatchDegree.Plugin(1));
-    final AgentCandidateFactory factory = new AgentCandidateFactory(registry);
+    final AgentCandidateFactory factory = new AgentCandidateFactory(resolverFor(registry));
 
     final Capability requestedCapability = Capability.of("security-code-review", "{}", "{}");
 
@@ -338,7 +349,8 @@ class AgentCandidateFactoryTest {
 
   @Test
   void noOpVocabularyRegistry_exactMatchOnly() {
-    final AgentCandidateFactory factory = new AgentCandidateFactory(new NoOpVocabularyRegistry());
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
 
     final AgentCapability agentCap =
         AgentCapability.builder().name("code-review").capabilityVocabulary(VOCAB_URI).build();
@@ -405,6 +417,36 @@ class AgentCandidateFactoryTest {
           return matchDegree;
         }
         return super.match(uri, declared, requested);
+      }
+    };
+  }
+
+  /** Creates a StrategyResolver that returns a SubsumptionMatchStrategy with the given registry. */
+  private static StrategyResolver resolverFor(final VocabularyRegistry vocabRegistry) {
+    final SubsumptionMatchStrategy matchStrategy = new SubsumptionMatchStrategy(vocabRegistry);
+    return new StrategyResolver() {
+      @Override
+      @SuppressWarnings("unchecked")
+      public <T extends NamedStrategy> T resolve(Class<T> type, String id) {
+        if (type == CandidateMatchingStrategy.class) return (T) matchStrategy;
+        throw new IllegalStateException("No strategy for " + type);
+      }
+
+      @Override
+      public <T extends NamedStrategy> Optional<T> find(Class<T> type, String id) {
+        return Optional.empty();
+      }
+
+      @Override
+      @SuppressWarnings("unchecked")
+      public <T extends NamedStrategy> T defaultStrategy(Class<T> type) {
+        if (type == CandidateMatchingStrategy.class) return (T) matchStrategy;
+        throw new IllegalStateException("No default for " + type);
+      }
+
+      @Override
+      public <T extends NamedStrategy> List<T> available(Class<T> type) {
+        return List.of();
       }
     };
   }

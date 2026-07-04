@@ -36,6 +36,7 @@ import io.casehub.api.spi.ReactiveWorkerContextProvider;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.CandidateMatchingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
@@ -49,6 +50,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -80,14 +82,14 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Mock CaseDefinitionRegistry caseDefinitionRegistry;
   @Mock ExpressionEngineRegistry expressionEngineRegistry;
   @Mock LoopControl loopControl;
+  @Mock StrategyResolver strategyResolver;
   @Mock AgentRoutingStrategy agentRoutingStrategy;
   @Mock WorkerExecutionManager executionManager;
   @Mock CapabilityHealth capabilityHealth;
 
   @org.mockito.Spy
   io.casehub.engine.internal.routing.AgentCandidateFactory agentCandidateFactory =
-      new io.casehub.engine.internal.routing.AgentCandidateFactory(
-          new io.casehub.engine.internal.worker.NoOpVocabularyRegistry());
+      new io.casehub.engine.internal.routing.AgentCandidateFactory(new TestStrategyResolver());
 
   @Mock ReactiveWorkerContextProvider reactiveWorkerContextProvider;
   @Mock ReactiveWorkerProvisioner reactiveWorkerProvisioner;
@@ -143,6 +145,8 @@ class CaseContextChangedEventHandlerRoutingTest {
     when(executionManager.getActiveWorkCount(any())).thenReturn(0);
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
+    when(strategyResolver.resolve(eq(AgentRoutingStrategy.class), any()))
+        .thenReturn(agentRoutingStrategy);
 
     final CaseContext ctx = mock(CaseContext.class);
     final io.casehub.api.context.ReadablePanel workingPanel =
@@ -432,5 +436,47 @@ class CaseContextChangedEventHandlerRoutingTest {
                     e.bindingName().equals("research-binding")
                         && e.capabilityName().equals("research")
                         && e.disposition() == OutcomeDisposition.EXHAUSTED));
+  }
+
+  /**
+   * Minimal StrategyResolver for constructing AgentCandidateFactory in unit tests. Returns the
+   * default SubsumptionMatchStrategy with NoOpVocabularyRegistry.
+   */
+  static class TestStrategyResolver implements StrategyResolver {
+    private final io.casehub.engine.internal.routing.SubsumptionMatchStrategy defaultMatching =
+        new io.casehub.engine.internal.routing.SubsumptionMatchStrategy(
+            new io.casehub.engine.internal.worker.NoOpVocabularyRegistry());
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T extends io.casehub.platform.api.routing.NamedStrategy> T resolve(
+        Class<T> type, String id) {
+      if (type == CandidateMatchingStrategy.class) {
+        return (T) defaultMatching;
+      }
+      throw new IllegalStateException("No strategy for type " + type + " with id " + id);
+    }
+
+    @Override
+    public <T extends io.casehub.platform.api.routing.NamedStrategy> java.util.Optional<T> find(
+        Class<T> type, String id) {
+      return java.util.Optional.empty();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public <T extends io.casehub.platform.api.routing.NamedStrategy> T defaultStrategy(
+        Class<T> type) {
+      if (type == CandidateMatchingStrategy.class) {
+        return (T) defaultMatching;
+      }
+      throw new IllegalStateException("No default strategy for type " + type);
+    }
+
+    @Override
+    public <T extends io.casehub.platform.api.routing.NamedStrategy> java.util.List<T> available(
+        Class<T> type) {
+      return java.util.List.of();
+    }
   }
 }

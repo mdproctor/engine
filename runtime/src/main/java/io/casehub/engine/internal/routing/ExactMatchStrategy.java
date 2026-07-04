@@ -13,28 +13,32 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.ledger.routing;
+package io.casehub.engine.internal.routing;
 
-import io.quarkus.arc.DefaultBean;
+import io.casehub.api.spi.routing.CandidateMatchingContext;
+import io.casehub.api.spi.routing.CandidateMatchingStrategy;
+import io.casehub.worker.api.Worker;
+import io.quarkus.arc.Unremovable;
+import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.List;
 
-/**
- * Default {@link io.casehub.api.spi.routing.TrustRoutingPolicyProvider} — returns {@link
- * io.casehub.api.spi.routing.TrustRoutingPolicy#DEFAULT} for all capabilities. Yields to any
- * deployment-specific {@code @Alternative @Priority(1)} provider.
- */
-@DefaultBean
 @ApplicationScoped
-public class DefaultTrustRoutingPolicyProvider
-    implements io.casehub.api.spi.routing.TrustRoutingPolicyProvider {
+@Unremovable
+public class ExactMatchStrategy implements CandidateMatchingStrategy {
 
   @Override
   public String id() {
-    return "default";
+    return "exact";
   }
 
   @Override
-  public io.casehub.api.spi.routing.TrustRoutingPolicy forCapability(final String capabilityName) {
-    return io.casehub.api.spi.routing.TrustRoutingPolicy.DEFAULT;
+  public Uni<List<Worker>> match(CandidateMatchingContext context) {
+    return Uni.createFrom()
+        .item(
+            () ->
+                context.workers().stream()
+                    .filter(w -> w.capabilityNames().contains(context.capabilityName()))
+                    .toList());
   }
 }

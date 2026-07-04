@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.ActionGateCancelledEvent;
 import io.casehub.engine.common.internal.event.ActionGateExpiredEvent;
@@ -89,7 +90,11 @@ class ActionGateHandlerTest {
     final long gateId = 42L;
     final GateRequired gate =
         new GateRequired(
-            "SAR filing requires MLRO sign-off", false, List.of("mlro", "analyst"), null, null);
+            "SAR filing requires MLRO sign-off",
+            false,
+            StaticSetStrategy.of("mlro", "analyst"),
+            null,
+            null);
     final PlannedAction action =
         PlannedAction.of("File SAR", "sar.file", Map.of("accountId", "ACC-123"));
 
@@ -132,7 +137,8 @@ class ActionGateHandlerTest {
     final UUID caseId = UUID.randomUUID();
     final Instant before = Instant.now();
     final GateRequired gate =
-        new GateRequired("Urgent review", false, List.of("mlro"), Duration.ofHours(24), null);
+        new GateRequired(
+            "Urgent review", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null);
 
     actionGateWorkItemHandler.onActionGateSchedule(
         new ActionGateScheduleEvent(
@@ -267,6 +273,7 @@ class ActionGateHandlerTest {
         wi.resolution,
         wi.candidateGroups,
         wi.outcome,
-        wi.tenancyId);
+        wi.tenancyId,
+        wi.payload);
   }
 }

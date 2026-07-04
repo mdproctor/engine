@@ -17,6 +17,8 @@ package io.casehub.api.spi;
 
 import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.api.spi.routing.CandidateSetStrategy;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.worker.api.PlannedAction;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
@@ -138,8 +140,8 @@ public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskCl
   }
 
   private GateRequired narrower(final GateRequired a, final GateRequired b) {
-    final int sizeA = a.candidateGroups() == null ? Integer.MAX_VALUE : a.candidateGroups().size();
-    final int sizeB = b.candidateGroups() == null ? Integer.MAX_VALUE : b.candidateGroups().size();
+    final int sizeA = candidateSetSize(a.candidateGroups());
+    final int sizeB = candidateSetSize(b.candidateGroups());
     if (sizeA != sizeB) return sizeA < sizeB ? a : b;
     if (a.expiresIn() != null && b.expiresIn() != null) {
       return a.expiresIn().compareTo(b.expiresIn()) <= 0 ? a : b;
@@ -147,5 +149,13 @@ public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskCl
     if (a.expiresIn() != null) return a;
     if (b.expiresIn() != null) return b;
     return a;
+  }
+
+  private int candidateSetSize(final CandidateSetStrategy strategy) {
+    if (strategy == null) return Integer.MAX_VALUE;
+    if (strategy instanceof StaticSetStrategy staticStrategy) {
+      return staticStrategy.values().size();
+    }
+    return Integer.MAX_VALUE;
   }
 }

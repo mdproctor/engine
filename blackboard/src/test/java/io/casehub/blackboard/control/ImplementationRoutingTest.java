@@ -62,9 +62,10 @@ class ImplementationRoutingTest {
     StageLifecycleEvaluator evaluator = mock(StageLifecycleEvaluator.class);
     when(evaluator.evaluate(any(), any())).thenReturn(Uni.createFrom().voidItem());
 
-    Instance<PlanningStrategy> strategyInstance = mock(Instance.class);
-    List<PlanningStrategy> strategies = List.of(strategy);
-    when(strategyInstance.spliterator()).thenReturn(strategies.spliterator());
+    @SuppressWarnings("unchecked")
+    Instance<PlanningStrategy> strategyBeans = mock(Instance.class);
+    List<PlanningStrategy> strategyList = List.of(strategy);
+    when(strategyBeans.spliterator()).thenAnswer(inv -> strategyList.spliterator());
 
     Instance<BlackboardPlanConfigurer> emptyConfigurers = mock(Instance.class);
     when(emptyConfigurers.stream()).thenReturn(Stream.empty());
@@ -73,7 +74,7 @@ class ImplementationRoutingTest {
 
     loopControl =
         new PlanningStrategyLoopControl(
-            registry, strategyInstance, evaluator, emptyConfigurers, routingStrategy);
+            registry, strategyBeans, evaluator, emptyConfigurers, routingStrategy);
 
     caseId = UUID.randomUUID();
 

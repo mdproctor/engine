@@ -15,9 +15,9 @@
  */
 package io.casehub.api.spi;
 
+import io.casehub.api.spi.routing.CandidateSetStrategy;
 import io.casehub.worker.api.PlannedAction;
 import java.time.Duration;
-import java.util.List;
 
 /**
  * The outcome of {@link ActionRiskClassifier#classify(PlannedAction)}.
@@ -56,7 +56,7 @@ public sealed interface RiskDecision permits RiskDecision.Autonomous, RiskDecisi
   record GateRequired(
       String reason,
       boolean reversible,
-      List<String> candidateGroups,
+      CandidateSetStrategy candidateGroups,
       Duration expiresIn,
       String scope)
       implements RiskDecision {}

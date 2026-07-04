@@ -32,6 +32,7 @@ import io.casehub.api.spi.ClassificationContext;
 import io.casehub.api.spi.RiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.RiskDecision.GateRequired;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
 import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
@@ -83,7 +84,7 @@ class ActionGateResolutionTest {
   @Test
   void gateApproved_caseCompletes_deferredOutputApplied() {
     ResolutionClassifier.nextDecision =
-        new GateRequired("SAR filing", false, List.of("mlro"), null, null);
+        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null);
 
     final UUID caseId = startCase();
 
@@ -124,7 +125,7 @@ class ActionGateResolutionTest {
   @Test
   void gateRejected_caseRemainsRunning_rejectionSignalInContext() {
     ResolutionClassifier.nextDecision =
-        new GateRequired("SAR filing", false, List.of("mlro"), null, null);
+        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null);
 
     final UUID caseId = startCase();
 

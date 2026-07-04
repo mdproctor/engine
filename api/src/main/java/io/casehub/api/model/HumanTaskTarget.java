@@ -17,8 +17,11 @@ package io.casehub.api.model;
 
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
-import io.casehub.api.model.evaluator.ListEvaluator;
+import io.casehub.api.spi.routing.CandidateSetSpec;
+import io.casehub.api.spi.routing.CandidateSetStrategy;
+import io.casehub.api.spi.routing.StaticSetStrategy;
 import java.time.Duration;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
@@ -39,8 +42,8 @@ public final class HumanTaskTarget implements BindingTarget {
 
   private final String templateRef;
   private final String title;
-  private final ListEvaluator candidateGroups;
-  private final ListEvaluator candidateUsers;
+  private final CandidateSetSpec candidateGroups;
+  private final CandidateSetSpec candidateUsers;
   private final Duration expiresIn;
   private final Integer claimDeadlineHours;
   private final ExpressionEvaluator expiresAtExpression;
@@ -92,11 +95,11 @@ public final class HumanTaskTarget implements BindingTarget {
     return title;
   }
 
-  public ListEvaluator candidateGroups() {
+  public CandidateSetSpec candidateGroups() {
     return candidateGroups;
   }
 
-  public ListEvaluator candidateUsers() {
+  public CandidateSetSpec candidateUsers() {
     return candidateUsers;
   }
 
@@ -146,8 +149,8 @@ public final class HumanTaskTarget implements BindingTarget {
 
     private final String templateRef;
     private String title;
-    private ListEvaluator candidateGroups;
-    private ListEvaluator candidateUsers;
+    private CandidateSetSpec candidateGroups;
+    private CandidateSetSpec candidateUsers;
     private Duration expiresIn;
     private Integer claimDeadlineHours;
     private ExpressionEvaluator expiresAtExpression;
@@ -167,22 +170,76 @@ public final class HumanTaskTarget implements BindingTarget {
     }
 
     public Builder candidateGroups(Set<String> candidateGroups) {
-      this.candidateGroups = new ListEvaluator.StaticList(candidateGroups);
+      this.candidateGroups = new CandidateSetSpec.Inline(StaticSetStrategy.of(candidateGroups));
       return this;
     }
 
+    public Builder candidateGroups(CandidateSetStrategy strategy) {
+      this.candidateGroups = new CandidateSetSpec.Inline(strategy);
+      return this;
+    }
+
+    public Builder candidateGroups(CandidateSetSpec spec) {
+      this.candidateGroups = spec;
+      return this;
+    }
+
+    public Builder candidateGroups(String strategyId) {
+      this.candidateGroups = new CandidateSetSpec.Named(strategyId, Map.of());
+      return this;
+    }
+
+    public Builder candidateGroups(String strategyId, Map<String, Object> config) {
+      this.candidateGroups = new CandidateSetSpec.Named(strategyId, config);
+      return this;
+    }
+
+    /**
+     * Convenience method for backward compatibility — wraps the JQ expression string in a {@link
+     * CandidateSetSpec.Inline} with a {@link JQExpressionEvaluator}. Use the {@link
+     * #candidateGroups(CandidateSetStrategy)} overload for non-JQ expressions.
+     */
     public Builder candidateGroupsExpression(String jqExpression) {
-      this.candidateGroups = new ListEvaluator.JQList(jqExpression);
+      this.candidateGroups =
+          new CandidateSetSpec.Inline(
+              new io.casehub.api.spi.routing.JqCandidateSetStrategy(jqExpression));
       return this;
     }
 
     public Builder candidateUsers(Set<String> candidateUsers) {
-      this.candidateUsers = new ListEvaluator.StaticList(candidateUsers);
+      this.candidateUsers = new CandidateSetSpec.Inline(StaticSetStrategy.of(candidateUsers));
       return this;
     }
 
+    public Builder candidateUsers(CandidateSetStrategy strategy) {
+      this.candidateUsers = new CandidateSetSpec.Inline(strategy);
+      return this;
+    }
+
+    public Builder candidateUsers(CandidateSetSpec spec) {
+      this.candidateUsers = spec;
+      return this;
+    }
+
+    public Builder candidateUsers(String strategyId) {
+      this.candidateUsers = new CandidateSetSpec.Named(strategyId, Map.of());
+      return this;
+    }
+
+    public Builder candidateUsers(String strategyId, Map<String, Object> config) {
+      this.candidateUsers = new CandidateSetSpec.Named(strategyId, config);
+      return this;
+    }
+
+    /**
+     * Convenience method for backward compatibility — wraps the JQ expression string in a {@link
+     * CandidateSetSpec.Inline} with a {@link JQExpressionEvaluator}. Use the {@link
+     * #candidateUsers(CandidateSetStrategy)} overload for non-JQ expressions.
+     */
     public Builder candidateUsersExpression(String jqExpression) {
-      this.candidateUsers = new ListEvaluator.JQList(jqExpression);
+      this.candidateUsers =
+          new CandidateSetSpec.Inline(
+              new io.casehub.api.spi.routing.JqCandidateSetStrategy(jqExpression));
       return this;
     }
 
