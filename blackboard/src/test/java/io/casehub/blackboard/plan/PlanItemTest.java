@@ -28,6 +28,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
 /** Unit tests for PlanItem ordering and lifecycle. See casehubio/engine#76. */
@@ -70,6 +72,61 @@ class PlanItemTest {
     PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
     item.markRunning();
     assertThatThrownBy(item::markRunning).isInstanceOf(IllegalStateException.class);
+  }
+
+  @Test
+  void tryMarkRunning_fromPending_returnsTrue() {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    assertThat(item.tryMarkRunning()).isTrue();
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
+  }
+
+  @Test
+  void tryMarkRunning_fromRunning_returnsFalse() {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    item.markRunning();
+    assertThat(item.tryMarkRunning()).isFalse();
+  }
+
+  @Test
+  void tryMarkRunning_fromCompleted_returnsFalse() {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    item.markRunning();
+    item.markCompleted();
+    assertThat(item.tryMarkRunning()).isFalse();
+  }
+
+  @Test
+  void tryMarkRunning_concurrentCallers_exactlyOneWins() throws Exception {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    int threadCount = 10;
+    CountDownLatch ready = new CountDownLatch(threadCount);
+    CountDownLatch go = new CountDownLatch(1);
+    AtomicInteger wins = new AtomicInteger(0);
+
+    Thread[] threads = new Thread[threadCount];
+    for (int i = 0; i < threadCount; i++) {
+      threads[i] =
+          Thread.ofVirtual()
+              .start(
+                  () -> {
+                    ready.countDown();
+                    try {
+                      go.await();
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    if (item.tryMarkRunning()) {
+                      wins.incrementAndGet();
+                    }
+                  });
+    }
+    ready.await();
+    go.countDown();
+    for (Thread t : threads) t.join();
+
+    assertThat(wins.get()).isEqualTo(1);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
   }
 
   @Test
@@ -128,11 +185,11 @@ class PlanItemTest {
   }
 
   @Test
-  void status_field_is_volatile() throws NoSuchFieldException {
+  void status_field_is_atomicReference() throws NoSuchFieldException {
     java.lang.reflect.Field field = PlanItem.class.getDeclaredField("status");
-    assertThat(java.lang.reflect.Modifier.isVolatile(field.getModifiers()))
-        .as("PlanItem.status must be volatile for cross-thread visibility")
-        .isTrue();
+    assertThat(field.getType())
+        .as("PlanItem.status must be AtomicReference for thread-safe CAS operations")
+        .isEqualTo(java.util.concurrent.atomic.AtomicReference.class);
   }
 
   // --- DELEGATED state ---

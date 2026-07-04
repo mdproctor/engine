@@ -85,4 +85,19 @@ public interface CaseDefinitionRegistry {
   default Optional<CaseMetaModel> findByIdentity(String namespace, String name, String version) {
     return Optional.empty();
   }
+
+  /**
+   * Find a case definition by name only (without namespace or version).
+   *
+   * <p>This is a convenience lookup for {@link
+   * io.casehub.api.engine.WorkerRuntime#spawnCase(String, java.util.Map)} where the caller knows
+   * the case name but not the full identity coordinates.
+   *
+   * @param name the case definition name
+   * @return Optional containing the CaseDefinition if exactly one match exists, empty otherwise
+   * @throws IllegalArgumentException if multiple definitions share the same name across namespaces
+   */
+  default Optional<CaseDefinition> findByName(String name) {
+    return Optional.empty();
+  }
 }

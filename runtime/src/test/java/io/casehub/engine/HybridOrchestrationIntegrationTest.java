@@ -20,6 +20,7 @@ import static org.awaitility.Awaitility.await;
 
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.engine.CaseHubRuntime;
+import io.casehub.api.engine.WorkerRuntime;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
@@ -27,6 +28,7 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
+import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Capability;
@@ -52,6 +54,7 @@ class HybridOrchestrationIntegrationTest {
   @Inject CaseInstanceCache cache;
   @Inject Tier2SequentialBean tier2Bean;
   @Inject SignalAwaitBean signalAwaitBean;
+  @Inject SpawnParentBean spawnParentBean;
 
   @BeforeEach
   void setUp() {
@@ -210,6 +213,119 @@ class HybridOrchestrationIntegrationTest {
                   .capability(cap)
                   .on(new ContextChangeTrigger(".trigger != null"))
                   .build())
+          .build();
+    }
+  }
+
+  // --- spawnCase/awaitCase integration test ---
+
+  @Test
+  void spawnAndAwait_childCaseCompletesAndReturnsContext() {
+    UUID parentCaseId =
+        spawnParentBean.startCase(Map.of("trigger", true)).toCompletableFuture().join();
+
+    await()
+        .atMost(20, TimeUnit.SECONDS)
+        .untilAsserted(
+            () -> {
+              assertThat(cache.get(parentCaseId).getState()).isEqualTo(CaseStatus.COMPLETED);
+              assertThat(cache.get(parentCaseId).getCaseContext().get("childResult"))
+                  .isEqualTo("done");
+            });
+  }
+
+  @ApplicationScoped
+  public static class SpawnChildBean extends CaseHub {
+    @Override
+    public CaseDefinition getDefinition() {
+      Capability cap =
+          Capability.builder().name("childWork").inputSchema(".").outputSchema(".").build();
+
+      Worker worker =
+          Worker.builder()
+              .name("childWorker")
+              .capabilityName("childWork")
+              .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
+              .build();
+
+      return CaseDefinition.builder()
+          .namespace("test")
+          .name("SpawnChild")
+          .version("1.0.0")
+          .capabilities(cap)
+          .workers(worker)
+          .bindings(
+              Binding.builder()
+                  .name("doChildWork")
+                  .capability(cap)
+                  .on(new ContextChangeTrigger(".trigger == true"))
+                  .build())
+          .goals(
+              Goal.builder()
+                  .name("childDone")
+                  .kind(GoalKind.SUCCESS)
+                  .condition(new JQExpressionEvaluator(".result == \"done\""))
+                  .build())
+          .completion(
+              GoalExpression.allOf(
+                  Goal.builder()
+                      .name("childDone")
+                      .kind(GoalKind.SUCCESS)
+                      .condition(new JQExpressionEvaluator(".result == \"done\""))
+                      .build()))
+          .build();
+    }
+  }
+
+  @ApplicationScoped
+  public static class SpawnParentBean extends CaseHub {
+    @Override
+    public CaseDefinition getDefinition() {
+      Capability cap =
+          Capability.builder().name("parentOrchestrate").inputSchema(".").outputSchema(".").build();
+
+      Worker worker =
+          Worker.builder()
+              .name("parentWorker")
+              .capabilityName("parentOrchestrate")
+              .function(
+                  new WorkerFunction.Sync(
+                      input -> {
+                        WorkerRuntime rt = WorkerExecutionContext.currentRuntime();
+                        var childCtx =
+                            rt.spawnAndAwaitCase(
+                                "SpawnChild", Map.of("trigger", true), Duration.ofSeconds(10));
+                        Object childResult = childCtx.get("result");
+                        return WorkerResult.of(
+                            Map.of("childResult", childResult != null ? childResult : "missing"));
+                      }))
+              .build();
+
+      return CaseDefinition.builder()
+          .namespace("test")
+          .name("SpawnParent")
+          .version("1.0.0")
+          .capabilities(cap)
+          .workers(worker)
+          .bindings(
+              Binding.builder()
+                  .name("orchestrate")
+                  .capability(cap)
+                  .on(new ContextChangeTrigger(".trigger == true"))
+                  .build())
+          .goals(
+              Goal.builder()
+                  .name("parentDone")
+                  .kind(GoalKind.SUCCESS)
+                  .condition(new JQExpressionEvaluator(".childResult == \"done\""))
+                  .build())
+          .completion(
+              GoalExpression.allOf(
+                  Goal.builder()
+                      .name("parentDone")
+                      .kind(GoalKind.SUCCESS)
+                      .condition(new JQExpressionEvaluator(".childResult == \"done\""))
+                      .build()))
           .build();
     }
   }

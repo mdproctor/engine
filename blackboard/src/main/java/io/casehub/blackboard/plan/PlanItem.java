@@ -20,6 +20,7 @@ import io.casehub.engine.common.internal.model.PlanItemStatus;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Activation record for a {@link io.casehub.api.model.Binding} on the {@link CasePlanModel}
@@ -36,7 +37,7 @@ public class PlanItem implements Comparable<PlanItem> {
   private final String bindingName;
   private final String workerName;
   private final int priority;
-  private volatile PlanItemStatus status;
+  private final AtomicReference<PlanItemStatus> status;
   private final Instant createdAt;
   private String parentStageId; // null means no parent stage
   private final BindingTarget target;
@@ -46,7 +47,7 @@ public class PlanItem implements Comparable<PlanItem> {
     this.bindingName = bindingName;
     this.workerName = workerName;
     this.priority = priority;
-    this.status = PlanItemStatus.PENDING;
+    this.status = new AtomicReference<>(PlanItemStatus.PENDING);
     this.createdAt = Instant.now();
     this.parentStageId = null;
     this.target = target;
@@ -64,7 +65,7 @@ public class PlanItem implements Comparable<PlanItem> {
     this.workerName = null;
     this.priority = 0;
     this.target = target;
-    this.status = status;
+    this.status = new AtomicReference<>(status);
     this.createdAt = createdAt;
     this.parentStageId = null;
   }
@@ -123,16 +124,23 @@ public class PlanItem implements Comparable<PlanItem> {
   }
 
   public PlanItemStatus getStatus() {
-    return status;
+    return status.get();
+  }
+
+  /**
+   * Atomic CAS PENDING → RUNNING. Returns true if the caller won the race, false otherwise. Use
+   * this in concurrent dispatch paths to prevent double-dispatch.
+   */
+  public boolean tryMarkRunning() {
+    return status.compareAndSet(PlanItemStatus.PENDING, PlanItemStatus.RUNNING);
   }
 
   /** Transitions PENDING → RUNNING. For CapabilityTarget only — a Quartz job is executing. */
   public void markRunning() {
-    if (status != PlanItemStatus.PENDING) {
+    if (!status.compareAndSet(PlanItemStatus.PENDING, PlanItemStatus.RUNNING)) {
       throw new IllegalStateException(
-          "Cannot transition to RUNNING from " + status + " (planItemId=" + planItemId + ")");
+          "Cannot transition to RUNNING from " + status.get() + " (planItemId=" + planItemId + ")");
     }
-    status = PlanItemStatus.RUNNING;
   }
 
   /**
@@ -140,33 +148,38 @@ public class PlanItem implements Comparable<PlanItem> {
    * has passed to an external actor and the engine is waiting for a completion signal.
    */
   public void markDelegated() {
-    if (status != PlanItemStatus.PENDING) {
+    if (!status.compareAndSet(PlanItemStatus.PENDING, PlanItemStatus.DELEGATED)) {
       throw new IllegalStateException(
-          "Cannot transition to DELEGATED from " + status + " (planItemId=" + planItemId + ")");
+          "Cannot transition to DELEGATED from "
+              + status.get()
+              + " (planItemId="
+              + planItemId
+              + ")");
     }
-    status = PlanItemStatus.DELEGATED;
   }
 
   /** Transitions RUNNING or DELEGATED → COMPLETED. */
   public void markCompleted() {
-    if (status != PlanItemStatus.RUNNING && status != PlanItemStatus.DELEGATED) {
+    PlanItemStatus current = status.get();
+    if (current != PlanItemStatus.RUNNING && current != PlanItemStatus.DELEGATED) {
       throw new IllegalStateException(
-          "Cannot transition to COMPLETED from " + status + " (planItemId=" + planItemId + ")");
+          "Cannot transition to COMPLETED from " + current + " (planItemId=" + planItemId + ")");
     }
-    status = PlanItemStatus.COMPLETED;
+    status.set(PlanItemStatus.COMPLETED);
   }
 
   /** Transitions to FAULTED from any active state. Throws if already terminal. */
   public void markFaulted() {
-    if (status.isTerminal()) {
+    PlanItemStatus current = status.get();
+    if (current.isTerminal()) {
       throw new IllegalStateException(
           "Cannot fault a terminal PlanItem (status="
-              + status
+              + current
               + ", planItemId="
               + planItemId
               + ")");
     }
-    status = PlanItemStatus.FAULTED;
+    status.set(PlanItemStatus.FAULTED);
   }
 
   /**
@@ -179,55 +192,58 @@ public class PlanItem implements Comparable<PlanItem> {
    * revisited to allow RUNNING → REJECTED.
    */
   public void markRejected() {
-    if (status != PlanItemStatus.DELEGATED) {
+    if (!status.compareAndSet(PlanItemStatus.DELEGATED, PlanItemStatus.REJECTED)) {
       throw new IllegalStateException(
-          "Cannot transition to REJECTED from " + status + " (planItemId=" + planItemId + ")");
+          "Cannot transition to REJECTED from "
+              + status.get()
+              + " (planItemId="
+              + planItemId
+              + ")");
     }
-    status = PlanItemStatus.REJECTED;
   }
 
   /** Obsoletes from any active state. Throws if already terminal. */
   public void markObsolete() {
-    if (status.isTerminal()) {
+    PlanItemStatus current = status.get();
+    if (current.isTerminal()) {
       throw new IllegalStateException(
           "Cannot obsolete a terminal PlanItem (status="
-              + status
+              + current
               + ", planItemId="
               + planItemId
               + ")");
     }
-    status = PlanItemStatus.OBSOLETE;
+    status.set(PlanItemStatus.OBSOLETE);
   }
 
   /** Suspends from DELEGATED only. Workers and unscheduled items cannot be suspended. */
   public void markSuspended() {
-    if (status != PlanItemStatus.DELEGATED) {
+    if (!status.compareAndSet(PlanItemStatus.DELEGATED, PlanItemStatus.SUSPENDED)) {
       throw new IllegalStateException(
-          "Cannot suspend from " + status + " (planItemId=" + planItemId + ")");
+          "Cannot suspend from " + status.get() + " (planItemId=" + planItemId + ")");
     }
-    status = PlanItemStatus.SUSPENDED;
   }
 
   /** Resumes from SUSPENDED → DELEGATED. */
   public void markResumed() {
-    if (status != PlanItemStatus.SUSPENDED) {
+    if (!status.compareAndSet(PlanItemStatus.SUSPENDED, PlanItemStatus.DELEGATED)) {
       throw new IllegalStateException(
-          "Cannot resume from " + status + " (planItemId=" + planItemId + ")");
+          "Cannot resume from " + status.get() + " (planItemId=" + planItemId + ")");
     }
-    status = PlanItemStatus.DELEGATED;
   }
 
   /** Cancels from any active state. Throws if already terminal. */
   public void markCancelled() {
-    if (status.isTerminal()) {
+    PlanItemStatus current = status.get();
+    if (current.isTerminal()) {
       throw new IllegalStateException(
           "Cannot cancel a terminal PlanItem (status="
-              + status
+              + current
               + ", planItemId="
               + planItemId
               + ")");
     }
-    status = PlanItemStatus.CANCELLED;
+    status.set(PlanItemStatus.CANCELLED);
   }
 
   public BindingTarget getTarget() {

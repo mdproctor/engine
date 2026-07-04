@@ -44,6 +44,7 @@ import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -171,6 +172,24 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   public Optional<CaseMetaModel> findByIdentity(String namespace, String name, String version) {
     RegistryEntry entry = registry.get(new CaseKey(namespace, name, version));
     return Optional.ofNullable(entry).map(RegistryEntry::metaModel);
+  }
+
+  @Override
+  public Optional<CaseDefinition> findByName(String name) {
+    List<RegistryEntry> matches =
+        registry.values().stream().filter(e -> name.equals(e.definition().getName())).toList();
+    if (matches.isEmpty()) {
+      return Optional.empty();
+    }
+    if (matches.size() > 1) {
+      throw new IllegalArgumentException(
+          "Ambiguous caseType '"
+              + name
+              + "' — matches "
+              + matches.size()
+              + " definitions across namespaces. Use qualified lookup to disambiguate.");
+    }
+    return Optional.of(matches.get(0).definition());
   }
 
   @Override

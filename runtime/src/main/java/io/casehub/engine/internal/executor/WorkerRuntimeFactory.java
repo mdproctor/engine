@@ -19,6 +19,7 @@ import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.engine.WorkerRuntime;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.engine.internal.engine.CaseCompletionTracker;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.UUID;
@@ -29,18 +30,22 @@ public class WorkerRuntimeFactory {
   private final CaseHubRuntime caseHubRuntime;
   private final CaseDefinitionRegistry definitionRegistry;
   private final CaseInstanceCache caseInstanceCache;
+  private final CaseCompletionTracker caseCompletionTracker;
 
   @Inject
   public WorkerRuntimeFactory(
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry definitionRegistry,
-      CaseInstanceCache caseInstanceCache) {
+      CaseInstanceCache caseInstanceCache,
+      CaseCompletionTracker caseCompletionTracker) {
     this.caseHubRuntime = caseHubRuntime;
     this.definitionRegistry = definitionRegistry;
     this.caseInstanceCache = caseInstanceCache;
+    this.caseCompletionTracker = caseCompletionTracker;
   }
 
   public WorkerRuntime create(UUID caseId) {
-    return new DefaultWorkerRuntime(caseId, caseHubRuntime, definitionRegistry, caseInstanceCache);
+    return new DefaultWorkerRuntime(
+        caseId, caseHubRuntime, definitionRegistry, caseInstanceCache, caseCompletionTracker);
   }
 }

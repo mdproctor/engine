@@ -35,6 +35,7 @@ import io.casehub.api.spi.ContextDiffStrategy;
 import io.casehub.api.spi.ReactiveActionRiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.casehub.api.spi.routing.CandidateSetContext;
 import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
@@ -65,6 +66,7 @@ import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.Map;
+import java.util.Set;
 import org.jboss.logging.Logger;
 
 /**
@@ -477,59 +479,84 @@ public class WorkflowExecutionCompletedHandler {
     final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
     final Instant now = Instant.now();
 
-    final EventLog gateEventLog =
-        buildGateEventLog(
-            caseInstance, worker, rawOutput, plannedAction, gate, event.idempotency(), now);
+    Uni<Set<String>> groupsUni;
+    if (gate.candidateGroups() != null) {
+      JsonNode contextNode = caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode();
+      groupsUni =
+          gate.candidateGroups()
+              .evaluate(new CandidateSetContext(contextNode))
+              .onFailure()
+              .recoverWithUni(
+                  t -> {
+                    LOG.warnf(
+                        t,
+                        "CandidateSetStrategy evaluation failed for caseId=%s — "
+                            + "proceeding with empty candidate groups",
+                        caseInstance.getUuid());
+                    return Uni.createFrom().item(Set.of());
+                  });
+    } else {
+      groupsUni = Uni.createFrom().item(Set.of());
+    }
 
-    return eventLogRepository
-        .append(gateEventLog, caseInstance.tenancyId)
-        .chain(
-            () -> {
-              caseInstance.setPendingActionGate(
-                  new PendingActionGate(
-                      gateEventLog.id,
-                      worker.name(),
-                      event.idempotency(),
-                      rawOutput,
-                      plannedAction));
-              return caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
-            })
-        .invoke(
-            () ->
-                eventBus.publish(
-                    EventBusAddresses.ACTION_GATE_SCHEDULE,
-                    new ActionGateScheduleEvent(
-                        caseInstance.getUuid(),
-                        caseInstance.tenancyId,
-                        gateEventLog.id,
-                        plannedAction,
-                        gate)))
-        .invoke(
-            () ->
-                lifecycleEvents
-                    .fireAsync(
-                        new CaseLifecycleEvent(
-                            caseInstance.getUuid(),
-                            caseInstance.tenancyId,
-                            "ActionGate",
-                            "ActionGatePending",
-                            caseInstance.getState().name(),
+    return groupsUni.chain(
+        resolvedGroups -> {
+          final EventLog gateEventLog =
+              buildGateEventLog(
+                  caseInstance, worker, rawOutput, plannedAction, gate, event.idempotency(), now);
+
+          return eventLogRepository
+              .append(gateEventLog, caseInstance.tenancyId)
+              .chain(
+                  () -> {
+                    caseInstance.setPendingActionGate(
+                        new PendingActionGate(
+                            gateEventLog.id,
                             worker.name(),
-                            "WORKER",
-                            traceId))
-                    .whenComplete(
-                        (v, t) -> {
-                          if (t != null)
-                            LOG.warnf(
-                                t,
-                                "CaseLifecycleEvent observer failed for caseId=%s event=ActionGatePending",
-                                caseInstance.getUuid());
-                        }))
-        .replaceWithVoid()
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.error("Failed to handle action gate for caseId: " + caseInstance.getUuid(), t));
+                            event.idempotency(),
+                            rawOutput,
+                            plannedAction));
+                    return caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
+                  })
+              .invoke(
+                  () ->
+                      eventBus.publish(
+                          EventBusAddresses.ACTION_GATE_SCHEDULE,
+                          new ActionGateScheduleEvent(
+                              caseInstance.getUuid(),
+                              caseInstance.tenancyId,
+                              gateEventLog.id,
+                              plannedAction,
+                              gate,
+                              resolvedGroups)))
+              .invoke(
+                  () ->
+                      lifecycleEvents
+                          .fireAsync(
+                              new CaseLifecycleEvent(
+                                  caseInstance.getUuid(),
+                                  caseInstance.tenancyId,
+                                  "ActionGate",
+                                  "ActionGatePending",
+                                  caseInstance.getState().name(),
+                                  worker.name(),
+                                  "WORKER",
+                                  traceId))
+                          .whenComplete(
+                              (v, t) -> {
+                                if (t != null)
+                                  LOG.warnf(
+                                      t,
+                                      "CaseLifecycleEvent observer failed for caseId=%s event=ActionGatePending",
+                                      caseInstance.getUuid());
+                              }))
+              .replaceWithVoid()
+              .onFailure()
+              .invoke(
+                  t ->
+                      LOG.error(
+                          "Failed to handle action gate for caseId: " + caseInstance.getUuid(), t));
+        });
   }
 
   private EventLog buildGateEventLog(

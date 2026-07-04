@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
@@ -169,5 +170,69 @@ class DefaultCaseDefinitionRegistryTest {
     Optional<CaseMetaModel> found = registry.findByIdentity("no-such-ns", "no-such-case", "99.0");
 
     assertThat(found).isEmpty();
+  }
+
+  @Test
+  void findByName_existingDefinition_returnsDefinition() {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("test-findbyname")
+            .name("findable-by-name")
+            .version("1.0")
+            .build();
+
+    registry
+        .registerCaseDefinition(def)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+
+    Optional<CaseDefinition> found = registry.findByName("findable-by-name");
+
+    assertThat(found).isPresent();
+    assertThat(found.get().getName()).isEqualTo("findable-by-name");
+    assertThat(found.get().getNamespace()).isEqualTo("test-findbyname");
+  }
+
+  @Test
+  void findByName_nonExistent_returnsEmpty() {
+    Optional<CaseDefinition> found = registry.findByName("no-such-definition-xyz");
+
+    assertThat(found).isEmpty();
+  }
+
+  @Test
+  void findByName_ambiguous_throws() {
+    CaseDefinition def1 =
+        CaseDefinition.builder()
+            .namespace("ns-ambig-a")
+            .name("ambiguous-case")
+            .version("1.0")
+            .build();
+    CaseDefinition def2 =
+        CaseDefinition.builder()
+            .namespace("ns-ambig-b")
+            .name("ambiguous-case")
+            .version("1.0")
+            .build();
+
+    registry
+        .registerCaseDefinition(def1)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+    registry
+        .registerCaseDefinition(def2)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+
+    assertThatThrownBy(() -> registry.findByName("ambiguous-case"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("Ambiguous caseType")
+        .hasMessageContaining("ambiguous-case");
   }
 }

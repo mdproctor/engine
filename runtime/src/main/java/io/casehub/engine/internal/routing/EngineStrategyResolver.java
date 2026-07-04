@@ -17,6 +17,7 @@ package io.casehub.engine.internal.routing;
 
 import io.casehub.platform.api.routing.NamedStrategy;
 import io.casehub.platform.api.routing.StrategyResolver;
+import io.quarkus.arc.InjectableBean;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -47,6 +48,14 @@ public class EngineStrategyResolver implements StrategyResolver {
   private final Map<Class<?>, Map<String, NamedStrategy>> index;
   private final Map<Class<?>, NamedStrategy> defaults;
 
+  // Track which strategies were explicitly registered as @DefaultBean
+  private final Set<NamedStrategy> defaultBeans = new java.util.HashSet<>();
+
+  private EngineStrategyResolver() {
+    this.index = new HashMap<>();
+    this.defaults = new HashMap<>();
+  }
+
   @Inject
   public EngineStrategyResolver(
       @Any Instance<io.casehub.api.spi.routing.AgentRoutingStrategy> agentStrategies,
@@ -57,44 +66,81 @@ public class EngineStrategyResolver implements StrategyResolver {
           Instance<io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy>
               execStrategies,
       @Any Instance<io.casehub.api.spi.routing.TrustRoutingPolicyProvider> trustStrategies) {
-    this.index = new HashMap<>();
-    this.defaults = new HashMap<>();
-
-    List<NamedStrategy> strategyList = new java.util.ArrayList<>();
-    agentStrategies.forEach(strategyList::add);
-    implStrategies.forEach(strategyList::add);
-    matchStrategies.forEach(strategyList::add);
-    candidateSetStrategies.forEach(strategyList::add);
-    execStrategies.forEach(strategyList::add);
-    trustStrategies.forEach(strategyList::add);
+    this();
+    registerStrategies(agentStrategies);
+    registerStrategies(implStrategies);
+    registerStrategies(matchStrategies);
+    registerStrategies(candidateSetStrategies);
+    registerStrategies(execStrategies);
+    registerStrategies(trustStrategies);
 
     org.jboss.logging.Logger.getLogger(EngineStrategyResolver.class)
         .infof(
-            "EngineStrategyResolver discovered %d strategy beans: %s",
-            strategyList.size(),
-            strategyList.stream()
-                .map(s -> s.getClass().getSimpleName() + "(id=" + s.id() + ")")
+            "EngineStrategyResolver discovered %d strategies, defaults: %s",
+            index.values().stream().mapToInt(Map::size).sum(),
+            defaults.entrySet().stream()
+                .map(e -> e.getKey().getSimpleName() + "=" + e.getValue().id())
                 .toList());
+  }
 
-    for (NamedStrategy strategy : strategyList) {
-      for (Class<?> iface : resolveStrategyTypes(strategy.getClass())) {
-        Map<String, NamedStrategy> byId =
-            this.index.computeIfAbsent(iface, k -> new LinkedHashMap<>());
-        NamedStrategy existing = byId.put(strategy.id(), strategy);
-        if (existing != null) {
+  private <T extends NamedStrategy> void registerStrategies(Instance<T> instance) {
+    for (Instance.Handle<T> handle : instance.handles()) {
+      T strategy = handle.get();
+      boolean isDefault = (handle.getBean() instanceof InjectableBean<?> ib) && ib.isDefaultBean();
+      registerEntry(strategy, isDefault);
+    }
+  }
+
+  void registerEntry(NamedStrategy strategy, boolean isDefault) {
+    for (Class<?> iface : resolveStrategyTypes(strategy.getClass())) {
+      Map<String, NamedStrategy> byId = index.computeIfAbsent(iface, k -> new LinkedHashMap<>());
+      NamedStrategy existing = byId.put(strategy.id(), strategy);
+      if (existing != null) {
+        throw new IllegalStateException(
+            "Duplicate strategy id '"
+                + strategy.id()
+                + "' for type "
+                + iface.getSimpleName()
+                + ": "
+                + existing.getClass().getName()
+                + " and "
+                + strategy.getClass().getName());
+      }
+      if (isDefault) {
+        defaultBeans.add(strategy);
+        NamedStrategy existingDefault = defaults.get(iface);
+        // Check if the existing default is ALSO a @DefaultBean (not just first-wins fallback)
+        if (existingDefault != null
+            && existingDefault != strategy
+            && isDefaultBean(existingDefault)) {
           throw new IllegalStateException(
-              "Duplicate strategy id '"
-                  + strategy.id()
-                  + "' for type "
+              "Multiple @DefaultBean strategies for type "
                   + iface.getSimpleName()
                   + ": "
-                  + existing.getClass().getName()
+                  + existingDefault.getClass().getName()
                   + " and "
                   + strategy.getClass().getName());
         }
-        this.defaults.putIfAbsent(iface, strategy);
+        defaults.put(iface, strategy);
+      } else {
+        defaults.putIfAbsent(iface, strategy);
       }
     }
+  }
+
+  private boolean isDefaultBean(NamedStrategy strategy) {
+    return defaultBeans.contains(strategy);
+  }
+
+  /** Package-visible test handle for unit testing without CDI. */
+  record TestHandle<T extends NamedStrategy>(T strategy, boolean isDefaultBean) {}
+
+  static EngineStrategyResolver forTest(List<TestHandle<? extends NamedStrategy>> handles) {
+    var resolver = new EngineStrategyResolver();
+    for (TestHandle<? extends NamedStrategy> th : handles) {
+      resolver.registerEntry(th.strategy(), th.isDefaultBean());
+    }
+    return resolver;
   }
 
   @Override

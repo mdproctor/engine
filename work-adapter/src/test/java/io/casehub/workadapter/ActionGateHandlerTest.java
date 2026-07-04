@@ -41,6 +41,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
@@ -99,7 +100,8 @@ class ActionGateHandlerTest {
         PlannedAction.of("File SAR", "sar.file", Map.of("accountId", "ACC-123"));
 
     actionGateWorkItemHandler.onActionGateSchedule(
-        new ActionGateScheduleEvent(caseId, TENANCY_ID, gateId, action, gate));
+        new ActionGateScheduleEvent(
+            caseId, TENANCY_ID, gateId, action, gate, Set.of("mlro", "analyst")));
 
     final String expectedCallerRef = GateCallerRef.encode(caseId, gateId);
     final WorkItem workItem = workItemStore.findByCallerRef(expectedCallerRef).orElse(null);
@@ -121,7 +123,7 @@ class ActionGateHandlerTest {
     final PlannedAction action = PlannedAction.of("Do something", "action.type", Map.of());
 
     actionGateWorkItemHandler.onActionGateSchedule(
-        new ActionGateScheduleEvent(caseId, TENANCY_ID, 99L, action, gate));
+        new ActionGateScheduleEvent(caseId, TENANCY_ID, 99L, action, gate, Set.of()));
 
     final String callerRef = GateCallerRef.encode(caseId, 99L);
     final WorkItem workItem = workItemStore.findByCallerRef(callerRef).orElse(null);
@@ -142,7 +144,7 @@ class ActionGateHandlerTest {
 
     actionGateWorkItemHandler.onActionGateSchedule(
         new ActionGateScheduleEvent(
-            caseId, TENANCY_ID, 77L, PlannedAction.of("d", "t", Map.of()), gate));
+            caseId, TENANCY_ID, 77L, PlannedAction.of("d", "t", Map.of()), gate, Set.of("mlro")));
 
     final WorkItem workItem =
         workItemStore.findByCallerRef(GateCallerRef.encode(caseId, 77L)).orElse(null);

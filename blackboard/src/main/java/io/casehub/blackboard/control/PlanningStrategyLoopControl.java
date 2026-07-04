@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -162,8 +163,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
               }
               return strategy.select(plan, ctx, routed);
             })
-        .map(selected -> filterToDispatchable(plan, selected))
-        .invoke(dispatchable -> indexSelectedForCompletion(caseId, dispatchable, plan));
+        .map(selected -> filterAndIndexForDispatch(caseId, plan, selected));
   }
 
   /**
@@ -232,23 +232,33 @@ public class PlanningStrategyLoopControl implements LoopControl {
   }
 
   /**
-   * Filters out bindings whose PlanItems are already dispatched (RUNNING, DELEGATED, COMPLETED,
-   * FAULTED, CANCELLED). Only PENDING PlanItems (first dispatch) are returned. This prevents
-   * re-dispatch of in-flight or completed bindings on repeated CONTEXT_CHANGED evaluations,
-   * regardless of whether the case is RUNNING or WAITING.
-   *
-   * <p>Pre-existing timing race (engine#364): a second CONTEXT_CHANGED arriving before a
-   * HumanTask/SubCase handler marks its PlanItem DELEGATED will find it still PENDING and
-   * re-dispatch. This filter prevents re-dispatch *after* the handler runs, not *before*.
+   * Atomically filters selected bindings to those dispatchable, marks CapabilityTarget PlanItems
+   * RUNNING via CAS, and indexes them for completion tracking. Only the thread that wins the CAS
+   * dispatches. Non-CapabilityTarget bindings (HumanTask, SubCase, Extension) use status check only
+   * — the handler owns the transition.
    */
-  private List<Binding> filterToDispatchable(CasePlanModel plan, List<Binding> selected) {
-    return selected.stream()
-        .filter(
-            b ->
-                plan.getPlanItemByBindingName(b.getName())
-                    .map(pi -> pi.getStatus() == PlanItemStatus.PENDING)
-                    .orElse(true))
-        .toList();
+  private List<Binding> filterAndIndexForDispatch(
+      UUID caseId, CasePlanModel plan, List<Binding> selected) {
+    List<Binding> dispatched = new ArrayList<>();
+    for (Binding binding : selected) {
+      Optional<PlanItem> piOpt = plan.getPlanItemByBindingName(binding.getName());
+      if (piOpt.isEmpty()) {
+        dispatched.add(binding);
+        continue;
+      }
+      PlanItem pi = piOpt.get();
+      if (binding.target() instanceof CapabilityTarget) {
+        if (pi.tryMarkRunning()) {
+          registry.indexForCompletion(caseId, pi.getWorkerName(), pi.getPlanItemId());
+          dispatched.add(binding);
+        }
+      } else {
+        if (pi.getStatus() == PlanItemStatus.PENDING) {
+          dispatched.add(binding);
+        }
+      }
+    }
+    return dispatched;
   }
 
   /**
@@ -284,40 +294,6 @@ public class PlanningStrategyLoopControl implements LoopControl {
       case HumanTaskTarget ht -> "unknown";
       case ExtensionTarget et -> "unknown";
     };
-  }
-
-  /**
-   * For each selected Binding, marks its PlanItem RUNNING and registers the worker-name →
-   * planItemId mapping for completion tracking — but only for CapabilityTarget bindings.
-   *
-   * <p>HumanTaskTarget, SubCaseTarget, and ExtensionTarget bindings are skipped here because the
-   * handler that processes the dispatched event owns the RUNNING transition for those target types:
-   * the transition must not happen until the handler has successfully completed its work (WorkItem
-   * creation, subcase start, etc.). Protocol PP-20260517-cbf836 — PlanItem must not be marked
-   * RUNNING until all resolution steps succeed. Refs engine#312.
-   */
-  private void indexSelectedForCompletion(UUID caseId, List<Binding> selected, CasePlanModel plan) {
-    for (Binding binding : selected) {
-      switch (binding.target()) {
-        case CapabilityTarget ignored -> {
-          /* only capability bindings — proceed below */
-        }
-        case null, default -> {
-          continue;
-        } // handler owns the RUNNING transition for all other target types
-      }
-      plan.getAgenda().stream()
-          .filter(
-              pi ->
-                  pi.getBindingName().equals(binding.getName())
-                      && pi.getStatus() == PlanItemStatus.PENDING)
-          .findFirst()
-          .ifPresent(
-              pi -> {
-                pi.markRunning();
-                registry.indexForCompletion(caseId, pi.getWorkerName(), pi.getPlanItemId());
-              });
-    }
   }
 
   /**

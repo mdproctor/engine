@@ -17,6 +17,7 @@ package io.casehub.engine.common.internal.event;
 
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.worker.api.PlannedAction;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -36,4 +37,5 @@ public record ActionGateScheduleEvent(
     String tenancyId,
     long gateId,
     PlannedAction plannedAction,
-    RiskDecision.GateRequired gateRequired) {}
+    RiskDecision.GateRequired gateRequired,
+    Set<String> resolvedCandidateGroups) {}

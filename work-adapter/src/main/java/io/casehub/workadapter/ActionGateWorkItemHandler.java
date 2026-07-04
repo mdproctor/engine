@@ -27,6 +27,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
+import java.util.Set;
 import org.jboss.logging.Logger;
 
 /**
@@ -64,10 +65,14 @@ public class ActionGateWorkItemHandler {
             ? Instant.now().plus(event.gateRequired().expiresIn())
             : null;
 
+    final Set<String> groups = event.resolvedCandidateGroups();
+    final String candidateGroupsCsv =
+        (groups == null || groups.isEmpty()) ? null : String.join(",", groups);
+
     final WorkItemCreateRequest request =
         WorkItemCreateRequest.builder()
             .title(event.gateRequired().reason())
-            .candidateGroups(candidateGroupsCsv(event.gateRequired()))
+            .candidateGroups(candidateGroupsCsv)
             .createdBy("casehub-engine")
             .payload(buildPayload(event))
             .expiresAt(expiresAt)
@@ -79,18 +84,6 @@ public class ActionGateWorkItemHandler {
     LOG.infof(
         "Gate WorkItem created: caseId=%s gateId=%d callerRef=%s expiresAt=%s",
         event.caseId(), event.gateId(), callerRef, expiresAt);
-  }
-
-  private static String candidateGroupsCsv(
-      final io.casehub.api.spi.RiskDecision.GateRequired gate) {
-    if (gate.candidateGroups() == null) return null;
-    final java.util.Set<String> groups =
-        gate.candidateGroups()
-            .evaluate(new io.casehub.api.spi.routing.CandidateSetContext(null))
-            .await()
-            .indefinitely();
-    if (groups == null || groups.isEmpty()) return null;
-    return String.join(",", groups);
   }
 
   private static String buildPayload(final ActionGateScheduleEvent event) {

@@ -18,6 +18,7 @@ package io.casehub.engine.internal.engine.handler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextPanel;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
@@ -30,8 +31,10 @@ import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.CaseTerminatedException;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.engine.internal.engine.CaseCompletionTracker;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
@@ -70,6 +73,8 @@ public class CaseStatusChangedHandler {
 
   @Inject Instance<CaseOutcomeObserver> outcomeObservers;
 
+  @Inject CaseCompletionTracker caseCompletionTracker;
+
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public Uni<Void> onCaseStatusChangedHandler(CaseStatusChanged event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
@@ -104,6 +109,14 @@ public class CaseStatusChangedHandler {
         .chain(
             () -> {
               if (isTerminalState(newState)) {
+                CaseContext contextSnapshot = caseInstance.getCaseContext().snapshot();
+                if (newState == CaseStatus.COMPLETED) {
+                  caseCompletionTracker.complete(caseInstance.getUuid(), contextSnapshot);
+                } else {
+                  caseCompletionTracker.completeExceptionally(
+                      caseInstance.getUuid(),
+                      new CaseTerminatedException(caseInstance.getUuid(), newState));
+                }
                 caseChannelProvider
                     .listChannels(caseInstance.getUuid())
                     .forEach(caseChannelProvider::closeChannel);
