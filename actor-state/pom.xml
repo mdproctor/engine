@@ -45,11 +45,18 @@
             <groupId>io.casehub</groupId>
             <artifactId>casehub-work</artifactId>
         </dependency>
-        <!-- QhorusActorStateContributor -->
+        <!-- QhorusActorStateContributor — SPI interfaces only -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-qhorus-api</artifactId>
+            <version>${version.io.casehub}</version>
+        </dependency>
+        <!-- @QuarkusTest needs JPA store implementations on test classpath -->
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-qhorus</artifactId>
             <version>${version.io.casehub}</version>
+            <scope>test</scope>
         </dependency>
 
         <!-- ManagedExecutor — CDI-context-safe parallel contributor execution -->

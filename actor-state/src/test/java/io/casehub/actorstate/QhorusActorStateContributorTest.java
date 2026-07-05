@@ -18,12 +18,12 @@ package io.casehub.actorstate;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
+import io.casehub.qhorus.api.channel.Channel;
+import io.casehub.qhorus.api.message.Commitment;
 import io.casehub.qhorus.api.message.CommitmentState;
+import io.casehub.qhorus.api.store.ChannelStore;
 import io.casehub.qhorus.api.store.CommitmentStore;
 import io.casehub.qhorus.api.store.query.ChannelQuery;
-import io.casehub.qhorus.runtime.channel.ChannelEntity;
-import io.casehub.qhorus.runtime.message.CommitmentEntity;
-import io.casehub.qhorus.runtime.store.ChannelStore;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -43,12 +43,14 @@ class QhorusActorStateContributorTest {
     // The commitment must still be contributed (no NPE), with caseId=null.
     final UUID channelId = UUID.randomUUID();
 
-    final CommitmentEntity commitment = new CommitmentEntity();
-    commitment.id = UUID.randomUUID();
-    commitment.channelId = channelId;
-    commitment.obligor = "agent-x";
-    commitment.state = CommitmentState.OPEN;
-    commitment.expiresAt = Instant.now().plusSeconds(3600);
+    final Commitment commitment =
+        Commitment.builder()
+            .id(UUID.randomUUID())
+            .channelId(channelId)
+            .obligor("agent-x")
+            .state(CommitmentState.OPEN)
+            .expiresAt(Instant.now().plusSeconds(3600))
+            .build();
 
     final CommitmentStore commitmentStore = openCommitmentsOnly(List.of(commitment));
     final ChannelStore channelStore = alwaysEmpty();
@@ -65,46 +67,45 @@ class QhorusActorStateContributorTest {
   // ── Store stubs ───────────────────────────────────────────────────────────
 
   /** CommitmentStore that returns the given list from findOpenByObligor; all else unsupported. */
-  private static CommitmentStore openCommitmentsOnly(final List<CommitmentEntity> open) {
+  private static CommitmentStore openCommitmentsOnly(final List<Commitment> open) {
     return new CommitmentStore() {
       @Override
-      public List<CommitmentEntity> findAllOpen() {
+      public List<Commitment> findAllOpen() {
         return open;
       }
 
       @Override
-      public CommitmentEntity save(final CommitmentEntity c) {
+      public Commitment save(final Commitment c) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public Optional<CommitmentEntity> findById(final UUID id) {
+      public Optional<Commitment> findById(final UUID id) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public Optional<CommitmentEntity> findByCorrelationId(final String correlationId) {
+      public Optional<Commitment> findByCorrelationId(final String correlationId) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<CommitmentEntity> findOpenByObligor(final String obligor, final UUID channelId) {
+      public List<Commitment> findOpenByObligor(final String obligor, final UUID channelId) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<CommitmentEntity> findOpenByRequester(
-          final String requester, final UUID channelId) {
+      public List<Commitment> findOpenByRequester(final String requester, final UUID channelId) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<CommitmentEntity> findByState(final CommitmentState state, final UUID channelId) {
+      public List<Commitment> findByState(final CommitmentState state, final UUID channelId) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<CommitmentEntity> findExpiredBefore(final Instant cutoff) {
+      public List<Commitment> findExpiredBefore(final Instant cutoff) {
         throw new UnsupportedOperationException();
       }
 
@@ -129,27 +130,27 @@ class QhorusActorStateContributorTest {
   private static ChannelStore alwaysEmpty() {
     return new ChannelStore() {
       @Override
-      public Optional<ChannelEntity> find(final UUID id) {
+      public Optional<Channel> find(final UUID id) {
         return Optional.empty();
       }
 
       @Override
-      public List<ChannelEntity> findByIds(final Collection<UUID> ids) {
+      public List<Channel> findByIds(final Collection<UUID> ids) {
         return List.of();
       }
 
       @Override
-      public ChannelEntity put(final ChannelEntity channel) {
+      public Channel put(final Channel channel) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public Optional<ChannelEntity> findByName(final String name) {
+      public Optional<Channel> findByName(final String name) {
         throw new UnsupportedOperationException();
       }
 
       @Override
-      public List<ChannelEntity> scan(final ChannelQuery query) {
+      public List<Channel> scan(final ChannelQuery query) {
         throw new UnsupportedOperationException();
       }
 
