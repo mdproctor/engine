@@ -18,8 +18,8 @@ package io.casehub.engine.internal.context;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.ReadOnlyPanelException;
-import io.casehub.api.context.ReadablePanel;
-import io.casehub.api.context.WritablePanel;
+import io.casehub.api.context.ReadableLayer;
+import io.casehub.api.context.WritableLayer;
 import io.fabric8.zjsonpatch.JsonDiff;
 import io.fabric8.zjsonpatch.JsonPatch;
 import java.util.ArrayList;
@@ -35,7 +35,7 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 
 /** Thread-safe, versioned data store for a single CaseFile panel. */
-public class WritablePanelImpl implements WritablePanel {
+public class WritableLayerImpl implements WritableLayer {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
@@ -45,15 +45,15 @@ public class WritablePanelImpl implements WritablePanel {
   private long version = 0L;
   private volatile boolean frozen = false;
 
-  public WritablePanelImpl(String panelName) {
+  public WritableLayerImpl(String panelName) {
     this.panelName = panelName;
   }
 
-  public WritablePanelImpl(String panelName, Map<String, Object> initial) {
+  public WritableLayerImpl(String panelName, Map<String, Object> initial) {
     this(panelName, initial, true);
   }
 
-  private WritablePanelImpl(String panelName, Map<String, Object> initial, boolean deepCopy) {
+  private WritableLayerImpl(String panelName, Map<String, Object> initial, boolean deepCopy) {
     this.panelName = panelName;
     if (initial != null) {
       data.putAll(deepCopy ? deepCopyMap(initial) : initial);
@@ -72,7 +72,7 @@ public class WritablePanelImpl implements WritablePanel {
     return frozen;
   }
 
-  public WritablePanelImpl freeze() {
+  public WritableLayerImpl freeze() {
     this.frozen = true;
     return this;
   }
@@ -293,7 +293,7 @@ public class WritablePanelImpl implements WritablePanel {
   // ── WritablePanel ──────────────────────────────────────────────────────────
 
   @Override
-  public WritablePanel set(String key, Object value) {
+  public WritableLayer set(String key, Object value) {
     checkWritable();
     lock.writeLock().lock();
     try {
@@ -309,7 +309,7 @@ public class WritablePanelImpl implements WritablePanel {
   }
 
   @Override
-  public WritablePanel setAll(Map<String, Object> values) {
+  public WritableLayer setAll(Map<String, Object> values) {
     checkWritable();
     if (values == null || values.isEmpty()) {
       return this;
@@ -335,7 +335,7 @@ public class WritablePanelImpl implements WritablePanel {
 
   @SuppressWarnings("unchecked")
   @Override
-  public WritablePanel setPath(String path, Object value) {
+  public WritableLayer setPath(String path, Object value) {
     checkWritable();
     lock.writeLock().lock();
     try {
@@ -366,7 +366,7 @@ public class WritablePanelImpl implements WritablePanel {
   }
 
   @Override
-  public WritablePanel remove(String key) {
+  public WritableLayer remove(String key) {
     checkWritable();
     lock.writeLock().lock();
     try {
@@ -381,7 +381,7 @@ public class WritablePanelImpl implements WritablePanel {
   }
 
   @Override
-  public WritablePanel clear() {
+  public WritableLayer clear() {
     checkWritable();
     lock.writeLock().lock();
     try {
@@ -396,7 +396,7 @@ public class WritablePanelImpl implements WritablePanel {
   }
 
   @Override
-  public WritablePanel merge(ReadablePanel other) {
+  public WritableLayer merge(ReadableLayer other) {
     checkWritable();
     if (other == null) {
       return this;
@@ -476,7 +476,7 @@ public class WritablePanelImpl implements WritablePanel {
   }
 
   @Override
-  public WritablePanel update(String key, Function<Object, Object> updateFunction) {
+  public WritableLayer update(String key, Function<Object, Object> updateFunction) {
     checkWritable();
     lock.writeLock().lock();
     try {
@@ -558,7 +558,7 @@ public class WritablePanelImpl implements WritablePanel {
   }
 
   @Override
-  public JsonNode diff(ReadablePanel other) {
+  public JsonNode diff(ReadableLayer other) {
     lock.readLock().lock();
     try {
       JsonNode thisNode = MAPPER.convertValue(this.data, JsonNode.class);
@@ -575,7 +575,7 @@ public class WritablePanelImpl implements WritablePanel {
    * Engine-internal write that bypasses the frozen check. Used by {@code EpisodicPanelUpdater} to
    * update engine-managed panels (episodic) without exposing an unfreeze/refreeze cycle.
    */
-  public WritablePanelImpl engineSet(String key, Object value) {
+  public WritableLayerImpl engineSet(String key, Object value) {
     lock.writeLock().lock();
     try {
       Object prev = data.get(key);
@@ -611,7 +611,7 @@ public class WritablePanelImpl implements WritablePanel {
   }
 
   @Override
-  public ReadablePanel snapshot() {
+  public ReadableLayer snapshot() {
     return deepCopy();
   }
 
@@ -619,10 +619,10 @@ public class WritablePanelImpl implements WritablePanel {
    * Returns a deep copy of this panel, detached from the original. The copy shares the same
    * panelName but has an independent data map.
    */
-  public WritablePanelImpl deepCopy() {
+  public WritableLayerImpl deepCopy() {
     lock.readLock().lock();
     try {
-      return new WritablePanelImpl(panelName, deepCopyMap(data), false);
+      return new WritableLayerImpl(panelName, deepCopyMap(data), false);
     } finally {
       lock.readLock().unlock();
     }

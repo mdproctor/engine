@@ -13,7 +13,7 @@ description: >
 
   Case Hub is choreography-oriented by default.
 type: object
-required: [ apiVersion, version, spec ]
+required: [ dsl, namespace, name, version, spec ]
 unevaluatedProperties: true
 
 properties:
@@ -94,7 +94,7 @@ properties:
   semanticData:
     type: object
     additionalProperties: true
-    description: Static domain knowledge injected into the semantic panel at case start
+    description: Static domain knowledge injected into the semantic layer at case start
   episodic:
     type: object
     description: Episodic memory configuration for this case definition
@@ -112,15 +112,15 @@ properties:
             description: MemoryDomain name (e.g. "fraud-check")
           entityId:
             type: string
-            description: JQ expression evaluated against semantic panel to resolve entity ID(s)
+            description: JQ expression evaluated against semantic layer to resolve entity ID(s)
           recent:
             type: integer
             default: 10
             minimum: 1
             description: Max items to return; default 10
-  panels:
+  layers:
     type: array
-    description: User-defined panel names for this case definition
+    description: User-defined layer names for this case definition
     items:
       type: object
       required:
@@ -129,10 +129,9 @@ properties:
       properties:
         name:
           type: string
-          description: User-defined panel name
+          description: User-defined layer name
   spec:
     $ref: "#/$defs/CaseDefinitionSpec"
-  required: [ dsl, namespace, name, version ]
 $defs:
   Use:
     type: object
@@ -359,7 +358,7 @@ $defs:
       expiresAtExpression:
         type: string
         description: >
-          JQ expression evaluated against the case context WORKING panel at scheduling time.
+          JQ expression evaluated against the case context WORKING layer at scheduling time.
           Must produce an ISO-8601 Instant string (e.g. ".indReportingDeadline").
           Validated at YAML load time. Used to enforce an absolute deadline derived from
           domain data (e.g. ae.reportedAt + window) rather than a relative duration from
@@ -470,9 +469,9 @@ $defs:
       filter:
         type: string
         description: "JQ predicate over { context, event } where event is a synthetic ContextChanged envelope"
-      listenPanel:
+      listenLayer:
         type: string
-        description: "Optional panel name; if set, binding only re-evaluates when this panel changes"
+        description: "Optional layer name; if set, binding only re-evaluates when this layer changes"
     additionalProperties: false
 
   CloudEventTrigger:

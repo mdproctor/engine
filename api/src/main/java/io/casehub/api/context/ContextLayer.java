@@ -15,10 +15,10 @@
  */
 package io.casehub.api.context;
 
-public final class ContextPanel {
+public final class ContextLayer {
   public static final String WORKING = "working";
   public static final String SEMANTIC = "semantic";
   public static final String EPISODIC = "episodic";
 
-  private ContextPanel() {}
+  private ContextLayer() {}
 }

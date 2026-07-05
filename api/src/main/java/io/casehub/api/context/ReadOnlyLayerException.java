@@ -15,8 +15,8 @@
  */
 package io.casehub.api.context;
 
-public class ReadOnlyPanelException extends RuntimeException {
-  public ReadOnlyPanelException(String panelName) {
+public class ReadOnlyLayerException extends RuntimeException {
+  public ReadOnlyLayerException(String panelName) {
     super("Panel '" + panelName + "' is read-only — writes are not permitted");
   }
 }

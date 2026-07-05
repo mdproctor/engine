@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public interface ReadablePanel {
+public interface ReadableLayer {
 
   String panelName();
 
@@ -64,5 +64,5 @@ public interface ReadablePanel {
 
   JsonNode asJsonNode();
 
-  ReadablePanel snapshot();
+  ReadableLayer snapshot();
 }

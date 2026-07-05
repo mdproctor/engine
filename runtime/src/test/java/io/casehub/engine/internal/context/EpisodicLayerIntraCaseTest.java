@@ -19,20 +19,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-class EpisodicPanelIntraCaseTest {
+class EpisodicLayerIntraCaseTest {
 
   @Test
   void initBaseline_setsEmptyLists() {
     CaseContextImpl ctx = new CaseContextImpl();
-    EpisodicPanelUpdater.initBaseline(ctx);
+    EpisodicLayerUpdater.initBaseline(ctx);
 
-    var workers = ctx.writablePanel(ContextPanel.EPISODIC).getList("workers", Map.class);
-    var milestones = ctx.writablePanel(ContextPanel.EPISODIC).getList("milestones", String.class);
-    var goals = ctx.writablePanel(ContextPanel.EPISODIC).getList("goals", String.class);
+    var workers = ctx.writableLayer(ContextLayer.EPISODIC).getList("workers", Map.class);
+    var milestones = ctx.writableLayer(ContextLayer.EPISODIC).getList("milestones", String.class);
+    var goals = ctx.writableLayer(ContextLayer.EPISODIC).getList("goals", String.class);
     assertNotNull(workers);
     assertEquals(0, workers.size());
     assertNotNull(milestones);
@@ -44,11 +44,11 @@ class EpisodicPanelIntraCaseTest {
   @Test
   void recordWorkerCompletion_addsEntry() {
     CaseContextImpl ctx = new CaseContextImpl();
-    EpisodicPanelUpdater.initBaseline(ctx);
+    EpisodicLayerUpdater.initBaseline(ctx);
 
-    EpisodicPanelUpdater.recordWorkerCompletion(ctx, "extractor", "COMPLETED");
+    EpisodicLayerUpdater.recordWorkerCompletion(ctx, "extractor", "COMPLETED");
 
-    var workers = ctx.writablePanel(ContextPanel.EPISODIC).getList("workers", Map.class);
+    var workers = ctx.writableLayer(ContextLayer.EPISODIC).getList("workers", Map.class);
     assertEquals(1, workers.size());
     assertEquals("extractor", workers.get(0).get("name"));
     assertEquals("COMPLETED", workers.get(0).get("lastOutcome"));
@@ -58,12 +58,12 @@ class EpisodicPanelIntraCaseTest {
   @Test
   void recordWorkerCompletion_incrementsRuns() {
     CaseContextImpl ctx = new CaseContextImpl();
-    EpisodicPanelUpdater.initBaseline(ctx);
+    EpisodicLayerUpdater.initBaseline(ctx);
 
-    EpisodicPanelUpdater.recordWorkerCompletion(ctx, "extractor", "COMPLETED");
-    EpisodicPanelUpdater.recordWorkerCompletion(ctx, "extractor", "COMPLETED");
+    EpisodicLayerUpdater.recordWorkerCompletion(ctx, "extractor", "COMPLETED");
+    EpisodicLayerUpdater.recordWorkerCompletion(ctx, "extractor", "COMPLETED");
 
-    var workers = ctx.writablePanel(ContextPanel.EPISODIC).getList("workers", Map.class);
+    var workers = ctx.writableLayer(ContextLayer.EPISODIC).getList("workers", Map.class);
     assertEquals(1, workers.size()); // same worker, not duplicated
     assertEquals(2, ((Number) workers.get(0).get("runs")).intValue());
   }
@@ -71,23 +71,23 @@ class EpisodicPanelIntraCaseTest {
   @Test
   void recordMilestoneReached_appendsName() {
     CaseContextImpl ctx = new CaseContextImpl();
-    EpisodicPanelUpdater.initBaseline(ctx);
+    EpisodicLayerUpdater.initBaseline(ctx);
 
-    EpisodicPanelUpdater.recordMilestoneReached(ctx, "data-ready");
+    EpisodicLayerUpdater.recordMilestoneReached(ctx, "data-ready");
 
-    var milestones = ctx.writablePanel(ContextPanel.EPISODIC).getList("milestones", String.class);
+    var milestones = ctx.writableLayer(ContextLayer.EPISODIC).getList("milestones", String.class);
     assertTrue(milestones.contains("data-ready"));
   }
 
   @Test
   void recordMilestoneReached_notDuplicated() {
     CaseContextImpl ctx = new CaseContextImpl();
-    EpisodicPanelUpdater.initBaseline(ctx);
+    EpisodicLayerUpdater.initBaseline(ctx);
 
-    EpisodicPanelUpdater.recordMilestoneReached(ctx, "data-ready");
-    EpisodicPanelUpdater.recordMilestoneReached(ctx, "data-ready");
+    EpisodicLayerUpdater.recordMilestoneReached(ctx, "data-ready");
+    EpisodicLayerUpdater.recordMilestoneReached(ctx, "data-ready");
 
-    var milestones = ctx.writablePanel(ContextPanel.EPISODIC).getList("milestones", String.class);
+    var milestones = ctx.writableLayer(ContextLayer.EPISODIC).getList("milestones", String.class);
     assertEquals(1, milestones.stream().filter("data-ready"::equals).count());
   }
 
@@ -97,8 +97,8 @@ class EpisodicPanelIntraCaseTest {
     ctx.set("result", "done");
     long workingVersionBefore = ctx.getVersion();
 
-    EpisodicPanelUpdater.initBaseline(ctx);
-    EpisodicPanelUpdater.recordWorkerCompletion(ctx, "worker1", "COMPLETED");
+    EpisodicLayerUpdater.initBaseline(ctx);
+    EpisodicLayerUpdater.recordWorkerCompletion(ctx, "worker1", "COMPLETED");
 
     assertEquals(workingVersionBefore, ctx.getVersion()); // working version unchanged
   }

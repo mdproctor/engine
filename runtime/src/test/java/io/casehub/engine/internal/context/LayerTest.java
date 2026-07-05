@@ -21,44 +21,44 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.casehub.api.context.ContextPanel;
-import io.casehub.api.context.ReadOnlyPanelException;
-import io.casehub.api.context.ReadablePanel;
-import io.casehub.api.context.WritablePanel;
+import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.ReadOnlyLayerException;
+import io.casehub.api.context.ReadableLayer;
+import io.casehub.api.context.WritableLayer;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 
-class PanelTest {
+class LayerTest {
 
   @Test
   void panelName_returnsConstructedName() {
-    WritablePanel p = new WritablePanelImpl(ContextPanel.WORKING);
-    assertEquals("working", p.panelName());
+    WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
+    assertEquals("working", p.layerName());
   }
 
   @Test
   void isReadOnly_falseByDefault() {
-    assertFalse(new WritablePanelImpl("custom").isReadOnly());
+    assertFalse(new WritableLayerImpl("custom").isReadOnly());
   }
 
   @Test
   void setAndGet_roundTrip() {
-    WritablePanel p = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
     p.set("score", 42);
     assertEquals(42, p.get("score"));
   }
 
   @Test
   void getVersion_incrementsOnWrite() {
-    WritablePanel p = new WritablePanelImpl(ContextPanel.WORKING);
-    long before = p.getVersion();
+    WritableLayer p      = new WritableLayerImpl(ContextLayer.WORKING);
+    long          before = p.getVersion();
     p.set("key", "val");
     assertEquals(before + 1, p.getVersion());
   }
 
   @Test
   void getVersion_noIncrementOnNoOp() {
-    WritablePanel p = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
     p.set("key", "val");
     long before = p.getVersion();
     p.set("key", "val"); // same value
@@ -67,7 +67,7 @@ class PanelTest {
 
   @Test
   void clear_removesAllKeys() {
-    WritablePanel p = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
     p.set("a", 1).set("b", 2);
     p.clear();
     assertTrue(p.isEmpty());
@@ -75,14 +75,14 @@ class PanelTest {
 
   @Test
   void asJsonNode_representsData() {
-    WritablePanel p = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
     p.set("result", "done");
     assertEquals("done", p.asJsonNode().get("result").asText());
   }
 
   @Test
   void applyAndDiff_returnsNonEmptyOnChange() {
-    WritablePanel p = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
     p.set("score", 10);
     var diff = p.applyAndDiff("score", 20);
     assertTrue(diff.isPresent());
@@ -90,7 +90,7 @@ class PanelTest {
 
   @Test
   void applyAndDiff_returnsEmptyOnNoChange() {
-    WritablePanel p = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
     p.set("score", 10);
     var diff = p.applyAndDiff("score", 10);
     assertTrue(diff.isEmpty());
@@ -98,18 +98,18 @@ class PanelTest {
 
   @Test
   void deepCopy_isDetached() {
-    WritablePanelImpl original = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayerImpl original = new WritableLayerImpl(ContextLayer.WORKING);
     original.set("key", "value");
-    WritablePanelImpl copy = original.deepCopy();
+    WritableLayerImpl copy = original.deepCopy();
     copy.set("key", "modified");
     assertEquals("value", original.get("key")); // original unchanged
   }
 
   @Test
   void merge_copiesFromOtherPanel() {
-    WritablePanelImpl p1 = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayerImpl p1 = new WritableLayerImpl(ContextLayer.WORKING);
     p1.set("a", 1);
-    WritablePanelImpl p2 = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayerImpl p2 = new WritableLayerImpl(ContextLayer.WORKING);
     p2.set("b", 2);
     p1.merge(p2);
     assertEquals(1, p1.getAs("a", Integer.class));
@@ -118,28 +118,28 @@ class PanelTest {
 
   @Test
   void frozen_throwsOnSet() {
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.SEMANTIC);
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.SEMANTIC);
     p.freeze();
-    assertThrows(ReadOnlyPanelException.class, () -> p.set("key", "val"));
+    assertThrows(ReadOnlyLayerException.class, () -> p.set("key", "val"));
   }
 
   @Test
   void frozen_throwsOnSetAll() {
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.SEMANTIC);
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.SEMANTIC);
     p.freeze();
-    assertThrows(ReadOnlyPanelException.class, () -> p.setAll(Map.of("k", "v")));
+    assertThrows(ReadOnlyLayerException.class, () -> p.setAll(Map.of("k", "v")));
   }
 
   @Test
   void frozen_throwsOnClear() {
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.SEMANTIC);
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.SEMANTIC);
     p.freeze();
-    assertThrows(ReadOnlyPanelException.class, p::clear);
+    assertThrows(ReadOnlyLayerException.class, p::clear);
   }
 
   @Test
   void frozen_allowsGet() {
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.SEMANTIC);
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.SEMANTIC);
     p.set("key", "val");
     p.freeze();
     assertEquals("val", p.get("key")); // reads still work
@@ -147,7 +147,7 @@ class PanelTest {
 
   @Test
   void frozen_isReadOnlyTrue() {
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.SEMANTIC);
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.SEMANTIC);
     assertFalse(p.isReadOnly());
     p.freeze();
     assertTrue(p.isReadOnly());
@@ -155,29 +155,29 @@ class PanelTest {
 
   @Test
   void notFrozen_isReadOnlyFalse() {
-    assertFalse(new WritablePanelImpl(ContextPanel.WORKING).isReadOnly());
+    assertFalse(new WritableLayerImpl(ContextLayer.WORKING).isReadOnly());
   }
 
   @Test
   void snapshot_isDetached() {
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.WORKING);
     p.set("key", "original");
-    ReadablePanel snap = p.snapshot();
+    ReadableLayer snap = p.snapshot();
     p.set("key", "modified");
     assertEquals("original", snap.get("key")); // snapshot is unaffected
   }
 
   @Test
   void snapshot_preservesPanelName() {
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.SEMANTIC);
-    ReadablePanel snap = p.snapshot();
-    assertEquals(ContextPanel.SEMANTIC, snap.panelName());
+    WritableLayerImpl p    = new WritableLayerImpl(ContextLayer.SEMANTIC);
+    ReadableLayer     snap = p.snapshot();
+    assertEquals(ContextLayer.SEMANTIC, snap.layerName());
   }
 
   @Test
   void constructor_deepCopiesInitialSubMaps() {
     Map<String, Object> initial = Map.of("pr", Map.of("headSha", "abc123"));
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.WORKING, initial);
+    WritableLayerImpl   p       = new WritableLayerImpl(ContextLayer.WORKING, initial);
 
     assertDoesNotThrow(() -> p.setPath("pr.headSha", "def456"));
     assertEquals("def456", p.getPath("pr.headSha"));
@@ -185,7 +185,7 @@ class PanelTest {
 
   @Test
   void deepCopy_deepCopiesListsContainingMaps() {
-    WritablePanelImpl p = new WritablePanelImpl(ContextPanel.WORKING);
+    WritableLayerImpl                             p       = new WritableLayerImpl(ContextLayer.WORKING);
     java.util.List<java.util.Map<String, Object>> workers = new java.util.ArrayList<>();
     java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
     entry.put("name", "extractor");
@@ -193,7 +193,7 @@ class PanelTest {
     workers.add(entry);
     p.set("workers", workers);
 
-    WritablePanelImpl copy = p.deepCopy();
+    WritableLayerImpl copy = p.deepCopy();
     // Mutate original entry
     ((java.util.Map<String, Object>) ((java.util.List<?>) p.get("workers")).get(0)).put("runs", 99);
     // Copy should be unaffected

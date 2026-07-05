@@ -18,12 +18,12 @@ package io.casehub.engine.internal.engine.recovery;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
-class RecoveryPanelAwareTest {
+class RecoveryLayerAwareTest {
 
   @Test
   void fromPanelDocument_reconstructsWorkingPanel() {
@@ -41,24 +41,24 @@ class RecoveryPanelAwareTest {
   @Test
   void fromPanelDocument_reconstructsSemanticPanel() {
     CaseContextImpl original = new CaseContextImpl();
-    original.writablePanel(ContextPanel.SEMANTIC).set("threshold", 0.8);
-    original.freezePanel(ContextPanel.SEMANTIC);
+    original.writableLayer(ContextLayer.SEMANTIC).set("threshold", 0.8);
+    original.freezeLayer(ContextLayer.SEMANTIC);
 
     var doc = original.asJsonNode();
     CaseContextImpl recovered = CaseContextImpl.fromPanelDocument(doc);
 
-    assertEquals(0.8, recovered.panel(ContextPanel.SEMANTIC).getAs("threshold", Double.class));
+    assertEquals(0.8, recovered.layer(ContextLayer.SEMANTIC).getAs("threshold", Double.class));
   }
 
   @Test
   void fromPanelDocument_reconstructsEpisodicPanel() {
     CaseContextImpl original = new CaseContextImpl();
-    original.writablePanel(ContextPanel.EPISODIC).set("milestones", List.of("data-ready"));
+    original.writableLayer(ContextLayer.EPISODIC).set("milestones", List.of("data-ready"));
 
     var doc = original.asJsonNode();
     CaseContextImpl recovered = CaseContextImpl.fromPanelDocument(doc);
 
-    var milestones = recovered.panel(ContextPanel.EPISODIC).getList("milestones", String.class);
+    var milestones = recovered.layer(ContextLayer.EPISODIC).getList("milestones", String.class);
     assertTrue(milestones.contains("data-ready"));
   }
 

@@ -20,19 +20,19 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-public interface WritablePanel extends ReadablePanel {
+public interface WritableLayer extends ReadableLayer {
 
-  WritablePanel set(String key, Object value);
+  WritableLayer set(String key, Object value);
 
-  WritablePanel setAll(Map<String, Object> values);
+  WritableLayer setAll(Map<String, Object> values);
 
-  WritablePanel setPath(String path, Object value);
+  WritableLayer setPath(String path, Object value);
 
-  WritablePanel remove(String key);
+  WritableLayer remove(String key);
 
-  WritablePanel clear();
+  WritableLayer clear();
 
-  WritablePanel merge(ReadablePanel other);
+  WritableLayer merge(ReadableLayer other);
 
   Object computeIfAbsent(String key, Function<String, Object> mappingFunction);
 
@@ -40,11 +40,11 @@ public interface WritablePanel extends ReadablePanel {
 
   boolean compareAndSet(String key, Object expected, Object newValue);
 
-  WritablePanel update(String key, Function<Object, Object> updateFunction);
+  WritableLayer update(String key, Function<Object, Object> updateFunction);
 
   Optional<JsonNode> applyAndDiff(String path, Object value);
 
   void applyDiff(JsonNode diff);
 
-  JsonNode diff(ReadablePanel other);
+  JsonNode diff(ReadableLayer other);
 }
