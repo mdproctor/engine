@@ -46,14 +46,16 @@ class AgentRoutingStrategyContractTest {
   }
 
   @Test
-  void agentRoutingContext_exposesAllThreeFields() {
+  void agentRoutingContext_exposesAllFourFields() {
     final UUID caseId = UUID.randomUUID();
     final var caseContext = NullNode.instance;
-    final AgentRoutingContext ctx = new AgentRoutingContext(caseId, "data-analysis", caseContext);
+    final AgentRoutingContext ctx =
+        new AgentRoutingContext(caseId, "data-analysis", caseContext, "test-tenant");
 
     assertThat(ctx.caseId()).isEqualTo(caseId);
     assertThat(ctx.capabilityName()).isEqualTo("data-analysis");
     assertThat(ctx.caseContext()).isSameAs(caseContext);
+    assertThat(ctx.tenancyId()).isEqualTo("test-tenant");
   }
 
   @Test
@@ -88,13 +90,17 @@ class AgentRoutingStrategyContractTest {
           public Uni<AgentAssignment> select(
               AgentRoutingContext ctx, List<AgentCandidate> candidates) {
             return candidates.isEmpty()
-                ? Uni.createFrom().item(AgentAssignment.unresolvable())
-                : Uni.createFrom().item(AgentAssignment.assign(candidates.get(0).workerId()));
+                ? Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available"))
+                : Uni.createFrom()
+                    .item(
+                        AgentAssignment.assign(
+                            candidates.get(0).workerId(), "selected by test strategy"));
           }
         };
 
     final UUID caseId = UUID.randomUUID();
-    final AgentRoutingContext ctx = new AgentRoutingContext(caseId, "research", NullNode.instance);
+    final AgentRoutingContext ctx =
+        new AgentRoutingContext(caseId, "research", NullNode.instance, "test-tenant");
     final AgentCandidate candidate =
         new AgentCandidate("agent-x", Set.of("research"), 0, AgentHealth.READY, null);
 
@@ -102,6 +108,8 @@ class AgentRoutingStrategyContractTest {
 
     assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
     assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-x");
+    assertThat(((AgentAssignment.Assigned) result).rationale())
+        .isEqualTo("selected by test strategy");
   }
 
   @Test
@@ -116,15 +124,17 @@ class AgentRoutingStrategyContractTest {
           @Override
           public Uni<AgentAssignment> select(
               AgentRoutingContext ctx, List<AgentCandidate> candidates) {
-            return Uni.createFrom().item(AgentAssignment.unresolvable());
+            return Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available"));
           }
         };
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance);
+        new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance, "test-tenant");
 
     final AgentAssignment result = strategy.select(ctx, List.of()).await().indefinitely();
 
     assertThat(result).isInstanceOf(AgentAssignment.Unresolvable.class);
+    assertThat(((AgentAssignment.Unresolvable) result).rationale())
+        .isEqualTo("no candidates available");
   }
 
   @Test
@@ -142,16 +152,22 @@ class AgentRoutingStrategyContractTest {
             return Uni.createFrom()
                 .item(
                     AgentAssignment.escalate(
-                        ctx.capabilityName(), EscalationReason.BORDERLINE_STALEMATE));
+                        ctx.capabilityName(),
+                        EscalationReason.BORDERLINE_STALEMATE,
+                        "all candidates borderline for capability '%s' — oversight required"
+                            .formatted(ctx.capabilityName())));
           }
         };
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(UUID.randomUUID(), "sensitive-review", NullNode.instance);
+        new AgentRoutingContext(
+            UUID.randomUUID(), "sensitive-review", NullNode.instance, "test-tenant");
 
     final AgentAssignment result = strategy.select(ctx, List.of()).await().indefinitely();
 
     assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
     assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName())
         .isEqualTo("sensitive-review");
+    assertThat(((AgentAssignment.EscalateToOversight) result).rationale())
+        .contains("sensitive-review");
   }
 }

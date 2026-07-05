@@ -60,4 +60,12 @@ public enum CaseHubEventType {
   ACTION_GATE_REJECTED, // human rejected the gate; worker treated as faulted
   ACTION_GATE_EXPIRED, // gate WorkItem expired before approval; worker treated as faulted
   ACTION_GATE_CANCELLED, // gate cancelled because the case reached a terminal state
+
+  ORCHESTRATION_STARTED, // routing/orchestration phase began for a capability binding
+  ORCHESTRATION_COMPLETED, // routing/orchestration phase completed successfully
+  AGENT_ROUTED, // agent candidate selected via routing strategy
+  AGENT_DISPATCHED, // agent dispatched for execution
+  AGENT_COMPLETED, // agent execution completed
+  AGENT_FAILED, // agent execution failed
+  ORCHESTRATION_ESCALATED, // orchestration escalated due to exhaustion or circuit breaker
 }

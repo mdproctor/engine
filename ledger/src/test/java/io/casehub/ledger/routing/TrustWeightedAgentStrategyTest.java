@@ -57,7 +57,7 @@ class TrustWeightedAgentStrategyTest {
     policyProvider = mock(TrustRoutingPolicyProvider.class);
     strategy =
         new TrustWeightedAgentStrategy(new TrustCandidateClassifier(), source, policyProvider);
-    ctx = new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance);
+    ctx = new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance, "test-tenant");
 
     when(policyProvider.forCapability("research")).thenReturn(DEFAULT_POLICY);
     when(source.capabilityScore(any(), any())).thenReturn(OptionalDouble.empty());

@@ -18,14 +18,14 @@ package io.casehub.engine.common.internal.history;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import java.time.Instant;
 import java.util.UUID;
 
 /**
  * Plain domain object for an immutable audit event. {@code id} and {@code seq} are populated by the
  * repository after append. Static Panache query methods have been removed; use {@link
- * EventLogRepository} instead.
+ * ReactiveEventLogRepository} instead.
  *
  * <p>{@code workerId} is intentionally denormalised so events can be filtered by worker without
  * parsing the JSON metadata payload.

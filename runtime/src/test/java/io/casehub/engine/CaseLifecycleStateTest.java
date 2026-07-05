@@ -28,8 +28,8 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -61,9 +61,9 @@ class CaseLifecycleStateTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   // ------------------------------------------------------------------ //
   // RUNNING state                                                         //
@@ -100,7 +100,7 @@ class CaseLifecycleStateTest {
 
     // Repository must store RUNNING — not the legacy ACTIVE value.
     var stored =
-        caseInstanceRepository
+        reactiveCaseInstanceRepository
             .findByUuid(caseId, TenancyConstants.DEFAULT_TENANT_ID)
             .await()
             .atMost(SPI_TIMEOUT);
@@ -170,14 +170,14 @@ class CaseLifecycleStateTest {
   // ------------------------------------------------------------------ //
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);
   }
 
   private List<EventLog> findEventsByTypeName(UUID caseId, String eventTypeName) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(
             caseId, List.of(CaseHubEventType.values()), TenancyConstants.DEFAULT_TENANT_ID)
         .await()

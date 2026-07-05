@@ -80,10 +80,12 @@ public class TrustCandidateClassifier {
   }
 
   /**
-   * A candidate paired with its final routing score after the strategy applies its scoring
-   * algorithm. Strategies create these from {@link ClassifiedCandidate} instances.
+   * A candidate paired with its final routing score and human-readable rationale after the strategy
+   * applies its scoring algorithm. Strategies create these from {@link ClassifiedCandidate}
+   * instances. The rationale explains why this candidate received this score.
    */
-  public record ScoredCandidate(ClassifiedCandidate classified, double finalScore) {}
+  public record ScoredCandidate(
+      ClassifiedCandidate classified, double finalScore, String rationale) {}
 
   /**
    * Classify all candidates by trust phase using the given policy and cache.
@@ -169,13 +171,18 @@ public class TrustCandidateClassifier {
     }
 
     if (best != null && best.finalScore() > 0.0) {
-      return AgentAssignment.assign(best.classified().candidate().workerId());
+      return AgentAssignment.assign(best.classified().candidate().workerId(), best.rationale());
     }
 
     final boolean anyBorderline = classified.stream().anyMatch(c -> c.phase() == Phase.BORDERLINE);
 
     return anyBorderline
-        ? AgentAssignment.escalate(capabilityName, EscalationReason.BORDERLINE_STALEMATE)
-        : AgentAssignment.unresolvable();
+        ? AgentAssignment.escalate(
+            capabilityName,
+            EscalationReason.BORDERLINE_STALEMATE,
+            "all candidates borderline for capability '%s' — oversight required"
+                .formatted(capabilityName))
+        : AgentAssignment.unresolvable(
+            "all candidates excluded for capability '%s'".formatted(capabilityName));
   }
 }

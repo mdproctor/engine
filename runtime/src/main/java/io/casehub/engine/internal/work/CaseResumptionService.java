@@ -23,7 +23,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -43,7 +43,7 @@ public class CaseResumptionService {
   private static final Logger LOG = Logger.getLogger(CaseResumptionService.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   @Inject PendingWorkRegistry pendingWorkRegistry;
 
   /**
@@ -90,7 +90,7 @@ public class CaseResumptionService {
         "Resuming WAITING case %s → RUNNING (correlationKey=%s eventType=%s)",
         caseInstance.getUuid(), correlationKey, eventType);
 
-    return caseInstanceRepository
+    return reactiveCaseInstanceRepository
         .updateStateAndAppendEvent(caseInstance, completedLog, caseInstance.tenancyId)
         .invoke(
             () ->

@@ -32,7 +32,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseTerminatedException;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.engine.CaseCompletionTracker;
 import io.casehub.engine.internal.scheduler.SchedulerService;
@@ -61,7 +61,7 @@ public class CaseStatusChangedHandler {
 
   @Inject EventBus eventBus;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
 
   @Inject SchedulerService schedulerService;
 
@@ -104,7 +104,7 @@ public class CaseStatusChangedHandler {
     }
     eventLog.setMetadata(metadataNode);
 
-    return caseInstanceRepository
+    return reactiveCaseInstanceRepository
         .updateStateAndAppendEvent(caseInstance, eventLog, caseInstance.tenancyId)
         .chain(
             () -> {

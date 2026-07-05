@@ -28,7 +28,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -61,7 +61,7 @@ class ContextDiffNoneStrategyTest {
 
   @Inject NoneStrategyCaseHub noneCase;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Test
   void noneStrategy_workerModifiesContext_contextChangesAbsent() {
@@ -85,7 +85,7 @@ class ContextDiffNoneStrategyTest {
             });
 
     final List<EventLog> events =
-        eventLogRepository
+        reactiveEventLogRepository
             .findByCaseAndTypes(
                 caseId,
                 List.of(CaseHubEventType.WORKER_EXECUTION_COMPLETED),

@@ -86,7 +86,7 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
   public Uni<AgentAssignment> select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
     if (candidates.isEmpty()) {
-      return Uni.createFrom().item(AgentAssignment.unresolvable());
+      return Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available"));
     }
 
     final TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
@@ -101,7 +101,10 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
         return Uni.createFrom()
             .item(
                 AgentAssignment.escalate(
-                    context.capabilityName(), EscalationReason.NO_QUALIFIED_AGENT));
+                    context.capabilityName(),
+                    EscalationReason.NO_QUALIFIED_AGENT,
+                    "bootstrap only — no qualified agents for capability '%s'"
+                        .formatted(context.capabilityName())));
       }
     }
 
@@ -113,10 +116,27 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
 
     final List<ScoredCandidate> scored = new ArrayList<>(eligible.size());
     for (final ClassifiedCandidate cc : eligible) {
-      scored.add(new ScoredCandidate(cc, score(cc, policy)));
+      final double finalScore = score(cc, policy);
+      scored.add(new ScoredCandidate(cc, finalScore, buildRationale(cc, finalScore, policy)));
     }
 
     return Uni.createFrom().item(classifier.decide(eligible, scored, context.capabilityName()));
+  }
+
+  private String buildRationale(
+      final ClassifiedCandidate cc, final double finalScore, final TrustRoutingPolicy policy) {
+    final String workerId = cc.candidate().workerId();
+    return switch (cc.phase()) {
+      case Phase.BOOTSTRAP ->
+          "selected %s: availability %.2f (bootstrap)".formatted(workerId, cc.workloadScore());
+      case Phase.QUALIFIED -> {
+        final double trustScore = cc.trustScore().getAsDouble();
+        yield "selected %s: trust %.2f, blended %.2f (threshold %.2f)"
+            .formatted(workerId, trustScore, finalScore, policy.threshold());
+      }
+      case Phase.BORDERLINE, Phase.EXCLUDED_PHASE2B, Phase.EXCLUDED_PHASE3 ->
+          "excluded %s: phase %s".formatted(workerId, cc.phase());
+    };
   }
 
   private double score(final ClassifiedCandidate cc, final TrustRoutingPolicy policy) {

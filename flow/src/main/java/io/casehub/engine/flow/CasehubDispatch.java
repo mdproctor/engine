@@ -23,7 +23,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import jakarta.annotation.PostConstruct;
@@ -51,7 +51,7 @@ public class CasehubDispatch {
 
   private final FlowExecutionRegistry registry;
   private final WorkOrchestrator orchestrator;
-  private final EventLogRepository eventLogRepository;
+  private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final CaseInstanceCache caseInstanceCache;
   private final CallableDispatchRegistry dispatchRegistry;
 
@@ -59,12 +59,12 @@ public class CasehubDispatch {
   public CasehubDispatch(
       final FlowExecutionRegistry registry,
       final WorkOrchestrator orchestrator,
-      final EventLogRepository eventLogRepository,
+      final ReactiveEventLogRepository reactiveEventLogRepository,
       final CaseInstanceCache caseInstanceCache,
       final CallableDispatchRegistry dispatchRegistry) {
     this.registry = registry;
     this.orchestrator = orchestrator;
-    this.eventLogRepository = eventLogRepository;
+    this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.caseInstanceCache = caseInstanceCache;
     this.dispatchRegistry = dispatchRegistry;
   }
@@ -141,7 +141,7 @@ public class CasehubDispatch {
     }
     log.setMetadata(meta);
 
-    eventLogRepository
+    reactiveEventLogRepository
         .appendAndReturnId(log, instance.tenancyId)
         .subscribe()
         .with(

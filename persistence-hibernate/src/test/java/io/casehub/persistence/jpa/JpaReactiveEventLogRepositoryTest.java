@@ -21,8 +21,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
@@ -38,10 +38,10 @@ import org.junit.jupiter.api.Timeout;
 
 @QuarkusTest
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
-class JpaEventLogRepositoryTest {
+class JpaReactiveEventLogRepositoryTest {
 
-  @Inject EventLogRepository repository;
-  @Inject CrossTenantEventLogRepository crossTenantRepository;
+  @Inject ReactiveEventLogRepository repository;
+  @Inject ReactiveCrossTenantEventLogRepository crossTenantRepository;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 

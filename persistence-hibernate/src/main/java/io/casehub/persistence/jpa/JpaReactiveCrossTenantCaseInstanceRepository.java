@@ -17,15 +17,15 @@ package io.casehub.persistence.jpa;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 
 /** Cross-tenant CaseInstance access for startup recovery services only. */
 @ApplicationScoped
-public class JpaCrosstenantCaseInstanceRepository extends TenantAwareRepository
-    implements CrossTenantCaseInstanceRepository {
+public class JpaReactiveCrossTenantCaseInstanceRepository extends TenantAwareRepository
+    implements ReactiveCrossTenantCaseInstanceRepository {
 
   @Override
   public Uni<CaseInstance> findByUuid(UUID caseId) {

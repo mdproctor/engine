@@ -34,7 +34,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.GroupStatus;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
@@ -70,7 +70,7 @@ public class SubCaseCompletionService {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
-  private final EventLogRepository eventLogRepository;
+  private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final JQEvaluator jqEvaluator;
   private final CaseInstanceCache caseInstanceCache;
   private final CaseResumptionService caseResumptionService;
@@ -82,7 +82,7 @@ public class SubCaseCompletionService {
 
   @Inject
   public SubCaseCompletionService(
-      EventLogRepository eventLogRepository,
+      ReactiveEventLogRepository reactiveEventLogRepository,
       JQEvaluator jqEvaluator,
       CaseInstanceCache caseInstanceCache,
       CaseResumptionService caseResumptionService,
@@ -91,7 +91,7 @@ public class SubCaseCompletionService {
       EventBus eventBus,
       BlackboardRegistry registry,
       Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents) {
-    this.eventLogRepository = eventLogRepository;
+    this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.jqEvaluator = jqEvaluator;
     this.caseInstanceCache = caseInstanceCache;
     this.caseResumptionService = caseResumptionService;
@@ -108,7 +108,7 @@ public class SubCaseCompletionService {
     UUID childCaseId = event.caseId();
 
     EventLog startedEntry =
-        eventLogRepository
+        reactiveEventLogRepository
             .findByWorkerAndType(
                 childCaseId.toString(), CaseHubEventType.SUBCASE_STARTED, event.tenancyId())
             .await()
@@ -377,7 +377,7 @@ public class SubCaseCompletionService {
     if (appliedData != null && !appliedData.isEmpty()) {
       log.setPayload(OBJECT_MAPPER.valueToTree(appliedData));
     }
-    eventLogRepository.append(log, tenancyId).await().atMost(Duration.ofSeconds(10));
+    reactiveEventLogRepository.append(log, tenancyId).await().atMost(Duration.ofSeconds(10));
   }
 
   private static boolean isTerminal(String commandType) {

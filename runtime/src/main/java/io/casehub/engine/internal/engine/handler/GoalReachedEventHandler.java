@@ -32,7 +32,7 @@ import io.casehub.engine.common.internal.event.GoalReachedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
@@ -56,7 +56,7 @@ public class GoalReachedEventHandler {
 
   @Inject EventBus eventBus;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
 
@@ -84,7 +84,7 @@ public class GoalReachedEventHandler {
             .put("description", goal.getDescription())
             .put("kind", goal.getKind().value()));
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .append(eventLog, caseInstance.tenancyId)
         .invoke(
             () ->
@@ -117,7 +117,7 @@ public class GoalReachedEventHandler {
       return Uni.createFrom().voidItem();
     }
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseInstance.getUuid(), Set.of(GOAL_REACHED), caseInstance.tenancyId)
         .chain(
             eventLogs -> {

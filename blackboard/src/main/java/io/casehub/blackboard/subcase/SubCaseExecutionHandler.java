@@ -31,8 +31,8 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
@@ -53,8 +53,8 @@ public class SubCaseExecutionHandler {
 
   private final CaseHubRuntime caseHubRuntime;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
-  private final CaseInstanceRepository caseInstanceRepository;
-  private final EventLogRepository eventLogRepository;
+  private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final PendingWorkRegistry pendingWorkRegistry;
   private final SubCaseGroupRepository subCaseGroupRepository;
   private final BlackboardRegistry registry;
@@ -64,16 +64,16 @@ public class SubCaseExecutionHandler {
   public SubCaseExecutionHandler(
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      CaseInstanceRepository caseInstanceRepository,
-      EventLogRepository eventLogRepository,
+      ReactiveCaseInstanceRepository reactiveCaseInstanceRepository,
+      ReactiveEventLogRepository reactiveEventLogRepository,
       PendingWorkRegistry pendingWorkRegistry,
       SubCaseGroupRepository subCaseGroupRepository,
       BlackboardRegistry registry,
       CaseInstanceCache caseInstanceCache) {
     this.caseHubRuntime = caseHubRuntime;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
-    this.caseInstanceRepository = caseInstanceRepository;
-    this.eventLogRepository = eventLogRepository;
+    this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
+    this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.pendingWorkRegistry = pendingWorkRegistry;
     this.subCaseGroupRepository = subCaseGroupRepository;
     this.registry = registry;
@@ -254,11 +254,11 @@ public class SubCaseExecutionHandler {
               if (!alreadyWaiting) {
                 parent.setState(CaseStatus.WAITING);
                 parent.setWaitingForWorkId(groupId);
-                return caseInstanceRepository
+                return reactiveCaseInstanceRepository
                     .updateStateAndAppendEvent(parent, log, parent.tenancyId)
                     .replaceWithVoid();
               } else {
-                return eventLogRepository.append(log, parent.tenancyId).replaceWithVoid();
+                return reactiveEventLogRepository.append(log, parent.tenancyId).replaceWithVoid();
               }
             });
   }
@@ -282,11 +282,11 @@ public class SubCaseExecutionHandler {
       pendingWorkRegistry.register(childCaseId.toString());
       parent.setState(CaseStatus.WAITING);
       parent.setWaitingForWorkId(childCaseId.toString());
-      return caseInstanceRepository
+      return reactiveCaseInstanceRepository
           .updateStateAndAppendEvent(parent, log, parent.tenancyId)
           .replaceWithVoid();
     } else {
-      return eventLogRepository.append(log, parent.tenancyId).replaceWithVoid();
+      return reactiveEventLogRepository.append(log, parent.tenancyId).replaceWithVoid();
     }
   }
 }

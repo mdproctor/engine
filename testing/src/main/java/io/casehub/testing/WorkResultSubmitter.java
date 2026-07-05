@@ -18,7 +18,7 @@ package io.casehub.testing;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
 import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -42,7 +42,7 @@ import java.util.UUID;
 @ApplicationScoped
 public class WorkResultSubmitter {
 
-  @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
 
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 

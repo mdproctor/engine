@@ -22,7 +22,7 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.smallrye.mutiny.Uni;
@@ -54,7 +54,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
 
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Inject LedgerTraceIdProvider traceIdProvider;
 
@@ -146,7 +146,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
   }
 
   private Uni<Void> persistEventLog(String jobName, EventLog eventLog, String tenancyId) {
-    return runOnSafeVertxContext(() -> eventLogRepository.append(eventLog, tenancyId))
+    return runOnSafeVertxContext(() -> reactiveEventLogRepository.append(eventLog, tenancyId))
         .onFailure()
         .invoke(ex -> LOG.errorf(ex, "Failed to persist event for job: %s", jobName));
   }

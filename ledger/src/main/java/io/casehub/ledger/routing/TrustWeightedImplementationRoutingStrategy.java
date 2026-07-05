@@ -133,7 +133,8 @@ public class TrustWeightedImplementationRoutingStrategy implements Implementatio
     // Score each candidate (filter excluded)
     final List<ScoredCandidate> scored = new ArrayList<>(classified.size());
     for (final ClassifiedCandidate cc : classified) {
-      scored.add(new ScoredCandidate(cc, score(cc, policy, policy.fallbackBinding(), byWorker)));
+      final double finalScore = score(cc, policy, policy.fallbackBinding(), byWorker);
+      scored.add(new ScoredCandidate(cc, finalScore, "implementation routing"));
     }
 
     // When all candidates score equally AND positively (e.g., all BOOTSTRAP with score=1.0),

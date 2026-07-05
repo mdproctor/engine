@@ -19,5 +19,6 @@ public enum EventStreamType {
   CASE,
   WORKER,
   TIMER,
-  SYSTEM
+  SYSTEM,
+  ORCHESTRATION
 }

@@ -29,9 +29,15 @@ import java.util.UUID;
  * configurable JQ expression before embedding. Strategies that do not use the context may ignore
  * it.
  *
+ * <p>{@code tenancyId} identifies the tenant owning the case — enables tenant-scoped CBR routing
+ * and trust weighting. Required by all routing strategies that use tenant-specific history or
+ * stored experiences.
+ *
  * @param caseId the case instance UUID
  * @param capabilityName the capability being routed — used for trust score lookups and filtering
  * @param caseContext the current case context as a JSON node; may be {@code NullNode} when the case
  *     has no context
+ * @param tenancyId the tenant ID owning the case; used for tenant-scoped CBR and trust lookups
  */
-public record AgentRoutingContext(UUID caseId, String capabilityName, JsonNode caseContext) {}
+public record AgentRoutingContext(
+    UUID caseId, String capabilityName, JsonNode caseContext, String tenancyId) {}

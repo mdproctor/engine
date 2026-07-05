@@ -34,8 +34,8 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
@@ -63,13 +63,13 @@ class SubCaseRecursionDepthTest {
     registry = new BlackboardRegistry();
     caseHubRuntime = mock(CaseHubRuntime.class);
     CaseDefinitionRegistry definitionRegistry = mock(CaseDefinitionRegistry.class);
-    CaseInstanceRepository instanceRepository = mock(CaseInstanceRepository.class);
-    EventLogRepository eventLogRepository = mock(EventLogRepository.class);
+    ReactiveCaseInstanceRepository instanceRepository = mock(ReactiveCaseInstanceRepository.class);
+    ReactiveEventLogRepository reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
     PendingWorkRegistry pendingWorkRegistry = mock(PendingWorkRegistry.class);
     SubCaseGroupRepository subCaseGroupRepository = mock(SubCaseGroupRepository.class);
     caseInstanceCache = new CaseInstanceCacheImpl();
 
-    when(eventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
     when(definitionRegistry.getCaseDefinition(any()))
         .thenReturn(mock(io.casehub.api.model.CaseDefinition.class));
     when(instanceRepository.updateStateAndAppendEvent(any(), any(), any()))
@@ -86,7 +86,7 @@ class SubCaseRecursionDepthTest {
             caseHubRuntime,
             definitionRegistry,
             instanceRepository,
-            eventLogRepository,
+            reactiveEventLogRepository,
             pendingWorkRegistry,
             subCaseGroupRepository,
             registry,

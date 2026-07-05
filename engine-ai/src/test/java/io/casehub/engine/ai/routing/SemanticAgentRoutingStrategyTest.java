@@ -365,7 +365,7 @@ class SemanticAgentRoutingStrategyTest {
   // ---- Helpers ---------------------------------------------------------------
 
   private AgentRoutingContext ctx() {
-    return new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance);
+    return new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance, "test-tenant");
   }
 
   private String vocabularyText(final String agentId) {
@@ -391,6 +391,8 @@ class SemanticAgentRoutingStrategyTest {
             List.of(
                 new AgentCapability(
                     "research",
+                    null,
+                    null,
                     null,
                     null,
                     null,

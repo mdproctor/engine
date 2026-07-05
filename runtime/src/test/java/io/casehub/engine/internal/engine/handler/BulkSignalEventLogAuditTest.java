@@ -27,7 +27,7 @@ import io.casehub.engine.common.internal.event.BulkSignalReceivedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
@@ -53,7 +53,7 @@ class BulkSignalEventLogAuditTest {
 
   @Mock CaseInstanceCache caseInstanceCache;
   @Mock EventBus eventBus;
-  @Mock EventLogRepository eventLogRepository;
+  @Mock ReactiveEventLogRepository reactiveEventLogRepository;
   @Mock WorkerExecutionRecoveryService recoveryService;
   @Mock Event<CaseLifecycleEvent> lifecycleEvents;
   @Mock LedgerTraceIdProvider traceIdProvider;
@@ -72,7 +72,7 @@ class BulkSignalEventLogAuditTest {
             eventBus,
             caseInstanceCache,
             recoveryService,
-            eventLogRepository,
+            reactiveEventLogRepository,
             lifecycleEvents,
             traceIdProvider);
     when(traceIdProvider.currentTraceId()).thenReturn(Optional.empty());
@@ -82,7 +82,7 @@ class BulkSignalEventLogAuditTest {
   void bulkSignal_eventLog_containsUpdatedKeys() {
     CaseInstance instance = caseInstance();
     when(caseInstanceCache.get(caseId)).thenReturn(instance);
-    when(eventLogRepository.append(any(EventLog.class), eq(tenancyId)))
+    when(reactiveEventLogRepository.append(any(EventLog.class), eq(tenancyId)))
         .thenReturn(Uni.createFrom().voidItem());
 
     io.vertx.mutiny.core.shareddata.SharedData sharedData =
@@ -99,7 +99,7 @@ class BulkSignalEventLogAuditTest {
     handler.onBulkSignalReceived(event).await().indefinitely();
 
     ArgumentCaptor<EventLog> captor = ArgumentCaptor.forClass(EventLog.class);
-    verify(eventLogRepository).append(captor.capture(), eq(tenancyId));
+    verify(reactiveEventLogRepository).append(captor.capture(), eq(tenancyId));
 
     EventLog captured = captor.getValue();
     JsonNode payload = captured.getPayload();

@@ -30,7 +30,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerBackend;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.worker.api.Capability;
@@ -68,7 +68,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
 
   @Inject QuartzWorkerSchedulerService workerExecutionScheduler;
 
-  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
 
   private static final Logger LOG = Logger.getLogger(WorkerExecutionManager.class);
 

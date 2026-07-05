@@ -28,7 +28,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
@@ -65,7 +65,7 @@ class CaseFaultedStateTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @BeforeEach
   void reset() {
@@ -186,14 +186,14 @@ class CaseFaultedStateTest {
   // ------------------------------------------------------------------ //
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);
   }
 
   private List<EventLog> findEventsByTypeName(UUID caseId, String eventTypeName) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(
             caseId, List.of(CaseHubEventType.values()), TenancyConstants.DEFAULT_TENANT_ID)
         .await()

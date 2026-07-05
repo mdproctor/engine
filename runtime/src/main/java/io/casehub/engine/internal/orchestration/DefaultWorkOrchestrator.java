@@ -39,8 +39,8 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
@@ -79,8 +79,8 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
   private final EventBus eventBus;
   private final PendingWorkRegistry pendingWorkRegistry;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
-  private final CaseInstanceRepository caseInstanceRepository;
-  private final EventLogRepository eventLogRepository;
+  private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final JQEvaluator jqEvaluator;
 
   @Inject
@@ -92,8 +92,8 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       final EventBus eventBus,
       final PendingWorkRegistry pendingWorkRegistry,
       final CaseDefinitionRegistry caseDefinitionRegistry,
-      final CaseInstanceRepository caseInstanceRepository,
-      final EventLogRepository eventLogRepository,
+      final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository,
+      final ReactiveEventLogRepository reactiveEventLogRepository,
       final JQEvaluator jqEvaluator) {
     this.agentCandidateFactory = agentCandidateFactory;
     this.agentRoutingStrategy = agentRoutingStrategy;
@@ -102,8 +102,8 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     this.eventBus = eventBus;
     this.pendingWorkRegistry = pendingWorkRegistry;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
-    this.caseInstanceRepository = caseInstanceRepository;
-    this.eventLogRepository = eventLogRepository;
+    this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
+    this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.jqEvaluator = jqEvaluator;
   }
 
@@ -154,12 +154,13 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
         new AgentRoutingContext(
             instance.getUuid(),
             capability.name(),
-            instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
+            instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            instance.tenancyId);
     final AgentAssignment assignment =
         agentRoutingStrategy.select(ctx, candidates).await().indefinitely();
 
     switch (assignment) {
-      case AgentAssignment.Unresolvable() -> {
+      case AgentAssignment.Unresolvable u -> {
         final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
         failed.completeExceptionally(
             new IllegalStateException("No qualified agent for capability: " + capability.name()));
@@ -214,7 +215,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     // 7. Write WORK_SUBMITTED EventLog (fire-and-forget)
     final EventLog submittedLog =
         buildWorkSubmittedLog(instance, selectedWorker, capability, correlationKey);
-    eventLogRepository
+    reactiveEventLogRepository
         .appendAndReturnId(submittedLog, instance.tenancyId)
         .subscribe()
         .with(
@@ -235,7 +236,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       instance.setWaitingForWorkId(correlationKey);
 
       final EventLog waitingLog = buildCaseStatusChangedLog(instance, CaseStatus.WAITING);
-      caseInstanceRepository
+      reactiveCaseInstanceRepository
           .updateStateAndAppendEvent(instance, waitingLog, instance.tenancyId)
           .subscribe()
           .with(

@@ -34,8 +34,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Worker;
@@ -57,8 +57,8 @@ class QhorusMessageSignalBridgeTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private CaseHubRuntime runtime;
-  private CrossTenantEventLogRepository eventLogRepository;
-  private CrossTenantCaseInstanceRepository caseInstanceRepository;
+  private ReactiveCrossTenantEventLogRepository eventLogRepository;
+  private ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private EventBus eventBus;
   private QhorusMessageSignalBridge bridge;
@@ -66,8 +66,8 @@ class QhorusMessageSignalBridgeTest {
   @BeforeEach
   void setUp() {
     runtime = mock(CaseHubRuntime.class);
-    eventLogRepository = mock(CrossTenantEventLogRepository.class);
-    caseInstanceRepository = mock(CrossTenantCaseInstanceRepository.class);
+    eventLogRepository = mock(ReactiveCrossTenantEventLogRepository.class);
+    caseInstanceRepository = mock(ReactiveCrossTenantCaseInstanceRepository.class);
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
     eventBus = mock(EventBus.class);
 

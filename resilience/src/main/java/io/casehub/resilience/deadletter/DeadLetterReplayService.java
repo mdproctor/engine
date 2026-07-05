@@ -25,8 +25,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -49,16 +49,16 @@ public class DeadLetterReplayService {
   private static final Logger LOG = Logger.getLogger(DeadLetterReplayService.class);
 
   private final DeadLetterQueue deadLetterQueue;
-  private final CrossTenantEventLogRepository eventLogRepository;
-  private final CrossTenantCaseInstanceRepository caseInstanceRepository;
+  private final ReactiveCrossTenantEventLogRepository eventLogRepository;
+  private final ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final EventBus eventBus;
 
   @Inject
   public DeadLetterReplayService(
       DeadLetterQueue deadLetterQueue,
-      @CrossTenant CrossTenantEventLogRepository eventLogRepository,
-      @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository,
+      @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository,
+      @CrossTenant ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository,
       CaseDefinitionRegistry caseDefinitionRegistry,
       EventBus eventBus) {
     this.deadLetterQueue = deadLetterQueue;

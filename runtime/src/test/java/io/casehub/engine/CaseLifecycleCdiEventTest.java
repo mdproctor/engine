@@ -27,7 +27,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -75,7 +75,7 @@ class CaseLifecycleCdiEventTest {
 
   @Inject LifecycleCapture capture;
   @Inject CompletionCaseHub caseHub;
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
 
   @BeforeEach
   void reset() {
@@ -102,7 +102,7 @@ class CaseLifecycleCdiEventTest {
         .until(
             () -> {
               CaseInstance instance =
-                  caseInstanceRepository
+                  reactiveCaseInstanceRepository
                       .findByUuid(caseId, TenancyConstants.DEFAULT_TENANT_ID)
                       .subscribe()
                       .asCompletionStage()

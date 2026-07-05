@@ -27,13 +27,15 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class InMemoryEventLogRepositoryTest {
+class InMemoryReactiveEventLogRepositoryTest {
 
-  InMemoryEventLogRepository repository;
+  InMemoryReactiveEventLogRepository repository;
 
   @BeforeEach
   void setUp() {
-    repository = new InMemoryEventLogRepository();
+    InMemoryEventLogRepository blockingRepo = new InMemoryEventLogRepository();
+    repository = new InMemoryReactiveEventLogRepository();
+    repository.setDelegate(blockingRepo);
   }
 
   // --- Happy path ---

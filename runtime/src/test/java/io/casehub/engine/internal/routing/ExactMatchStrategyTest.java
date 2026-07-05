@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.internal.routing;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.spi.routing.CandidateMatchingContext;
 import io.casehub.worker.api.Worker;

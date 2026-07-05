@@ -25,8 +25,8 @@ import io.casehub.engine.common.internal.event.CaseStartedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -48,7 +48,7 @@ public class CaseStartedEventHandler {
 
   @Inject EventBus eventBus;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Inject SchedulerService schedulerService;
 
@@ -56,7 +56,7 @@ public class CaseStartedEventHandler {
 
   @Inject CaseChannelProvider caseChannelProvider;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
 
   @Inject LedgerTraceIdProvider traceIdProvider;
 
@@ -76,14 +76,14 @@ public class CaseStartedEventHandler {
 
     caseChannelProvider.openChannel(instance.getUuid(), "coordination");
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .append(eventLog, instance.tenancyId)
         .chain(() -> schedulerService.registerScheduledTriggers(instance))
         .invoke(
             () -> {
               instance.setState(CaseStatus.RUNNING);
             })
-        .chain(() -> caseInstanceRepository.update(instance, instance.tenancyId))
+        .chain(() -> reactiveCaseInstanceRepository.update(instance, instance.tenancyId))
         .chain(
             () -> {
               EventLog runningLog = new EventLog();
@@ -96,7 +96,7 @@ public class CaseStartedEventHandler {
                       .createObjectNode()
                       .put("oldStatus", CaseStatus.STARTING.name())
                       .put("newStatus", CaseStatus.RUNNING.name()));
-              return eventLogRepository.append(runningLog, instance.tenancyId);
+              return reactiveEventLogRepository.append(runningLog, instance.tenancyId);
             })
         .invoke(
             () -> {

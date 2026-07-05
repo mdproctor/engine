@@ -17,7 +17,7 @@ package io.casehub.persistence.jpa;
 
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
@@ -28,8 +28,8 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @ApplicationScoped
-public class JpaCrosstenantEventLogRepository extends TenantAwareRepository
-    implements CrossTenantEventLogRepository {
+public class JpaReactiveCrossTenantEventLogRepository extends TenantAwareRepository
+    implements ReactiveCrossTenantEventLogRepository {
 
   @Override
   public Uni<List<EventLog>> findByTypes(Collection<CaseHubEventType> types) {

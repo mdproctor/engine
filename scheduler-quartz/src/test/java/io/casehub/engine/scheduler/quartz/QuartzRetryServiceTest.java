@@ -31,7 +31,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
@@ -64,7 +64,7 @@ class QuartzRetryServiceTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static Vertx vertx;
 
-  @Mock EventLogRepository eventLogRepository;
+  @Mock ReactiveEventLogRepository reactiveEventLogRepository;
   @Mock WorkerExecutionRecoveryService recoveryService;
   @Mock CaseDefinitionRegistry caseDefinitionRegistry;
   @Mock QuartzWorkerSchedulerService schedulerService;
@@ -95,7 +95,7 @@ class QuartzRetryServiceTest {
   void setUp() {
     retryService =
         new QuartzRetryService(
-            eventLogRepository,
+            reactiveEventLogRepository,
             recoveryService,
             caseDefinitionRegistry,
             schedulerService,
@@ -111,7 +111,7 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
     stubPersistAndRecovery(instance);
-    when(eventLogRepository.findByCaseAndWorkerAndType(
+    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().item(List.of()));
     when(schedulerService.scheduleRetryAsync(any(JobDetail.class), any(Trigger.class)))
@@ -131,7 +131,7 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(2, 1000, BackoffStrategy.FIXED);
 
     stubPersistAndRecovery(instance);
-    when(eventLogRepository.findByCaseAndWorkerAndType(
+    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().item(List.of(failureLog(), failureLog())));
 
@@ -153,7 +153,7 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithDefaultPolicy();
 
     stubPersistAndRecovery(instance);
-    when(eventLogRepository.findByCaseAndWorkerAndType(
+    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().item(List.of()));
     when(schedulerService.scheduleRetryAsync(any(JobDetail.class), any(Trigger.class)))
@@ -194,11 +194,11 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
     ArgumentCaptor<EventLog> logCaptor = ArgumentCaptor.forClass(EventLog.class);
-    when(eventLogRepository.append(logCaptor.capture(), eq(tenancyId)))
+    when(reactiveEventLogRepository.append(logCaptor.capture(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().voidItem());
     when(recoveryService.loadOrRestoreCaseInstance(caseId))
         .thenReturn(Uni.createFrom().item(instance));
-    when(eventLogRepository.findByCaseAndWorkerAndType(
+    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().item(List.of()));
     when(schedulerService.scheduleRetryAsync(any(JobDetail.class), any(Trigger.class)))
@@ -227,7 +227,7 @@ class QuartzRetryServiceTest {
     ObjectNode otherMeta = MAPPER.createObjectNode().put("inputDataHash", "other-hash");
     nonMatching.setMetadata(otherMeta);
 
-    when(eventLogRepository.findByCaseAndWorkerAndType(
+    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().item(List.of(matching, nonMatching)));
     when(schedulerService.scheduleRetryAsync(any(JobDetail.class), any(Trigger.class)))
@@ -248,7 +248,7 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(2, 1000, BackoffStrategy.FIXED);
 
     stubPersistAndRecovery(instance);
-    when(eventLogRepository.findByCaseAndWorkerAndType(
+    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().item(List.of(failureLog(), failureLog())));
 
@@ -270,7 +270,7 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
     stubPersistAndRecovery(instance);
-    when(eventLogRepository.findByCaseAndWorkerAndType(
+    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().item(List.of()));
 
@@ -285,7 +285,7 @@ class QuartzRetryServiceTest {
   }
 
   private void stubPersistAndRecovery(CaseInstance instance) {
-    when(eventLogRepository.append(any(EventLog.class), eq(tenancyId)))
+    when(reactiveEventLogRepository.append(any(EventLog.class), eq(tenancyId)))
         .thenReturn(Uni.createFrom().voidItem());
     when(recoveryService.loadOrRestoreCaseInstance(caseId))
         .thenReturn(Uni.createFrom().item(instance));

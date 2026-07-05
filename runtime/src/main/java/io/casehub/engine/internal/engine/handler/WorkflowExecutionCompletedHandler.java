@@ -47,8 +47,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.context.CaseContextImpl;
@@ -80,13 +80,13 @@ public class WorkflowExecutionCompletedHandler {
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
   @Inject Event<WorkerDecisionEvent> workerDecisionEvents;
   @Inject ContextDiffStrategy contextDiffStrategy;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject CaseResumptionService caseResumptionService;
   @Inject WorkerStatusListener workerStatusListener;
   @Inject LedgerTraceIdProvider traceIdProvider;
   @Inject ReactiveActionRiskClassifier actionRiskClassifier;
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -132,7 +132,7 @@ public class WorkflowExecutionCompletedHandler {
     EventLog eventLog =
         buildEventLog(caseInstance, worker, rawOutput, event.idempotency(), now, diff);
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .append(eventLog, caseInstance.tenancyId)
         .chain(
             () ->
@@ -398,7 +398,7 @@ public class WorkflowExecutionCompletedHandler {
 
     final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .append(eventLog, caseInstance.tenancyId)
         .invoke(
             () -> {
@@ -505,7 +505,7 @@ public class WorkflowExecutionCompletedHandler {
               buildGateEventLog(
                   caseInstance, worker, rawOutput, plannedAction, gate, event.idempotency(), now);
 
-          return eventLogRepository
+          return reactiveEventLogRepository
               .append(gateEventLog, caseInstance.tenancyId)
               .chain(
                   () -> {
@@ -516,7 +516,8 @@ public class WorkflowExecutionCompletedHandler {
                             event.idempotency(),
                             rawOutput,
                             plannedAction));
-                    return caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
+                    return reactiveCaseInstanceRepository.update(
+                        caseInstance, caseInstance.tenancyId);
                   })
               .invoke(
                   () ->

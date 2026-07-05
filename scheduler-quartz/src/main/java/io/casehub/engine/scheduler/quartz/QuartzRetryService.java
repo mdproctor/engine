@@ -31,7 +31,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
@@ -67,7 +67,7 @@ class QuartzRetryService {
   private static final Logger LOG = Logger.getLogger(QuartzRetryService.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private final EventLogRepository eventLogRepository;
+  private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final WorkerExecutionRecoveryService recoveryService;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final QuartzWorkerSchedulerService schedulerService;
@@ -76,13 +76,13 @@ class QuartzRetryService {
 
   @Inject
   QuartzRetryService(
-      EventLogRepository eventLogRepository,
+      ReactiveEventLogRepository reactiveEventLogRepository,
       WorkerExecutionRecoveryService recoveryService,
       CaseDefinitionRegistry caseDefinitionRegistry,
       QuartzWorkerSchedulerService schedulerService,
       EventBus eventBus,
       Vertx vertx) {
-    this.eventLogRepository = eventLogRepository;
+    this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.recoveryService = recoveryService;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.schedulerService = schedulerService;
@@ -167,7 +167,7 @@ class QuartzRetryService {
   private Uni<Long> countFailedAttempts(WorkerRetryContext ctx) {
     return runOnSafeVertxContext(
         () ->
-            eventLogRepository
+            reactiveEventLogRepository
                 .findByCaseAndWorkerAndType(
                     ctx.caseId(),
                     ctx.workerId(),
@@ -237,7 +237,7 @@ class QuartzRetryService {
   }
 
   private Uni<Void> persistEventLog(EventLog eventLog, String tenancyId) {
-    return runOnSafeVertxContext(() -> eventLogRepository.append(eventLog, tenancyId));
+    return runOnSafeVertxContext(() -> reactiveEventLogRepository.append(eventLog, tenancyId));
   }
 
   private <T> Uni<T> runOnSafeVertxContext(Supplier<Uni<? extends T>> action) {

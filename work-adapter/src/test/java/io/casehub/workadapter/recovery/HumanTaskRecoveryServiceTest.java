@@ -25,8 +25,8 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.TargetType;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.PlanItemStore;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.persistence.memory.MemoryPlanItemStore;
 import io.casehub.work.api.WorkItemStatus;
@@ -54,7 +54,7 @@ class HumanTaskRecoveryServiceTest {
   @Inject BlackboardRegistry registry;
   @Inject PlanItemStore planItemStore;
   @Inject WorkItemStore workItemStore;
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   @Inject EventBus eventBus;
 
   private UUID caseId;
@@ -86,7 +86,10 @@ class HumanTaskRecoveryServiceTest {
     instance.setUuid(caseId);
     instance.setState(io.casehub.api.model.CaseStatus.RUNNING);
     instance.setCaseContext(new CaseContextImpl(Map.of("stage", "review")));
-    caseInstanceRepository.save(instance, "test-tenant").await().atMost(Duration.ofSeconds(5));
+    reactiveCaseInstanceRepository
+        .save(instance, "test-tenant")
+        .await()
+        .atMost(Duration.ofSeconds(5));
   }
 
   @AfterEach

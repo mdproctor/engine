@@ -21,7 +21,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
@@ -32,9 +31,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 /**
- * In-memory {@link CaseInstanceRepository} for use in engine unit tests. Also implements {@link
- * CrossTenantCaseInstanceRepository} for recovery service testing. Activated via {@code
- * quarkus.arc.selected-alternatives} — never active in production.
+ * In-memory blocking {@link CaseInstanceRepository} for engine unit tests. Also implements {@link
+ * CrossTenantCaseInstanceRepository} for recovery service testing. Canonical implementation —
+ * {@link InMemoryReactiveCaseInstanceRepository} delegates to this.
  */
 @Alternative
 @ApplicationScoped
@@ -52,7 +51,7 @@ public class InMemoryCaseInstanceRepository
   }
 
   @Override
-  public Uni<CaseInstance> save(CaseInstance instance, String tenancyId) {
+  public CaseInstance save(CaseInstance instance, String tenancyId) {
     rwLock.writeLock().lock();
     try {
       if (instance.id == null) {
@@ -60,14 +59,14 @@ public class InMemoryCaseInstanceRepository
       }
       instance.tenancyId = tenancyId;
       store.put(instance.getUuid(), instance);
-      return Uni.createFrom().item(instance);
+      return instance;
     } finally {
       rwLock.writeLock().unlock();
     }
   }
 
   @Override
-  public Uni<CaseInstance> update(CaseInstance instance, String tenancyId) {
+  public CaseInstance update(CaseInstance instance, String tenancyId) {
     rwLock.writeLock().lock();
     try {
       CaseInstance existing = store.get(instance.getUuid());
@@ -76,91 +75,84 @@ public class InMemoryCaseInstanceRepository
             "CaseInstance not found or wrong tenant: " + instance.getUuid());
       }
       store.put(instance.getUuid(), instance);
-      return Uni.createFrom().item(instance);
+      return instance;
     } finally {
       rwLock.writeLock().unlock();
     }
   }
 
   @Override
-  public Uni<CaseInstance> findByUuid(UUID uuid, String tenancyId) {
+  public CaseInstance findByUuid(UUID uuid, String tenancyId) {
     rwLock.readLock().lock();
     try {
       CaseInstance instance = store.get(uuid);
       if (instance != null && !tenancyId.equals(instance.tenancyId)) {
-        return Uni.createFrom().nullItem();
+        return null;
       }
-      return Uni.createFrom().item(instance);
+      return instance;
     } finally {
       rwLock.readLock().unlock();
     }
   }
 
-  /** CrossTenantCaseInstanceRepository — no tenancy filter. */
   @Override
-  public Uni<CaseInstance> findByUuid(UUID uuid) {
+  public CaseInstance findByUuid(UUID uuid) {
     rwLock.readLock().lock();
     try {
-      return Uni.createFrom().item(store.get(uuid));
+      return store.get(uuid);
     } finally {
       rwLock.readLock().unlock();
     }
   }
 
   @Override
-  public Uni<Void> updateStateAndAppendEvent(
+  public void updateStateAndAppendEvent(
       CaseInstance instance, EventLog eventLog, String tenancyId) {
     rwLock.writeLock().lock();
     try {
       instance.tenancyId = tenancyId;
       store.put(instance.getUuid(), instance);
-      return eventLogRepository.append(eventLog, tenancyId);
+      eventLogRepository.append(eventLog, tenancyId);
     } finally {
       rwLock.writeLock().unlock();
     }
   }
 
   @Override
-  public Uni<List<CaseInstance>> findByStatus(CaseStatus status, String tenancyId) {
+  public List<CaseInstance> findByStatus(CaseStatus status, String tenancyId) {
     rwLock.readLock().lock();
     try {
-      List<CaseInstance> result =
-          store.values().stream()
-              .filter(ci -> tenancyId.equals(ci.tenancyId) && ci.getState() == status)
-              .toList();
-      return Uni.createFrom().item(result);
+      return store.values().stream()
+          .filter(ci -> tenancyId.equals(ci.tenancyId) && ci.getState() == status)
+          .toList();
     } finally {
       rwLock.readLock().unlock();
     }
   }
 
   @Override
-  public Uni<List<CaseInstance>> findAll(String tenancyId) {
+  public List<CaseInstance> findAll(String tenancyId) {
     rwLock.readLock().lock();
     try {
-      List<CaseInstance> result =
-          store.values().stream().filter(ci -> tenancyId.equals(ci.tenancyId)).toList();
-      return Uni.createFrom().item(result);
+      return store.values().stream().filter(ci -> tenancyId.equals(ci.tenancyId)).toList();
     } finally {
       rwLock.readLock().unlock();
     }
   }
 
   @Override
-  public Uni<List<CaseInstance>> findByNamespaceAndName(
+  public List<CaseInstance> findByNamespaceAndName(
       String namespace, String name, String tenancyId) {
     rwLock.readLock().lock();
     try {
-      List<CaseInstance> result =
-          store.values().stream()
-              .filter(
-                  ci ->
-                      tenancyId.equals(ci.tenancyId)
-                          && ci.getCaseMetaModel() != null
-                          && namespace.equals(ci.getCaseMetaModel().getNamespace())
-                          && name.equals(ci.getCaseMetaModel().getName()))
-              .toList();
-      return Uni.createFrom().item(result);
+      return store.values().stream()
+          .filter(
+              ci ->
+                  tenancyId.equals(ci.tenancyId)
+                      && ci.getCaseMetaModel() != null
+                      && namespace.equals(ci.getCaseMetaModel().getNamespace())
+                      && name.equals(ci.getCaseMetaModel().getName()))
+          .toList();
     } finally {
       rwLock.readLock().unlock();
     }

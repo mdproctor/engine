@@ -25,7 +25,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -46,7 +46,7 @@ class ReplayProjectionContractTest {
 
   @Inject ReplayProjectionCaseHubBean bean;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Inject WorkerExecutionRecoveryService recoveryService;
 
@@ -80,7 +80,7 @@ class ReplayProjectionContractTest {
             ]
             """));
     workerCompleted.setMetadata(metadata);
-    eventLogRepository
+    reactiveEventLogRepository
         .append(workerCompleted, TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(TIMEOUT);

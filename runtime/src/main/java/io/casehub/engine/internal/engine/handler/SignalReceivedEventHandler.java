@@ -30,7 +30,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.SignalReceivedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
@@ -61,7 +61,7 @@ public class SignalReceivedEventHandler {
   private final EventBus eventBus;
   private final CaseInstanceCache caseInstanceCache;
   private final WorkerExecutionRecoveryService recoveryService;
-  private final EventLogRepository eventLogRepository;
+  private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final Event<CaseLifecycleEvent> lifecycleEvents;
   private final LedgerTraceIdProvider traceIdProvider;
 
@@ -71,14 +71,14 @@ public class SignalReceivedEventHandler {
       EventBus eventBus,
       CaseInstanceCache caseInstanceCache,
       WorkerExecutionRecoveryService recoveryService,
-      EventLogRepository eventLogRepository,
+      ReactiveEventLogRepository reactiveEventLogRepository,
       Event<CaseLifecycleEvent> lifecycleEvents,
       LedgerTraceIdProvider traceIdProvider) {
     this.vertx = vertx;
     this.eventBus = eventBus;
     this.caseInstanceCache = caseInstanceCache;
     this.recoveryService = recoveryService;
-    this.eventLogRepository = eventLogRepository;
+    this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.lifecycleEvents = lifecycleEvents;
     this.traceIdProvider = traceIdProvider;
   }
@@ -159,7 +159,7 @@ public class SignalReceivedEventHandler {
     JsonNode diff = maybeDiff.get();
     EventLog eventLog = buildSignalEventLog(instance, diff);
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .append(eventLog, instance.tenancyId)
         .invoke(
             () -> {
@@ -263,7 +263,7 @@ public class SignalReceivedEventHandler {
 
     EventLog eventLog = buildBulkSignalEventLog(instance, event.updates());
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .append(eventLog, instance.tenancyId)
         .invoke(
             () -> {

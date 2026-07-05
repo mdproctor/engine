@@ -17,7 +17,7 @@ package io.casehub.engine.internal.work;
 
 import io.casehub.api.model.WorkResult;
 import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -44,7 +44,7 @@ public class PendingWorkRegistry {
 
   private static final Logger LOG = Logger.getLogger(PendingWorkRegistry.class);
 
-  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
 
   private final ConcurrentHashMap<String, List<CompletableFuture<WorkResult>>> pending =
       new ConcurrentHashMap<>();

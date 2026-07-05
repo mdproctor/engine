@@ -39,8 +39,8 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.context.EpisodicPanelUpdater;
@@ -79,13 +79,13 @@ class CaseHubReactor {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
 
   @Inject EventBus eventBus;
 
   @Inject LedgerTraceIdProvider traceIdProvider;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Inject CurrentPrincipal currentPrincipal;
 
@@ -247,7 +247,7 @@ class CaseHubReactor {
           instance.setParentCaseId(parentCaseId);
 
           caseInstanceCache.put(instance);
-          return caseInstanceRepository.save(instance, currentPrincipal.tenancyId());
+          return reactiveCaseInstanceRepository.save(instance, currentPrincipal.tenancyId());
         });
   }
 
@@ -432,7 +432,7 @@ class CaseHubReactor {
       UUID caseId,
       Collection<CaseHubEventType> eventTypes,
       Collection<EventStreamType> streamTypes) {
-    return eventLogRepository.findByCaseWithFilters(
+    return reactiveEventLogRepository.findByCaseWithFilters(
         caseId, eventTypes, streamTypes, currentPrincipal.tenancyId());
   }
 }

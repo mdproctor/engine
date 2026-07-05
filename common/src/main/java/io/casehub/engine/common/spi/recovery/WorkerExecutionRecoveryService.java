@@ -16,8 +16,8 @@
 package io.casehub.engine.common.spi.recovery;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 
@@ -33,8 +33,8 @@ import java.util.UUID;
  *
  * <p>Uses the repository SPI to access persisted data.
  *
- * @see CaseInstanceRepository
- * @see EventLogRepository
+ * @see ReactiveCaseInstanceRepository
+ * @see ReactiveEventLogRepository
  */
 public interface WorkerExecutionRecoveryService {
 

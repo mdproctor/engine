@@ -170,7 +170,8 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Test
   void routing_assigned_publishesWorkerScheduleEvent() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.assign("analyst-worker")));
+        .thenReturn(
+            Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
 
     handler
         .onCaseStateContextChangedEventHandler(
@@ -186,7 +187,7 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Test
   void routing_unresolvable_triesToProvision_doesNotScheduleWorker() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable()));
+        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available")));
     // tryProvision requires a provisioner that has the capability — no-op provisioner won't trigger
     when(reactiveWorkerProvisioner.getCapabilities())
         .thenReturn(Uni.createFrom().item(java.util.Set.of()));
@@ -208,7 +209,11 @@ class CaseContextChangedEventHandlerRoutingTest {
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
             Uni.createFrom()
-                .item(AgentAssignment.escalate("research", EscalationReason.BORDERLINE_STALEMATE)));
+                .item(
+                    AgentAssignment.escalate(
+                        "research",
+                        EscalationReason.BORDERLINE_STALEMATE,
+                        "all candidates borderline")));
 
     handler
         .onCaseStateContextChangedEventHandler(
@@ -264,7 +269,8 @@ class CaseContextChangedEventHandlerRoutingTest {
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(panelDef);
     when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(panelBinding)));
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.assign("analyst-worker")));
+        .thenReturn(
+            Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
 
     final CaseContext ctx = mock(CaseContext.class);
     final io.casehub.api.context.ReadablePanel workingPanel =
@@ -358,7 +364,7 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Test
   void tryProvision_provisionerHasCapability_firesWorkerStartedLifecycleEvent() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable()));
+        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available")));
     when(reactiveWorkerProvisioner.getCapabilities())
         .thenReturn(Uni.createFrom().item(java.util.Set.of("research")));
     when(reactiveWorkerContextProvider.buildContext(any(), any(), any()))

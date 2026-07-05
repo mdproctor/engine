@@ -26,7 +26,7 @@ import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.SignalSettlementTracker;
 import io.smallrye.mutiny.Uni;
@@ -43,7 +43,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
 
   @Mock CaseInstanceCache caseInstanceCache;
   @Mock EventBus eventBus;
-  @Mock CaseInstanceRepository caseInstanceRepository;
+  @Mock ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   @Mock WorkerStatusListener workerStatusListener;
   @Mock SignalSettlementTracker settlementTracker;
 
@@ -57,7 +57,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
         new WorkerRetriesExhaustedEventHandler(
             caseInstanceCache,
             eventBus,
-            caseInstanceRepository,
+            reactiveCaseInstanceRepository,
             workerStatusListener,
             settlementTracker);
   }
@@ -67,7 +67,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
     UUID signalId = UUID.randomUUID();
     CaseInstance instance = caseInstance();
     when(caseInstanceCache.get(caseId)).thenReturn(instance);
-    when(caseInstanceRepository.updateStateAndAppendEvent(any(), any(), eq(tenancyId)))
+    when(reactiveCaseInstanceRepository.updateStateAndAppendEvent(any(), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().voidItem());
 
     handler
@@ -83,7 +83,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
   void onExhausted_withoutSignalId_doesNotCallRecordCompletion() {
     CaseInstance instance = caseInstance();
     when(caseInstanceCache.get(caseId)).thenReturn(instance);
-    when(caseInstanceRepository.updateStateAndAppendEvent(any(), any(), eq(tenancyId)))
+    when(reactiveCaseInstanceRepository.updateStateAndAppendEvent(any(), any(), eq(tenancyId)))
         .thenReturn(Uni.createFrom().voidItem());
 
     handler

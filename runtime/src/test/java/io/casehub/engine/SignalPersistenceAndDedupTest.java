@@ -30,7 +30,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -61,7 +61,7 @@ public class SignalPersistenceAndDedupTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @BeforeEach
   void reset() {
@@ -245,7 +245,7 @@ public class SignalPersistenceAndDedupTest {
   }
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);
@@ -253,7 +253,7 @@ public class SignalPersistenceAndDedupTest {
 
   private List<EventLog> findWorkerEvents(
       UUID caseId, CaseHubEventType eventType, String workerId) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndWorkerAndType(caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);

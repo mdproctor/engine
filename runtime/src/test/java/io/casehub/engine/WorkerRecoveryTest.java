@@ -24,7 +24,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -56,7 +56,7 @@ public class WorkerRecoveryTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Test
   void shouldRecoverScheduledWorkerWhenCacheIsEmpty() {
@@ -92,7 +92,7 @@ public class WorkerRecoveryTest {
                 "documentId", "doc-recovery",
                 "status", "scheduled")));
 
-    eventLogRepository
+    reactiveEventLogRepository
         .append(scheduledEvent, TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);

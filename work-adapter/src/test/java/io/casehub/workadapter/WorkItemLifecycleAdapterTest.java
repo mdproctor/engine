@@ -23,7 +23,7 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.work.api.GroupStatus;
 import io.casehub.work.api.WorkItemGroupLifecycleEvent;
@@ -62,7 +62,7 @@ class WorkItemLifecycleAdapterTest {
 
   @Inject BlackboardRegistry registry;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
 
   @Inject Event<WorkItemLifecycleEvent> lifecycleEvents;
 
@@ -85,7 +85,10 @@ class WorkItemLifecycleAdapterTest {
     instance.setUuid(caseId);
     instance.setState(io.casehub.api.model.CaseStatus.RUNNING);
     instance.setCaseContext(new CaseContextImpl(Map.of("stage", "review")));
-    caseInstanceRepository.save(instance, "test-tenant").await().atMost(Duration.ofSeconds(5));
+    reactiveCaseInstanceRepository
+        .save(instance, "test-tenant")
+        .await()
+        .atMost(Duration.ofSeconds(5));
   }
 
   @AfterEach
@@ -202,7 +205,7 @@ class WorkItemLifecycleAdapterTest {
         .untilAsserted(
             () -> {
               CaseInstance updated =
-                  caseInstanceRepository
+                  reactiveCaseInstanceRepository
                       .findByUuid(caseId, "test-tenant")
                       .await()
                       .atMost(Duration.ofSeconds(2));
@@ -348,7 +351,7 @@ class WorkItemLifecycleAdapterTest {
         .untilAsserted(
             () -> {
               CaseInstance updated =
-                  caseInstanceRepository
+                  reactiveCaseInstanceRepository
                       .findByUuid(caseId, "test-tenant")
                       .await()
                       .atMost(Duration.ofSeconds(2));
@@ -411,7 +414,7 @@ class WorkItemLifecycleAdapterTest {
         .untilAsserted(
             () -> {
               CaseInstance updated =
-                  caseInstanceRepository
+                  reactiveCaseInstanceRepository
                       .findByUuid(caseId, "test-tenant")
                       .await()
                       .atMost(Duration.ofSeconds(2));
@@ -427,7 +430,7 @@ class WorkItemLifecycleAdapterTest {
   void workItemCompleted_noTarget_noContextUpdate() {
     // PlanItem with no target (no outputMapping) — baseline: existing context unchanged
     CaseInstance before =
-        caseInstanceRepository
+        reactiveCaseInstanceRepository
             .findByUuid(caseId, "test-tenant")
             .await()
             .atMost(Duration.ofSeconds(2));
@@ -441,7 +444,7 @@ class WorkItemLifecycleAdapterTest {
         .untilAsserted(() -> assertThat(planItem.getStatus()).isEqualTo(PlanItemStatus.COMPLETED));
 
     CaseInstance after =
-        caseInstanceRepository
+        reactiveCaseInstanceRepository
             .findByUuid(caseId, "test-tenant")
             .await()
             .atMost(Duration.ofSeconds(2));

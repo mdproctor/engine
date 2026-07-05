@@ -28,7 +28,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -47,7 +47,7 @@ public class MilestoneSLAViolatedEventHandler {
   private static final Logger LOG = Logger.getLogger(MilestoneSLAViolatedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject EventBus eventBus;
 
   @ConsumeEvent(value = EventBusAddresses.MILESTONE_SLA_VIOLATED)
@@ -91,7 +91,7 @@ public class MilestoneSLAViolatedEventHandler {
         "Recording MILESTONE_SLA_VIOLATED for case=%s milestone=%s violatedAt=%s",
         caseInstance.getUuid(), milestoneName, event.violatedAt());
 
-    return eventLogRepository.append(eventLog, caseInstance.tenancyId);
+    return reactiveEventLogRepository.append(eventLog, caseInstance.tenancyId);
   }
 
   private Uni<Void> updateCaseContext(

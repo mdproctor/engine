@@ -37,30 +37,31 @@ public sealed interface AgentAssignment
         AgentAssignment.EscalateToOversight {
 
   /** A specific worker was selected for the capability. */
-  record Assigned(String workerId) implements AgentAssignment {}
+  record Assigned(String workerId, String rationale) implements AgentAssignment {}
 
   /**
    * No candidate passed trust filters. None were borderline — the pool simply lacks qualified
    * agents. Engine falls to {@code tryProvision()}.
    */
-  record Unresolvable() implements AgentAssignment {}
+  record Unresolvable(String rationale) implements AgentAssignment {}
 
   /**
    * Routing cannot proceed automatically. See {@link EscalationReason} for why. Engine must route
    * to human oversight via the oversight channel.
    */
-  record EscalateToOversight(String capabilityName, EscalationReason reason)
+  record EscalateToOversight(String capabilityName, EscalationReason reason, String rationale)
       implements AgentAssignment {}
 
-  static AgentAssignment assign(final String workerId) {
-    return new Assigned(workerId);
+  static AgentAssignment assign(final String workerId, final String rationale) {
+    return new Assigned(workerId, rationale);
   }
 
-  static AgentAssignment unresolvable() {
-    return new Unresolvable();
+  static AgentAssignment unresolvable(final String rationale) {
+    return new Unresolvable(rationale);
   }
 
-  static AgentAssignment escalate(final String capabilityName, final EscalationReason reason) {
-    return new EscalateToOversight(capabilityName, reason);
+  static AgentAssignment escalate(
+      final String capabilityName, final EscalationReason reason, final String rationale) {
+    return new EscalateToOversight(capabilityName, reason, rationale);
   }
 }

@@ -29,7 +29,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
@@ -66,7 +66,7 @@ public class WorkerScheduleDedupTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Inject Vertx vertx;
 
@@ -229,7 +229,7 @@ public class WorkerScheduleDedupTest {
   }
 
   private void persistEvent(EventLog eventLog) {
-    eventLogRepository
+    reactiveEventLogRepository
         .append(eventLog, TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);
@@ -238,7 +238,7 @@ public class WorkerScheduleDedupTest {
   private long countEvents(
       UUID caseId, CaseHubEventType eventType, String workerId, String inputDataHash) {
     List<EventLog> eventLogs =
-        eventLogRepository
+        reactiveEventLogRepository
             .findByCaseAndWorkerAndType(
                 caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID)
             .await()

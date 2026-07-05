@@ -34,8 +34,8 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
@@ -67,13 +67,13 @@ class SubCaseExecutionHandlerTest {
     registry = new BlackboardRegistry();
     caseHubRuntime = mock(CaseHubRuntime.class);
     CaseDefinitionRegistry definitionRegistry = mock(CaseDefinitionRegistry.class);
-    CaseInstanceRepository instanceRepository = mock(CaseInstanceRepository.class);
-    EventLogRepository eventLogRepository = mock(EventLogRepository.class);
+    ReactiveCaseInstanceRepository instanceRepository = mock(ReactiveCaseInstanceRepository.class);
+    ReactiveEventLogRepository reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
     PendingWorkRegistry pendingWorkRegistry = mock(PendingWorkRegistry.class);
     SubCaseGroupRepository subCaseGroupRepository = mock(SubCaseGroupRepository.class);
 
     // EventLogRepository returns successful Uni for all append calls
-    when(eventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
 
     // CaseDefinitionRegistry returns a non-null definition by default
     when(definitionRegistry.getCaseDefinition(any()))
@@ -97,7 +97,7 @@ class SubCaseExecutionHandlerTest {
             caseHubRuntime,
             definitionRegistry,
             instanceRepository,
-            eventLogRepository,
+            reactiveEventLogRepository,
             pendingWorkRegistry,
             subCaseGroupRepository,
             registry,
@@ -226,8 +226,8 @@ class SubCaseExecutionHandlerTest {
         new SubCaseExecutionHandler(
             caseHubRuntime,
             nullDefRegistry,
-            mock(CaseInstanceRepository.class),
-            mock(EventLogRepository.class),
+            mock(ReactiveCaseInstanceRepository.class),
+            mock(ReactiveEventLogRepository.class),
             mock(PendingWorkRegistry.class),
             mock(SubCaseGroupRepository.class),
             freshRegistry,

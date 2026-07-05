@@ -34,7 +34,7 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Capability;
@@ -74,7 +74,7 @@ public class WorkerScheduleEventHandler {
 
   @Inject EventBus eventBus;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Inject JQEvaluator jqEvaluator;
 
@@ -141,7 +141,7 @@ public class WorkerScheduleEventHandler {
       String inputDataHash) {
     Instant idempotencyAfter = idempotencyWindow.map(w -> Instant.now().minus(w)).orElse(null);
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findSchedulingEvents(
             instance.getUuid(), worker.name(), idempotencyAfter, instance.tenancyId)
         .map(existing -> decideAction(existing, inputDataHash))
@@ -210,7 +210,7 @@ public class WorkerScheduleEventHandler {
             instance.getUuid(), worker.name(), capability.name());
         yield Uni.createFrom().nullItem();
       }
-      case CREATE_NEW -> eventLogRepository.appendAndReturnId(eventLog, instance.tenancyId);
+      case CREATE_NEW -> reactiveEventLogRepository.appendAndReturnId(eventLog, instance.tenancyId);
     };
   }
 

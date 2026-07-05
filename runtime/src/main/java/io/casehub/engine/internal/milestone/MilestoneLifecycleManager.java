@@ -33,7 +33,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -67,7 +67,7 @@ public class MilestoneLifecycleManager {
           CaseHubEventType.MILESTONE_COMPLETED,
           CaseHubEventType.MILESTONE_SLA_VIOLATED);
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject EventBus eventBus;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject ExpressionEngineRegistry expressionEngineRegistry;
@@ -196,7 +196,7 @@ public class MilestoneLifecycleManager {
 
   private Uni<EventLog> findLastMilestoneEvent(
       UUID caseId, String milestoneName, String tenancyId) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS, tenancyId)
         .map(
             events ->
@@ -259,7 +259,7 @@ public class MilestoneLifecycleManager {
 
     if (slaStartFrom == SlaStartFrom.CASE_CREATED) {
       // Query EventLog for CASE_STARTED event to get creation timestamp
-      return eventLogRepository
+      return reactiveEventLogRepository
           .findByCaseAndTypes(
               caseInstance.getUuid(),
               EnumSet.of(CaseHubEventType.CASE_STARTED),

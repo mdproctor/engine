@@ -23,7 +23,7 @@ import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.scheduler.Scheduled;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -56,14 +56,16 @@ public class CaseTimeoutEnforcer {
 
   private final CaseInstanceCache cache;
   private final EventBus eventBus;
-  private final CaseInstanceRepository caseInstanceRepository;
+  private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
 
   @Inject
   public CaseTimeoutEnforcer(
-      CaseInstanceCache cache, EventBus eventBus, CaseInstanceRepository caseInstanceRepository) {
+      CaseInstanceCache cache,
+      EventBus eventBus,
+      ReactiveCaseInstanceRepository reactiveCaseInstanceRepository) {
     this.cache = cache;
     this.eventBus = eventBus;
-    this.caseInstanceRepository = caseInstanceRepository;
+    this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
   }
 
   /**
@@ -98,7 +100,7 @@ public class CaseTimeoutEnforcer {
       eventLog.setTimestamp(now);
       eventLog.setMetadata(OBJECT_MAPPER.createObjectNode().put("reason", "timeout"));
 
-      caseInstanceRepository
+      reactiveCaseInstanceRepository
           .updateStateAndAppendEvent(instance, eventLog, instance.tenancyId)
           .subscribe()
           .with(

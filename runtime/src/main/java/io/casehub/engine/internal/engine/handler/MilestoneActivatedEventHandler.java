@@ -33,7 +33,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.scheduler.JobIdentifier;
 import io.casehub.engine.common.internal.scheduler.ScheduleStrategy.FixedAtSchedule;
 import io.casehub.engine.common.internal.scheduler.ScheduledJobRequest;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -59,7 +59,7 @@ public class MilestoneActivatedEventHandler {
   private static final Logger LOG = Logger.getLogger(MilestoneActivatedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject EventBus eventBus;
   @Inject JobScheduler scheduler;
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
@@ -140,7 +140,7 @@ public class MilestoneActivatedEventHandler {
         "Recording MILESTONE_ACTIVATED for case=%s milestone=%s",
         caseInstance.getUuid(), milestone.getName());
 
-    return eventLogRepository.append(eventLog, caseInstance.tenancyId);
+    return reactiveEventLogRepository.append(eventLog, caseInstance.tenancyId);
   }
 
   private Uni<Void> updateCaseContext(

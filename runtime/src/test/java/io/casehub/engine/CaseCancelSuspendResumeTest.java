@@ -26,7 +26,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -52,7 +52,7 @@ class CaseCancelSuspendResumeTest {
   @Inject CaseLifecycleStateTest.IdleCaseHubBean idleBean;
   @Inject SuspendableWorkerBean suspendableBean;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   // ------------------------------------------------------------------ //
   // cancelCase                                                           //
@@ -320,14 +320,14 @@ class CaseCancelSuspendResumeTest {
   @Inject SimpleCaseHubBean simpleCaseHubBean;
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .await()
         .atMost(SPI_TIMEOUT);
   }
 
   private List<EventLog> findAllEvents(UUID caseId) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(
             caseId, List.of(CaseHubEventType.values()), TenancyConstants.DEFAULT_TENANT_ID)
         .await()

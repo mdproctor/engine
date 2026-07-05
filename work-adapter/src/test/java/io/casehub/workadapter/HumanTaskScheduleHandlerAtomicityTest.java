@@ -25,9 +25,9 @@ import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
-import io.casehub.persistence.memory.InMemoryCaseInstanceRepository;
 import io.casehub.persistence.memory.InMemoryCaseMetaModelRepository;
-import io.casehub.persistence.memory.InMemoryEventLogRepository;
+import io.casehub.persistence.memory.InMemoryReactiveCaseInstanceRepository;
+import io.casehub.persistence.memory.InMemoryReactiveEventLogRepository;
 import io.casehub.persistence.memory.MemoryPlanItemStore;
 import io.casehub.persistence.memory.MemorySubCaseGroupRepository;
 import io.casehub.work.runtime.repository.WorkItemQuery;
@@ -75,9 +75,9 @@ class HumanTaskScheduleHandlerAtomicityTest {
       // alternatives required for deployment, not just the ones specific to this test.
       return Set.of(
           FailingWorkItemStore.class,
-          InMemoryCaseInstanceRepository.class,
+          InMemoryReactiveCaseInstanceRepository.class,
           InMemoryCaseMetaModelRepository.class,
-          InMemoryEventLogRepository.class,
+          InMemoryReactiveEventLogRepository.class,
           MemorySubCaseGroupRepository.class,
           MemoryPlanItemStore.class,
           NoOpLedgerEntryRepository.class,

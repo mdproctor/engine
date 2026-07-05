@@ -29,7 +29,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
@@ -66,7 +66,7 @@ public class WorkerRetryExtendedTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @BeforeEach
   void reset() {
@@ -412,7 +412,7 @@ public class WorkerRetryExtendedTest {
   // ================================================================== //
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()
@@ -421,7 +421,7 @@ public class WorkerRetryExtendedTest {
   }
 
   private List<EventLog> findWorkerEvents(UUID caseId, CaseHubEventType eventType) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()

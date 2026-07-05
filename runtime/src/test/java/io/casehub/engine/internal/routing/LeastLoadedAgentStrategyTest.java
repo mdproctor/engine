@@ -36,7 +36,9 @@ class LeastLoadedAgentStrategyTest {
   @BeforeEach
   void setUp() {
     strategy = new LeastLoadedAgentStrategy();
-    ctx = new AgentRoutingContext(UUID.randomUUID(), "data-analysis", NullNode.instance);
+    ctx =
+        new AgentRoutingContext(
+            UUID.randomUUID(), "data-analysis", NullNode.instance, "test-tenant");
   }
 
   @Test

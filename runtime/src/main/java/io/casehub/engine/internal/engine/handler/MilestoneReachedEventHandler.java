@@ -24,7 +24,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneReachedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
@@ -49,7 +49,7 @@ public class MilestoneReachedEventHandler {
   private static final Logger LOG = Logger.getLogger(MilestoneReachedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
 
@@ -72,7 +72,7 @@ public class MilestoneReachedEventHandler {
             .put("name", milestone.getName())
             .put("description", milestone.getDescription()));
 
-    return eventLogRepository
+    return reactiveEventLogRepository
         .append(eventLog, caseInstance.tenancyId)
         .chain(
             () ->

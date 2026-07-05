@@ -25,19 +25,23 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tenant isolation contract test for {@link InMemoryCaseInstanceRepository}. Verifies that tenant
- * A's data is never visible to tenant B.
+ * Tenant isolation contract test for {@link InMemoryReactiveCaseInstanceRepository}. Verifies that
+ * tenant A's data is never visible to tenant B.
  */
-class InMemoryCaseInstanceRepositoryTenancyTest {
+class InMemoryReactiveCaseInstanceRepositoryTenancyTest {
 
-  private InMemoryCaseInstanceRepository repository;
-  private InMemoryEventLogRepository eventLogRepository;
+  private InMemoryReactiveCaseInstanceRepository repository;
+  private InMemoryReactiveEventLogRepository eventLogRepository;
 
   @BeforeEach
   void setUp() {
-    eventLogRepository = new InMemoryEventLogRepository();
-    repository = new InMemoryCaseInstanceRepository();
-    repository.setEventLogRepository(eventLogRepository);
+    InMemoryEventLogRepository blockingEventLogRepo = new InMemoryEventLogRepository();
+    eventLogRepository = new InMemoryReactiveEventLogRepository();
+    eventLogRepository.setDelegate(blockingEventLogRepo);
+    InMemoryCaseInstanceRepository blockingRepo = new InMemoryCaseInstanceRepository();
+    blockingRepo.setEventLogRepository(blockingEventLogRepo);
+    repository = new InMemoryReactiveCaseInstanceRepository();
+    repository.setDelegate(blockingRepo);
   }
 
   @Test

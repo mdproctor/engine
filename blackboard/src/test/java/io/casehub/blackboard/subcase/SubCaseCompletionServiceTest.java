@@ -37,7 +37,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.GroupStatus;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
@@ -63,7 +63,7 @@ class SubCaseCompletionServiceTest {
   private EventBus mockBus;
   private CaseResumptionService caseResumptionService;
   private CaseInstanceCache caseInstanceCache;
-  private EventLogRepository eventLogRepository;
+  private ReactiveEventLogRepository reactiveEventLogRepository;
   private CaseHubRuntime caseHubRuntime;
   private SubCaseGroupRepository subCaseGroupRepository;
 
@@ -81,18 +81,18 @@ class SubCaseCompletionServiceTest {
     mockBus = mock(EventBus.class);
     caseResumptionService = mock(CaseResumptionService.class);
     caseInstanceCache = mock(CaseInstanceCache.class);
-    eventLogRepository = mock(EventLogRepository.class);
+    reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
     caseHubRuntime = mock(CaseHubRuntime.class);
 
     subCaseGroupRepository = mock(SubCaseGroupRepository.class);
     when(caseResumptionService.resumeIfWaiting(any(), any(), any(), any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
-    when(eventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
     when(groupLifecycleEvents.fireAsync(any())).thenReturn(mock(CompletionStage.class));
 
     service =
         new SubCaseCompletionService(
-            eventLogRepository,
+            reactiveEventLogRepository,
             mock(JQEvaluator.class),
             caseInstanceCache,
             caseResumptionService,
@@ -125,7 +125,7 @@ class SubCaseCompletionServiceTest {
   @Test
   void ungrouped_completion_publishes_subcase_execution_completed_event() {
     EventLog startedEntry = subcaseStartedEntry(parentCaseId, childCaseId, true);
-    when(eventLogRepository.findByWorkerAndType(
+    when(reactiveEventLogRepository.findByWorkerAndType(
             eq(childCaseId.toString()), eq(CaseHubEventType.SUBCASE_STARTED), any()))
         .thenReturn(Uni.createFrom().item(List.of(startedEntry)));
 
@@ -150,7 +150,7 @@ class SubCaseCompletionServiceTest {
     when(startedEntry.getMetadata()).thenReturn(meta);
     when(startedEntry.getCaseId()).thenReturn(parentCaseId);
 
-    when(eventLogRepository.findByWorkerAndType(
+    when(reactiveEventLogRepository.findByWorkerAndType(
             eq(childCaseId.toString()), eq(CaseHubEventType.SUBCASE_STARTED), any()))
         .thenReturn(Uni.createFrom().item(List.of(startedEntry)));
 

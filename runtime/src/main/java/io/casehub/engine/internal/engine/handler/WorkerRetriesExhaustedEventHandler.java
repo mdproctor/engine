@@ -25,7 +25,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -47,7 +47,7 @@ public class WorkerRetriesExhaustedEventHandler {
 
   private final CaseInstanceCache caseInstanceCache;
   private final EventBus eventBus;
-  private final CaseInstanceRepository caseInstanceRepository;
+  private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   private final WorkerStatusListener workerStatusListener;
   private final io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
@@ -55,12 +55,12 @@ public class WorkerRetriesExhaustedEventHandler {
   WorkerRetriesExhaustedEventHandler(
       CaseInstanceCache caseInstanceCache,
       EventBus eventBus,
-      CaseInstanceRepository caseInstanceRepository,
+      ReactiveCaseInstanceRepository reactiveCaseInstanceRepository,
       WorkerStatusListener workerStatusListener,
       io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker) {
     this.caseInstanceCache = caseInstanceCache;
     this.eventBus = eventBus;
-    this.caseInstanceRepository = caseInstanceRepository;
+    this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
     this.workerStatusListener = workerStatusListener;
     this.settlementTracker = settlementTracker;
   }
@@ -87,7 +87,7 @@ public class WorkerRetriesExhaustedEventHandler {
             .put("workerId", event.workerId())
             .put("inputDataHash", event.idempotency()));
 
-    return caseInstanceRepository
+    return reactiveCaseInstanceRepository
         .updateStateAndAppendEvent(caseInstance, eventLog, caseInstance.tenancyId)
         .invoke(
             () -> {

@@ -21,8 +21,8 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -38,8 +38,8 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class EngineDecouplingIT {
 
-  @Inject EventLogRepository eventLogRepository;
-  @Inject @CrossTenant CrossTenantEventLogRepository crossTenantEventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository crossTenantEventLogRepository;
 
   @Test
   void eventLogRepository_appendAndFind_happyPath() {
@@ -49,7 +49,7 @@ class EngineDecouplingIT {
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
 
-    eventLogRepository
+    reactiveEventLogRepository
         .append(eventLog, TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()
@@ -60,7 +60,7 @@ class EngineDecouplingIT {
     assertThat(eventLog.getSeq()).isNotNull().isPositive();
 
     EventLog found =
-        eventLogRepository
+        reactiveEventLogRepository
             .findById(eventLog.id, TenancyConstants.DEFAULT_TENANT_ID)
             .subscribe()
             .asCompletionStage()
@@ -79,7 +79,7 @@ class EngineDecouplingIT {
     started.setEventType(CaseHubEventType.CASE_STARTED);
     started.setStreamType(EventStreamType.CASE);
     started.setTimestamp(Instant.now());
-    eventLogRepository
+    reactiveEventLogRepository
         .append(started, TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()
@@ -91,7 +91,7 @@ class EngineDecouplingIT {
     completed.setEventType(CaseHubEventType.CASE_COMPLETED);
     completed.setStreamType(EventStreamType.CASE);
     completed.setTimestamp(Instant.now());
-    eventLogRepository
+    reactiveEventLogRepository
         .append(completed, TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()

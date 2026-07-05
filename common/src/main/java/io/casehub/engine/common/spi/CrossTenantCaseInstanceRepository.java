@@ -16,15 +16,15 @@
 package io.casehub.engine.common.spi;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 
 /**
- * Cross-tenant case instance access for startup recovery services only. Lives in
- * internal.recovery.spi to prevent accidental injection outside recovery context.
+ * Blocking cross-tenant case instance access for startup recovery services only.
+ *
+ * @see ReactiveCrossTenantCaseInstanceRepository
  */
 public interface CrossTenantCaseInstanceRepository {
 
   /** Load a case instance without tenant filter. caseId is UUID (globally unique). */
-  Uni<CaseInstance> findByUuid(UUID caseId);
+  CaseInstance findByUuid(UUID caseId);
 }

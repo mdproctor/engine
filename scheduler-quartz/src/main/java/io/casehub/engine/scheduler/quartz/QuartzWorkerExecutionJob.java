@@ -31,7 +31,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -73,7 +73,7 @@ class QuartzWorkerExecutionJob implements Job {
 
   @Inject WorkerExecutionRecoveryService workerExecutionRecoveryService;
 
-  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
 
   @Inject WorkerExecutionConfig executionConfig;
 

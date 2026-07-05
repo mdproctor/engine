@@ -30,7 +30,7 @@ import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
@@ -61,7 +61,7 @@ class FailureCascadeIntegrationTest {
   @Inject FaultPolicyBean faultPolicyBean;
   @Inject ExpiredFaultPolicyBean expiredFaultPolicyBean;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   @Test
   void fault_policy_faults_case_immediately_on_decline() {
@@ -178,7 +178,7 @@ class FailureCascadeIntegrationTest {
   }
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return eventLogRepository
+    return reactiveEventLogRepository
         .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
         .subscribe()
         .asCompletionStage()

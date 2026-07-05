@@ -35,7 +35,7 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.casehub.engine.common.spi.event.PlanItemObsoleteEvent;
 import io.casehub.engine.common.spi.event.PlanItemRejectedEvent;
@@ -69,7 +69,7 @@ public class PlanItemCompletionApplier {
 
   @Inject BlackboardRegistry registry;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
   @Inject EventBus eventBus;
   @Inject JQEvaluator jqEvaluator;
   @Inject Event<PlanItemRejectedEvent> planItemRejectedEvents;

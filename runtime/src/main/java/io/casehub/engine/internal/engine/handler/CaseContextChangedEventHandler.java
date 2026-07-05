@@ -371,7 +371,8 @@ public class CaseContextChangedEventHandler {
         new AgentRoutingContext(
             caseInstance.getUuid(),
             capability.name(),
-            caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
+            caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            caseInstance.tenancyId);
 
     final AgentRoutingStrategy routingStrategy =
         strategyResolver.resolve(AgentRoutingStrategy.class, caseDefinition.getAgentRouting());
@@ -380,10 +381,14 @@ public class CaseContextChangedEventHandler {
         .chain(
             assignment ->
                 switch (assignment) {
-                  case AgentAssignment.Assigned a ->
-                      scheduleWorker(
-                          caseInstance, workers, binding, capability, a.workerId(), signalId);
-                  case AgentAssignment.Unresolvable() -> {
+                  case AgentAssignment.Assigned a -> {
+                    LOG.infof(
+                        "Agent selected: worker='%s' capability='%s' binding='%s' rationale='%s'",
+                        a.workerId(), capability.name(), binding.getName(), a.rationale());
+                    yield scheduleWorker(
+                        caseInstance, workers, binding, capability, a.workerId(), signalId);
+                  }
+                  case AgentAssignment.Unresolvable u -> {
                     LOG.warnf(
                         "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
                         capability.name(), binding.getName());
@@ -437,8 +442,8 @@ public class CaseContextChangedEventHandler {
       return Uni.createFrom().voidItem();
     }
 
-    LOG.infof(
-        "Agent selected: worker='%s' capability='%s' binding='%s'",
+    LOG.debugf(
+        "Scheduling worker='%s' capability='%s' binding='%s'",
         workerId, capability.name(), binding.getName());
 
     if (signalId != null) {

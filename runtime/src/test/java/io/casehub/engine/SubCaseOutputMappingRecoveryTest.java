@@ -27,9 +27,9 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -64,9 +64,9 @@ public class SubCaseOutputMappingRecoveryTest {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject CaseInstanceRepository instanceRepository;
+  @Inject ReactiveCaseInstanceRepository instanceRepository;
   @Inject CaseMetaModelRepository metaModelRepository;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject WorkerExecutionRecoveryService recoveryService;
   @Inject JQEvaluator jqEvaluator;
@@ -172,7 +172,7 @@ public class SubCaseOutputMappingRecoveryTest {
     // ✓ CORRECT: payload contains output data
     workerEvent.setPayload(
         OBJECT_MAPPER.valueToTree(Map.of("processed", true, "result", "success")));
-    run(() -> eventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
+    run(() -> reactiveEventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
 
     // Clear cache and restore
     caseInstanceCache.clear();
@@ -218,7 +218,7 @@ public class SubCaseOutputMappingRecoveryTest {
                 Map.of(),
                 "episodic",
                 Map.of())));
-    run(() -> eventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
+    run(() -> reactiveEventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
 
     caseInstanceCache.put(savedParent);
     return savedParent.getUuid();
@@ -248,7 +248,7 @@ public class SubCaseOutputMappingRecoveryTest {
     metadata.put("outputMapping", outputMapping);
     metadata.put("waitForCompletion", true);
     event.setMetadata(metadata);
-    run(() -> eventLogRepository.append(event, TenancyConstants.DEFAULT_TENANT_ID));
+    run(() -> reactiveEventLogRepository.append(event, TenancyConstants.DEFAULT_TENANT_ID));
   }
 
   private void writeSubCaseCompletedEvent(
@@ -267,7 +267,7 @@ public class SubCaseOutputMappingRecoveryTest {
     if (appliedData != null) {
       event.setPayload(OBJECT_MAPPER.valueToTree(appliedData));
     }
-    run(() -> eventLogRepository.append(event, TenancyConstants.DEFAULT_TENANT_ID));
+    run(() -> reactiveEventLogRepository.append(event, TenancyConstants.DEFAULT_TENANT_ID));
   }
 
   private CaseInstance newInstance(CaseStatus status) {
@@ -321,7 +321,7 @@ public class SubCaseOutputMappingRecoveryTest {
     metadata.set("contextChanges", contextChanges);
     workerEvent.setMetadata(metadata);
 
-    run(() -> eventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
+    run(() -> reactiveEventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
 
     // 3. Clear cache (simulates JVM restart)
     caseInstanceCache.clear();
@@ -373,7 +373,7 @@ public class SubCaseOutputMappingRecoveryTest {
     metadata.set("contextChanges", contextChanges);
     workerEvent.setMetadata(metadata);
 
-    run(() -> eventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
+    run(() -> reactiveEventLogRepository.append(workerEvent, TenancyConstants.DEFAULT_TENANT_ID));
 
     // 3. Clear cache
     caseInstanceCache.clear();
@@ -413,7 +413,7 @@ public class SubCaseOutputMappingRecoveryTest {
                 Map.of(),
                 "episodic",
                 Map.of())));
-    run(() -> eventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
+    run(() -> reactiveEventLogRepository.append(caseStarted, TenancyConstants.DEFAULT_TENANT_ID));
 
     caseInstanceCache.put(saved);
     return saved.getUuid();

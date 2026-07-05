@@ -28,7 +28,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
 import io.smallrye.mutiny.Uni;
@@ -48,14 +48,14 @@ class CaseTimeoutEnforcerTest {
 
   private CaseInstanceCache cache;
   private EventBus eventBus;
-  private CaseInstanceRepository repository;
+  private ReactiveCaseInstanceRepository repository;
   private CaseTimeoutEnforcer enforcer;
 
   @BeforeEach
   void setUp() {
     cache = new CaseInstanceCacheImpl();
     eventBus = mock(EventBus.class);
-    repository = mock(CaseInstanceRepository.class);
+    repository = mock(ReactiveCaseInstanceRepository.class);
     when(repository.updateStateAndAppendEvent(any(), any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
     enforcer = new CaseTimeoutEnforcer(cache, eventBus, repository);

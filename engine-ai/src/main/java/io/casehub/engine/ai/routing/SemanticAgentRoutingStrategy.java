@@ -118,7 +118,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
   public Uni<AgentAssignment> select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
     if (candidates.isEmpty()) {
-      return Uni.createFrom().item(AgentAssignment.unresolvable());
+      return Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available"));
     }
 
     final TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
@@ -133,7 +133,10 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
         return Uni.createFrom()
             .item(
                 AgentAssignment.escalate(
-                    context.capabilityName(), EscalationReason.NO_QUALIFIED_AGENT));
+                    context.capabilityName(),
+                    EscalationReason.NO_QUALIFIED_AGENT,
+                    "bootstrap only — no qualified agents for capability '%s'"
+                        .formatted(context.capabilityName())));
       }
     }
 
@@ -154,11 +157,40 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
 
               final List<ScoredCandidate> scored = new ArrayList<>(eligible.size());
               for (final ClassifiedCandidate cc : eligible) {
-                scored.add(new ScoredCandidate(cc, score(cc, queryVector, policy)));
+                final double finalScore = score(cc, queryVector, policy);
+                scored.add(
+                    new ScoredCandidate(
+                        cc, finalScore, buildRationale(cc, finalScore, queryVector, policy)));
               }
 
               return classifier.decide(eligible, scored, context.capabilityName());
             });
+  }
+
+  private String buildRationale(
+      final ClassifiedCandidate cc,
+      final double finalScore,
+      final float[] queryVector,
+      final TrustRoutingPolicy policy) {
+    final String workerId = cc.candidate().workerId();
+    return switch (cc.phase()) {
+      case Phase.BOOTSTRAP ->
+          "selected %s: availability %.2f (bootstrap)".formatted(workerId, cc.workloadScore());
+      case Phase.QUALIFIED -> {
+        final double trustScore = cc.trustScore().getAsDouble();
+        double semanticScore = 0.0;
+        if (cc.candidate().agentDescriptor() != null) {
+          final float[] docVector =
+              embeddingCache.getOrCompute(
+                  buildVocabularyText(cc.candidate().agentDescriptor()), embeddingProvider);
+          semanticScore = AgentEmbeddingProvider.cosineSimilarity(queryVector, docVector);
+        }
+        yield "selected %s: semantic %.2f, trust %.2f, blended %.2f"
+            .formatted(workerId, semanticScore, trustScore, finalScore);
+      }
+      case Phase.BORDERLINE, Phase.EXCLUDED_PHASE2B, Phase.EXCLUDED_PHASE3 ->
+          "excluded %s: phase %s".formatted(workerId, cc.phase());
+    };
   }
 
   private double score(

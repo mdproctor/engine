@@ -29,14 +29,18 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class InMemoryCaseInstanceRepositoryTest {
+class InMemoryReactiveCaseInstanceRepositoryTest {
 
-  InMemoryCaseInstanceRepository repository;
+  InMemoryReactiveCaseInstanceRepository repository;
   CaseMetaModel meta;
 
   @BeforeEach
   void setUp() {
-    repository = new InMemoryCaseInstanceRepository();
+    InMemoryEventLogRepository blockingEventLogRepo = new InMemoryEventLogRepository();
+    InMemoryCaseInstanceRepository blockingRepo = new InMemoryCaseInstanceRepository();
+    blockingRepo.setEventLogRepository(blockingEventLogRepo);
+    repository = new InMemoryReactiveCaseInstanceRepository();
+    repository.setDelegate(blockingRepo);
     meta = new CaseMetaModel();
     meta.setName("test-case");
     meta.setNamespace("test-ns");
@@ -162,9 +166,13 @@ class InMemoryCaseInstanceRepositoryTest {
 
   @Test
   void updateStateAndAppendEvent_updatesInstanceAndAppendsEvent() {
-    InMemoryEventLogRepository eventLogRepo = new InMemoryEventLogRepository();
-    InMemoryCaseInstanceRepository repo = new InMemoryCaseInstanceRepository();
-    repo.setEventLogRepository(eventLogRepo);
+    InMemoryEventLogRepository blockingEventLogRepo = new InMemoryEventLogRepository();
+    InMemoryReactiveEventLogRepository eventLogRepo = new InMemoryReactiveEventLogRepository();
+    eventLogRepo.setDelegate(blockingEventLogRepo);
+    InMemoryCaseInstanceRepository blockingRepo = new InMemoryCaseInstanceRepository();
+    blockingRepo.setEventLogRepository(blockingEventLogRepo);
+    InMemoryReactiveCaseInstanceRepository repo = new InMemoryReactiveCaseInstanceRepository();
+    repo.setDelegate(blockingRepo);
 
     CaseMetaModel model = new CaseMetaModel();
     model.setNamespace("ns");

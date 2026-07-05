@@ -17,42 +17,41 @@ package io.casehub.engine.common.spi;
 
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.smallrye.mutiny.Uni;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Cross-tenant event log access for startup recovery services only. Lives in internal.recovery.spi
- * to prevent accidental injection outside recovery context.
+ * Blocking cross-tenant event log access for startup recovery services only.
+ *
+ * @see ReactiveCrossTenantEventLogRepository
  */
 public interface CrossTenantEventLogRepository {
 
   /** All events of the given types across all tenants. Recovery: reschedule orphaned workers. */
-  Uni<List<EventLog>> findByTypes(Collection<CaseHubEventType> types);
+  List<EventLog> findByTypes(Collection<CaseHubEventType> types);
 
   /**
    * Events for a specific case — caseId is UUID (globally unique). Recovery: rebuild case state
    * context.
    */
-  Uni<List<EventLog>> findByCaseAndTypes(UUID caseId, Collection<CaseHubEventType> types);
+  List<EventLog> findByCaseAndTypes(UUID caseId, Collection<CaseHubEventType> types);
 
   /** Find WORK_SUBMITTED events with no matching WORK_COMPLETED across all tenants. */
-  Uni<List<String>> findSubmittedWorkWithoutCompletion();
+  List<String> findSubmittedWorkWithoutCompletion();
 
   /** Cross-tenant variant of findByWorkerAndType — recovery only. */
-  Uni<List<EventLog>> findByWorkerAndTypeAcrossTenants(String workerId, CaseHubEventType type);
+  List<EventLog> findByWorkerAndTypeAcrossTenants(String workerId, CaseHubEventType type);
 
   /**
    * Look up an event log entry by surrogate id without tenant filter. Used by Quartz jobs that have
    * the event log id from job data but no principal context.
    */
-  Uni<EventLog> findById(Long id);
+  EventLog findById(Long id);
 
   /**
    * Cross-tenant variant of findByCaseAndWorkerAndType. Used by DLQ replay and system services that
    * operate across tenants.
    */
-  Uni<List<EventLog>> findByCaseAndWorkerAndType(
-      UUID caseId, String workerId, CaseHubEventType type);
+  List<EventLog> findByCaseAndWorkerAndType(UUID caseId, String workerId, CaseHubEventType type);
 }

@@ -24,8 +24,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
@@ -65,9 +65,9 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
           CaseHubEventType.MILESTONE_COMPLETED,
           CaseHubEventType.MILESTONE_SLA_VIOLATED);
 
-  @Inject @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject @CrossTenant ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
 
-  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
 
   @Inject Vertx vertx;
 

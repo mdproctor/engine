@@ -28,7 +28,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -59,7 +59,7 @@ class ContextDiffEndToEndTest {
   @Inject DiffCaseHub diffCase;
   @Inject UpdateCaseHub updateCase;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
 
   /**
    * Happy path: initial context has "status"="start". Worker writes "status"="done" and adds
@@ -175,7 +175,7 @@ class ContextDiffEndToEndTest {
 
   private EventLog fetchCompletedEvent(UUID caseId) {
     List<EventLog> events =
-        eventLogRepository
+        reactiveEventLogRepository
             .findByCaseAndTypes(
                 caseId,
                 List.of(CaseHubEventType.WORKER_EXECUTION_COMPLETED),

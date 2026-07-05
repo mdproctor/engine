@@ -19,191 +19,73 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Blocking JPA {@link EventLogRepository}. Delegates to {@link JpaReactiveEventLogRepository} and
+ * awaits.
+ */
 @ApplicationScoped
-public class JpaEventLogRepository extends TenantAwareRepository implements EventLogRepository {
+public class JpaEventLogRepository implements EventLogRepository {
+
+  @Inject JpaReactiveEventLogRepository delegate;
 
   @Override
-  public Uni<Void> append(EventLog eventLog, String tenancyId) {
-    EventLogEntity entity = toEntity(eventLog, tenancyId);
-    return withTenantTransaction(
-        () ->
-            entity
-                .persistAndFlush()
-                .invoke(
-                    () -> {
-                      eventLog.id = entity.id;
-                      eventLog.setSeq(entity.seq);
-                    })
-                .replaceWithVoid());
+  public void append(EventLog eventLog, String tenancyId) {
+    delegate.append(eventLog, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<Long> appendAndReturnId(EventLog eventLog, String tenancyId) {
-    EventLogEntity entity = toEntity(eventLog, tenancyId);
-    return withTenantTransaction(
-        () ->
-            entity
-                .persistAndFlush()
-                .map(
-                    v -> {
-                      eventLog.id = entity.id;
-                      eventLog.setSeq(entity.seq);
-                      return entity.id;
-                    }));
+  public Long appendAndReturnId(EventLog eventLog, String tenancyId) {
+    return delegate.appendAndReturnId(eventLog, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<EventLog> findById(Long id, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            EventLogEntity.<EventLogEntity>find("id = ?1 and tenancyId = ?2", id, tenancyId)
-                .firstResult()
-                .map(entity -> entity == null ? null : fromEntity(entity)));
+  public EventLog findById(Long id, String tenancyId) {
+    return delegate.findById(id, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<List<EventLog>> findSchedulingEvents(
+  public List<EventLog> findSchedulingEvents(
       UUID caseId, String workerId, Instant after, String tenancyId) {
-    return withTenantTransaction(
-        () -> {
-          if (after == null) {
-            return EventLogEntity.<EventLogEntity>find(
-                    "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
-                        + " and tenancyId = ?6 order by seq asc",
-                    caseId,
-                    workerId,
-                    CaseHubEventType.WORKER_SCHEDULED,
-                    CaseHubEventType.WORKER_EXECUTION_STARTED,
-                    CaseHubEventType.WORKER_EXECUTION_COMPLETED,
-                    tenancyId)
-                .list()
-                .map(list -> list.stream().map(this::fromEntity).toList());
-          } else {
-            return EventLogEntity.<EventLogEntity>find(
-                    "caseId = ?1 and workerId = ?2 and eventType in (?3, ?4, ?5)"
-                        + " and timestamp > ?6 and tenancyId = ?7 order by seq asc",
-                    caseId,
-                    workerId,
-                    CaseHubEventType.WORKER_SCHEDULED,
-                    CaseHubEventType.WORKER_EXECUTION_STARTED,
-                    CaseHubEventType.WORKER_EXECUTION_COMPLETED,
-                    after,
-                    tenancyId)
-                .list()
-                .map(list -> list.stream().map(this::fromEntity).toList());
-          }
-        });
+    return delegate.findSchedulingEvents(caseId, workerId, after, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<List<EventLog>> findByCaseAndTypes(
+  public List<EventLog> findByCaseAndTypes(
       UUID caseId, Collection<CaseHubEventType> types, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            EventLogEntity.<EventLogEntity>find(
-                    "caseId = ?1 and eventType in ?2 and tenancyId = ?3 order by seq asc",
-                    caseId,
-                    types,
-                    tenancyId)
-                .list()
-                .map(list -> list.stream().map(this::fromEntity).toList()));
+    return delegate.findByCaseAndTypes(caseId, types, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<List<EventLog>> findByCaseAndWorkerAndType(
+  public List<EventLog> findByCaseAndWorkerAndType(
       UUID caseId, String workerId, CaseHubEventType type, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            EventLogEntity.<EventLogEntity>find(
-                    "caseId = ?1 and workerId = ?2 and eventType = ?3 and tenancyId = ?4",
-                    caseId,
-                    workerId,
-                    type,
-                    tenancyId)
-                .list()
-                .map(list -> list.stream().map(this::fromEntity).toList()));
+    return delegate
+        .findByCaseAndWorkerAndType(caseId, workerId, type, tenancyId)
+        .await()
+        .indefinitely();
   }
 
   @Override
-  public Uni<List<EventLog>> findByWorkerAndType(
+  public List<EventLog> findByWorkerAndType(
       String workerId, CaseHubEventType type, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            EventLogEntity.<EventLogEntity>find(
-                    "workerId = ?1 and eventType = ?2 and tenancyId = ?3",
-                    workerId,
-                    type,
-                    tenancyId)
-                .list()
-                .map(list -> list.stream().map(this::fromEntity).toList()));
+    return delegate.findByWorkerAndType(workerId, type, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<List<EventLog>> findByCaseWithFilters(
+  public List<EventLog> findByCaseWithFilters(
       UUID caseId,
       Collection<CaseHubEventType> eventTypes,
       Collection<EventStreamType> streamTypes,
       String tenancyId) {
-    return withTenantTransaction(
-        () -> {
-          StringBuilder query = new StringBuilder("caseId = ?1 and tenancyId = ?2");
-          List<Object> params = new ArrayList<>();
-          params.add(caseId);
-          params.add(tenancyId);
-
-          if (eventTypes != null && !eventTypes.isEmpty()) {
-            query.append(" and eventType in ?").append(params.size() + 1);
-            params.add(eventTypes);
-          }
-
-          if (streamTypes != null && !streamTypes.isEmpty()) {
-            query.append(" and streamType in ?").append(params.size() + 1);
-            params.add(streamTypes);
-          }
-
-          query.append(" order by seq asc");
-
-          return EventLogEntity.<EventLogEntity>find(query.toString(), params.toArray())
-              .list()
-              .map(list -> list.stream().map(this::fromEntity).toList());
-        });
-  }
-
-  // ── Helpers ──────────────────────────────────────────────────────────────
-
-  private EventLog fromEntity(EventLogEntity entity) {
-    EventLog log = new EventLog();
-    log.id = entity.id;
-    log.tenancyId = entity.tenancyId;
-    log.setSeq(entity.seq);
-    log.setCaseId(entity.caseId);
-    log.setEventType(entity.eventType);
-    log.setStreamType(entity.streamType);
-    log.setWorkerId(entity.workerId);
-    log.setTimestamp(entity.timestamp);
-    log.setPayload(entity.payload);
-    log.setMetadata(entity.metadata);
-    return log;
-  }
-
-  private EventLogEntity toEntity(EventLog log, String tenancyId) {
-    EventLogEntity entity = new EventLogEntity();
-    entity.tenancyId = tenancyId;
-    entity.caseId = log.getCaseId();
-    entity.eventType = log.getEventType();
-    entity.streamType = log.getStreamType();
-    entity.workerId = log.getWorkerId();
-    entity.timestamp = log.getTimestamp();
-    entity.payload = log.getPayload();
-    entity.metadata = log.getMetadata();
-    return entity;
+    return delegate
+        .findByCaseWithFilters(caseId, eventTypes, streamTypes, tenancyId)
+        .await()
+        .indefinitely();
   }
 }

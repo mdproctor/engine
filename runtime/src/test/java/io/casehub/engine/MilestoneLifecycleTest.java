@@ -28,7 +28,7 @@ import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -51,7 +51,7 @@ class MilestoneLifecycleTest {
   @Inject SlaIdempotencyTestBean slaIdempotencyBean;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject WorkerExecutionRecoveryService recoveryService;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject io.vertx.mutiny.core.eventbus.EventBus eventBus;
 
   @Test
@@ -222,7 +222,7 @@ class MilestoneLifecycleTest {
 
     // Verify no SLA_VIOLATED event
     java.util.List<EventLog> slaEvents =
-        eventLogRepository
+        reactiveEventLogRepository
             .findByCaseAndTypes(
                 caseId,
                 java.util.EnumSet.of(CaseHubEventType.MILESTONE_SLA_VIOLATED),

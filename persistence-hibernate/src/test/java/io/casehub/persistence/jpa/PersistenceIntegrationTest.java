@@ -25,9 +25,9 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
@@ -47,9 +47,9 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
 class PersistenceIntegrationTest {
 
-  @Inject CaseInstanceRepository instanceRepository;
+  @Inject ReactiveCaseInstanceRepository instanceRepository;
   @Inject CaseMetaModelRepository metaModelRepository;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject SubCaseGroupRepository subCaseGroupRepository;
 
   private CaseMetaModel savedMeta;
@@ -97,7 +97,8 @@ class PersistenceIntegrationTest {
     assertThat(eventLog.id).isNotNull();
     assertThat(eventLog.getSeq()).isNotNull();
 
-    EventLog foundEvent = run(() -> eventLogRepository.findById(eventLog.id, "test-tenant"));
+    EventLog foundEvent =
+        run(() -> reactiveEventLogRepository.findById(eventLog.id, "test-tenant"));
     assertThat(foundEvent).isNotNull();
     assertThat(foundEvent.getEventType()).isEqualTo(CaseHubEventType.CASE_COMPLETED);
     assertThat(foundEvent.getCaseId()).isEqualTo(instance.getUuid());
@@ -132,7 +133,7 @@ class PersistenceIntegrationTest {
     List<EventLog> events =
         run(
             () ->
-                eventLogRepository.findByCaseWithFilters(
+                reactiveEventLogRepository.findByCaseWithFilters(
                     instance.getUuid(), null, null, "test-tenant"));
     assertThat(events).hasSize(3);
     assertThat(events.stream().map(EventLog::getSeq))
@@ -353,7 +354,7 @@ class PersistenceIntegrationTest {
     List<EventLog> allEvents =
         run(
             () ->
-                eventLogRepository.findByCaseWithFilters(
+                reactiveEventLogRepository.findByCaseWithFilters(
                     child1.getUuid(), null, null, "test-tenant"));
     assertThat(allEvents).hasSize(1);
     assertThat(allEvents.get(0).getEventType()).isEqualTo(CaseHubEventType.CASE_COMPLETED);

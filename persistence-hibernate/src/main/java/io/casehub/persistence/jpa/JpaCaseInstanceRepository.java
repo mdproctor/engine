@@ -18,180 +18,55 @@ package io.casehub.persistence.jpa;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.quarkus.hibernate.reactive.panache.Panache;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Blocking JPA {@link CaseInstanceRepository}. Delegates to {@link
+ * JpaReactiveCaseInstanceRepository} and awaits.
+ */
 @ApplicationScoped
-public class JpaCaseInstanceRepository extends TenantAwareRepository
-    implements CaseInstanceRepository {
+public class JpaCaseInstanceRepository implements CaseInstanceRepository {
+
+  @Inject JpaReactiveCaseInstanceRepository delegate;
 
   @Override
-  public Uni<CaseInstance> save(CaseInstance instance, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            Panache.getSession()
-                .chain(
-                    session -> {
-                      CaseInstanceEntity entity = new CaseInstanceEntity();
-                      entity.tenancyId = tenancyId;
-                      entity.uuid = instance.getUuid();
-                      entity.state = instance.getState();
-                      entity.parentCaseId = instance.getParentCaseId();
-                      entity.parentPlanItemId = instance.getParentPlanItemId();
-                      entity.waitingForWorkId = instance.getWaitingForWorkId();
-                      if (instance.getCaseMetaModel() != null) {
-                        entity.caseMetaModel =
-                            session.getReference(
-                                CaseMetaModelEntity.class, instance.getCaseMetaModel().getId());
-                      }
-                      return entity
-                          .persist()
-                          .map(
-                              v -> {
-                                instance.id = entity.id;
-                                instance.tenancyId = tenancyId;
-                                return instance;
-                              });
-                    }));
+  public CaseInstance save(CaseInstance instance, String tenancyId) {
+    return delegate.save(instance, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<CaseInstance> update(CaseInstance instance, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            CaseInstanceEntity.<CaseInstanceEntity>find(
-                    "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
-                .firstResult()
-                .invoke(
-                    entity -> {
-                      entity.state = instance.getState();
-                      entity.parentCaseId = instance.getParentCaseId();
-                      entity.parentPlanItemId = instance.getParentPlanItemId();
-                      entity.waitingForWorkId = instance.getWaitingForWorkId();
-                      // tenancyId is immutable — not updated
-                    })
-                .replaceWith(instance));
+  public CaseInstance update(CaseInstance instance, String tenancyId) {
+    return delegate.update(instance, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<CaseInstance> findByUuid(UUID uuid, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            CaseInstanceEntity.<CaseInstanceEntity>find(
-                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
-                        + "where ci.uuid = ?1 and ci.tenancyId = ?2",
-                    uuid,
-                    tenancyId)
-                .firstResult()
-                .map(entity -> entity == null ? null : fromEntity(entity)));
+  public CaseInstance findByUuid(UUID uuid, String tenancyId) {
+    return delegate.findByUuid(uuid, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<Void> updateStateAndAppendEvent(
+  public void updateStateAndAppendEvent(
       CaseInstance instance, EventLog eventLog, String tenancyId) {
-    EventLogEntity logEntity = new EventLogEntity();
-    logEntity.tenancyId = tenancyId;
-    logEntity.caseId = eventLog.getCaseId();
-    logEntity.eventType = eventLog.getEventType();
-    logEntity.streamType = eventLog.getStreamType();
-    logEntity.workerId = eventLog.getWorkerId();
-    logEntity.timestamp = eventLog.getTimestamp();
-    logEntity.payload = eventLog.getPayload();
-    logEntity.metadata = eventLog.getMetadata();
-
-    return withTenantTransaction(
-        () ->
-            CaseInstanceEntity.<CaseInstanceEntity>find(
-                    "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
-                .firstResult()
-                .chain(
-                    entity -> {
-                      entity.state = instance.getState();
-                      entity.parentCaseId = instance.getParentCaseId();
-                      entity.parentPlanItemId = instance.getParentPlanItemId();
-                      entity.waitingForWorkId = instance.getWaitingForWorkId();
-                      return Panache.getSession().chain(s -> s.merge(entity));
-                    })
-                .chain(merged -> logEntity.persistAndFlush())
-                .invoke(
-                    () -> {
-                      eventLog.id = logEntity.id;
-                      eventLog.setSeq(logEntity.seq);
-                    })
-                .replaceWithVoid());
+    delegate.updateStateAndAppendEvent(instance, eventLog, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<List<CaseInstance>> findByStatus(CaseStatus status, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            CaseInstanceEntity.<CaseInstanceEntity>find(
-                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
-                        + "where ci.state = ?1 and ci.tenancyId = ?2",
-                    status,
-                    tenancyId)
-                .list()
-                .map(entities -> entities.stream().map(this::fromEntity).toList()));
+  public List<CaseInstance> findByStatus(CaseStatus status, String tenancyId) {
+    return delegate.findByStatus(status, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<List<CaseInstance>> findAll(String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            CaseInstanceEntity.<CaseInstanceEntity>find(
-                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
-                        + "where ci.tenancyId = ?1",
-                    tenancyId)
-                .list()
-                .map(entities -> entities.stream().map(this::fromEntity).toList()));
+  public List<CaseInstance> findAll(String tenancyId) {
+    return delegate.findAll(tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<List<CaseInstance>> findByNamespaceAndName(
+  public List<CaseInstance> findByNamespaceAndName(
       String namespace, String name, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            CaseInstanceEntity.<CaseInstanceEntity>find(
-                    "from CaseInstanceEntity ci join fetch ci.caseMetaModel m "
-                        + "where m.namespace = ?1 and m.name = ?2 and ci.tenancyId = ?3",
-                    namespace,
-                    name,
-                    tenancyId)
-                .list()
-                .map(entities -> entities.stream().map(this::fromEntity).toList()));
-  }
-
-  private CaseInstance fromEntity(CaseInstanceEntity entity) {
-    CaseInstance instance = new CaseInstance();
-    instance.id = entity.id;
-    instance.tenancyId = entity.tenancyId;
-    instance.setUuid(entity.uuid);
-    instance.setState(entity.state);
-    instance.setParentCaseId(entity.parentCaseId);
-    instance.setParentPlanItemId(entity.parentPlanItemId);
-    instance.setWaitingForWorkId(entity.waitingForWorkId);
-    if (entity.caseMetaModel != null) {
-      instance.setCaseMetaModel(fromMetaEntity(entity.caseMetaModel));
-    }
-    return instance;
-  }
-
-  private CaseMetaModel fromMetaEntity(CaseMetaModelEntity entity) {
-    CaseMetaModel m = new CaseMetaModel();
-    m.id = entity.id;
-    m.tenancyId = entity.tenancyId;
-    m.setName(entity.name);
-    m.setNamespace(entity.namespace);
-    m.setVersion(entity.version);
-    m.setTitle(entity.title);
-    m.setDsl(entity.dsl);
-    m.setDefinition(entity.definition);
-    m.setCreatedAt(entity.createdAt);
-    return m;
+    return delegate.findByNamespaceAndName(namespace, name, tenancyId).await().indefinitely();
   }
 }

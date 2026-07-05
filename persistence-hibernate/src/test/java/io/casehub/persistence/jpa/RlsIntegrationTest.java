@@ -21,8 +21,8 @@ import io.agroal.api.AgroalDataSource;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
@@ -56,15 +56,15 @@ import org.junit.jupiter.api.Timeout;
  *   <li>{@link RlsPolicyApplicator} runs at startup and applies RLS policies to all tables. Tests
  *       verify the app boots successfully with {@code casehub.rls.enabled=true} — startup failure
  *       would mean DDL errors (wrong table names, missing roles, etc.).
- *   <li>Insert own-tenant row via {@link EventLogRepository#append} — sets {@code
+ *   <li>Insert own-tenant row via {@link ReactiveEventLogRepository#append} — sets {@code
  *       casehub.tenancy_id = DEFAULT_TENANT_ID} in session (via MockCurrentPrincipal).
  *   <li>Insert other-tenant row via raw JDBC (bypasses reactive RLS session variable). No WITH
  *       CHECK on the policy, so JDBC inserts are always allowed.
  *   <li>Tenant-scoped repo correctly applies the explicit JPQL tenancyId filter — other-tenant rows
  *       are excluded by the JPQL WHERE clause (application-layer isolation).
- *   <li>Cross-tenant repo ({@link CrossTenantEventLogRepository}) uses {@code SET LOCAL ROLE
- *       casehub_crosstenancy} (BYPASSRLS) and can see rows across all tenants. This verifies the
- *       role-switch mechanism and GRANT setup in {@link RlsPolicyApplicator}.
+ *   <li>Cross-tenant repo ({@link ReactiveCrossTenantEventLogRepository}) uses {@code SET LOCAL
+ *       ROLE casehub_crosstenancy} (BYPASSRLS) and can see rows across all tenants. This verifies
+ *       the role-switch mechanism and GRANT setup in {@link RlsPolicyApplicator}.
  * </ul>
  *
  * <p>Note: Quarkus Dev Services creates a PostgreSQL superuser. In PostgreSQL, superusers bypass
@@ -91,8 +91,8 @@ class RlsIntegrationTest {
     }
   }
 
-  @Inject EventLogRepository eventLogRepository;
-  @Inject CrossTenantEventLogRepository crossTenantEventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject ReactiveCrossTenantEventLogRepository crossTenantEventLogRepository;
   @Inject AgroalDataSource dataSource;
 
   /** MockCurrentPrincipal always returns DEFAULT_TENANT_ID — so withTenantTransaction uses this. */
@@ -111,7 +111,7 @@ class RlsIntegrationTest {
 
     // Insert own-tenant row via tenant-scoped repo
     EventLog ownLog = makeLog(ownCaseId, CaseHubEventType.CASE_STARTED);
-    run(() -> eventLogRepository.append(ownLog, OWN_TENANT));
+    run(() -> reactiveEventLogRepository.append(ownLog, OWN_TENANT));
 
     // Insert other-tenant row via raw JDBC (RLS INSERT has no WITH CHECK — always allowed)
     insertRawOtherTenant(otherCaseId, OTHER_TENANT);
@@ -120,7 +120,7 @@ class RlsIntegrationTest {
     List<EventLog> ownFound =
         run(
             () ->
-                eventLogRepository.findByCaseAndTypes(
+                reactiveEventLogRepository.findByCaseAndTypes(
                     ownCaseId, List.of(CaseHubEventType.CASE_STARTED), OWN_TENANT));
     assertThat(ownFound).hasSize(1);
     assertThat(ownFound.get(0).getCaseId()).isEqualTo(ownCaseId);
@@ -130,7 +130,7 @@ class RlsIntegrationTest {
     List<EventLog> otherAttempt =
         run(
             () ->
-                eventLogRepository.findByCaseAndTypes(
+                reactiveEventLogRepository.findByCaseAndTypes(
                     otherCaseId, List.of(CaseHubEventType.CASE_STARTED), OWN_TENANT));
     assertThat(otherAttempt).isEmpty();
   }
@@ -147,7 +147,7 @@ class RlsIntegrationTest {
 
     // Insert own-tenant row
     EventLog ownLog = makeLog(ownCaseId, CaseHubEventType.CASE_COMPLETED);
-    run(() -> eventLogRepository.append(ownLog, OWN_TENANT));
+    run(() -> reactiveEventLogRepository.append(ownLog, OWN_TENANT));
 
     // Insert other-tenant row via raw JDBC
     insertRawOtherTenant(otherCaseId, OTHER_TENANT);

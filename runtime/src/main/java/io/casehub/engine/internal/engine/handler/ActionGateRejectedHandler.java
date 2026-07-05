@@ -28,7 +28,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
-import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -61,7 +61,7 @@ public class ActionGateRejectedHandler {
   private static final Logger LOG = Logger.getLogger(ActionGateRejectedHandler.class);
 
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject EventLogRepository eventLogRepository;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
 
@@ -156,7 +156,7 @@ public class ActionGateRejectedHandler {
     log.setStreamType(EventStreamType.CASE);
     log.setTimestamp(Instant.now());
     log.setEventType(CaseHubEventType.ACTION_GATE_REJECTED);
-    return eventLogRepository.append(log, instance.tenancyId);
+    return reactiveEventLogRepository.append(log, instance.tenancyId);
   }
 
   private static boolean isTerminal(final CaseStatus state) {

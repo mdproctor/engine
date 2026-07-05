@@ -24,40 +24,51 @@ import org.junit.jupiter.api.Test;
 class AgentAssignmentTest {
 
   @Test
-  void assign_createsAssigned_withWorkerId() {
-    final AgentAssignment assignment = AgentAssignment.assign("worker-1");
+  void assign_createsAssigned_withWorkerIdAndRationale() {
+    final AgentAssignment assignment =
+        AgentAssignment.assign("worker-1", "selected worker-1: load 0 (sole candidate)");
 
     assertThat(assignment).isInstanceOf(AgentAssignment.Assigned.class);
     assertThat(((AgentAssignment.Assigned) assignment).workerId()).isEqualTo("worker-1");
+    assertThat(((AgentAssignment.Assigned) assignment).rationale())
+        .isEqualTo("selected worker-1: load 0 (sole candidate)");
   }
 
   @Test
-  void unresolvable_createsUnresolvable() {
-    final AgentAssignment assignment = AgentAssignment.unresolvable();
+  void unresolvable_createsUnresolvable_withRationale() {
+    final AgentAssignment assignment = AgentAssignment.unresolvable("no candidates available");
 
     assertThat(assignment).isInstanceOf(AgentAssignment.Unresolvable.class);
+    assertThat(((AgentAssignment.Unresolvable) assignment).rationale())
+        .isEqualTo("no candidates available");
   }
 
   @Test
-  void escalate_createsEscalateToOversight_withCapabilityNameAndReason() {
+  void escalate_createsEscalateToOversight_withCapabilityNameReasonAndRationale() {
     final AgentAssignment assignment =
-        AgentAssignment.escalate("data-analysis", EscalationReason.BORDERLINE_STALEMATE);
+        AgentAssignment.escalate(
+            "data-analysis",
+            EscalationReason.BORDERLINE_STALEMATE,
+            "all candidates borderline for capability 'data-analysis' — oversight required");
 
     assertThat(assignment).isInstanceOf(AgentAssignment.EscalateToOversight.class);
     final AgentAssignment.EscalateToOversight escalation =
         (AgentAssignment.EscalateToOversight) assignment;
     assertThat(escalation.capabilityName()).isEqualTo("data-analysis");
     assertThat(escalation.reason()).isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
+    assertThat(escalation.rationale())
+        .isEqualTo("all candidates borderline for capability 'data-analysis' — oversight required");
   }
 
   @Test
   void patternSwitch_Assigned_extractsWorkerId() {
-    final AgentAssignment assignment = AgentAssignment.assign("analyst-1");
+    final AgentAssignment assignment =
+        AgentAssignment.assign("analyst-1", "selected analyst-1: load 0 (sole candidate)");
 
     final String result =
         switch (assignment) {
           case AgentAssignment.Assigned a -> a.workerId();
-          case AgentAssignment.Unresolvable() -> "none";
+          case AgentAssignment.Unresolvable u -> "none";
           case AgentAssignment.EscalateToOversight e -> "escalate:" + e.capabilityName();
         };
 
@@ -66,12 +77,12 @@ class AgentAssignmentTest {
 
   @Test
   void patternSwitch_Unresolvable_branchesCorrectly() {
-    final AgentAssignment assignment = AgentAssignment.unresolvable();
+    final AgentAssignment assignment = AgentAssignment.unresolvable("no candidates available");
 
     final String result =
         switch (assignment) {
           case AgentAssignment.Assigned a -> "assigned";
-          case AgentAssignment.Unresolvable() -> "unresolvable";
+          case AgentAssignment.Unresolvable u -> "unresolvable";
           case AgentAssignment.EscalateToOversight e -> "escalate";
         };
 
@@ -81,12 +92,15 @@ class AgentAssignmentTest {
   @Test
   void patternSwitch_EscalateToOversight_branchesCorrectly() {
     final AgentAssignment assignment =
-        AgentAssignment.escalate("review", EscalationReason.BORDERLINE_STALEMATE);
+        AgentAssignment.escalate(
+            "review",
+            EscalationReason.BORDERLINE_STALEMATE,
+            "all candidates borderline for capability 'review' — oversight required");
 
     final String result =
         switch (assignment) {
           case AgentAssignment.Assigned a -> "assigned";
-          case AgentAssignment.Unresolvable() -> "unresolvable";
+          case AgentAssignment.Unresolvable u -> "unresolvable";
           case AgentAssignment.EscalateToOversight e -> "escalate:" + e.capabilityName();
         };
 

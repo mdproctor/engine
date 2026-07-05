@@ -44,11 +44,26 @@ public class LeastLoadedAgentStrategy implements AgentRoutingStrategy {
   @Override
   public Uni<AgentAssignment> select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
-    final AgentAssignment result =
-        candidates.stream()
-            .min(Comparator.comparingInt(AgentCandidate::runningJobs))
-            .map(c -> AgentAssignment.assign(c.workerId()))
-            .orElse(AgentAssignment.unresolvable());
-    return Uni.createFrom().item(result);
+    if (candidates.isEmpty()) {
+      return Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available"));
+    }
+
+    final List<AgentCandidate> sorted =
+        candidates.stream().sorted(Comparator.comparingInt(AgentCandidate::runningJobs)).toList();
+
+    final AgentCandidate best = sorted.get(0);
+    final String rationale;
+    if (sorted.size() >= 2) {
+      final AgentCandidate second = sorted.get(1);
+      rationale =
+          "selected %s: load %d (vs next: %s load %d)"
+              .formatted(
+                  best.workerId(), best.runningJobs(), second.workerId(), second.runningJobs());
+    } else {
+      rationale =
+          "selected %s: load %d (sole candidate)".formatted(best.workerId(), best.runningJobs());
+    }
+
+    return Uni.createFrom().item(AgentAssignment.assign(best.workerId(), rationale));
   }
 }

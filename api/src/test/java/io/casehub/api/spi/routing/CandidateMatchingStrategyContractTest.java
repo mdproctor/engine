@@ -15,7 +15,7 @@
  */
 package io.casehub.api.spi.routing;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.platform.api.routing.NamedStrategy;
 import io.casehub.worker.api.Worker;

@@ -25,8 +25,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Worker;
@@ -70,8 +70,8 @@ public class QhorusMessageSignalBridge {
 
   private final CaseHubRuntime runtime;
 
-  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
-  @Inject @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject EventBus eventBus;
 

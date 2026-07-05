@@ -158,18 +158,21 @@ class TrustCandidateClassifierTest {
   @Test
   void decide_highestScoredAboveZero_returnsAssigned() {
     final ClassifiedCandidate cand = classified("worker-1", Phase.QUALIFIED, 0.85, 1.0);
-    final ScoredCandidate scored = new ScoredCandidate(cand, 0.75);
+    final ScoredCandidate scored = new ScoredCandidate(cand, 0.75, "selected worker-1: trust 0.85");
 
     final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
     assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
     assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("worker-1");
+    assertThat(((AgentAssignment.Assigned) result).rationale())
+        .isEqualTo("selected worker-1: trust 0.85");
   }
 
   @Test
   void decide_allZeroScores_someBorderline_returnsEscalate() {
     final ClassifiedCandidate cand = classified("worker-1", Phase.BORDERLINE, 0.65, 1.0);
-    final ScoredCandidate scored = new ScoredCandidate(cand, 0.0);
+    final ScoredCandidate scored =
+        new ScoredCandidate(cand, 0.0, "excluded worker-1: phase BORDERLINE");
 
     final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
@@ -182,7 +185,8 @@ class TrustCandidateClassifierTest {
   @Test
   void decide_allZeroScores_noBorderline_returnsUnresolvable() {
     final ClassifiedCandidate cand = classified("worker-1", Phase.EXCLUDED_PHASE2B, 0.5, 1.0);
-    final ScoredCandidate scored = new ScoredCandidate(cand, 0.0);
+    final ScoredCandidate scored =
+        new ScoredCandidate(cand, 0.0, "excluded worker-1: phase EXCLUDED_PHASE2B");
 
     final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
@@ -194,7 +198,9 @@ class TrustCandidateClassifierTest {
     final ClassifiedCandidate border = classified("w1", Phase.BORDERLINE, 0.65, 1.0);
     final ClassifiedCandidate excluded = classified("w2", Phase.EXCLUDED_PHASE2B, 0.5, 1.0);
     final List<ScoredCandidate> scored =
-        List.of(new ScoredCandidate(border, 0.0), new ScoredCandidate(excluded, 0.0));
+        List.of(
+            new ScoredCandidate(border, 0.0, "excluded"),
+            new ScoredCandidate(excluded, 0.0, "excluded"));
 
     final AgentAssignment result = classifier.decide(List.of(border, excluded), scored, CAP);
 
@@ -209,8 +215,11 @@ class TrustCandidateClassifierTest {
     final ClassifiedCandidate borderline = classified("w2", Phase.BORDERLINE, 0.65, 1.0);
     final List<ScoredCandidate> scored =
         List.of(
-            new ScoredCandidate(bootstrap, 0.5), // availability score > 0
-            new ScoredCandidate(borderline, 0.0)); // excluded
+            new ScoredCandidate(
+                bootstrap,
+                0.5,
+                "selected w1: availability 0.50 (bootstrap)"), // availability score > 0
+            new ScoredCandidate(borderline, 0.0, "excluded")); // excluded
 
     final AgentAssignment result = classifier.decide(List.of(bootstrap, borderline), scored, CAP);
 
