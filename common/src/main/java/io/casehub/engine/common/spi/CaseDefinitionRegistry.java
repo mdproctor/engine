@@ -17,7 +17,9 @@ package io.casehub.engine.common.spi;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.platform.api.path.Path;
 import io.smallrye.mutiny.Uni;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -99,5 +101,25 @@ public interface CaseDefinitionRegistry {
    */
   default Optional<CaseDefinition> findByName(String name) {
     return Optional.empty();
+  }
+
+  /**
+   * Find case definitions by type — matches exact or ancestor path.
+   *
+   * @param type the type path to match (exact match or ancestor of a definition's type)
+   * @return matching definitions, empty list if none match
+   */
+  default List<CaseDefinition> findByType(Path type) {
+    return List.of();
+  }
+
+  /**
+   * Find case definitions by label — matches exact or ancestor path.
+   *
+   * @param label the label path to match (exact match or ancestor of a definition's label)
+   * @return matching definitions, empty list if none match
+   */
+  default List<CaseDefinition> findByLabel(Path label) {
+    return List.of();
   }
 }

@@ -17,14 +17,17 @@ package io.casehub.api.model;
 
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.eidos.api.AgentDescriptor;
+import io.casehub.platform.api.path.Path;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 public class CaseDefinition {
 
@@ -49,6 +52,8 @@ public class CaseDefinition {
   private String agentRouting;
   private String implementationRouting;
   private String candidateMatching;
+  private Set<Path> types = Set.of();
+  private Set<Path> labels = Set.of();
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -197,6 +202,22 @@ public class CaseDefinition {
     this.candidateMatching = candidateMatching;
   }
 
+  public Set<Path> getTypes() {
+    return types;
+  }
+
+  public void setTypes(Set<Path> types) {
+    this.types = types != null ? Set.copyOf(types) : Set.of();
+  }
+
+  public Set<Path> getLabels() {
+    return labels;
+  }
+
+  public void setLabels(Set<Path> labels) {
+    this.labels = labels != null ? Set.copyOf(labels) : Set.of();
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -222,6 +243,8 @@ public class CaseDefinition {
     private String agentRouting;
     private String implementationRouting;
     private String candidateMatching;
+    private Set<Path> types = new LinkedHashSet<>();
+    private Set<Path> labels = new LinkedHashSet<>();
 
     private Builder() {}
 
@@ -375,6 +398,26 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder type(Path type) {
+      this.types.add(type);
+      return this;
+    }
+
+    public Builder types(Set<Path> types) {
+      this.types = new LinkedHashSet<>(types);
+      return this;
+    }
+
+    public Builder label(Path label) {
+      this.labels.add(label);
+      return this;
+    }
+
+    public Builder labels(Set<Path> labels) {
+      this.labels = new LinkedHashSet<>(labels);
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -407,6 +450,8 @@ public class CaseDefinition {
       caseHubDefinition.setAgentRouting(agentRouting);
       caseHubDefinition.setImplementationRouting(implementationRouting);
       caseHubDefinition.setCandidateMatching(candidateMatching);
+      caseHubDefinition.setTypes(types);
+      caseHubDefinition.setLabels(labels);
 
       return caseHubDefinition;
     }

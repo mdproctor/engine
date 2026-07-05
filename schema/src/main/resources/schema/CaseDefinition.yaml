@@ -13,7 +13,7 @@ description: >
 
   Case Hub is choreography-oriented by default.
 type: object
-required: [ apiVersion, metadata, version, spec ]
+required: [ apiVersion, version, spec ]
 unevaluatedProperties: true
 
 properties:
@@ -65,16 +65,26 @@ properties:
     type: string
     title: CaseHubSummary
     description: The CaseHub's Markdown summary.
-  tags:
-    type: object
-    title: CaseHubTags
-    description: A key/value mapping of the CaseHub's tags, if any.
-    additionalProperties: true
-  metadata:
-    type: object
-    title: CaseHubMetadata
-    description: Holds additional information about the CaseHub.
-    additionalProperties: true
+  types:
+    type: array
+    title: CaseHubTypes
+    description: >
+      Behavioral type classifications for this case definition.
+      Each entry is a hierarchical path string parsed via Path.parse().
+      Types affect engine behavior — routing, dispatch, completion strategy.
+    items:
+      type: string
+      minLength: 1
+  labels:
+    type: array
+    title: CaseHubLabels
+    description: >
+      Operational classification labels for this case definition.
+      Each entry is a hierarchical path string parsed via Path.parse().
+      Labels affect organization — queues, dashboards, analytics.
+    items:
+      type: string
+      minLength: 1
   use:
     $ref: "#/$defs/Use"
     description: >

@@ -20,8 +20,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.platform.api.path.Path;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
@@ -234,5 +236,123 @@ class DefaultCaseDefinitionRegistryTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Ambiguous caseType")
         .hasMessageContaining("ambiguous-case");
+  }
+
+  @Test
+  void findByType_exactMatch_returnsDefinition() throws Exception {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("t")
+            .name("typed")
+            .version("1.0.0")
+            .type(Path.of("situation-response", "replan"))
+            .build();
+
+    registry
+        .registerCaseDefinition(def)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+
+    List<CaseDefinition> result = registry.findByType(Path.of("situation-response", "replan"));
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getName()).isEqualTo("typed");
+  }
+
+  @Test
+  void findByType_ancestorMatch_returnsSubtypes() throws Exception {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("t")
+            .name("replan")
+            .version("1.0.0")
+            .type(Path.of("situation-response", "replan"))
+            .build();
+    registry
+        .registerCaseDefinition(def)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+
+    List<CaseDefinition> result = registry.findByType(Path.of("situation-response"));
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).getName()).isEqualTo("replan");
+  }
+
+  @Test
+  void findByType_noMatch_returnsEmpty() throws Exception {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("t")
+            .name("typed")
+            .version("1.0.0")
+            .type(Path.of("compliance", "auditable"))
+            .build();
+    registry
+        .registerCaseDefinition(def)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+
+    List<CaseDefinition> result = registry.findByType(Path.of("situation-response"));
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void findByType_noTypes_notReturned() throws Exception {
+    CaseDefinition def =
+        CaseDefinition.builder().namespace("t").name("untyped").version("1.0.0").build();
+    registry
+        .registerCaseDefinition(def)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+
+    List<CaseDefinition> result = registry.findByType(Path.of("anything"));
+    assertThat(result).isEmpty();
+  }
+
+  @Test
+  void findByLabel_exactMatch_returnsDefinition() throws Exception {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("t")
+            .name("labeled")
+            .version("1.0.0")
+            .label(Path.of("priority", "high"))
+            .build();
+    registry
+        .registerCaseDefinition(def)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+
+    List<CaseDefinition> result = registry.findByLabel(Path.of("priority", "high"));
+    assertThat(result).hasSize(1);
+  }
+
+  @Test
+  void findByLabel_ancestorMatch_returnsSubLabels() throws Exception {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("t")
+            .name("labeled")
+            .version("1.0.0")
+            .label(Path.of("priority", "high"))
+            .build();
+    registry
+        .registerCaseDefinition(def)
+        .subscribe()
+        .asCompletionStage()
+        .toCompletableFuture()
+        .join();
+
+    List<CaseDefinition> result = registry.findByLabel(Path.of("priority"));
+    assertThat(result).hasSize(1);
   }
 }

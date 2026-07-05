@@ -48,7 +48,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class CaseDefinitionYamlMapperTest {
@@ -1488,5 +1490,157 @@ class CaseDefinitionYamlMapperTest {
     assertThat(policy.timeoutMs()).isNull();
     assertThat(policy.retries().maxAttempts()).isEqualTo(3);
     assertThat(policy.retries().backoffStrategy()).isEqualTo(BackoffStrategy.FIXED);
+  }
+
+  @Test
+  void types_setViaBuilder_returnedAsUnmodifiableSet() {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("t")
+            .name("t")
+            .version("1.0.0")
+            .type(io.casehub.platform.api.path.Path.of("situation-response", "replan"))
+            .type(io.casehub.platform.api.path.Path.of("compliance", "auditable"))
+            .build();
+
+    assertThat(def.getTypes())
+        .containsExactlyInAnyOrder(
+            io.casehub.platform.api.path.Path.of("situation-response", "replan"),
+            io.casehub.platform.api.path.Path.of("compliance", "auditable"));
+    assertThatThrownBy(() -> def.getTypes().add(io.casehub.platform.api.path.Path.of("x")))
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void labels_setViaBuilder_returnedAsUnmodifiableSet() {
+    CaseDefinition def =
+        CaseDefinition.builder()
+            .namespace("t")
+            .name("t")
+            .version("1.0.0")
+            .label(io.casehub.platform.api.path.Path.of("priority", "high"))
+            .label(io.casehub.platform.api.path.Path.of("team", "infrastructure"))
+            .build();
+
+    assertThat(def.getLabels())
+        .containsExactlyInAnyOrder(
+            io.casehub.platform.api.path.Path.of("priority", "high"),
+            io.casehub.platform.api.path.Path.of("team", "infrastructure"));
+    assertThatThrownBy(() -> def.getLabels().add(io.casehub.platform.api.path.Path.of("x")))
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void types_andLabels_emptyByDefault() {
+    CaseDefinition def = CaseDefinition.builder().namespace("t").name("t").version("1.0.0").build();
+
+    assertThat(def.getTypes()).isEmpty();
+    assertThat(def.getLabels()).isEmpty();
+  }
+
+  @Test
+  void types_setViaSetter_storesUnmodifiableCopy() {
+    CaseDefinition def = new CaseDefinition("t", "t", "1.0.0");
+    Set<io.casehub.platform.api.path.Path> mutable = new LinkedHashSet<>();
+    mutable.add(io.casehub.platform.api.path.Path.of("a"));
+    def.setTypes(mutable);
+    mutable.add(io.casehub.platform.api.path.Path.of("b"));
+
+    assertThat(def.getTypes()).containsExactly(io.casehub.platform.api.path.Path.of("a"));
+  }
+
+  @Test
+  void types_setNull_treatedAsEmpty() {
+    CaseDefinition def = new CaseDefinition("t", "t", "1.0.0");
+    def.setTypes(null);
+
+    assertThat(def.getTypes()).isEmpty();
+  }
+
+  @Test
+  void parseTypes() throws IOException {
+    String yaml =
+        """
+        dsl: "1.0.0"
+        namespace: test
+        name: typed-case
+        version: "1.0.0"
+        types:
+          - situation-response/replan
+          - compliance/auditable
+        spec:
+          capabilities: []
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getTypes())
+        .containsExactlyInAnyOrder(
+            io.casehub.platform.api.path.Path.parse("situation-response/replan"),
+            io.casehub.platform.api.path.Path.parse("compliance/auditable"));
+  }
+
+  @Test
+  void parseLabels() throws IOException {
+    String yaml =
+        """
+        dsl: "1.0.0"
+        namespace: test
+        name: labeled-case
+        version: "1.0.0"
+        labels:
+          - priority/high
+          - team/infrastructure
+        spec:
+          capabilities: []
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getLabels())
+        .containsExactlyInAnyOrder(
+            io.casehub.platform.api.path.Path.parse("priority/high"),
+            io.casehub.platform.api.path.Path.parse("team/infrastructure"));
+  }
+
+  @Test
+  void parseTypes_invalidPath_failsFast() {
+    String yaml =
+        """
+        dsl: "1.0.0"
+        namespace: test
+        name: bad-type
+        version: "1.0.0"
+        types:
+          - ""
+        spec:
+          capabilities: []
+        """;
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void parseTypes_absent_emptySet() throws IOException {
+    String yaml =
+        """
+        dsl: "1.0.0"
+        namespace: test
+        name: no-types
+        version: "1.0.0"
+        spec:
+          capabilities: []
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getTypes()).isEmpty();
+    assertThat(def.getLabels()).isEmpty();
   }
 }

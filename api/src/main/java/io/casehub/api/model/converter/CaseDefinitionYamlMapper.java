@@ -244,6 +244,22 @@ public final class CaseDefinitionYamlMapper {
       def.setPanelNames(panelNames);
     }
 
+    // types — behavioral type classifications
+    if (schema.getTypes() != null && !schema.getTypes().isEmpty()) {
+      def.setTypes(
+          schema.getTypes().stream()
+              .map(io.casehub.platform.api.path.Path::parse)
+              .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new)));
+    }
+
+    // labels — operational classification labels
+    if (schema.getLabels() != null && !schema.getLabels().isEmpty()) {
+      def.setLabels(
+          schema.getLabels().stream()
+              .map(io.casehub.platform.api.path.Path::parse)
+              .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new)));
+    }
+
     // Convert capabilities
     final Map<String, Capability> capabilityMap = new LinkedHashMap<>();
     if (schema.getSpec() != null && schema.getSpec().getCapabilities() != null) {

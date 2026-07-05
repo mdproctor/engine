@@ -13,11 +13,14 @@
 ##   - Milestone: observable progress marker. Passive — no execution.
 ##
 
-apiVersion: casehub.io/v1
-kind: CaseDefinition
-metadata:
-  name: document-processing
+dsl: "1.0.0"
+namespace: casehub-examples
+name: document-processing
 version: "1.0.0"
+types:
+  - processing/document
+labels:
+  - example/reference
 
 spec:
 

@@ -32,6 +32,7 @@ import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.casehub.platform.api.identity.CurrentPrincipal;
+import io.casehub.platform.api.path.Path;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -205,6 +206,24 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
               + caseDefinition.getVersion());
     }
     return entry.metaModel();
+  }
+
+  @Override
+  public List<CaseDefinition> findByType(Path type) {
+    return registry.values().stream()
+        .map(RegistryEntry::definition)
+        .filter(
+            def -> def.getTypes().stream().anyMatch(t -> t.equals(type) || type.isAncestorOf(t)))
+        .toList();
+  }
+
+  @Override
+  public List<CaseDefinition> findByLabel(Path label) {
+    return registry.values().stream()
+        .map(RegistryEntry::definition)
+        .filter(
+            def -> def.getLabels().stream().anyMatch(l -> l.equals(label) || label.isAncestorOf(l)))
+        .toList();
   }
 
   private void validateExpressions(CaseDefinition definition) {
