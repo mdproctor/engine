@@ -18,7 +18,7 @@ package io.casehub.engine.internal.orchestration;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkRequest;
@@ -154,7 +154,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
         new AgentRoutingContext(
             instance.getUuid(),
             capability.name(),
-            instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             instance.tenancyId);
     final AgentAssignment assignment =
         agentRoutingStrategy.select(ctx, candidates).await().indefinitely();
@@ -203,7 +203,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     // collision)
     final Map<String, Object> inputData =
         evalJqAsMap(
-            instance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             capability.inputSchema());
     final String correlationKey =
         WorkerExecutionKeys.inputDataHash(

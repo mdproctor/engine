@@ -642,78 +642,78 @@ class ModelBuilderTest {
     }
 
     @Test
-    @DisplayName("listenPanel is null when constructed without a panel name")
-    void listenPanel_nullByDefault() {
+    @DisplayName("listenLayer is null when constructed without a layer name")
+    void listenLayer_nullByDefault() {
       final var trigger = new ContextChangeTrigger(".result != null");
-      assertNull(trigger.getListenPanel());
+      assertNull(trigger.getListenLayer());
     }
 
     @Test
-    @DisplayName("listenPanel is stored when constructed with evaluator + panel name")
-    void listenPanel_storedWhenProvided() {
+    @DisplayName("listenLayer is stored when constructed with evaluator + layer name")
+    void listenLayer_storedWhenProvided() {
       final var evaluator = new JQExpressionEvaluator(".result != null");
       final var trigger = new ContextChangeTrigger(evaluator, "extracted");
-      assertEquals("extracted", trigger.getListenPanel());
+      assertEquals("extracted", trigger.getListenLayer());
       assertEquals(evaluator, trigger.getFilter());
     }
   }
 
   // ================================================================== //
-  //  CaseDefinition panel builder                                       //
+  //  CaseDefinition layer builder                                       //
   // ================================================================== //
 
   @Nested
-  @DisplayName("CaseDefinition panel builder")
-  class PanelBuilderTests {
+  @DisplayName("CaseDefinition layer builder")
+  class LayerBuilderTests {
 
     @Test
-    @DisplayName("panel(String) accumulates panel names in order")
-    void panel_accumulatesNames() {
+    @DisplayName("layer(String) accumulates layer names in order")
+    void layer_accumulatesNames() {
       final var def =
           CaseDefinition.builder()
               .namespace("test")
               .name("n")
               .version("1.0")
-              .panel("raw")
-              .panel("extracted")
-              .panel("conclusions")
+              .layer("raw")
+              .layer("extracted")
+              .layer("conclusions")
               .build();
-      assertEquals(java.util.List.of("raw", "extracted", "conclusions"), def.getPanelNames());
+      assertEquals(java.util.List.of("raw", "extracted", "conclusions"), def.getLayerNames());
     }
 
     @Test
-    @DisplayName("panels(String...) adds multiple names in one call")
-    void panels_varargs_addsAll() {
+    @DisplayName("layers(String...) adds multiple names in one call")
+    void layers_varargs_addsAll() {
       final var def =
           CaseDefinition.builder()
               .namespace("test")
               .name("n")
               .version("1.0")
-              .panels("alpha", "beta", "gamma")
+              .layers("alpha", "beta", "gamma")
               .build();
-      assertEquals(java.util.List.of("alpha", "beta", "gamma"), def.getPanelNames());
+      assertEquals(java.util.List.of("alpha", "beta", "gamma"), def.getLayerNames());
     }
 
     @Test
-    @DisplayName("panel() and panels() can be mixed in the same builder chain")
-    void panel_and_panels_mixed() {
+    @DisplayName("layer() and layers() can be mixed in the same builder chain")
+    void layer_and_layers_mixed() {
       final var def =
           CaseDefinition.builder()
               .namespace("test")
               .name("n")
               .version("1.0")
-              .panel("first")
-              .panels("second", "third")
-              .panel("fourth")
+              .layer("first")
+              .layers("second", "third")
+              .layer("fourth")
               .build();
-      assertEquals(java.util.List.of("first", "second", "third", "fourth"), def.getPanelNames());
+      assertEquals(java.util.List.of("first", "second", "third", "fourth"), def.getLayerNames());
     }
 
     @Test
-    @DisplayName("panelNames is null when no panel methods are called")
-    void panelNames_nullByDefault() {
+    @DisplayName("layerNames is null when no layer methods are called")
+    void layerNames_nullByDefault() {
       final var def = CaseDefinition.builder().namespace("ns").name("test").version("1.0").build();
-      assertNull(def.getPanelNames());
+      assertNull(def.getLayerNames());
     }
   }
 

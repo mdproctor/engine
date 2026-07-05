@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 class LayerTest {
 
   @Test
-  void panelName_returnsConstructedName() {
+  void layerName_returnsConstructedName() {
     WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
     assertEquals("working", p.layerName());
   }
@@ -50,8 +50,8 @@ class LayerTest {
 
   @Test
   void getVersion_incrementsOnWrite() {
-    WritableLayer p      = new WritableLayerImpl(ContextLayer.WORKING);
-    long          before = p.getVersion();
+    WritableLayer p = new WritableLayerImpl(ContextLayer.WORKING);
+    long before = p.getVersion();
     p.set("key", "val");
     assertEquals(before + 1, p.getVersion());
   }
@@ -106,7 +106,7 @@ class LayerTest {
   }
 
   @Test
-  void merge_copiesFromOtherPanel() {
+  void merge_copiesFromOtherLayer() {
     WritableLayerImpl p1 = new WritableLayerImpl(ContextLayer.WORKING);
     p1.set("a", 1);
     WritableLayerImpl p2 = new WritableLayerImpl(ContextLayer.WORKING);
@@ -168,16 +168,16 @@ class LayerTest {
   }
 
   @Test
-  void snapshot_preservesPanelName() {
-    WritableLayerImpl p    = new WritableLayerImpl(ContextLayer.SEMANTIC);
-    ReadableLayer     snap = p.snapshot();
+  void snapshot_preservesLayerName() {
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.SEMANTIC);
+    ReadableLayer snap = p.snapshot();
     assertEquals(ContextLayer.SEMANTIC, snap.layerName());
   }
 
   @Test
   void constructor_deepCopiesInitialSubMaps() {
     Map<String, Object> initial = Map.of("pr", Map.of("headSha", "abc123"));
-    WritableLayerImpl   p       = new WritableLayerImpl(ContextLayer.WORKING, initial);
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.WORKING, initial);
 
     assertDoesNotThrow(() -> p.setPath("pr.headSha", "def456"));
     assertEquals("def456", p.getPath("pr.headSha"));
@@ -185,7 +185,7 @@ class LayerTest {
 
   @Test
   void deepCopy_deepCopiesListsContainingMaps() {
-    WritableLayerImpl                             p       = new WritableLayerImpl(ContextLayer.WORKING);
+    WritableLayerImpl p = new WritableLayerImpl(ContextLayer.WORKING);
     java.util.List<java.util.Map<String, Object>> workers = new java.util.ArrayList<>();
     java.util.Map<String, Object> entry = new java.util.LinkedHashMap<>();
     entry.put("name", "extractor");

@@ -23,7 +23,7 @@ import java.util.UUID;
  *
  * @param caseId the case instance UUID
  * @param capabilityName the capability being routed
- * @param caseContext the current case context as a JSON node (working panel)
+ * @param caseContext the current case context as a JSON node (working layer)
  */
 public record ImplementationRoutingContext(
     UUID caseId, String capabilityName, JsonNode caseContext) {}

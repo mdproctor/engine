@@ -26,55 +26,55 @@ import org.junit.jupiter.api.Test;
 class RecoveryLayerAwareTest {
 
   @Test
-  void fromPanelDocument_reconstructsWorkingPanel() {
+  void fromLayerDocument_reconstructsWorkingLayer() {
     CaseContextImpl original = new CaseContextImpl();
     original.set("result", "done");
     original.set("score", 42);
 
     var doc = original.asJsonNode();
-    CaseContextImpl recovered = CaseContextImpl.fromPanelDocument(doc);
+    CaseContextImpl recovered = CaseContextImpl.fromLayerDocument(doc);
 
     assertEquals("done", recovered.get("result"));
     assertEquals(42, recovered.getAs("score", Integer.class));
   }
 
   @Test
-  void fromPanelDocument_reconstructsSemanticPanel() {
+  void fromLayerDocument_reconstructsSemanticLayer() {
     CaseContextImpl original = new CaseContextImpl();
     original.writableLayer(ContextLayer.SEMANTIC).set("threshold", 0.8);
     original.freezeLayer(ContextLayer.SEMANTIC);
 
     var doc = original.asJsonNode();
-    CaseContextImpl recovered = CaseContextImpl.fromPanelDocument(doc);
+    CaseContextImpl recovered = CaseContextImpl.fromLayerDocument(doc);
 
     assertEquals(0.8, recovered.layer(ContextLayer.SEMANTIC).getAs("threshold", Double.class));
   }
 
   @Test
-  void fromPanelDocument_reconstructsEpisodicPanel() {
+  void fromLayerDocument_reconstructsEpisodicLayer() {
     CaseContextImpl original = new CaseContextImpl();
     original.writableLayer(ContextLayer.EPISODIC).set("milestones", List.of("data-ready"));
 
     var doc = original.asJsonNode();
-    CaseContextImpl recovered = CaseContextImpl.fromPanelDocument(doc);
+    CaseContextImpl recovered = CaseContextImpl.fromLayerDocument(doc);
 
     var milestones = recovered.layer(ContextLayer.EPISODIC).getList("milestones", String.class);
     assertTrue(milestones.contains("data-ready"));
   }
 
   @Test
-  void fromPanelDocument_nullPayload_returnsEmptyContext() {
-    CaseContextImpl ctx = CaseContextImpl.fromPanelDocument(null);
-    assertTrue(ctx.isEmpty()); // working panel is empty
+  void fromLayerDocument_nullPayload_returnsEmptyContext() {
+    CaseContextImpl ctx = CaseContextImpl.fromLayerDocument(null);
+    assertTrue(ctx.isEmpty()); // working layer is empty
   }
 
   @Test
-  void fromPanelDocument_presentsWorkingKeysThroughFlatApi() {
+  void fromLayerDocument_presentsWorkingKeysThroughFlatApi() {
     CaseContextImpl original = new CaseContextImpl();
     original.set("result", "done");
 
-    CaseContextImpl recovered = CaseContextImpl.fromPanelDocument(original.asJsonNode());
-    // Flat API should work — delegates to working panel
+    CaseContextImpl recovered = CaseContextImpl.fromLayerDocument(original.asJsonNode());
+    // Flat API should work — delegates to working layer
     assertEquals("done", recovered.get("result"));
     assertEquals("done", recovered.getString("result"));
   }

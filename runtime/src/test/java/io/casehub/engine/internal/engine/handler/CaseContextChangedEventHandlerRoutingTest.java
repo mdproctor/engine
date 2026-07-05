@@ -24,7 +24,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.ReadableLayer;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.model.Binding;
@@ -149,11 +150,10 @@ class CaseContextChangedEventHandlerRoutingTest {
         .thenReturn(agentRoutingStrategy);
 
     final CaseContext ctx = mock(CaseContext.class);
-    final io.casehub.api.context.ReadablePanel workingPanel =
-        mock(io.casehub.api.context.ReadablePanel.class);
-    when(workingPanel.asJsonNode())
+    final ReadableLayer workingLayer = mock(ReadableLayer.class);
+    when(workingLayer.asJsonNode())
         .thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
-    when(ctx.panel(io.casehub.api.context.ContextPanel.WORKING)).thenReturn(workingPanel);
+    when(ctx.layer(ContextLayer.WORKING)).thenReturn(workingLayer);
     when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
     when(ctx.snapshot()).thenReturn(ctx);
 
@@ -176,7 +176,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     handler
         .onCaseStateContextChangedEventHandler(
             new CaseContextChangedEvent(
-                caseInstance, caseInstance.getCaseContext(), ContextPanel.WORKING))
+                caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING))
         .await()
         .indefinitely();
 
@@ -195,7 +195,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     handler
         .onCaseStateContextChangedEventHandler(
             new CaseContextChangedEvent(
-                caseInstance, caseInstance.getCaseContext(), ContextPanel.WORKING))
+                caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING))
         .await()
         .indefinitely();
 
@@ -218,7 +218,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     handler
         .onCaseStateContextChangedEventHandler(
             new CaseContextChangedEvent(
-                caseInstance, caseInstance.getCaseContext(), ContextPanel.WORKING))
+                caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING))
         .await()
         .indefinitely();
 
@@ -230,21 +230,21 @@ class CaseContextChangedEventHandlerRoutingTest {
   }
 
   @Test
-  void listenPanel_matching_allowsBindingToFire() {
-    // Binding with listenPanel="extracted" fires when changedPanel is "extracted"
+  void listenLayer_matching_allowsBindingToFire() {
+    // Binding with listenLayer="extracted" fires when changedLayer is "extracted"
     final Capability cap =
         Capability.builder()
             .name("research")
             .inputSchema("{ q: .q }")
             .outputSchema("{ r: .r }")
             .build();
-    final ContextChangeTrigger panelTrigger =
+    final ContextChangeTrigger layerTrigger =
         new ContextChangeTrigger(
             new io.casehub.api.model.evaluator.JQExpressionEvaluator("."), "extracted");
-    final Binding panelBinding =
+    final Binding layerBinding =
         Binding.builder()
-            .name("panel-binding")
-            .on(panelTrigger)
+            .name("layer-binding")
+            .on(layerTrigger)
             .target(new CapabilityTarget(cap))
             .build();
     final Worker worker =
@@ -256,28 +256,27 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     final io.casehub.engine.common.internal.model.CaseMetaModel metaModel =
         mock(io.casehub.engine.common.internal.model.CaseMetaModel.class);
-    final CaseDefinition panelDef =
+    final CaseDefinition layerDef =
         CaseDefinition.builder()
             .namespace("test")
-            .name("PanelTest")
+            .name("LayerTest")
             .version("1.0")
             .capabilities(cap)
             .workers(worker)
-            .bindings(panelBinding)
+            .bindings(layerBinding)
             .build();
 
-    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(panelDef);
-    when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(panelBinding)));
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(layerDef);
+    when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(layerBinding)));
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
             Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
 
     final CaseContext ctx = mock(CaseContext.class);
-    final io.casehub.api.context.ReadablePanel workingPanel =
-        mock(io.casehub.api.context.ReadablePanel.class);
-    when(workingPanel.asJsonNode())
+    final ReadableLayer workingLayer = mock(ReadableLayer.class);
+    when(workingLayer.asJsonNode())
         .thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
-    when(ctx.panel(io.casehub.api.context.ContextPanel.WORKING)).thenReturn(workingPanel);
+    when(ctx.layer(ContextLayer.WORKING)).thenReturn(workingLayer);
     when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
     when(ctx.snapshot()).thenReturn(ctx);
 
@@ -296,21 +295,21 @@ class CaseContextChangedEventHandlerRoutingTest {
   }
 
   @Test
-  void listenPanel_nonMatching_suppressesBinding() {
-    // Binding with listenPanel="extracted" must NOT fire when changedPanel is "working"
+  void listenLayer_nonMatching_suppressesBinding() {
+    // Binding with listenLayer="extracted" must NOT fire when changedLayer is "working"
     final Capability cap =
         Capability.builder()
             .name("research")
             .inputSchema("{ q: .q }")
             .outputSchema("{ r: .r }")
             .build();
-    final ContextChangeTrigger panelTrigger =
+    final ContextChangeTrigger layerTrigger =
         new ContextChangeTrigger(
             new io.casehub.api.model.evaluator.JQExpressionEvaluator("."), "extracted");
-    final Binding panelBinding =
+    final Binding layerBinding =
         Binding.builder()
-            .name("panel-binding")
-            .on(panelTrigger)
+            .name("layer-binding")
+            .on(layerTrigger)
             .target(new CapabilityTarget(cap))
             .build();
     final Worker worker =
@@ -322,26 +321,25 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     final io.casehub.engine.common.internal.model.CaseMetaModel metaModel =
         mock(io.casehub.engine.common.internal.model.CaseMetaModel.class);
-    final CaseDefinition panelDef =
+    final CaseDefinition layerDef =
         CaseDefinition.builder()
             .namespace("test")
-            .name("PanelTest")
+            .name("LayerTest")
             .version("1.0")
             .capabilities(cap)
             .workers(worker)
-            .bindings(panelBinding)
+            .bindings(layerBinding)
             .build();
 
-    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(panelDef);
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(layerDef);
     // loopControl.select is never reached because the binding is filtered out before it
     when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of()));
 
     final CaseContext ctx = mock(CaseContext.class);
-    final io.casehub.api.context.ReadablePanel workingPanel =
-        mock(io.casehub.api.context.ReadablePanel.class);
-    when(workingPanel.asJsonNode())
+    final ReadableLayer workingLayer = mock(ReadableLayer.class);
+    when(workingLayer.asJsonNode())
         .thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
-    when(ctx.panel(io.casehub.api.context.ContextPanel.WORKING)).thenReturn(workingPanel);
+    when(ctx.layer(ContextLayer.WORKING)).thenReturn(workingLayer);
     when(ctx.asJsonNode()).thenReturn(com.fasterxml.jackson.databind.node.NullNode.instance);
     when(ctx.snapshot()).thenReturn(ctx);
 
@@ -353,7 +351,7 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     handler
         .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(inst, ctx, ContextPanel.WORKING))
+            new CaseContextChangedEvent(inst, ctx, ContextLayer.WORKING))
         .await()
         .indefinitely();
 
@@ -384,7 +382,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     handler
         .onCaseStateContextChangedEventHandler(
             new CaseContextChangedEvent(
-                caseInstance, caseInstance.getCaseContext(), ContextPanel.WORKING))
+                caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING))
         .await()
         .indefinitely();
 
@@ -417,10 +415,9 @@ class CaseContextChangedEventHandlerRoutingTest {
     workingNode.set("_outcomes", outcomesNode);
 
     CaseContext ctx = mock(CaseContext.class);
-    io.casehub.api.context.ReadablePanel workingPanel =
-        mock(io.casehub.api.context.ReadablePanel.class);
-    when(workingPanel.asJsonNode()).thenReturn(workingNode);
-    when(ctx.panel(ContextPanel.WORKING)).thenReturn(workingPanel);
+    ReadableLayer workingLayer = mock(ReadableLayer.class);
+    when(workingLayer.asJsonNode()).thenReturn(workingNode);
+    when(ctx.layer(ContextLayer.WORKING)).thenReturn(workingLayer);
     when(ctx.asJsonNode()).thenReturn(workingNode);
     when(ctx.snapshot()).thenReturn(ctx);
 
@@ -428,7 +425,7 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     handler
         .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(caseInstance, ctx, ContextPanel.WORKING))
+            new CaseContextChangedEvent(caseInstance, ctx, ContextLayer.WORKING))
         .await()
         .indefinitely();
 

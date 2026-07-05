@@ -24,7 +24,7 @@ import java.util.function.Function;
 
 public interface CaseContext {
 
-  ReadablePanel panel(String name);
+  ReadableLayer layer(String name);
 
   Map<String, Object> getData();
 

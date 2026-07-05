@@ -15,7 +15,7 @@
  */
 package io.casehub.blackboard.handler;
 
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -107,7 +107,7 @@ public class WorkerOutcomeResolvedHandler {
                     new CaseContextChangedEvent(
                         event.caseInstance(),
                         event.caseInstance().getCaseContext().snapshot(),
-                        ContextPanel.WORKING));
+                        ContextLayer.WORKING));
               }
 
               LOG.infof(

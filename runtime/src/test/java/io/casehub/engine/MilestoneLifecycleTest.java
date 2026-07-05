@@ -18,6 +18,7 @@ package io.casehub.engine;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.Milestone;
@@ -240,9 +241,7 @@ class MilestoneLifecycleTest {
     // Publish context changed event to trigger milestone evaluation
     CaseContextChangedEvent event =
         new CaseContextChangedEvent(
-            instance,
-            instance.getCaseContext().snapshot(),
-            io.casehub.api.context.ContextPanel.WORKING);
+            instance, instance.getCaseContext().snapshot(), ContextLayer.WORKING);
     eventBus.publish(EventBusAddresses.CONTEXT_CHANGED, event);
   }
 

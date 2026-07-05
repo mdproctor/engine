@@ -22,7 +22,7 @@ import java.util.Set;
 
 public interface ReadableLayer {
 
-  String panelName();
+  String layerName();
 
   boolean isReadOnly();
 

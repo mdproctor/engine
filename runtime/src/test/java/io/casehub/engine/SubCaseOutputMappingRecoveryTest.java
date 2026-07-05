@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -108,7 +109,7 @@ public class SubCaseOutputMappingRecoveryTest {
     final UUID childId = createChildCase(parentId, "approved", Map.of("key", "value", "score", 95));
 
     // 3. Write SUBCASE_STARTED event
-    // After panels migration, outputMapping evaluates against child's panel document
+    // After layers migration, outputMapping evaluates against child's layer document
     String outputMapping = "{ approval: .result, data: .processedData }";
     writeSubCaseStartedEvent(parentId, childId, outputMapping);
 
@@ -117,8 +118,7 @@ public class SubCaseOutputMappingRecoveryTest {
     CaseInstance parent = caseInstanceCache.get(parentId);
     ValidationResult vr =
         jqEvaluator.eval(
-            outputMapping,
-            child.getCaseContext().panel(io.casehub.api.context.ContextPanel.WORKING).asJsonNode());
+            outputMapping, child.getCaseContext().layer(ContextLayer.WORKING).asJsonNode());
     Map<String, Object> mappedData =
         vr.ok() && vr.output() != null && !vr.output().isEmpty()
             ? new com.fasterxml.jackson.databind.ObjectMapper()
@@ -208,7 +208,7 @@ public class SubCaseOutputMappingRecoveryTest {
     caseStarted.setEventType(CaseHubEventType.CASE_STARTED);
     caseStarted.setStreamType(EventStreamType.CASE);
     caseStarted.setTimestamp(Instant.now());
-    // After panels migration, CASE_STARTED payload is a panel document
+    // After layers migration, CASE_STARTED payload is a layer document
     caseStarted.setPayload(
         OBJECT_MAPPER.valueToTree(
             Map.of(
@@ -403,7 +403,7 @@ public class SubCaseOutputMappingRecoveryTest {
     caseStarted.setEventType(CaseHubEventType.CASE_STARTED);
     caseStarted.setStreamType(EventStreamType.CASE);
     caseStarted.setTimestamp(Instant.now());
-    // After panels migration, CASE_STARTED payload is a panel document
+    // After layers migration, CASE_STARTED payload is a layer document
     caseStarted.setPayload(
         OBJECT_MAPPER.valueToTree(
             Map.of(

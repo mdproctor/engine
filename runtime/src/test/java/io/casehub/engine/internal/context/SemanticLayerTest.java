@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 class SemanticLayerTest {
 
   @Test
-  void semanticPanel_populatedFromMap() {
+  void semanticLayer_populatedFromMap() {
     CaseContextImpl ctx = new CaseContextImpl();
     ctx.writableLayer(ContextLayer.SEMANTIC).set("threshold", 0.8).set("domain", "fraud-check");
     ctx.freezeLayer(ContextLayer.SEMANTIC);
@@ -37,7 +37,7 @@ class SemanticLayerTest {
   }
 
   @Test
-  void semanticPanel_readOnlyAfterFreeze() {
+  void semanticLayer_readOnlyAfterFreeze() {
     CaseContextImpl ctx = new CaseContextImpl();
     ctx.writableLayer(ContextLayer.SEMANTIC).set("key", "val");
     ctx.freezeLayer(ContextLayer.SEMANTIC);
@@ -45,13 +45,13 @@ class SemanticLayerTest {
     assertTrue(ctx.layer(ContextLayer.SEMANTIC).isReadOnly());
     // Read still works
     assertEquals("val", ctx.layer(ContextLayer.SEMANTIC).get("key"));
-    // Write via writablePanel throws
+    // Write via writableLayer throws
     assertThrows(
-            ReadOnlyLayerException.class, () -> ctx.writableLayer(ContextLayer.SEMANTIC).set("k", "v"));
+        ReadOnlyLayerException.class, () -> ctx.writableLayer(ContextLayer.SEMANTIC).set("k", "v"));
   }
 
   @Test
-  void semanticPanel_inAsJsonNode() {
+  void semanticLayer_inAsJsonNode() {
     CaseContextImpl ctx = new CaseContextImpl();
     ctx.writableLayer(ContextLayer.SEMANTIC).set("domain", "fraud-check");
     ctx.freezeLayer(ContextLayer.SEMANTIC);

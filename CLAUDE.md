@@ -180,7 +180,7 @@ is public (`public Long id`) and set by the repository after save.
 
 ## JQ Expression Evaluation Surface
 
-All JQ expressions (binding filters, `when` conditions, goals, milestones, `inputSchema`, `outputSchema`) evaluate against the **working panel** (`context.panel(ContextPanel.WORKING).asJsonNode()`), NOT the full panel document (`context.asJsonNode()`). YAML definitions use unqualified field paths (`.transaction`, `.entityResolution`) — the panel structure is an engine implementation detail.
+All JQ expressions (binding filters, `when` conditions, goals, milestones, `inputSchema`, `outputSchema`) evaluate against the **working layer** (`context.layer(ContextLayer.WORKING).asJsonNode()`), NOT the full layer document (`context.asJsonNode()`). YAML definitions use unqualified field paths (`.transaction`, `.entityResolution`) — the layer structure is an engine implementation detail.
 
 `CaseHubRuntime.signal()` returns `CompletionStage<Void>` (engine#493). The CompletionStage resolves when the signal has been applied, the event log written, and CONTEXT_CHANGED dispatched — it does NOT guarantee goal evaluation completion. The 5-arg overload carries `triggerChannelId` and `triggerCorrelationId` (both nullable) for Qhorus causal lineage. CDI lifecycle events in all handlers (`SignalReceivedEventHandler`, `CaseStartedEventHandler`, `WorkflowExecutionCompletedHandler`) use fire-and-forget `.invoke()` — never `.chain()` — to prevent slow observers from blocking case state progression. Refs engine#231, engine#493.
 
@@ -493,7 +493,7 @@ The engine supports orchestration at four tiers: **Tier 1 (Execution)** — `Wor
 
 Workers declare semantic outcomes via `WorkerResult`: `Success` (default), `Declined(reason)`, `Failed(reason)`, `Expired(reason)`. The engine handles non-success outcomes via `OutcomePolicy` on the `Binding`:
 
-- `REROUTE` (default): writes failure state to `_outcomes.<bindingName>` in the working panel, marks PlanItem FAULTED, publishes CONTEXT_CHANGED. The binding re-fires with excluded agents filtered from candidates.
+- `REROUTE` (default): writes failure state to `_outcomes.<bindingName>` in the working layer, marks PlanItem FAULTED, publishes CONTEXT_CHANGED. The binding re-fires with excluded agents filtered from candidates.
 - `FAULT`: publishes `CASE_STATUS_CHANGED(FAULTED)` (case-level fault) + `WORKER_OUTCOME_RESOLVED(FAULT)` (PlanItem fault + stage autocomplete).
 
 `Expired` outcomes originate from two sources: engine-internal worker timeout (`SyncAgentWorkerFunctionHandler` converts `TimeoutException` to `WorkerResult.expired()` — the SPI boundary never leaks exceptions) and Qhorus commitment expiration (future, qhorus#281). Both route through `OutcomePolicy.onExpired` using the same `handleSemanticFailure` path as `Declined` and `Failed`.

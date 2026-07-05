@@ -27,14 +27,14 @@ import java.util.UUID;
  * Applications that need domain-specific labels (e.g. "WIN", "LOSS") can derive them from {@code
  * caseFileSnapshot} in their observer implementation.
  *
- * <p>{@code caseFileSnapshot} is the working panel context at the time of terminal transition — the
+ * <p>{@code caseFileSnapshot} is the working layer context at the time of terminal transition — the
  * last committed view of the case state, including all worker outputs. Treat it as read-only.
  *
  * <p>Refs casehubio/engine#477 (CBR Retain step).
  *
  * @param caseType case definition name (e.g. "aml-investigation", "starcraft-game")
  * @param caseId case instance UUID
- * @param caseFileSnapshot working-panel context at case close; non-null, may be empty
+ * @param caseFileSnapshot working-layer context at case close; non-null, may be empty
  * @param outcomeLabel terminal status name: "COMPLETED", "FAULTED", or "CANCELLED"
  * @param closedAt timestamp of the terminal transition
  * @param metadata additional context provided by the engine; currently empty, reserved for future

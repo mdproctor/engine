@@ -67,7 +67,7 @@ public interface ExpressionEngine {
    * engine that doesn't support it.
    *
    * @param evaluator the expression to evaluate — guaranteed to match {@link #type()}
-   * @param context the current case state; implementations evaluate against the WORKING panel
+   * @param context the current case state; implementations evaluate against the WORKING layer
    * @return the string value extracted from context, or empty if absent or evaluation fails
    */
   default Optional<String> extractString(ExpressionEvaluator evaluator, CaseContext context) {

@@ -26,9 +26,9 @@ public final class EpisodicLayerUpdater {
 
   private EpisodicLayerUpdater() {}
 
-  /** Initializes the episodic panel baseline: {workers:[], milestones:[], goals:[]} */
+  /** Initializes the episodic layer baseline: {workers:[], milestones:[], goals:[]} */
   public static void initBaseline(CaseContextImpl ctx) {
-    WritableLayerImpl episodic = ctx.writablePanel(ContextLayer.EPISODIC);
+    WritableLayerImpl episodic = ctx.writableLayer(ContextLayer.EPISODIC);
     if (!episodic.contains("workers")) episodic.engineSet("workers", new ArrayList<>());
     if (!episodic.contains("milestones")) episodic.engineSet("milestones", new ArrayList<>());
     if (!episodic.contains("goals")) episodic.engineSet("goals", new ArrayList<>());
@@ -36,14 +36,14 @@ public final class EpisodicLayerUpdater {
 
   /**
    * Updates or creates the worker entry in episodic.workers. Increments the runs counter; sets
-   * lastOutcome and lastTimestamp. Safe to call whether or not the episodic panel is frozen. Uses
+   * lastOutcome and lastTimestamp. Safe to call whether or not the episodic layer is frozen. Uses
    * {@link WritableLayerImpl#engineUpdate} to hold the write lock across the entire
    * read-modify-write sequence, preventing lost increments under concurrent worker completions.
    */
   @SuppressWarnings("unchecked")
   public static void recordWorkerCompletion(
       CaseContextImpl ctx, String workerName, String outcome) {
-    WritableLayerImpl episodic = ctx.writablePanel(ContextLayer.EPISODIC);
+    WritableLayerImpl episodic = ctx.writableLayer(ContextLayer.EPISODIC);
     episodic.engineUpdate(
         "workers",
         currentValue -> {
@@ -78,12 +78,12 @@ public final class EpisodicLayerUpdater {
 
   /**
    * Appends a milestone name to episodic.milestones (no duplicates). Safe to call whether or not
-   * the episodic panel is frozen. Uses {@link WritableLayerImpl#engineUpdate} for atomic
+   * the episodic layer is frozen. Uses {@link WritableLayerImpl#engineUpdate} for atomic
    * read-modify-write.
    */
   @SuppressWarnings("unchecked")
   public static void recordMilestoneReached(CaseContextImpl ctx, String milestoneName) {
-    WritableLayerImpl episodic = ctx.writablePanel(ContextLayer.EPISODIC);
+    WritableLayerImpl episodic = ctx.writableLayer(ContextLayer.EPISODIC);
     episodic.engineUpdate(
         "milestones",
         currentValue -> {
@@ -98,11 +98,11 @@ public final class EpisodicLayerUpdater {
 
   /**
    * Appends a goal name to episodic.goals (no duplicates). Safe to call whether or not the episodic
-   * panel is frozen. Uses {@link WritableLayerImpl#engineUpdate} for atomic read-modify-write.
+   * layer is frozen. Uses {@link WritableLayerImpl#engineUpdate} for atomic read-modify-write.
    */
   @SuppressWarnings("unchecked")
   public static void recordGoalReached(CaseContextImpl ctx, String goalName) {
-    WritableLayerImpl episodic = ctx.writablePanel(ContextLayer.EPISODIC);
+    WritableLayerImpl episodic = ctx.writableLayer(ContextLayer.EPISODIC);
     episodic.engineUpdate(
         "goals",
         currentValue -> {

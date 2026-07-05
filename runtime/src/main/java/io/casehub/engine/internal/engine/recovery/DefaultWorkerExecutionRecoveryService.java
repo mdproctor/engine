@@ -18,7 +18,7 @@ package io.casehub.engine.internal.engine.recovery;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -30,7 +30,7 @@ import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.engine.internal.context.EpisodicPanelUpdater;
+import io.casehub.engine.internal.context.EpisodicLayerUpdater;
 import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -158,9 +158,9 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                       .orElse(null);
 
               if (caseStartedEvent != null) {
-                // CASE_STARTED payload is now a panel document
+                // CASE_STARTED payload is now a layer document
                 // {"working":{...},"semantic":{...},...}
-                caseContext = CaseContextImpl.fromPanelDocument(caseStartedEvent.getPayload());
+                caseContext = CaseContextImpl.fromLayerDocument(caseStartedEvent.getPayload());
               }
 
               for (EventLog eventLog : eventLogs) {
@@ -189,10 +189,10 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                         caseId, eventLog.getSeq());
                     caseContext.setAll(payloadAsMap(eventLog.getPayload()));
                   }
-                  // Update episodic panel
+                  // Update episodic layer
                   String workerId = eventLog.getWorkerId();
                   if (workerId != null) {
-                    EpisodicPanelUpdater.recordWorkerCompletion(caseContext, workerId, "COMPLETED");
+                    EpisodicLayerUpdater.recordWorkerCompletion(caseContext, workerId, "COMPLETED");
                   }
                 } else if (eventLog.getEventType() == CaseHubEventType.SUBCASE_COMPLETED) {
                   caseContext.setAll(payloadAsMap(eventLog.getPayload()));
@@ -200,12 +200,12 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                   applyMilestoneActivatedEvent(caseContext, eventLog);
                 } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_COMPLETED) {
                   applyMilestoneCompletedEvent(caseContext, eventLog);
-                  // Update episodic panel
+                  // Update episodic layer
                   JsonNode payload = eventLog.getPayload();
                   if (payload != null) {
                     String milestoneName = payload.path("milestoneName").asText(null);
                     if (milestoneName != null) {
-                      EpisodicPanelUpdater.recordMilestoneReached(caseContext, milestoneName);
+                      EpisodicLayerUpdater.recordMilestoneReached(caseContext, milestoneName);
                     }
                   }
                 } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_SLA_VIOLATED) {
@@ -215,9 +215,9 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
                       "Unexpected event type in rebuildStateContext: %s", eventLog.getEventType());
                 }
               }
-              // Re-freeze semantic and episodic panels (they were frozen at case start)
-              caseContext.freezePanel(ContextPanel.SEMANTIC);
-              caseContext.freezePanel(ContextPanel.EPISODIC);
+              // Re-freeze semantic and episodic layers (they were frozen at case start)
+              caseContext.freezeLayer(ContextLayer.SEMANTIC);
+              caseContext.freezeLayer(ContextLayer.EPISODIC);
               return caseContext;
             });
   }
@@ -327,10 +327,10 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
    * "after" nodes. Missing "after" means removal.
    */
   private void applyTopLevelChanges(CaseContext caseContext, JsonNode changes) {
-    // After the panels migration, top-level keys in the diff are panel names (working, semantic,
-    // episodic). Each changeNode has "before"/"after" for the panel's full contents — not a
-    // single flat key. We must update the named panel rather than setting the panel name as a key
-    // inside the working panel (which is what CaseContext.set() would do via the flat API).
+    // After the layers migration, top-level keys in the diff are layer names (working, semantic,
+    // episodic). Each changeNode has "before"/"after" for the layer's full contents — not a
+    // single flat key. We must update the named layer rather than setting the layer name as a key
+    // inside the working layer (which is what CaseContext.set() would do via the flat API).
     CaseContextImpl ctxImpl = caseContext instanceof CaseContextImpl c ? c : null;
 
     changes
@@ -343,15 +343,15 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
               }
               JsonNode afterNode = changeNode.get("after");
               if (afterNode == null || afterNode.isNull()) {
-                // Removal — panel cleared; call remove on flat API (no-op for panels but safe)
+                // Removal — layer cleared; call remove on flat API (no-op for layers but safe)
                 caseContext.remove(key);
               } else if (ctxImpl != null && afterNode.isObject()) {
-                // Panel-level diff: afterNode is the panel's FULL new contents — replace, not
+                // Layer-level diff: afterNode is the layer's FULL new contents — replace, not
                 // merge.
                 // clear() then setAll() ensures removed keys are not left behind.
                 @SuppressWarnings("unchecked")
                 Map<String, Object> afterMap = OBJECT_MAPPER.convertValue(afterNode, Map.class);
-                ctxImpl.writablePanel(key).clear().setAll(afterMap);
+                ctxImpl.writableLayer(key).clear().setAll(afterMap);
               } else {
                 // Flat scalar (rare/legacy): fall back to flat set
                 Object value = OBJECT_MAPPER.convertValue(afterNode, Object.class);

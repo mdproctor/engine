@@ -113,7 +113,7 @@ public final class HumanTaskTarget implements BindingTarget {
   }
 
   /**
-   * JQ expression evaluated against case context WORKING panel to produce an absolute deadline
+   * JQ expression evaluated against case context WORKING layer to produce an absolute deadline
    * Instant.
    */
   public ExpressionEvaluator expiresAtExpression() {

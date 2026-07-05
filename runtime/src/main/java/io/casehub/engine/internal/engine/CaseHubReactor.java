@@ -21,7 +21,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STA
 import static io.casehub.engine.common.internal.event.EventBusAddresses.SIGNAL_RECEIVED;
 
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.SettlementTimeoutException;
 import io.casehub.api.model.CaseDefinition;
@@ -43,7 +43,7 @@ import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.engine.internal.context.EpisodicPanelUpdater;
+import io.casehub.engine.internal.context.EpisodicLayerUpdater;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.neocortex.memory.Memory;
 import io.casehub.neocortex.memory.MemoryDomain;
@@ -174,22 +174,22 @@ class CaseHubReactor {
               .orElse(PropagationContext.createRoot(traceId, identityAttrs));
     }
 
-    // Populate semantic panel: definition defaults first, call-site overrides second.
+    // Populate semantic layer: definition defaults first, call-site overrides second.
     // Semantic must be frozen before the inter-case memory query (entityId JQ needs it).
     if (context instanceof CaseContextImpl ctx) {
       Map<String, Object> defSemanticData = definition.getSemanticData();
       if (defSemanticData != null && !defSemanticData.isEmpty()) {
-        ctx.writablePanel(ContextPanel.SEMANTIC).setAll(defSemanticData);
+        ctx.writableLayer(ContextLayer.SEMANTIC).setAll(defSemanticData);
       }
       if (semanticData != null && !semanticData.isEmpty()) {
-        ctx.writablePanel(ContextPanel.SEMANTIC).setAll(semanticData);
+        ctx.writableLayer(ContextLayer.SEMANTIC).setAll(semanticData);
       }
-      ctx.freezePanel(ContextPanel.SEMANTIC);
+      ctx.freezeLayer(ContextLayer.SEMANTIC);
       // Initialize episodic baseline before the inter-case query and before freeze
-      EpisodicPanelUpdater.initBaseline(ctx);
+      EpisodicLayerUpdater.initBaseline(ctx);
     }
 
-    // Inter-case memory query — async, runs before episodic panel is frozen
+    // Inter-case memory query — async, runs before episodic layer is frozen
     EpisodicMemoryConfig memCfg = definition.getEpisodicMemoryConfig();
     final Uni<Void> memoryQueryStep;
 
@@ -211,7 +211,7 @@ class CaseHubReactor {
                                     return p;
                                   })
                               .toList();
-                      ctxForMem.writablePanel(ContextPanel.EPISODIC).engineSet("memory", projected);
+                      ctxForMem.writableLayer(ContextLayer.EPISODIC).engineSet("memory", projected);
                     }
                   })
               .replaceWithVoid();
@@ -221,19 +221,19 @@ class CaseHubReactor {
 
     return memoryQueryStep.chain(
         () -> {
-          // Freeze episodic after memory injection — episodic is engine-managed
+          // Freeze episodic layer after memory injection — episodic is engine-managed
           if (context instanceof CaseContextImpl ctx) {
-            ctx.freezePanel(ContextPanel.EPISODIC);
+            ctx.freezeLayer(ContextLayer.EPISODIC);
           }
 
-          // Pre-create user-defined panels declared in the case definition (eager init so
+          // Pre-create user-defined layers declared in the case definition (eager init so
           // asJsonNode() and snapshot() include them even before any worker writes to them)
-          List<String> declaredPanels = definition.getPanelNames();
-          if (declaredPanels != null
-              && !declaredPanels.isEmpty()
+          List<String> declaredLayers = definition.getLayerNames();
+          if (declaredLayers != null
+              && !declaredLayers.isEmpty()
               && context instanceof CaseContextImpl ctx) {
-            for (String panelName : declaredPanels) {
-              ctx.writablePanel(panelName);
+            for (String layerName : declaredLayers) {
+              ctx.writableLayer(layerName);
             }
           }
 
@@ -253,8 +253,8 @@ class CaseHubReactor {
 
   private Uni<List<Memory>> queryEpisodicMemory(CaseContextImpl ctx, EpisodicMemoryConfig cfg) {
     try {
-      // Evaluate entityId JQ against frozen semantic panel
-      var semNode = ctx.panel(ContextPanel.SEMANTIC).asJsonNode();
+      // Evaluate entityId JQ against frozen semantic layer
+      var semNode = ctx.layer(ContextLayer.SEMANTIC).asJsonNode();
       ValidationResult vr = jqEvaluator.eval(cfg.entityId(), semNode);
       if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
         LOG.warnf("episodic.memory.entityId JQ evaluation failed: %s", vr.error());

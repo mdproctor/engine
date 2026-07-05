@@ -1272,7 +1272,7 @@ class CaseDefinitionYamlMapperTest {
         .hasMessageContaining("unknown-lang");
   }
 
-  // ── semanticData / episodic.memory / panels / listenPanel tests ────────────
+  // ── semanticData / episodic.memory / layers / listenLayer tests ────────────
 
   @Test
   void parseSemanticData() throws IOException {
@@ -1336,28 +1336,28 @@ class CaseDefinitionYamlMapperTest {
   }
 
   @Test
-  void parsePanels() throws IOException {
+  void parseLayers() throws IOException {
     String yaml =
         """
         namespace: test
-        name: multi-panel
+        name: multi-layer
         version: 1.0.0
-        panels:
+        layers:
           - name: "raw"
           - name: "extracted"
         """;
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    assertThat(def.getPanelNames()).containsExactly("raw", "extracted");
+    assertThat(def.getLayerNames()).containsExactly("raw", "extracted");
   }
 
   @Test
-  void parseListenPanel() throws IOException {
+  void parseListenLayer() throws IOException {
     String yaml =
         """
         namespace: test
-        name: listen-panel-test
+        name: listen-layer-test
         version: 1.0.0
         spec:
           capabilities:
@@ -1368,7 +1368,7 @@ class CaseDefinitionYamlMapperTest {
               on:
                 contextChange:
                   filter: ".raw != null"
-                  listenPanel: "raw"
+                  listenLayer: "raw"
         """;
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
@@ -1376,15 +1376,15 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getBindings()).hasSize(1);
     assertThat(def.getBindings().get(0).getOn()).isInstanceOf(ContextChangeTrigger.class);
     ContextChangeTrigger trigger = (ContextChangeTrigger) def.getBindings().get(0).getOn();
-    assertThat(trigger.getListenPanel()).isEqualTo("raw");
+    assertThat(trigger.getListenLayer()).isEqualTo("raw");
   }
 
   @Test
-  void parseListenPanel_absent_isNull() throws IOException {
+  void parseListenLayer_absent_isNull() throws IOException {
     String yaml =
         """
         namespace: test
-        name: no-listen-panel
+        name: no-listen-layer
         version: 1.0.0
         spec:
           capabilities:
@@ -1400,7 +1400,7 @@ class CaseDefinitionYamlMapperTest {
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
     ContextChangeTrigger trigger = (ContextChangeTrigger) def.getBindings().get(0).getOn();
-    assertThat(trigger.getListenPanel()).isNull();
+    assertThat(trigger.getListenLayer()).isNull();
   }
 
   @Test

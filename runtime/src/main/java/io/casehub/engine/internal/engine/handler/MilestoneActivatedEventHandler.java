@@ -20,7 +20,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SlaStatus;
@@ -172,7 +172,7 @@ public class MilestoneActivatedEventHandler {
     eventBus.publish(
         CONTEXT_CHANGED,
         new CaseContextChangedEvent(
-            caseInstance, caseInstance.getCaseContext().snapshot(), ContextPanel.WORKING));
+            caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
 
     return Uni.createFrom().voidItem();
   }

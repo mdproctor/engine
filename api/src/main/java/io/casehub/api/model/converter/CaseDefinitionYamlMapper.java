@@ -234,14 +234,14 @@ public final class CaseDefinitionYamlMapper {
           EpisodicMemoryConfig.of(mem.getDomain(), mem.getEntityId(), recent));
     }
 
-    // panels — user-defined panel names
-    if (schema.getPanels() != null && !schema.getPanels().isEmpty()) {
-      final List<String> panelNames =
-          schema.getPanels().stream()
-              .map(io.casehub.model.Panel::getName)
+    // layers — user-defined layer names
+    if (schema.getLayers() != null && !schema.getLayers().isEmpty()) {
+      final List<String> layerNames =
+          schema.getLayers().stream()
+              .map(io.casehub.model.Layer::getName)
               .filter(java.util.Objects::nonNull)
               .toList();
-      def.setPanelNames(panelNames);
+      def.setLayerNames(layerNames);
     }
 
     // types — behavioral type classifications
@@ -597,9 +597,9 @@ public final class CaseDefinitionYamlMapper {
 
     if (schemaTrigger.getContextChange() != null) {
       final String filter = schemaTrigger.getContextChange().getFilter();
-      final String listenPanel = schemaTrigger.getContextChange().getListenPanel();
+      final String listenLayer = schemaTrigger.getContextChange().getListenLayer();
       return new io.casehub.api.model.ContextChangeTrigger(
-          filter != null ? registry.create(filter, expressionLang) : null, listenPanel);
+          filter != null ? registry.create(filter, expressionLang) : null, listenLayer);
     }
 
     // TODO: Add support for CloudEventTrigger and ScheduleTrigger

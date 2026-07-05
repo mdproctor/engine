@@ -32,7 +32,7 @@ import java.util.UUID;
 public record CaseContextChangedEvent(
     CaseInstance instance,
     CaseContext contextSnapshot,
-    String changedPanel,
+    String changedLayer,
     String triggerChannelId,
     String triggerCorrelationId,
     UUID signalId) {
@@ -40,23 +40,23 @@ public record CaseContextChangedEvent(
   public CaseContextChangedEvent {
     instance = Objects.requireNonNull(instance, "instance cannot be null");
     contextSnapshot = Objects.requireNonNull(contextSnapshot, "contextSnapshot cannot be null");
-    // changedPanel, triggerChannelId, triggerCorrelationId, signalId may be null
+    // changedLayer, triggerChannelId, triggerCorrelationId, signalId may be null
   }
 
   /** Convenience constructor for context changes not triggered by a Qhorus COMMAND. */
   public CaseContextChangedEvent(
-      CaseInstance instance, CaseContext contextSnapshot, String changedPanel) {
-    this(instance, contextSnapshot, changedPanel, null, null, null);
+      CaseInstance instance, CaseContext contextSnapshot, String changedLayer) {
+    this(instance, contextSnapshot, changedLayer, null, null, null);
   }
 
   /** Convenience constructor for context changes with Qhorus trigger context but no settlement. */
   public CaseContextChangedEvent(
       CaseInstance instance,
       CaseContext contextSnapshot,
-      String changedPanel,
+      String changedLayer,
       String triggerChannelId,
       String triggerCorrelationId) {
-    this(instance, contextSnapshot, changedPanel, triggerChannelId, triggerCorrelationId, null);
+    this(instance, contextSnapshot, changedLayer, triggerChannelId, triggerCorrelationId, null);
   }
 
   @Override
@@ -65,20 +65,20 @@ public record CaseContextChangedEvent(
     if (o == null || getClass() != o.getClass()) return false;
     CaseContextChangedEvent that = (CaseContextChangedEvent) o;
     return Objects.equals(instance, that.instance)
-        && Objects.equals(changedPanel, that.changedPanel);
+        && Objects.equals(changedLayer, that.changedLayer);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(instance, changedPanel);
+    return Objects.hash(instance, changedLayer);
   }
 
   @Override
   public String toString() {
     return "CaseContextChangedEvent{uuid="
         + instance.getUuid()
-        + ", panel="
-        + changedPanel
+        + ", layer="
+        + changedLayer
         + ", triggerChannelId="
         + triggerChannelId
         + ", triggerCorrelationId="

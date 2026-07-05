@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
@@ -52,7 +52,7 @@ import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.engine.internal.context.EpisodicPanelUpdater;
+import io.casehub.engine.internal.context.EpisodicLayerUpdater;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.worker.api.PlannedAction;
@@ -123,7 +123,7 @@ public class WorkflowExecutionCompletedHandler {
     JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
     applyOutputWithConflictResolution(caseInstance, worker, rawOutput, bindingName);
     if (caseInstance.getCaseContext() instanceof CaseContextImpl ctx) {
-      EpisodicPanelUpdater.recordWorkerCompletion(ctx, worker.name(), "COMPLETED");
+      EpisodicLayerUpdater.recordWorkerCompletion(ctx, worker.name(), "COMPLETED");
     }
     recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
     JsonNode contextAfter = caseInstance.getCaseContext().asJsonNode();
@@ -198,7 +198,7 @@ public class WorkflowExecutionCompletedHandler {
                     new CaseContextChangedEvent(
                         caseInstance,
                         caseInstance.getCaseContext().snapshot(),
-                        ContextPanel.WORKING)))
+                        ContextLayer.WORKING)))
         .replaceWithVoid()
         .onFailure()
         .invoke(
@@ -314,7 +314,7 @@ public class WorkflowExecutionCompletedHandler {
           throw new IllegalStateException("Success should not reach handleSemanticFailure");
     }
 
-    // Read or create _outcomes.<bindingName> in working panel
+    // Read or create _outcomes.<bindingName> in working layer
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> existingOutcomes =
         (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
@@ -370,7 +370,7 @@ public class WorkflowExecutionCompletedHandler {
 
     // Episodic
     if (caseInstance.getCaseContext() instanceof CaseContextImpl ctx) {
-      EpisodicPanelUpdater.recordWorkerCompletion(ctx, worker.name(), outcomeStatus);
+      EpisodicLayerUpdater.recordWorkerCompletion(ctx, worker.name(), outcomeStatus);
     }
 
     // Event log
@@ -481,7 +481,7 @@ public class WorkflowExecutionCompletedHandler {
 
     Uni<Set<String>> groupsUni;
     if (gate.candidateGroups() != null) {
-      JsonNode contextNode = caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode();
+      JsonNode contextNode = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
       groupsUni =
           gate.candidateGroups()
               .evaluate(new CandidateSetContext(contextNode))

@@ -90,9 +90,9 @@ public final class EventBusAddresses {
    */
   public static final String WORKER_OUTCOME_RESOLVED = "casehub.worker.outcome.resolved";
 
-  /** Returns an event bus address scoped to a specific panel name. */
-  public static String panelChanged(String panelName) {
-    return "casehub.context.changed." + panelName;
+  /** Returns an event bus address scoped to a specific layer name. */
+  public static String layerChanged(String layerName) {
+    return "casehub.context.changed." + layerName;
   }
 
   /**

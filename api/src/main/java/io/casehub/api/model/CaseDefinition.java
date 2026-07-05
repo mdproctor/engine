@@ -46,7 +46,7 @@ public class CaseDefinition {
   private CaseCompletion completion;
   private Map<String, Object> semanticData;
   private EpisodicMemoryConfig episodicMemoryConfig;
-  private List<String> panelNames;
+  private List<String> layerNames;
   private Map<String, AgentDescriptor> agentDescriptors = Map.of();
   private String planningStrategy;
   private String agentRouting;
@@ -154,12 +154,12 @@ public class CaseDefinition {
     this.episodicMemoryConfig = config;
   }
 
-  public List<String> getPanelNames() {
-    return panelNames;
+  public List<String> getLayerNames() {
+    return layerNames;
   }
 
-  public void setPanelNames(List<String> panelNames) {
-    this.panelNames = panelNames;
+  public void setLayerNames(List<String> layerNames) {
+    this.layerNames = layerNames;
   }
 
   public Optional<AgentDescriptor> agentDescriptorFor(String workerName) {
@@ -237,7 +237,7 @@ public class CaseDefinition {
     private CaseCompletion completion;
     private Map<String, Object> semanticData;
     private EpisodicMemoryConfig episodicMemoryConfig;
-    private List<String> panelNames;
+    private List<String> layerNames;
     private Map<String, AgentDescriptor> agentDescriptors = new HashMap<>();
     private String planningStrategy;
     private String agentRouting;
@@ -357,24 +357,24 @@ public class CaseDefinition {
       return this;
     }
 
-    public Builder panelNames(List<String> panelNames) {
-      this.panelNames = panelNames;
+    public Builder layerNames(List<String> layerNames) {
+      this.layerNames = layerNames;
       return this;
     }
 
-    public Builder panel(String name) {
-      if (this.panelNames == null) {
-        this.panelNames = new java.util.ArrayList<>();
+    public Builder layer(String name) {
+      if (this.layerNames == null) {
+        this.layerNames = new java.util.ArrayList<>();
       }
-      this.panelNames.add(name);
+      this.layerNames.add(name);
       return this;
     }
 
-    public Builder panels(String... names) {
-      if (this.panelNames == null) {
-        this.panelNames = new java.util.ArrayList<>();
+    public Builder layers(String... names) {
+      if (this.layerNames == null) {
+        this.layerNames = new java.util.ArrayList<>();
       }
-      java.util.Collections.addAll(this.panelNames, names);
+      java.util.Collections.addAll(this.layerNames, names);
       return this;
     }
 
@@ -444,7 +444,7 @@ public class CaseDefinition {
       caseHubDefinition.setCompletion(completion);
       caseHubDefinition.setSemanticData(semanticData);
       caseHubDefinition.setEpisodicMemoryConfig(episodicMemoryConfig);
-      caseHubDefinition.setPanelNames(panelNames);
+      caseHubDefinition.setLayerNames(layerNames);
       caseHubDefinition.setAgentDescriptors(agentDescriptors);
       caseHubDefinition.setPlanningStrategy(planningStrategy);
       caseHubDefinition.setAgentRouting(agentRouting);

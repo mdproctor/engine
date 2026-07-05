@@ -20,7 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.engine.LoopControl;
@@ -130,15 +130,15 @@ public class CaseContextChangedEventHandler {
     }
 
     final CaseContext contextSnapshot = event.contextSnapshot();
-    final String changedPanel = event.changedPanel();
+    final String changedLayer = event.changedLayer();
 
-    // Fire panel-scoped event for external subscribers (Claudony, monitoring, Drools)
-    if (changedPanel != null) {
-      eventBus.publish(EventBusAddresses.panelChanged(changedPanel), event);
+    // Fire layer-scoped event for external subscribers (Claudony, monitoring, Drools)
+    if (changedLayer != null) {
+      eventBus.publish(EventBusAddresses.layerChanged(changedLayer), event);
     }
 
-    // Skip binding evaluation for episodic panel updates
-    if (ContextPanel.EPISODIC.equals(changedPanel)) {
+    // Skip binding evaluation for episodic layer updates
+    if (ContextLayer.EPISODIC.equals(changedLayer)) {
       return Uni.createFrom().voidItem();
     }
 
@@ -163,7 +163,7 @@ public class CaseContextChangedEventHandler {
             caseInstance,
             contextSnapshot,
             caseDefinition,
-            changedPanel,
+            changedLayer,
             triggerChannelId,
             triggerCorrelationId,
             signalId)
@@ -186,7 +186,7 @@ public class CaseContextChangedEventHandler {
       final CaseInstance caseInstance,
       final CaseContext contextSnapshot,
       final CaseDefinition definition,
-      final String changedPanel,
+      final String changedLayer,
       final String triggerChannelId,
       final String triggerCorrelationId,
       final java.util.UUID signalId) {
@@ -202,9 +202,9 @@ public class CaseContextChangedEventHandler {
       if (!(binding.getOn() instanceof ContextChangeTrigger cct)) {
         continue;
       }
-      // listenPanel filter: skip binding if it declares a specific panel that doesn't match
-      final String listenPanel = cct.getListenPanel();
-      if (listenPanel != null && !listenPanel.equals(changedPanel)) {
+      // listenLayer filter: skip binding if it declares a specific layer that doesn't match
+      final String listenLayer = cct.getListenLayer();
+      if (listenLayer != null && !listenLayer.equals(changedLayer)) {
         continue;
       }
       if (!expressionEngineRegistry.evaluate(cct.getFilter(), contextSnapshot)) {
@@ -343,7 +343,7 @@ public class CaseContextChangedEventHandler {
     final JsonNode outcomeNode =
         caseInstance
             .getCaseContext()
-            .panel(ContextPanel.WORKING)
+            .layer(ContextLayer.WORKING)
             .asJsonNode()
             .path("_outcomes")
             .path(binding.getName());
@@ -371,7 +371,7 @@ public class CaseContextChangedEventHandler {
         new AgentRoutingContext(
             caseInstance.getUuid(),
             capability.name(),
-            caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             caseInstance.tenancyId);
 
     final AgentRoutingStrategy routingStrategy =
@@ -488,7 +488,7 @@ public class CaseContextChangedEventHandler {
       final CaseInstance caseInstance, final Binding binding, final HumanTaskTarget target) {
     final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
     final JsonNode caseContext =
-        caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode();
+        caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
 
     final Uni<Set<String>> groupsUni =
         resolveCandidateSet(target.candidateGroups(), caseContext, "candidateGroups");
@@ -594,7 +594,7 @@ public class CaseContextChangedEventHandler {
         final ValidationResult vr =
             jqEvaluator.eval(
                 jq.expression(),
-                caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode());
+                caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode());
         if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
           LOG.warnf("inputMapping evaluation failed for HumanTaskTarget: %s", vr.error());
           return Map.of();
@@ -623,7 +623,7 @@ public class CaseContextChangedEventHandler {
         inputSchemaOverride != null ? inputSchemaOverride : capability.inputSchema();
     final Map<String, Object> inputData =
         evalJqAsMap(
-            caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             effectiveSchema);
     final WorkRequest workRequest = WorkRequest.of(capability.name(), inputData);
     return reactiveWorkerContextProvider
@@ -688,7 +688,7 @@ public class CaseContextChangedEventHandler {
       final String bindingName) {
     final Map<String, Object> childContext =
         evalJqAsMap(
-            caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(),
+            caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             subCase.inputMapping());
 
     LOG.infof(

@@ -23,6 +23,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.ReadableLayer;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkRequest;
@@ -368,10 +370,9 @@ class DefaultWorkOrchestratorTest {
     final CaseContext ctx = mock(CaseContext.class);
     final com.fasterxml.jackson.databind.node.ObjectNode emptyNode =
         new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
-    final io.casehub.api.context.ReadablePanel workingPanel =
-        mock(io.casehub.api.context.ReadablePanel.class);
-    when(workingPanel.asJsonNode()).thenReturn(emptyNode);
-    when(ctx.panel(io.casehub.api.context.ContextPanel.WORKING)).thenReturn(workingPanel);
+    final ReadableLayer workingLayer = mock(ReadableLayer.class);
+    when(workingLayer.asJsonNode()).thenReturn(emptyNode);
+    when(ctx.layer(ContextLayer.WORKING)).thenReturn(workingLayer);
     when(ctx.asJsonNode()).thenReturn(emptyNode);
     instance.setCaseContext(ctx);
     return instance;

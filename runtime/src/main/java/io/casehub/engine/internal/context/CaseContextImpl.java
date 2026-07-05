@@ -23,8 +23,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
-import io.casehub.api.context.ReadablePanel;
+import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.ReadableLayer;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,27 +37,27 @@ public class CaseContextImpl implements CaseContext {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private final Map<String, WritablePanelImpl> panels = new LinkedHashMap<>();
+  private final Map<String, WritableLayerImpl> layers = new LinkedHashMap<>();
 
   // ── Constructors ────────────────────────────────────────────────────────────
 
   public CaseContextImpl() {
-    initBuiltinPanels();
+    initBuiltinLayers();
   }
 
   public CaseContextImpl(Map<String, Object> initial) {
-    // Use WritablePanelImpl(name, data) constructor which pre-populates without incrementing
+    // Use WritableLayerImpl(name, data) constructor which pre-populates without incrementing
     // version,
     // preserving the original contract that the map constructor does not increment version.
-    panels.put(
-        ContextPanel.WORKING,
-        new WritablePanelImpl(ContextPanel.WORKING, initial != null ? initial : Map.of()));
-    panels.put(ContextPanel.SEMANTIC, new WritablePanelImpl(ContextPanel.SEMANTIC));
-    panels.put(ContextPanel.EPISODIC, new WritablePanelImpl(ContextPanel.EPISODIC));
+    layers.put(
+        ContextLayer.WORKING,
+        new WritableLayerImpl(ContextLayer.WORKING, initial != null ? initial : Map.of()));
+    layers.put(ContextLayer.SEMANTIC, new WritableLayerImpl(ContextLayer.SEMANTIC));
+    layers.put(ContextLayer.EPISODIC, new WritableLayerImpl(ContextLayer.EPISODIC));
   }
 
   public CaseContextImpl(Map<String, Object> initial, long ignoredVersion) {
-    // version is per-panel now; the top-level version param is ignored (legacy)
+    // version is per-layer now; the top-level version param is ignored (legacy)
     this(initial);
   }
 
@@ -74,35 +74,35 @@ public class CaseContextImpl implements CaseContext {
                         .constructMapType(LinkedHashMap.class, String.class, Object.class)));
   }
 
-  private void initBuiltinPanels() {
-    panels.put(ContextPanel.WORKING, new WritablePanelImpl(ContextPanel.WORKING));
-    panels.put(ContextPanel.SEMANTIC, new WritablePanelImpl(ContextPanel.SEMANTIC));
-    panels.put(ContextPanel.EPISODIC, new WritablePanelImpl(ContextPanel.EPISODIC));
+  private void initBuiltinLayers() {
+    layers.put(ContextLayer.WORKING, new WritableLayerImpl(ContextLayer.WORKING));
+    layers.put(ContextLayer.SEMANTIC, new WritableLayerImpl(ContextLayer.SEMANTIC));
+    layers.put(ContextLayer.EPISODIC, new WritableLayerImpl(ContextLayer.EPISODIC));
   }
 
-  private WritablePanelImpl working() {
-    return panels.get(ContextPanel.WORKING);
+  private WritableLayerImpl working() {
+    return layers.get(ContextLayer.WORKING);
   }
 
-  // ── Panel access ────────────────────────────────────────────────────────────
+  // ── Layer access ────────────────────────────────────────────────────────────
 
   @Override
-  public ReadablePanel panel(String name) {
-    return panels.computeIfAbsent(name, WritablePanelImpl::new);
+  public ReadableLayer layer(String name) {
+    return layers.computeIfAbsent(name, WritableLayerImpl::new);
   }
 
   /** Engine-internal: returns writable view (engine writes to semantic/episodic this way). */
-  public WritablePanelImpl writablePanel(String name) {
-    return panels.computeIfAbsent(name, WritablePanelImpl::new);
+  public WritableLayerImpl writableLayer(String name) {
+    return layers.computeIfAbsent(name, WritableLayerImpl::new);
   }
 
-  /** Freezes a panel (makes it read-only). */
-  public void freezePanel(String name) {
-    WritablePanelImpl p = panels.get(name);
+  /** Freezes a layer (makes it read-only). */
+  public void freezeLayer(String name) {
+    WritableLayerImpl p = layers.get(name);
     if (p != null) p.freeze();
   }
 
-  // ── Flat API — delegates to working panel ──────────────────────────────────
+  // ── Flat API — delegates to working layer ──────────────────────────────────
 
   @JsonAnySetter
   @Override
@@ -245,7 +245,7 @@ public class CaseContextImpl implements CaseContext {
     return working().getData();
   }
 
-  // ── Multi-panel operations ─────────────────────────────────────────────────
+  // ── Multi-layer operations ─────────────────────────────────────────────────
 
   @Override
   public long getVersion() {
@@ -255,67 +255,67 @@ public class CaseContextImpl implements CaseContext {
   @Override
   public CaseContext merge(CaseContext other) {
     if (other == null) return this;
-    working().setAll(other.getData()); // merge working panels only
+    working().setAll(other.getData()); // merge working layers only
     return this;
   }
 
   @Override
   public JsonNode diff(CaseContext other) {
-    return working().diff(other.panel(ContextPanel.WORKING)); // working panels only
+    return working().diff(other.layer(ContextLayer.WORKING)); // working layers only
   }
 
   @Override
   public void applyDiff(JsonNode diff) {
-    working().applyDiff(diff); // working panel, working-panel-relative patches
+    working().applyDiff(diff); // working layer, working-layer-relative patches
   }
 
   @Override
   public Optional<JsonNode> applyAndDiff(String path, Object value) {
-    return working().applyAndDiff(path, value); // working panel, path is working-relative
+    return working().applyAndDiff(path, value); // working layer, path is working-relative
   }
 
   @Override
   public CaseContext snapshot() {
-    // Deep-copy ALL panels
+    // Deep-copy ALL layers
     CaseContextImpl snap = new CaseContextImpl();
-    snap.panels.clear();
-    for (Map.Entry<String, WritablePanelImpl> e : panels.entrySet()) {
-      snap.panels.put(e.getKey(), e.getValue().deepCopy());
+    snap.layers.clear();
+    for (Map.Entry<String, WritableLayerImpl> e : layers.entrySet()) {
+      snap.layers.put(e.getKey(), e.getValue().deepCopy());
     }
     return snap;
   }
 
   @Override
   public JsonNode asJsonNode() {
-    // Returns FULL panel document: {"working":{...},"semantic":{...},"episodic":{...},...}
+    // Returns FULL layer document: {"working":{...},"semantic":{...},"episodic":{...},...}
     ObjectNode doc = MAPPER.createObjectNode();
-    for (Map.Entry<String, WritablePanelImpl> e : panels.entrySet()) {
+    for (Map.Entry<String, WritableLayerImpl> e : layers.entrySet()) {
       doc.set(e.getKey(), e.getValue().asJsonNode());
     }
     return doc;
   }
 
   /**
-   * Factory for recovery — reconstructs from a stored panel document. The panel document is the
-   * output of {@link #asJsonNode()}: a JSON object whose keys are panel names and values are panel
+   * Factory for recovery — reconstructs from a stored layer document. The layer document is the
+   * output of {@link #asJsonNode()}: a JSON object whose keys are layer names and values are layer
    * data objects.
    */
-  public static CaseContextImpl fromPanelDocument(JsonNode panelDoc) {
+  public static CaseContextImpl fromLayerDocument(JsonNode layerDoc) {
     CaseContextImpl ctx = new CaseContextImpl();
-    if (panelDoc == null || panelDoc.isNull()) return ctx;
-    panelDoc
+    if (layerDoc == null || layerDoc.isNull()) return ctx;
+    layerDoc
         .fields()
         .forEachRemaining(
             entry -> {
               String name = entry.getKey();
               @SuppressWarnings("unchecked")
               Map<String, Object> data = MAPPER.convertValue(entry.getValue(), Map.class);
-              ctx.panels.put(name, new WritablePanelImpl(name, data));
+              ctx.layers.put(name, new WritableLayerImpl(name, data));
             });
     return ctx;
   }
 
-  // ── equals / hashCode / toString — working panel data for backward compat ──
+  // ── equals / hashCode / toString — working layer data for backward compat ──
 
   @Override
   public boolean equals(Object o) {

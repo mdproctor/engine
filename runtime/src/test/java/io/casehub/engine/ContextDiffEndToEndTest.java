@@ -96,8 +96,8 @@ class ContextDiffEndToEndTest {
 
     var changes = metadata.get("contextChanges");
 
-    // After panels migration, top-level diff key is "working" (the panel name).
-    // Before = working panel before worker ran; after = working panel after worker ran.
+    // After layers migration, top-level diff key is "working" (the layer name).
+    // Before = working layer before worker ran; after = working layer after worker ran.
     assertThat(changes.has("working")).isTrue();
     var workingDiff = changes.get("working");
 
@@ -139,7 +139,7 @@ class ContextDiffEndToEndTest {
     EventLog completedEvent = fetchCompletedEvent(caseId);
     var changes = completedEvent.getMetadata().get("contextChanges");
 
-    // After panels, "working" panel changed (status updated); no top-level "unchanged" key.
+    // After layers, "working" layer changed (status updated); no top-level "unchanged" key.
     assertThat(changes.has("working")).isTrue();
     assertThat(changes.has("unchanged")).isFalse();
   }

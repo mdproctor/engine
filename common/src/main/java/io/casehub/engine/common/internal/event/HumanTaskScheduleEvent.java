@@ -33,7 +33,7 @@ import java.util.UUID;
  * outlive its parent case. See casehubio/parent#6.
  *
  * <p>{@code expiresAtDeadline} is an absolute deadline resolved from {@link
- * HumanTaskTarget#expiresAtExpression()} evaluated against the case context WORKING panel, or
+ * HumanTaskTarget#expiresAtExpression()} evaluated against the case context WORKING layer, or
  * {@code null} if no expression was set or evaluation failed. The handler folds this into the
  * earliest-deadline chain alongside {@code expiresIn} and {@code caseBudgetDeadline}. See
  * casehubio/engine#549, casehubio/clinical#83.

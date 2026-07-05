@@ -17,7 +17,7 @@ package io.casehub.engine.internal.engine;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.engine.ExpressionEngine;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
@@ -51,7 +51,7 @@ public class JQExpressionEngine implements ExpressionEngine {
       return true;
     }
     final ValidationResult result =
-        jqEvaluator.eval(expr, context.panel(ContextPanel.WORKING).asJsonNode());
+        jqEvaluator.eval(expr, context.layer(ContextLayer.WORKING).asJsonNode());
     return result.ok() && result.isTrue();
   }
 
@@ -77,7 +77,7 @@ public class JQExpressionEngine implements ExpressionEngine {
   /**
    * {@inheritDoc}
    *
-   * <p>Evaluates the JQ expression against the WORKING panel. When JQ produces multiple output
+   * <p>Evaluates the JQ expression against the WORKING layer. When JQ produces multiple output
    * elements, only the first is inspected — callers should use scalar expressions. Non-textual
    * first output (null, number, boolean, array, object) returns {@link Optional#empty()} silently.
    */
@@ -89,7 +89,7 @@ public class JQExpressionEngine implements ExpressionEngine {
       return Optional.empty();
     }
     final ValidationResult vr =
-        jqEvaluator.eval(expr, context.panel(ContextPanel.WORKING).asJsonNode());
+        jqEvaluator.eval(expr, context.layer(ContextLayer.WORKING).asJsonNode());
     if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
       if (!vr.ok()) {
         LOG.warnf("extractString JQ evaluation failed: %s", vr.error());

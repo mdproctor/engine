@@ -304,7 +304,7 @@ class ExpressionEngineRegistryTest {
   class ExtractString {
 
     @Test
-    @DisplayName("JQ — extracts string field from WORKING panel context")
+    @DisplayName("JQ — extracts string field from WORKING layer context")
     void jq_extractsStringField() {
       final var context =
           new CaseContextImpl(Map.of("indReportingDeadline", "2026-07-16T10:00:00Z"));

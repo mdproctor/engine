@@ -18,8 +18,8 @@ package io.casehub.ledger;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
-import io.casehub.ledger.api.model.ActorTrustScore.ScoreType;
 import io.casehub.ledger.api.model.LedgerEntryType;
+import io.casehub.ledger.api.model.ScoreType;
 import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.repository.CaseLedgerEntryRepository;

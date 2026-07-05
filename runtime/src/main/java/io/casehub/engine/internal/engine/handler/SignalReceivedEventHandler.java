@@ -20,7 +20,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -190,7 +190,7 @@ public class SignalReceivedEventHandler {
                     new CaseContextChangedEvent(
                         instance,
                         instance.getCaseContext().snapshot(),
-                        ContextPanel.WORKING,
+                        ContextLayer.WORKING,
                         event.triggerChannelId(),
                         event.triggerCorrelationId())))
         .replaceWithVoid()
@@ -294,7 +294,7 @@ public class SignalReceivedEventHandler {
                     new CaseContextChangedEvent(
                         instance,
                         instance.getCaseContext().snapshot(),
-                        ContextPanel.WORKING,
+                        ContextLayer.WORKING,
                         event.triggerChannelId(),
                         event.triggerCorrelationId(),
                         event.signalId())))

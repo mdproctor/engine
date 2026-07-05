@@ -19,7 +19,7 @@ import java.util.Objects;
 
 public record EpisodicMemoryConfig(
     String domain, // MemoryDomain name
-    String entityId, // JQ expression against semantic panel; result -> List<String>
+    String entityId, // JQ expression against semantic layer; result -> List<String>
     int recent // max items; default 10
     ) {
   public EpisodicMemoryConfig {

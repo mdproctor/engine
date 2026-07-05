@@ -19,7 +19,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.context.ContextPanel;
+import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -209,7 +209,7 @@ public class CaseStatusChangedHandler {
     try {
       snapshot =
           OBJECT_MAPPER.convertValue(
-              caseInstance.getCaseContext().panel(ContextPanel.WORKING).asJsonNode(), MAP_TYPE);
+              caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(), MAP_TYPE);
     } catch (Exception e) {
       LOG.warnf(
           e,
