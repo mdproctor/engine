@@ -35,7 +35,7 @@ class CandidateMatchingStrategyContractTest {
           }
 
           @Override
-          public Uni<List<Worker>> match(CandidateMatchingContext context) {
+          public Uni<List<MatchedWorker>> match(CandidateMatchingContext context) {
             return Uni.createFrom().item(List.of());
           }
         };

@@ -59,15 +59,17 @@ class AgentRoutingStrategyContractTest {
   }
 
   @Test
-  void agentCandidate_exposesAllFiveFields() {
+  void agentCandidate_exposesAllFields() {
     final AgentCandidate candidate =
-        new AgentCandidate("agent-1", Set.of("research", "analysis"), 2, AgentHealth.READY, null);
+        new AgentCandidate(
+            "agent-1", Set.of("research", "analysis"), 2, AgentHealth.READY, null, null);
 
     assertThat(candidate.workerId()).isEqualTo("agent-1");
     assertThat(candidate.capabilities()).containsExactlyInAnyOrder("research", "analysis");
     assertThat(candidate.runningJobs()).isEqualTo(2);
     assertThat(candidate.health()).isEqualTo(AgentHealth.READY);
     assertThat(candidate.agentDescriptor()).isNull();
+    assertThat(candidate.matchDegree()).isNull();
   }
 
   @Test
@@ -102,7 +104,7 @@ class AgentRoutingStrategyContractTest {
     final AgentRoutingContext ctx =
         new AgentRoutingContext(caseId, "research", NullNode.instance, "test-tenant");
     final AgentCandidate candidate =
-        new AgentCandidate("agent-x", Set.of("research"), 0, AgentHealth.READY, null);
+        new AgentCandidate("agent-x", Set.of("research"), 0, AgentHealth.READY, null, null);
 
     final AgentAssignment result = strategy.select(ctx, List.of(candidate)).await().indefinitely();
 

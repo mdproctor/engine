@@ -17,7 +17,7 @@ package io.casehub.engine.internal.routing;
 
 import io.casehub.api.spi.routing.CandidateMatchingContext;
 import io.casehub.api.spi.routing.CandidateMatchingStrategy;
-import io.casehub.worker.api.Worker;
+import io.casehub.api.spi.routing.MatchedWorker;
 import io.quarkus.arc.Unremovable;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -33,12 +33,13 @@ public class ExactMatchStrategy implements CandidateMatchingStrategy {
   }
 
   @Override
-  public Uni<List<Worker>> match(CandidateMatchingContext context) {
+  public Uni<List<MatchedWorker>> match(CandidateMatchingContext context) {
     return Uni.createFrom()
         .item(
             () ->
                 context.workers().stream()
                     .filter(w -> w.capabilityNames().contains(context.capabilityName()))
+                    .map(MatchedWorker::exact)
                     .toList());
   }
 }

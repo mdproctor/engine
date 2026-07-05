@@ -123,6 +123,7 @@ public class TrustWeightedImplementationRoutingStrategy implements Implementatio
                         Set.of(c.capabilityName()),
                         0, // no workload concept for in-process implementations
                         AgentHealth.READY,
+                        null,
                         null))
             .toList();
 

@@ -103,6 +103,6 @@ class LeastLoadedAgentStrategyTest {
 
   private static AgentCandidate candidate(
       final String workerId, final int jobs, final AgentHealth health) {
-    return new AgentCandidate(workerId, Set.of("data-analysis"), jobs, health, null);
+    return new AgentCandidate(workerId, Set.of("data-analysis"), jobs, health, null, null);
   }
 }

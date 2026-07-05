@@ -17,6 +17,7 @@ package io.casehub.engine.internal.routing;
 
 import io.casehub.api.spi.routing.CandidateMatchingContext;
 import io.casehub.api.spi.routing.CandidateMatchingStrategy;
+import io.casehub.api.spi.routing.MatchedWorker;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityResolver;
 import io.casehub.eidos.api.VocabularyRegistry;
@@ -47,14 +48,14 @@ public class SubsumptionMatchStrategy implements CandidateMatchingStrategy {
   }
 
   @Override
-  public Uni<List<Worker>> match(CandidateMatchingContext context) {
+  public Uni<List<MatchedWorker>> match(CandidateMatchingContext context) {
     return Uni.createFrom()
         .item(
             () -> {
-              List<Worker> matched = new ArrayList<>();
+              List<MatchedWorker> matched = new ArrayList<>();
               for (Worker worker : context.workers()) {
                 if (worker.capabilityNames().contains(context.capabilityName())) {
-                  matched.add(worker);
+                  matched.add(MatchedWorker.exact(worker));
                   continue;
                 }
                 AgentDescriptor descriptor =
@@ -66,7 +67,7 @@ public class SubsumptionMatchStrategy implements CandidateMatchingStrategy {
                       CapabilityResolver.resolve(
                           descriptor.capabilities(), context.capabilityName(), vocabularyRegistry);
                   if (resolved != null) {
-                    matched.add(worker);
+                    matched.add(new MatchedWorker(worker, resolved.degree()));
                   }
                 }
               }

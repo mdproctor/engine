@@ -87,6 +87,7 @@ class AgentCandidateFactoryTest {
     assertThat(result.get(0).runningJobs()).isEqualTo(2);
     assertThat(result.get(0).health()).isEqualTo(AgentHealth.READY);
     assertThat(result.get(0).agentDescriptor()).isNull();
+    assertThat(result.get(0).matchDegree()).isInstanceOf(MatchDegree.Exact.class);
   }
 
   @Test
@@ -210,6 +211,8 @@ class AgentCandidateFactoryTest {
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).workerId()).isEqualTo("agent-1");
+    assertThat(result.get(0).matchDegree()).isInstanceOf(MatchDegree.Plugin.class);
+    assertThat(((MatchDegree.Plugin) result.get(0).matchDegree()).depth()).isEqualTo(1);
   }
 
   @Test
@@ -289,6 +292,7 @@ class AgentCandidateFactoryTest {
 
     assertThat(result).hasSize(1);
     assertThat(result.get(0).workerId()).isEqualTo("agent-2");
+    assertThat(result.get(0).matchDegree()).isInstanceOf(MatchDegree.Specialization.class);
   }
 
   @Test

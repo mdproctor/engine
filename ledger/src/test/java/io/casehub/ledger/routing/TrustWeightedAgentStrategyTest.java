@@ -454,6 +454,6 @@ class TrustWeightedAgentStrategyTest {
   }
 
   private static AgentCandidate candidate(final String workerId, final int jobs) {
-    return new AgentCandidate(workerId, Set.of("research"), jobs, AgentHealth.READY, null);
+    return new AgentCandidate(workerId, Set.of("research"), jobs, AgentHealth.READY, null, null);
   }
 }

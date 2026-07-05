@@ -20,6 +20,7 @@ import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.CandidateMatchingContext;
 import io.casehub.api.spi.routing.CandidateMatchingStrategy;
+import io.casehub.api.spi.routing.MatchedWorker;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
@@ -84,7 +85,7 @@ public class AgentCandidateFactory {
             CandidateMatchingStrategy.class, caseDefinition.getCandidateMatching());
 
     // Step 2: Delegate matching
-    final List<Worker> matched =
+    final List<MatchedWorker> matched =
         matchingStrategy
             .match(new CandidateMatchingContext(capabilityName, workers, caseDefinition))
             .await()
@@ -92,7 +93,8 @@ public class AgentCandidateFactory {
 
     // Step 3: Health probe + candidate construction
     final List<AgentCandidate> candidates = new ArrayList<>();
-    for (final Worker w : matched) {
+    for (final MatchedWorker mw : matched) {
+      final Worker w = mw.worker();
       final AgentDescriptor descriptor = caseDefinition.agentDescriptorFor(w.name()).orElse(null);
 
       final CapabilityStatus status =
@@ -120,7 +122,8 @@ public class AgentCandidateFactory {
               w.capabilityNames(),
               executionManager.getActiveWorkCount(w.name()),
               health,
-              descriptor));
+              descriptor,
+              mw.matchDegree()));
     }
     return candidates;
   }

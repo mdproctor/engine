@@ -159,7 +159,7 @@ class SemanticAgentRoutingStrategyTest {
   void nullDescriptor_treatedAsBootstrap() {
     // Candidate without descriptor → bootstrap → availability routing only
     final AgentCandidate noDescriptor =
-        new AgentCandidate("agent-x", Set.of("research"), 1, AgentHealth.READY, null);
+        new AgentCandidate("agent-x", Set.of("research"), 1, AgentHealth.READY, null, null);
 
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
@@ -203,8 +203,8 @@ class SemanticAgentRoutingStrategyTest {
 
     final List<AgentCandidate> candidates =
         List.of(
-            new AgentCandidate("agent-1", Set.of("research"), 0, AgentHealth.READY, null),
-            new AgentCandidate("agent-2", Set.of("research"), 1, AgentHealth.READY, null));
+            new AgentCandidate("agent-1", Set.of("research"), 0, AgentHealth.READY, null, null),
+            new AgentCandidate("agent-2", Set.of("research"), 1, AgentHealth.READY, null, null));
 
     final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
 
@@ -225,7 +225,7 @@ class SemanticAgentRoutingStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(
             candidateWithDescriptor("agent-border", 0, "agent-b"),
-            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
     final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
 
@@ -243,7 +243,7 @@ class SemanticAgentRoutingStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(
             candidateWithDescriptor("agent-low", 0, "agent-l"),
-            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
     final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
 
@@ -268,7 +268,7 @@ class SemanticAgentRoutingStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(
             candidateWithDescriptor("agent-qualified", 2, "agent-q"),
-            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
     final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
 
@@ -291,7 +291,7 @@ class SemanticAgentRoutingStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(
             candidateWithDescriptor("agent-qualified", 5, "agent-q"),
-            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
     final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
 
@@ -318,7 +318,7 @@ class SemanticAgentRoutingStrategyTest {
         List.of(
             candidateWithDescriptor("agent-qualified", 0, "agent-q"),
             candidateWithDescriptor("agent-border", 0, "agent-b"),
-            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null));
+            new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
     final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
 
@@ -353,8 +353,8 @@ class SemanticAgentRoutingStrategyTest {
 
     final List<AgentCandidate> candidates =
         List.of(
-            new AgentCandidate("agent-busy", Set.of("research"), 5, AgentHealth.READY, null),
-            new AgentCandidate("agent-idle", Set.of("research"), 0, AgentHealth.READY, null));
+            new AgentCandidate("agent-busy", Set.of("research"), 5, AgentHealth.READY, null, null),
+            new AgentCandidate("agent-idle", Set.of("research"), 0, AgentHealth.READY, null, null));
 
     final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
 
@@ -406,6 +406,7 @@ class SemanticAgentRoutingStrategyTest {
             null,
             "casehubio",
             null);
-    return new AgentCandidate(workerId, Set.of("research"), jobs, AgentHealth.READY, descriptor);
+    return new AgentCandidate(
+        workerId, Set.of("research"), jobs, AgentHealth.READY, descriptor, null);
   }
 }

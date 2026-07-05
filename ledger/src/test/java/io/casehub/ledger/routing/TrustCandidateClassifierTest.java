@@ -230,7 +230,7 @@ class TrustCandidateClassifierTest {
   // ---- Helpers ---------------------------------------------------------------
 
   private static AgentCandidate candidate(final String workerId, final int jobs) {
-    return new AgentCandidate(workerId, Set.of(CAP), jobs, AgentHealth.READY, null);
+    return new AgentCandidate(workerId, Set.of(CAP), jobs, AgentHealth.READY, null, null);
   }
 
   private static ClassifiedCandidate classified(

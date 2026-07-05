@@ -18,6 +18,8 @@ package io.casehub.engine.internal.routing;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.spi.routing.CandidateMatchingContext;
+import io.casehub.api.spi.routing.MatchedWorker;
+import io.casehub.eidos.api.MatchDegree;
 import io.casehub.worker.api.Worker;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -36,16 +38,17 @@ class ExactMatchStrategyTest {
     Worker w1 = Worker.builder().name("w1").capabilityName("cap-a").noFunction().build();
     Worker w2 = Worker.builder().name("w2").capabilityName("cap-b").noFunction().build();
     var ctx = new CandidateMatchingContext("cap-a", List.of(w1, w2), null);
-    List<Worker> result = strategy.match(ctx).await().indefinitely();
+    List<MatchedWorker> result = strategy.match(ctx).await().indefinitely();
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).name()).isEqualTo("w1");
+    assertThat(result.get(0).worker().name()).isEqualTo("w1");
+    assertThat(result.get(0).matchDegree()).isInstanceOf(MatchDegree.Exact.class);
   }
 
   @Test
   void noMatchReturnsEmpty() {
     Worker w1 = Worker.builder().name("w1").capabilityName("cap-b").noFunction().build();
     var ctx = new CandidateMatchingContext("cap-a", List.of(w1), null);
-    List<Worker> result = strategy.match(ctx).await().indefinitely();
+    List<MatchedWorker> result = strategy.match(ctx).await().indefinitely();
     assertThat(result).isEmpty();
   }
 
@@ -59,7 +62,7 @@ class ExactMatchStrategyTest {
             .noFunction()
             .build();
     var ctx = new CandidateMatchingContext("cap-b", List.of(w1), null);
-    List<Worker> result = strategy.match(ctx).await().indefinitely();
+    List<MatchedWorker> result = strategy.match(ctx).await().indefinitely();
     assertThat(result).hasSize(1);
   }
 }

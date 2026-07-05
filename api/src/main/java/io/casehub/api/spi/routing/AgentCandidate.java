@@ -16,20 +16,11 @@
 package io.casehub.api.spi.routing;
 
 import io.casehub.eidos.api.AgentDescriptor;
+import io.casehub.eidos.api.MatchDegree;
 import java.util.Set;
 
 /**
  * A pre-filtered, pre-probed agent worker candidate passed to {@link AgentRoutingStrategy#select}.
- *
- * <p>{@code runningJobs} is the count of active Quartz jobs for this worker, sourced from {@code
- * WorkerExecutionManager} — not WorkItem counts. This correctly represents agent load.
- *
- * <p>{@code capabilities} is the worker's full declared capability set, not just the one being
- * matched.
- *
- * <p>{@code agentDescriptor} carries the agent's full vocabulary (domain, slot, disposition,
- * capability descriptions) for semantic routing strategies. Nullable — strategies that receive a
- * null descriptor must treat the candidate as bootstrap (availability routing only).
  *
  * @param workerId the worker name from the case definition YAML
  * @param capabilities all capabilities declared by this worker
@@ -37,10 +28,13 @@ import java.util.Set;
  * @param health pre-probed health status; UNAVAILABLE workers are never included
  * @param agentDescriptor the agent's registered descriptor from casehub-eidos; null if no
  *     descriptor is registered for this worker
+ * @param matchDegree how this worker matched the requested capability; null when match metadata is
+ *     unavailable (bootstrap workers without eidos descriptors)
  */
 public record AgentCandidate(
     String workerId,
     Set<String> capabilities,
     int runningJobs,
     AgentHealth health,
-    AgentDescriptor agentDescriptor) {}
+    AgentDescriptor agentDescriptor,
+    MatchDegree matchDegree) {}

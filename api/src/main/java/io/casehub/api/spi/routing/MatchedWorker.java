@@ -15,10 +15,18 @@
  */
 package io.casehub.api.spi.routing;
 
-import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
-import java.util.List;
+import io.casehub.eidos.api.MatchDegree;
+import io.casehub.worker.api.Worker;
 
-public interface CandidateMatchingStrategy extends NamedStrategy {
-  Uni<List<MatchedWorker>> match(CandidateMatchingContext context);
+/**
+ * A worker paired with the match degree that qualified it for a capability.
+ *
+ * <p>Returned by {@link CandidateMatchingStrategy#match} so that match metadata flows through the
+ * dispatch pipeline without re-deriving it.
+ */
+public record MatchedWorker(Worker worker, MatchDegree matchDegree) {
+
+  public static MatchedWorker exact(Worker worker) {
+    return new MatchedWorker(worker, new MatchDegree.Exact());
+  }
 }
