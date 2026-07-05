@@ -25,6 +25,8 @@ import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
+import io.casehub.ledger.testing.NoOpLedgerEntryRepository;
+import io.casehub.ledger.testing.NoOpReactiveLedgerEntryRepository;
 import io.casehub.persistence.memory.InMemoryCaseMetaModelRepository;
 import io.casehub.persistence.memory.InMemoryReactiveCaseInstanceRepository;
 import io.casehub.persistence.memory.InMemoryReactiveEventLogRepository;

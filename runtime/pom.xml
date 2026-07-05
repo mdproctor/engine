@@ -93,6 +93,11 @@
             <groupId>io.casehub</groupId>
             <artifactId>casehub-ledger-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-ledger-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <dependency>
             <groupId>io.casehub</groupId>
