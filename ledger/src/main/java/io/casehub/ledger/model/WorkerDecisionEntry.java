@@ -15,7 +15,7 @@
  */
 package io.casehub.ledger.model;
 
-import io.casehub.ledger.runtime.model.LedgerEntry;
+import io.casehub.ledger.runtime.model.jpa.JpaLedgerEntry;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
@@ -41,7 +41,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "worker_decision_entry")
 @DiscriminatorValue("WORKER_DECISION")
-public class WorkerDecisionEntry extends LedgerEntry {
+public class WorkerDecisionEntry extends JpaLedgerEntry {
 
   /** The worker name from the case definition — equals {@code actorId}. */
   @Column(name = "worker_id", nullable = false)
