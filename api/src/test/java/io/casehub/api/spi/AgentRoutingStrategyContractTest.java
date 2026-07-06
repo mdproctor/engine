@@ -50,7 +50,7 @@ class AgentRoutingStrategyContractTest {
     final UUID caseId = UUID.randomUUID();
     final var caseContext = NullNode.instance;
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(caseId, "data-analysis", caseContext, "test-tenant");
+        new AgentRoutingContext(caseId, "data-analysis", caseContext, "test-tenant", List.of());
 
     assertThat(ctx.caseId()).isEqualTo(caseId);
     assertThat(ctx.capabilityName()).isEqualTo("data-analysis");
@@ -102,7 +102,7 @@ class AgentRoutingStrategyContractTest {
 
     final UUID caseId = UUID.randomUUID();
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(caseId, "research", NullNode.instance, "test-tenant");
+        new AgentRoutingContext(caseId, "research", NullNode.instance, "test-tenant", List.of());
     final AgentCandidate candidate =
         new AgentCandidate("agent-x", Set.of("research"), 0, AgentHealth.READY, null, null);
 
@@ -130,7 +130,8 @@ class AgentRoutingStrategyContractTest {
           }
         };
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance, "test-tenant");
+        new AgentRoutingContext(
+            UUID.randomUUID(), "research", NullNode.instance, "test-tenant", List.of());
 
     final AgentAssignment result = strategy.select(ctx, List.of()).await().indefinitely();
 
@@ -162,7 +163,7 @@ class AgentRoutingStrategyContractTest {
         };
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
-            UUID.randomUUID(), "sensitive-review", NullNode.instance, "test-tenant");
+            UUID.randomUUID(), "sensitive-review", NullNode.instance, "test-tenant", List.of());
 
     final AgentAssignment result = strategy.select(ctx, List.of()).await().indefinitely();
 

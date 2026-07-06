@@ -18,6 +18,8 @@ package io.casehub.api.engine;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.spi.routing.RetrievedExperience;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -30,10 +32,13 @@ import java.util.UUID;
  * @param caseContext the case runtime context
  * @param caseStatus the case status
  * @param tenancyId the tenant that owns this case
+ * @param experiences retrieved similar cases from CBR (empty list if CBR is not configured or no
+ *     matches found)
  */
 public record PlanExecutionContext(
     UUID caseId,
     CaseDefinition definition,
     CaseContext caseContext,
     CaseStatus caseStatus,
-    String tenancyId) {}
+    String tenancyId,
+    List<RetrievedExperience> experiences) {}

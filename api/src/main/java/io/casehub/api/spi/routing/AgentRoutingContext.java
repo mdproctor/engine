@@ -16,6 +16,7 @@
 package io.casehub.api.spi.routing;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -38,6 +39,12 @@ import java.util.UUID;
  * @param caseContext the current case context as a JSON node; may be {@code NullNode} when the case
  *     has no context
  * @param tenancyId the tenant ID owning the case; used for tenant-scoped CBR and trust lookups
+ * @param experiences retrieved similar cases from CBR (empty list if CBR is not configured or no
+ *     matches found)
  */
 public record AgentRoutingContext(
-    UUID caseId, String capabilityName, JsonNode caseContext, String tenancyId) {}
+    UUID caseId,
+    String capabilityName,
+    JsonNode caseContext,
+    String tenancyId,
+    List<RetrievedExperience> experiences) {}

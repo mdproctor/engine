@@ -15,6 +15,7 @@
  */
 package io.casehub.api.model;
 
+import io.casehub.api.model.cbr.CbrConfig;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.platform.api.path.Path;
@@ -54,6 +55,7 @@ public class CaseDefinition {
   private String candidateMatching;
   private Set<Path> types = Set.of();
   private Set<Path> labels = Set.of();
+  private CbrConfig cbrConfig;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -218,6 +220,14 @@ public class CaseDefinition {
     this.labels = labels != null ? Set.copyOf(labels) : Set.of();
   }
 
+  public CbrConfig getCbrConfig() {
+    return cbrConfig;
+  }
+
+  public void setCbrConfig(CbrConfig cbrConfig) {
+    this.cbrConfig = cbrConfig;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -245,6 +255,7 @@ public class CaseDefinition {
     private String candidateMatching;
     private Set<Path> types = new LinkedHashSet<>();
     private Set<Path> labels = new LinkedHashSet<>();
+    private CbrConfig cbrConfig;
 
     private Builder() {}
 
@@ -418,6 +429,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder cbrConfig(CbrConfig cbrConfig) {
+      this.cbrConfig = cbrConfig;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -452,6 +468,7 @@ public class CaseDefinition {
       caseHubDefinition.setCandidateMatching(candidateMatching);
       caseHubDefinition.setTypes(types);
       caseHubDefinition.setLabels(labels);
+      caseHubDefinition.setCbrConfig(cbrConfig);
 
       return caseHubDefinition;
     }
