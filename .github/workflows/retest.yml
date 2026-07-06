@@ -42,7 +42,7 @@ jobs:
           # Get latest Maven CI workflow run for this PR
           RUN_ID=$(gh run list \
             --repo ${{ github.repository }} \
-            --workflow=maven.yml \
+            --workflow=publish.yml \
             --json databaseId,headSha,status \
             --jq "[.[] | select(.headSha == \"$HEAD_SHA\")] | .[0].databaseId")
 
