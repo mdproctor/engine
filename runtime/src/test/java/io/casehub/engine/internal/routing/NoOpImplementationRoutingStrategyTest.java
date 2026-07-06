@@ -31,7 +31,9 @@ class NoOpImplementationRoutingStrategyTest {
 
   @Test
   void returns_runAll() {
-    var ctx = new ImplementationRoutingContext(UUID.randomUUID(), "someCapability", null);
+    var ctx =
+        new ImplementationRoutingContext(
+            UUID.randomUUID(), "someCapability", null, "test-tenant", List.of());
     var candidates =
         List.of(
             new ImplementationCandidate("b1", "w1", "someCapability"),

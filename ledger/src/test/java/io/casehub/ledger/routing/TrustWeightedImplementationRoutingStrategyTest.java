@@ -52,7 +52,9 @@ class TrustWeightedImplementationRoutingStrategyTest {
     strategy =
         new TrustWeightedImplementationRoutingStrategy(
             new TrustCandidateClassifier(), source, policyProvider);
-    ctx = new ImplementationRoutingContext(UUID.randomUUID(), "strategy", NullNode.instance);
+    ctx =
+        new ImplementationRoutingContext(
+            UUID.randomUUID(), "strategy", NullNode.instance, "test-tenant", List.of());
 
     when(policyProvider.forCapability("strategy")).thenReturn(DEFAULT_POLICY);
     when(source.capabilityScore(any(), any())).thenReturn(OptionalDouble.empty());

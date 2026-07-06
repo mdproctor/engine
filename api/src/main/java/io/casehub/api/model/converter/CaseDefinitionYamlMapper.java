@@ -461,6 +461,48 @@ public final class CaseDefinitionYamlMapper {
       def.setPlanningStrategy(schema.getSpec().getPlanningStrategy());
     }
 
+    // Convert CBR configuration — features and weights read from raw node (generated classes
+    // are empty shells for additionalProperties: maps)
+    if (schema.getSpec() != null && schema.getSpec().getCbr() != null) {
+      final io.casehub.model.Cbr cbr = schema.getSpec().getCbr();
+      final io.casehub.api.model.cbr.CbrConfig.Builder cbrBuilder =
+          io.casehub.api.model.cbr.CbrConfig.builder();
+
+      final JsonNode specNode = rawNode.get("spec");
+      final JsonNode cbrNode = specNode != null ? specNode.get("cbr") : null;
+
+      if (cbrNode != null && cbrNode.has("features")) {
+        final JsonNode featuresNode = cbrNode.get("features");
+        featuresNode
+            .fields()
+            .forEachRemaining(e -> cbrBuilder.feature(e.getKey(), e.getValue().asText()));
+      }
+
+      if (cbrNode != null && cbrNode.has("weights")) {
+        final JsonNode weightsNode = cbrNode.get("weights");
+        weightsNode
+            .fields()
+            .forEachRemaining(e -> cbrBuilder.weight(e.getKey(), e.getValue().asDouble()));
+      }
+
+      if (cbr.getTopK() != null) {
+        cbrBuilder.topK(cbr.getTopK());
+      }
+      if (cbr.getMinSimilarity() != null) {
+        cbrBuilder.minSimilarity(cbr.getMinSimilarity());
+      }
+      if (cbr.getVectorWeight() != null) {
+        cbrBuilder.vectorWeight(cbr.getVectorWeight());
+      }
+      if (cbr.getDomain() != null) {
+        cbrBuilder.domain(cbr.getDomain());
+      }
+      if (cbr.getCaseType() != null) {
+        cbrBuilder.caseType(cbr.getCaseType());
+      }
+      def.setCbrConfig(cbrBuilder.build());
+    }
+
     return def;
   }
 

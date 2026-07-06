@@ -58,6 +58,9 @@ public record CbrConfig(
     if (domain != null && domain.isBlank()) {
       throw new IllegalArgumentException("domain must not be blank");
     }
+    if (caseType != null && caseType.isBlank()) {
+      throw new IllegalArgumentException("caseType must not be blank when provided");
+    }
     weights = Map.copyOf(weights);
     for (var entry : weights.entrySet()) {
       if (entry.getValue() < 0.0) {

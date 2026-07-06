@@ -99,7 +99,8 @@ class BindingGatingTest {
             def,
             mock(CaseContext.class),
             io.casehub.api.model.CaseStatus.RUNNING,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
   }
 
   /** Creates a minimal mock Binding with the given name and no capability. */
@@ -254,7 +255,8 @@ class BindingGatingTest {
             ctx.definition(),
             ctx.caseContext(),
             io.casehub.api.model.CaseStatus.SUSPENDED,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
     Binding b = binding("any-b");
 
     List<Binding> result = loopControl.select(suspended, List.of(b)).await().indefinitely();
@@ -270,7 +272,8 @@ class BindingGatingTest {
             ctx.definition(),
             ctx.caseContext(),
             io.casehub.api.model.CaseStatus.COMPLETED,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
     Binding b = binding("any-b");
 
     List<Binding> result = loopControl.select(completed, List.of(b)).await().indefinitely();
@@ -288,7 +291,8 @@ class BindingGatingTest {
             ctx.definition(),
             ctx.caseContext(),
             io.casehub.api.model.CaseStatus.WAITING,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
 
     // No PlanItem created yet — first time this binding is eligible
     List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
@@ -308,7 +312,8 @@ class BindingGatingTest {
             ctx.definition(),
             ctx.caseContext(),
             io.casehub.api.model.CaseStatus.WAITING,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
 
     // Pre-populate a RUNNING PlanItem for this binding
     PlanItem item = PlanItem.create("active-b", "some-worker", 0);
@@ -332,7 +337,8 @@ class BindingGatingTest {
             ctx.definition(),
             ctx.caseContext(),
             io.casehub.api.model.CaseStatus.WAITING,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
 
     PlanItem item = PlanItem.create("delegated-b", "ht-worker", 0);
     item.markDelegated();
@@ -358,7 +364,8 @@ class BindingGatingTest {
             ctx.definition(),
             ctx.caseContext(),
             io.casehub.api.model.CaseStatus.WAITING,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
 
     PlanItem item = PlanItem.create("done-b", "some-worker", 0);
     item.markRunning();

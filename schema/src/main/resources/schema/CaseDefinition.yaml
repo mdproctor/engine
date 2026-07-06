@@ -245,6 +245,8 @@ $defs:
         description: >
           Planning strategy for this case. Options: "parallel" (default), "sequential".
           Controls how multiple eligible bindings are scheduled.
+      cbr:
+        $ref: "#/$defs/Cbr"
       bindings:
         type: array
         description: >
@@ -280,6 +282,57 @@ $defs:
       _forceGoogleAi:
         description: "TEMPORARY: forces generation of GoogleAiGeminiModel class"
         $ref: "#/$defs/GoogleAiGeminiModel"
+
+  Cbr:
+    type: object
+    description: >
+      CBR (Case-Based Reasoning) retrieval configuration. Declares how to
+      extract features from the case context for similarity-based retrieval
+      of past case experiences at routing time.
+    required: [ features ]
+    unevaluatedProperties: false
+    properties:
+      features:
+        type: object
+        description: >
+          Map of feature name to JQ expression. Each expression is evaluated
+          against the working layer to extract a feature value for CBR retrieval.
+        additionalProperties:
+          type: string
+      weights:
+        type: object
+        description: Per-feature weight overrides for similarity scoring.
+        additionalProperties:
+          type: number
+      topK:
+        type: integer
+        minimum: 1
+        default: 5
+        description: Maximum number of similar cases to retrieve.
+      minSimilarity:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0
+        description: Minimum similarity score threshold.
+      vectorWeight:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0.5
+        description: Blend factor between feature similarity and vector similarity.
+      domain:
+        type: string
+        minLength: 1
+        description: >
+          MemoryDomain name for CBR retrieval. Defaults to episodicMemory.domain
+          if not specified.
+      caseType:
+        type: string
+        minLength: 1
+        description: >
+          CBR case type for retrieval. Defaults to the case definition name
+          if not specified.
 
   Capability:
     description: >

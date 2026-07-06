@@ -26,6 +26,30 @@
             <version>0.2-SNAPSHOT</version>
             <scope>runtime</scope>
         </dependency>
+
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-neocortex-rag-api</artifactId>
+            <version>0.2-SNAPSHOT</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-neocortex-rag-expansion</artifactId>
+            <version>0.2-SNAPSHOT</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-neocortex-rag-testing</artifactId>
+            <version>0.2-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-neocortex-memory-cbr-inmem</artifactId>
+            <version>0.2-SNAPSHOT</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-engine-common</artifactId>

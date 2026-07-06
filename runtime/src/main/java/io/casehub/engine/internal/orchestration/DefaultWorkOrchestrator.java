@@ -29,6 +29,7 @@ import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -44,6 +45,7 @@ import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
+import io.casehub.engine.internal.routing.CbrRetrievalService;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -82,6 +84,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
   private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final JQEvaluator jqEvaluator;
+  private final CbrRetrievalService cbrRetrievalService;
 
   @Inject
   public DefaultWorkOrchestrator(
@@ -94,7 +97,8 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       final CaseDefinitionRegistry caseDefinitionRegistry,
       final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository,
       final ReactiveEventLogRepository reactiveEventLogRepository,
-      final JQEvaluator jqEvaluator) {
+      final JQEvaluator jqEvaluator,
+      final CbrRetrievalService cbrRetrievalService) {
     this.agentCandidateFactory = agentCandidateFactory;
     this.agentRoutingStrategy = agentRoutingStrategy;
     this.executionManager = executionManager;
@@ -105,6 +109,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
     this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.jqEvaluator = jqEvaluator;
+    this.cbrRetrievalService = cbrRetrievalService;
   }
 
   /**
@@ -150,12 +155,15 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
             capabilityHealth);
 
     // 3. Route via AgentRoutingStrategy (blocking await — not on Vert.x IO thread)
+    final java.util.List<RetrievedExperience> experiences =
+        cbrRetrievalService.retrieve(definition, instance).await().indefinitely();
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
             instance.getUuid(),
             capability.name(),
             instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
-            instance.tenancyId);
+            instance.tenancyId,
+            experiences);
     final AgentAssignment assignment =
         agentRoutingStrategy.select(ctx, candidates).await().indefinitely();
 

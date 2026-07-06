@@ -101,6 +101,8 @@ class CaseContextChangedEventHandlerRoutingTest {
 
   @Mock io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider;
 
+  @Mock io.casehub.engine.internal.routing.CbrRetrievalService cbrRetrievalService;
+
   @InjectMocks CaseContextChangedEventHandler handler;
 
   private CaseInstance caseInstance;
@@ -165,6 +167,7 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(binding)));
     when(traceIdProvider.currentTraceId()).thenReturn(java.util.Optional.empty());
+    when(cbrRetrievalService.retrieve(any(), any())).thenReturn(Uni.createFrom().item(List.of()));
   }
 
   @Test

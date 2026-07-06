@@ -65,6 +65,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jboss.logging.Logger;
@@ -781,7 +782,11 @@ public class WorkflowExecutionCompletedHandler {
     if (capabilityName == null) return;
     var ctx =
         new io.casehub.api.spi.routing.AgentRoutingContext(
-            caseInstance.getUuid(), capabilityName, contextSnapshot, caseInstance.tenancyId);
+            caseInstance.getUuid(),
+            capabilityName,
+            contextSnapshot,
+            caseInstance.tenancyId,
+            List.of());
     outcomeRecorder
         .get()
         .record(ctx, worker.name(), bindingName, outcomeString, null)

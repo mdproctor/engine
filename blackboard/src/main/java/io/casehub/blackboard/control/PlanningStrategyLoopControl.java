@@ -205,7 +205,9 @@ public class PlanningStrategyLoopControl implements LoopControl {
                       new ImplementationRoutingContext(
                           ctx.caseId(),
                           capName,
-                          ctx.caseContext() != null ? ctx.caseContext().asJsonNode() : null);
+                          ctx.caseContext() != null ? ctx.caseContext().asJsonNode() : null,
+                          ctx.tenancyId(),
+                          ctx.experiences());
                   return implementationRoutingStrategy
                       .select(routingCtx, candidates)
                       .map(

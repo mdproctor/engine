@@ -33,7 +33,12 @@ class ChoreographyLoopControlTest {
 
   private PlanExecutionContext ctx(CaseStatus status) {
     return new PlanExecutionContext(
-        UUID.randomUUID(), mock(CaseDefinition.class), mock(CaseContext.class), status, null);
+        UUID.randomUUID(),
+        mock(CaseDefinition.class),
+        mock(CaseContext.class),
+        status,
+        null,
+        List.of());
   }
 
   private Binding binding(String name) {

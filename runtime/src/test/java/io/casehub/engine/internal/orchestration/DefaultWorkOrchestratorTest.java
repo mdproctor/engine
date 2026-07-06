@@ -46,6 +46,7 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.engine.internal.routing.CbrRetrievalService;
 import io.casehub.engine.internal.routing.SubsumptionMatchStrategy;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.casehub.platform.api.routing.NamedStrategy;
@@ -74,6 +75,7 @@ class DefaultWorkOrchestratorTest {
   private ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   private ReactiveEventLogRepository reactiveEventLogRepository;
   private JQEvaluator jqEvaluator;
+  private CbrRetrievalService cbrRetrievalService;
   private DefaultWorkOrchestrator orchestrator;
 
   @BeforeEach
@@ -87,7 +89,9 @@ class DefaultWorkOrchestratorTest {
     reactiveCaseInstanceRepository = mock(ReactiveCaseInstanceRepository.class);
     reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
     jqEvaluator = mock(JQEvaluator.class);
+    cbrRetrievalService = mock(CbrRetrievalService.class);
 
+    when(cbrRetrievalService.retrieve(any(), any())).thenReturn(Uni.createFrom().item(List.of()));
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
     when(executionManager.getActiveWorkCount(any())).thenReturn(0);
@@ -113,7 +117,8 @@ class DefaultWorkOrchestratorTest {
             caseDefinitionRegistry,
             reactiveCaseInstanceRepository,
             reactiveEventLogRepository,
-            jqEvaluator);
+            jqEvaluator,
+            cbrRetrievalService);
   }
 
   // ---- happy path -----------------------------------------------------------

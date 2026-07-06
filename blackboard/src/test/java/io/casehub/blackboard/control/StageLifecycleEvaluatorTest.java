@@ -31,6 +31,7 @@ import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -56,7 +57,8 @@ class StageLifecycleEvaluatorTest {
             mock(CaseDefinition.class),
             mockCtx,
             io.casehub.api.model.CaseStatus.RUNNING,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
   }
 
   @Test

@@ -1,0 +1,41 @@
+dsl: "0.1"
+version: "1.0.0"
+name: CBR Routing Test
+namespace: test-cbr
+title: Test Case with CBR Config for Routing Integration Tests
+spec:
+  cbr:
+    features:
+      posture: ".enemy.posture"
+      armySize: ".enemy.army_size"
+    weights:
+      posture: 2.0
+      armySize: 1.0
+    topK: 5
+    minSimilarity: 0.0
+    domain: cbr-test-domain
+    caseType: battle
+  capabilities:
+    - name: planBattle
+      description: Plan a battle strategy
+      inputSchema: "{ posture: .enemy.posture }"
+      outputSchema: "{ strategy: .strategy }"
+  workers:
+    - name: battle-planner
+      description: Plans battle strategies
+      capabilities:
+        - planBattle
+  bindings:
+    - name: plan-on-enemy-sighted
+      capability: planBattle
+      on:
+        contextChange:
+          filter: '.enemy.posture != null'
+  goals:
+    - name: battlePlanned
+      description: Battle plan is ready
+      condition: '.strategy != null'
+  completion:
+    success:
+      allOf:
+        - battlePlanned

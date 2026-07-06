@@ -102,7 +102,8 @@ class ImplementationRoutingTest {
             def,
             mock(CaseContext.class),
             io.casehub.api.model.CaseStatus.RUNNING,
-            TenancyConstants.DEFAULT_TENANT_ID);
+            TenancyConstants.DEFAULT_TENANT_ID,
+            List.of());
   }
 
   private Binding capabilityBinding(String name, String capName) {

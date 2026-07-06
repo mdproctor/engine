@@ -61,7 +61,7 @@ public class WorkActorStateContributor implements ActorStateContributor {
                 wi.id,
                 wi.title,
                 wi.status != null ? wi.status.name() : null,
-                wi.category,
+                null,
                 parseCaseId(wi.callerRef)));
   }
 

@@ -47,6 +47,7 @@ import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.CandidateSetContext;
 import io.casehub.api.spi.routing.CandidateSetSpec;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -65,6 +66,7 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
+import io.casehub.engine.internal.routing.CbrRetrievalService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
@@ -113,6 +115,8 @@ public class CaseContextChangedEventHandler {
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
 
   @Inject LedgerTraceIdProvider traceIdProvider;
+
+  @Inject CbrRetrievalService cbrRetrievalService;
 
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
@@ -217,32 +221,39 @@ public class CaseContextChangedEventHandler {
       eligible.add(binding);
     }
 
-    final PlanExecutionContext planCtx =
-        new PlanExecutionContext(
-            caseInstance.getUuid(),
-            definition,
-            caseInstance.getCaseContext(),
-            caseInstance.getState(),
-            caseInstance.tenancyId);
-
-    return loopControl
-        .select(planCtx, eligible)
+    return cbrRetrievalService
+        .retrieve(definition, caseInstance)
         .chain(
-            selected -> {
-              final List<Uni<Void>> unis = new ArrayList<>(selected.size());
-              for (final Binding b : selected) {
-                unis.add(
-                    publishByTarget(
-                        caseInstance,
-                        definition,
-                        workers,
-                        b,
-                        triggerChannelId,
-                        triggerCorrelationId,
-                        signalId));
-              }
-              if (unis.isEmpty()) return Uni.createFrom().voidItem();
-              return Uni.combine().all().unis(unis).discardItems();
+            experiences -> {
+              final PlanExecutionContext planCtx =
+                  new PlanExecutionContext(
+                      caseInstance.getUuid(),
+                      definition,
+                      caseInstance.getCaseContext(),
+                      caseInstance.getState(),
+                      caseInstance.tenancyId,
+                      experiences);
+
+              return loopControl
+                  .select(planCtx, eligible)
+                  .chain(
+                      selected -> {
+                        final List<Uni<Void>> unis = new ArrayList<>(selected.size());
+                        for (final Binding b : selected) {
+                          unis.add(
+                              publishByTarget(
+                                  caseInstance,
+                                  definition,
+                                  workers,
+                                  b,
+                                  triggerChannelId,
+                                  triggerCorrelationId,
+                                  signalId,
+                                  experiences));
+                        }
+                        if (unis.isEmpty()) return Uni.createFrom().voidItem();
+                        return Uni.combine().all().unis(unis).discardItems();
+                      });
             });
   }
 
@@ -272,7 +283,8 @@ public class CaseContextChangedEventHandler {
       final Binding binding,
       final String triggerChannelId,
       final String triggerCorrelationId,
-      final java.util.UUID signalId) {
+      final java.util.UUID signalId,
+      final List<RetrievedExperience> experiences) {
     if (binding.getContextWrite() != null && !binding.getContextWrite().isEmpty()) {
       binding
           .getContextWrite()
@@ -288,7 +300,8 @@ public class CaseContextChangedEventHandler {
               ct.capability(),
               triggerChannelId,
               triggerCorrelationId,
-              signalId);
+              signalId,
+              experiences);
       case SubCaseTarget st ->
           publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
       case HumanTaskTarget ht -> publishHumanTaskSchedule(caseInstance, binding, ht);
@@ -309,7 +322,8 @@ public class CaseContextChangedEventHandler {
       final Capability capability,
       final String triggerChannelId,
       final String triggerCorrelationId,
-      final java.util.UUID signalId) {
+      final java.util.UUID signalId,
+      final List<RetrievedExperience> experiences) {
 
     if (workers == null || workers.isEmpty()) {
       LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.name());
@@ -372,7 +386,8 @@ public class CaseContextChangedEventHandler {
             caseInstance.getUuid(),
             capability.name(),
             caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
-            caseInstance.tenancyId);
+            caseInstance.tenancyId,
+            experiences);
 
     final AgentRoutingStrategy routingStrategy =
         strategyResolver.resolve(AgentRoutingStrategy.class, caseDefinition.getAgentRouting());

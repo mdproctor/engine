@@ -39,7 +39,8 @@ class DefaultPlanningStrategyTest {
         mock(CaseDefinition.class),
         mock(CaseContext.class),
         io.casehub.api.model.CaseStatus.RUNNING,
-        TenancyConstants.DEFAULT_TENANT_ID);
+        TenancyConstants.DEFAULT_TENANT_ID,
+        List.of());
   }
 
   @Test
