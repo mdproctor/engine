@@ -46,6 +46,12 @@
             <artifactId>casehub-ledger</artifactId>
         </dependency>
 
+        <!-- CommitmentAttestationPolicy SPI — TrustGatedAttestationPolicy implements it -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-qhorus-api</artifactId>
+        </dependency>
+
         <!-- CDI + JPA (blocking) for EntityManager -->
         <dependency>
             <groupId>io.quarkus</groupId>
