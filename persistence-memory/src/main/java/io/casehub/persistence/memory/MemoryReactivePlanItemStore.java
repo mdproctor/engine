@@ -18,6 +18,7 @@ package io.casehub.persistence.memory;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.common.spi.ReactivePlanItemStore;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -29,12 +30,15 @@ import java.util.UUID;
 /**
  * Reactive wrapper around {@link MemoryPlanItemStore} for engine handlers on Vert.x IO threads.
  * Activated via {@code quarkus.arc.selected-alternatives} — never active in production.
+ *
+ * <p>Delegate is injected by SPI interface (not concrete class) to avoid Quarkus ARC
+ * {@code @Alternative} resolution issues.
  */
 @Alternative
 @ApplicationScoped
 public class MemoryReactivePlanItemStore implements ReactivePlanItemStore {
 
-  @Inject MemoryPlanItemStore delegate;
+  @Inject PlanItemStore delegate;
 
   @Override
   public Uni<Void> save(PlanItemSaveRequest request, String tenancyId) {

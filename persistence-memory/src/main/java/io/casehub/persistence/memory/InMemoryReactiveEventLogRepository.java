@@ -18,6 +18,8 @@ package io.casehub.persistence.memory;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.smallrye.mutiny.Uni;
@@ -33,6 +35,10 @@ import java.util.UUID;
  * Reactive mirror of {@link InMemoryEventLogRepository}. Delegates all operations to the blocking
  * canonical and wraps results in {@code Uni}. Same tenancyId rules apply.
  *
+ * <p>Delegates are injected by SPI interface (not concrete class) to avoid Quarkus ARC
+ * {@code @Alternative} resolution issues where concrete-class injection resolves to a different
+ * bean instance than the active alternative.
+ *
  * @see InMemoryEventLogRepository
  */
 @Alternative
@@ -40,10 +46,12 @@ import java.util.UUID;
 public class InMemoryReactiveEventLogRepository
     implements ReactiveEventLogRepository, ReactiveCrossTenantEventLogRepository {
 
-  @Inject InMemoryEventLogRepository delegate;
+  @Inject EventLogRepository delegate;
+  @Inject CrossTenantEventLogRepository crossTenantDelegate;
 
   public void setDelegate(InMemoryEventLogRepository delegate) {
     this.delegate = delegate;
+    this.crossTenantDelegate = delegate;
   }
 
   // ── Tenant-scoped methods ────────────────────────────────────────────────
@@ -104,34 +112,36 @@ public class InMemoryReactiveEventLogRepository
 
   @Override
   public Uni<List<EventLog>> findByTypes(Collection<CaseHubEventType> types) {
-    return Uni.createFrom().item(delegate.findByTypes(types));
+    return Uni.createFrom().item(crossTenantDelegate.findByTypes(types));
   }
 
   @Override
   public Uni<List<EventLog>> findByCaseAndTypes(UUID caseId, Collection<CaseHubEventType> types) {
-    return Uni.createFrom().item(delegate.findByCaseAndTypes(caseId, types));
+    return Uni.createFrom().item(crossTenantDelegate.findByCaseAndTypes(caseId, types));
   }
 
   @Override
   public Uni<List<String>> findSubmittedWorkWithoutCompletion() {
-    return Uni.createFrom().item(delegate.findSubmittedWorkWithoutCompletion());
+    return Uni.createFrom().item(crossTenantDelegate.findSubmittedWorkWithoutCompletion());
   }
 
   @Override
   public Uni<EventLog> findById(Long id) {
-    EventLog result = delegate.findById(id);
+    EventLog result = crossTenantDelegate.findById(id);
     return result == null ? Uni.createFrom().nullItem() : Uni.createFrom().item(result);
   }
 
   @Override
   public Uni<List<EventLog>> findByCaseAndWorkerAndType(
       UUID caseId, String workerId, CaseHubEventType type) {
-    return Uni.createFrom().item(delegate.findByCaseAndWorkerAndType(caseId, workerId, type));
+    return Uni.createFrom()
+        .item(crossTenantDelegate.findByCaseAndWorkerAndType(caseId, workerId, type));
   }
 
   @Override
   public Uni<List<EventLog>> findByWorkerAndTypeAcrossTenants(
       String workerId, CaseHubEventType type) {
-    return Uni.createFrom().item(delegate.findByWorkerAndTypeAcrossTenants(workerId, type));
+    return Uni.createFrom()
+        .item(crossTenantDelegate.findByWorkerAndTypeAcrossTenants(workerId, type));
   }
 }

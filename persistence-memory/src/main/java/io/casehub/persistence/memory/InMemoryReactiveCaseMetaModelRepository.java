@@ -16,6 +16,7 @@
 package io.casehub.persistence.memory;
 
 import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -26,13 +27,16 @@ import jakarta.inject.Inject;
  * Reactive mirror of {@link InMemoryCaseMetaModelRepository}. Delegates all operations to the
  * blocking canonical and wraps results in {@code Uni}.
  *
+ * <p>Delegate is injected by SPI interface (not concrete class) to avoid Quarkus ARC
+ * {@code @Alternative} resolution issues.
+ *
  * @see InMemoryCaseMetaModelRepository
  */
 @Alternative
 @ApplicationScoped
 public class InMemoryReactiveCaseMetaModelRepository implements ReactiveCaseMetaModelRepository {
 
-  @Inject InMemoryCaseMetaModelRepository delegate;
+  @Inject CaseMetaModelRepository delegate;
 
   public void setDelegate(InMemoryCaseMetaModelRepository delegate) {
     this.delegate = delegate;

@@ -18,6 +18,8 @@ package io.casehub.persistence.memory;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
 import io.smallrye.mutiny.Uni;
@@ -31,6 +33,10 @@ import java.util.UUID;
  * Reactive mirror of {@link InMemoryCaseInstanceRepository}. Delegates all operations to the
  * blocking canonical and wraps results in {@code Uni}. Same tenancyId rules apply.
  *
+ * <p>Delegates are injected by SPI interface (not concrete class) to avoid Quarkus ARC
+ * {@code @Alternative} resolution issues where concrete-class injection resolves to a different
+ * bean instance than the active alternative.
+ *
  * @see InMemoryCaseInstanceRepository
  */
 @Alternative
@@ -38,10 +44,12 @@ import java.util.UUID;
 public class InMemoryReactiveCaseInstanceRepository
     implements ReactiveCaseInstanceRepository, ReactiveCrossTenantCaseInstanceRepository {
 
-  @Inject InMemoryCaseInstanceRepository delegate;
+  @Inject CaseInstanceRepository delegate;
+  @Inject CrossTenantCaseInstanceRepository crossTenantDelegate;
 
   public void setDelegate(InMemoryCaseInstanceRepository delegate) {
     this.delegate = delegate;
+    this.crossTenantDelegate = delegate;
   }
 
   @Override
@@ -62,7 +70,7 @@ public class InMemoryReactiveCaseInstanceRepository
 
   @Override
   public Uni<CaseInstance> findByUuid(UUID uuid) {
-    CaseInstance result = delegate.findByUuid(uuid);
+    CaseInstance result = crossTenantDelegate.findByUuid(uuid);
     return result == null ? Uni.createFrom().nullItem() : Uni.createFrom().item(result);
   }
 

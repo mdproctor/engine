@@ -18,6 +18,7 @@ package io.casehub.persistence.memory;
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -29,13 +30,16 @@ import java.util.UUID;
  * Reactive mirror of {@link InMemorySubCaseGroupRepository}. Delegates all operations to the
  * blocking canonical and wraps results in {@code Uni}.
  *
+ * <p>Delegate is injected by SPI interface (not concrete class) to avoid Quarkus ARC
+ * {@code @Alternative} resolution issues.
+ *
  * @see InMemorySubCaseGroupRepository
  */
 @Alternative
 @ApplicationScoped
 public class InMemoryReactiveSubCaseGroupRepository implements ReactiveSubCaseGroupRepository {
 
-  @Inject InMemorySubCaseGroupRepository delegate;
+  @Inject SubCaseGroupRepository delegate;
 
   public void setDelegate(InMemorySubCaseGroupRepository delegate) {
     this.delegate = delegate;
