@@ -89,6 +89,10 @@ public class WorkflowExecutionCompletedHandler {
   @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
+  @Inject
+  jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
+      outcomeRecorder;
+
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
 
@@ -128,6 +132,7 @@ public class WorkflowExecutionCompletedHandler {
       EpisodicLayerUpdater.recordWorkerCompletion(ctx, worker.name(), "COMPLETED");
     }
     recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
+    fireOutcomeRecorder(caseInstance, worker, bindingName, "SUCCESS", contextBefore);
 
     // Settlement recorded AFTER output application — signalAndAwait callers see the output.
     // Refs casehubio/engine#659.
@@ -321,6 +326,13 @@ public class WorkflowExecutionCompletedHandler {
       case WorkerOutcome.Success s ->
           throw new IllegalStateException("Success should not reach handleSemanticFailure");
     }
+
+    fireOutcomeRecorder(
+        caseInstance,
+        worker,
+        bindingName,
+        "FAILURE",
+        caseInstance.getCaseContext().snapshot().asJsonNode());
 
     // Read or create _outcomes.<bindingName> in working layer
     @SuppressWarnings("unchecked")
@@ -756,5 +768,31 @@ public class WorkflowExecutionCompletedHandler {
    */
   private Object applyStrategy(String strategy, String key, Object existing, Object incoming) {
     return ConflictResolver.resolve(strategy, key, existing, incoming);
+  }
+
+  private void fireOutcomeRecorder(
+      CaseInstance caseInstance,
+      Worker worker,
+      String bindingName,
+      String outcomeString,
+      JsonNode contextSnapshot) {
+    if (outcomeRecorder.isUnsatisfied()) return;
+    String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
+    if (capabilityName == null) return;
+    var ctx =
+        new io.casehub.api.spi.routing.AgentRoutingContext(
+            caseInstance.getUuid(), capabilityName, contextSnapshot, caseInstance.tenancyId);
+    outcomeRecorder
+        .get()
+        .record(ctx, worker.name(), bindingName, outcomeString, null)
+        .subscribe()
+        .with(
+            ignored -> {},
+            err ->
+                LOG.warnf(
+                    err,
+                    "Outcome recording failed for caseId=%s worker=%s",
+                    caseInstance.getUuid(),
+                    worker.name()));
   }
 }
