@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
@@ -31,9 +31,9 @@ import org.junit.jupiter.api.Timeout;
 
 @QuarkusTest
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
-class JpaCaseMetaModelRepositoryTest {
+class JpaReactiveCaseMetaModelRepositoryTest {
 
-  @Inject CaseMetaModelRepository repository;
+  @Inject ReactiveCaseMetaModelRepository repository;
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 

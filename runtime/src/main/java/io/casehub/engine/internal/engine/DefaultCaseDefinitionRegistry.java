@@ -30,7 +30,7 @@ import io.casehub.engine.common.internal.model.CaseKey;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.path.Path;
 import io.quarkus.runtime.StartupEvent;
@@ -54,8 +54,8 @@ import org.jboss.logging.Logger;
 /**
  * Default implementation of {@link CaseDefinitionRegistry}.
  *
- * <p>Persists each definition's metadata via {@link CaseMetaModelRepository} on startup so the
- * engine can reference it by id.
+ * <p>Persists each definition's metadata via {@link ReactiveCaseMetaModelRepository} on startup so
+ * the engine can reference it by id.
  */
 @ApplicationScoped
 public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
@@ -68,7 +68,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
   @Inject Instance<CaseHub> caseHubInstance;
 
-  @Inject CaseMetaModelRepository caseMetaModelRepository;
+  @Inject ReactiveCaseMetaModelRepository reactiveCaseMetaModelRepository;
 
   @Inject Vertx vertx;
 
@@ -144,7 +144,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
     definition.setNamespace(model.getNamespace());
     definition.setVersion(model.getVersion());
 
-    return caseMetaModelRepository
+    return reactiveCaseMetaModelRepository
         .findByKey(
             model.getNamespace(), model.getName(), model.getVersion(), currentPrincipal.tenancyId())
         .onItem()
@@ -156,7 +156,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
               }
               definition.setDsl(model.getDsl());
               definition.setCreatedAt(Instant.now());
-              return caseMetaModelRepository
+              return reactiveCaseMetaModelRepository
                   .save(definition, currentPrincipal.tenancyId())
                   .invoke(
                       saved -> registry.put(CaseKey.of(saved), new RegistryEntry(model, saved)));

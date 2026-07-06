@@ -33,7 +33,7 @@ import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.quarkus.vertx.ConsumeEvent;
@@ -56,7 +56,7 @@ public class SubCaseExecutionHandler {
   private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
   private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final PendingWorkRegistry pendingWorkRegistry;
-  private final SubCaseGroupRepository subCaseGroupRepository;
+  private final ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository;
   private final BlackboardRegistry registry;
   private final CaseInstanceCache caseInstanceCache;
 
@@ -67,7 +67,7 @@ public class SubCaseExecutionHandler {
       ReactiveCaseInstanceRepository reactiveCaseInstanceRepository,
       ReactiveEventLogRepository reactiveEventLogRepository,
       PendingWorkRegistry pendingWorkRegistry,
-      SubCaseGroupRepository subCaseGroupRepository,
+      ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository,
       BlackboardRegistry registry,
       CaseInstanceCache caseInstanceCache) {
     this.caseHubRuntime = caseHubRuntime;
@@ -75,7 +75,7 @@ public class SubCaseExecutionHandler {
     this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
     this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.pendingWorkRegistry = pendingWorkRegistry;
-    this.subCaseGroupRepository = subCaseGroupRepository;
+    this.reactiveSubCaseGroupRepository = reactiveSubCaseGroupRepository;
     this.registry = registry;
     this.caseInstanceCache = caseInstanceCache;
   }
@@ -219,7 +219,7 @@ public class SubCaseExecutionHandler {
       return Uni.createFrom().voidItem();
     }
 
-    return subCaseGroupRepository
+    return reactiveSubCaseGroupRepository
         .getOrCreate(
             parent.getUuid(),
             groupId,
@@ -229,7 +229,7 @@ public class SubCaseExecutionHandler {
             parent.tenancyId)
         .flatMap(
             group ->
-                subCaseGroupRepository.registerChild(
+                reactiveSubCaseGroupRepository.registerChild(
                     parent.getUuid(), groupId, childCaseId, parent.tenancyId))
         .flatMap(
             group -> {

@@ -17,7 +17,6 @@ package io.casehub.persistence.memory;
 
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import java.time.Instant;
@@ -25,6 +24,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+/**
+ * In-memory blocking {@link CaseMetaModelRepository} for engine unit tests. Canonical
+ * implementation — {@link InMemoryReactiveCaseMetaModelRepository} delegates to this.
+ */
 @Alternative
 @ApplicationScoped
 public class InMemoryCaseMetaModelRepository implements CaseMetaModelRepository {
@@ -34,19 +37,17 @@ public class InMemoryCaseMetaModelRepository implements CaseMetaModelRepository 
   private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
 
   @Override
-  public Uni<CaseMetaModel> findByKey(
-      String namespace, String name, String version, String tenancyId) {
+  public CaseMetaModel findByKey(String namespace, String name, String version, String tenancyId) {
     rwLock.readLock().lock();
     try {
-      CaseMetaModel m = store.get(key(tenancyId, namespace, name, version));
-      return Uni.createFrom().item(m);
+      return store.get(key(tenancyId, namespace, name, version));
     } finally {
       rwLock.readLock().unlock();
     }
   }
 
   @Override
-  public Uni<CaseMetaModel> save(CaseMetaModel metaModel, String tenancyId) {
+  public CaseMetaModel save(CaseMetaModel metaModel, String tenancyId) {
     rwLock.writeLock().lock();
     try {
       if (metaModel.id == null) {
@@ -59,7 +60,7 @@ public class InMemoryCaseMetaModelRepository implements CaseMetaModelRepository 
       store.put(
           key(tenancyId, metaModel.getNamespace(), metaModel.getName(), metaModel.getVersion()),
           metaModel);
-      return Uni.createFrom().item(metaModel);
+      return metaModel;
     } finally {
       rwLock.writeLock().unlock();
     }

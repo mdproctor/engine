@@ -21,13 +21,15 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class InMemoryCaseMetaModelRepositoryTest {
+class InMemoryReactiveCaseMetaModelRepositoryTest {
 
-  InMemoryCaseMetaModelRepository repository;
+  InMemoryReactiveCaseMetaModelRepository repository;
 
   @BeforeEach
   void setUp() {
-    repository = new InMemoryCaseMetaModelRepository();
+    InMemoryCaseMetaModelRepository blocking = new InMemoryCaseMetaModelRepository();
+    repository = new InMemoryReactiveCaseMetaModelRepository();
+    repository.setDelegate(blocking);
   }
 
   // --- Happy path ---

@@ -106,7 +106,7 @@ Domain objects, SPI interfaces, and shared CDI infrastructure live in `casehub-e
 
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`, `SubCaseGroup`, `PlanItemStatus` (enum), `PlanItemRecord` (read model)
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/history/` — `EventLog`, `CaseHubEventType`, `EventStreamType`
-- `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `ReactiveCaseInstanceRepository`, `ReactiveEventLogRepository`, `SubCaseGroupRepository`, `PlanItemStore` (blocking), `ReactivePlanItemStore` (Uni<>), `CaseInstanceRepository` (blocking), `EventLogRepository` (blocking), `CrossTenantCaseInstanceRepository` (blocking), `CrossTenantEventLogRepository` (blocking). Dual-stack convention: unqualified = blocking, `Reactive` prefix = Uni-based. Implementations: memory blocking is canonical (reactive delegates), JPA reactive is canonical (blocking awaits).
+- `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository` (blocking), `ReactiveCaseMetaModelRepository` (Uni<>), `ReactiveCaseInstanceRepository`, `ReactiveEventLogRepository`, `SubCaseGroupRepository` (blocking), `ReactiveSubCaseGroupRepository` (Uni<>), `PlanItemStore` (blocking), `ReactivePlanItemStore` (Uni<>), `CaseInstanceRepository` (blocking), `EventLogRepository` (blocking), `CrossTenantCaseInstanceRepository` (blocking), `CrossTenantEventLogRepository` (blocking). Dual-stack convention: unqualified = blocking, `Reactive` prefix = Uni-based. Implementations: memory blocking is canonical (reactive delegates), JPA reactive is canonical (blocking awaits).
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/jq/` — `JQEvaluator` (@ApplicationScoped), `ValidationResult` — canonical jq evaluation; lives here so `scheduler-quartz` can inject it without circular dependency. See protocol `PP-20260522-jq-evaluation-canonical`. Follow-on platform extraction tracked in engine#317.
 - `casehub-engine-common/src/main/java/io/casehub/engine/common/internal/executor/` — `WorkerExecutor` (SPI), `WorkerExecutionConfig` (@ApplicationScoped, default timeout), `RetryPolicies` (static utility, backoff computation), `RetryDecision` (sealed: Retry | Exhaust), `ExecutionMetadata` (lineage record for flow path)
 
@@ -375,7 +375,7 @@ TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl casehub-blackboard
 - Uses `casehub-persistence-memory` as a test dependency for in-memory SPI implementations
 - `src/test/resources/application.properties` sets `quarkus.http.test-port=0`, indexes the
   persistence-memory module via `quarkus.index-dependency`, and activates the in-memory
-  alternatives via `quarkus.arc.selected-alternatives` (including `MemorySubCaseGroupRepository`)
+  alternatives via `quarkus.arc.selected-alternatives` (including `InMemorySubCaseGroupRepository`, `InMemoryReactiveSubCaseGroupRepository`)
 - `@ObservesAsync` CDI event delivery is **unreliable in `@QuarkusTest`** — observer methods
   are silently never invoked. When testing observer logic, inject the listener bean and call the
   observer method directly rather than relying on `Event.fireAsync()`.
@@ -450,10 +450,10 @@ See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until al
 - Add `casehub-work-persistence-memory` test dep — provides `InMemoryWorkItemStore @Alternative @Priority(1)`
 - Add `quarkus-jdbc-h2` test dep — casehub-work JPA entities require a datasource even in tests
 - Add `quarkus.arc.exclude-types=io.casehub.work.runtime.repository.jpa.JpaWorkItemStore,io.casehub.work.runtime.repository.jpa.JpaWorkItemTemplateStore` to `application.properties` — `@Alternative @Priority(1)` from an external jar does NOT automatically override a non-alternative `@ApplicationScoped` bean in Quarkus ARC 3.x; excluding the JPA stores is required for in-memory stores to resolve correctly
-- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos AND `io.casehub.work.memory.InMemoryWorkItemStore` AND `io.casehub.work.memory.InMemoryWorkItemTemplateStore` — omitting it causes boot failure: `Unsatisfied dependency for SubCaseGroupRepository`. Template-mode tests that use `persistTemplate()` must call `templateStore.put()` (not Panache `persist()`) to write to the in-memory store that the handler reads from (engine#576)
+- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos AND `io.casehub.work.memory.InMemoryWorkItemStore` AND `io.casehub.work.memory.InMemoryWorkItemTemplateStore` — omitting it causes boot failure: `Unsatisfied dependency for ReactiveSubCaseGroupRepository`. Template-mode tests that use `persistTemplate()` must call `templateStore.put()` (not Panache `persist()`) to write to the in-memory store that the handler reads from (engine#576)
 - Add `@Alternative @Priority(1)` static inner class stub for `WorkloadProvider` — casehub-work ships `JpaWorkloadProvider` which would query the database for work counts; a zero-returning stub isolates tests from DB queries. (engine#337 removed `CasehubWorkloadProvider` — no CDI ambiguity exists, but the stub is still good test hygiene)
 - Set `quarkus.quartz.store-type=ram` and `quarkus.hibernate-orm.schema-management.strategy=drop-and-create`
-- `QuarkusTestProfile.getEnabledAlternatives()` **replaces** (not appends to) `quarkus.arc.selected-alternatives` — any profile using this method must re-declare all globally required alternatives, including persistence-memory repos and `InMemoryWorkItemStore`
+- `QuarkusTestProfile.getEnabledAlternatives()` **replaces** (not appends to) `quarkus.arc.selected-alternatives` — any profile using this method must re-declare all globally required alternatives, including both blocking and reactive persistence-memory repos (reactive delegates inject the blocking canonical by concrete type) and `InMemoryWorkItemStore`
 
 `callerRef` format: `case:{caseId}/pi:{planItemId}` — use `CallerRef.encode()` / `CallerRef.parse()`.
 

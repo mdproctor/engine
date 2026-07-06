@@ -36,7 +36,7 @@ import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
@@ -70,7 +70,8 @@ class SubCaseExecutionHandlerTest {
     ReactiveCaseInstanceRepository instanceRepository = mock(ReactiveCaseInstanceRepository.class);
     ReactiveEventLogRepository reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
     PendingWorkRegistry pendingWorkRegistry = mock(PendingWorkRegistry.class);
-    SubCaseGroupRepository subCaseGroupRepository = mock(SubCaseGroupRepository.class);
+    ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository =
+        mock(ReactiveSubCaseGroupRepository.class);
 
     // EventLogRepository returns successful Uni for all append calls
     when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
@@ -85,9 +86,9 @@ class SubCaseExecutionHandlerTest {
 
     // SubCaseGroupRepository: stub grouped path Uni methods
     SubCaseGroup stubGroup = mock(SubCaseGroup.class);
-    when(subCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
+    when(reactiveSubCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
         .thenReturn(Uni.createFrom().item(stubGroup));
-    when(subCaseGroupRepository.registerChild(any(), any(), any(), any()))
+    when(reactiveSubCaseGroupRepository.registerChild(any(), any(), any(), any()))
         .thenReturn(Uni.createFrom().item(stubGroup));
 
     caseInstanceCache = new CaseInstanceCacheImpl();
@@ -99,7 +100,7 @@ class SubCaseExecutionHandlerTest {
             instanceRepository,
             reactiveEventLogRepository,
             pendingWorkRegistry,
-            subCaseGroupRepository,
+            reactiveSubCaseGroupRepository,
             registry,
             caseInstanceCache);
 
@@ -229,7 +230,7 @@ class SubCaseExecutionHandlerTest {
             mock(ReactiveCaseInstanceRepository.class),
             mock(ReactiveEventLogRepository.class),
             mock(PendingWorkRegistry.class),
-            mock(SubCaseGroupRepository.class),
+            mock(ReactiveSubCaseGroupRepository.class),
             freshRegistry,
             new CaseInstanceCacheImpl());
 

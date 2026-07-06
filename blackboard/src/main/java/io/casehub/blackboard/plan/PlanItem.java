@@ -160,26 +160,30 @@ public class PlanItem implements Comparable<PlanItem> {
 
   /** Transitions RUNNING or DELEGATED → COMPLETED. */
   public void markCompleted() {
-    PlanItemStatus current = status.get();
-    if (current != PlanItemStatus.RUNNING && current != PlanItemStatus.DELEGATED) {
-      throw new IllegalStateException(
-          "Cannot transition to COMPLETED from " + current + " (planItemId=" + planItemId + ")");
+    while (true) {
+      PlanItemStatus current = status.get();
+      if (current != PlanItemStatus.RUNNING && current != PlanItemStatus.DELEGATED) {
+        throw new IllegalStateException(
+            "Cannot transition to COMPLETED from " + current + " (planItemId=" + planItemId + ")");
+      }
+      if (status.compareAndSet(current, PlanItemStatus.COMPLETED)) return;
     }
-    status.set(PlanItemStatus.COMPLETED);
   }
 
   /** Transitions to FAULTED from any active state. Throws if already terminal. */
   public void markFaulted() {
-    PlanItemStatus current = status.get();
-    if (current.isTerminal()) {
-      throw new IllegalStateException(
-          "Cannot fault a terminal PlanItem (status="
-              + current
-              + ", planItemId="
-              + planItemId
-              + ")");
+    while (true) {
+      PlanItemStatus current = status.get();
+      if (current.isTerminal()) {
+        throw new IllegalStateException(
+            "Cannot fault a terminal PlanItem (status="
+                + current
+                + ", planItemId="
+                + planItemId
+                + ")");
+      }
+      if (status.compareAndSet(current, PlanItemStatus.FAULTED)) return;
     }
-    status.set(PlanItemStatus.FAULTED);
   }
 
   /**
@@ -204,16 +208,18 @@ public class PlanItem implements Comparable<PlanItem> {
 
   /** Obsoletes from any active state. Throws if already terminal. */
   public void markObsolete() {
-    PlanItemStatus current = status.get();
-    if (current.isTerminal()) {
-      throw new IllegalStateException(
-          "Cannot obsolete a terminal PlanItem (status="
-              + current
-              + ", planItemId="
-              + planItemId
-              + ")");
+    while (true) {
+      PlanItemStatus current = status.get();
+      if (current.isTerminal()) {
+        throw new IllegalStateException(
+            "Cannot obsolete a terminal PlanItem (status="
+                + current
+                + ", planItemId="
+                + planItemId
+                + ")");
+      }
+      if (status.compareAndSet(current, PlanItemStatus.OBSOLETE)) return;
     }
-    status.set(PlanItemStatus.OBSOLETE);
   }
 
   /** Suspends from DELEGATED only. Workers and unscheduled items cannot be suspended. */
@@ -234,16 +240,18 @@ public class PlanItem implements Comparable<PlanItem> {
 
   /** Cancels from any active state. Throws if already terminal. */
   public void markCancelled() {
-    PlanItemStatus current = status.get();
-    if (current.isTerminal()) {
-      throw new IllegalStateException(
-          "Cannot cancel a terminal PlanItem (status="
-              + current
-              + ", planItemId="
-              + planItemId
-              + ")");
+    while (true) {
+      PlanItemStatus current = status.get();
+      if (current.isTerminal()) {
+        throw new IllegalStateException(
+            "Cannot cancel a terminal PlanItem (status="
+                + current
+                + ", planItemId="
+                + planItemId
+                + ")");
+      }
+      if (status.compareAndSet(current, PlanItemStatus.CANCELLED)) return;
     }
-    status.set(PlanItemStatus.CANCELLED);
   }
 
   public BindingTarget getTarget() {

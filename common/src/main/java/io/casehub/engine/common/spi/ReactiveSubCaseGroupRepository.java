@@ -17,17 +17,18 @@ package io.casehub.engine.common.spi;
 
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
+import io.smallrye.mutiny.Uni;
 import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Blocking SPI for {@link SubCaseGroup} persistence.
+ * Reactive SPI for {@link SubCaseGroup} persistence.
  *
- * @see ReactiveSubCaseGroupRepository
+ * @see SubCaseGroupRepository
  */
-public interface SubCaseGroupRepository {
+public interface ReactiveSubCaseGroupRepository {
 
-  SubCaseGroup getOrCreate(
+  Uni<SubCaseGroup> getOrCreate(
       UUID parentCaseId,
       String groupId,
       int totalInGroup,
@@ -35,14 +36,15 @@ public interface SubCaseGroupRepository {
       OnThresholdReached onThresholdReached,
       String tenancyId);
 
-  SubCaseGroup registerChild(UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId);
+  Uni<SubCaseGroup> registerChild(
+      UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId);
 
-  SubCaseGroup incrementCompleted(UUID parentCaseId, String groupId, String tenancyId);
+  Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId, String tenancyId);
 
-  SubCaseGroup incrementRejected(UUID parentCaseId, String groupId, String tenancyId);
+  Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId, String tenancyId);
 
   /** Returns {@code true} if this call actually set the flag; {@code false} if already set. */
-  boolean markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId);
+  Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId);
 
-  Optional<SubCaseGroup> findByChildCaseId(UUID childCaseId, String tenancyId);
+  Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId, String tenancyId);
 }

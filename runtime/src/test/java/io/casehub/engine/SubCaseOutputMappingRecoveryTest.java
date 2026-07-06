@@ -28,8 +28,8 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
@@ -66,7 +66,7 @@ public class SubCaseOutputMappingRecoveryTest {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   @Inject ReactiveCaseInstanceRepository instanceRepository;
-  @Inject CaseMetaModelRepository metaModelRepository;
+  @Inject ReactiveCaseMetaModelRepository metaModelRepository;
   @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject WorkerExecutionRecoveryService recoveryService;

@@ -18,7 +18,6 @@ package io.casehub.persistence.memory;
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import java.util.Optional;
@@ -26,12 +25,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * In-memory {@link SubCaseGroupRepository} for use in engine unit tests. Activated via {@code
- * quarkus.arc.selected-alternatives} — never active in production.
+ * In-memory blocking {@link SubCaseGroupRepository} for engine unit tests. Canonical implementation
+ * — {@link InMemoryReactiveSubCaseGroupRepository} delegates to this.
  */
 @Alternative
 @ApplicationScoped
-public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
+public class InMemorySubCaseGroupRepository implements SubCaseGroupRepository {
 
   private final ConcurrentHashMap<String, SubCaseGroup> groups = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<UUID, String> childIndex = new ConcurrentHashMap<>();
@@ -41,7 +40,7 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
   }
 
   @Override
-  public Uni<SubCaseGroup> getOrCreate(
+  public SubCaseGroup getOrCreate(
       UUID parentCaseId,
       String groupId,
       int totalInGroup,
@@ -49,80 +48,78 @@ public class MemorySubCaseGroupRepository implements SubCaseGroupRepository {
       OnThresholdReached onThresholdReached,
       String tenancyId) {
     String k = key(parentCaseId, groupId);
-    SubCaseGroup g =
-        groups.computeIfAbsent(
-            k,
-            __ -> {
-              SubCaseGroup ng = new SubCaseGroup();
-              ng.setParentCaseId(parentCaseId);
-              ng.setGroupId(groupId);
-              ng.setInstanceCount(totalInGroup);
-              ng.setRequiredCount(requiredCount);
-              ng.setOnThresholdReached(
-                  onThresholdReached != null ? onThresholdReached : OnThresholdReached.KEEP);
-              return ng;
-            });
-    return Uni.createFrom().item(g);
+    return groups.computeIfAbsent(
+        k,
+        __ -> {
+          SubCaseGroup ng = new SubCaseGroup();
+          ng.setParentCaseId(parentCaseId);
+          ng.setGroupId(groupId);
+          ng.setInstanceCount(totalInGroup);
+          ng.setRequiredCount(requiredCount);
+          ng.setOnThresholdReached(
+              onThresholdReached != null ? onThresholdReached : OnThresholdReached.KEEP);
+          return ng;
+        });
   }
 
   @Override
-  public Uni<SubCaseGroup> registerChild(
+  public SubCaseGroup registerChild(
       UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId) {
     String k = key(parentCaseId, groupId);
     SubCaseGroup g = groups.get(k);
     if (g == null) {
-      return Uni.createFrom().failure(new IllegalStateException("Group not found: " + k));
+      throw new IllegalStateException("Group not found: " + k);
     }
     synchronized (g) {
       g.addChildCaseId(childCaseId);
     }
     childIndex.put(childCaseId, k);
-    return Uni.createFrom().item(g);
+    return g;
   }
 
   @Override
-  public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId, String tenancyId) {
+  public SubCaseGroup incrementCompleted(UUID parentCaseId, String groupId, String tenancyId) {
     String k = key(parentCaseId, groupId);
     SubCaseGroup g = groups.get(k);
     if (g == null) {
-      return Uni.createFrom().failure(new IllegalStateException("Group not found: " + k));
+      throw new IllegalStateException("Group not found: " + k);
     }
     synchronized (g) {
       g.setCompletedCount(g.getCompletedCount() + 1);
     }
-    return Uni.createFrom().item(g);
+    return g;
   }
 
   @Override
-  public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId, String tenancyId) {
+  public SubCaseGroup incrementRejected(UUID parentCaseId, String groupId, String tenancyId) {
     String k = key(parentCaseId, groupId);
     SubCaseGroup g = groups.get(k);
     if (g == null) {
-      return Uni.createFrom().failure(new IllegalStateException("Group not found: " + k));
+      throw new IllegalStateException("Group not found: " + k);
     }
     synchronized (g) {
       g.setRejectedCount(g.getRejectedCount() + 1);
     }
-    return Uni.createFrom().item(g);
+    return g;
   }
 
   @Override
-  public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId) {
+  public boolean markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId) {
     SubCaseGroup g = groups.get(key(parentCaseId, groupId));
-    if (g == null) return Uni.createFrom().item(false);
+    if (g == null) return false;
     synchronized (g) {
-      if (g.isPolicyTriggered()) return Uni.createFrom().item(false);
+      if (g.isPolicyTriggered()) return false;
       g.setPolicyTriggered(true);
-      return Uni.createFrom().item(true);
+      return true;
     }
   }
 
   @Override
-  public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId, String tenancyId) {
+  public Optional<SubCaseGroup> findByChildCaseId(UUID childCaseId, String tenancyId) {
     String k = childIndex.get(childCaseId);
     if (k == null) {
-      return Uni.createFrom().item(Optional.empty());
+      return Optional.empty();
     }
-    return Uni.createFrom().item(Optional.ofNullable(groups.get(k)));
+    return Optional.ofNullable(groups.get(k));
   }
 }

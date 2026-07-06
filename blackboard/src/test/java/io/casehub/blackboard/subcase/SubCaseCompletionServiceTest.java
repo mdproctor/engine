@@ -38,7 +38,7 @@ import io.casehub.engine.common.internal.model.GroupStatus;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
@@ -65,7 +65,7 @@ class SubCaseCompletionServiceTest {
   private CaseInstanceCache caseInstanceCache;
   private ReactiveEventLogRepository reactiveEventLogRepository;
   private CaseHubRuntime caseHubRuntime;
-  private SubCaseGroupRepository subCaseGroupRepository;
+  private ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository;
 
   @SuppressWarnings("unchecked")
   private Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents = mock(Event.class);
@@ -84,7 +84,7 @@ class SubCaseCompletionServiceTest {
     reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
     caseHubRuntime = mock(CaseHubRuntime.class);
 
-    subCaseGroupRepository = mock(SubCaseGroupRepository.class);
+    reactiveSubCaseGroupRepository = mock(ReactiveSubCaseGroupRepository.class);
     when(caseResumptionService.resumeIfWaiting(any(), any(), any(), any(), any()))
         .thenReturn(Uni.createFrom().voidItem());
     when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
@@ -96,7 +96,7 @@ class SubCaseCompletionServiceTest {
             mock(JQEvaluator.class),
             caseInstanceCache,
             caseResumptionService,
-            subCaseGroupRepository,
+            reactiveSubCaseGroupRepository,
             caseHubRuntime,
             mockBus,
             registry,
@@ -162,7 +162,7 @@ class SubCaseCompletionServiceTest {
     group.setRequiredCount(2);
     group.setCompletedCount(1);
     group.setRejectedCount(0);
-    when(subCaseGroupRepository.incrementCompleted(eq(parentCaseId), eq(groupId), any()))
+    when(reactiveSubCaseGroupRepository.incrementCompleted(eq(parentCaseId), eq(groupId), any()))
         .thenReturn(Uni.createFrom().item(group));
 
     service.handleCompletion(completionEvent(childCaseId));

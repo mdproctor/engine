@@ -18,174 +18,61 @@ package io.casehub.persistence.jpa;
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.UUID;
 
+/**
+ * Blocking JPA {@link SubCaseGroupRepository}. Delegates to {@link
+ * JpaReactiveSubCaseGroupRepository} and awaits.
+ */
 @ApplicationScoped
-public class JpaSubCaseGroupRepository extends TenantAwareRepository
-    implements SubCaseGroupRepository {
+public class JpaSubCaseGroupRepository implements SubCaseGroupRepository {
+
+  @Inject JpaReactiveSubCaseGroupRepository delegate;
 
   @Override
-  public Uni<SubCaseGroup> getOrCreate(
+  public SubCaseGroup getOrCreate(
       UUID parentCaseId,
       String groupId,
       int totalInGroup,
       int requiredCount,
       OnThresholdReached onThresholdReached,
       String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                    "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
-                    parentCaseId,
-                    groupId,
-                    tenancyId)
-                .firstResult()
-                .flatMap(
-                    existing -> {
-                      if (existing != null) return Uni.createFrom().item(toDomain(existing));
-                      SubCaseGroupEntity e = new SubCaseGroupEntity();
-                      e.tenancyId = tenancyId;
-                      e.parentCaseId = parentCaseId;
-                      e.groupId = groupId;
-                      e.instanceCount = totalInGroup;
-                      e.requiredCount = requiredCount;
-                      e.onThresholdReached =
-                          onThresholdReached != null ? onThresholdReached : OnThresholdReached.KEEP;
-                      return e.<SubCaseGroupEntity>persist().map(this::toDomain);
-                    }));
+    return delegate
+        .getOrCreate(
+            parentCaseId, groupId, totalInGroup, requiredCount, onThresholdReached, tenancyId)
+        .await()
+        .indefinitely();
   }
 
   @Override
-  public Uni<SubCaseGroup> registerChild(
+  public SubCaseGroup registerChild(
       UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                    "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
-                    parentCaseId,
-                    groupId,
-                    tenancyId)
-                .firstResult()
-                .flatMap(
-                    e -> {
-                      if (e == null)
-                        return Uni.createFrom()
-                            .failure(
-                                new IllegalStateException(
-                                    "Group not found: " + parentCaseId + ":" + groupId));
-                      e.childCaseIds.add(childCaseId);
-                      return Uni.createFrom().item(toDomain(e));
-                    }));
+    return delegate
+        .registerChild(parentCaseId, groupId, childCaseId, tenancyId)
+        .await()
+        .indefinitely();
   }
 
   @Override
-  public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            SubCaseGroupEntity.update(
-                    "completedCount = completedCount + 1 "
-                        + "WHERE parentCaseId = ?1 AND groupId = ?2 AND tenancyId = ?3",
-                    parentCaseId,
-                    groupId,
-                    tenancyId)
-                .chain(
-                    count -> {
-                      if (count == 0)
-                        return Uni.createFrom()
-                            .failure(
-                                new IllegalStateException(
-                                    "Group not found: " + parentCaseId + ":" + groupId));
-                      return SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                              "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
-                              parentCaseId,
-                              groupId,
-                              tenancyId)
-                          .firstResult()
-                          .onItem()
-                          .ifNotNull()
-                          .transform(this::toDomain)
-                          .onItem()
-                          .ifNull()
-                          .failWith(
-                              () ->
-                                  new IllegalStateException(
-                                      "Group vanished after increment: " + parentCaseId));
-                    }));
+  public SubCaseGroup incrementCompleted(UUID parentCaseId, String groupId, String tenancyId) {
+    return delegate.incrementCompleted(parentCaseId, groupId, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            SubCaseGroupEntity.update(
-                    "rejectedCount = rejectedCount + 1 "
-                        + "WHERE parentCaseId = ?1 AND groupId = ?2 AND tenancyId = ?3",
-                    parentCaseId,
-                    groupId,
-                    tenancyId)
-                .chain(
-                    count -> {
-                      if (count == 0)
-                        return Uni.createFrom()
-                            .failure(
-                                new IllegalStateException(
-                                    "Group not found: " + parentCaseId + ":" + groupId));
-                      return SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                              "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
-                              parentCaseId,
-                              groupId,
-                              tenancyId)
-                          .firstResult()
-                          .onItem()
-                          .ifNotNull()
-                          .transform(this::toDomain)
-                          .onItem()
-                          .ifNull()
-                          .failWith(
-                              () ->
-                                  new IllegalStateException(
-                                      "Group vanished after increment: " + parentCaseId));
-                    }));
+  public SubCaseGroup incrementRejected(UUID parentCaseId, String groupId, String tenancyId) {
+    return delegate.incrementRejected(parentCaseId, groupId, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            SubCaseGroupEntity.update(
-                    "policyTriggered = true "
-                        + "WHERE parentCaseId = ?1 AND groupId = ?2 AND tenancyId = ?3 "
-                        + "AND policyTriggered = false",
-                    parentCaseId,
-                    groupId,
-                    tenancyId)
-                .map(count -> count > 0));
+  public boolean markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId) {
+    return delegate.markPolicyTriggered(parentCaseId, groupId, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            SubCaseGroupEntity.<SubCaseGroupEntity>find(
-                    "?1 member of childCaseIds and tenancyId = ?2", childCaseId, tenancyId)
-                .firstResult()
-                .map(e -> Optional.ofNullable(e == null ? null : toDomain(e))));
-  }
-
-  private SubCaseGroup toDomain(SubCaseGroupEntity e) {
-    SubCaseGroup g = new SubCaseGroup();
-    g.setParentCaseId(e.parentCaseId);
-    g.setGroupId(e.groupId);
-    g.setInstanceCount(e.instanceCount);
-    g.setRequiredCount(e.requiredCount);
-    g.setCompletedCount(e.completedCount);
-    g.setRejectedCount(e.rejectedCount);
-    g.setPolicyTriggered(e.policyTriggered);
-    g.setOnThresholdReached(e.onThresholdReached);
-    if (e.childCaseIds != null) g.addAllChildCaseIds(e.childCaseIds);
-    return g;
+  public Optional<SubCaseGroup> findByChildCaseId(UUID childCaseId, String tenancyId) {
+    return delegate.findByChildCaseId(childCaseId, tenancyId).await().indefinitely();
   }
 }

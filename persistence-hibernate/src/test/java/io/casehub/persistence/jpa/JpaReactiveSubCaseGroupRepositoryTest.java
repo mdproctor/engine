@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
-import io.casehub.engine.common.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
 import io.smallrye.mutiny.Uni;
@@ -34,9 +34,9 @@ import org.junit.jupiter.api.Timeout;
 
 @QuarkusTest
 @Timeout(value = 30, unit = TimeUnit.SECONDS)
-class JpaSubCaseGroupRepositoryTest {
+class JpaReactiveSubCaseGroupRepositoryTest {
 
-  @Inject SubCaseGroupRepository repository;
+  @Inject ReactiveSubCaseGroupRepository repository;
 
   @Test
   void getOrCreate_createsNewGroup() {

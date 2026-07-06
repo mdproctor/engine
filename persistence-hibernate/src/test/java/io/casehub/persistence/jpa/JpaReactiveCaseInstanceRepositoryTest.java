@@ -23,8 +23,8 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.vertx.VertxContextSupport;
@@ -43,7 +43,7 @@ import org.junit.jupiter.api.Timeout;
 class JpaReactiveCaseInstanceRepositoryTest {
 
   @Inject ReactiveCaseInstanceRepository instanceRepository;
-  @Inject CaseMetaModelRepository metaModelRepository;
+  @Inject ReactiveCaseMetaModelRepository metaModelRepository;
   @Inject ReactiveEventLogRepository eventLogRepository;
 
   private CaseMetaModel savedMeta;

@@ -72,7 +72,14 @@ public class PlanItemFaultHandler {
                     planItemId, event.workerId(), event.caseId(), item.getStatus());
                 return;
               }
-              item.markFaulted();
+              try {
+                item.markFaulted();
+              } catch (IllegalStateException e) {
+                LOG.debugf(
+                    "PlanItem %s already terminal (status=%s) — concurrent transition won",
+                    planItemId, item.getStatus());
+                return;
+              }
               LOG.infof(
                   "PlanItem %s marked FAULTED for worker '%s' in case %s",
                   planItemId, event.workerId(), event.caseId());

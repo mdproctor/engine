@@ -15,14 +15,14 @@
  */
 package io.casehub.testing;
 
-import io.casehub.engine.common.spi.CaseMetaModelRepository;
-import io.casehub.persistence.memory.InMemoryCaseMetaModelRepository;
+import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
+import io.casehub.persistence.memory.InMemoryReactiveCaseMetaModelRepository;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 
-/** Auto-selected in-memory {@link CaseMetaModelRepository} for {@code @QuarkusTest}. */
+/** Auto-selected in-memory {@link ReactiveCaseMetaModelRepository} for {@code @QuarkusTest}. */
 @Alternative
 @Priority(1)
 @ApplicationScoped
-public class TestCaseMetaModelRepository extends InMemoryCaseMetaModelRepository {}
+public class TestReactiveCaseMetaModelRepository extends InMemoryReactiveCaseMetaModelRepository {}

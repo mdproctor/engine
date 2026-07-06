@@ -27,11 +27,15 @@ import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.ledger.testing.NoOpLedgerEntryRepository;
 import io.casehub.ledger.testing.NoOpReactiveLedgerEntryRepository;
+import io.casehub.persistence.memory.InMemoryCaseInstanceRepository;
 import io.casehub.persistence.memory.InMemoryCaseMetaModelRepository;
+import io.casehub.persistence.memory.InMemoryEventLogRepository;
 import io.casehub.persistence.memory.InMemoryReactiveCaseInstanceRepository;
+import io.casehub.persistence.memory.InMemoryReactiveCaseMetaModelRepository;
 import io.casehub.persistence.memory.InMemoryReactiveEventLogRepository;
+import io.casehub.persistence.memory.InMemoryReactiveSubCaseGroupRepository;
+import io.casehub.persistence.memory.InMemorySubCaseGroupRepository;
 import io.casehub.persistence.memory.MemoryPlanItemStore;
-import io.casehub.persistence.memory.MemorySubCaseGroupRepository;
 import io.casehub.work.runtime.repository.WorkItemQuery;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.quarkus.test.junit.QuarkusTest;
@@ -77,10 +81,14 @@ class HumanTaskScheduleHandlerAtomicityTest {
       // alternatives required for deployment, not just the ones specific to this test.
       return Set.of(
           FailingWorkItemStore.class,
+          InMemoryCaseInstanceRepository.class,
           InMemoryReactiveCaseInstanceRepository.class,
           InMemoryCaseMetaModelRepository.class,
+          InMemoryReactiveCaseMetaModelRepository.class,
+          InMemoryEventLogRepository.class,
           InMemoryReactiveEventLogRepository.class,
-          MemorySubCaseGroupRepository.class,
+          InMemorySubCaseGroupRepository.class,
+          InMemoryReactiveSubCaseGroupRepository.class,
           MemoryPlanItemStore.class,
           NoOpLedgerEntryRepository.class,
           NoOpReactiveLedgerEntryRepository.class,

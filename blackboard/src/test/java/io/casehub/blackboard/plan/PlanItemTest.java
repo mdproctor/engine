@@ -446,4 +446,240 @@ class PlanItemTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("PENDING");
   }
+
+  // --- Concurrent CAS transition tests (engine#649) ---
+
+  @Test
+  void markCompleted_concurrentCallers_exactlyOneWins() throws Exception {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    item.markRunning();
+
+    int threadCount = 10;
+    CountDownLatch ready = new CountDownLatch(threadCount);
+    CountDownLatch go = new CountDownLatch(1);
+    AtomicInteger successes = new AtomicInteger(0);
+    AtomicInteger failures = new AtomicInteger(0);
+
+    Thread[] threads = new Thread[threadCount];
+    for (int i = 0; i < threadCount; i++) {
+      threads[i] =
+          Thread.ofVirtual()
+              .start(
+                  () -> {
+                    ready.countDown();
+                    try {
+                      go.await();
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    try {
+                      item.markCompleted();
+                      successes.incrementAndGet();
+                    } catch (IllegalStateException e) {
+                      failures.incrementAndGet();
+                    }
+                  });
+    }
+    ready.await();
+    go.countDown();
+    for (Thread t : threads) t.join();
+
+    assertThat(successes.get()).isEqualTo(1);
+    assertThat(failures.get()).isEqualTo(threadCount - 1);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+  }
+
+  @Test
+  void markFaulted_vs_markCompleted_exactlyOneWins() throws Exception {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    item.markRunning();
+
+    CountDownLatch ready = new CountDownLatch(2);
+    CountDownLatch go = new CountDownLatch(1);
+    AtomicInteger completedWins = new AtomicInteger(0);
+    AtomicInteger faultedWins = new AtomicInteger(0);
+
+    Thread completer =
+        Thread.ofVirtual()
+            .start(
+                () -> {
+                  ready.countDown();
+                  try {
+                    go.await();
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                  try {
+                    item.markCompleted();
+                    completedWins.incrementAndGet();
+                  } catch (IllegalStateException e) {
+                    // lost the race
+                  }
+                });
+
+    Thread faulter =
+        Thread.ofVirtual()
+            .start(
+                () -> {
+                  ready.countDown();
+                  try {
+                    go.await();
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                  try {
+                    item.markFaulted();
+                    faultedWins.incrementAndGet();
+                  } catch (IllegalStateException e) {
+                    // lost the race
+                  }
+                });
+
+    ready.await();
+    go.countDown();
+    completer.join();
+    faulter.join();
+
+    assertThat(completedWins.get() + faultedWins.get())
+        .as("exactly one transition must win")
+        .isEqualTo(1);
+    assertThat(item.getStatus().isTerminal()).isTrue();
+  }
+
+  @Test
+  void markFaulted_concurrentCallers_noSilentOverwrite() throws Exception {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    item.markRunning();
+
+    int threadCount = 10;
+    CountDownLatch ready = new CountDownLatch(threadCount);
+    CountDownLatch go = new CountDownLatch(1);
+    AtomicInteger successes = new AtomicInteger(0);
+    AtomicInteger failures = new AtomicInteger(0);
+
+    Thread[] threads = new Thread[threadCount];
+    for (int i = 0; i < threadCount; i++) {
+      threads[i] =
+          Thread.ofVirtual()
+              .start(
+                  () -> {
+                    ready.countDown();
+                    try {
+                      go.await();
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    try {
+                      item.markFaulted();
+                      successes.incrementAndGet();
+                    } catch (IllegalStateException e) {
+                      failures.incrementAndGet();
+                    }
+                  });
+    }
+    ready.await();
+    go.countDown();
+    for (Thread t : threads) t.join();
+
+    assertThat(successes.get()).isEqualTo(1);
+    assertThat(failures.get()).isEqualTo(threadCount - 1);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+  }
+
+  @Test
+  void markCancelled_concurrentCallers_exactlyOneWins() throws Exception {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    item.markDelegated();
+
+    int threadCount = 10;
+    CountDownLatch ready = new CountDownLatch(threadCount);
+    CountDownLatch go = new CountDownLatch(1);
+    AtomicInteger successes = new AtomicInteger(0);
+    AtomicInteger failures = new AtomicInteger(0);
+
+    Thread[] threads = new Thread[threadCount];
+    for (int i = 0; i < threadCount; i++) {
+      threads[i] =
+          Thread.ofVirtual()
+              .start(
+                  () -> {
+                    ready.countDown();
+                    try {
+                      go.await();
+                    } catch (InterruptedException e) {
+                      Thread.currentThread().interrupt();
+                    }
+                    try {
+                      item.markCancelled();
+                      successes.incrementAndGet();
+                    } catch (IllegalStateException e) {
+                      failures.incrementAndGet();
+                    }
+                  });
+    }
+    ready.await();
+    go.countDown();
+    for (Thread t : threads) t.join();
+
+    assertThat(successes.get()).isEqualTo(1);
+    assertThat(failures.get()).isEqualTo(threadCount - 1);
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.CANCELLED);
+  }
+
+  @Test
+  void markObsolete_vs_markCancelled_exactlyOneWins() throws Exception {
+    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    item.markDelegated();
+
+    CountDownLatch ready = new CountDownLatch(2);
+    CountDownLatch go = new CountDownLatch(1);
+    AtomicInteger obsoleteWins = new AtomicInteger(0);
+    AtomicInteger cancelledWins = new AtomicInteger(0);
+
+    Thread obsoleter =
+        Thread.ofVirtual()
+            .start(
+                () -> {
+                  ready.countDown();
+                  try {
+                    go.await();
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                  try {
+                    item.markObsolete();
+                    obsoleteWins.incrementAndGet();
+                  } catch (IllegalStateException e) {
+                    // lost the race
+                  }
+                });
+
+    Thread canceller =
+        Thread.ofVirtual()
+            .start(
+                () -> {
+                  ready.countDown();
+                  try {
+                    go.await();
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                  try {
+                    item.markCancelled();
+                    cancelledWins.incrementAndGet();
+                  } catch (IllegalStateException e) {
+                    // lost the race
+                  }
+                });
+
+    ready.await();
+    go.countDown();
+    obsoleter.join();
+    canceller.join();
+
+    assertThat(obsoleteWins.get() + cancelledWins.get())
+        .as("exactly one transition must win")
+        .isEqualTo(1);
+    assertThat(item.getStatus().isTerminal()).isTrue();
+  }
 }

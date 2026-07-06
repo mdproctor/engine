@@ -17,70 +17,25 @@ package io.casehub.persistence.jpa;
 
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
+import jakarta.inject.Inject;
 
+/**
+ * Blocking JPA {@link CaseMetaModelRepository}. Delegates to {@link
+ * JpaReactiveCaseMetaModelRepository} and awaits.
+ */
 @ApplicationScoped
-public class JpaCaseMetaModelRepository extends TenantAwareRepository
-    implements CaseMetaModelRepository {
+public class JpaCaseMetaModelRepository implements CaseMetaModelRepository {
+
+  @Inject JpaReactiveCaseMetaModelRepository delegate;
 
   @Override
-  public Uni<CaseMetaModel> findByKey(
-      String namespace, String name, String version, String tenancyId) {
-    return withTenantTransaction(
-        () ->
-            CaseMetaModelEntity.<CaseMetaModelEntity>find(
-                    "namespace = ?1 and name = ?2 and version = ?3 and tenancyId = ?4",
-                    namespace,
-                    name,
-                    version,
-                    tenancyId)
-                .firstResult()
-                .map(entity -> entity == null ? null : fromEntity(entity)));
+  public CaseMetaModel findByKey(String namespace, String name, String version, String tenancyId) {
+    return delegate.findByKey(namespace, name, version, tenancyId).await().indefinitely();
   }
 
   @Override
-  public Uni<CaseMetaModel> save(CaseMetaModel metaModel, String tenancyId) {
-    CaseMetaModelEntity entity = toEntity(metaModel, tenancyId);
-    entity.createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
-    return withTenantTransaction(
-        () ->
-            entity
-                .persist()
-                .map(
-                    v -> {
-                      metaModel.id = entity.id;
-                      metaModel.tenancyId = tenancyId;
-                      metaModel.setCreatedAt(entity.createdAt);
-                      return metaModel;
-                    }));
-  }
-
-  private CaseMetaModel fromEntity(CaseMetaModelEntity entity) {
-    CaseMetaModel m = new CaseMetaModel();
-    m.id = entity.id;
-    m.tenancyId = entity.tenancyId;
-    m.setName(entity.name);
-    m.setNamespace(entity.namespace);
-    m.setVersion(entity.version);
-    m.setTitle(entity.title);
-    m.setDsl(entity.dsl);
-    m.setDefinition(entity.definition);
-    m.setCreatedAt(entity.createdAt);
-    return m;
-  }
-
-  private CaseMetaModelEntity toEntity(CaseMetaModel m, String tenancyId) {
-    CaseMetaModelEntity entity = new CaseMetaModelEntity();
-    entity.tenancyId = tenancyId;
-    entity.name = m.getName();
-    entity.namespace = m.getNamespace();
-    entity.version = m.getVersion();
-    entity.title = m.getTitle();
-    entity.dsl = m.getDsl();
-    entity.definition = m.getDefinition();
-    return entity;
+  public CaseMetaModel save(CaseMetaModel metaModel, String tenancyId) {
+    return delegate.save(metaModel, tenancyId).await().indefinitely();
   }
 }

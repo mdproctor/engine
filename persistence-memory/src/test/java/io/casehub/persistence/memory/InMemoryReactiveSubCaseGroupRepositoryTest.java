@@ -24,15 +24,17 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class MemorySubCaseGroupRepositoryTest {
+class InMemoryReactiveSubCaseGroupRepositoryTest {
 
-  private MemorySubCaseGroupRepository repo;
+  private InMemoryReactiveSubCaseGroupRepository repo;
   private final UUID parentId = UUID.randomUUID();
   private final String groupId = "test-group";
 
   @BeforeEach
   void setUp() {
-    repo = new MemorySubCaseGroupRepository();
+    InMemorySubCaseGroupRepository blocking = new InMemorySubCaseGroupRepository();
+    repo = new InMemoryReactiveSubCaseGroupRepository();
+    repo.setDelegate(blocking);
   }
 
   @Test

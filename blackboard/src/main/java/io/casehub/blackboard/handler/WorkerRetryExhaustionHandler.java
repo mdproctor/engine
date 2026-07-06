@@ -87,7 +87,14 @@ public class WorkerRetryExhaustionHandler {
                     planItemId, event.workerId(), event.caseId(), item.getStatus());
                 return;
               }
-              item.markFaulted();
+              try {
+                item.markFaulted();
+              } catch (IllegalStateException e) {
+                LOG.debugf(
+                    "PlanItem %s already terminal (status=%s) — concurrent transition won",
+                    planItemId, item.getStatus());
+                return;
+              }
               stageAutocompleteEvaluator.evaluate(event.caseId(), plan, planItemId);
               LOG.warnf(
                   "PlanItem %s marked FAULTED — worker '%s' retries exhausted in case %s",

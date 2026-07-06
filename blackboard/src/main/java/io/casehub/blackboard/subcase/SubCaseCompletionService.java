@@ -35,7 +35,7 @@ import io.casehub.engine.common.internal.model.GroupStatus;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
@@ -54,8 +54,9 @@ import org.jboss.logging.Logger;
  * arrives and the terminating case is a child (its UUID appears in a parent's SUBCASE_STARTED
  * EventLog entry), updates the parent context and resumes the parent if it was WAITING.
  *
- * <p>Grouped path: delegates to {@link SubCaseGroupRepository} and {@link SubCaseGroupPolicy} to
- * track threshold progress. Resumes parent only when the group reaches COMPLETED threshold.
+ * <p>Grouped path: delegates to {@link ReactiveSubCaseGroupRepository} and {@link
+ * SubCaseGroupPolicy} to track threshold progress. Resumes parent only when the group reaches
+ * COMPLETED threshold.
  *
  * <p>After resuming the parent, publishes {@link SubCaseExecutionCompleted} on the event bus so
  * {@link io.casehub.blackboard.handler.PlanItemCompletionHandler} can mark the SubCase PlanItem
@@ -74,7 +75,7 @@ public class SubCaseCompletionService {
   private final JQEvaluator jqEvaluator;
   private final CaseInstanceCache caseInstanceCache;
   private final CaseResumptionService caseResumptionService;
-  private final SubCaseGroupRepository subCaseGroupRepository;
+  private final ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository;
   private final CaseHubRuntime caseHubRuntime;
   private final EventBus eventBus;
   private final BlackboardRegistry registry;
@@ -86,7 +87,7 @@ public class SubCaseCompletionService {
       JQEvaluator jqEvaluator,
       CaseInstanceCache caseInstanceCache,
       CaseResumptionService caseResumptionService,
-      SubCaseGroupRepository subCaseGroupRepository,
+      ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository,
       CaseHubRuntime caseHubRuntime,
       EventBus eventBus,
       BlackboardRegistry registry,
@@ -95,7 +96,7 @@ public class SubCaseCompletionService {
     this.jqEvaluator = jqEvaluator;
     this.caseInstanceCache = caseInstanceCache;
     this.caseResumptionService = caseResumptionService;
-    this.subCaseGroupRepository = subCaseGroupRepository;
+    this.reactiveSubCaseGroupRepository = reactiveSubCaseGroupRepository;
     this.caseHubRuntime = caseHubRuntime;
     this.eventBus = eventBus;
     this.registry = registry;
@@ -141,13 +142,13 @@ public class SubCaseCompletionService {
     SubCaseGroup group;
     if (childCompleted) {
       group =
-          subCaseGroupRepository
+          reactiveSubCaseGroupRepository
               .incrementCompleted(parentCaseId, groupId, event.tenancyId())
               .await()
               .atMost(Duration.ofSeconds(10));
     } else {
       group =
-          subCaseGroupRepository
+          reactiveSubCaseGroupRepository
               .incrementRejected(parentCaseId, groupId, event.tenancyId())
               .await()
               .atMost(Duration.ofSeconds(10));
@@ -169,7 +170,7 @@ public class SubCaseCompletionService {
 
     if (groupStatus == GroupStatus.COMPLETED || groupStatus == GroupStatus.REJECTED) {
       boolean won =
-          subCaseGroupRepository
+          reactiveSubCaseGroupRepository
               .markPolicyTriggered(parentCaseId, groupId, event.tenancyId())
               .await()
               .atMost(Duration.ofSeconds(10));

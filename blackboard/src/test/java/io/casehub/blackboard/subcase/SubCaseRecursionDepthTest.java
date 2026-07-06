@@ -36,7 +36,7 @@ import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.SubCaseGroupRepository;
+import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
@@ -66,7 +66,8 @@ class SubCaseRecursionDepthTest {
     ReactiveCaseInstanceRepository instanceRepository = mock(ReactiveCaseInstanceRepository.class);
     ReactiveEventLogRepository reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
     PendingWorkRegistry pendingWorkRegistry = mock(PendingWorkRegistry.class);
-    SubCaseGroupRepository subCaseGroupRepository = mock(SubCaseGroupRepository.class);
+    ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository =
+        mock(ReactiveSubCaseGroupRepository.class);
     caseInstanceCache = new CaseInstanceCacheImpl();
 
     when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
@@ -76,9 +77,9 @@ class SubCaseRecursionDepthTest {
         .thenReturn(Uni.createFrom().nullItem());
 
     SubCaseGroup stubGroup = mock(SubCaseGroup.class);
-    when(subCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
+    when(reactiveSubCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
         .thenReturn(Uni.createFrom().item(stubGroup));
-    when(subCaseGroupRepository.registerChild(any(), any(), any(), any()))
+    when(reactiveSubCaseGroupRepository.registerChild(any(), any(), any(), any()))
         .thenReturn(Uni.createFrom().item(stubGroup));
 
     handler =
@@ -88,7 +89,7 @@ class SubCaseRecursionDepthTest {
             instanceRepository,
             reactiveEventLogRepository,
             pendingWorkRegistry,
-            subCaseGroupRepository,
+            reactiveSubCaseGroupRepository,
             registry,
             caseInstanceCache);
   }
