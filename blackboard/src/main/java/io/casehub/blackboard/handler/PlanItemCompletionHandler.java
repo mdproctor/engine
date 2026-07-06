@@ -15,13 +15,16 @@
  */
 package io.casehub.blackboard.handler;
 
+import io.casehub.api.context.ContextLayer;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
+import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
+import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemCompletedEvent;
 import io.casehub.worker.api.WorkerOutcome;
@@ -90,6 +93,17 @@ public class PlanItemCompletionHandler {
     } else {
       completePlanItemByKey(
           event.caseInstance().getUuid(), event.worker().name(), event.caseInstance().tenancyId);
+    }
+    // WorkflowExecutionCompletedHandler also publishes CONTEXT_CHANGED (after output application),
+    // but handler ordering on WORKER_EXECUTION_FINISHED fan-out is non-deterministic. If that
+    // CONTEXT_CHANGED is processed before this handler marks the PlanItem COMPLETED, the planning
+    // strategy sees stale state and may skip the next step. This second CONTEXT_CHANGED guarantees
+    // re-evaluation with consistent PlanItem state. Refs casehubio/engine#646, #659.
+    CaseInstance ci = event.caseInstance();
+    if (ci.getCaseContext() != null) {
+      eventBus.publish(
+          EventBusAddresses.CONTEXT_CHANGED,
+          new CaseContextChangedEvent(ci, ci.getCaseContext().snapshot(), ContextLayer.WORKING));
     }
   }
 

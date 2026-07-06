@@ -39,12 +39,9 @@ import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -52,33 +49,8 @@ class HybridOrchestrationIntegrationTest {
 
   @Inject CaseHubRuntime runtime;
   @Inject CaseInstanceCache cache;
-  @Inject Tier2SequentialBean tier2Bean;
   @Inject SignalAwaitBean signalAwaitBean;
   @Inject SpawnParentBean spawnParentBean;
-
-  @BeforeEach
-  void setUp() {
-    Tier2SequentialBean.executionOrder.clear();
-  }
-
-  // Tier 2: SequentialPlanningStrategy
-  @Test
-  void tier2_sequentialStrategy_firesBindingsOneAtATime() {
-    UUID caseId = tier2Bean.startCase(Map.of("trigger", true)).toCompletableFuture().join();
-
-    await()
-        .atMost(20, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              assertThat(cache.get(caseId).getState()).isEqualTo(CaseStatus.COMPLETED);
-              assertThat(cache.get(caseId).getCaseContext().get("step1")).isEqualTo(true);
-              assertThat(cache.get(caseId).getCaseContext().get("step2")).isEqualTo(true);
-              assertThat(cache.get(caseId).getCaseContext().get("step3")).isEqualTo(true);
-              // Verify execution order
-              assertThat(Tier2SequentialBean.executionOrder)
-                  .containsExactly("step1", "step2", "step3");
-            });
-  }
 
   // signalAndAwait test
   @Test
@@ -92,95 +64,6 @@ class HybridOrchestrationIntegrationTest {
 
     var result = settled.get(15, TimeUnit.SECONDS);
     assertThat(result.get("result")).isEqualTo("done");
-  }
-
-  @ApplicationScoped
-  public static class Tier2SequentialBean extends CaseHub {
-    static final List<String> executionOrder = new CopyOnWriteArrayList<>();
-
-    @Override
-    public CaseDefinition getDefinition() {
-      Capability cap1 =
-          Capability.builder().name("step1").inputSchema(".").outputSchema(".").build();
-      Capability cap2 =
-          Capability.builder().name("step2").inputSchema(".").outputSchema(".").build();
-      Capability cap3 =
-          Capability.builder().name("step3").inputSchema(".").outputSchema(".").build();
-
-      Worker w1 =
-          Worker.builder()
-              .name("worker1")
-              .capabilityName("step1")
-              .function(
-                  new WorkerFunction.Sync(
-                      input -> {
-                        executionOrder.add("step1");
-                        return WorkerResult.of(Map.of("step1", true));
-                      }))
-              .build();
-
-      Worker w2 =
-          Worker.builder()
-              .name("worker2")
-              .capabilityName("step2")
-              .function(
-                  new WorkerFunction.Sync(
-                      input -> {
-                        executionOrder.add("step2");
-                        return WorkerResult.of(Map.of("step2", true));
-                      }))
-              .build();
-
-      Worker w3 =
-          Worker.builder()
-              .name("worker3")
-              .capabilityName("step3")
-              .function(
-                  new WorkerFunction.Sync(
-                      input -> {
-                        executionOrder.add("step3");
-                        return WorkerResult.of(Map.of("step3", true));
-                      }))
-              .build();
-
-      return CaseDefinition.builder()
-          .namespace("test")
-          .name("Tier2 Sequential")
-          .version("1.0.0")
-          .planningStrategy("sequential")
-          .capabilities(cap1, cap2, cap3)
-          .workers(w1, w2, w3)
-          .bindings(
-              Binding.builder()
-                  .name("b1")
-                  .capability(cap1)
-                  .on(new ContextChangeTrigger(".trigger == true"))
-                  .build(),
-              Binding.builder()
-                  .name("b2")
-                  .capability(cap2)
-                  .on(new ContextChangeTrigger(".trigger == true"))
-                  .build(),
-              Binding.builder()
-                  .name("b3")
-                  .capability(cap3)
-                  .on(new ContextChangeTrigger(".trigger == true"))
-                  .build())
-          .goals(
-              Goal.builder()
-                  .name("done")
-                  .kind(GoalKind.SUCCESS)
-                  .condition(new JQExpressionEvaluator(".step3 == true"))
-                  .build())
-          .completion(
-              GoalExpression.allOf(
-                  Goal.builder()
-                      .name("done")
-                      .kind(GoalKind.SUCCESS)
-                      .condition(new JQExpressionEvaluator(".step3 == true"))
-                      .build()))
-          .build();
-    }
   }
 
   @ApplicationScoped

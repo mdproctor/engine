@@ -242,10 +242,10 @@ class DefaultCaseDefinitionRegistryTest {
   void findByType_exactMatch_returnsDefinition() throws Exception {
     CaseDefinition def =
         CaseDefinition.builder()
-            .namespace("t")
-            .name("typed")
+            .namespace("t-fbt-exact")
+            .name("exact-typed")
             .version("1.0.0")
-            .type(Path.of("situation-response", "replan"))
+            .type(Path.of("exact-type-test", "specific"))
             .build();
 
     registry
@@ -255,19 +255,19 @@ class DefaultCaseDefinitionRegistryTest {
         .toCompletableFuture()
         .join();
 
-    List<CaseDefinition> result = registry.findByType(Path.of("situation-response", "replan"));
+    List<CaseDefinition> result = registry.findByType(Path.of("exact-type-test", "specific"));
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).getName()).isEqualTo("typed");
+    assertThat(result.get(0).getName()).isEqualTo("exact-typed");
   }
 
   @Test
   void findByType_ancestorMatch_returnsSubtypes() throws Exception {
     CaseDefinition def =
         CaseDefinition.builder()
-            .namespace("t")
-            .name("replan")
+            .namespace("t-fbt-ancestor")
+            .name("ancestor-typed")
             .version("1.0.0")
-            .type(Path.of("situation-response", "replan"))
+            .type(Path.of("ancestor-type-test", "child"))
             .build();
     registry
         .registerCaseDefinition(def)
@@ -276,19 +276,19 @@ class DefaultCaseDefinitionRegistryTest {
         .toCompletableFuture()
         .join();
 
-    List<CaseDefinition> result = registry.findByType(Path.of("situation-response"));
+    List<CaseDefinition> result = registry.findByType(Path.of("ancestor-type-test"));
     assertThat(result).hasSize(1);
-    assertThat(result.get(0).getName()).isEqualTo("replan");
+    assertThat(result.get(0).getName()).isEqualTo("ancestor-typed");
   }
 
   @Test
   void findByType_noMatch_returnsEmpty() throws Exception {
     CaseDefinition def =
         CaseDefinition.builder()
-            .namespace("t")
-            .name("typed")
+            .namespace("t-fbt-nomatch")
+            .name("nomatch-typed")
             .version("1.0.0")
-            .type(Path.of("compliance", "auditable"))
+            .type(Path.of("compliance-test", "auditable"))
             .build();
     registry
         .registerCaseDefinition(def)
@@ -297,14 +297,18 @@ class DefaultCaseDefinitionRegistryTest {
         .toCompletableFuture()
         .join();
 
-    List<CaseDefinition> result = registry.findByType(Path.of("situation-response"));
+    List<CaseDefinition> result = registry.findByType(Path.of("nomatch-query-path"));
     assertThat(result).isEmpty();
   }
 
   @Test
   void findByType_noTypes_notReturned() throws Exception {
     CaseDefinition def =
-        CaseDefinition.builder().namespace("t").name("untyped").version("1.0.0").build();
+        CaseDefinition.builder()
+            .namespace("t-fbt-notype")
+            .name("untyped-case")
+            .version("1.0.0")
+            .build();
     registry
         .registerCaseDefinition(def)
         .subscribe()
@@ -312,7 +316,7 @@ class DefaultCaseDefinitionRegistryTest {
         .toCompletableFuture()
         .join();
 
-    List<CaseDefinition> result = registry.findByType(Path.of("anything"));
+    List<CaseDefinition> result = registry.findByType(Path.of("notype-query-path"));
     assertThat(result).isEmpty();
   }
 
@@ -320,10 +324,10 @@ class DefaultCaseDefinitionRegistryTest {
   void findByLabel_exactMatch_returnsDefinition() throws Exception {
     CaseDefinition def =
         CaseDefinition.builder()
-            .namespace("t")
-            .name("labeled")
+            .namespace("t-fbl-exact")
+            .name("exact-labeled")
             .version("1.0.0")
-            .label(Path.of("priority", "high"))
+            .label(Path.of("exact-label-test", "high"))
             .build();
     registry
         .registerCaseDefinition(def)
@@ -332,7 +336,7 @@ class DefaultCaseDefinitionRegistryTest {
         .toCompletableFuture()
         .join();
 
-    List<CaseDefinition> result = registry.findByLabel(Path.of("priority", "high"));
+    List<CaseDefinition> result = registry.findByLabel(Path.of("exact-label-test", "high"));
     assertThat(result).hasSize(1);
   }
 
@@ -340,10 +344,10 @@ class DefaultCaseDefinitionRegistryTest {
   void findByLabel_ancestorMatch_returnsSubLabels() throws Exception {
     CaseDefinition def =
         CaseDefinition.builder()
-            .namespace("t")
-            .name("labeled")
+            .namespace("t-fbl-ancestor")
+            .name("ancestor-labeled")
             .version("1.0.0")
-            .label(Path.of("priority", "high"))
+            .label(Path.of("ancestor-label-test", "high"))
             .build();
     registry
         .registerCaseDefinition(def)
@@ -352,7 +356,7 @@ class DefaultCaseDefinitionRegistryTest {
         .toCompletableFuture()
         .join();
 
-    List<CaseDefinition> result = registry.findByLabel(Path.of("priority"));
+    List<CaseDefinition> result = registry.findByLabel(Path.of("ancestor-label-test"));
     assertThat(result).hasSize(1);
   }
 }

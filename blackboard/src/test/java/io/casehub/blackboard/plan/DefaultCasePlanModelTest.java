@@ -302,13 +302,15 @@ class DefaultCasePlanModelTest {
   }
 
   @Test
-  void addPlanItemIfAbsent_returns_true_when_prior_item_is_completed() {
+  void addPlanItemIfAbsent_returns_false_when_prior_item_is_completed() {
     PlanItem first = PlanItem.create("binding-a", "worker-a", 0);
     plan.addPlanItemIfAbsent(first);
     first.markRunning();
     first.markCompleted();
     PlanItem second = PlanItem.create("binding-a", "worker-a", 0);
-    assertThat(plan.addPlanItemIfAbsent(second)).isTrue();
+    assertThat(plan.addPlanItemIfAbsent(second))
+        .as("COMPLETED PlanItems must not be replaced — prevents duplicate dispatch")
+        .isFalse();
   }
 
   @Test

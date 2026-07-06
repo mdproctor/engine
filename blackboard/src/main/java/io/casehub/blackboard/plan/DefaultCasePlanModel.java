@@ -76,8 +76,10 @@ public class DefaultCasePlanModel implements CasePlanModel {
     latestByBinding.compute(
         item.getBindingName(),
         (k, existing) -> {
-          if (existing != null && existing.getStatus().isActive()) {
-            return existing; // active item present — reject
+          if (existing != null
+              && (existing.getStatus().isActive()
+                  || existing.getStatus() == PlanItemStatus.COMPLETED)) {
+            return existing; // active or completed item present — reject
           }
           agenda.add(item);
           itemsById.put(item.getPlanItemId(), item);

@@ -98,21 +98,23 @@ public class WorkflowExecutionCompletedHandler {
     final CaseInstance caseInstance = event.caseInstance();
     final Worker worker = event.worker();
 
-    // Settlement tracking: record completion for ALL outcomes. The worker has completed its
-    // execution — the gate is a separate lifecycle.
-    if (event.signalId() != null) {
-      settlementTracker.recordCompletion(event.signalId());
-    }
-
     // Outcome fork: non-success outcomes route to the semantic failure path.
+    // Settlement recorded early here — no output to apply.
     if (!(event.outcome() instanceof WorkerOutcome.Success)) {
+      if (event.signalId() != null) {
+        settlementTracker.recordCompletion(event.signalId());
+      }
       return handleSemanticFailure(event, traceId);
     }
 
     // Gate fork: if the worker declared a PlannedAction, classify before applying output.
+    // Settlement recorded early here — output is deferred behind the gate.
     final PlannedAction topLevelAction =
         event.outcome() instanceof WorkerOutcome.Success s ? s.plannedAction() : null;
     if (topLevelAction != null) {
+      if (event.signalId() != null) {
+        settlementTracker.recordCompletion(event.signalId());
+      }
       return handleWithPlannedAction(event, topLevelAction, traceId);
     }
 
@@ -126,6 +128,12 @@ public class WorkflowExecutionCompletedHandler {
       EpisodicLayerUpdater.recordWorkerCompletion(ctx, worker.name(), "COMPLETED");
     }
     recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
+
+    // Settlement recorded AFTER output application — signalAndAwait callers see the output.
+    // Refs casehubio/engine#659.
+    if (event.signalId() != null) {
+      settlementTracker.recordCompletion(event.signalId());
+    }
     JsonNode contextAfter = caseInstance.getCaseContext().asJsonNode();
     JsonNode diff = contextDiffStrategy.compute(contextBefore, contextAfter);
 
