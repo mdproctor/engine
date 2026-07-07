@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
  */
 @Alternative
 @ApplicationScoped
-public class MemoryPlanItemStore implements PlanItemStore {
+public class InMemoryPlanItemStore implements PlanItemStore {
 
   private final ConcurrentHashMap<String, PlanItemRecord> records = new ConcurrentHashMap<>();
 

@@ -639,6 +639,11 @@ public class WorkflowExecutionCompletedHandler {
     metadata.put("inputDataHash", idempotency);
     if (contextDiff != null) {
       metadata.set("contextChanges", contextDiff);
+      var keys = OBJECT_MAPPER.createArrayNode();
+      contextDiff.fieldNames().forEachRemaining(keys::add);
+      if (!keys.isEmpty()) {
+        metadata.set("producedKeys", keys);
+      }
     }
     return metadata;
   }

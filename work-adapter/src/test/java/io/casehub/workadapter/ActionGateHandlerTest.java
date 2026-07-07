@@ -109,7 +109,7 @@ class ActionGateHandlerTest {
     assertThat(workItem).isNotNull();
     assertThat(workItem.callerRef).isEqualTo(expectedCallerRef);
     assertThat(workItem.title).isEqualTo("SAR filing requires MLRO sign-off");
-    assertThat(workItem.candidateGroups).isEqualTo("mlro,analyst");
+    assertThat(workItem.candidateGroups).isEqualTo("analyst,mlro");
     assertThat(workItem.payload).contains("sar.file");
     assertThat(workItem.payload).contains("ACC-123");
     assertThat(workItem.payload).contains("File SAR");

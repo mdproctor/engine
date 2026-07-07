@@ -18,6 +18,8 @@ package io.casehub.api.engine;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.RetryState;
+import io.casehub.api.model.event.ExecutionOrigin;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import java.util.List;
 import java.util.UUID;
@@ -34,6 +36,10 @@ import java.util.UUID;
  * @param tenancyId the tenant that owns this case
  * @param experiences retrieved similar cases from CBR (empty list if CBR is not configured or no
  *     matches found)
+ * @param origin provenance metadata — the execution path that triggered this plan evaluation
+ *     (nullable)
+ * @param retryState retry attempt history for the current execution (nullable — present only when
+ *     the current execution is a retry)
  */
 public record PlanExecutionContext(
     UUID caseId,
@@ -41,4 +47,6 @@ public record PlanExecutionContext(
     CaseContext caseContext,
     CaseStatus caseStatus,
     String tenancyId,
-    List<RetrievedExperience> experiences) {}
+    List<RetrievedExperience> experiences,
+    ExecutionOrigin origin,
+    RetryState retryState) {}

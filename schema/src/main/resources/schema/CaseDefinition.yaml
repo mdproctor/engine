@@ -333,6 +333,14 @@ $defs:
         description: >
           CBR case type for retrieval. Defaults to the case definition name
           if not specified.
+      timing:
+        type: string
+        enum: [ per-evaluation, case-lifetime ]
+        default: per-evaluation
+        description: >
+          Retrieval timing strategy. 'per-evaluation' retrieves on every
+          evaluation (default). 'case-lifetime' retrieves once on first access
+          and caches the result for the case's lifetime.
 
   Capability:
     description: >
@@ -456,6 +464,11 @@ $defs:
         type: object
         additionalProperties: true
         description: "Key-value pairs to write to the case context before dispatching. Prevents condition re-evaluation loops in failure cascades."
+      producedKeys:
+        type: array
+        items:
+          type: string
+        description: "Context keys this binding is expected to produce. Used for static cycle detection and dependency reasoning."
 
   OutcomePolicy:
     type: object

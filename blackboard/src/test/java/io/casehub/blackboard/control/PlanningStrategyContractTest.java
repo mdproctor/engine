@@ -44,7 +44,9 @@ public abstract class PlanningStrategyContractTest {
         mock(CaseContext.class),
         io.casehub.api.model.CaseStatus.RUNNING,
         TenancyConstants.DEFAULT_TENANT_ID,
-        List.of());
+        List.of(),
+        null,
+        null);
   }
 
   @Test

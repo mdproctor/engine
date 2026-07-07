@@ -15,6 +15,7 @@
  */
 package io.casehub.resilience.deadletter;
 
+import io.casehub.api.model.RetryState;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
@@ -42,13 +43,18 @@ public class DeadLetterQueue {
    * @param workerId the failing worker name
    * @param idempotencyHash the input hash used for deduplication
    * @param inputContext the original worker input data
+   * @param retryState the retry attempt history
    * @return the newly created entry
    */
   public DeadLetterEntry add(
-      UUID caseId, String workerId, String idempotencyHash, Map<String, Object> inputContext) {
+      UUID caseId,
+      String workerId,
+      String idempotencyHash,
+      Map<String, Object> inputContext,
+      RetryState retryState) {
     String id = UUID.randomUUID().toString();
     DeadLetterEntry entry =
-        new DeadLetterEntry(id, caseId, workerId, idempotencyHash, inputContext);
+        new DeadLetterEntry(id, caseId, workerId, idempotencyHash, inputContext, retryState);
     store.put(id, entry);
     return entry;
   }

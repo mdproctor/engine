@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.function.Function;
 
 public interface CaseContext {
@@ -96,4 +97,32 @@ public interface CaseContext {
   void applyDiff(JsonNode diff);
 
   long getVersion();
+
+  /**
+   * Registers a listener that fires whenever the specified key in the working layer is changed via
+   * the flat API ({@code set()}, {@code setAll()}, {@code remove()}, etc.).
+   *
+   * <p>Listeners execute on the calling thread, after the write lock is released. They must be
+   * non-blocking. Exceptions thrown by a listener are logged (WARN) and never propagated.
+   *
+   * <p>Engine-internal writes ({@code engineSet()}, {@code applyDiff()}) do NOT fire listeners.
+   *
+   * @param key the context key to observe
+   * @param listener consumer invoked with a {@link ContextChangeEvent} carrying old/new values
+   * @return a {@link Subscription} whose {@link Subscription#cancel()} removes this listener
+   */
+  default Subscription onChange(String key, Consumer<ContextChangeEvent> listener) {
+    return Subscription.NOOP;
+  }
+
+  /**
+   * Registers a listener that fires whenever any key in the working layer is changed via the flat
+   * API. Any-change listeners fire after per-key listeners, in registration order.
+   *
+   * @param listener consumer invoked with a {@link ContextChangeEvent} carrying old/new values
+   * @return a {@link Subscription} whose {@link Subscription#cancel()} removes this listener
+   */
+  default Subscription onAnyChange(Consumer<ContextChangeEvent> listener) {
+    return Subscription.NOOP;
+  }
 }

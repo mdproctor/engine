@@ -75,7 +75,7 @@ public interface ReactivePlanItemStore {
 
 **In-memory — `persistence-memory` module:**
 
-`MemoryPlanItemStore` and `MemoryReactivePlanItemStore` — `@Alternative @ApplicationScoped`, backed by a `ConcurrentHashMap<String, PlanItemRecord>` keyed by `planItemId`. Activated in tests via `quarkus.arc.selected-alternatives`.
+`InMemoryPlanItemStore` and `InMemoryReactivePlanItemStore` — `@Alternative @ApplicationScoped`, backed by a `ConcurrentHashMap<String, PlanItemRecord>` keyed by `planItemId`. Activated in tests via `quarkus.arc.selected-alternatives`.
 
 ### 3. Handler wiring
 
@@ -113,7 +113,7 @@ If steps 2 or 3 throw, the transaction rolls back both DB writes atomically. `it
 | `casehub-engine-common` | Add `PlanItemStatus` enum, `PlanItemRecord` record, `PlanItemStore` + `ReactivePlanItemStore` SPI interfaces, `PlanItemStoreContractTest` (abstract) |
 | `blackboard` | Extract `PlanItemStatus` from `PlanItem`; add `NoOpPlanItemStore` + `NoOpReactivePlanItemStore` (`@DefaultBean`) |
 | `persistence-hibernate` | Add `PlanItemEntity`, `JpaReactivePlanItemStore` |
-| `persistence-memory` | Add `MemoryPlanItemStore`, `MemoryReactivePlanItemStore` (`@Alternative`) |
+| `persistence-memory` | Add `InMemoryPlanItemStore`, `InMemoryReactivePlanItemStore` (`@Alternative`) |
 | `casehub-engine-work-adapter` | Add `WorkAdapterPlanItemEntity`, `JpaPlanItemStore`; update `HumanTaskScheduleHandler` |
 
 ---

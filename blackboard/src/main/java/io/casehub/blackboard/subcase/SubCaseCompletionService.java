@@ -374,6 +374,7 @@ public class SubCaseCompletionService {
     meta.put("childCaseId", childCaseId.toString());
     if (groupId != null) meta.put("groupId", groupId);
     if (groupStatus != null) meta.put("groupStatus", groupStatus.name());
+    meta.put("origin", io.casehub.api.model.event.ExecutionOrigin.SUBCASE_COMPLETION.name());
     log.setMetadata(meta);
     if (appliedData != null && !appliedData.isEmpty()) {
       log.setPayload(OBJECT_MAPPER.valueToTree(appliedData));

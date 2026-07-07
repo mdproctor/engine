@@ -47,6 +47,7 @@ public class DeadLetterEventHandler {
         event.idempotency(),
         // Input context is not carried in the event itself — the DLQ entry stores the
         // idempotency hash so the full input can be recovered from EventLog on replay.
-        Map.of("idempotencyHash", event.idempotency()));
+        Map.of("idempotencyHash", event.idempotency()),
+        event.retryState());
   }
 }

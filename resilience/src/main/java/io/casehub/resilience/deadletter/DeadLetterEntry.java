@@ -15,6 +15,7 @@
  */
 package io.casehub.resilience.deadletter;
 
+import io.casehub.api.model.RetryState;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -34,6 +35,7 @@ public final class DeadLetterEntry {
   private final String workerId;
   private final String idempotencyHash;
   private final Map<String, Object> inputContext;
+  private final RetryState retryState;
   private final Instant arrivedAt;
   private volatile DeadLetterStatus status;
   private volatile int replayAttempts = 0;
@@ -44,12 +46,14 @@ public final class DeadLetterEntry {
       UUID caseId,
       String workerId,
       String idempotencyHash,
-      Map<String, Object> inputContext) {
+      Map<String, Object> inputContext,
+      RetryState retryState) {
     this.deadLetterId = deadLetterId;
     this.caseId = caseId;
     this.workerId = workerId;
     this.idempotencyHash = idempotencyHash;
     this.inputContext = Map.copyOf(inputContext);
+    this.retryState = retryState != null ? retryState : RetryState.empty();
     this.arrivedAt = Instant.now();
     this.status = DeadLetterStatus.PENDING_REVIEW;
   }
@@ -92,6 +96,10 @@ public final class DeadLetterEntry {
 
   public Instant lastReplayAttemptAt() {
     return lastReplayAttemptAt;
+  }
+
+  public RetryState retryState() {
+    return retryState;
   }
 
   void incrementReplayAttempts() {

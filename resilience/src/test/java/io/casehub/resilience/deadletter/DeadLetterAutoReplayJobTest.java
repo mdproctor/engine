@@ -20,6 +20,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.casehub.api.model.RetryState;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -32,7 +33,7 @@ class DeadLetterAutoReplayJobTest {
   @Test
   void isEligible_newEntry_firstDelayZero_returnsTrue() {
     DeadLetterQueue queue = new DeadLetterQueue();
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of(), RetryState.empty());
     assertThat(
             DeadLetterAutoReplayJob.isEligible(
                 entry, 3, List.of(Duration.ZERO, Duration.ofHours(1), Duration.ofHours(8))))
@@ -42,7 +43,7 @@ class DeadLetterAutoReplayJobTest {
   @Test
   void isEligible_afterFirstAttempt_secondDelayNotElapsed_returnsFalse() {
     DeadLetterQueue queue = new DeadLetterQueue();
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of(), RetryState.empty());
     entry.incrementReplayAttempts(); // replayAttempts=1, lastAttemptAt=now
     assertThat(
             DeadLetterAutoReplayJob.isEligible(
@@ -53,7 +54,7 @@ class DeadLetterAutoReplayJobTest {
   @Test
   void isEligible_maxAttemptsReached_returnsFalse() {
     DeadLetterQueue queue = new DeadLetterQueue();
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of(), RetryState.empty());
     entry.incrementReplayAttempts();
     entry.incrementReplayAttempts();
     entry.incrementReplayAttempts(); // 3 attempts
@@ -66,7 +67,7 @@ class DeadLetterAutoReplayJobTest {
   @Test
   void isEligible_nonPendingStatus_returnsFalse() {
     DeadLetterQueue queue = new DeadLetterQueue();
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of(), RetryState.empty());
     queue.markReplayed(entry.deadLetterId());
     assertThat(DeadLetterAutoReplayJob.isEligible(entry, 3, List.of(Duration.ZERO))).isFalse();
   }
@@ -79,8 +80,8 @@ class DeadLetterAutoReplayJobTest {
         new DeadLetterAutoReplayJob(
             queue, replayService, 3, List.of(Duration.ZERO, Duration.ofHours(1)));
 
-    DeadLetterEntry e1 = queue.add(UUID.randomUUID(), "w1", "h1", Map.of());
-    DeadLetterEntry e2 = queue.add(UUID.randomUUID(), "w2", "h2", Map.of());
+    DeadLetterEntry e1 = queue.add(UUID.randomUUID(), "w1", "h1", Map.of(), RetryState.empty());
+    DeadLetterEntry e2 = queue.add(UUID.randomUUID(), "w2", "h2", Map.of(), RetryState.empty());
 
     when(replayService.replay(e1.deadLetterId())).thenReturn(Optional.of(e1));
     when(replayService.replay(e2.deadLetterId())).thenReturn(Optional.of(e2));

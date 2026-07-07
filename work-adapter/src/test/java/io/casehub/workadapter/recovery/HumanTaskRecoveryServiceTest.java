@@ -28,7 +28,7 @@ import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.persistence.memory.MemoryPlanItemStore;
+import io.casehub.persistence.memory.InMemoryPlanItemStore;
 import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.memory.InMemoryWorkItemStore;
 import io.casehub.work.runtime.model.WorkItem;
@@ -63,7 +63,7 @@ class HumanTaskRecoveryServiceTest {
 
   @BeforeEach
   void setUp() {
-    if (planItemStore instanceof MemoryPlanItemStore mem) mem.clear();
+    if (planItemStore instanceof InMemoryPlanItemStore mem) mem.clear();
     if (workItemStore instanceof InMemoryWorkItemStore mem) mem.clear();
     caseId = UUID.randomUUID();
     planItemId = UUID.randomUUID().toString();
@@ -94,7 +94,7 @@ class HumanTaskRecoveryServiceTest {
 
   @AfterEach
   void tearDown() {
-    if (planItemStore instanceof MemoryPlanItemStore mem) mem.clear();
+    if (planItemStore instanceof InMemoryPlanItemStore mem) mem.clear();
     if (workItemStore instanceof InMemoryWorkItemStore mem) mem.clear();
     registry.evict(caseId);
   }

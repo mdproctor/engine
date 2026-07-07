@@ -63,7 +63,7 @@ public record PlanItemSaveRequest(
 void save(PlanItemSaveRequest request);
 ```
 
-Updated in: `JpaPlanItemStore`, `JpaReactivePlanItemStore`, `MemoryPlanItemStore`, `MemoryReactivePlanItemStore`, `NoOpPlanItemStore`, `NoOpReactivePlanItemStore`.
+Updated in: `JpaPlanItemStore`, `JpaReactivePlanItemStore`, `InMemoryPlanItemStore`, `InMemoryReactivePlanItemStore`, `NoOpPlanItemStore`, `NoOpReactivePlanItemStore`.
 
 Call sites: `HumanTaskScheduleHandler` (inline mode, template mode). At call time, `HumanTaskTarget` is in scope — extract `TargetType.HUMAN_TASK` and the JQ expression from `HumanTaskTarget.outputMapping()` if it is a `JQExpressionEvaluator`.
 
@@ -77,7 +77,7 @@ Uni<List<PlanItemRecord>> findDelegated(UUID caseId);  // reactive mirror
 
 Named `findDelegated` (not `findNonTerminal`) because only DELEGATED items are persisted. Returns records with all fields including `targetType` and `outputMappingExpression`.
 
-Updated in: `JpaPlanItemStore`, `JpaReactivePlanItemStore`, `NoOpPlanItemStore` (returns empty), `MemoryPlanItemStore`.
+Updated in: `JpaPlanItemStore`, `JpaReactivePlanItemStore`, `NoOpPlanItemStore` (returns empty), `InMemoryPlanItemStore`.
 Contract test added in `PlanItemStoreContractTest` and `ReactivePlanItemStoreContractTest`.
 
 #### JPA entity updates
@@ -260,7 +260,7 @@ Flow per DELEGATED record from planItemStore.findDelegated(caseId) [scanned glob
      }
 ```
 
-**Global scan SPI method:** The recovery service needs to find DELEGATED items across ALL cases, not per-case. Add `List<PlanItemRecord> findAllDelegated()` to `PlanItemStore` (complements `findDelegated(UUID caseId)`). `NoOpPlanItemStore` returns empty list. `MemoryPlanItemStore` scans its backing store. JPA: indexed query on `status = DELEGATED`.
+**Global scan SPI method:** The recovery service needs to find DELEGATED items across ALL cases, not per-case. Add `List<PlanItemRecord> findAllDelegated()` to `PlanItemStore` (complements `findDelegated(UUID caseId)`). `NoOpPlanItemStore` returns empty list. `InMemoryPlanItemStore` scans its backing store. JPA: indexed query on `status = DELEGATED`.
 
 ---
 
@@ -292,7 +292,7 @@ No new inter-module dependencies.
 `@QuarkusTest` using `casehub-persistence-memory`.
 
 - **Lazy get hydration:** seed memory store with DELEGATED HumanTask PlanItem (with JQ expression); call `registry.get(caseId)`; assert non-empty result; assert `getPlanItem(planItemId)` returns item with status DELEGATED; assert `item.getTarget()` is `HumanTaskTarget` with expression set.
-- **Empty store → empty result:** `MemoryPlanItemStore` empty; `registry.get(caseId)` returns empty.
+- **Empty store → empty result:** `InMemoryPlanItemStore` empty; `registry.get(caseId)` returns empty.
 - **RUNNING items not hydrated:** store has only RUNNING items (for future RUNNING store support); `registry.get(caseId)` still returns empty (RUNNING items out of scope for `findDelegated()`).
 - **Concurrency:** two concurrent `registry.get(caseId)` calls on empty registry; assert that both complete with a populated model; assert that the double `restorePlanItem()` is a no-op (idempotent).
 

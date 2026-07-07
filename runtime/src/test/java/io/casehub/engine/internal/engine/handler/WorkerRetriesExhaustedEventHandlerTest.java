@@ -22,6 +22,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.RetryState;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -72,7 +73,8 @@ class WorkerRetriesExhaustedEventHandlerTest {
 
     handler
         .onWorkerRetriesExhaustedEvent(
-            new WorkerRetriesExhaustedEvent(caseId, tenancyId, "worker-a", "hash", null, signalId))
+            new WorkerRetriesExhaustedEvent(
+                caseId, tenancyId, "worker-a", "hash", null, signalId, RetryState.empty()))
         .await()
         .indefinitely();
 
@@ -88,7 +90,8 @@ class WorkerRetriesExhaustedEventHandlerTest {
 
     handler
         .onWorkerRetriesExhaustedEvent(
-            new WorkerRetriesExhaustedEvent(caseId, tenancyId, "worker-a", "hash", null, null))
+            new WorkerRetriesExhaustedEvent(
+                caseId, tenancyId, "worker-a", "hash", null, null, RetryState.empty()))
         .await()
         .indefinitely();
 

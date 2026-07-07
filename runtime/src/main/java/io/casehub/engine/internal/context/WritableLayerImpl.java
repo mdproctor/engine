@@ -569,6 +569,249 @@ public class WritableLayerImpl implements WritableLayer {
     }
   }
 
+  // ── Atomic prev-returning variants (package-private, used by CaseContextImpl listeners) ───
+
+  /**
+   * Sets a key and returns the previous value, captured atomically inside the write lock. Returns
+   * {@code null} if the key was absent. Version is incremented only when the value actually
+   * changes.
+   */
+  Object setPrev(String key, Object value) {
+    checkWritable();
+    lock.writeLock().lock();
+    try {
+      Object prev = data.get(key);
+      if (!Objects.equals(prev, value)) {
+        data.put(key, value);
+        version++;
+      }
+      return prev;
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
+   * Sets multiple keys and returns a map of (key -> previousValue) for each key that actually
+   * changed. Keys whose value did not change are not included in the returned map.
+   */
+  Map<String, Object> setAllPrev(Map<String, Object> values) {
+    checkWritable();
+    if (values == null || values.isEmpty()) {
+      return Map.of();
+    }
+    lock.writeLock().lock();
+    try {
+      Map<String, Object> changed = new LinkedHashMap<>();
+      for (Map.Entry<String, Object> e : values.entrySet()) {
+        Object prev = data.get(e.getKey());
+        if (!Objects.equals(prev, e.getValue())) {
+          data.put(e.getKey(), e.getValue());
+          changed.put(e.getKey(), prev);
+        }
+      }
+      if (!changed.isEmpty()) {
+        version++;
+      }
+      return changed;
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
+   * Removes a key and returns the previous value atomically. Returns {@code null} if the key was
+   * absent.
+   */
+  Object removePrev(String key) {
+    checkWritable();
+    lock.writeLock().lock();
+    try {
+      if (data.containsKey(key)) {
+        Object prev = data.remove(key);
+        version++;
+        return prev;
+      }
+      return null;
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
+   * Clears all entries and returns the data that was present before the clear, captured atomically.
+   * Returns an empty map if already empty.
+   */
+  Map<String, Object> clearPrev() {
+    checkWritable();
+    lock.writeLock().lock();
+    try {
+      if (!data.isEmpty()) {
+        Map<String, Object> prev = new LinkedHashMap<>(data);
+        data.clear();
+        version++;
+        return prev;
+      }
+      return Map.of();
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
+   * Applies an update function and returns a two-element array {@code [oldValue, newValue]},
+   * captured atomically.
+   */
+  Object[] updatePrev(String key, Function<Object, Object> updateFunction) {
+    checkWritable();
+    lock.writeLock().lock();
+    try {
+      Object current = data.get(key);
+      Object newValue = updateFunction.apply(current);
+      if (newValue != null) {
+        if (!Objects.equals(current, newValue)) {
+          data.put(key, newValue);
+          version++;
+        }
+      } else {
+        if (data.containsKey(key)) {
+          data.remove(key);
+          version++;
+        }
+      }
+      return new Object[] {current, newValue};
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
+   * computeIfAbsent variant that returns a two-element array {@code [existed, computedValue]}.
+   * {@code existed} is {@code Boolean.TRUE} if the key was already present (no change), {@code
+   * Boolean.FALSE} if a new value was computed.
+   */
+  Object[] computeIfAbsentPrev(String key, Function<String, Object> mappingFunction) {
+    checkWritable();
+    lock.writeLock().lock();
+    try {
+      Object value = data.get(key);
+      if (value == null) {
+        value = mappingFunction.apply(key);
+        if (value != null) {
+          data.put(key, value);
+          version++;
+          return new Object[] {Boolean.FALSE, value};
+        }
+        return new Object[] {Boolean.TRUE, null};
+      }
+      return new Object[] {Boolean.TRUE, value};
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
+   * putIfAbsent variant that returns a two-element array {@code [previousValue, wasAbsent]}. {@code
+   * wasAbsent} is {@code Boolean.TRUE} if the value was inserted.
+   */
+  Object[] putIfAbsentPrev(String key, Object value) {
+    checkWritable();
+    lock.writeLock().lock();
+    try {
+      Object existing = data.get(key);
+      if (existing == null) {
+        data.put(key, value);
+        version++;
+        return new Object[] {null, Boolean.TRUE};
+      }
+      return new Object[] {existing, Boolean.FALSE};
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
+   * compareAndSet variant that returns the old value atomically. Returns a two-element array {@code
+   * [oldValue, swapped]}. {@code swapped} is {@code Boolean.TRUE} if the swap occurred.
+   */
+  Object[] compareAndSetPrev(String key, Object expected, Object newValue) {
+    checkWritable();
+    lock.writeLock().lock();
+    try {
+      Object current = data.get(key);
+      if (Objects.equals(current, expected)) {
+        if (!Objects.equals(current, newValue)) {
+          data.put(key, newValue);
+          version++;
+        }
+        return new Object[] {current, Boolean.TRUE};
+      }
+      return new Object[] {current, Boolean.FALSE};
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /** setPath variant that returns the previous leaf value atomically. */
+  @SuppressWarnings("unchecked")
+  Object setPathPrev(String path, Object value) {
+    checkWritable();
+    lock.writeLock().lock();
+    try {
+      String[] parts = path.split("\\.");
+      Map<String, Object> current = data;
+      for (int i = 0; i < parts.length - 1; i++) {
+        Object next = current.get(parts[i]);
+        if (next == null) {
+          next = new LinkedHashMap<String, Object>();
+          current.put(parts[i], next);
+        }
+        if (next instanceof Map) {
+          current = (Map<String, Object>) next;
+        } else {
+          throw new IllegalStateException("Cannot set path: " + parts[i] + " is not a Map");
+        }
+      }
+      String leaf = parts[parts.length - 1];
+      Object prev = current.get(leaf);
+      if (!Objects.equals(prev, value)) {
+        current.put(leaf, value);
+        version++;
+      }
+      return prev;
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
+  /**
+   * Merge variant that returns a map of (key -> previousValue) for each key that actually changed.
+   */
+  Map<String, Object> mergePrev(ReadableLayer other) {
+    checkWritable();
+    if (other == null) {
+      return Map.of();
+    }
+    lock.writeLock().lock();
+    try {
+      Map<String, Object> otherData = other.getData();
+      Map<String, Object> changed = new LinkedHashMap<>();
+      for (Map.Entry<String, Object> e : otherData.entrySet()) {
+        Object prev = data.get(e.getKey());
+        if (!Objects.equals(prev, e.getValue())) {
+          data.put(e.getKey(), e.getValue());
+          changed.put(e.getKey(), prev);
+        }
+      }
+      if (!changed.isEmpty()) {
+        version++;
+      }
+      return changed;
+    } finally {
+      lock.writeLock().unlock();
+    }
+  }
+
   // ── Public helpers ─────────────────────────────────────────────────────────
 
   /**

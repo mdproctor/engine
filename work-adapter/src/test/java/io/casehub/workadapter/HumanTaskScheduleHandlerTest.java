@@ -25,7 +25,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.HumanTaskScheduleEvent;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
-import io.casehub.persistence.memory.MemoryPlanItemStore;
+import io.casehub.persistence.memory.InMemoryPlanItemStore;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.memory.InMemoryWorkItemStore;
@@ -74,7 +74,7 @@ class HumanTaskScheduleHandlerTest {
     if (workItemStore instanceof InMemoryWorkItemStore mem) {
       mem.clear();
     }
-    if (planItemStore instanceof MemoryPlanItemStore mem) {
+    if (planItemStore instanceof InMemoryPlanItemStore mem) {
       mem.clear();
     }
     if (templateStore instanceof InMemoryWorkItemTemplateStore mem) {

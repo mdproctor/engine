@@ -13,16 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.event;
+package io.casehub.persistence.memory;
 
-import io.casehub.api.model.RetryState;
-import java.util.UUID;
+import io.casehub.engine.common.spi.PlanItemStore;
+import io.casehub.engine.common.spi.PlanItemStoreContractTest;
 
-public record WorkerRetriesExhaustedEvent(
-    UUID caseId,
-    String tenancyId,
-    String workerId,
-    String idempotency,
-    String bindingName,
-    UUID signalId,
-    RetryState retryState) {}
+class InMemoryPlanItemStoreContractTest extends PlanItemStoreContractTest {
+
+  private final InMemoryPlanItemStore store = new InMemoryPlanItemStore();
+
+  @Override
+  protected PlanItemStore store() {
+    return store;
+  }
+}

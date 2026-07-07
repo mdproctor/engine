@@ -21,6 +21,8 @@ import static org.quartz.TriggerBuilder.newTrigger;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.RetryState;
+import io.casehub.api.model.RetryState.RetryAttempt;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -41,8 +43,11 @@ import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 import java.util.function.Supplier;
 import org.jboss.logging.Logger;
 import org.quartz.JobDataMap;
@@ -124,16 +129,21 @@ class QuartzRetryService {
         LOG.warnf(
             "Worker %s exhausted all %d retry attempts for case %s: %s",
             ctx.workerId(), retryPolicy.maxAttempts(), ctx.caseId(), exhaust.reason());
-        eventBus.publish(
-            EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-            new WorkerRetriesExhaustedEvent(
-                ctx.caseId(),
-                ctx.tenancyId(),
-                ctx.workerId(),
-                ctx.inputDataHash(),
-                ctx.bindingName(),
-                ctx.signalId()));
-        yield Uni.createFrom().voidItem();
+        yield buildRetryState(ctx)
+            .onItem()
+            .invoke(
+                retryState ->
+                    eventBus.publish(
+                        EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
+                        new WorkerRetriesExhaustedEvent(
+                            ctx.caseId(),
+                            ctx.tenancyId(),
+                            ctx.workerId(),
+                            ctx.inputDataHash(),
+                            ctx.bindingName(),
+                            ctx.signalId(),
+                            retryState)))
+            .replaceWithVoid();
       }
     };
   }
@@ -185,6 +195,54 @@ class QuartzRetryService {
                                       && ctx.inputDataHash().equals(hashNode.asText());
                                 })
                             .count()));
+  }
+
+  private Uni<RetryState> buildRetryState(WorkerRetryContext ctx) {
+    return runOnSafeVertxContext(
+        () ->
+            reactiveEventLogRepository
+                .findByCaseAndWorkerAndType(
+                    ctx.caseId(),
+                    ctx.workerId(),
+                    CaseHubEventType.WORKER_EXECUTION_FAILED,
+                    ctx.tenancyId())
+                .map(
+                    eventLogs -> {
+                      List<RetryAttempt> attempts = new ArrayList<>();
+                      Instant firstAttemptTime = null;
+                      Instant lastAttemptTime = null;
+
+                      for (EventLog log : eventLogs) {
+                        JsonNode metadata = log.getMetadata();
+                        JsonNode hashNode = metadata == null ? null : metadata.get("inputDataHash");
+                        if (hashNode == null || !ctx.inputDataHash().equals(hashNode.asText())) {
+                          continue;
+                        }
+
+                        Instant timestamp = log.getTimestamp();
+                        if (firstAttemptTime == null || timestamp.isBefore(firstAttemptTime)) {
+                          firstAttemptTime = timestamp;
+                        }
+                        if (lastAttemptTime == null || timestamp.isAfter(lastAttemptTime)) {
+                          lastAttemptTime = timestamp;
+                        }
+
+                        String errorMessage =
+                            metadata != null && metadata.has("errorMessage")
+                                ? metadata.get("errorMessage").asText()
+                                : "unknown";
+
+                        // Duration is not stored in event log metadata — use a sentinel value
+                        attempts.add(
+                            new RetryAttempt(timestamp, errorMessage, Duration.ZERO, false));
+                      }
+
+                      if (attempts.isEmpty()) {
+                        return RetryState.empty();
+                      }
+
+                      return RetryState.of(attempts, firstAttemptTime, lastAttemptTime);
+                    }));
   }
 
   private Uni<Void> rescheduleWorker(WorkerRetryContext ctx, long delayMs) {

@@ -25,7 +25,7 @@ import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.PlanItemStore;
-import io.casehub.persistence.memory.MemoryPlanItemStore;
+import io.casehub.persistence.memory.InMemoryPlanItemStore;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.time.Instant;
@@ -42,7 +42,7 @@ class BlackboardRegistryLazyHydrationTest {
 
   @BeforeEach
   void setUp() {
-    if (planItemStore instanceof MemoryPlanItemStore mem) {
+    if (planItemStore instanceof InMemoryPlanItemStore mem) {
       mem.clear();
     }
   }

@@ -78,14 +78,14 @@ class DeadLetterReplayServiceTest {
 
   @Test
   void replay_alreadyReplayed_returnsEmpty() {
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of(), null);
     queue.markReplayed(entry.deadLetterId());
     assertThat(service.replay(entry.deadLetterId())).isEmpty();
   }
 
   @Test
   void replay_discarded_returnsEmpty() {
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w", "h", Map.of(), null);
     queue.discard(entry.deadLetterId());
     assertThat(service.replay(entry.deadLetterId())).isEmpty();
   }
@@ -93,7 +93,7 @@ class DeadLetterReplayServiceTest {
   @Test
   void replay_eventLogNotFound_leavesEntryPendingReturnsEmpty() {
     UUID caseId = UUID.randomUUID();
-    DeadLetterEntry entry = queue.add(caseId, "worker-a", "hash-x", Map.of());
+    DeadLetterEntry entry = queue.add(caseId, "worker-a", "hash-x", Map.of(), null);
     when(eventLogRepository.findByCaseAndWorkerAndType(
             caseId, "worker-a", CaseHubEventType.WORKER_SCHEDULED))
         .thenReturn(Uni.createFrom().item(List.of()));
@@ -107,7 +107,7 @@ class DeadLetterReplayServiceTest {
   @Test
   void replay_faultedCase_returnsEmpty() {
     UUID caseId = UUID.randomUUID();
-    DeadLetterEntry entry = queue.add(caseId, "worker-b", "hash-y", Map.of());
+    DeadLetterEntry entry = queue.add(caseId, "worker-b", "hash-y", Map.of(), null);
 
     EventLog scheduledLog = scheduledLog(caseId, "worker-b", "hash-y");
     when(eventLogRepository.findByCaseAndWorkerAndType(
@@ -127,7 +127,7 @@ class DeadLetterReplayServiceTest {
     UUID caseId = UUID.randomUUID();
     String workerId = "worker-c";
     String hash = "hash-z";
-    DeadLetterEntry entry = queue.add(caseId, workerId, hash, Map.of());
+    DeadLetterEntry entry = queue.add(caseId, workerId, hash, Map.of(), null);
 
     EventLog scheduledLog = scheduledLog(caseId, workerId, hash);
     when(eventLogRepository.findByCaseAndWorkerAndType(

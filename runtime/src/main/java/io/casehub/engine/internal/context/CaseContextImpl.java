@@ -23,21 +23,39 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.ContextChangeEvent;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.ReadableLayer;
+import io.casehub.api.context.Subscription;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.function.Consumer;
 import java.util.function.Function;
+import org.jboss.logging.Logger;
 
 @JsonDeserialize(as = CaseContextImpl.class)
 public class CaseContextImpl implements CaseContext {
 
+  private static final Logger LOG = Logger.getLogger(CaseContextImpl.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final Map<String, WritableLayerImpl> layers = new LinkedHashMap<>();
+
+  // ── Listener infrastructure ────────────────────────────────────────────────
+
+  @JsonIgnore
+  private final ConcurrentHashMap<String, CopyOnWriteArrayList<Consumer<ContextChangeEvent>>>
+      keyListeners = new ConcurrentHashMap<>();
+
+  @JsonIgnore
+  private final CopyOnWriteArrayList<Consumer<ContextChangeEvent>> anyChangeListeners =
+      new CopyOnWriteArrayList<>();
 
   // ── Constructors ────────────────────────────────────────────────────────────
 
@@ -102,12 +120,64 @@ public class CaseContextImpl implements CaseContext {
     if (p != null) p.freeze();
   }
 
+  // ── Listener registration ───────────────────────────────────────────────────
+
+  @Override
+  public Subscription onChange(String key, Consumer<ContextChangeEvent> listener) {
+    Objects.requireNonNull(key, "key");
+    Objects.requireNonNull(listener, "listener");
+    CopyOnWriteArrayList<Consumer<ContextChangeEvent>> list =
+        keyListeners.computeIfAbsent(key, k -> new CopyOnWriteArrayList<>());
+    list.add(listener);
+    return () -> list.remove(listener);
+  }
+
+  @Override
+  public Subscription onAnyChange(Consumer<ContextChangeEvent> listener) {
+    Objects.requireNonNull(listener, "listener");
+    anyChangeListeners.add(listener);
+    return () -> anyChangeListeners.remove(listener);
+  }
+
+  private boolean hasListeners() {
+    return !keyListeners.isEmpty() || !anyChangeListeners.isEmpty();
+  }
+
+  /** Fires per-key listeners first, then any-change listeners. Each in try/catch. */
+  private void fireListeners(String key, Object oldValue, Object newValue) {
+    ContextChangeEvent event = new ContextChangeEvent(key, oldValue, newValue);
+    CopyOnWriteArrayList<Consumer<ContextChangeEvent>> perKey = keyListeners.get(key);
+    if (perKey != null) {
+      for (Consumer<ContextChangeEvent> listener : perKey) {
+        try {
+          listener.accept(event);
+        } catch (Exception e) {
+          LOG.warnf(e, "Context change listener threw for key '%s'", key);
+        }
+      }
+    }
+    for (Consumer<ContextChangeEvent> listener : anyChangeListeners) {
+      try {
+        listener.accept(event);
+      } catch (Exception e) {
+        LOG.warnf(e, "Any-change context listener threw for key '%s'", key);
+      }
+    }
+  }
+
   // ── Flat API — delegates to working layer ──────────────────────────────────
 
   @JsonAnySetter
   @Override
   public CaseContext set(String key, Object value) {
-    working().set(key, value);
+    if (!hasListeners()) {
+      working().set(key, value);
+    } else {
+      Object prev = working().setPrev(key, value);
+      if (!Objects.equals(prev, value)) {
+        fireListeners(key, prev, value);
+      }
+    }
     return this;
   }
 
@@ -128,22 +198,58 @@ public class CaseContextImpl implements CaseContext {
 
   @Override
   public Object computeIfAbsent(String key, Function<String, Object> mappingFunction) {
-    return working().computeIfAbsent(key, mappingFunction);
+    if (!hasListeners()) {
+      return working().computeIfAbsent(key, mappingFunction);
+    }
+    Object[] result = working().computeIfAbsentPrev(key, mappingFunction);
+    boolean existed = (Boolean) result[0];
+    Object value = result[1];
+    if (!existed && value != null) {
+      fireListeners(key, null, value);
+    }
+    return value;
   }
 
   @Override
   public Object putIfAbsent(String key, Object value) {
-    return working().putIfAbsent(key, value);
+    if (!hasListeners()) {
+      return working().putIfAbsent(key, value);
+    }
+    Object[] result = working().putIfAbsentPrev(key, value);
+    Object previous = result[0];
+    boolean wasAbsent = (Boolean) result[1];
+    if (wasAbsent) {
+      fireListeners(key, null, value);
+    }
+    return previous;
   }
 
   @Override
   public boolean compareAndSet(String key, Object expected, Object newValue) {
-    return working().compareAndSet(key, expected, newValue);
+    if (!hasListeners()) {
+      return working().compareAndSet(key, expected, newValue);
+    }
+    Object[] result = working().compareAndSetPrev(key, expected, newValue);
+    Object oldValue = result[0];
+    boolean swapped = (Boolean) result[1];
+    if (swapped && !Objects.equals(oldValue, newValue)) {
+      fireListeners(key, oldValue, newValue);
+    }
+    return swapped;
   }
 
   @Override
   public CaseContext update(String key, Function<Object, Object> updateFunction) {
-    working().update(key, updateFunction);
+    if (!hasListeners()) {
+      working().update(key, updateFunction);
+    } else {
+      Object[] result = working().updatePrev(key, updateFunction);
+      Object oldValue = result[0];
+      Object newValue = result[1];
+      if (!Objects.equals(oldValue, newValue)) {
+        fireListeners(key, oldValue, newValue);
+      }
+    }
     return this;
   }
 
@@ -189,13 +295,30 @@ public class CaseContextImpl implements CaseContext {
 
   @Override
   public CaseContext setPath(String path, Object value) {
-    working().setPath(path, value);
+    if (!hasListeners()) {
+      working().setPath(path, value);
+    } else {
+      // Fire listener on the top-level key (first segment of the path)
+      String topKey = path.contains(".") ? path.substring(0, path.indexOf('.')) : path;
+      Object prev = working().setPathPrev(path, value);
+      // For nested paths, always fire on the top-level key with the leaf old/new values
+      if (!Objects.equals(prev, value)) {
+        fireListeners(topKey, prev, value);
+      }
+    }
     return this;
   }
 
   @Override
   public CaseContext setAll(Map<String, Object> values) {
-    working().setAll(values);
+    if (!hasListeners()) {
+      working().setAll(values);
+    } else {
+      Map<String, Object> changed = working().setAllPrev(values);
+      for (Map.Entry<String, Object> entry : changed.entrySet()) {
+        fireListeners(entry.getKey(), entry.getValue(), values.get(entry.getKey()));
+      }
+    }
     return this;
   }
 
@@ -211,13 +334,27 @@ public class CaseContextImpl implements CaseContext {
 
   @Override
   public CaseContext remove(String key) {
-    working().remove(key);
+    if (!hasListeners()) {
+      working().remove(key);
+    } else {
+      Object prev = working().removePrev(key);
+      if (prev != null) {
+        fireListeners(key, prev, null);
+      }
+    }
     return this;
   }
 
   @Override
   public CaseContext clear() {
-    working().clear();
+    if (!hasListeners()) {
+      working().clear();
+    } else {
+      Map<String, Object> prev = working().clearPrev();
+      for (Map.Entry<String, Object> entry : prev.entrySet()) {
+        fireListeners(entry.getKey(), entry.getValue(), null);
+      }
+    }
     return this;
   }
 
@@ -255,7 +392,15 @@ public class CaseContextImpl implements CaseContext {
   @Override
   public CaseContext merge(CaseContext other) {
     if (other == null) return this;
-    working().setAll(other.getData()); // merge working layers only
+    if (!hasListeners()) {
+      working().setAll(other.getData());
+    } else {
+      Map<String, Object> otherData = other.getData();
+      Map<String, Object> changed = working().setAllPrev(otherData);
+      for (Map.Entry<String, Object> entry : changed.entrySet()) {
+        fireListeners(entry.getKey(), entry.getValue(), otherData.get(entry.getKey()));
+      }
+    }
     return this;
   }
 

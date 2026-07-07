@@ -211,6 +211,9 @@ public class SignalReceivedEventHandler {
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
     eventLog.setPayload(OBJECT_MAPPER.createObjectNode().set("patch", diff.deepCopy()));
+    java.util.Map<String, String> metadata = new java.util.HashMap<>();
+    metadata.put("origin", io.casehub.api.model.event.ExecutionOrigin.SIGNAL.name());
+    eventLog.setMetadata(OBJECT_MAPPER.valueToTree(metadata));
     return eventLog;
   }
 

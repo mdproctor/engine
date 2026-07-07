@@ -21,8 +21,10 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
@@ -36,10 +38,14 @@ import org.jboss.logging.Logger;
  * path). Both fire-sites use {@code worker.getName()} as the {@code workerId} field, which equals
  * the tracking key stored by {@link BlackboardRegistry#indexForCompletion}.
  *
+ * <p>Fires {@link PlanItemFaultedEvent} via CDI {@code fireAsync()} and calls {@link
+ * StageAutocompleteEvaluator#evaluate} after marking the PlanItem FAULTED. Consolidates the
+ * responsibilities of the former {@code PlanItemFaultHandler} (engine#666).
+ *
  * <p>Without this handler, a RUNNING PlanItem stays active indefinitely after exhaustion, blocking
  * re-triggering, stage autocomplete, and {@code PlanItemCompletedEvent} delivery.
  *
- * <p>Refs engine#331, engine#369.
+ * <p>Refs engine#331, engine#369, engine#666.
  */
 @ApplicationScoped
 public class WorkerRetryExhaustionHandler {
@@ -48,13 +54,16 @@ public class WorkerRetryExhaustionHandler {
 
   private final BlackboardRegistry registry;
   private final StageAutocompleteEvaluator stageAutocompleteEvaluator;
+  private final Event<PlanItemFaultedEvent> planItemFaultedEvents;
 
   @Inject
   public WorkerRetryExhaustionHandler(
       final BlackboardRegistry registry,
-      final StageAutocompleteEvaluator stageAutocompleteEvaluator) {
+      final StageAutocompleteEvaluator stageAutocompleteEvaluator,
+      final Event<PlanItemFaultedEvent> planItemFaultedEvents) {
     this.registry = registry;
     this.stageAutocompleteEvaluator = stageAutocompleteEvaluator;
+    this.planItemFaultedEvents = planItemFaultedEvents;
   }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED, blocking = true)
@@ -95,6 +104,12 @@ public class WorkerRetryExhaustionHandler {
                     planItemId, item.getStatus());
                 return;
               }
+
+              // Fire PlanItemFaultedEvent via CDI for downstream observers
+              planItemFaultedEvents.fireAsync(
+                  new PlanItemFaultedEvent(
+                      event.caseId(), planItemId, item.getBindingName(), event.tenancyId()));
+
               stageAutocompleteEvaluator.evaluate(event.caseId(), plan, planItemId);
               LOG.warnf(
                   "PlanItem %s marked FAULTED — worker '%s' retries exhausted in case %s",

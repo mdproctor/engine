@@ -42,7 +42,8 @@ class DeadLetterQueueTest {
   @Test
   void add_storesEntryWithPendingReviewStatus() {
     UUID caseId = UUID.randomUUID();
-    DeadLetterEntry entry = queue.add(caseId, "my-worker", "hash-abc", Map.of("key", "value"));
+    DeadLetterEntry entry =
+        queue.add(caseId, "my-worker", "hash-abc", Map.of("key", "value"), null);
 
     assertThat(entry.deadLetterId()).isNotNull();
     assertThat(entry.caseId()).isEqualTo(caseId);
@@ -58,8 +59,8 @@ class DeadLetterQueueTest {
     UUID caseA = UUID.randomUUID();
     UUID caseB = UUID.randomUUID();
 
-    queue.add(caseA, "worker-1", "hash-1", Map.of());
-    queue.add(caseB, "worker-2", "hash-2", Map.of());
+    queue.add(caseA, "worker-1", "hash-1", Map.of(), null);
+    queue.add(caseB, "worker-2", "hash-2", Map.of(), null);
 
     List<DeadLetterEntry> all = queue.query(DeadLetterQuery.all());
     assertThat(all).hasSize(2);
@@ -70,9 +71,9 @@ class DeadLetterQueueTest {
 
   @Test
   void query_all_returnsEveryEntry() {
-    queue.add(UUID.randomUUID(), "w1", "h1", Map.of());
-    queue.add(UUID.randomUUID(), "w2", "h2", Map.of());
-    queue.add(UUID.randomUUID(), "w3", "h3", Map.of());
+    queue.add(UUID.randomUUID(), "w1", "h1", Map.of(), null);
+    queue.add(UUID.randomUUID(), "w2", "h2", Map.of(), null);
+    queue.add(UUID.randomUUID(), "w3", "h3", Map.of(), null);
 
     assertThat(queue.query(DeadLetterQuery.all())).hasSize(3);
   }
@@ -80,7 +81,7 @@ class DeadLetterQueueTest {
   @Test
   void query_byStatus_filtersPendingOnly() {
     UUID caseId = UUID.randomUUID();
-    DeadLetterEntry added = queue.add(caseId, "w1", "h1", Map.of());
+    DeadLetterEntry added = queue.add(caseId, "w1", "h1", Map.of(), null);
     queue.discard(added.deadLetterId());
 
     List<DeadLetterEntry> pending =
@@ -95,8 +96,8 @@ class DeadLetterQueueTest {
 
   @Test
   void query_byWorkerId_filtersCorrectly() {
-    queue.add(UUID.randomUUID(), "target-worker", "h1", Map.of());
-    queue.add(UUID.randomUUID(), "other-worker", "h2", Map.of());
+    queue.add(UUID.randomUUID(), "target-worker", "h1", Map.of(), null);
+    queue.add(UUID.randomUUID(), "other-worker", "h2", Map.of(), null);
 
     List<DeadLetterEntry> results = queue.query(DeadLetterQuery.forWorker("target-worker"));
     assertThat(results).hasSize(1);
@@ -105,10 +106,10 @@ class DeadLetterQueueTest {
 
   @Test
   void query_arrivedAfter_excludesOlderEntries() throws InterruptedException {
-    queue.add(UUID.randomUUID(), "w1", "h1", Map.of());
+    queue.add(UUID.randomUUID(), "w1", "h1", Map.of(), null);
     Instant cutoff = Instant.now();
     Thread.sleep(5); // ensure next entry has a later timestamp
-    queue.add(UUID.randomUUID(), "w2", "h2", Map.of());
+    queue.add(UUID.randomUUID(), "w2", "h2", Map.of(), null);
 
     List<DeadLetterEntry> results = queue.query(DeadLetterQuery.arrivedAfter(cutoff));
     assertThat(results).hasSize(1);
@@ -124,7 +125,7 @@ class DeadLetterQueueTest {
 
   @Test
   void discard_updatesStatusToDiscarded() {
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w1", "h1", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w1", "h1", Map.of(), null);
 
     queue.discard(entry.deadLetterId());
 
@@ -136,7 +137,7 @@ class DeadLetterQueueTest {
 
   @Test
   void discard_unknownId_doesNothing() {
-    queue.add(UUID.randomUUID(), "w1", "h1", Map.of());
+    queue.add(UUID.randomUUID(), "w1", "h1", Map.of(), null);
     queue.discard("nonexistent-id"); // must not throw
 
     assertThat(queue.query(DeadLetterQuery.all())).hasSize(1);
@@ -146,7 +147,7 @@ class DeadLetterQueueTest {
 
   @Test
   void replay_updatesStatusToReplayed() {
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w1", "h1", Map.of("doc", "id-1"));
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w1", "h1", Map.of("doc", "id-1"), null);
 
     queue.markReplayed(entry.deadLetterId());
 
@@ -159,7 +160,7 @@ class DeadLetterQueueTest {
   @Test
   void replay_preservesOriginalInputContext() {
     Map<String, Object> input = Map.of("documentId", "doc-99", "status", "failed");
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w1", "h1", input);
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "w1", "h1", input, null);
 
     queue.markReplayed(entry.deadLetterId());
 
@@ -172,14 +173,14 @@ class DeadLetterQueueTest {
 
   @Test
   void newEntry_hasZeroReplayAttempts() {
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "worker-1", "hash-1", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "worker-1", "hash-1", Map.of(), null);
     assertThat(entry.replayAttempts()).isZero();
     assertThat(entry.lastReplayAttemptAt()).isNull();
   }
 
   @Test
   void incrementReplayAttempts_updatesCountAndTimestamp() {
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "worker-2", "hash-2", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "worker-2", "hash-2", Map.of(), null);
     Instant before = Instant.now();
     entry.incrementReplayAttempts();
     assertThat(entry.replayAttempts()).isEqualTo(1);
@@ -188,7 +189,7 @@ class DeadLetterQueueTest {
 
   @Test
   void incrementReplayAttempts_accumulates() {
-    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "worker-3", "hash-3", Map.of());
+    DeadLetterEntry entry = queue.add(UUID.randomUUID(), "worker-3", "hash-3", Map.of(), null);
     entry.incrementReplayAttempts();
     entry.incrementReplayAttempts();
     assertThat(entry.replayAttempts()).isEqualTo(2);
@@ -199,8 +200,8 @@ class DeadLetterQueueTest {
   @Test
   void size_reflectsNumberOfStoredEntries() {
     assertThat(queue.size()).isZero();
-    queue.add(UUID.randomUUID(), "w1", "h1", Map.of());
-    queue.add(UUID.randomUUID(), "w2", "h2", Map.of());
+    queue.add(UUID.randomUUID(), "w1", "h1", Map.of(), null);
+    queue.add(UUID.randomUUID(), "w2", "h2", Map.of(), null);
     assertThat(queue.size()).isEqualTo(2);
   }
 }

@@ -49,7 +49,9 @@ class BlackboardPlanConfigurerTest {
             mock(CaseContext.class),
             io.casehub.api.model.CaseStatus.RUNNING,
             TenancyConstants.DEFAULT_TENANT_ID,
-            List.of());
+            List.of(),
+            null,
+            null);
     c.configure(plan, ctx);
     assertThat(captured[0]).isSameAs(plan);
   }

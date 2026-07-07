@@ -26,6 +26,7 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
+import io.casehub.api.model.RetryState;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
@@ -163,7 +164,8 @@ class ResilienceIntegrationTest {
 
     // Seed a DLQ entry directly (mirrors what DeadLetterEventHandler would produce)
     UUID caseId = UUID.randomUUID();
-    DeadLetterEntry entry = deadLetterQueue.add(caseId, WORKER_ID, "hash-it-001", Map.of());
+    DeadLetterEntry entry =
+        deadLetterQueue.add(caseId, WORKER_ID, "hash-it-001", Map.of(), RetryState.empty());
 
     // Worker is blocked
     assertThat(guard.isBlocked(WORKER_ID, caseId)).isTrue();
@@ -195,7 +197,7 @@ class ResilienceIntegrationTest {
     assertThat(detector.isQuarantined(WORKER_ID)).isTrue();
 
     UUID caseId = UUID.randomUUID();
-    deadLetterQueue.add(caseId, WORKER_ID, "hash-it-002", Map.of("key", "val"));
+    deadLetterQueue.add(caseId, WORKER_ID, "hash-it-002", Map.of("key", "val"), RetryState.empty());
 
     // Operator deploys a fix and releases the quarantine
     detector.release(WORKER_ID);

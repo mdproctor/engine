@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseChannel;
+import io.casehub.api.model.RetryState;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -109,7 +110,8 @@ public class WorkerScheduleEventHandler {
               worker.name(),
               inputDataHash,
               bindingName,
-              event.signalId()));
+              event.signalId(),
+              RetryState.empty()));
       return Uni.createFrom().voidItem();
     }
 
@@ -118,7 +120,14 @@ public class WorkerScheduleEventHandler {
 
     EventLog eventLog =
         buildEventLog(
-            instance, worker, capability, inputData, inputDataHash, bindingName, event.signalId());
+            instance,
+            worker,
+            capability,
+            inputData,
+            inputDataHash,
+            bindingName,
+            event.signalId(),
+            event.origin());
 
     String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
 
@@ -173,7 +182,8 @@ public class WorkerScheduleEventHandler {
       Map<String, Object> inputData,
       String inputDataHash,
       String bindingName,
-      java.util.UUID signalId) {
+      java.util.UUID signalId,
+      io.casehub.api.model.event.ExecutionOrigin origin) {
     Map<String, String> metadataBuilder = new HashMap<>();
     metadataBuilder.put("workerName", worker.name());
     metadataBuilder.put("capabilityName", capability.name());
@@ -183,6 +193,9 @@ public class WorkerScheduleEventHandler {
     }
     if (signalId != null) {
       metadataBuilder.put("signalId", signalId.toString());
+    }
+    if (origin != null) {
+      metadataBuilder.put("origin", origin.name());
     }
     Map<String, String> metadata = java.util.Collections.unmodifiableMap(metadataBuilder);
 

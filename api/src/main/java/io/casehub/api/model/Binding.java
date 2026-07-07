@@ -19,8 +19,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.worker.api.Capability;
+import java.util.Collections;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class Binding {
 
@@ -34,6 +36,7 @@ public class Binding {
   private OutcomePolicy outcomePolicy;
   private String inputSchemaOverride;
   private Map<String, Object> contextWrite;
+  private Set<String> producedKeys;
 
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
@@ -59,6 +62,10 @@ public class Binding {
 
   public void setContextWrite(Map<String, Object> contextWrite) {
     this.contextWrite = contextWrite;
+  }
+
+  public void setProducedKeys(Set<String> producedKeys) {
+    this.producedKeys = producedKeys != null ? Set.copyOf(producedKeys) : Collections.emptySet();
   }
 
   public BindingTarget target() {
@@ -98,6 +105,14 @@ public class Binding {
     return contextWrite;
   }
 
+  /**
+   * Keys this binding declares it will produce. Used for static analysis and audit trail. Empty by
+   * default. Overlaps within the same stage trigger a validation warning.
+   */
+  public Set<String> getProducedKeys() {
+    return producedKeys != null ? producedKeys : Collections.emptySet();
+  }
+
   public String effectiveInputSchema(Capability capability) {
     return inputSchemaOverride != null ? inputSchemaOverride : capability.inputSchema();
   }
@@ -116,6 +131,7 @@ public class Binding {
     private OutcomePolicy outcomePolicy;
     private String inputSchemaOverride;
     private Map<String, Object> contextWrite;
+    private Set<String> producedKeys;
 
     private Builder() {}
 
@@ -183,6 +199,11 @@ public class Binding {
       return this;
     }
 
+    public Builder producedKeys(Set<String> producedKeys) {
+      this.producedKeys = producedKeys;
+      return this;
+    }
+
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -196,6 +217,7 @@ public class Binding {
       b.setOutcomePolicy(outcomePolicy);
       b.setInputSchemaOverride(inputSchemaOverride);
       b.setContextWrite(contextWrite);
+      b.setProducedKeys(producedKeys);
       return b;
     }
   }

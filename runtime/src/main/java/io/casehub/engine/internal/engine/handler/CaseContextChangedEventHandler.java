@@ -37,6 +37,7 @@ import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.model.event.ExecutionOrigin;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.ReactiveWorkerContextProvider;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
@@ -232,7 +233,9 @@ public class CaseContextChangedEventHandler {
                       caseInstance.getCaseContext(),
                       caseInstance.getState(),
                       caseInstance.tenancyId,
-                      experiences);
+                      experiences,
+                      ExecutionOrigin.BINDING_DISPATCH,
+                      (io.casehub.api.model.RetryState) null);
 
               return loopControl
                   .select(planCtx, eligible)
@@ -473,7 +476,8 @@ public class CaseContextChangedEventHandler {
             capability,
             binding.getName(),
             binding.getInputSchemaOverride(),
-            signalId));
+            signalId,
+            ExecutionOrigin.BINDING_DISPATCH));
 
     return Uni.createFrom().voidItem();
   }

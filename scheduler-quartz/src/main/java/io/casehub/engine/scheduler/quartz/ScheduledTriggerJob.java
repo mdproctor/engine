@@ -121,7 +121,14 @@ public class ScheduledTriggerJob implements Job {
 
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
-        new WorkerScheduleEvent(caseInstance, worker, capability));
+        new WorkerScheduleEvent(
+            caseInstance,
+            worker,
+            capability,
+            null,
+            null,
+            null,
+            io.casehub.api.model.event.ExecutionOrigin.SCHEDULE_TRIGGER));
   }
 
   private Worker findWorker(CaseDefinition definition, String workerName) {

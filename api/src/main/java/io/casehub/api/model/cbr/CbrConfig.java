@@ -32,6 +32,7 @@ import java.util.function.Function;
  * @param domain Optional domain filter for scoping retrieval
  * @param caseType Optional case type filter
  * @param vectorWeight Weight for semantic vector similarity (0.0 to 1.0)
+ * @param timing Retrieval timing strategy — PER_EVALUATION (default) or CASE_LIFETIME
  */
 public record CbrConfig(
     FeatureExtractor featureExtractor,
@@ -40,7 +41,16 @@ public record CbrConfig(
     Map<String, Double> weights,
     String domain,
     String caseType,
-    double vectorWeight) {
+    double vectorWeight,
+    CbrRetrievalTiming timing) {
+
+  /** Controls when CBR retrieval occurs relative to the case lifecycle. */
+  public enum CbrRetrievalTiming {
+    /** Retrieve on every evaluation (default — current behaviour). */
+    PER_EVALUATION,
+    /** Retrieve once on first access and cache for the case's lifetime. */
+    CASE_LIFETIME
+  }
 
   public CbrConfig {
     Objects.requireNonNull(featureExtractor, "featureExtractor must not be null");
@@ -71,6 +81,9 @@ public record CbrConfig(
                 + entry.getValue());
       }
     }
+    if (timing == null) {
+      timing = CbrRetrievalTiming.PER_EVALUATION;
+    }
   }
 
   public static Builder builder() {
@@ -86,6 +99,7 @@ public record CbrConfig(
     private String domain;
     private String caseType;
     private double vectorWeight = 0.5;
+    private CbrRetrievalTiming timing = CbrRetrievalTiming.PER_EVALUATION;
 
     /**
      * Add a JQ feature expression.
@@ -156,6 +170,17 @@ public record CbrConfig(
     }
 
     /**
+     * Set the retrieval timing strategy.
+     *
+     * @param timing PER_EVALUATION (default) or CASE_LIFETIME
+     * @return this builder
+     */
+    public Builder timing(final CbrRetrievalTiming timing) {
+      this.timing = timing;
+      return this;
+    }
+
+    /**
      * Build the configuration.
      *
      * @return immutable CbrConfig
@@ -170,7 +195,8 @@ public record CbrConfig(
       } else {
         throw new IllegalStateException("No feature extractor configured");
       }
-      return new CbrConfig(extractor, topK, minSimilarity, weights, domain, caseType, vectorWeight);
+      return new CbrConfig(
+          extractor, topK, minSimilarity, weights, domain, caseType, vectorWeight, timing);
     }
   }
 }

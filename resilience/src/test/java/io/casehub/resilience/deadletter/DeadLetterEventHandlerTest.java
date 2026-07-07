@@ -18,6 +18,7 @@ package io.casehub.resilience.deadletter;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 
+import io.casehub.api.model.RetryState;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.quarkus.test.junit.QuarkusTest;
@@ -56,7 +57,8 @@ class DeadLetterEventHandlerTest {
 
     eventBus.publish(
         EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-        new WorkerRetriesExhaustedEvent(caseId, "test-tenant", workerId, hash, null, null));
+        new WorkerRetriesExhaustedEvent(
+            caseId, "test-tenant", workerId, hash, null, null, RetryState.empty()));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -79,10 +81,12 @@ class DeadLetterEventHandlerTest {
 
     eventBus.publish(
         EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-        new WorkerRetriesExhaustedEvent(caseA, "test-tenant", "worker-a", "hash-a", null, null));
+        new WorkerRetriesExhaustedEvent(
+            caseA, "test-tenant", "worker-a", "hash-a", null, null, RetryState.empty()));
     eventBus.publish(
         EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-        new WorkerRetriesExhaustedEvent(caseB, "test-tenant", "worker-b", "hash-b", null, null));
+        new WorkerRetriesExhaustedEvent(
+            caseB, "test-tenant", "worker-b", "hash-b", null, null, RetryState.empty()));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -101,7 +105,7 @@ class DeadLetterEventHandlerTest {
     eventBus.publish(
         EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
         new WorkerRetriesExhaustedEvent(
-            caseId, "test-tenant", "specific-worker", "hash-xyz", null, null));
+            caseId, "test-tenant", "specific-worker", "hash-xyz", null, null, RetryState.empty()));
 
     await()
         .atMost(5, TimeUnit.SECONDS)

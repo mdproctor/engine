@@ -67,7 +67,9 @@ public class ActionGateWorkItemHandler {
 
     final Set<String> groups = event.resolvedCandidateGroups();
     final String candidateGroupsCsv =
-        (groups == null || groups.isEmpty()) ? null : String.join(",", groups);
+        (groups == null || groups.isEmpty())
+            ? null
+            : groups.stream().sorted().collect(java.util.stream.Collectors.joining(","));
 
     final WorkItemCreateRequest request =
         WorkItemCreateRequest.builder()

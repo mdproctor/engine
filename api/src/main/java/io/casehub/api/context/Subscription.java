@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.persistence.memory;
+package io.casehub.api.context;
 
-import io.casehub.engine.common.spi.PlanItemStore;
-import io.casehub.engine.common.spi.PlanItemStoreContractTest;
+/**
+ * Handle returned by {@link CaseContext#onChange} and {@link CaseContext#onAnyChange} to allow
+ * callers to unsubscribe from change notifications.
+ */
+@FunctionalInterface
+public interface Subscription {
 
-class MemoryPlanItemStoreContractTest extends PlanItemStoreContractTest {
+  /** A no-op subscription whose {@link #cancel()} method does nothing. */
+  Subscription NOOP = () -> {};
 
-  private final MemoryPlanItemStore store = new MemoryPlanItemStore();
-
-  @Override
-  protected PlanItemStore store() {
-    return store;
-  }
+  /** Removes this listener from the context. Subsequent changes will no longer be notified. */
+  void cancel();
 }

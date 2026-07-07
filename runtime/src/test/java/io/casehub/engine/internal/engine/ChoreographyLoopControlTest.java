@@ -38,7 +38,9 @@ class ChoreographyLoopControlTest {
         mock(CaseContext.class),
         status,
         null,
-        List.of());
+        List.of(),
+        null,
+        null);
   }
 
   private Binding binding(String name) {

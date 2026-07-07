@@ -15,6 +15,11 @@
  */
 package io.casehub.engine.internal.engine;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.Binding;
@@ -24,6 +29,12 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.PredicateBasedCompletion;
+import io.casehub.api.model.cbr.CbrConfig;
+import io.casehub.api.model.cbr.JqFeatureExtractor;
+import io.casehub.api.model.cbr.LambdaFeatureExtractor;
+import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
+import io.casehub.eidos.api.VocabularyRegistry;
 import io.casehub.engine.common.internal.config.ConfigManager;
 import io.casehub.engine.common.internal.config.SecretManager;
 import io.casehub.engine.common.internal.model.CaseKey;
@@ -31,8 +42,10 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
+import io.casehub.engine.internal.worker.NoOpVocabularyRegistry;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.path.Path;
+import io.casehub.worker.api.Worker;
 import io.quarkus.runtime.StartupEvent;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
@@ -49,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
@@ -66,6 +80,40 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
   private static final Logger LOG = Logger.getLogger(DefaultCaseDefinitionRegistry.class);
 
+  /**
+   * Dedicated ObjectMapper for serializing CaseDefinition metadata to JSON. Uses MixIns to exclude
+   * non-serializable lambda fields (WorkerFunction, Predicate, Function) that exist only in the
+   * in-memory model.
+   */
+  private static final ObjectMapper metadataMapper = createMetadataMapper();
+
+  private static ObjectMapper createMetadataMapper() {
+    ObjectMapper mapper = new ObjectMapper();
+    mapper.registerModule(new JavaTimeModule());
+    mapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+    mapper.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+    mapper.addMixIn(Worker.class, WorkerMixIn.class);
+    mapper.addMixIn(LambdaExpressionEvaluator.class, LambdaExpressionEvaluatorMixIn.class);
+    mapper.addMixIn(LambdaFeatureExtractor.class, LambdaFeatureExtractorMixIn.class);
+    return mapper;
+  }
+
+  /** Excludes the non-serializable {@code function} record component from Worker. */
+  abstract static class WorkerMixIn {
+    @JsonIgnore
+    abstract Object function();
+  }
+
+  /** Excludes the non-serializable {@code predicate} field from LambdaExpressionEvaluator. */
+  abstract static class LambdaExpressionEvaluatorMixIn {
+    @JsonIgnore Object predicate;
+  }
+
+  /** Excludes the non-serializable {@code extractionFunction} field from LambdaFeatureExtractor. */
+  abstract static class LambdaFeatureExtractorMixIn {
+    @JsonIgnore Object extractionFunction;
+  }
+
   @Inject Instance<CaseHub> caseHubInstance;
 
   @Inject ReactiveCaseMetaModelRepository reactiveCaseMetaModelRepository;
@@ -80,10 +128,15 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
   @Inject CurrentPrincipal currentPrincipal;
 
+  @Inject Instance<VocabularyRegistry> vocabularyRegistry;
+
+  @ConfigProperty(name = "casehub.engine.registry.startup-timeout", defaultValue = "30s")
+  Duration startupTimeout;
+
   void onStart(@Observes @Priority(10) StartupEvent ev) {
     ReactiveUtils.runOnSafeVertxContext(vertx, this::registerKnownDefinitions)
         .await()
-        .atMost(Duration.ofSeconds(30)); // TODO this timeout must be configurable
+        .atMost(startupTimeout);
   }
 
   Uni<Void> registerKnownDefinitions() {
@@ -139,10 +192,12 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
       return Uni.createFrom().item(existing.metaModel());
     }
 
-    CaseMetaModel definition = new CaseMetaModel();
-    definition.setName(model.getName());
-    definition.setNamespace(model.getNamespace());
-    definition.setVersion(model.getVersion());
+    CaseMetaModel metaModel = new CaseMetaModel();
+    metaModel.setName(model.getName());
+    metaModel.setNamespace(model.getNamespace());
+    metaModel.setVersion(model.getVersion());
+
+    JsonNode definitionJson = serializeDefinition(model);
 
     return reactiveCaseMetaModelRepository
         .findByKey(
@@ -154,10 +209,11 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
                 registry.put(CaseKey.of(dbModel), new RegistryEntry(model, dbModel));
                 return Uni.createFrom().item(dbModel);
               }
-              definition.setDsl(model.getDsl());
-              definition.setCreatedAt(Instant.now());
+              metaModel.setDsl(model.getDsl());
+              metaModel.setDefinition(definitionJson);
+              metaModel.setCreatedAt(Instant.now());
               return reactiveCaseMetaModelRepository
-                  .save(definition, currentPrincipal.tenancyId())
+                  .save(metaModel, currentPrincipal.tenancyId())
                   .invoke(
                       saved -> registry.put(CaseKey.of(saved), new RegistryEntry(model, saved)));
             });
@@ -275,6 +331,109 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
               goal.getName());
         }
       }
+    }
+
+    // Validate CbrConfig
+    validateCbrConfig(definition);
+
+    // Validate types and labels against VocabularyRegistry (advisory only)
+    validateVocabularyPaths(definition);
+  }
+
+  private void validateCbrConfig(CaseDefinition definition) {
+    CbrConfig cbrConfig = definition.getCbrConfig();
+    if (cbrConfig == null) {
+      return;
+    }
+
+    // Check 1: Warn if CbrConfig has no domain and no EpisodicMemoryConfig
+    if (cbrConfig.domain() == null && definition.getEpisodicMemoryConfig() == null) {
+      LOG.warnf(
+          "CbrConfig is present but has no domain and no EpisodicMemoryConfig is configured. "
+              + "CBR retrieval will always return empty results without a domain scope.");
+    }
+
+    // Check 2: Validate JQ expressions in JqFeatureExtractor
+    if (cbrConfig.featureExtractor() instanceof JqFeatureExtractor jqExtractor) {
+      for (var entry : jqExtractor.featureExpressions().entrySet()) {
+        String featureName = entry.getKey();
+        String jqExpression = entry.getValue();
+        try {
+          expressionEngineRegistry.validate(new JQExpressionEvaluator(jqExpression));
+        } catch (Exception e) {
+          LOG.warnf(
+              "CbrConfig has invalid JQ expression for feature '%s': %s — expression: %s",
+              featureName, e.getMessage(), jqExpression);
+        }
+      }
+    }
+  }
+
+  private void validateVocabularyPaths(CaseDefinition definition) {
+    // Skip validation if VocabularyRegistry is not resolvable or is NoOpVocabularyRegistry
+    if (!vocabularyRegistry.isResolvable()) {
+      return;
+    }
+
+    VocabularyRegistry registry = vocabularyRegistry.get();
+    if (registry instanceof NoOpVocabularyRegistry) {
+      return;
+    }
+
+    // Validate type paths
+    if (definition.getTypes() != null) {
+      for (Path typePath : definition.getTypes()) {
+        validatePathSegments(typePath, "type");
+      }
+    }
+
+    // Validate label paths
+    if (definition.getLabels() != null) {
+      for (Path labelPath : definition.getLabels()) {
+        validatePathSegments(labelPath, "label");
+      }
+    }
+  }
+
+  private void validatePathSegments(Path path, String pathKind) {
+    VocabularyRegistry registry = vocabularyRegistry.get();
+
+    // Path format: "urn:vocabulary/segment1/segment2/..."
+    // We need to extract the vocabulary URI and the last segment
+    String pathStr = path.value();
+
+    // Split on the last '/' to get vocabulary URI and segment
+    int lastSlash = pathStr.lastIndexOf('/');
+    if (lastSlash == -1) {
+      // No segment separator, can't validate
+      return;
+    }
+
+    String vocabUri = pathStr.substring(0, lastSlash);
+    String segment = pathStr.substring(lastSlash + 1);
+
+    // Try to resolve the segment against the vocabulary
+    Optional<?> resolved = registry.resolve(vocabUri, segment);
+    if (resolved.isEmpty()) {
+      LOG.warnf(
+          "CaseDefinition has unresolvable %s path '%s' — vocabulary '%s' does not contain segment '%s'. "
+              + "Vocabulary infrastructure might load this term later.",
+          pathKind, pathStr, vocabUri, segment);
+    }
+  }
+
+  /**
+   * Serializes a CaseDefinition to a JsonNode for storage in the CaseMetaModel definition column.
+   * Non-serializable lambda fields are excluded via MixIns.
+   */
+  private JsonNode serializeDefinition(CaseDefinition model) {
+    try {
+      return metadataMapper.valueToTree(model);
+    } catch (IllegalArgumentException e) {
+      LOG.warnf(
+          "Failed to serialize CaseDefinition '%s/%s/%s' — definition column will be null: %s",
+          model.getNamespace(), model.getName(), model.getVersion(), e.getMessage());
+      return null;
     }
   }
 

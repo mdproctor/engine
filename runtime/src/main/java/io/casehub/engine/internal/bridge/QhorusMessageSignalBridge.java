@@ -46,18 +46,21 @@ import org.jboss.logging.Logger;
  * Bridges Qhorus {@link MessageReceivedEvent}s on case channels into CaseHub signals.
  *
  * <p>Observes all messages dispatched via Qhorus's {@code InProcessMessageBus}. Filters to
- * commitment-resolving types (RESPONSE, DONE, DECLINE, FAILURE) on channels that follow the {@code
- * "case-{caseId}/{purpose}"} naming convention. For matching messages, calls {@link
- * CaseHubRuntime#signal} with path {@value #SIGNAL_PATH} to update the case context and trigger
- * binding re-evaluation — including for WAITING cases when the blackboard is active.
+ * commitment-resolving types (RESPONSE, DONE, DECLINE, FAILURE) and status updates (STATUS) on
+ * channels that follow the {@code "case-{caseId}/{purpose}"} naming convention. For matching
+ * messages, calls {@link CaseHubRuntime#signal} to update the case context and trigger binding
+ * re-evaluation — including for WAITING cases when the blackboard is active.
  *
  * <p>This bean is a dead observer in deployments without {@code casehub-qhorus-runtime} on the
  * classpath — {@code InProcessMessageBus} is never instantiated, so no events fire. Zero cost.
  *
- * <p>Case definitions that want to react to human channel messages bind on {@code
+ * <p>Case definitions that want to react to commitment-resolving messages bind on {@code
  * contextChange(".channelMessage")}. The signal value is a map containing: {@code messageType},
  * {@code content}, {@code senderId}, {@code channelId}, {@code channelName}, and optionally {@code
  * correlationId}.
+ *
+ * <p>For STATUS messages, bindings use {@code contextChange(".statusReport")}. The signal value is
+ * a map containing: {@code from}, {@code content}, and {@code timestamp}.
  */
 @ApplicationScoped
 public class QhorusMessageSignalBridge {
@@ -81,10 +84,15 @@ public class QhorusMessageSignalBridge {
   }
 
   public void onMessage(@ObservesAsync MessageReceivedEvent event) {
-    if (!isCommitmentResolving(event.messageType())) return;
-
     UUID caseId = extractCaseId(event.channelName());
     if (caseId == null) return;
+
+    if (isStatusUpdate(event.messageType())) {
+      handleStatusUpdate(caseId, event);
+      return;
+    }
+
+    if (!isCommitmentResolving(event.messageType())) return;
 
     if (isFailureOutcome(event.messageType()) && handleWorkerOutcome(caseId, event)) {
       return;
@@ -100,6 +108,20 @@ public class QhorusMessageSignalBridge {
         buildPayload(event),
         event.channelId().toString(),
         event.correlationId());
+  }
+
+  private void handleStatusUpdate(UUID caseId, MessageReceivedEvent event) {
+    LOG.debugf(
+        "STATUS update on case %s from channel '%s' (sender=%s)",
+        caseId, event.channelName(), event.senderId());
+
+    Map<String, Object> statusPayload = new HashMap<>();
+    statusPayload.put("from", event.senderId());
+    statusPayload.put("content", event.content());
+    statusPayload.put("timestamp", event.occurredAt());
+
+    runtime.signal(
+        caseId, "statusReport", statusPayload, event.channelId().toString(), event.correlationId());
   }
 
   private boolean handleWorkerOutcome(UUID caseId, MessageReceivedEvent event) {
@@ -165,6 +187,10 @@ public class QhorusMessageSignalBridge {
     } catch (NumberFormatException e) {
       return null;
     }
+  }
+
+  private static boolean isStatusUpdate(MessageType type) {
+    return type == MessageType.STATUS;
   }
 
   private static boolean isFailureOutcome(MessageType type) {

@@ -58,7 +58,9 @@ class StageLifecycleEvaluatorTest {
             mockCtx,
             io.casehub.api.model.CaseStatus.RUNNING,
             TenancyConstants.DEFAULT_TENANT_ID,
-            List.of());
+            List.of(),
+            null,
+            null);
   }
 
   @Test

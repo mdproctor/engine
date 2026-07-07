@@ -17,13 +17,17 @@ package io.casehub.blackboard.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
+import io.casehub.api.model.RetryState;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
+import jakarta.enterprise.event.Event;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,21 +37,30 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Proves: RUNNING PlanItem is marked FAULTED when its worker exhausts retries; workerId on the
  * event equals the tracking key in BlackboardRegistry (the invariant is documented in the spec).
- * Refs engine#331, engine#369.
+ * After consolidating PlanItemFaultHandler (engine#666), also proves PlanItemFaultedEvent is fired.
+ *
+ * <p>Refs engine#331, engine#369, engine#666.
  */
 class WorkerRetryExhaustionHandlerTest {
 
   private BlackboardRegistry registry;
   private EventBus eventBus;
+  private Event<PlanItemFaultedEvent> planItemFaultedEvents;
+  private StageAutocompleteEvaluator stageAutocompleteEvaluator;
   private WorkerRetryExhaustionHandler handler;
   private UUID caseId;
   private DefaultCasePlanModel plan;
 
+  @SuppressWarnings("unchecked")
   @BeforeEach
   void setUp() {
     registry = new BlackboardRegistry();
     eventBus = mock(EventBus.class);
-    handler = new WorkerRetryExhaustionHandler(registry, new StageAutocompleteEvaluator(eventBus));
+    planItemFaultedEvents = mock(Event.class);
+    stageAutocompleteEvaluator = mock(StageAutocompleteEvaluator.class);
+    handler =
+        new WorkerRetryExhaustionHandler(
+            registry, stageAutocompleteEvaluator, planItemFaultedEvents);
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
@@ -61,7 +74,13 @@ class WorkerRetryExhaustionHandlerTest {
 
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            caseId, "test-tenant", "worker-a", "hash-123", "capability-binding", null));
+            caseId,
+            "test-tenant",
+            "worker-a",
+            "hash-123",
+            "capability-binding",
+            null,
+            RetryState.empty()));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
   }
@@ -70,7 +89,7 @@ class WorkerRetryExhaustionHandlerTest {
   void unknown_case_is_a_noop() {
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            UUID.randomUUID(), "test-tenant", "worker-x", "hash", null, null));
+            UUID.randomUUID(), "test-tenant", "worker-x", "hash", null, null, RetryState.empty()));
     // no exception
   }
 
@@ -78,7 +97,7 @@ class WorkerRetryExhaustionHandlerTest {
   void unknown_worker_is_a_noop() {
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            caseId, "test-tenant", "unknown-worker", "hash", null, null));
+            caseId, "test-tenant", "unknown-worker", "hash", null, null, RetryState.empty()));
     // no exception
   }
 
@@ -92,7 +111,13 @@ class WorkerRetryExhaustionHandlerTest {
 
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            caseId, "test-tenant", "worker-a", "hash-123", "capability-binding", null));
+            caseId,
+            "test-tenant",
+            "worker-a",
+            "hash-123",
+            "capability-binding",
+            null,
+            RetryState.empty()));
 
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED); // unchanged, no throw
   }
@@ -108,10 +133,48 @@ class WorkerRetryExhaustionHandlerTest {
 
     handler.onWorkerRetriesExhausted(
         new WorkerRetriesExhaustedEvent(
-            caseId, "test-tenant", "worker-a", "hash-123", "capability-binding", null));
+            caseId,
+            "test-tenant",
+            "worker-a",
+            "hash-123",
+            "capability-binding",
+            null,
+            RetryState.empty()));
 
     // PENDING is not RUNNING — handler must not transition it (guard fires before plan item
     // indexing in the guard-blocked path, so lookup returns empty; this tests a theoretical edge)
     assertThat(item.getStatus()).isEqualTo(PlanItemStatus.PENDING);
+  }
+
+  @Test
+  void onWorkerRetriesExhausted_firesBothPlanItemFaultedEventAndStageAutocomplete() {
+    // Setup: create a RUNNING PlanItem
+    PlanItem item = PlanItem.create("capability-binding", "worker-a", 0);
+    plan.addPlanItem(item);
+    item.markRunning();
+    registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
+
+    // Act: call onWorkerRetriesExhausted
+    handler.onWorkerRetriesExhausted(
+        new WorkerRetriesExhaustedEvent(
+            caseId,
+            "test-tenant",
+            "worker-a",
+            "hash-123",
+            "capability-binding",
+            null,
+            RetryState.empty()));
+
+    // Assert: PlanItem marked FAULTED
+    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+
+    // Assert: PlanItemFaultedEvent fired via CDI
+    verify(planItemFaultedEvents)
+        .fireAsync(
+            new PlanItemFaultedEvent(
+                caseId, item.getPlanItemId(), "capability-binding", "test-tenant"));
+
+    // Assert: stageAutocompleteEvaluator.evaluate() called
+    verify(stageAutocompleteEvaluator).evaluate(caseId, plan, item.getPlanItemId());
   }
 }

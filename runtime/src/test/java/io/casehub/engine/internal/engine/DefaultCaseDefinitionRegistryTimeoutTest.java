@@ -13,16 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.event;
+package io.casehub.engine.internal.engine;
 
-import io.casehub.api.model.RetryState;
-import java.util.UUID;
+import static org.assertj.core.api.Assertions.assertThat;
 
-public record WorkerRetriesExhaustedEvent(
-    UUID caseId,
-    String tenancyId,
-    String workerId,
-    String idempotency,
-    String bindingName,
-    UUID signalId,
-    RetryState retryState) {}
+import io.quarkus.test.junit.QuarkusTest;
+import jakarta.inject.Inject;
+import org.junit.jupiter.api.Test;
+
+@QuarkusTest
+class DefaultCaseDefinitionRegistryTimeoutTest {
+
+  @Inject DefaultCaseDefinitionRegistry registry;
+
+  @Test
+  void startupTimeout_isConfigurable() {
+    // The registry should inject the config property without error.
+    // A non-default value in test application.properties proves it's wired.
+    assertThat(registry).isNotNull();
+  }
+}

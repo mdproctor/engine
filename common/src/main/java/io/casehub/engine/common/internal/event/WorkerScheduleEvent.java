@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.common.internal.event;
 
+import io.casehub.api.model.event.ExecutionOrigin;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -24,6 +25,8 @@ import java.util.UUID;
  * @param signalId Settlement tracking ID for {@code signalAndAwait()}, or null. Stored in EventLog
  *     metadata so QuartzWorkerExecutionJob can reconstruct it and thread it through to
  *     WorkflowExecutionCompleted. Refs engine#483.
+ * @param origin Provenance metadata — the execution path that triggered this worker schedule
+ *     (nullable). Refs engine#618.
  */
 public record WorkerScheduleEvent(
     CaseInstance caseInstance,
@@ -31,7 +34,8 @@ public record WorkerScheduleEvent(
     Capability capability,
     String bindingName,
     String inputSchemaOverride,
-    UUID signalId) {
+    UUID signalId,
+    ExecutionOrigin origin) {
 
   public WorkerScheduleEvent(
       CaseInstance caseInstance,
@@ -39,16 +43,16 @@ public record WorkerScheduleEvent(
       Capability capability,
       String bindingName,
       String inputSchemaOverride) {
-    this(caseInstance, worker, capability, bindingName, inputSchemaOverride, null);
+    this(caseInstance, worker, capability, bindingName, inputSchemaOverride, null, null);
   }
 
   public WorkerScheduleEvent(
       CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
-    this(caseInstance, worker, capability, bindingName, null, null);
+    this(caseInstance, worker, capability, bindingName, null, null, null);
   }
 
   public WorkerScheduleEvent(CaseInstance caseInstance, Worker worker, Capability capability) {
-    this(caseInstance, worker, capability, null, null, null);
+    this(caseInstance, worker, capability, null, null, null, null);
   }
 
   public String effectiveInputSchema() {

@@ -21,6 +21,7 @@ import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.EpisodicMemoryConfig;
 import io.casehub.api.model.cbr.CbrConfig;
+import io.casehub.api.model.cbr.CbrConfig.CbrRetrievalTiming;
 import io.casehub.api.model.cbr.JqFeatureExtractor;
 import io.casehub.api.model.cbr.LambdaFeatureExtractor;
 import io.casehub.api.spi.routing.ExperiencePlanStep;
@@ -41,12 +42,18 @@ import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
 /**
  * Runtime bridge for CBR retrieval. Evaluates feature extractors against the case context, builds a
  * {@link CbrQuery}, calls the {@link CbrCaseMemoryStore}, and maps results to engine-owned {@link
  * RetrievedExperience} types.
+ *
+ * <p>When {@link CbrRetrievalTiming#CASE_LIFETIME} is configured, retrieval results are cached per
+ * case UUID and reused for the case's lifetime. Eviction is triggered by {@link
+ * CbrCacheEvictionHandler} on terminal state transitions.
  *
  * <p>CBR failure never blocks case progression — the full chain is wrapped with {@code
  * .onFailure().recoverWithItem(List.of())}.
@@ -55,6 +62,11 @@ import org.jboss.logging.Logger;
 public class CbrRetrievalService {
 
   private static final Logger LOG = Logger.getLogger(CbrRetrievalService.class);
+
+  static final int MAX_CACHE_SIZE = 1000;
+
+  private final ConcurrentHashMap<UUID, List<RetrievedExperience>> cache =
+      new ConcurrentHashMap<>();
 
   private final JQEvaluator jqEvaluator;
   private final CbrCaseMemoryStore cbrStore;
@@ -79,6 +91,14 @@ public class CbrRetrievalService {
               CbrConfig config = definition.getCbrConfig();
               if (config == null) {
                 return Uni.createFrom().item(List.of());
+              }
+
+              // Cache hit path for CASE_LIFETIME timing
+              if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME) {
+                List<RetrievedExperience> cached = cache.get(instance.getUuid());
+                if (cached != null) {
+                  return Uni.createFrom().item(cached);
+                }
               }
 
               Map<String, Object> features = extractFeatures(config, instance.getCaseContext());
@@ -111,7 +131,15 @@ public class CbrRetrievalService {
               return Uni.createFrom()
                   .item(() -> cbrStore.retrieveSimilar(query, PlanCbrCase.class))
                   .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
-                  .map(this::mapResults);
+                  .map(this::mapResults)
+                  .map(List::copyOf)
+                  .invoke(
+                      result -> {
+                        if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME
+                            && cache.size() < MAX_CACHE_SIZE) {
+                          cache.putIfAbsent(instance.getUuid(), result);
+                        }
+                      });
             })
         .onFailure()
         .recoverWithItem(
@@ -122,6 +150,21 @@ public class CbrRetrievalService {
                   definition.getName());
               return List.of();
             });
+  }
+
+  /**
+   * Evict the cached CBR retrieval result for the given case ID. Called by {@link
+   * CbrCacheEvictionHandler} when a case reaches a terminal state.
+   *
+   * @param caseId the case UUID to evict
+   */
+  public void evict(UUID caseId) {
+    cache.remove(caseId);
+  }
+
+  /** Returns the current cache size. Package-private for testing. */
+  int cacheSize() {
+    return cache.size();
   }
 
   private Map<String, Object> extractFeatures(CbrConfig config, CaseContext context) {

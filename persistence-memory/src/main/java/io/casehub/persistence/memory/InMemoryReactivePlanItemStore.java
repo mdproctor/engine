@@ -28,7 +28,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Reactive wrapper around {@link MemoryPlanItemStore} for engine handlers on Vert.x IO threads.
+ * Reactive wrapper around {@link InMemoryPlanItemStore} for engine handlers on Vert.x IO threads.
  * Activated via {@code quarkus.arc.selected-alternatives} — never active in production.
  *
  * <p>Delegate is injected by SPI interface (not concrete class) to avoid Quarkus ARC
@@ -36,7 +36,7 @@ import java.util.UUID;
  */
 @Alternative
 @ApplicationScoped
-public class MemoryReactivePlanItemStore implements ReactivePlanItemStore {
+public class InMemoryReactivePlanItemStore implements ReactivePlanItemStore {
 
   @Inject PlanItemStore delegate;
 

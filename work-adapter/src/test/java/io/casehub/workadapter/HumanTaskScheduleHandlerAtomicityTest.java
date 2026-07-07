@@ -30,12 +30,12 @@ import io.casehub.ledger.testing.NoOpReactiveLedgerEntryRepository;
 import io.casehub.persistence.memory.InMemoryCaseInstanceRepository;
 import io.casehub.persistence.memory.InMemoryCaseMetaModelRepository;
 import io.casehub.persistence.memory.InMemoryEventLogRepository;
+import io.casehub.persistence.memory.InMemoryPlanItemStore;
 import io.casehub.persistence.memory.InMemoryReactiveCaseInstanceRepository;
 import io.casehub.persistence.memory.InMemoryReactiveCaseMetaModelRepository;
 import io.casehub.persistence.memory.InMemoryReactiveEventLogRepository;
 import io.casehub.persistence.memory.InMemoryReactiveSubCaseGroupRepository;
 import io.casehub.persistence.memory.InMemorySubCaseGroupRepository;
-import io.casehub.persistence.memory.MemoryPlanItemStore;
 import io.casehub.work.runtime.repository.WorkItemQuery;
 import io.casehub.work.runtime.repository.WorkItemStore;
 import io.quarkus.test.junit.QuarkusTest;
@@ -89,7 +89,7 @@ class HumanTaskScheduleHandlerAtomicityTest {
           InMemoryReactiveEventLogRepository.class,
           InMemorySubCaseGroupRepository.class,
           InMemoryReactiveSubCaseGroupRepository.class,
-          MemoryPlanItemStore.class,
+          InMemoryPlanItemStore.class,
           NoOpLedgerEntryRepository.class,
           NoOpReactiveLedgerEntryRepository.class,
           NoOpPreferenceProvider.class);
@@ -151,7 +151,7 @@ class HumanTaskScheduleHandlerAtomicityTest {
     failing.clear();
     FailingWorkItemStore.shouldFail.set(false);
     FailingWorkItemStore.putAttemptLatch = new CountDownLatch(1);
-    if (planItemStore instanceof MemoryPlanItemStore mem) {
+    if (planItemStore instanceof InMemoryPlanItemStore mem) {
       mem.clear();
     }
     caseId = UUID.randomUUID();

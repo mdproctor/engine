@@ -500,6 +500,16 @@ public final class CaseDefinitionYamlMapper {
       if (cbr.getCaseType() != null) {
         cbrBuilder.caseType(cbr.getCaseType());
       }
+      if (cbr.getTiming() != null) {
+        switch (cbr.getTiming()) {
+          case CASE_LIFETIME ->
+              cbrBuilder.timing(
+                  io.casehub.api.model.cbr.CbrConfig.CbrRetrievalTiming.CASE_LIFETIME);
+          case PER_EVALUATION ->
+              cbrBuilder.timing(
+                  io.casehub.api.model.cbr.CbrConfig.CbrRetrievalTiming.PER_EVALUATION);
+        }
+      }
       def.setCbrConfig(cbrBuilder.build());
     }
 
@@ -566,6 +576,10 @@ public final class CaseDefinitionYamlMapper {
       if (!writeMap.isEmpty()) {
         builder.contextWrite(writeMap);
       }
+    }
+
+    if (schemaBinding.getProducedKeys() != null && !schemaBinding.getProducedKeys().isEmpty()) {
+      builder.producedKeys(new java.util.LinkedHashSet<>(schemaBinding.getProducedKeys()));
     }
 
     if (schemaBinding.getOutcomePolicy() != null) {
