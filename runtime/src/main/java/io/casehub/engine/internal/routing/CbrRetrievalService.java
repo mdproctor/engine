@@ -37,6 +37,7 @@ import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
+import io.quarkus.arc.Lock;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
@@ -52,8 +53,9 @@ import org.jboss.logging.Logger;
  * RetrievedExperience} types.
  *
  * <p>When {@link CbrRetrievalTiming#CASE_LIFETIME} is configured, retrieval results are cached per
- * case UUID and reused for the case's lifetime. Eviction is triggered by {@link
- * CbrCacheEvictionHandler} on terminal state transitions.
+ * case UUID and reused for the case's lifetime. The {@link #MAX_CACHE_SIZE} bound is enforced
+ * atomically via {@link io.quarkus.arc.Lock @Lock(WRITE)} on {@link #cacheIfUnderBound}. Eviction
+ * is triggered by {@link CbrCacheEvictionHandler} on terminal state transitions.
  *
  * <p>CBR failure never blocks case progression — the full chain is wrapped with {@code
  * .onFailure().recoverWithItem(List.of())}.
@@ -135,9 +137,8 @@ public class CbrRetrievalService {
                   .map(List::copyOf)
                   .invoke(
                       result -> {
-                        if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME
-                            && cache.size() < MAX_CACHE_SIZE) {
-                          cache.putIfAbsent(instance.getUuid(), result);
+                        if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME) {
+                          cacheIfUnderBound(instance.getUuid(), result);
                         }
                       });
             })
@@ -150,6 +151,17 @@ public class CbrRetrievalService {
                   definition.getName());
               return List.of();
             });
+  }
+
+  /**
+   * Cache a retrieval result if the cache has not reached its bound. The {@code @Lock(WRITE)}
+   * annotation makes size-check + put atomic, eliminating the TOCTOU race on MAX_CACHE_SIZE.
+   */
+  @Lock(Lock.Type.WRITE)
+  void cacheIfUnderBound(UUID caseId, List<RetrievedExperience> result) {
+    if (cache.size() < MAX_CACHE_SIZE) {
+      cache.putIfAbsent(caseId, result);
+    }
   }
 
   /**
