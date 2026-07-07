@@ -18,6 +18,10 @@ package io.casehub.api.context;
 /**
  * Handle returned by {@link CaseContext#onChange} and {@link CaseContext#onAnyChange} to allow
  * callers to unsubscribe from change notifications.
+ *
+ * <p><b>Callers must call {@link #cancel()} when the listener is no longer needed.</b> Listeners
+ * are held by strong reference in the CaseContext and will accumulate if not cancelled, causing
+ * unbounded memory growth in long-running cases.
  */
 @FunctionalInterface
 public interface Subscription {
