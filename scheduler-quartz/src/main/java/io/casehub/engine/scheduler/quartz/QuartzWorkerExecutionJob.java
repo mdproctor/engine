@@ -156,7 +156,10 @@ class QuartzWorkerExecutionJob implements Job {
 
       WorkerContext workerContext =
           workerContextProvider.buildContext(
-              workerId, eventLog.getCaseId(), WorkRequest.of(capabilityName, inputData));
+              workerId,
+              eventLog.getCaseId(),
+              WorkRequest.of(capabilityName, inputData),
+              instance.getPropagationContext());
 
       ExecutionMetadata metadata = new ExecutionMetadata(workerId, inputDataHash);
 

@@ -61,4 +61,18 @@ public class EmptyReactiveWorkerContextProvider implements ReactiveWorkerContext
             new WorkerContext(
                 task.capability(), caseId, channels, List.of(), propagationContext, Map.of()));
   }
+
+  @Override
+  public Uni<WorkerContext> buildContext(
+      String workerId, UUID caseId, WorkRequest task, PropagationContext parentContext) {
+    PropagationContext childContext = parentContext.createChild();
+    Uni<List<CaseChannel>> channelsUni =
+        caseId != null
+            ? reactiveCaseChannelProvider.listChannels(caseId)
+            : Uni.createFrom().item(List.of());
+    return channelsUni.map(
+        channels ->
+            new WorkerContext(
+                task.capability(), caseId, channels, List.of(), childContext, Map.of()));
+  }
 }

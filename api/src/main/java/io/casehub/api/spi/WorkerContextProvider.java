@@ -15,6 +15,7 @@
  */
 package io.casehub.api.spi;
 
+import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkerContext;
 import java.util.UUID;
@@ -43,4 +44,24 @@ public interface WorkerContextProvider {
    * @return startup context including task description, open channels, and lineage
    */
   WorkerContext buildContext(String workerId, UUID caseId, WorkRequest task);
+
+  /**
+   * Build context for a worker, inheriting identity and tracing from the parent case's {@link
+   * PropagationContext}. Callers should prefer this overload when a live case instance is available
+   * so that traceId, inherited attributes (userId, roles), and budget/deadline propagate to the
+   * worker via {@link PropagationContext#createChild()}.
+   *
+   * <p>The default delegates to the 3-arg overload for backward compatibility with existing
+   * implementations.
+   *
+   * @param workerId the ID of the worker being started
+   * @param caseId the ID of the case the worker is executing for; may be {@code null}
+   * @param task the work request describing what the worker should do
+   * @param parentContext the parent case's propagation context carrying identity and tracing
+   * @return startup context with propagation context inherited from the parent
+   */
+  default WorkerContext buildContext(
+      String workerId, UUID caseId, WorkRequest task, PropagationContext parentContext) {
+    return buildContext(workerId, caseId, task);
+  }
 }

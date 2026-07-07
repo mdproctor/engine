@@ -35,6 +35,7 @@ import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
 import io.casehub.eidos.api.CapabilityHealth.ProbeContext;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.smallrye.mutiny.Uni;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -217,6 +218,55 @@ class DefaultWorkerSpiImplementationsTest {
     provider.currentPrincipal = stubPrincipal();
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.channels()).isEmpty();
+  }
+
+  // --- EmptyWorkerContextProvider (4-arg with parent PropagationContext) ---
+
+  @Test
+  void emptyContextProvider_buildContextWithParent_inheritsTraceId() {
+    PropagationContext parent =
+        PropagationContext.createRoot("parent-trace", Map.of("userId", "alice", "roles", "admin"));
+    var provider = new EmptyWorkerContextProvider();
+    WorkerContext ctx =
+        provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()), parent);
+    assertThat(ctx.propagationContext().getTraceId()).isEqualTo("parent-trace");
+  }
+
+  @Test
+  void emptyContextProvider_buildContextWithParent_inheritsIdentityAttributes() {
+    PropagationContext parent =
+        PropagationContext.createRoot("t", Map.of("userId", "alice", "roles", "admin,viewer"));
+    var provider = new EmptyWorkerContextProvider();
+    WorkerContext ctx =
+        provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()), parent);
+    assertThat(ctx.propagationContext().getAttribute("userId")).hasValue("alice");
+    assertThat(ctx.propagationContext().getAttribute("roles")).hasValue("admin,viewer");
+  }
+
+  @Test
+  void emptyContextProvider_buildContextWithParent_inheritsBudget() {
+    PropagationContext parent =
+        PropagationContext.createRoot(Map.of("userId", "alice"), Duration.ofSeconds(30));
+    var provider = new EmptyWorkerContextProvider();
+    WorkerContext ctx =
+        provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()), parent);
+    assertThat(ctx.propagationContext().getDeadline()).isPresent();
+    assertThat(ctx.propagationContext().getRemainingBudget()).isPresent();
+  }
+
+  @Test
+  void emptyContextProvider_buildContextWithParent_channelsPopulated() {
+    UUID caseId = UUID.randomUUID();
+    CaseChannel channel = new CaseChannel(caseId + "/c", "c", "coordination", "none", Map.of());
+    CaseChannelProvider mockProvider = mock(CaseChannelProvider.class);
+    when(mockProvider.listChannels(caseId)).thenReturn(List.of(channel));
+
+    PropagationContext parent = PropagationContext.createRoot("t", Map.of("userId", "alice"));
+    var provider = new EmptyWorkerContextProvider();
+    provider.caseChannelProvider = mockProvider;
+    WorkerContext ctx =
+        provider.buildContext("worker-1", caseId, WorkRequest.of("task", Map.of()), parent);
+    assertThat(ctx.channels()).containsExactly(channel);
   }
 
   // --- NoOpReactiveWorkerProvisioner ---
