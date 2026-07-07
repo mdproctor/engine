@@ -26,6 +26,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.api.model.SubCase;
+import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
@@ -66,52 +67,45 @@ class SubCaseMofNOutputMappingTest {
               return p != null && p.getState() == CaseStatus.WAITING;
             });
 
-    List<UUID> childIds =
+    List<CaseEventLogRecord> startedEvents =
         caseHubRuntime
             .eventLog(parentId, Set.of(CaseHubEventType.SUBCASE_STARTED))
             .toCompletableFuture()
-            .join()
-            .stream()
-            .map(r -> UUID.fromString(r.metadata().get("childCaseId").asText()))
-            .toList();
+            .join();
 
-    assertThat(childIds).as("exactly 2 children must have been spawned").hasSize(2);
+    assertThat(startedEvents).as("exactly 2 children must have been spawned").hasSize(2);
 
-    // Set distinct results on each child's context before simulating completion
-    CaseInstance child0 = caseInstanceCache.get(childIds.get(0));
-    child0.getCaseContext().set("result", "left-value");
+    // Resolve which child carries which outputMapping — spawn order is non-deterministic
+    // because SUBCASE_SCHEDULE events are published via eventBus.publish() and consumed
+    // concurrently on worker threads.
+    UUID leftChildId = null;
+    UUID rightChildId = null;
+    for (CaseEventLogRecord event : startedEvents) {
+      UUID childId = UUID.fromString(event.metadata().get("childCaseId").asText());
+      String outputMapping = event.metadata().get("outputMapping").asText();
+      if (outputMapping.contains("bisectLeft")) {
+        leftChildId = childId;
+      } else {
+        rightChildId = childId;
+      }
+    }
+    assertThat(leftChildId).as("spawn-left child must exist").isNotNull();
+    assertThat(rightChildId).as("spawn-right child must exist").isNotNull();
 
-    CaseInstance child1 = caseInstanceCache.get(childIds.get(1));
-    child1.getCaseContext().set("result", "right-value");
+    caseInstanceCache.get(leftChildId).getCaseContext().set("result", "left-value");
+    caseInstanceCache.get(rightChildId).getCaseContext().set("result", "right-value");
 
-    // Complete child 0 — its outputMapping ({ bisectLeft: .result }) should apply immediately
-    subCaseCompletionListener.onCaseLifecycle(
-        new CaseLifecycleEvent(
-            childIds.get(0),
-            TenancyConstants.DEFAULT_TENANT_ID,
-            "CompleteCase",
-            "CaseCompleted",
-            "COMPLETED",
-            null,
-            "System",
-            null));
+    // Complete the left child — its outputMapping ({ bisectLeft: .result }) should apply
+    // immediately
+    subCaseCompletionListener.onCaseLifecycle(completionEvent(leftChildId));
 
     CaseInstance parentAfterFirst = caseInstanceCache.get(parentId);
     assertThat(parentAfterFirst.getCaseContext().get("bisectLeft"))
         .as("first child's outputMapping must be applied before threshold")
         .isEqualTo("left-value");
 
-    // Complete child 1 — triggers threshold (2-of-2) and applies its outputMapping
-    subCaseCompletionListener.onCaseLifecycle(
-        new CaseLifecycleEvent(
-            childIds.get(1),
-            TenancyConstants.DEFAULT_TENANT_ID,
-            "CompleteCase",
-            "CaseCompleted",
-            "COMPLETED",
-            null,
-            "System",
-            null));
+    // Complete the right child — triggers threshold (2-of-2) and applies its outputMapping
+    subCaseCompletionListener.onCaseLifecycle(completionEvent(rightChildId));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -128,6 +122,18 @@ class SubCaseMofNOutputMappingTest {
     assertThat(parentAfterBoth.getCaseContext().get("bisectRight"))
         .as("second child's outputMapping must also be applied")
         .isEqualTo("right-value");
+  }
+
+  private static CaseLifecycleEvent completionEvent(UUID childId) {
+    return new CaseLifecycleEvent(
+        childId,
+        TenancyConstants.DEFAULT_TENANT_ID,
+        "CompleteCase",
+        "CaseCompleted",
+        "COMPLETED",
+        null,
+        "System",
+        null);
   }
 
   // ------------------------------------------------------------------ //
