@@ -42,7 +42,6 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
-import io.casehub.engine.internal.worker.NoOpVocabularyRegistry;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.path.Path;
 import io.casehub.worker.api.Worker;
@@ -370,13 +369,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   }
 
   private void validateVocabularyPaths(CaseDefinition definition) {
-    // Skip validation if VocabularyRegistry is not resolvable or is NoOpVocabularyRegistry
     if (!vocabularyRegistry.isResolvable()) {
-      return;
-    }
-
-    VocabularyRegistry registry = vocabularyRegistry.get();
-    if (registry instanceof NoOpVocabularyRegistry) {
       return;
     }
 
@@ -398,21 +391,20 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   private void validatePathSegments(Path path, String pathKind) {
     VocabularyRegistry registry = vocabularyRegistry.get();
 
-    // Path format: "urn:vocabulary/segment1/segment2/..."
-    // We need to extract the vocabulary URI and the last segment
     String pathStr = path.value();
 
-    // Split on the last '/' to get vocabulary URI and segment
     int lastSlash = pathStr.lastIndexOf('/');
     if (lastSlash == -1) {
-      // No segment separator, can't validate
       return;
     }
 
     String vocabUri = pathStr.substring(0, lastSlash);
     String segment = pathStr.substring(lastSlash + 1);
 
-    // Try to resolve the segment against the vocabulary
+    if (!registry.isRegistered(vocabUri)) {
+      return;
+    }
+
     Optional<?> resolved = registry.resolve(vocabUri, segment);
     if (resolved.isEmpty()) {
       LOG.warnf(
