@@ -72,6 +72,28 @@ public interface WorkerExecutionManager {
       Capability capability,
       Map<String, Object> inputData);
 
+  /**
+   * Submit a worker for execution with an explicit binding name.
+   *
+   * <p>The binding name identifies which worker binding (instance slot) is executing this dispatch.
+   * It is nullable — when null, the dispatch is not bound to a specific slot.
+   *
+   * <p>Default implementation delegates to the 5-arg {@code submit()} — the binding name is
+   * ignored. Worker implementations that track binding-level state (e.g., K8s annotations) override
+   * this method to thread the binding name through their dispatch path.
+   *
+   * @param bindingName the binding name (nullable)
+   */
+  default Uni<Void> submit(
+      Long eventLogId,
+      CaseInstance instance,
+      Worker worker,
+      Capability capability,
+      Map<String, Object> inputData,
+      String bindingName) {
+    return submit(eventLogId, instance, worker, capability, inputData);
+  }
+
   default Uni<Void> schedulePersistedEvent(EventLog scheduledEventLog) {
     return Uni.createFrom().voidItem();
   }
