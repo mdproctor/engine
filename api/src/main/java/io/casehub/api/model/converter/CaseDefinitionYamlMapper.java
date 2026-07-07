@@ -25,6 +25,7 @@ import io.casehub.api.model.AllOfGoalExpression;
 import io.casehub.api.model.AnyOfGoalExpression;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.EpisodicMemoryConfig;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
@@ -34,7 +35,9 @@ import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
+import io.casehub.api.model.PredicateBasedCompletion;
 import io.casehub.api.model.SlaStartFrom;
+import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.WorkerFunctions;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
@@ -441,19 +444,41 @@ public final class CaseDefinitionYamlMapper {
             new Goal(
                 sg.getName(),
                 registry.create(sg.getCondition(), expressionLang),
-                GoalKind.fromValue(sg.getKind().value()));
+                sg.getKind() != null ? sg.getKind() : "success");
         goal.setDescription(sg.getDescription());
         goalMap.put(sg.getName(), goal);
         def.getGoals().add(goal);
       }
     }
 
-    // Convert completion
-    if (schema.getSpec() != null && schema.getSpec().getCompletion() != null) {
-      final io.casehub.model.CaseCompletion sc = schema.getSpec().getCompletion();
-      final GoalExpression successExpr = convertGoalExpression(sc.getSuccess(), goalMap);
-      final GoalExpression failureExpr = convertGoalExpression(sc.getFailure(), goalMap);
-      def.setCompletion(new GoalBasedCompletion(successExpr, failureExpr));
+    // Convert completion — read from raw JSON node to support open goal kind entries
+    final JsonNode specNode = rawNode.get("spec");
+    final JsonNode completionNode = specNode != null ? specNode.get("completion") : null;
+    if (completionNode != null && completionNode.isObject()) {
+      String doneWhen =
+          completionNode.has("doneWhen") ? completionNode.get("doneWhen").asText() : null;
+      var gbc = GoalBasedCompletion.builder();
+      boolean hasGoalEntries = false;
+      var fields = completionNode.fields();
+      while (fields.hasNext()) {
+        var entry = fields.next();
+        String kindValue = entry.getKey();
+        if ("doneWhen".equals(kindValue)) continue;
+        hasGoalEntries = true;
+        GoalKind kind = resolveGoalKind(kindValue, entry.getValue());
+        GoalExpression expr = parseGoalExpressionFromNode(entry.getValue(), goalMap);
+        gbc.goal(kind, expr);
+      }
+      if (doneWhen != null && hasGoalEntries) {
+        throw new IllegalArgumentException(
+            "Completion block cannot mix 'doneWhen' with goal kind entries"
+                + " — use one completion mechanism per definition");
+      }
+      if (doneWhen != null) {
+        def.setCompletion(new PredicateBasedCompletion(new JQExpressionEvaluator(doneWhen)));
+      } else if (hasGoalEntries) {
+        def.setCompletion(gbc.build());
+      }
     }
 
     // Convert planningStrategy
@@ -468,7 +493,6 @@ public final class CaseDefinitionYamlMapper {
       final io.casehub.api.model.cbr.CbrConfig.Builder cbrBuilder =
           io.casehub.api.model.cbr.CbrConfig.builder();
 
-      final JsonNode specNode = rawNode.get("spec");
       final JsonNode cbrNode = specNode != null ? specNode.get("cbr") : null;
 
       if (cbrNode != null && cbrNode.has("features")) {
@@ -682,6 +706,48 @@ public final class CaseDefinitionYamlMapper {
       return new AnyOfGoalExpression(goals);
     }
 
+    return null;
+  }
+
+  private static GoalKind resolveGoalKind(String kindValue, JsonNode exprNode) {
+    if ("doneWhen".equals(kindValue)) {
+      throw new IllegalArgumentException(
+          "'doneWhen' is a reserved name and cannot be used as a goal kind");
+    }
+    if ("success".equals(kindValue) || "failure".equals(kindValue)) {
+      if (exprNode.has("status")) {
+        throw new IllegalArgumentException(
+            "Standard goal kind '"
+                + kindValue
+                + "' has an implicit terminal status"
+                + " — explicit 'status' field is not allowed");
+      }
+      return StandardGoalKind.fromValue(kindValue);
+    }
+    if (!exprNode.has("status")) {
+      throw new IllegalArgumentException(
+          "Custom goal kind '"
+              + kindValue
+              + "' requires an explicit 'status' field"
+              + " (COMPLETED or FAULTED)");
+    }
+    return GoalKind.of(kindValue, CaseStatus.valueOf(exprNode.get("status").asText()));
+  }
+
+  private static GoalExpression parseGoalExpressionFromNode(
+      JsonNode node, Map<String, Goal> goalMap) {
+    JsonNode allOfNode = node.get("allOf");
+    if (allOfNode != null && allOfNode.isArray() && !allOfNode.isEmpty()) {
+      List<Goal> goals = new java.util.ArrayList<>();
+      allOfNode.forEach(n -> goals.add(goalMap.get(n.asText())));
+      return new AllOfGoalExpression(goals);
+    }
+    JsonNode anyOfNode = node.get("anyOf");
+    if (anyOfNode != null && anyOfNode.isArray() && !anyOfNode.isEmpty()) {
+      List<Goal> goals = new java.util.ArrayList<>();
+      anyOfNode.forEach(n -> goals.add(goalMap.get(n.asText())));
+      return new AnyOfGoalExpression(goals);
+    }
     return null;
   }
 

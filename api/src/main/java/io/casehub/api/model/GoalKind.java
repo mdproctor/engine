@@ -15,31 +15,33 @@
  */
 package io.casehub.api.model;
 
-public enum GoalKind {
-  SUCCESS("success"),
-  FAILURE("failure");
+/**
+ * Classifies a goal kind and maps it to a terminal {@link CaseStatus}.
+ *
+ * <p>Implementations must provide value-based equals/hashCode — GoalKind instances serve as map
+ * keys in {@link GoalBasedCompletion}.
+ */
+public interface GoalKind {
 
-  private final String value;
+  String value();
 
-  GoalKind(String value) {
-    this.value = value;
+  CaseStatus terminalStatus();
+
+  GoalKind SUCCESS = StandardGoalKind.SUCCESS;
+  GoalKind FAILURE = StandardGoalKind.FAILURE;
+
+  static GoalKind of(String value, CaseStatus terminalStatus) {
+    return new DefaultGoalKind(value, terminalStatus);
   }
 
-  public String value() {
-    return this.value;
-  }
-
-  @Override
-  public String toString() {
-    return this.value;
-  }
-
-  public static GoalKind fromValue(String value) {
-    for (GoalKind kind : values()) {
-      if (kind.value.equals(value)) {
-        return kind;
-      }
+  static GoalKind fromValue(String value) {
+    try {
+      return StandardGoalKind.fromValue(value);
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          "Unknown GoalKind: "
+              + value
+              + " — custom kinds must be created with GoalKind.of(value, terminalStatus)");
     }
-    throw new IllegalArgumentException("Unknown GoalKind: " + value);
   }
 }

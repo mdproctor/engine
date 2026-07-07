@@ -339,7 +339,15 @@ public class CaseDefinition {
     }
 
     public Builder completion(GoalExpression success, GoalExpression failure) {
-      this.completion = new GoalBasedCompletion(success, failure);
+      var gbc = GoalBasedCompletion.<StandardGoalKind>builder();
+      if (failure != null) gbc.goal(StandardGoalKind.FAILURE, failure);
+      if (success != null) gbc.goal(StandardGoalKind.SUCCESS, success);
+      this.completion = gbc.build();
+      return this;
+    }
+
+    public Builder completion(GoalBasedCompletion<?> completion) {
+      this.completion = completion;
       return this;
     }
 

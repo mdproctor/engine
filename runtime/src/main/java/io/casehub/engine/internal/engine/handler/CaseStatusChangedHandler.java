@@ -100,7 +100,7 @@ public class CaseStatusChangedHandler {
             .put("newStatus", event.newStatus());
     if (event.satisfiedGoalName() != null) {
       metadataNode.put("goalName", event.satisfiedGoalName());
-      metadataNode.put("goalKind", event.satisfiedGoalKind().value());
+      metadataNode.put("goalKind", event.satisfiedGoalKind());
     }
     eventLog.setMetadata(metadataNode);
 
@@ -197,10 +197,7 @@ public class CaseStatusChangedHandler {
   }
 
   private void fireOutcomeObservers(
-      CaseInstance caseInstance,
-      CaseStatus newState,
-      String goalName,
-      io.casehub.api.model.GoalKind goalKind) {
+      CaseInstance caseInstance, CaseStatus newState, String goalName, String goalKind) {
     final String caseType =
         caseInstance.getCaseMetaModel() != null
             ? caseInstance.getCaseMetaModel().getName()
@@ -218,7 +215,7 @@ public class CaseStatusChangedHandler {
       return;
     }
     final Map<String, Object> outcomeMetadata =
-        goalName != null ? Map.of("goalName", goalName, "goalKind", goalKind.value()) : Map.of();
+        goalName != null ? Map.of("goalName", goalName, "goalKind", goalKind) : Map.of();
     final CaseOutcomeEvent outcomeEvent =
         new CaseOutcomeEvent(
             caseType,

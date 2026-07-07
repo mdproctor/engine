@@ -508,24 +508,24 @@ $defs:
         type: string
       kind:
         type: string
-        enum: [ success, failure ]
         default: success
-        description: "Success goal contributes to resolution; failure goal contributes to terminal failure"
+        description: "Goal kind label — built-in kinds are 'success' and 'failure'; domains may define custom kinds"
       condition:
         type: string
         description: "JQ predicate over CaseContext"
 
   CaseCompletion:
     type: object
-    unevaluatedProperties: false
+    description: >
+      Maps goal kinds to goal expressions. Document order determines evaluation
+      priority — first satisfied expression wins. Built-in kinds (success, failure)
+      have implicit terminal status mappings. Custom kinds require an explicit
+      'status' field.
     properties:
-      success:
-        $ref: "#/$defs/GoalExpression"
-      failure:
-        $ref: "#/$defs/GoalExpression"
       doneWhen:
         type: string
         description: "Optional JQ predicate over CaseContext as an override/shortcut"
+    additionalProperties: true
 
   ContextChangeTrigger:
     type: object

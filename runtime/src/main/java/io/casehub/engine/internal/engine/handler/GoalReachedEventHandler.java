@@ -20,7 +20,6 @@ import static io.casehub.api.model.event.CaseHubEventType.GOAL_REACHED;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseCompletion;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
@@ -82,7 +81,7 @@ public class GoalReachedEventHandler {
             .createObjectNode()
             .put("name", goal.getName())
             .put("description", goal.getDescription())
-            .put("kind", goal.getKind().value()));
+            .put("kind", goal.getKind()));
 
     return reactiveEventLogRepository
         .append(eventLog, caseInstance.tenancyId)
@@ -113,7 +112,7 @@ public class GoalReachedEventHandler {
   }
 
   private Uni<Void> evaluateCompletion(CaseInstance caseInstance, CaseCompletion completion) {
-    if (completion == null || !(completion instanceof GoalBasedCompletion goalBasedCompletion)) {
+    if (!(completion instanceof GoalBasedCompletion<?> gbc)) {
       return Uni.createFrom().voidItem();
     }
 
@@ -132,40 +131,24 @@ public class GoalReachedEventHandler {
 
               String oldStatus = caseInstance.getState().name();
 
-              if (goalBasedCompletion.getFailure() != null
-                  && isGoalExpressionSatisfied(goalBasedCompletion.getFailure(), reachedGoals)) {
-                String failureGoalName =
-                    findSatisfiedGoalName(goalBasedCompletion.getFailure(), reachedGoals);
-                LOG.infof(
-                    "Failure goal '%s' satisfied: caseId=%s",
-                    failureGoalName, caseInstance.getUuid());
-                eventBus.publish(
-                    EventBusAddresses.CASE_STATUS_CHANGED,
-                    new CaseStatusChanged(
-                        caseInstance,
-                        oldStatus,
-                        CaseStatus.FAULTED.name(),
-                        failureGoalName,
-                        GoalKind.FAILURE));
-                return Uni.createFrom().voidItem();
-              }
-
-              if (goalBasedCompletion.getSuccess() != null
-                  && isGoalExpressionSatisfied(goalBasedCompletion.getSuccess(), reachedGoals)) {
-                String successGoalName =
-                    findSatisfiedGoalName(goalBasedCompletion.getSuccess(), reachedGoals);
-                LOG.infof(
-                    "Success goal '%s' satisfied: caseId=%s",
-                    successGoalName, caseInstance.getUuid());
-                eventBus.publish(
-                    EventBusAddresses.CASE_STATUS_CHANGED,
-                    new CaseStatusChanged(
-                        caseInstance,
-                        oldStatus,
-                        CaseStatus.COMPLETED.name(),
-                        successGoalName,
-                        GoalKind.SUCCESS));
-                return Uni.createFrom().voidItem();
+              for (var entry : gbc.getGoals().entrySet()) {
+                GoalKind kind = entry.getKey();
+                GoalExpression expr = entry.getValue();
+                if (isGoalExpressionSatisfied(expr, reachedGoals)) {
+                  String satisfiedGoalName = findSatisfiedGoalName(expr, reachedGoals);
+                  LOG.infof(
+                      "Goal kind '%s' satisfied (goal '%s'): caseId=%s",
+                      kind.value(), satisfiedGoalName, caseInstance.getUuid());
+                  eventBus.publish(
+                      EventBusAddresses.CASE_STATUS_CHANGED,
+                      new CaseStatusChanged(
+                          caseInstance,
+                          oldStatus,
+                          kind.terminalStatus().name(),
+                          satisfiedGoalName,
+                          kind.value()));
+                  return Uni.createFrom().voidItem();
+                }
               }
 
               return Uni.createFrom().voidItem();

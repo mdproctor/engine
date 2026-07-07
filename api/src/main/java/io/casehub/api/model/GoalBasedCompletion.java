@@ -15,23 +15,45 @@
  */
 package io.casehub.api.model;
 
-// TODO this must be replaced by a more generic implementation that can support multiple goals of
-// different kinds, not just success and failure
-public class GoalBasedCompletion implements CaseCompletion {
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Objects;
 
-  private final GoalExpression success;
-  private final GoalExpression failure;
+public class GoalBasedCompletion<K extends GoalKind> implements CaseCompletion {
 
-  public GoalBasedCompletion(GoalExpression success, GoalExpression failure) {
-    this.success = success;
-    this.failure = failure;
+  private final LinkedHashMap<K, GoalExpression> goals;
+
+  private GoalBasedCompletion(LinkedHashMap<K, GoalExpression> goals) {
+    this.goals = goals;
   }
 
-  public GoalExpression getSuccess() {
-    return success;
+  public Map<K, GoalExpression> getGoals() {
+    return Collections.unmodifiableMap(goals);
   }
 
-  public GoalExpression getFailure() {
-    return failure;
+  public static <K extends GoalKind> Builder<K> builder() {
+    return new Builder<>();
+  }
+
+  public static class Builder<K extends GoalKind> {
+    private final LinkedHashMap<K, GoalExpression> goals = new LinkedHashMap<>();
+
+    public Builder<K> goal(K kind, GoalExpression expression) {
+      Objects.requireNonNull(kind, "kind must not be null");
+      Objects.requireNonNull(expression, "expression must not be null");
+      if (goals.containsKey(kind)) {
+        throw new IllegalStateException("Duplicate goal kind: " + kind.value());
+      }
+      goals.put(kind, expression);
+      return this;
+    }
+
+    public GoalBasedCompletion<K> build() {
+      if (goals.isEmpty()) {
+        throw new IllegalStateException("GoalBasedCompletion requires at least one goal kind");
+      }
+      return new GoalBasedCompletion<>(new LinkedHashMap<>(goals));
+    }
   }
 }

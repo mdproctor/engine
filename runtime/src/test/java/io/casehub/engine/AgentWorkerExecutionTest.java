@@ -32,7 +32,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
-import io.casehub.api.model.GoalKind;
+import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.api.model.ai.ModelType;
@@ -168,9 +168,7 @@ public class AgentWorkerExecutionTest {
       // Create goal
       Goal analysisComplete =
           new Goal(
-              "analysisComplete",
-              new JQExpressionEvaluator(".status == \"analyzed\""),
-              GoalKind.SUCCESS);
+              "analysisComplete", new JQExpressionEvaluator(".status == \"analyzed\""), "success");
 
       // Create case definition
       CaseDefinition definition = new CaseDefinition("test", "AI Sentiment Analysis", "1.0.0");
@@ -184,7 +182,9 @@ public class AgentWorkerExecutionTest {
 
       // Set completion criteria
       definition.setCompletion(
-          new GoalBasedCompletion(new AllOfGoalExpression(List.of(analysisComplete)), null));
+          GoalBasedCompletion.<StandardGoalKind>builder()
+              .goal(StandardGoalKind.SUCCESS, new AllOfGoalExpression(List.of(analysisComplete)))
+              .build());
 
       return definition;
     }

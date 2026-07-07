@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -34,6 +35,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.PredicateBasedCompletion;
+import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
@@ -168,7 +170,7 @@ class ModelBuilderTest {
     }
 
     @Test
-    @DisplayName("completion(GoalExpression) creates GoalBasedCompletion with null failure")
+    @DisplayName("completion(GoalExpression) creates GoalBasedCompletion with success only")
     void completionGoalExpression_createsGoalBased() {
       final var goal =
           Goal.builder().name("g").condition(".done == true").kind(GoalKind.SUCCESS).build();
@@ -180,13 +182,13 @@ class ModelBuilderTest {
               .completion(GoalExpression.allOf(goal))
               .build();
       assertInstanceOf(GoalBasedCompletion.class, def.getCompletion());
-      final var gbc = (GoalBasedCompletion) def.getCompletion();
-      assertNotNull(gbc.getSuccess());
-      assertNull(gbc.getFailure());
+      final var gbc = (GoalBasedCompletion<?>) def.getCompletion();
+      assertEquals(1, gbc.getGoals().size());
+      assertNotNull(gbc.getGoals().get(StandardGoalKind.SUCCESS));
     }
 
     @Test
-    @DisplayName("completion(success, failure) stores both expressions")
+    @DisplayName("completion(success, failure) stores both expressions in ordered map")
     void completionSuccessFailure_storesBoth() {
       final var successGoal =
           Goal.builder().name("g-success").condition(".ok == true").kind(GoalKind.SUCCESS).build();
@@ -200,9 +202,33 @@ class ModelBuilderTest {
               .completion(GoalExpression.allOf(successGoal), GoalExpression.anyOf(failGoal))
               .build();
       assertInstanceOf(GoalBasedCompletion.class, def.getCompletion());
-      final var gbc = (GoalBasedCompletion) def.getCompletion();
-      assertNotNull(gbc.getSuccess());
-      assertNotNull(gbc.getFailure());
+      final var gbc = (GoalBasedCompletion<?>) def.getCompletion();
+      assertEquals(2, gbc.getGoals().size());
+      assertNotNull(gbc.getGoals().get(StandardGoalKind.SUCCESS));
+      assertNotNull(gbc.getGoals().get(StandardGoalKind.FAILURE));
+      // Verify failure-first evaluation order
+      var keys = new java.util.ArrayList<>(gbc.getGoals().keySet());
+      assertEquals(StandardGoalKind.FAILURE, keys.get(0));
+      assertEquals(StandardGoalKind.SUCCESS, keys.get(1));
+    }
+
+    @Test
+    @DisplayName("completion(GoalBasedCompletion) stores directly")
+    void completionGoalBasedCompletion_storesDirectly() {
+      final var goal =
+          Goal.builder().name("g").condition(".done == true").kind(GoalKind.SUCCESS).build();
+      final var gbc =
+          GoalBasedCompletion.<StandardGoalKind>builder()
+              .goal(StandardGoalKind.SUCCESS, GoalExpression.allOf(goal))
+              .build();
+      final var def =
+          CaseDefinition.builder()
+              .namespace("ns")
+              .name("test")
+              .version("1.0")
+              .completion(gbc)
+              .build();
+      assertSame(gbc, def.getCompletion());
     }
   }
 
@@ -423,7 +449,7 @@ class ModelBuilderTest {
     void nullKind_throws() {
       assertThrows(
           NullPointerException.class,
-          () -> Goal.builder().name("g").condition(".x == true").kind(null).build());
+          () -> Goal.builder().name("g").condition(".x == true").kind((String) null).build());
     }
 
     @Test
@@ -505,42 +531,44 @@ class ModelBuilderTest {
   // ================================================================== //
 
   @Nested
-  @DisplayName("GoalKind.fromValue()")
-  class GoalKindFromValueTests {
+  @DisplayName("StandardGoalKind.fromValue()")
+  class StandardGoalKindFromValueTests {
 
     @Test
-    @DisplayName("'success' maps to GoalKind.SUCCESS")
+    @DisplayName("'success' maps to StandardGoalKind.SUCCESS")
     void successString_mapsToSuccess() {
-      assertEquals(GoalKind.SUCCESS, GoalKind.fromValue("success"));
+      assertEquals(StandardGoalKind.SUCCESS, StandardGoalKind.fromValue("success"));
     }
 
     @Test
-    @DisplayName("'failure' maps to GoalKind.FAILURE")
+    @DisplayName("'failure' maps to StandardGoalKind.FAILURE")
     void failureString_mapsToFailure() {
-      assertEquals(GoalKind.FAILURE, GoalKind.fromValue("failure"));
+      assertEquals(StandardGoalKind.FAILURE, StandardGoalKind.fromValue("failure"));
     }
 
     @Test
     @DisplayName("unknown value throws IllegalArgumentException")
     void unknownValue_throws() {
-      assertThrows(IllegalArgumentException.class, () -> GoalKind.fromValue("unknown"));
+      assertThrows(IllegalArgumentException.class, () -> StandardGoalKind.fromValue("unknown"));
     }
 
     @Test
     @DisplayName("null value throws (NPE or IAE — either is acceptable)")
     void nullValue_throws() {
-      assertThrows(Exception.class, () -> GoalKind.fromValue(null));
+      assertThrows(Exception.class, () -> StandardGoalKind.fromValue(null));
     }
 
     @Test
     @DisplayName("upper-case 'SUCCESS' is not recognised — values are lower-case only")
     void uppercaseSuccess_throws() {
-      assertThrows(IllegalArgumentException.class, () -> GoalKind.fromValue("SUCCESS"));
+      assertThrows(IllegalArgumentException.class, () -> StandardGoalKind.fromValue("SUCCESS"));
     }
 
     @Test
-    @DisplayName("GoalKind.value() returns the canonical lower-case string")
-    void value_returnsLowercase() {
+    @DisplayName("GoalKind interface constants delegate to StandardGoalKind")
+    void interfaceConstants_delegateToStandard() {
+      assertSame(StandardGoalKind.SUCCESS, GoalKind.SUCCESS);
+      assertSame(StandardGoalKind.FAILURE, GoalKind.FAILURE);
       assertEquals("success", GoalKind.SUCCESS.value());
       assertEquals("failure", GoalKind.FAILURE.value());
     }

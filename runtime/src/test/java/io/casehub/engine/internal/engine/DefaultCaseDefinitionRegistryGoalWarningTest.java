@@ -163,7 +163,7 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
   }
 
   @Test
-  void does_not_warn_when_goal_referenced_in_both_expressions() {
+  void warns_kind_mismatch_when_goal_referenced_in_wrong_completion_entry() {
     var sharedGoal =
         Goal.builder()
             .name("shared-goal")
@@ -187,6 +187,10 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
         .toCompletableFuture()
         .join();
 
-    assertThat(logRecords).noneMatch(r -> r.getMessage().contains("shared-goal"));
+    assertThat(logRecords).noneMatch(r -> r.getMessage().contains("not referenced"));
+    assertThat(logRecords)
+        .anyMatch(
+            r ->
+                r.getMessage().contains("shared-goal") && r.getMessage().contains("kind mismatch"));
   }
 }

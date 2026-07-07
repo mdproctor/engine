@@ -27,6 +27,7 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
+import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.PredicateBasedCompletion;
 import io.casehub.api.model.cbr.CbrConfig;
@@ -314,13 +315,13 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
     // Warn if goals are not referenced in any GoalExpression
     if (definition.getGoals() != null
-        && definition.getCompletion() instanceof GoalBasedCompletion gbc) {
+        && definition.getCompletion() instanceof GoalBasedCompletion<?> gbc) {
       var referencedGoals = new HashSet<String>();
-      if (gbc.getSuccess() != null) {
-        gbc.getSuccess().getGoals().forEach(g -> referencedGoals.add(g.getName()));
-      }
-      if (gbc.getFailure() != null) {
-        gbc.getFailure().getGoals().forEach(g -> referencedGoals.add(g.getName()));
+      for (var entry : gbc.getGoals().entrySet()) {
+        GoalExpression expr = entry.getValue();
+        if (expr != null && expr.getGoals() != null) {
+          expr.getGoals().forEach(g -> referencedGoals.add(g.getName()));
+        }
       }
       for (Goal goal : definition.getGoals()) {
         if (!referencedGoals.contains(goal.getName())) {
@@ -328,6 +329,22 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
               "Goal '%s' is not referenced in any GoalExpression. "
                   + "Goals should drive case completion — use Milestone for non-terminal checkpoints.",
               goal.getName());
+        }
+      }
+
+      // Kind mismatch warning
+      for (var entry : gbc.getGoals().entrySet()) {
+        String kindValue = entry.getKey().value();
+        GoalExpression expr = entry.getValue();
+        if (expr != null && expr.getGoals() != null) {
+          for (Goal g : expr.getGoals()) {
+            if (g.getKind() != null && !g.getKind().equals(kindValue)) {
+              LOG.warnf(
+                  "Goal '%s' has kind '%s' but is referenced in completion entry '%s'"
+                      + " — kind mismatch may indicate a configuration error.",
+                  g.getName(), g.getKind(), kindValue);
+            }
+          }
         }
       }
     }

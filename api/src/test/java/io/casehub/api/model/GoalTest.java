@@ -53,4 +53,24 @@ class GoalTest {
     assertThat(g1).isEqualTo(g2);
     assertThat(g1.hashCode()).isEqualTo(g2.hashCode());
   }
+
+  @Test
+  void kind_returnsStringValue() {
+    Goal goal =
+        Goal.builder().name("test").condition(".done == true").kind(GoalKind.SUCCESS).build();
+    assertThat(goal.getKind()).isEqualTo("success");
+  }
+
+  @Test
+  void kind_rawString_accepted() {
+    Goal goal = Goal.builder().name("test").condition(".done == true").kind("escalated").build();
+    assertThat(goal.getKind()).isEqualTo("escalated");
+  }
+
+  @Test
+  void equals_valueEqualityForKind() {
+    Goal a = Goal.builder().name("g").condition(".x == true").kind("success").build();
+    Goal b = Goal.builder().name("g").condition(".x == true").kind(GoalKind.SUCCESS).build();
+    assertThat(a).isEqualTo(b);
+  }
 }

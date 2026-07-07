@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import io.casehub.api.model.GoalKind;
 import io.casehub.engine.common.internal.model.CaseInstance;
 
 /**
@@ -26,14 +25,14 @@ import io.casehub.engine.common.internal.model.CaseInstance;
  * @param oldStatus previous status name
  * @param newStatus new status name
  * @param satisfiedGoalName name of the satisfied goal, or null if not goal-triggered
- * @param satisfiedGoalKind kind of the satisfied goal (SUCCESS or FAILURE), or null
+ * @param satisfiedGoalKind kind of the satisfied goal (e.g. "success", "failure"), or null
  */
 public record CaseStatusChanged(
     CaseInstance instance,
     String oldStatus,
     String newStatus,
     String satisfiedGoalName,
-    GoalKind satisfiedGoalKind) {
+    String satisfiedGoalKind) {
 
   public CaseStatusChanged(CaseInstance instance, String oldStatus, String newStatus) {
     this(instance, oldStatus, newStatus, null, null);

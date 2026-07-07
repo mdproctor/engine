@@ -25,6 +25,7 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.GoalBasedCompletion;
+import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.WorkerFunction;
@@ -101,13 +102,13 @@ public class YamlSimpleCaseHubBeanTest {
     // completion
     assertNotNull(def.getCompletion());
     assertInstanceOf(GoalBasedCompletion.class, def.getCompletion());
-    GoalBasedCompletion completion = (GoalBasedCompletion) def.getCompletion();
-    assertNotNull(completion.getSuccess());
-    assertInstanceOf(AllOfGoalExpression.class, completion.getSuccess());
-    assertEquals(1, completion.getSuccess().getGoals().size());
-    assertEquals(
-        "documentProcessingComplete",
-        completion.getSuccess().getGoals().iterator().next().getName());
+    GoalBasedCompletion<?> completion = (GoalBasedCompletion<?>) def.getCompletion();
+    assertEquals(1, completion.getGoals().size());
+    var successExpr = completion.getGoals().get(StandardGoalKind.SUCCESS);
+    assertNotNull(successExpr);
+    assertInstanceOf(AllOfGoalExpression.class, successExpr);
+    assertEquals(1, successExpr.getGoals().size());
+    assertEquals("documentProcessingComplete", successExpr.getGoals().iterator().next().getName());
   }
 
   @Test

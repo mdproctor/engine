@@ -28,8 +28,8 @@ import java.util.function.Predicate;
  * <p>Milestones and goals answer different questions:
  *
  * <ul>
- *   <li><b>Goals</b> — what outcome are we trying to achieve? A goal carries {@link GoalKind}
- *       (SUCCESS or FAILURE) and drives case completion via {@link
+ *   <li><b>Goals</b> — what outcome are we trying to achieve? A goal carries a kind label (e.g.
+ *       "success", "failure", or domain-specific) and drives case completion via {@link
  *       io.casehub.api.model.GoalBasedCompletion}. You <em>achieve</em> goals.
  *   <li><b>Milestones</b> — where are we? A milestone marks a neutral point of progress on the way
  *       to a goal. It has no success/failure polarity. You <em>pass</em> milestones.
@@ -57,10 +57,10 @@ public class Goal {
 
   private final String name;
   private final ExpressionEvaluator condition;
-  private final GoalKind kind;
+  private final String kind;
   private String description;
 
-  public Goal(String name, ExpressionEvaluator condition, GoalKind kind) {
+  public Goal(String name, ExpressionEvaluator condition, String kind) {
     this.name = name;
     this.condition = condition;
     this.kind = kind;
@@ -82,7 +82,7 @@ public class Goal {
     this.description = description;
   }
 
-  public GoalKind getKind() {
+  public String getKind() {
     return kind;
   }
 
@@ -94,7 +94,7 @@ public class Goal {
 
     private String name;
     private ExpressionEvaluator condition;
-    private GoalKind kind;
+    private String kind;
     private String description;
 
     private Builder() {}
@@ -123,9 +123,13 @@ public class Goal {
       return this;
     }
 
-    public Builder kind(GoalKind kind) {
+    public Builder kind(String kind) {
       this.kind = kind;
       return this;
+    }
+
+    public Builder kind(GoalKind kind) {
+      return kind(kind.value());
     }
 
     public Builder description(String description) {
@@ -149,7 +153,7 @@ public class Goal {
     if (!(o instanceof Goal goal)) return false;
     return Objects.equals(name, goal.name)
         && Objects.equals(condition, goal.condition)
-        && kind == goal.kind
+        && Objects.equals(kind, goal.kind)
         && Objects.equals(description, goal.description);
   }
 

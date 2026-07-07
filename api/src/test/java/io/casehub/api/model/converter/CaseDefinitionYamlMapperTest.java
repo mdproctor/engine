@@ -26,13 +26,14 @@ import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
-import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.SlaStartFrom;
+import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.routing.CandidateSetSpec;
@@ -173,7 +174,7 @@ class CaseDefinitionYamlMapperTest {
     assertThat(goal.getCondition()).isInstanceOf(JQExpressionEvaluator.class);
     JQExpressionEvaluator goalCondition = (JQExpressionEvaluator) goal.getCondition();
     assertThat(goalCondition.expression()).isEqualTo(".processed == true");
-    assertThat(goal.getKind()).isEqualTo(GoalKind.SUCCESS);
+    assertThat(goal.getKind()).isEqualTo("success");
     assertThat(goal.getDescription()).isEqualTo("Processing goal");
 
     // Completion
@@ -809,16 +810,17 @@ class CaseDefinitionYamlMapperTest {
 
     Goal successGoal = def.getGoals().get(0);
     assertThat(successGoal.getName()).isEqualTo("pr-approved");
-    assertThat(successGoal.getKind()).isEqualTo(GoalKind.SUCCESS);
+    assertThat(successGoal.getKind()).isEqualTo("success");
 
     Goal failureGoal = def.getGoals().get(1);
     assertThat(failureGoal.getName()).isEqualTo("pr-sla-breached");
-    assertThat(failureGoal.getKind()).isEqualTo(GoalKind.FAILURE);
+    assertThat(failureGoal.getKind()).isEqualTo("failure");
 
     assertThat(def.getCompletion()).isInstanceOf(GoalBasedCompletion.class);
-    GoalBasedCompletion completion = (GoalBasedCompletion) def.getCompletion();
-    assertThat(completion.getSuccess()).isNotNull();
-    assertThat(completion.getFailure()).isNotNull();
+    GoalBasedCompletion<?> completion = (GoalBasedCompletion<?>) def.getCompletion();
+    assertThat(completion.getGoals()).hasSize(2);
+    assertThat(completion.getGoals().get(StandardGoalKind.FAILURE)).isNotNull();
+    assertThat(completion.getGoals().get(StandardGoalKind.SUCCESS)).isNotNull();
   }
 
   @Test
@@ -1642,5 +1644,167 @@ class CaseDefinitionYamlMapperTest {
 
     assertThat(def.getTypes()).isEmpty();
     assertThat(def.getLabels()).isEmpty();
+  }
+
+  @Test
+  void completion_customKind_withExplicitStatus_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Custom Goals
+        version: 1.0.0
+        spec:
+          goals:
+            - name: fraud-detected
+              condition: '.fraudScore > 0.8'
+              kind: failure
+            - name: review-needed
+              condition: '.needsReview == true'
+              kind: escalated
+            - name: done
+              condition: '.decision != null'
+              kind: success
+          completion:
+            failure:
+              anyOf: [fraud-detected]
+            escalated:
+              status: FAULTED
+              anyOf: [review-needed]
+            success:
+              allOf: [done]
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getCompletion()).isInstanceOf(GoalBasedCompletion.class);
+    GoalBasedCompletion<?> gbc = (GoalBasedCompletion<?>) def.getCompletion();
+    var keys = new ArrayList<>(gbc.getGoals().keySet());
+    assertThat(keys).hasSize(3);
+    assertThat(keys.get(0).value()).isEqualTo("failure");
+    assertThat(keys.get(0).terminalStatus()).isEqualTo(CaseStatus.FAULTED);
+    assertThat(keys.get(1).value()).isEqualTo("escalated");
+    assertThat(keys.get(1).terminalStatus()).isEqualTo(CaseStatus.FAULTED);
+    assertThat(keys.get(2).value()).isEqualTo("success");
+    assertThat(keys.get(2).terminalStatus()).isEqualTo(CaseStatus.COMPLETED);
+  }
+
+  @Test
+  void completion_standardKindWithExplicitStatus_throws() {
+    String yaml =
+        """
+        namespace: test
+        name: Bad Override
+        version: 1.0.0
+        spec:
+          goals:
+            - name: done
+              condition: '.done == true'
+              kind: success
+          completion:
+            success:
+              status: FAULTED
+              allOf: [done]
+        """;
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void completion_doneWhenWithGoalEntries_throwsMutualExclusion() {
+    String yaml =
+        """
+        namespace: test
+        name: Mixed
+        version: 1.0.0
+        spec:
+          goals:
+            - name: done
+              condition: '.done == true'
+              kind: success
+          completion:
+            doneWhen: '.allDone == true'
+            success:
+              allOf: [done]
+        """;
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void completion_customKindWithoutStatus_throws() {
+    String yaml =
+        """
+        namespace: test
+        name: Missing Status
+        version: 1.0.0
+        spec:
+          goals:
+            - name: review-needed
+              condition: '.needsReview == true'
+              kind: escalated
+          completion:
+            escalated:
+              anyOf: [review-needed]
+        """;
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void completion_existingSuccessFailureFormat_stillWorks() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Legacy
+        version: 1.0.0
+        spec:
+          goals:
+            - name: pr-approved
+              condition: '.approved == true'
+              kind: success
+            - name: pr-sla-breached
+              condition: '.slaBreached == true'
+              kind: failure
+          completion:
+            failure:
+              anyOf: [pr-sla-breached]
+            success:
+              allOf: [pr-approved]
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    assertThat(def.getCompletion()).isInstanceOf(GoalBasedCompletion.class);
+    GoalBasedCompletion<?> gbc = (GoalBasedCompletion<?>) def.getCompletion();
+    assertThat(gbc.getGoals()).hasSize(2);
+  }
+
+  @Test
+  void goal_kindAsString_parsedFromYaml() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: String Kind
+        version: 1.0.0
+        spec:
+          goals:
+            - name: done
+              condition: '.done == true'
+              kind: escalated
+        """;
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    assertThat(def.getGoals().get(0).getKind()).isEqualTo("escalated");
   }
 }
