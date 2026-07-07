@@ -30,11 +30,14 @@ import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.OptionalDouble;
+import org.jboss.logging.Logger;
 
 @Alternative
 @Priority(1)
 @ApplicationScoped
 public class TrustGatedAttestationPolicy implements CommitmentAttestationPolicy {
+
+  private static final Logger LOG = Logger.getLogger(TrustGatedAttestationPolicy.class);
 
   static final double BASE_DONE_CONFIDENCE = 0.7;
   static final double BASE_FAILURE_CONFIDENCE = 0.6;
@@ -85,29 +88,36 @@ public class TrustGatedAttestationPolicy implements CommitmentAttestationPolicy 
       return soundAtConfidence(resolvedActorId, BASE_DONE_CONFIDENCE);
     }
 
-    final String capabilityTag = context.capabilityTag();
-    final OptionalDouble capScore = source.capabilityScore(resolvedActorId, capabilityTag);
-    final int decCount = source.decisionCount(resolvedActorId, capabilityTag);
-    final TrustRoutingPolicy routingPolicy = policyProvider.forCapability(capabilityTag);
+    try {
+      final String capabilityTag = context.capabilityTag();
+      final OptionalDouble capScore = source.capabilityScore(resolvedActorId, capabilityTag);
+      final int decCount = source.decisionCount(resolvedActorId, capabilityTag);
+      final TrustRoutingPolicy routingPolicy = policyProvider.forCapability(capabilityTag);
 
-    if (capScore.isEmpty() || routingPolicy.isBootstrap(decCount)) {
+      if (capScore.isEmpty() || routingPolicy.isBootstrap(decCount)) {
+        return soundAtConfidence(resolvedActorId, BASE_DONE_CONFIDENCE);
+      }
+
+      final double score = capScore.getAsDouble();
+
+      if (routingPolicy.isBorderline(score)) {
+        return soundAtConfidence(resolvedActorId, BASE_DONE_CONFIDENCE);
+      }
+
+      if (routingPolicy.passesThresholdCheck(score)) {
+        final double boosted = BASE_DONE_CONFIDENCE * (1.0 + (score - routingPolicy.threshold()));
+        return soundAtConfidence(resolvedActorId, Math.min(1.0, boosted));
+      }
+
+      // BELOW_THRESHOLD
+      final double scaled = BASE_DONE_CONFIDENCE * score;
+      return soundAtConfidence(resolvedActorId, Math.max(MIN_CONFIDENCE_FLOOR, scaled));
+    } catch (final Exception e) {
+      LOG.warnf(
+          "Trust lookup failed for actor %s — falling back to base confidence: %s",
+          resolvedActorId, e.getMessage());
       return soundAtConfidence(resolvedActorId, BASE_DONE_CONFIDENCE);
     }
-
-    final double score = capScore.getAsDouble();
-
-    if (routingPolicy.isBorderline(score)) {
-      return soundAtConfidence(resolvedActorId, BASE_DONE_CONFIDENCE);
-    }
-
-    if (routingPolicy.passesThresholdCheck(score)) {
-      final double boosted = BASE_DONE_CONFIDENCE * (1.0 + (score - routingPolicy.threshold()));
-      return soundAtConfidence(resolvedActorId, Math.min(1.0, boosted));
-    }
-
-    // BELOW_THRESHOLD
-    final double scaled = BASE_DONE_CONFIDENCE * score;
-    return soundAtConfidence(resolvedActorId, Math.max(MIN_CONFIDENCE_FLOOR, scaled));
   }
 
   private static boolean hasCapabilityTag(final CommitmentContext context) {

@@ -307,4 +307,34 @@ class TrustGatedAttestationPolicyTest {
   void handoff_returnsEmpty() {
     assertThat(policy.attestationFor(MessageType.HANDOFF, ACTOR, CTX)).isEmpty();
   }
+
+  // ---- Defensive fallback ----
+
+  @Test
+  void done_trustScoreSourceThrows_fallsBackToBaseConfidence() {
+    when(source.capabilityScore(ACTOR, CAP)).thenThrow(new RuntimeException("cache unavailable"));
+
+    Optional<AttestationOutcome> result = policy.attestationFor(MessageType.DONE, ACTOR, CTX);
+
+    assertThat(result).isPresent();
+    assertThat(result.get().verdict()).isEqualTo(AttestationVerdict.SOUND);
+    assertThat(result.get().confidence()).isEqualTo(0.7);
+    assertThat(result.get().attestorId()).isEqualTo(ACTOR);
+    assertThat(result.get().attestorType()).isEqualTo(ActorType.AGENT);
+  }
+
+  @Test
+  void done_policyProviderThrows_fallsBackToBaseConfidence() {
+    when(source.capabilityScore(ACTOR, CAP)).thenReturn(OptionalDouble.of(0.9));
+    when(source.decisionCount(ACTOR, CAP)).thenReturn(15);
+    when(policyProvider.forCapability(CAP)).thenThrow(new RuntimeException("policy lookup failed"));
+
+    Optional<AttestationOutcome> result = policy.attestationFor(MessageType.DONE, ACTOR, CTX);
+
+    assertThat(result).isPresent();
+    assertThat(result.get().verdict()).isEqualTo(AttestationVerdict.SOUND);
+    assertThat(result.get().confidence()).isEqualTo(0.7);
+    assertThat(result.get().attestorId()).isEqualTo(ACTOR);
+    assertThat(result.get().attestorType()).isEqualTo(ActorType.AGENT);
+  }
 }
