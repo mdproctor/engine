@@ -102,7 +102,6 @@
         <module>resilience</module>
         <module>ledger</module>
         <module>testing</module>
-        <module>work-adapter</module>
         <module>casehub-engine-inbound</module>
         <module>actor-state</module>
         <module>engine-ai</module>

@@ -177,7 +177,7 @@ A `Binding` with a `subCase` field (mutually exclusive with `capability`) spawns
 
 **Circular detection:** child definition matching parent definition is rejected with an error log — PlanItem is faulted.
 
-### HumanTaskBinding (casehub-engine-work-adapter)
+### HumanTaskBinding (casehub-work-engine-adapter — relocated to casehub-work repo)
 
 A `Binding` with a `HumanTaskTarget` routes to a human WorkItem in casehub-work when its trigger fires. Two creation modes:
 

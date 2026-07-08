@@ -132,7 +132,7 @@ quarkus.datasource.password=
 quarkus.hibernate-orm.schema-management.strategy=drop-and-create
 quarkus.flyway.migrate-at-start=false
 ```
-And add a `NoOpLedgerEntryRepository` (`@Alternative @Priority(1) @ApplicationScoped`) to the module's test sources — see `engine/src/test/java/io/casehub/engine/NoOpLedgerEntryRepository.java`. Applied to: `engine`, `casehub-blackboard`, `casehub-resilience`, `casehub-work-adapter`.
+And add a `NoOpLedgerEntryRepository` (`@Alternative @Priority(1) @ApplicationScoped`) to the module's test sources — see `engine/src/test/java/io/casehub/engine/NoOpLedgerEntryRepository.java`. Applied to: `engine`, `casehub-blackboard`, `casehub-resilience`.
 
 **Modules with `casehub-engine-ledger` as a test dependency** (e.g. `casehub-engine` runtime) must additionally exclude the ledger capture beans from CDI — they observe `CaseLifecycleEvent` and call `LedgerSequenceAllocator` which requires a `ledger_subject_sequence` table not present in the runtime test schema. Without this, cases time out silently with no direct error:
 ```properties
@@ -273,9 +273,9 @@ public class AmlActionRiskClassifier implements ActionRiskClassifier {
 
 **Gate mechanism:** When `GateRequired` fires:
 1. `WorkflowExecutionCompletedHandler` stores `PendingActionGate` in-memory on `CaseInstance` (**not persisted by JPA in v1 — restart loses the gate**; tracked as engine#433)
-2. Publishes `ActionGateScheduleEvent` (carrying `resolvedCandidateGroups` — the evaluated `Set<String>` from `CandidateSetStrategy`) → `ActionGateWorkItemHandler` (work-adapter) creates a WorkItem
+2. Publishes `ActionGateScheduleEvent` (carrying `resolvedCandidateGroups` — the evaluated `Set<String>` from `CandidateSetStrategy`) → `ActionGateWorkItemHandler` (engine-adapter, work repo) creates a WorkItem
 3. Human approves/rejects via work inbox
-4. `ActionGateCompletionApplier` (work-adapter) publishes `ActionGateApprovedEvent` or `ActionGateRejectedEvent`
+4. `ActionGateCompletionApplier` (engine-adapter, work repo) publishes `ActionGateApprovedEvent` or `ActionGateRejectedEvent`
 5. `ActionGateApprovedHandler` (runtime) re-fires `WorkflowExecutionCompleted` with `outcome=Success(null)` — normal completion path applies deferred output
 6. `ActionGateRejectedHandler`/`ActionGateExpiredHandler` write context signals (`actionGateRejected`, `actionGateExpired`), fire `CONTEXT_CHANGED`, publish `ACTION_GATE_WORKER_FAULTED` for blackboard PlanItem fault
 
@@ -284,7 +284,7 @@ public class AmlActionRiskClassifier implements ActionRiskClassifier {
 .on(new ContextChangeTrigger(".result == null and .actionGateRejected == null and .actionGateApproved == null"))
 ```
 
-**Startup warning:** `ActionGateDeploymentHealthCheck` warns if `@RiskClassifier` classifiers are registered but `casehub-engine-work-adapter` is absent (gate WorkItem would never be created).
+**Startup warning:** `ActionGateDeploymentHealthCheck` warns if `@RiskClassifier` classifiers are registered but `casehub-work-engine-adapter` is absent (gate WorkItem would never be created).
 
 **New event bus addresses** (in `EventBusAddresses`): `ACTION_GATE_SCHEDULE`, `ACTION_GATE_APPROVED`, `ACTION_GATE_REJECTED`, `ACTION_GATE_EXPIRED`, `ACTION_GATE_CANCELLED`, `ACTION_GATE_WORKER_FAULTED` (distinct from `WORKER_RETRIES_EXHAUSTED` — gate faults must not fault the CaseInstance).
 
@@ -420,36 +420,9 @@ often more correct, faster, and less error-prone (symbol lookup, rename refactor
 file search). Verify both are responsive at session start; stop and report to the user if either
 is unavailable.
 
-## casehub-work-adapter Module
+## casehub-work-adapter Module (relocated)
 
-Activated by adding `casehub-engine-work-adapter` to the consumer's classpath (transitively brings `casehub-engine-blackboard`). Required for any runtime that uses `humanTask` YAML bindings — without it, `HumanTaskScheduleEvent` is published but never handled and WorkItems are never created.
-
-**Dependency:** Production depends on `casehub-work-api` (SPI only), not `casehub-work` runtime. All WorkItem operations go through `WorkItemCreator` (create, find) and `WorkItemLifecycle` (cancel, complete). The runtime (`casehub-work`) is present at test scope only. Refs engine#578.
-
-**YAML DSL:** `humanTask` is a first-class binding target type in `CaseDefinition.yaml` (alongside `capability` and `subCase`). `CaseDefinitionYamlMapper` converts it to `HumanTaskTarget`. Inline mode requires `title`; template mode requires `templateRef`. Both modes support `outputMapping`, `inputMapping`, `candidateGroups`, `candidateUsers`, `expiresIn`, `scope` (hierarchical path for SLA preference resolution, e.g. `"casehubio/devtown/pr-review"`), `claimDeadlineHours` (integer — business hours to claim before escalation, wired to `WorkItemCreateRequest.claimDeadlineBusinessHours`), and `outcomes` (`Set<String>` of valid outcome names, e.g. `APPROVED`, `REJECTED` — propagated to `WorkItemCreateRequest.permittedOutcomes` in both modes; enforced at completion by casehub-work). Refs engine#325, engine#512.
-
-Two-way bridge between casehub-work and CaseHub plan items:
-- **Inbound** (`WorkItemLifecycleAdapter`) — observes `WorkItemEvent` (api interface) directly and translates terminal events to `PlanItem` transitions via `status.isTerminal()` guard (no explicit enumeration). Uses `WorkItemEvent` typed accessors (`callerRef()`, `workItemId()`, `candidateGroups()`, `resolution()`) — never `source()`. Evaluates `outputMapping` against the `WorkItemRef.resolution()` JSON, and fires `CONTEXT_CHANGED` for engine re-evaluation. Terminal status mapping: COMPLETED → `markCompleted()`; REJECTED → `markRejected()` (intentional human refusal — PlanItem must be DELEGATED); FAULTED → `markFaulted()` (system failure) + fires `PlanItemFaultedEvent`; EXPIRED → `markFaulted()` (deadline failure) + fires `PlanItemFaultedEvent`; OBSOLETE → `markObsolete()` (context changed, work irrelevant) + fires `PlanItemObsoleteEvent`; CANCELLED → `markCancelled()`. Also observes `WorkItemGroupLifecycleEvent` for M-of-N SpawnGroup outcomes (COMPLETED → `PlanItem.markCompleted()`; REJECTED → `PlanItem.markRejected()`). ESCALATED is terminal — all SLA breach policy branches exhausted. The adapter writes a `workItemEscalated` signal to the case context (`{workItemId, newGroups, bindingName}`) so case definitions can react via `contextChange(".workItemEscalated")` bindings. The PlanItem stays DELEGATED. SLA breach policies that re-route the WorkItem to new groups (the `EscalateTo` decision) do not set ESCALATED — the WorkItem stays PENDING, so the adapter's terminal filter skips it. Refs engine#338, engine#400, engine#539, engine#579.
-- **Outbound** (`HumanTaskScheduleHandler`) — consumes `HUMAN_TASK_SCHEDULE` event bus messages, looks up the `PlanItem` by binding name, then:
-  - **Inline mode** (`HumanTaskTarget.inline()`): creates a WorkItem via `WorkItemCreator.create(request)`, then `planItemStore.save(DELEGATED)`, then `item.markDelegated()`
-  - **Template mode** (`HumanTaskTarget.template(ref)`): parses `ref` as UUID; invalid UUID → warn + leave PlanItem PENDING; builds `WorkItemCreateRequest` with `templateId` set and all overrides (`scope`, `candidateGroups`, `candidateUsers`, `payload`, `permittedOutcomes`) on the builder; calls `WorkItemCreator.create(request)` — the SPI adapter routes `templateId != null` to `WorkItemTemplateService.createFromTemplate()` internally, using request-wins merge semantics (template defaults fill in what the request doesn't specify). Template payload uses deep JSON merge with inputData (template keys are preserved alongside input keys). Exception from the SPI → warn + leave PlanItem PENDING. On success → `planItemStore.save(DELEGATED)`, `item.markDelegated()`
-
-All three steps in each mode are inside `@Transactional` — if WorkItem creation fails the transaction rolls back and `markDelegated()` is never called (PlanItem stays PENDING). `JpaPlanItemStore` + `WorkAdapterPlanItemEntity` live in `work-adapter` (blocking JPA, shares casehub-work datasource). `InMemoryPlanItemStore` (in `casehub-engine-persistence-memory`) must be in `selected-alternatives` for work-adapter tests.
-
-`@ConsumeEvent` handlers that call `@Transactional` services must use `blocking = true` — without it, the transaction silently does not commit on the Vert.x IO thread (the WorkItem is never created, no error is thrown).
-
-See protocols `PP-20260517-cbf836` (PlanItem must not be marked RUNNING until all resolution steps succeed), `PP-20260517-0093f8` (inputMapping output must reach WorkItem payload in all handler modes), and `PP-20260518-78f8b7` (PlanItemStore.save() must be called from a blocking @Transactional context).
-
-**Test setup** (when depending on `casehub-work` full module):
-- Add `casehub-work-persistence-memory` test dep — provides `InMemoryWorkItemStore @Alternative @Priority(1)`
-- Add `quarkus-jdbc-h2` test dep — casehub-work JPA entities require a datasource even in tests
-- Add `quarkus.arc.exclude-types=io.casehub.work.runtime.repository.jpa.JpaWorkItemStore,io.casehub.work.runtime.repository.jpa.JpaWorkItemTemplateStore` to `application.properties` — `@Alternative @Priority(1)` from an external jar does NOT automatically override a non-alternative `@ApplicationScoped` bean in Quarkus ARC 3.x; excluding the JPA stores is required for in-memory stores to resolve correctly
-- Use `quarkus.arc.selected-alternatives` to activate `casehub-persistence-memory` repos AND `io.casehub.work.memory.InMemoryWorkItemStore` AND `io.casehub.work.memory.InMemoryWorkItemTemplateStore` — omitting it causes boot failure: `Unsatisfied dependency for ReactiveSubCaseGroupRepository`. Template-mode tests that use `persistTemplate()` must call `templateStore.put()` (not Panache `persist()`) to write to the in-memory store that the handler reads from (engine#576)
-- Add `@Alternative @Priority(1)` static inner class stub for `WorkloadProvider` — casehub-work ships `JpaWorkloadProvider` which would query the database for work counts; a zero-returning stub isolates tests from DB queries. (engine#337 removed `CasehubWorkloadProvider` — no CDI ambiguity exists, but the stub is still good test hygiene)
-- Set `quarkus.quartz.store-type=ram` and `quarkus.hibernate-orm.schema-management.strategy=drop-and-create`
-- `QuarkusTestProfile.getEnabledAlternatives()` **replaces** (not appends to) `quarkus.arc.selected-alternatives` — any profile using this method must re-declare all globally required alternatives, including both blocking and reactive persistence-memory repos (reactive delegates inject the blocking canonical by concrete type) and `InMemoryWorkItemStore`
-
-`callerRef` format: `case:{caseId}/pi:{planItemId}` — use `CallerRef.encode()` / `CallerRef.parse()`.
+Relocated to `casehub-work-engine-adapter` in the casehub-work repo (`io.casehub.work.engine` package). See work's CLAUDE.md for module documentation. Refs casehubio/work#290.
 
 ## casehub-engine-actor-state Module
 

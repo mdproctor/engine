@@ -46,7 +46,7 @@ import java.util.Optional;
  * become a transitive dependency of {@code casehub-engine-api} consumers (PP-20260601-c43112).
  *
  * <p>Note on {@code callerRef}: if set to {@code case:{caseId}/pi:{planItemId}} format and {@code
- * casehub-engine-work-adapter} is deployed, the WorkItem lifecycle will be wired back to that
+ * casehub-work-engine-adapter} is deployed, the WorkItem lifecycle will be wired back to that
  * PlanItem. Bridge-created WorkItems with no case backing should leave {@code callerRef} null.
  */
 @FunctionalInterface

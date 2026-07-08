@@ -25,8 +25,8 @@ import java.time.Duration;
  * <p>{@link Autonomous} — proceed immediately; case advances as if no PlannedAction was declared.
  *
  * <p>{@link GateRequired} — pause the case and route to a human approver via a WorkItem. The engine
- * fires an {@code ActionGateScheduleEvent}; {@code casehub-engine-work-adapter} creates the
- * WorkItem. If work-adapter is absent the case stalls — see {@code
+ * fires an {@code ActionGateScheduleEvent}; {@code casehub-work-engine-adapter} creates the
+ * WorkItem. If the engine-adapter is absent the case stalls — see {@code
  * ActionGateDeploymentHealthCheck}.
  */
 public sealed interface RiskDecision permits RiskDecision.Autonomous, RiskDecision.GateRequired {

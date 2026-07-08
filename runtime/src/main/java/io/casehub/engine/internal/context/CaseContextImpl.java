@@ -173,14 +173,17 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       working().set(key, value);
     } else {
-      Object prev = working().modify((data, changed) -> {
-        Object p = data.get(key);
-        if (!Objects.equals(p, value)) {
-          data.put(key, value);
-          changed.run();
-        }
-        return p;
-      });
+      Object prev =
+          working()
+              .modify(
+                  (data, changed) -> {
+                    Object p = data.get(key);
+                    if (!Objects.equals(p, value)) {
+                      data.put(key, value);
+                      changed.run();
+                    }
+                    return p;
+                  });
       if (!Objects.equals(prev, value)) {
         fireListeners(key, prev, value);
       }
@@ -208,19 +211,22 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       return working().computeIfAbsent(key, mappingFunction);
     }
-    Object[] result = working().modify((data, changed) -> {
-      Object v = data.get(key);
-      if (v == null) {
-        v = mappingFunction.apply(key);
-        if (v != null) {
-          data.put(key, v);
-          changed.run();
-          return new Object[] {Boolean.FALSE, v};
-        }
-        return new Object[] {Boolean.TRUE, null};
-      }
-      return new Object[] {Boolean.TRUE, v};
-    });
+    Object[] result =
+        working()
+            .modify(
+                (data, changed) -> {
+                  Object v = data.get(key);
+                  if (v == null) {
+                    v = mappingFunction.apply(key);
+                    if (v != null) {
+                      data.put(key, v);
+                      changed.run();
+                      return new Object[] {Boolean.FALSE, v};
+                    }
+                    return new Object[] {Boolean.TRUE, null};
+                  }
+                  return new Object[] {Boolean.TRUE, v};
+                });
     boolean existed = (Boolean) result[0];
     Object value = result[1];
     if (!existed && value != null) {
@@ -234,15 +240,18 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       return working().putIfAbsent(key, value);
     }
-    Object[] result = working().modify((data, changed) -> {
-      Object existing = data.get(key);
-      if (existing == null) {
-        data.put(key, value);
-        changed.run();
-        return new Object[] {null, Boolean.TRUE};
-      }
-      return new Object[] {existing, Boolean.FALSE};
-    });
+    Object[] result =
+        working()
+            .modify(
+                (data, changed) -> {
+                  Object existing = data.get(key);
+                  if (existing == null) {
+                    data.put(key, value);
+                    changed.run();
+                    return new Object[] {null, Boolean.TRUE};
+                  }
+                  return new Object[] {existing, Boolean.FALSE};
+                });
     Object previous = result[0];
     boolean wasAbsent = (Boolean) result[1];
     if (wasAbsent) {
@@ -256,17 +265,20 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       return working().compareAndSet(key, expected, newValue);
     }
-    Object[] result = working().modify((data, changed) -> {
-      Object current = data.get(key);
-      if (Objects.equals(current, expected)) {
-        if (!Objects.equals(current, newValue)) {
-          data.put(key, newValue);
-          changed.run();
-        }
-        return new Object[] {current, Boolean.TRUE};
-      }
-      return new Object[] {current, Boolean.FALSE};
-    });
+    Object[] result =
+        working()
+            .modify(
+                (data, changed) -> {
+                  Object current = data.get(key);
+                  if (Objects.equals(current, expected)) {
+                    if (!Objects.equals(current, newValue)) {
+                      data.put(key, newValue);
+                      changed.run();
+                    }
+                    return new Object[] {current, Boolean.TRUE};
+                  }
+                  return new Object[] {current, Boolean.FALSE};
+                });
     Object oldValue = result[0];
     boolean swapped = (Boolean) result[1];
     if (swapped && !Objects.equals(oldValue, newValue)) {
@@ -280,20 +292,23 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       working().update(key, updateFunction);
     } else {
-      Object[] result = working().modify((data, changed) -> {
-        Object current = data.get(key);
-        Object nv = updateFunction.apply(current);
-        if (nv != null) {
-          if (!Objects.equals(current, nv)) {
-            data.put(key, nv);
-            changed.run();
-          }
-        } else if (data.containsKey(key)) {
-          data.remove(key);
-          changed.run();
-        }
-        return new Object[] {current, nv};
-      });
+      Object[] result =
+          working()
+              .modify(
+                  (data, changed) -> {
+                    Object current = data.get(key);
+                    Object nv = updateFunction.apply(current);
+                    if (nv != null) {
+                      if (!Objects.equals(current, nv)) {
+                        data.put(key, nv);
+                        changed.run();
+                      }
+                    } else if (data.containsKey(key)) {
+                      data.remove(key);
+                      changed.run();
+                    }
+                    return new Object[] {current, nv};
+                  });
       Object oldValue = result[0];
       Object newValue = result[1];
       if (!Objects.equals(oldValue, newValue)) {
@@ -350,29 +365,33 @@ public class CaseContextImpl implements CaseContext {
       working().setPath(path, value);
     } else {
       String topKey = path.contains(".") ? path.substring(0, path.indexOf('.')) : path;
-      Object prev = working().modify((data, changed) -> {
-        String[] parts = path.split("\\.");
-        Map<String, Object> current = data;
-        for (int i = 0; i < parts.length - 1; i++) {
-          Object next = current.get(parts[i]);
-          if (next == null) {
-            next = new LinkedHashMap<String, Object>();
-            current.put(parts[i], next);
-          }
-          if (next instanceof Map) {
-            current = (Map<String, Object>) next;
-          } else {
-            throw new IllegalStateException("Cannot set path: " + parts[i] + " is not a Map");
-          }
-        }
-        String leaf = parts[parts.length - 1];
-        Object p = current.get(leaf);
-        if (!Objects.equals(p, value)) {
-          current.put(leaf, value);
-          changed.run();
-        }
-        return p;
-      });
+      Object prev =
+          working()
+              .modify(
+                  (data, changed) -> {
+                    String[] parts = path.split("\\.");
+                    Map<String, Object> current = data;
+                    for (int i = 0; i < parts.length - 1; i++) {
+                      Object next = current.get(parts[i]);
+                      if (next == null) {
+                        next = new LinkedHashMap<String, Object>();
+                        current.put(parts[i], next);
+                      }
+                      if (next instanceof Map) {
+                        current = (Map<String, Object>) next;
+                      } else {
+                        throw new IllegalStateException(
+                            "Cannot set path: " + parts[i] + " is not a Map");
+                      }
+                    }
+                    String leaf = parts[parts.length - 1];
+                    Object p = current.get(leaf);
+                    if (!Objects.equals(p, value)) {
+                      current.put(leaf, value);
+                      changed.run();
+                    }
+                    return p;
+                  });
       if (!Objects.equals(prev, value)) {
         fireListeners(topKey, prev, value);
       }
@@ -385,20 +404,23 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       working().setAll(values);
     } else if (values != null && !values.isEmpty()) {
-      Map<String, Object> changed = working().modify((data, markChanged) -> {
-        Map<String, Object> diff = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> e : values.entrySet()) {
-          Object prev = data.get(e.getKey());
-          if (!Objects.equals(prev, e.getValue())) {
-            data.put(e.getKey(), e.getValue());
-            diff.put(e.getKey(), prev);
-          }
-        }
-        if (!diff.isEmpty()) {
-          markChanged.run();
-        }
-        return diff;
-      });
+      Map<String, Object> changed =
+          working()
+              .modify(
+                  (data, markChanged) -> {
+                    Map<String, Object> diff = new LinkedHashMap<>();
+                    for (Map.Entry<String, Object> e : values.entrySet()) {
+                      Object prev = data.get(e.getKey());
+                      if (!Objects.equals(prev, e.getValue())) {
+                        data.put(e.getKey(), e.getValue());
+                        diff.put(e.getKey(), prev);
+                      }
+                    }
+                    if (!diff.isEmpty()) {
+                      markChanged.run();
+                    }
+                    return diff;
+                  });
       for (Map.Entry<String, Object> entry : changed.entrySet()) {
         fireListeners(entry.getKey(), entry.getValue(), values.get(entry.getKey()));
       }
@@ -421,13 +443,16 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       working().remove(key);
     } else {
-      Object prev = working().modify((data, changed) -> {
-        if (data.containsKey(key)) {
-          changed.run();
-          return data.remove(key);
-        }
-        return null;
-      });
+      Object prev =
+          working()
+              .modify(
+                  (data, changed) -> {
+                    if (data.containsKey(key)) {
+                      changed.run();
+                      return data.remove(key);
+                    }
+                    return null;
+                  });
       if (prev != null) {
         fireListeners(key, prev, null);
       }
@@ -440,15 +465,18 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       working().clear();
     } else {
-      Map<String, Object> prev = working().modify((data, changed) -> {
-        if (!data.isEmpty()) {
-          Map<String, Object> snapshot = new LinkedHashMap<>(data);
-          data.clear();
-          changed.run();
-          return snapshot;
-        }
-        return Map.<String, Object>of();
-      });
+      Map<String, Object> prev =
+          working()
+              .modify(
+                  (data, changed) -> {
+                    if (!data.isEmpty()) {
+                      Map<String, Object> snapshot = new LinkedHashMap<>(data);
+                      data.clear();
+                      changed.run();
+                      return snapshot;
+                    }
+                    return Map.<String, Object>of();
+                  });
       for (Map.Entry<String, Object> entry : prev.entrySet()) {
         fireListeners(entry.getKey(), entry.getValue(), null);
       }
@@ -494,20 +522,23 @@ public class CaseContextImpl implements CaseContext {
     if (!hasListeners()) {
       working().setAll(otherData);
     } else if (!otherData.isEmpty()) {
-      Map<String, Object> changed = working().modify((data, markChanged) -> {
-        Map<String, Object> diff = new LinkedHashMap<>();
-        for (Map.Entry<String, Object> e : otherData.entrySet()) {
-          Object prev = data.get(e.getKey());
-          if (!Objects.equals(prev, e.getValue())) {
-            data.put(e.getKey(), e.getValue());
-            diff.put(e.getKey(), prev);
-          }
-        }
-        if (!diff.isEmpty()) {
-          markChanged.run();
-        }
-        return diff;
-      });
+      Map<String, Object> changed =
+          working()
+              .modify(
+                  (data, markChanged) -> {
+                    Map<String, Object> diff = new LinkedHashMap<>();
+                    for (Map.Entry<String, Object> e : otherData.entrySet()) {
+                      Object prev = data.get(e.getKey());
+                      if (!Objects.equals(prev, e.getValue())) {
+                        data.put(e.getKey(), e.getValue());
+                        diff.put(e.getKey(), prev);
+                      }
+                    }
+                    if (!diff.isEmpty()) {
+                      markChanged.run();
+                    }
+                    return diff;
+                  });
       for (Map.Entry<String, Object> entry : changed.entrySet()) {
         fireListeners(entry.getKey(), entry.getValue(), otherData.get(entry.getKey()));
       }

@@ -28,9 +28,9 @@ import java.util.UUID;
  * the stable key linking the gate to its WorkItem via callerRef {@code
  * "case:{caseId}/gate:{gateId}"}.
  *
- * <p>Consumed by {@code ActionGateWorkItemHandler} in {@code casehub-engine-work-adapter}, which
- * creates the WorkItem. If work-adapter is absent, this event fires with no handler and the case
- * stalls.
+ * <p>Consumed by {@code ActionGateWorkItemHandler} in {@code casehub-work-engine-adapter}, which
+ * creates the WorkItem. If the engine-adapter is absent, this event fires with no handler and the
+ * case stalls.
  */
 public record ActionGateScheduleEvent(
     UUID caseId,
