@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.workadapter.recovery;
+package io.casehub.work.engine.recovery;
 
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.work.api.WorkItemRef;
 import io.casehub.work.api.spi.WorkItemCreator;
-import io.casehub.workadapter.PlanItemCallerRef;
-import io.casehub.workadapter.PlanItemCompletionApplier;
+import io.casehub.work.engine.PlanItemCallerRef;
+import io.casehub.work.engine.PlanItemCompletionApplier;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;

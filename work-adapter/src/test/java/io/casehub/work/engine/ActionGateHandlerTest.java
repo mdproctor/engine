@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.workadapter;
+package io.casehub.work.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -66,6 +66,19 @@ class ActionGateHandlerTest {
   @Inject ActionGateCompletionApplier actionGateCompletionApplier;
   @Inject WorkItemStore workItemStore;
 
+  private static WorkItemRef toRef(final WorkItem wi) {
+    return new WorkItemRef(
+        wi.id,
+        wi.status,
+        wi.callerRef,
+        wi.assigneeId,
+        wi.resolution,
+        wi.candidateGroups,
+        wi.outcome,
+        wi.tenancyId,
+        wi.payload);
+  }
+
   @BeforeEach
   void setUp() {
     GateEventRecorder.reset();
@@ -74,6 +87,8 @@ class ActionGateHandlerTest {
     }
   }
 
+  // --- ActionGateWorkItemHandler ---
+
   @AfterEach
   @Transactional
   void tearDown() {
@@ -81,8 +96,6 @@ class ActionGateHandlerTest {
       mem.clear();
     }
   }
-
-  // --- ActionGateWorkItemHandler ---
 
   @Test
   @Transactional
@@ -133,6 +146,8 @@ class ActionGateHandlerTest {
     // expiresAt may be set by WorkItemService defaults; we don't assert null here
   }
 
+  // --- ActionGateCompletionApplier ---
+
   @Test
   @Transactional
   void onActionGateSchedule_withExpiresIn_setsExpiresAt() {
@@ -153,8 +168,6 @@ class ActionGateHandlerTest {
     assertThat(workItem.expiresAt).isAfter(before.plus(Duration.ofHours(23)));
     assertThat(workItem.expiresAt).isBefore(before.plus(Duration.ofHours(25)));
   }
-
-  // --- ActionGateCompletionApplier ---
 
   @Test
   void completionApplier_completed_publishesApprovedEvent() {
@@ -213,6 +226,8 @@ class ActionGateHandlerTest {
     assertThat(GateEventRecorder.rejectedEvents.get(0).caseId()).isEqualTo(caseId);
   }
 
+  // --- Recording CDI beans — @ConsumeEvent causes Quarkus to register codecs for event types ---
+
   @Test
   void completionApplier_expired_publishesExpiredEvent() {
     final UUID caseId = UUID.randomUUID();
@@ -227,8 +242,6 @@ class ActionGateHandlerTest {
     assertThat(GateEventRecorder.expiredEvents.get(0).caseId()).isEqualTo(caseId);
     assertThat(GateEventRecorder.expiredEvents.get(0).gateId()).isEqualTo(40L);
   }
-
-  // --- Recording CDI beans — @ConsumeEvent causes Quarkus to register codecs for event types ---
 
   @ApplicationScoped
   static class GateEventRecorder {
@@ -264,18 +277,5 @@ class ActionGateHandlerTest {
     void onCancelled(final ActionGateCancelledEvent event) {
       cancelledEvents.add(event);
     }
-  }
-
-  private static WorkItemRef toRef(final WorkItem wi) {
-    return new WorkItemRef(
-        wi.id,
-        wi.status,
-        wi.callerRef,
-        wi.assigneeId,
-        wi.resolution,
-        wi.candidateGroups,
-        wi.outcome,
-        wi.tenancyId,
-        wi.payload);
   }
 }

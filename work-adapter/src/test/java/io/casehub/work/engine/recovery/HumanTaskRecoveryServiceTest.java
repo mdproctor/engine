@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.workadapter.recovery;
+package io.casehub.work.engine.recovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -30,10 +30,10 @@ import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.persistence.memory.InMemoryPlanItemStore;
 import io.casehub.work.api.WorkItemStatus;
+import io.casehub.work.engine.PlanItemCallerRef;
 import io.casehub.work.memory.InMemoryWorkItemStore;
 import io.casehub.work.runtime.model.WorkItem;
 import io.casehub.work.runtime.repository.WorkItemStore;
-import io.casehub.workadapter.PlanItemCallerRef;
 import io.quarkus.runtime.StartupEvent;
 import io.quarkus.test.junit.QuarkusTest;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -63,8 +63,12 @@ class HumanTaskRecoveryServiceTest {
 
   @BeforeEach
   void setUp() {
-    if (planItemStore instanceof InMemoryPlanItemStore mem) mem.clear();
-    if (workItemStore instanceof InMemoryWorkItemStore mem) mem.clear();
+    if (planItemStore instanceof InMemoryPlanItemStore mem) {
+      mem.clear();
+    }
+    if (workItemStore instanceof InMemoryWorkItemStore mem) {
+      mem.clear();
+    }
     caseId = UUID.randomUUID();
     planItemId = UUID.randomUUID().toString();
     callerRef = PlanItemCallerRef.encode(caseId, planItemId);
@@ -94,8 +98,12 @@ class HumanTaskRecoveryServiceTest {
 
   @AfterEach
   void tearDown() {
-    if (planItemStore instanceof InMemoryPlanItemStore mem) mem.clear();
-    if (workItemStore instanceof InMemoryWorkItemStore mem) mem.clear();
+    if (planItemStore instanceof InMemoryPlanItemStore mem) {
+      mem.clear();
+    }
+    if (workItemStore instanceof InMemoryWorkItemStore mem) {
+      mem.clear();
+    }
     registry.evict(caseId);
   }
 

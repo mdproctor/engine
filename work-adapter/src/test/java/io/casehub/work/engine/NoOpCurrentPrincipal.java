@@ -13,24 +13,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.workadapter;
+package io.casehub.work.engine;
 
-import io.casehub.platform.api.preferences.MapPreferences;
-import io.casehub.platform.api.preferences.PreferenceProvider;
-import io.casehub.platform.api.preferences.Preferences;
-import io.casehub.platform.api.preferences.SettingsScope;
-import jakarta.annotation.Priority;
+import io.casehub.platform.api.identity.CurrentPrincipal;
+import io.casehub.platform.api.identity.TenancyConstants;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
-import java.util.Map;
+import java.util.Set;
 
-@Alternative
-@Priority(1)
 @ApplicationScoped
-public class NoOpPreferenceProvider implements PreferenceProvider {
+public class NoOpCurrentPrincipal implements CurrentPrincipal {
 
   @Override
-  public Preferences resolve(SettingsScope scope) {
-    return new MapPreferences(Map.of());
+  public String actorId() {
+    return "system";
+  }
+
+  @Override
+  public Set<String> groups() {
+    return Set.of();
+  }
+
+  @Override
+  public String tenancyId() {
+    return TenancyConstants.DEFAULT_TENANT_ID;
+  }
+
+  @Override
+  public boolean isCrossTenantAdmin() {
+    return false;
   }
 }

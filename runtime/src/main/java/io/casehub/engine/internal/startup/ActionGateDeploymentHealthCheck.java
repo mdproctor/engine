@@ -26,7 +26,7 @@ import org.jboss.logging.Logger;
 
 /**
  * Startup check that warns if consumer-provided {@link ActionRiskClassifier} beans are registered
- * but {@code casehub-engine-work-adapter} is not on the classpath.
+ * but {@code casehub-work-engine-adapter} is not on the classpath.
  *
  * <p>If a classifier returns {@link io.casehub.api.spi.RiskDecision.GateRequired} without
  * work-adapter present, the gate WorkItem is never created and the case stalls indefinitely. The
@@ -60,18 +60,18 @@ public class ActionGateDeploymentHealthCheck {
 
     // Consumer classifiers present — verify work-adapter is available.
     // We detect work-adapter by looking for the ActionGateWorkItemHandler class, which is only
-    // present when casehub-engine-work-adapter is on the classpath.
+    // present when casehub-work-engine-adapter is on the classpath.
     try {
       Class.forName(
-          "io.casehub.workadapter.ActionGateWorkItemHandler",
+          "io.casehub.work.engine.ActionGateWorkItemHandler",
           false,
           Thread.currentThread().getContextClassLoader());
     } catch (ClassNotFoundException e) {
       LOG.warn(
           "CONFIGURATION WARNING: ActionRiskClassifier beans are registered but"
-              + " casehub-engine-work-adapter is NOT on the classpath. If any classifier returns"
+              + " casehub-work-engine-adapter is NOT on the classpath. If any classifier returns"
               + " GateRequired, the gate WorkItem will never be created and the case will stall"
-              + " indefinitely. Add casehub-engine-work-adapter to your deployment dependencies.");
+              + " indefinitely. Add casehub-work-engine-adapter to your deployment dependencies.");
     }
   }
 }

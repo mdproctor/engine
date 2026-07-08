@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.workadapter;
+package io.casehub.work.engine;
 
 import io.casehub.api.context.ContextLayer;
 import io.casehub.blackboard.plan.CasePlanModel;

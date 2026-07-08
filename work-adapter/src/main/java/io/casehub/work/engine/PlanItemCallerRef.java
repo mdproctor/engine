@@ -13,33 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.workadapter;
+package io.casehub.work.engine;
 
-import io.casehub.platform.api.identity.CurrentPrincipal;
-import io.casehub.platform.api.identity.TenancyConstants;
-import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Set;
+import java.util.UUID;
 
-@ApplicationScoped
-public class NoOpCurrentPrincipal implements CurrentPrincipal {
+/**
+ * CallerRef for WorkItems created from humanTask YAML bindings.
+ *
+ * <p>Format: {@code "case:{caseId}/pi:{planItemId}"}
+ *
+ * <p>Routes WorkItem lifecycle events back to the associated PlanItem in the blackboard. Refs
+ * casehubio/work#136, engine#245.
+ */
+public record PlanItemCallerRef(UUID caseId, String planItemId) implements CallerRef {
 
-  @Override
-  public String actorId() {
-    return "system";
-  }
-
-  @Override
-  public Set<String> groups() {
-    return Set.of();
-  }
-
-  @Override
-  public String tenancyId() {
-    return TenancyConstants.DEFAULT_TENANT_ID;
-  }
-
-  @Override
-  public boolean isCrossTenantAdmin() {
-    return false;
+  public static String encode(final UUID caseId, final String planItemId) {
+    return "case:" + caseId + "/pi:" + planItemId;
   }
 }
