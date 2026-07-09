@@ -267,12 +267,13 @@ bridge resolution.
 Bridge operations can fail. The engine pipeline defines explicit behavior
 for each failure point:
 
-| Operation | Failure cause | Engine behavior |
-|-----------|--------------|-----------------|
-| `initialise()` | Jackson deserialization fails (missing field, wrong type), JQ evaluation error | Worker scheduling fails. `WORKER_EXECUTION_FAILED` event emitted with the bridge exception as cause. Worker is NOT skipped silently. |
-| `serialise()` | POJO contains non-serialisable types | EventLog entry cannot be created. Scheduling fails atomically — no Quartz job is submitted. Same `WORKER_EXECUTION_FAILED` event. |
-| `deserialise()` | Schema evolution mismatch, corrupted payload | Quartz job execution fails. Triggers the existing retry mechanism via `QuartzRetryService` with the bridge exception. After retries exhausted, `WORKER_RETRIES_EXHAUSTED` event. |
-| `extractOutput()` | Live-view bridge fails to capture mutations | Worker execution completes but output application fails. `WORKER_EXECUTION_FAILED` event with the extraction exception. |
+| Operation | Call site | Failure cause | Engine behavior |
+|-----------|-----------|--------------|-----------------|
+| `initialise()` | Scheduling (`WorkerScheduleEventHandler`) | Jackson deserialization fails, JQ evaluation error | Worker scheduling fails. `WORKER_EXECUTION_FAILED` event emitted. Worker is NOT submitted. |
+| `initialise()` | Execution (`QuartzWorkerExecutionJob`, live-view only) | CaseContext state inconsistent, bridge internal error | Quartz job execution fails. Triggers retry via `QuartzRetryService`. After retries exhausted, `WORKER_RETRIES_EXHAUSTED` event. Same error path as `deserialise()` — both occupy the same pipeline position. |
+| `serialise()` | Scheduling | POJO contains non-serialisable types | EventLog entry cannot be created. Scheduling fails atomically — no Quartz job is submitted. Same `WORKER_EXECUTION_FAILED` event. |
+| `deserialise()` | Execution (snapshot bridges only) | Schema evolution mismatch, corrupted payload | Quartz job execution fails. Triggers retry via `QuartzRetryService`. After retries exhausted, `WORKER_RETRIES_EXHAUSTED` event. |
+| `extractOutput()` | Execution (live-view bridges only) | Bridge fails to capture mutations | Worker execution completes but output application fails. `WORKER_EXECUTION_FAILED` event with the extraction exception. |
 
 The guiding principle: bridge failures are **never silent**. The current
 pipeline's behavior for JQ evaluation failure (catch, log warning, return
@@ -550,13 +551,23 @@ producing a typed object that the worker's lambda does not expect.
 workers:
   - name: assess-risk
     contextType: io.casehub.aml.AmlTransaction
-    agent:
-      model: openai/gpt-4
-      systemPrompt: "Assess risk..."
+    capabilities: [assess-risk]
 ```
 
 `CaseDefinitionYamlMapper` resolves the class via `Class.forName()` and
-selects the bridge via the resolution chain.
+creates a `WorkerFunction.Sync<AmlTransaction>` with
+`inputType() == AmlTransaction.class`. The bridge resolver uses this type
+to select the bridge via the resolution chain.
+
+`contextType` is only effective for workers whose `WorkerFunction.inputType()`
+is determined by the YAML mapper — i.e., workers resolved by a
+`WorkerFunctionProvider` or mapped to `Sync<T>`. For agent and flow
+workers, `inputType()` is hardcoded to `Map.class` by
+`AgentWorkerFunction` and `FlowWorkerFunction` respectively, so YAML
+`contextType` has no effect and should not be specified. Future
+parameterisation of `AgentWorkerFunction<T>` (see §FlowWorkerFunction
+and AgentWorkerFunction) would make `contextType` applicable to agent
+workers.
 
 ## Engine Pipeline Changes
 
