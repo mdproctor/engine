@@ -133,7 +133,12 @@ public class WorkflowExecutionCompletedHandler {
       EpisodicLayerUpdater.recordWorkerCompletion(ctx, worker.name(), "COMPLETED");
     }
     recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
-    fireOutcomeRecorder(caseInstance, worker, bindingName, "SUCCESS", contextBefore);
+    fireOutcomeRecorder(
+        caseInstance,
+        worker,
+        bindingName,
+        io.casehub.api.spi.routing.RoutingOutcome.SUCCESS,
+        contextBefore);
 
     // Settlement recorded AFTER output application — signalAndAwait callers see the output.
     // Refs casehubio/engine#659.
@@ -332,7 +337,7 @@ public class WorkflowExecutionCompletedHandler {
         caseInstance,
         worker,
         bindingName,
-        "FAILURE",
+        io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
         caseInstance.getCaseContext().snapshot().asJsonNode());
 
     // Read or create _outcomes.<bindingName> in working layer
@@ -499,6 +504,8 @@ public class WorkflowExecutionCompletedHandler {
     final Worker worker = event.worker();
     final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
     final Instant now = Instant.now();
+    final String bindingName = event.bindingName();
+    final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
     Uni<Set<String>> groupsUni;
     if (gate.candidateGroups() != null) {
@@ -536,7 +543,9 @@ public class WorkflowExecutionCompletedHandler {
                             worker.name(),
                             event.idempotency(),
                             rawOutput,
-                            plannedAction));
+                            plannedAction,
+                            bindingName,
+                            capabilityName));
                     return reactiveCaseInstanceRepository.update(
                         caseInstance, caseInstance.tenancyId);
                   })
@@ -780,7 +789,7 @@ public class WorkflowExecutionCompletedHandler {
       CaseInstance caseInstance,
       Worker worker,
       String bindingName,
-      String outcomeString,
+      io.casehub.api.spi.routing.RoutingOutcome outcome,
       JsonNode contextSnapshot) {
     if (outcomeRecorder.isUnsatisfied()) return;
     String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
@@ -794,7 +803,7 @@ public class WorkflowExecutionCompletedHandler {
             List.of());
     outcomeRecorder
         .get()
-        .record(ctx, worker.name(), bindingName, outcomeString, null)
+        .record(ctx, worker.name(), bindingName, outcome, null)
         .subscribe()
         .with(
             ignored -> {},

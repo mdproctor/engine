@@ -17,6 +17,7 @@ package io.casehub.engine.common.internal.model;
 
 import io.casehub.worker.api.PlannedAction;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Operational state for an in-flight action gate stored on {@link CaseInstance}.
@@ -40,4 +41,6 @@ public record PendingActionGate(
     String workerId,
     String idempotency,
     Map<String, Object> deferredOutput,
-    PlannedAction plannedAction) {}
+    PlannedAction plannedAction,
+    @Nullable String bindingName,
+    @Nullable String capabilityName) {}
