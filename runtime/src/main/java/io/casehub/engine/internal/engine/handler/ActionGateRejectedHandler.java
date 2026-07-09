@@ -15,12 +15,16 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.casehub.api.spi.routing.AgentRoutingContext;
+import io.casehub.api.spi.routing.RoutingOutcome;
+import io.casehub.api.spi.routing.RoutingOutcomeRecorder;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
 import io.casehub.engine.common.internal.event.ActionGateWorkerFaultedEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -36,6 +40,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
@@ -65,6 +70,8 @@ public class ActionGateRejectedHandler {
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
 
+  @Inject jakarta.enterprise.inject.Instance<RoutingOutcomeRecorder> outcomeRecorder;
+
   // blocking=true: workerStatusListener.onWorkerCompleted() may do I/O in consumer impls
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_REJECTED, blocking = true)
   public Uni<Void> onActionGateRejected(final ActionGateRejectedEvent event) {
@@ -92,6 +99,10 @@ public class ActionGateRejectedHandler {
       return Uni.createFrom().voidItem();
     }
 
+    // Capture context snapshot BEFORE gate clearance and signal writes — consistent with
+    // fireOutcomeRecorder's pre-modification snapshot pattern.
+    final JsonNode contextSnapshot = instance.getCaseContext().snapshot().asJsonNode();
+
     // Clear gate FIRST — before setting signal — prevents observer-thread race where the
     // rejectionSignal is visible in context before the gate field is cleared.
     instance.setPendingActionGate(null);
@@ -114,6 +125,28 @@ public class ActionGateRejectedHandler {
     workerStatusListener.onWorkerCompleted(
         gate.workerId(),
         WorkResult.faulted(gate.idempotency(), gate.workerId(), instance.getUuid()));
+
+    if (!outcomeRecorder.isUnsatisfied() && gate.capabilityName() != null) {
+      var ctx =
+          new AgentRoutingContext(
+              instance.getUuid(),
+              gate.capabilityName(),
+              contextSnapshot,
+              instance.tenancyId,
+              List.of());
+      outcomeRecorder
+          .get()
+          .record(ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_REJECTED, null)
+          .subscribe()
+          .with(
+              ignored -> {},
+              err ->
+                  LOG.warnf(
+                      err,
+                      "Outcome recording failed for gate-rejected caseId=%s worker=%s",
+                      instance.getUuid(),
+                      gate.workerId()));
+    }
 
     // Fire CONTEXT_CHANGED immediately — gate is already cleared and signal written
     eventBus.publish(

@@ -113,11 +113,10 @@ public class ActionGateApprovedHandler {
     }
     // Re-fire WorkflowExecutionCompleted with plannedAction=null — normal completion path runs:
     // output applied to context, PlanItem COMPLETED (via blackboard), CONTEXT_CHANGED fired.
-    // bindingName is null — gate-approved path uses fuzzy worker match as fallback.
     eventBus.publish(
         EventBusAddresses.WORKER_EXECUTION_FINISHED,
         WorkflowExecutionCompleted.approved(
-            instance, worker, gate.idempotency(), gate.deferredOutput(), null));
+            instance, worker, gate.idempotency(), gate.deferredOutput(), gate.bindingName()));
     LOG.infof(
         "Gate approved — re-fired WorkflowExecutionCompleted: caseId=%s worker=%s gateId=%d",
         instance.getUuid(), gate.workerId(), gate.gateId());
