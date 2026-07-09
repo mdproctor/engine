@@ -239,11 +239,16 @@ from `WorkerResult` directly. For live-view bridges this captures the
 mutations made through the view.
 
 **`serialise` / `deserialise`** — convert `T` to and from JSON for EventLog
-storage. This is the durability boundary — the bridge must be able to
-reconstruct `T` from a serialised EventLog payload after a restart or retry.
-EventLog metadata includes the bridge type identifier so that `deserialise()`
-is called on the correct bridge implementation even if the deployment changes
-between scheduling and execution.
+storage. This is the durability boundary. For snapshot bridges,
+`deserialise()` reconstructs a self-contained `T` from the payload — it
+does not need `CaseContext`. For live-view bridges, `deserialise()` can
+only produce a detached snapshot (it lacks `CaseContext`). The normal
+execution path for live-view bridges uses `initialise(caseContext, payload)`
+instead (see §QuartzWorkerExecutionJob), re-creating a live view from the
+current `CaseContext`. `deserialise()` on live-view bridges exists for API
+symmetry and crash recovery replay. EventLog metadata includes the bridge
+type identifier so the correct bridge implementation is used even if the
+deployment changes between scheduling and execution.
 
 **`onWrite`** — optional write-through callback for live-view bridges. Called
 when the typed context is mutated, allowing real-time propagation back to the
@@ -408,8 +413,10 @@ or context type. Resolution is type-based — the resolver uses
 `WorkerFunction.inputType()` (a `Class<?>` in worker-api) to determine
 which bridge to apply. Resolution follows a priority chain:
 
-1. **Default bridge on CaseDefinition** — `definition.defaultWorkerBridge()`
+1. **Default bridge on CaseDefinition** — `definition.defaultWorkerBridge()`,
+   applied only when its `contextType()` matches the worker's `inputType()`
 2. **CDI discovery** — `Instance<ContextBridge<?>>` matched by `contextType()`
+   against the worker's `inputType()`
 3. **`Map.class`** — `MapBridge` (identity, backward compatible)
 4. **Any other class** — `JacksonPojoBridge<T>` (automatic Jackson
    deserialisation)
@@ -524,8 +531,18 @@ CaseDefinition.builder()
     .defaultWorkerBridge(new JacksonPojoBridge<>(AmlContext.class))
     .worker(Worker.builder()
         .capabilityName("assess")
-        .function(input -> ...))  // inherits AmlContext bridge
+        .<AmlContext>fn()
+        .apply(ctx -> ...))       // uses default bridge (inputType matches)
+    .worker(Worker.builder()
+        .capabilityName("legacy")
+        .function(input -> ...))  // MapBridge — default NOT applied
 ```
+
+The CaseDefinition default bridge applies only when the worker's
+`inputType()` matches the bridge's `contextType()`. If a worker uses
+the untyped `function()` path (`inputType() == Map.class`), the default
+is skipped and `MapBridge` is used. This prevents a bridge from
+producing a typed object that the worker's lambda does not expect.
 
 ### YAML definitions
 
@@ -562,7 +579,9 @@ CaseContext
   → JQ inputSchema → narrowedInput (JsonNode)
   → ContextBridge<T>.initialise(context, narrowedInput) → T
   → bridge.serialise(T) → EventLog.payload (JSON)
-  → QuartzWorkerExecutionJob → bridge.deserialise(payload) → T
+  → QuartzWorkerExecutionJob:
+      if liveView: bridge.initialise(caseContext, payload) → T (live view)
+      else:        bridge.deserialise(payload) → T (detached snapshot)
   → WorkerExecutor.execute(fn, typedInput, ...)
   → fn.apply(typedInput) → WorkerResult(Map)
   → if (liveView && output empty) bridge.extractOutput(typedInput) → Map
@@ -574,8 +593,11 @@ The bridge is invoked at two points:
 1. **WorkerScheduleEventHandler** — evaluates JQ to produce `narrowedInput`,
    calls `bridge.initialise()` to produce the typed input, then
    `bridge.serialise()` for EventLog storage.
-2. **QuartzWorkerExecutionJob** — calls `bridge.deserialise()` to reconstruct
-   the typed input from the EventLog payload. After execution, calls
+2. **QuartzWorkerExecutionJob** — reconstructs the typed input from the
+   EventLog payload. For snapshot bridges, calls `bridge.deserialise()`.
+   For live-view bridges, calls `bridge.initialise(caseContext, payload)`
+   to re-create a live view backed by the current `CaseContext` (which is
+   already loaded at this point). After execution, calls
    `bridge.extractOutput()` for live-view bridges when `WorkerResult`
    output is empty.
 
@@ -631,9 +653,9 @@ JsonNode narrowedInput = evalJq(
     instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
     event.effectiveInputSchema());
 ContextBridge<?> bridge = bridgeResolver.resolve(event.worker());
-Object typedInput = bridge.initialise(
+Object typedInput = bridgeResolver.initialise(bridge,
     instance.getCaseContext(), narrowedInput);
-JsonNode serialised = bridge.serialise(typedInput);
+JsonNode serialised = bridgeResolver.serialise(bridge, typedInput);
 // serialised goes to EventLog; narrowedInput (as Map) goes to submit/dispatch
 ```
 
@@ -648,7 +670,16 @@ Map<String, Object> inputData =
 // After:
 ContextBridge<?> bridge = bridgeResolver.resolveByTypeName(
     eventLog.getMetadata().path("contextBridgeType").asText(null));
-Object typedInput = bridge.deserialise(eventLog.getPayload());
+
+// Live-view bridges re-initialise from CaseContext to get a live view;
+// snapshot bridges deserialise from the EventLog payload directly.
+Object typedInput;
+if (bridge.isLiveView()) {
+    typedInput = bridgeResolver.initialise(bridge,
+        instance.getCaseContext(), eventLog.getPayload());
+} else {
+    typedInput = bridgeResolver.deserialise(bridge, eventLog.getPayload());
+}
 
 workerExecutor
     .execute(worker.function(), typedInput, workerContext, timeoutMs, ...)
@@ -656,7 +687,7 @@ workerExecutor
         workerResult -> {
             Map<String, Object> output = workerResult.output();
             if ((output == null || output.isEmpty()) && bridge.isLiveView()) {
-                output = bridge.extractOutput(typedInput);
+                output = bridgeResolver.extractOutput(bridge, typedInput);
             }
             onSuccess(instance, worker, inputDataHash, output, ...);
         },
@@ -668,6 +699,53 @@ in `onSuccess()` for `extractOutput()`. For live-view bridges, `typedInput`
 is a mutable view backed by `CaseContext` — the worker's mutations
 accumulate there during execution, and `extractOutput()` reads them after
 the worker returns.
+
+### Wildcard capture in pipeline code
+
+`ContextBridge<?>` with wildcard capture means methods like `serialise(?)`
+and `extractOutput(?)` only accept `null` — not `Object`. This is a
+fundamental Java generics constraint. Pipeline code works with
+`ContextBridge<?>` because the concrete type is not known statically.
+
+`BridgeResolver` provides type-safe pipeline methods that encapsulate the
+required unchecked cast via a capture helper:
+
+```java
+public class BridgeResolver {
+
+    // Resolution
+    ContextBridge<?> resolve(Worker worker) { ... }
+    ContextBridge<?> resolveByTypeName(String typeName) { ... }
+
+    // Type-safe pipeline operations — capture helper pattern
+    <T> Object initialise(ContextBridge<T> bridge,
+                          CaseContext context, JsonNode narrowedInput) {
+        return bridge.initialise(context, narrowedInput);
+    }
+
+    @SuppressWarnings("unchecked")
+    <T> JsonNode serialise(ContextBridge<T> bridge, Object input) {
+        return bridge.serialise((T) input);
+    }
+
+    <T> Object deserialise(ContextBridge<T> bridge, JsonNode payload) {
+        return bridge.deserialise(payload);
+    }
+
+    @SuppressWarnings("unchecked")
+    <T> Map<String, Object> extractOutput(ContextBridge<T> bridge,
+                                          Object context) {
+        return bridge.extractOutput((T) context);
+    }
+}
+```
+
+The `@SuppressWarnings("unchecked")` casts are safe because the pipeline
+guarantees type consistency: the same bridge instance that produced the
+typed input via `initialise()` or `deserialise()` is used for
+`serialise()` and `extractOutput()`. The cast is verified at runtime by
+the `BridgeTypeMismatchException` check at the handler entry point (see
+§Signature changes).
 
 ### Pipeline surface coverage
 
@@ -700,9 +778,13 @@ EventLog is the durability and recovery boundary. The bridge must serialise
 - **MapBridge** — identity; the Map is already JSON-compatible.
 - **JacksonPojoBridge** — `objectMapper.valueToTree(pojo)` /
   `objectMapper.treeToValue(json, targetClass)`.
-- **WorkflowContextBridge** — snapshots the mutable state for serialisation;
-  reconstructs the live view from the snapshot plus the `CaseContext` on
-  deserialisation.
+- **WorkflowContextBridge** — snapshots the mutable state for serialisation.
+  At execution time, `deserialise()` is NOT called — the pipeline calls
+  `initialise(caseContext, payload)` instead, re-creating a live view
+  backed by the current `CaseContext`. The serialised snapshot serves as
+  the `narrowedInput` for state recovery. `deserialise(JsonNode)` exists
+  for API symmetry and crash recovery replay where CaseContext may not
+  yet be available.
 
 ### Output path
 
@@ -1091,10 +1173,10 @@ were produced by the implicit `MapBridge`.
 
 ### JQ evaluation
 
-JQ expressions continue to evaluate against JSON. For typed bridges, the
-bridge's `initialise()` may use JQ internally (via `inputSchema`) to extract
-data before constructing the typed object. For live-view bridges, JQ operates
-on the JSON representation of the context. No JQ expressions need updating.
+JQ expressions continue to evaluate against JSON. The pipeline evaluates
+JQ before calling the bridge, passing the narrowed result as `JsonNode`.
+No JQ expressions need updating — the bridge protocol does not alter how
+JQ is written or evaluated.
 
 ## Design Insights
 
