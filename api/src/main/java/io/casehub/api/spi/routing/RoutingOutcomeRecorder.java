@@ -23,9 +23,11 @@ import org.jspecify.annotations.Nullable;
  * Optional SPI for recording routing outcomes to a persistent store, enabling feedback-loop routing
  * strategies (e.g. CBR-enriched LLM routing).
  *
- * <p>The engine calls {@code record()} after a worker completes execution — both success and
- * failure paths. PlannedAction events that require gate approval are skipped; the {@code
- * approved()} re-dispatch records on its second pass.
+ * <p>The engine calls {@code record()} after a worker completes execution ({@link
+ * RoutingOutcome#SUCCESS}, {@link RoutingOutcome#FAILURE}) and from gate resolution handlers when a
+ * gate is rejected ({@link RoutingOutcome#GATE_REJECTED}) or expires ({@link
+ * RoutingOutcome#GATE_EXPIRED}). Gate-approved outcomes record on the re-dispatch completion path
+ * as {@link RoutingOutcome#SUCCESS}.
  *
  * <p>Implementations are discovered via {@code Instance<RoutingOutcomeRecorder>}. When no
  * implementation is present, the engine silently skips recording. Implementations must be
@@ -38,19 +40,23 @@ public interface RoutingOutcomeRecorder {
   /**
    * Record a routing outcome.
    *
-   * @param context the routing context at the time of the decision (case state before output
-   *     application)
+   * <p>Called by the engine after a worker completes execution ({@link RoutingOutcome#SUCCESS},
+   * {@link RoutingOutcome#FAILURE}) and by gate resolution handlers when a gate is rejected ({@link
+   * RoutingOutcome#GATE_REJECTED}) or expires ({@link RoutingOutcome#GATE_EXPIRED}). Gate-approved
+   * outcomes record on the re-dispatch completion path as {@code SUCCESS}.
+   *
+   * @param context the routing context at the time of the decision
    * @param workerId the worker that was selected and executed
    * @param bindingName the case definition binding that dispatched the worker
-   * @param executionOutcome the outcome string — {@code "SUCCESS"} or {@code "FAILURE"}
+   * @param outcome the routing outcome
    * @param executionDuration wall-clock duration of the worker execution; nullable when the engine
-   *     does not track dispatch timestamps
+   *     does not track dispatch timestamps or for gate outcomes
    * @return a Uni completing when the record is persisted
    */
   Uni<Void> record(
       AgentRoutingContext context,
       String workerId,
       String bindingName,
-      String executionOutcome,
+      RoutingOutcome outcome,
       @Nullable Duration executionDuration);
 }

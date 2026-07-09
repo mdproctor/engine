@@ -20,8 +20,8 @@ import java.util.Objects;
 
 /**
  * A single step in a retrieved case's plan trace. Captures which binding was selected, the
- * capability it targeted, the worker that executed, the outcome (SUCCESS/FAILURE/DECLINED), and the
- * priority at which it was selected.
+ * capability it targeted, the worker that executed, the routing outcome, and the priority at which
+ * it was selected.
  *
  * <p>Used by {@link RetrievedExperience} to record the execution path of a similar past case. CBR
  * routing strategies use the plan trace to predict which bindings are most likely to succeed for
@@ -31,7 +31,9 @@ import java.util.Objects;
  * @param capabilityName the capability this binding targets
  * @param workerName the worker that executed (nullable — may be absent for humanTask/subCase
  *     bindings)
- * @param stepOutcome the worker's outcome (SUCCESS, FAILURE, DECLINED, etc.)
+ * @param stepOutcome the routing outcome — one of {@link RoutingOutcome} enum values ({@code
+ *     SUCCESS}, {@code FAILURE}, {@code GATE_REJECTED}, {@code GATE_EXPIRED}). Stored as the enum's
+ *     {@code name()} string.
  * @param priority the selection priority (0-based — lower is higher priority)
  * @param parameters custom parameters for this step (empty map if none)
  */
