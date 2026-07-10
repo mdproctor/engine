@@ -364,7 +364,8 @@ class CaseCancelSuspendResumeTest {
                   .name("suspendable-worker")
                   .capabilityName("suspendableCapability")
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("result", "done"))))
                   .build())
           .bindings(
               Binding.builder()

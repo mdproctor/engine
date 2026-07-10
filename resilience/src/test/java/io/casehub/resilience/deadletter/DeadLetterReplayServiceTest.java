@@ -150,7 +150,7 @@ class DeadLetterReplayServiceTest {
         Worker.builder()
             .name(workerId)
             .capabilityName(workerId)
-            .function(new WorkerFunction.Sync(i -> WorkerResult.of(Map.of())))
+            .function(new WorkerFunction.Sync<>(Map.class, i -> WorkerResult.of(Map.of())))
             .build();
     CaseDefinition definition =
         CaseDefinition.builder()

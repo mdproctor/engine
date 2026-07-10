@@ -66,43 +66,45 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
     return function instanceof FlowWorkerFunction;
   }
 
-  @Override
-  public Uni<WorkerResult> execute(
-      final WorkerFunction function,
-      final Map<String, Object> inputData,
-      final WorkerContext context,
-      final int timeoutMs,
-      final ExecutionMetadata metadata) {
+    @SuppressWarnings("unchecked")
+    @Override
+    public Uni<WorkerResult> execute(
+            final WorkerFunction function,
+            final Object inputData,
+            final WorkerContext context,
+            final int timeoutMs,
+            final ExecutionMetadata metadata) {
 
-    final FlowWorkerFunction flow = (FlowWorkerFunction) function;
+        final FlowWorkerFunction  flow     = (FlowWorkerFunction) function;
+        final Map<String, Object> mapInput = (Map<String, Object>) inputData;
 
-    return Uni.createFrom()
-        .completionStage(
-            () -> {
-              WorkerExecutionContext.set(context);
-              try {
-                return executeWorkflow(
-                    flow.workflow(),
-                    inputData,
-                    context.caseId(),
-                    metadata.workerName(),
-                    metadata.inputDataHash());
-              } finally {
-                WorkerExecutionContext.clear();
-              }
-            })
-        .runSubscriptionOn(virtualThreads)
-        .map(
-            model ->
-                WorkerResult.of(
-                    model
-                        .asMap()
-                        .orElseThrow(
-                            () ->
-                                new RuntimeException(
-                                    "Workflow produced non-serializable model for worker: "
-                                        + metadata.workerName()))));
-  }
+        return Uni.createFrom()
+                  .completionStage(
+                          () -> {
+                              WorkerExecutionContext.set(context);
+                              try {
+                                  return executeWorkflow(
+                                          flow.workflow(),
+                                          mapInput,
+                                          context.caseId(),
+                                          metadata.workerName(),
+                                          metadata.inputDataHash());
+                              } finally {
+                                  WorkerExecutionContext.clear();
+                              }
+                          })
+                  .runSubscriptionOn(virtualThreads)
+                  .map(
+                          model ->
+                                  WorkerResult.of(
+                                          model
+                                                  .asMap()
+                                                  .orElseThrow(
+                                                          () ->
+                                                                  new RuntimeException(
+                                                                          "Workflow produced non-serializable model for worker: "
+                                                                          + metadata.workerName()))));
+    }
 
   private CompletableFuture<WorkflowModel> executeWorkflow(
       final Workflow workflow,

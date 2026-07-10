@@ -190,7 +190,8 @@ class DeadLetterQueueEndToEndTest {
                   .name("always-failing-worker")
                   .capabilityName("doWork")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             throw new RuntimeException("Intentional failure for DLQ E2E test");
                           }))
@@ -238,7 +239,8 @@ class DeadLetterQueueEndToEndTest {
                   .name("fast-failing-worker")
                   .capabilityName("fastFail")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             throw new RuntimeException("Fast failure");
                           }))

@@ -19,7 +19,6 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
-import java.util.Map;
 
 /**
  * Engine-internal SPI for pluggable worker function execution. Implementations pattern-match on
@@ -44,30 +43,9 @@ public interface WorkerFunctionHandler {
    */
   boolean supports(WorkerFunction function);
 
-  /**
-   * Executes the worker function and returns a result.
-   *
-   * <p>The handler is responsible for:
-   *
-   * <ul>
-   *   <li>Running the function on the appropriate thread pool
-   *   <li>Setting/clearing {@link io.casehub.api.model.WorkerExecutionContext#set(WorkerContext)}
-   *   <li>Enforcing the timeout
-   *   <li>Recovering timeout exceptions as {@link io.casehub.worker.api.WorkerResult#expired}
-   * </ul>
-   *
-   * <p>The handler MUST NOT evaluate output schema — that is owned by the composite executor.
-   *
-   * @param function the worker function to execute
-   * @param inputData the input data map
-   * @param context the worker context (channels, case ID, etc.)
-   * @param timeoutMs the timeout in milliseconds
-   * @param metadata lineage metadata (worker name, input data hash)
-   * @return a Uni emitting the worker result (never null)
-   */
   Uni<WorkerResult> execute(
       WorkerFunction function,
-      Map<String, Object> inputData,
+      Object inputData,
       WorkerContext context,
       int timeoutMs,
       ExecutionMetadata metadata);

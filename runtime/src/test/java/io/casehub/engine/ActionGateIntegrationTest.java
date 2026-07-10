@@ -313,7 +313,8 @@ class ActionGateIntegrationTest {
                   .name("gate-worker")
                   .capabilityName("file-sar-gate-test")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             final Map<String, Object> output = Map.of("filingResult", "pending");
                             if (declareAction.get()) {

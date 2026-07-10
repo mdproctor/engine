@@ -479,7 +479,8 @@ public class WorkerRetryExtendedTest {
                   .name("flexible-retry-worker")
                   .capabilityName("flexibleRetryCapability")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             String taskId = (String) input.get("taskId");
                             int attempt =
@@ -537,7 +538,8 @@ public class WorkerRetryExtendedTest {
                   .name("signal-retry-worker")
                   .capabilityName("signalRetryCapability")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             String taskId = (String) input.get("taskId");
                             int attempt =
@@ -601,7 +603,8 @@ public class WorkerRetryExtendedTest {
                   .name("alpha-always-success")
                   .capabilityName("alphaRetryCapability")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             alphaAttempts.incrementAndGet();
                             return WorkerResult.of(Map.of("alphaResult", "alpha-done"));
@@ -612,7 +615,8 @@ public class WorkerRetryExtendedTest {
                   .name("beta-retry-worker")
                   .capabilityName("betaRetryCapability")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             int attempt = betaAttempts.incrementAndGet();
                             if (attempt <= betaFailUntil.get()) {

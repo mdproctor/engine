@@ -214,7 +214,8 @@ class CaseLifecycleStateTest {
                   .name("idle-worker")
                   .capabilityName("idleCapability")
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "done"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("status", "done"))))
                   .build())
           .bindings(
               Binding.builder()
@@ -256,7 +257,8 @@ class CaseLifecycleStateTest {
                   .name("completing-worker")
                   .capabilityName("processDocumentLifecycle")
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "done"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("status", "done"))))
                   .build())
           .bindings(
               Binding.builder()

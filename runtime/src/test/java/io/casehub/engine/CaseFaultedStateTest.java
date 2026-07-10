@@ -232,7 +232,8 @@ class CaseFaultedStateTest {
                   .name("always-failing-worker")
                   .capabilityName("alwaysFailCapability")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             runCount.incrementAndGet();
                             throw new RuntimeException("Simulated permanent failure");
@@ -290,7 +291,8 @@ class CaseFaultedStateTest {
                   .name("error-producing-worker")
                   .capabilityName("failureGoalCapability")
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "error"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("status", "error"))))
                   .build())
           .bindings(
               Binding.builder()

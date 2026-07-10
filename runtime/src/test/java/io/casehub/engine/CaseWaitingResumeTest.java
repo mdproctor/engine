@@ -142,7 +142,8 @@ class CaseWaitingResumeTest {
                   .name("analyse-worker")
                   .capabilityName("analyse")
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "done"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("result", "done"))))
                   .build())
           .bindings(
               Binding.builder()

@@ -256,7 +256,8 @@ public class SignalTest {
                   .name("payment-worker")
                   .capabilityName("processPayment")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             LOG.warnf("WORKER INPUT: %s %s", input, runCount.incrementAndGet());
 
@@ -324,7 +325,8 @@ public class SignalTest {
                   .name("payment-worker-2")
                   .capabilityName("processPayment2")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             paymentRunCount.incrementAndGet();
                             return WorkerResult.of(Map.of("paymentProcessed", true));
@@ -334,7 +336,8 @@ public class SignalTest {
                   .name("document-worker-2")
                   .capabilityName("processDocument2")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             documentRunCount.incrementAndGet();
                             return WorkerResult.of(Map.of("documentProcessed", true));

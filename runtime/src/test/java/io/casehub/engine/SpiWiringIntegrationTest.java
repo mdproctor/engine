@@ -621,7 +621,8 @@ class SpiWiringIntegrationTest {
               .name("execution-context-recorder")
               .capabilityName("recordContext")
               .function(
-                  new WorkerFunction.Sync(
+                  new WorkerFunction.Sync<>(
+                      Map.class,
                       input -> {
                         WorkerContext ctx = WorkerExecutionContext.current();
                         if (ctx != null) {

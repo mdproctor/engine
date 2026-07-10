@@ -293,7 +293,8 @@ public class WorkerScheduleDedupTest {
             .name("dedup-worker")
             .capabilityName("dedupCapability")
             .function(
-                new WorkerFunction.Sync(
+                new WorkerFunction.Sync<>(
+                    Map.class,
                     input -> {
                       runCount.incrementAndGet();
                       return WorkerResult.of(

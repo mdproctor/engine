@@ -47,6 +47,8 @@ public class Worker {
   /** Sequential composition of other workers */
   private List<String> sequence;
 
+  private String contextType;
+
   public String getName() {
     return name;
   }
@@ -133,5 +135,13 @@ public class Worker {
 
   public void setSequence(List<String> sequence) {
     this.sequence = sequence;
+  }
+
+  public String getContextType() {
+    return contextType;
+  }
+
+  public void setContextType(String contextType) {
+    this.contextType = contextType;
   }
 }

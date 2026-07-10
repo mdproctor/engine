@@ -136,7 +136,8 @@ public class WorkerRecoveryTest {
                   .name("recovery-worker")
                   .capabilityName("recoverCapability")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             runCount.incrementAndGet();
                             return WorkerResult.of(

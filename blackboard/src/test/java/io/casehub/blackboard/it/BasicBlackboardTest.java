@@ -255,7 +255,8 @@ class BasicBlackboardTest {
                   .capabilityName("once-cap")
                   // Write phase=done — trigger (.phase == "start") won't match again
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phase", "done"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("phase", "done"))))
                   .build())
           .bindings(
               Binding.builder()
@@ -293,7 +294,8 @@ class BasicBlackboardTest {
               Worker.builder()
                   .name("never-worker")
                   .capabilityName("never-cap")
-                  .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
+                  .function(
+                      new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of())))
                   .build())
           .bindings(
               Binding.builder()
@@ -340,7 +342,8 @@ class BasicBlackboardTest {
                   .name("completing-worker")
                   .capabilityName("completing-cap")
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("phase", "done"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("phase", "done"))))
                   .build())
           .bindings(
               Binding.builder()
@@ -387,7 +390,8 @@ class BasicBlackboardTest {
                   .name("milestone-worker")
                   .capabilityName("milestone-cap")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> WorkerResult.of(Map.of("go", false, "docsUploaded", true))))
                   .build())
           .bindings(

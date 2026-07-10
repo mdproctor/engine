@@ -58,7 +58,7 @@ class SyncAgentWorkerFunctionHandlerTest {
 
   @Test
   void supports_sync() {
-    var sync = new WorkerFunction.Sync(input -> WorkerResult.of(Map.of()));
+    var sync = new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of()));
     assertThat(handler.supports(sync)).isTrue();
   }
 
@@ -69,14 +69,21 @@ class SyncAgentWorkerFunctionHandlerTest {
 
   @Test
   void does_not_support_unknown() {
-    WorkerFunction unknown = new WorkerFunction() {};
+    WorkerFunction unknown =
+        new WorkerFunction() {
+          @Override
+          public Class inputType() {
+            return Void.class;
+          }
+        };
     assertThat(handler.supports(unknown)).isFalse();
   }
 
   @Test
   void executes_sync_function() {
     var sync =
-        new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", input.get("key"))));
+        new WorkerFunction.Sync<>(
+            Map.class, input -> WorkerResult.of(Map.of("result", input.get("key"))));
     WorkerResult result =
         handler
             .execute(
@@ -132,7 +139,8 @@ class SyncAgentWorkerFunctionHandlerTest {
   @Test
   void timeout_produces_expired_outcome() {
     WorkerFunction.Sync slowWorker =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               try {
                 Thread.sleep(5000);

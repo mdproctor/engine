@@ -31,7 +31,7 @@ class WorkerTest {
         Worker.builder()
             .name("test-worker")
             .capabilityName("review")
-            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
+            .function(input -> WorkerResult.of(Map.of()))
             .description("a worker")
             .build();
 
@@ -47,7 +47,7 @@ class WorkerTest {
         Worker.builder()
             .name("plain-worker")
             .capabilityName("cap")
-            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
+            .function(input -> WorkerResult.of(Map.of()))
             .build();
 
     assertThat(worker.description()).isNull();
@@ -59,7 +59,7 @@ class WorkerTest {
         Worker.builder()
             .name("plain-worker")
             .capabilityName("cap")
-            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
+            .function(input -> WorkerResult.of(Map.of()))
             .build();
 
     assertThat(worker.executionPolicy()).isNotNull();

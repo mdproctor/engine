@@ -181,7 +181,8 @@ class PoisonPillIntegrationTest {
                   .name("quarantine-checked-worker")
                   .capabilityName("checkedWork")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             runCount.incrementAndGet();
                             return WorkerResult.of(Map.of("status", "complete"));

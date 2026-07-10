@@ -288,7 +288,8 @@ public class SignalPersistenceAndDedupTest {
                   .name("payment-worker")
                   .capabilityName("processPayment")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             runCount.incrementAndGet();
                             Map<String, Object> payment =

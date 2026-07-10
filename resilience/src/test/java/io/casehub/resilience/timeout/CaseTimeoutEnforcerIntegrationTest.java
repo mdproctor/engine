@@ -162,7 +162,8 @@ class CaseTimeoutEnforcerIntegrationTest {
                   .name("hanging-worker")
                   .capabilityName("hang")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             try {
                               Thread.sleep(60_000); // 60s — far exceeds the 1s budget

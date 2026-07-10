@@ -214,7 +214,8 @@ class PlanConfigurerBlackboardTest {
                   .name("configured-worker")
                   .capabilityName("configured-cap")
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("probe", "done"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("probe", "done"))))
                   .build())
           .bindings(
               Binding.builder()

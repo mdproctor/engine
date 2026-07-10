@@ -17,10 +17,16 @@ package io.casehub.api.model;
 
 import io.casehub.api.model.ai.Agent;
 import io.casehub.worker.api.WorkerFunction;
-import java.util.Objects;
 
-public record AgentWorkerFunction(Agent agent) implements WorkerFunction {
+@SuppressWarnings("unchecked")
+public record AgentWorkerFunction(Agent agent)
+    implements WorkerFunction<java.util.Map<String, Object>> {
   public AgentWorkerFunction {
-    Objects.requireNonNull(agent);
+    java.util.Objects.requireNonNull(agent);
+  }
+
+  @Override
+  public Class<java.util.Map<String, Object>> inputType() {
+    return (Class) java.util.Map.class;
   }
 }

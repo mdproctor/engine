@@ -306,7 +306,7 @@ class QuartzRetryServiceTest {
         Worker.builder()
             .name(workerId)
             .capabilityName("test-cap")
-            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
+            .function(new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of())))
             .executionPolicy(executionPolicy)
             .build();
     CaseDefinition definition =
@@ -335,7 +335,7 @@ class QuartzRetryServiceTest {
         Worker.builder()
             .name(workerId)
             .capabilityName("test-cap")
-            .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of())))
+            .function(new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of())))
             .build();
     CaseDefinition definition =
         CaseDefinition.builder()

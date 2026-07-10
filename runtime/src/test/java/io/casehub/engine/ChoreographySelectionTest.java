@@ -136,7 +136,8 @@ class ChoreographySelectionTest {
                   .name("worker-a")
                   .capabilityName("do-work")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             record(input);
                             return WorkerResult.of(Map.of("result", "done"));
@@ -146,7 +147,8 @@ class ChoreographySelectionTest {
                   .name("worker-b")
                   .capabilityName("do-work")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             record(input);
                             return WorkerResult.of(Map.of("result", "done"));

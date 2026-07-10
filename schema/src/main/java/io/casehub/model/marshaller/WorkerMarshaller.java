@@ -74,6 +74,9 @@ public class WorkerMarshaller {
       if (value.getAgent() != null) {
         gen.writeObjectField("agent", value.getAgent());
       }
+      if (value.getContextType() != null) {
+        gen.writeStringField("contextType", value.getContextType());
+      }
 
       gen.writeEndObject();
     }
@@ -144,6 +147,9 @@ public class WorkerMarshaller {
       if (root.has("agent")) {
         Agent agent = mapper.treeToValue(root.get("agent"), Agent.class);
         worker.setAgent(agent);
+      }
+      if (root.has("contextType")) {
+        worker.setContextType(root.get("contextType").asText());
       }
 
       return worker;

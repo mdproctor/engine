@@ -629,7 +629,8 @@ public class WorkerIdempotencyTest {
             .name("idempotency-worker")
             .capabilityName("idempotencyCapability")
             .function(
-                new WorkerFunction.Sync(
+                new WorkerFunction.Sync<>(
+                    Map.class,
                     input -> {
                       runCount.incrementAndGet();
                       String taskId = (String) input.get("taskId");
@@ -700,7 +701,8 @@ public class WorkerIdempotencyTest {
                   .name("alpha-worker")
                   .capabilityName("alphaCapability")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             alphaRunCount.incrementAndGet();
                             return WorkerResult.of(Map.of("alphaResult", "done"));
@@ -710,7 +712,8 @@ public class WorkerIdempotencyTest {
                   .name("beta-worker")
                   .capabilityName("betaCapability")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             betaRunCount.incrementAndGet();
                             return WorkerResult.of(Map.of("betaResult", "done"));

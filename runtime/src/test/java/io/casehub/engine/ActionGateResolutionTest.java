@@ -243,7 +243,8 @@ class ActionGateResolutionTest {
                   .name("resolution-worker")
                   .capabilityName("resolution-gate-cap")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             final Map<String, Object> output =
                                 Map.of("gateWorkerOutput", "produced");

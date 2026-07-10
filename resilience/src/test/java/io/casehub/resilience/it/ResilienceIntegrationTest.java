@@ -242,7 +242,8 @@ class ResilienceIntegrationTest {
                   .name(WORKER_ID)
                   .capabilityName("combinedFail")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             throw new RuntimeException("Resilience IT — intentional failure");
                           }))

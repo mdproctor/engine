@@ -38,7 +38,8 @@ class DefaultWorkerExecutorTimeoutTest {
   @Test
   void timeout_produces_expired_outcome_not_exception() {
     WorkerFunction.Sync slowWorker =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               try {
                 Thread.sleep(5000);

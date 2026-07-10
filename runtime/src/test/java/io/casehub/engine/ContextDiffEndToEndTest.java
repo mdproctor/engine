@@ -213,7 +213,8 @@ class ContextDiffEndToEndTest {
                   .name("diff-worker")
                   .capabilityName("doWork")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> WorkerResult.of(Map.of("status", "done", "result", "ok"))))
                   .build())
           .bindings(
@@ -254,7 +255,8 @@ class ContextDiffEndToEndTest {
                   .name("partial-worker")
                   .capabilityName("partialUpdate")
                   .function(
-                      new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("status", "done"))))
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("status", "done"))))
                   .build())
           .bindings(
               Binding.builder()

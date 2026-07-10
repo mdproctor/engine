@@ -19,7 +19,6 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import io.smallrye.mutiny.Uni;
-import java.util.Map;
 
 /**
  * Abstracts <em>how</em> to run a worker function — independent of any scheduler. Called by
@@ -32,22 +31,9 @@ import java.util.Map;
  */
 public interface WorkerExecutor {
 
-  /**
-   * Executes a worker function on a virtual thread with timeout enforcement and output schema
-   * evaluation.
-   *
-   * @param function the sealed worker function variant (Sync, AgentExec, or Flow)
-   * @param inputData the input data map (already evaluated from input schema)
-   * @param context the worker context (task description, case ID, channels, prior workers)
-   * @param timeoutMs resolved effective timeout in milliseconds (non-nullable)
-   * @param outputSchema nullable JQ expression for output evaluation
-   * @param metadata lineage metadata (workerName, inputDataHash) — used by flow path, ignored by
-   *     sync/agent
-   * @return Uni completing with the evaluated WorkerResult
-   */
   Uni<WorkerResult> execute(
       WorkerFunction function,
-      Map<String, Object> inputData,
+      Object inputData,
       WorkerContext context,
       int timeoutMs,
       String outputSchema,

@@ -101,7 +101,8 @@ class CbrRoutingNoCbrConfigTest {
               .name("doc-processor")
               .capabilityName("processDoc")
               .function(
-                  new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "processed"))))
+                  new WorkerFunction.Sync<>(
+                      Map.class, input -> WorkerResult.of(Map.of("result", "processed"))))
               .build();
 
       return CaseDefinition.builder()

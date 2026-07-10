@@ -77,7 +77,7 @@ class DefaultWorkerRuntimeTest {
   @Test
   void execute_syncFunction_returnsResult() {
     WorkerFunction fn =
-        new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("result", "hello")));
+        new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of("result", "hello")));
 
     WorkerResult result = runtime.execute(fn, Map.of("key", "value"));
 
@@ -88,7 +88,8 @@ class DefaultWorkerRuntimeTest {
   @Test
   void execute_throwingFunction_wrapsInFailed() {
     WorkerFunction fn =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               throw new RuntimeException("boom");
             });
@@ -106,7 +107,8 @@ class DefaultWorkerRuntimeTest {
     WorkerExecutionContext.set(parentContext);
 
     WorkerFunction fn =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               var innerCtx = WorkerExecutionContext.current();
               assertNotNull(innerCtx);
@@ -123,13 +125,15 @@ class DefaultWorkerRuntimeTest {
   void execute_nestedOrchestration_stackSemantics() {
     List<String> order = new ArrayList<>();
     WorkerFunction inner =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               order.add("inner");
               return WorkerResult.of(Map.of("inner", true));
             });
     WorkerFunction outer =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               order.add("outer-start");
               var rt = WorkerExecutionContext.currentRuntime();

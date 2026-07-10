@@ -63,7 +63,7 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
   @Override
   public Uni<WorkerResult> execute(
       WorkerFunction function,
-      Map<String, Object> inputData,
+      Object inputData,
       WorkerContext context,
       int timeoutMs,
       String outputSchema,

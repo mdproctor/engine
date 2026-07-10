@@ -40,13 +40,15 @@ class WorkerFunctionsTest {
   void sequence_executesInOrder_accumulatesResults() {
     List<String> order = new ArrayList<>();
     WorkerFunction fnA =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               order.add("A");
               return WorkerResult.of(Map.of("a", "fromA"));
             });
     WorkerFunction fnB =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               order.add("B");
               assertEquals("fromA", input.get("a"));
@@ -56,7 +58,10 @@ class WorkerFunctionsTest {
     var stubRuntime = new StubWorkerRuntime();
     WorkerExecutionContext.setRuntime(stubRuntime);
 
-    WorkerFunction.Sync seq = WorkerFunctions.sequence(fnA, fnB);
+    @SuppressWarnings("unchecked")
+    WorkerFunction.Sync<Map<String, Object>> seq =
+        (WorkerFunction.Sync<Map<String, Object>>)
+            (WorkerFunction.Sync<?>) WorkerFunctions.sequence(fnA, fnB);
     WorkerResult result = seq.fn().apply(Map.of("initial", "data"));
 
     assertEquals(List.of("A", "B"), order);
@@ -70,20 +75,25 @@ class WorkerFunctionsTest {
   void sequence_failFast_stopsOnNonSuccess() {
     List<String> order = new ArrayList<>();
     WorkerFunction fnA =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               order.add("A");
               return WorkerResult.declined("not ready");
             });
     WorkerFunction fnB =
-        new WorkerFunction.Sync(
+        new WorkerFunction.Sync<>(
+            Map.class,
             input -> {
               order.add("B");
               return WorkerResult.of(Map.of());
             });
 
     WorkerExecutionContext.setRuntime(new StubWorkerRuntime());
-    WorkerResult result = WorkerFunctions.sequence(fnA, fnB).fn().apply(Map.of());
+    WorkerResult result =
+        ((java.util.function.Function<Map<String, Object>, WorkerResult>)
+                WorkerFunctions.sequence(fnA, fnB).fn())
+            .apply(Map.of());
 
     assertEquals(List.of("A"), order);
     assertInstanceOf(WorkerOutcome.Declined.class, result.outcome());
@@ -91,8 +101,11 @@ class WorkerFunctionsTest {
 
   @Test
   void sequence_noRuntime_returnsFailed() {
-    WorkerFunction fn = new WorkerFunction.Sync(input -> WorkerResult.of(Map.of()));
-    WorkerResult result = WorkerFunctions.sequence(fn).fn().apply(Map.of());
+    WorkerFunction fn = new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of()));
+    WorkerResult result =
+        ((java.util.function.Function<Map<String, Object>, WorkerResult>)
+                WorkerFunctions.sequence(fn).fn())
+            .apply(Map.of());
     assertInstanceOf(WorkerOutcome.Failed.class, result.outcome());
   }
 
@@ -120,9 +133,11 @@ class WorkerFunctionsTest {
 
     @Override
     public WorkerResult execute(WorkerFunction function, Map<String, Object> input) {
-      if (function instanceof WorkerFunction.Sync sync) {
+      if (function instanceof WorkerFunction.Sync<?> sync) {
         try {
-          return sync.fn().apply(input);
+          @SuppressWarnings("unchecked")
+          var fn = (java.util.function.Function<Map<String, Object>, WorkerResult>) sync.fn();
+          return fn.apply(input);
         } catch (Exception e) {
           return WorkerResult.failed(e.getMessage());
         }

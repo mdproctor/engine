@@ -84,13 +84,17 @@ class ImplementationRoutingTest {
         Worker.builder()
             .name("worker-a")
             .capabilityName("analyse")
-            .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
+            .function(
+                new WorkerFunction.Sync<>(
+                    java.util.Map.class, input -> WorkerResult.of(java.util.Map.of())))
             .build();
     Worker w2 =
         Worker.builder()
             .name("worker-b")
             .capabilityName("analyse")
-            .function(new WorkerFunction.Sync(input -> WorkerResult.of(java.util.Map.of())))
+            .function(
+                new WorkerFunction.Sync<>(
+                    java.util.Map.class, input -> WorkerResult.of(java.util.Map.of())))
             .build();
 
     CaseDefinition def = mock(CaseDefinition.class);

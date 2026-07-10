@@ -310,6 +310,26 @@ public final class CaseDefinitionYamlMapper {
               final io.casehub.api.model.ai.Agent apiAgent =
                   AgentConverter.toApiAgent(sw.getAgent());
               function = new AgentWorkerFunction(apiAgent);
+            } else if (sw.getContextType() != null) {
+              try {
+                Class<?> contextType = Class.forName(sw.getContextType());
+                function =
+                    new WorkerFunction.Sync<>(
+                        contextType,
+                        input -> {
+                          throw new UnsupportedOperationException(
+                              "YAML-declared contextType worker '"
+                                  + sw.getName()
+                                  + "' has no in-process function — dispatch via external backend");
+                        });
+              } catch (ClassNotFoundException e) {
+                throw new IllegalArgumentException(
+                    "Worker '"
+                        + sw.getName()
+                        + "' contextType class not found: "
+                        + sw.getContextType(),
+                    e);
+              }
             } else {
               function = WorkerFunction.NONE;
             }

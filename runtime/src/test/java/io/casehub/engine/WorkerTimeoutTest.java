@@ -178,7 +178,8 @@ class WorkerTimeoutTest {
               .capabilityName("fastWork")
               .executionPolicy(new ExecutionPolicy()) // Uses default timeout
               .function(
-                  new WorkerFunction.Sync(
+                  new WorkerFunction.Sync<>(
+                      Map.class,
                       ctx -> {
                         executionCount.incrementAndGet();
                         // Completes immediately
@@ -224,7 +225,8 @@ class WorkerTimeoutTest {
               .capabilityName("slowWork")
               .executionPolicy(noRetryPolicy)
               .function(
-                  new WorkerFunction.Sync(
+                  new WorkerFunction.Sync<>(
+                      Map.class,
                       ctx -> {
                         executionCount.incrementAndGet();
                         try {
@@ -278,7 +280,8 @@ class WorkerTimeoutTest {
                       10000, // 10 second custom timeout
                       new RetryPolicy()))
               .function(
-                  new WorkerFunction.Sync(
+                  new WorkerFunction.Sync<>(
+                      Map.class,
                       ctx -> {
                         executionCount.incrementAndGet();
                         try {
@@ -332,7 +335,8 @@ class WorkerTimeoutTest {
                       100, // Very short timeout (100ms)
                       new RetryPolicy(1, 0, null)))
               .function(
-                  new WorkerFunction.Sync(
+                  new WorkerFunction.Sync<>(
+                      Map.class,
                       ctx -> {
                         executionCount.incrementAndGet();
                         try {

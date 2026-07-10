@@ -162,7 +162,9 @@ class WorkerDecisionObserverNonBlockingTest {
               Worker.builder()
                   .name("blocking-test-worker")
                   .capabilityName("blocking-test-cap")
-                  .function(new WorkerFunction.Sync(input -> WorkerResult.of(Map.of("done", true))))
+                  .function(
+                      new WorkerFunction.Sync<>(
+                          Map.class, input -> WorkerResult.of(Map.of("done", true))))
                   .build())
           .bindings(
               Binding.builder()

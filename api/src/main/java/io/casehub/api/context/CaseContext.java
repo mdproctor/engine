@@ -107,9 +107,10 @@ public interface CaseContext {
    *
    * <p>Engine-internal writes ({@code engineSet()}, {@code applyDiff()}) do NOT fire listeners.
    *
-   * <p><b>Callers must call {@link Subscription#cancel()} when the listener is no longer needed.</b>
-   * Listeners are held by strong reference and accumulate for the lifetime of the CaseContext if
-   * not cancelled. For long-running cases with many registrations this can cause unbounded growth.
+   * <p><b>Callers must call {@link Subscription#cancel()} when the listener is no longer
+   * needed.</b> Listeners are held by strong reference and accumulate for the lifetime of the
+   * CaseContext if not cancelled. For long-running cases with many registrations this can cause
+   * unbounded growth.
    *
    * @param key the context key to observe
    * @param listener consumer invoked with a {@link ContextChangeEvent} carrying old/new values
@@ -123,8 +124,8 @@ public interface CaseContext {
    * Registers a listener that fires whenever any key in the working layer is changed via the flat
    * API. Any-change listeners fire after per-key listeners, in registration order.
    *
-   * <p><b>Callers must call {@link Subscription#cancel()} when the listener is no longer needed.</b>
-   * See {@link #onChange(String, Consumer)} for lifecycle details.
+   * <p><b>Callers must call {@link Subscription#cancel()} when the listener is no longer
+   * needed.</b> See {@link #onChange(String, Consumer)} for lifecycle details.
    *
    * @param listener consumer invoked with a {@link ContextChangeEvent} carrying old/new values
    * @return a {@link Subscription} whose {@link Subscription#cancel()} removes this listener

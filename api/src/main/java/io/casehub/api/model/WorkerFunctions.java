@@ -26,24 +26,14 @@ public final class WorkerFunctions {
 
   private WorkerFunctions() {}
 
-  /**
-   * Returns a new worker function that executes the given steps in sequence, accumulating their
-   * output. If any step returns a non-success outcome (Declined, Failed, Expired), the sequence
-   * stops and that result is returned. Otherwise, the final accumulated output is returned.
-   *
-   * <p>Requires {@link WorkerExecutionContext#currentRuntime()} to be set. If null, returns {@code
-   * WorkerResult.failed("WorkerRuntime not available...")}.
-   *
-   * @param steps the functions to execute in order (at least one required)
-   * @return a composite Sync function
-   * @throws IllegalArgumentException if steps is empty
-   */
-  public static WorkerFunction.Sync sequence(WorkerFunction... steps) {
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public static WorkerFunction.Sync<Map<String, Object>> sequence(WorkerFunction... steps) {
     if (steps.length == 0) {
       throw new IllegalArgumentException("sequence requires at least one step");
     }
     WorkerFunction[] copy = steps.clone();
     return new WorkerFunction.Sync(
+        Map.class,
         input -> {
           var rt = WorkerExecutionContext.currentRuntime();
           if (rt == null) {
@@ -51,7 +41,7 @@ public final class WorkerFunctions {
                 "WorkerRuntime not available — "
                     + "sequence must run inside engine execution context");
           }
-          var acc = input;
+          var acc = (Map<String, Object>) input;
           for (var step : copy) {
             var result = rt.execute(step, acc);
             if (!(result.outcome() instanceof WorkerOutcome.Success)) {

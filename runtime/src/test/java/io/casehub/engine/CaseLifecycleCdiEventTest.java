@@ -181,7 +181,8 @@ class CaseLifecycleCdiEventTest {
                   // Return done:true, trigger:false — so the ContextChangeTrigger
                   // (.trigger==true and .done!=true) never re-fires after the first execution.
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> WorkerResult.of(Map.of("done", true, "trigger", false))))
                   .build())
           .bindings(

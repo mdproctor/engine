@@ -26,10 +26,7 @@ import io.quarkus.virtual.threads.VirtualThreads;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Duration;
-import java.util.Map;
 import java.util.concurrent.ExecutorService;
-import java.util.function.Function;
 
 /**
  * Handler for {@link WorkerFunction.Sync} and {@link AgentWorkerFunction}. Executes the function on
@@ -59,18 +56,26 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
     return function instanceof WorkerFunction.Sync || function instanceof AgentWorkerFunction;
   }
 
+  @SuppressWarnings("unchecked")
   @Override
   public Uni<WorkerResult> execute(
       WorkerFunction function,
-      Map<String, Object> inputData,
+      Object inputData,
       WorkerContext context,
       int timeoutMs,
       ExecutionMetadata metadata) {
 
-    Function<Map<String, Object>, WorkerResult> fn =
+    if (!function.inputType().isInstance(inputData) && !(inputData instanceof java.util.Map)) {
+      throw new io.casehub.api.context.BridgeTypeMismatchException(
+          function.inputType().getName(), inputData.getClass().getName());
+    }
+
+    java.util.function.Function<Object, WorkerResult> fn =
         switch (function) {
-          case WorkerFunction.Sync sync -> sync.fn()::apply;
-          case AgentWorkerFunction agent -> agent.agent()::execute;
+          case WorkerFunction.Sync<?> sync ->
+              input -> (WorkerResult) ((java.util.function.Function) sync.fn()).apply(input);
+          case AgentWorkerFunction agent ->
+              input -> agent.agent().execute((java.util.Map<String, Object>) input);
           default ->
               throw new UnsupportedOperationException(
                   "Unsupported: " + function.getClass().getName());
@@ -89,7 +94,7 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
             })
         .runSubscriptionOn(virtualThreads)
         .ifNoItem()
-        .after(Duration.ofMillis(timeoutMs))
+        .after(java.time.Duration.ofMillis(timeoutMs))
         .fail()
         .onFailure(io.smallrye.mutiny.TimeoutException.class)
         .recoverWithItem(t -> WorkerResult.expired("Worker timed out after " + timeoutMs + "ms"));

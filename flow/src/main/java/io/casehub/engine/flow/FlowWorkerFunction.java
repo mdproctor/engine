@@ -17,17 +17,16 @@ package io.casehub.engine.flow;
 
 import io.casehub.worker.api.WorkerFunction;
 import io.serverlessworkflow.api.types.Workflow;
-import java.util.Objects;
 
-/**
- * A {@link WorkerFunction} that executes a Serverless Workflow definition.
- *
- * <p>Moved from api to flow in issue #567 — Serverless Workflow SDK is flow-module-only. Consumers
- * never reference {@code FlowWorkerFunction} directly; it is constructed via {@link
- * FlowWorkerFunctionProvider} when YAML contains a {@code do:} block.
- */
-public record FlowWorkerFunction(Workflow workflow) implements WorkerFunction {
+@SuppressWarnings("unchecked")
+public record FlowWorkerFunction(Workflow workflow)
+    implements WorkerFunction<java.util.Map<String, Object>> {
   public FlowWorkerFunction {
-    Objects.requireNonNull(workflow, "workflow must not be null");
+    java.util.Objects.requireNonNull(workflow, "workflow must not be null");
+  }
+
+  @Override
+  public Class<java.util.Map<String, Object>> inputType() {
+    return (Class) java.util.Map.class;
   }
 }

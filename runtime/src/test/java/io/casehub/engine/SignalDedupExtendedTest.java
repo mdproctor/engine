@@ -349,7 +349,8 @@ public class SignalDedupExtendedTest {
                   .name("event-worker-dedup")
                   .capabilityName("processEventDedup")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             runCount.incrementAndGet();
                             String id = (String) input.get("id");
@@ -404,7 +405,8 @@ public class SignalDedupExtendedTest {
                   .name("event-worker-dedup-goal")
                   .capabilityName("processEventDedupGoal")
                   .function(
-                      new WorkerFunction.Sync(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
                           input -> {
                             runCount.incrementAndGet();
                             String id = (String) input.get("id");

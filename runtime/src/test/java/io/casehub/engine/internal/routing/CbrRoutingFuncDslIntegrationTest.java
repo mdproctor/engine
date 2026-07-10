@@ -144,8 +144,8 @@ class CbrRoutingFuncDslIntegrationTest {
               .name("risk-assessor")
               .capabilityName("assessRisk")
               .function(
-                  new WorkerFunction.Sync(
-                      input -> WorkerResult.of(Map.of("assessment", "reviewed"))))
+                  new WorkerFunction.Sync<>(
+                      Map.class, input -> WorkerResult.of(Map.of("assessment", "reviewed"))))
               .build();
 
       CbrConfig cbrConfig =
