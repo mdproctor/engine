@@ -525,7 +525,8 @@ $defs:
       doneWhen:
         type: string
         description: "Optional JQ predicate over CaseContext as an override/shortcut"
-    additionalProperties: true
+    additionalProperties:
+      $ref: "#/$defs/GoalExpression"
 
   ContextChangeTrigger:
     type: object
