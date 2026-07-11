@@ -219,6 +219,7 @@ public class CaseStatusChangedHandler {
     final CaseOutcomeEvent outcomeEvent =
         new CaseOutcomeEvent(
             caseType,
+            caseInstance.tenancyId,
             caseInstance.getUuid(),
             snapshot,
             newState.name(),

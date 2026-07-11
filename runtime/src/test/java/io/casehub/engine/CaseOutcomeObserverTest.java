@@ -81,6 +81,7 @@ class CaseOutcomeObserverTest {
     assertThat(event.caseType()).isEqualTo("test-outcome-case");
     assertThat(event.caseFileSnapshot()).containsEntry("result", "done");
     assertThat(event.closedAt()).isNotNull();
+    assertThat(event.tenancyId()).isEqualTo("test-tenant");
   }
 
   @Test

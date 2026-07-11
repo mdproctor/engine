@@ -30,9 +30,13 @@ import java.util.UUID;
  * <p>{@code caseFileSnapshot} is the working layer context at the time of terminal transition — the
  * last committed view of the case state, including all worker outputs. Treat it as read-only.
  *
+ * <p>{@code tenancyId} identifies the tenant owning the case — required for tenant-scoped
+ * persistence operations in observer implementations.
+ *
  * <p>Refs casehubio/engine#477 (CBR Retain step).
  *
  * @param caseType case definition name (e.g. "aml-investigation", "starcraft-game")
+ * @param tenancyId tenant identifier owning the case
  * @param caseId case instance UUID
  * @param caseFileSnapshot working-layer context at case close; non-null, may be empty
  * @param outcomeLabel terminal status name: "COMPLETED", "FAULTED", or "CANCELLED"
@@ -42,6 +46,7 @@ import java.util.UUID;
  */
 public record CaseOutcomeEvent(
     String caseType,
+    String tenancyId,
     UUID caseId,
     Map<String, Object> caseFileSnapshot,
     String outcomeLabel,
