@@ -18,10 +18,9 @@ package io.casehub.engine.internal.engine.handler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.api.context.ContextBridge;
 import io.casehub.api.context.ContextLayer;
-import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseChannel;
+import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.RetryState;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.event.CaseHubEventType;
@@ -49,15 +48,14 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import io.vertx.mutiny.core.shareddata.Lock;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class WorkerScheduleEventHandler {
@@ -83,75 +81,75 @@ public class WorkerScheduleEventHandler {
   @Inject JQEvaluator jqEvaluator;
   @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
-    @Inject
-    io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
+  @Inject io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
 
-
-    @ConfigProperty(name = "casehub.idempotency.window")
+  @ConfigProperty(name = "casehub.idempotency.window")
   Optional<Duration> idempotencyWindow;
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_SCHEDULE)
   public Uni<Void> onWorkerScheduleEventHandler(WorkerScheduleEvent event) {
-    CaseInstance instance    = event.caseInstance();
-    Worker       worker      = event.worker();
-    Capability   capability  = event.capability();
-    String       bindingName = event.bindingName();
+    CaseInstance instance = event.caseInstance();
+    Worker worker = event.worker();
+    Capability capability = event.capability();
+    String bindingName = event.bindingName();
 
-    JsonNode narrowedInput = evalJqAsJsonNode(
+    JsonNode narrowedInput =
+        evalJqAsJsonNode(
             instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             event.effectiveInputSchema());
 
-    CaseDefinition                          definition        = caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
-    io.casehub.api.context.ContextBridge<?> bridge            = bridgeResolver.resolve(worker, definition);
-    Object                                  typedInput        = bridgeResolver.initialise(bridge, instance.getCaseContext(), narrowedInput);
-    JsonNode                                serialisedPayload = bridgeResolver.serialise(bridge, typedInput);
+    CaseDefinition definition =
+        caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+    io.casehub.api.context.ContextBridge<?> bridge = bridgeResolver.resolve(worker, definition);
+    Object typedInput = bridgeResolver.initialise(bridge, instance.getCaseContext(), narrowedInput);
+    JsonNode serialisedPayload = bridgeResolver.serialise(bridge, typedInput);
 
     Map<String, Object> inputDataForHash = OBJECT_MAPPER.convertValue(narrowedInput, MAP_TYPE);
     String inputDataHash =
-            WorkerExecutionKeys.inputDataHash(
-                    instance.getUuid(), worker.name(), capability.name(), inputDataForHash);
+        WorkerExecutionKeys.inputDataHash(
+            instance.getUuid(), worker.name(), capability.name(), inputDataForHash);
 
     if (workerExecutionGuard.isBlocked(worker.name(), instance.getUuid())) {
       LOG.warnf(
-              "Worker blocked by guard (quarantined?): caseId=%s worker=%s — emitting retries exhausted",
-              instance.getUuid(), worker.name());
+          "Worker blocked by guard (quarantined?): caseId=%s worker=%s — emitting retries exhausted",
+          instance.getUuid(), worker.name());
       eventBus.publish(
-              EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-              new WorkerRetriesExhaustedEvent(
-                      instance.getUuid(),
-                      instance.tenancyId,
-                      worker.name(),
-                      inputDataHash,
-                      bindingName,
-                      event.signalId(),
-                      RetryState.empty()));
+          EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
+          new WorkerRetriesExhaustedEvent(
+              instance.getUuid(),
+              instance.tenancyId,
+              worker.name(),
+              inputDataHash,
+              bindingName,
+              event.signalId(),
+              RetryState.empty()));
       return Uni.createFrom().voidItem();
     }
 
     workerContextProvider.buildContext(
-            worker.name(), instance.getUuid(), WorkRequest.of(capability.name(), inputDataForHash));
+        worker.name(), instance.getUuid(), WorkRequest.of(capability.name(), inputDataForHash));
 
     EventLog eventLog =
-            buildEventLog(
-                    instance,
-                    worker,
-                    capability,
-                    serialisedPayload,
-                    inputDataHash,
-                    bindingName,
-                    event.signalId(),
-                    event.origin(),
-                    bridge.contextType().getName());
+        buildEventLog(
+            instance,
+            worker,
+            capability,
+            serialisedPayload,
+            inputDataHash,
+            bindingName,
+            event.signalId(),
+            event.origin(),
+            bridge.contextType().getName());
 
     String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
 
     return vertx
-                   .sharedData()
-                   .getLocalLock(lockKey)
-                   .chain(
-                           lock ->
-                                   scheduleUnderLock(
-                                           lock, eventLog, instance, worker, capability, inputDataForHash, inputDataHash));
+        .sharedData()
+        .getLocalLock(lockKey)
+        .chain(
+            lock ->
+                scheduleUnderLock(
+                    lock, eventLog, instance, worker, capability, inputDataForHash, inputDataHash));
   }
 
   private Uni<Void> scheduleUnderLock(
@@ -190,15 +188,15 @@ public class WorkerScheduleEventHandler {
   }
 
   private EventLog buildEventLog(
-          CaseInstance instance,
-          Worker worker,
-          Capability capability,
-          JsonNode serialisedPayload,
-          String inputDataHash,
-          String bindingName,
-          java.util.UUID signalId,
-          io.casehub.api.model.event.ExecutionOrigin origin,
-          String contextBridgeType) {
+      CaseInstance instance,
+      Worker worker,
+      Capability capability,
+      JsonNode serialisedPayload,
+      String inputDataHash,
+      String bindingName,
+      java.util.UUID signalId,
+      io.casehub.api.model.event.ExecutionOrigin origin,
+      String contextBridgeType) {
     Map<String, String> metadataBuilder = new HashMap<>();
     metadataBuilder.put("workerName", worker.name());
     metadataBuilder.put("capabilityName", capability.name());
@@ -350,15 +348,18 @@ public class WorkerScheduleEventHandler {
   }
 
   private JsonNode evalJqAsJsonNode(JsonNode context, String expression) {
-    if (expression == null || expression.isBlank()) {return context;}
+    if (expression == null || expression.isBlank()) {
+      return context;
+    }
     try {
       ValidationResult vr = jqEvaluator.eval(expression, context);
-      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {return context;}
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
+        return context;
+      }
       return vr.output().get(0);
     } catch (Exception e) {
       LOG.warnf(e, "jq evaluation failed for expression '%s'", expression);
       return context;
     }
   }
-
 }

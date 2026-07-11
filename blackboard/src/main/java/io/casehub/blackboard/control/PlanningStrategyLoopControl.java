@@ -23,6 +23,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.SubCaseTarget;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.api.spi.routing.ImplementationCandidate;
 import io.casehub.api.spi.routing.ImplementationRoutingContext;
 import io.casehub.api.spi.routing.ImplementationRoutingStrategy;
@@ -31,7 +32,6 @@ import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
@@ -139,9 +139,9 @@ public class PlanningStrategyLoopControl implements LoopControl {
               // for autocomplete tracking. Refs casehubio/engine#497, engine#476.
               routed.forEach(
                   binding -> {
-                    String workerName = resolveWorkerName(binding, ctx);
+                    io.casehub.api.model.ExecutorRef executor = resolveExecutor(binding, ctx);
                     PlanItem item =
-                        PlanItem.create(binding.getName(), workerName, 0, binding.target());
+                        PlanItem.create(binding.getName(), executor, 0, binding.target());
                     if (plan.addPlanItemIfAbsent(item)) {
                       registerWithOwningStages(plan, binding.getName(), item.getPlanItemId());
                     }
@@ -199,7 +199,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
                           .map(
                               b ->
                                   new ImplementationCandidate(
-                                      b.getName(), resolveWorkerName(b, ctx), capName))
+                                      b.getName(), resolveExecutor(b, ctx).name(), capName))
                           .toList();
                   var routingCtx =
                       new ImplementationRoutingContext(
@@ -251,11 +251,11 @@ public class PlanningStrategyLoopControl implements LoopControl {
       PlanItem pi = piOpt.get();
       if (binding.target() instanceof CapabilityTarget) {
         if (pi.tryMarkRunning()) {
-          registry.indexForCompletion(caseId, pi.getWorkerName(), pi.getPlanItemId());
+          registry.indexForCompletion(caseId, pi.executorName(), pi.getPlanItemId());
           dispatched.add(binding);
         }
       } else {
-        if (pi.getStatus() == PlanItemStatus.PENDING) {
+        if (pi.getStatus() == TaskStatus.PENDING) {
           dispatched.add(binding);
         }
       }
@@ -263,13 +263,10 @@ public class PlanningStrategyLoopControl implements LoopControl {
     return dispatched;
   }
 
-  /**
-   * Resolves the worker name for a Binding by matching its capability against the case definition's
-   * worker list. Returns the capability name as fallback if no worker matches.
-   */
-  private String resolveWorkerName(Binding binding, PlanExecutionContext ctx) {
+  private io.casehub.api.model.ExecutorRef resolveExecutor(
+      Binding binding, PlanExecutionContext ctx) {
     return switch (binding.target()) {
-      case null -> "unknown";
+      case null -> io.casehub.api.model.ExecutorRef.of("unknown");
       case io.casehub.api.model.CapabilityTarget ct -> {
         String capName = ct.capability().name();
         List<Worker> matching =
@@ -290,11 +287,13 @@ public class PlanningStrategyLoopControl implements LoopControl {
                   .map(Worker::name)
                   .collect(java.util.stream.Collectors.joining(", ")));
         }
-        yield matching.isEmpty() ? capName : matching.get(0).name();
+        yield matching.isEmpty()
+            ? io.casehub.api.model.ExecutorRef.of(capName)
+            : io.casehub.api.model.ExecutorRef.fromWorker(matching.get(0));
       }
-      case SubCaseTarget st -> "unknown";
-      case HumanTaskTarget ht -> "unknown";
-      case ExtensionTarget et -> "unknown";
+      case SubCaseTarget st -> io.casehub.api.model.ExecutorRef.of("unknown");
+      case HumanTaskTarget ht -> io.casehub.api.model.ExecutorRef.of("unknown");
+      case ExtensionTarget et -> io.casehub.api.model.ExecutorRef.of("unknown");
     };
   }
 

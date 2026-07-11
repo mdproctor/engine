@@ -15,6 +15,8 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
+import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.WorkRequest;
@@ -38,14 +40,11 @@ import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.time.Duration;
+import java.util.Map;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-
-import java.time.Duration;
-import java.util.Map;
-
-import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
 /**
  * Thin Quartz adapter — resolves context, delegates execution to {@link WorkerExecutor}, and
@@ -81,128 +80,131 @@ class QuartzWorkerExecutionJob implements Job {
   @Inject QuartzRetryService retryService;
   @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
-
-    @Override
+  @Override
   public void execute(JobExecutionContext executionContext) {
-      LOG.infof("Executing workflow task: %s", executionContext.getJobDetail().getKey());
+    LOG.infof("Executing workflow task: %s", executionContext.getJobDetail().getKey());
 
-      WorkerRetryContext retryCtx = WorkerRetryContext.from(executionContext);
+    WorkerRetryContext retryCtx = WorkerRetryContext.from(executionContext);
 
-      try {
-          String inputDataHash = executionContext.getMergedJobDataMap().getString("inputDataHash");
-          String eventLogId    = executionContext.getMergedJobDataMap().getString("eventLogId");
+    try {
+      String inputDataHash = executionContext.getMergedJobDataMap().getString("inputDataHash");
+      String eventLogId = executionContext.getMergedJobDataMap().getString("eventLogId");
 
-          EventLog eventLog =
-                  findEventLog(eventLogId).subscribe().asCompletionStage().toCompletableFuture().join();
+      EventLog eventLog =
+          findEventLog(eventLogId).subscribe().asCompletionStage().toCompletableFuture().join();
 
-          if (eventLog == null) {
-              onFailure(retryCtx, new RuntimeException("EventLog not found: id=" + eventLogId));
-              return;
-          }
-
-          CaseInstance instance =
-                  workerExecutionRecoveryService
-                          .loadOrRestoreCaseInstance(eventLog.getCaseId())
-                          .await()
-                          .atMost(Duration.ofSeconds(10));
-
-          CaseDefinition definition =
-                  caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
-
-          if (definition == null) {
-              onFailure(
-                      retryCtx,
-                      new RuntimeException("CaseDefinition not found for caseId=" + eventLog.getCaseId()));
-              return;
-          }
-
-          String workerId       = eventLog.getWorkerId();
-          String capabilityName = eventLog.getMetadata().get("capabilityName").asText();
-          String bindingName =
-                  eventLog.getMetadata().has("bindingName")
-                  ? eventLog.getMetadata().get("bindingName").asText()
-                  : null;
-          java.util.UUID signalId =
-                  eventLog.getMetadata().has("signalId")
-                  ? java.util.UUID.fromString(eventLog.getMetadata().get("signalId").asText())
-                  : null;
-
-          final WorkerRetryContext effectiveRetryCtx =
-                  retryCtx.withBindingName(bindingName).withSignalId(signalId);
-
-          Worker worker =
-                  definition.getWorkers().stream()
-                            .filter(w -> w.name().equals(workerId))
-                            .findFirst()
-                            .orElse(null);
-
-          if (worker == null) {
-              onFailure(effectiveRetryCtx, new RuntimeException("Worker not found: " + workerId));
-              return;
-          }
-
-          Capability capability =
-                  definition.getCapabilities().stream()
-                            .filter(c -> c.name().equals(capabilityName))
-                            .findFirst()
-                            .orElse(null);
-
-          if (capability == null) {
-              onFailure(
-                      effectiveRetryCtx, new RuntimeException("Capability not found: " + capabilityName));
-              return;
-          }
-
-          String bridgeTypeName =
-                  eventLog.getMetadata().has("contextBridgeType")
-                  ? eventLog.getMetadata().get("contextBridgeType").asText(null)
-                  : null;
-          io.casehub.api.context.ContextBridge<?> bridge = bridgeResolver.resolveByTypeName(bridgeTypeName);
-
-          Object typedInput;
-          if (bridge.isLiveView()) {
-              typedInput = bridgeResolver.initialise(bridge, instance.getCaseContext(), eventLog.getPayload());
-          } else {
-              typedInput = bridgeResolver.deserialise(bridge, eventLog.getPayload());
-          }
-
-          Map<String, Object> inputDataForContext = OBJECT_MAPPER.convertValue(eventLog.getPayload(), Map.class);
-
-          int timeoutMs = executionConfig.getEffectiveTimeout(worker.executionPolicy().timeoutMs());
-
-          WorkerContext workerContext =
-                  workerContextProvider.buildContext(
-                          workerId,
-                          eventLog.getCaseId(),
-                          WorkRequest.of(capabilityName, inputDataForContext),
-                          instance.getPropagationContext());
-
-          ExecutionMetadata metadata = new ExecutionMetadata(workerId, inputDataHash);
-
-          workerExecutor
-                  .execute(
-                          worker.function(),
-                          typedInput,
-                          workerContext,
-                          timeoutMs,
-                          capability.outputSchema(),
-                          metadata)
-                  .subscribe()
-                  .with(
-                          workerResult -> {
-                              Map<String, Object> output = workerResult.output();
-                              if ((output == null || output.isEmpty()) && bridge.isLiveView()) {
-                                  output = bridgeResolver.extractOutput(bridge, typedInput);
-                              }
-                              if (output != null && !output.equals(workerResult.output())) {
-                                  workerResult = new io.casehub.worker.api.WorkerResult(output, workerResult.outcome());
-                              }
-                              onSuccess(instance, worker, inputDataHash, workerResult, bindingName, signalId);
-                          },
-                          failure -> onFailure(effectiveRetryCtx, failure));
-      } catch (Exception e) {
-          onFailure(retryCtx, e);
+      if (eventLog == null) {
+        onFailure(retryCtx, new RuntimeException("EventLog not found: id=" + eventLogId));
+        return;
       }
+
+      CaseInstance instance =
+          workerExecutionRecoveryService
+              .loadOrRestoreCaseInstance(eventLog.getCaseId())
+              .await()
+              .atMost(Duration.ofSeconds(10));
+
+      CaseDefinition definition =
+          caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+
+      if (definition == null) {
+        onFailure(
+            retryCtx,
+            new RuntimeException("CaseDefinition not found for caseId=" + eventLog.getCaseId()));
+        return;
+      }
+
+      String workerId = eventLog.getWorkerId();
+      String capabilityName = eventLog.getMetadata().get("capabilityName").asText();
+      String bindingName =
+          eventLog.getMetadata().has("bindingName")
+              ? eventLog.getMetadata().get("bindingName").asText()
+              : null;
+      java.util.UUID signalId =
+          eventLog.getMetadata().has("signalId")
+              ? java.util.UUID.fromString(eventLog.getMetadata().get("signalId").asText())
+              : null;
+
+      final WorkerRetryContext effectiveRetryCtx =
+          retryCtx.withBindingName(bindingName).withSignalId(signalId);
+
+      Worker worker =
+          definition.getWorkers().stream()
+              .filter(w -> w.name().equals(workerId))
+              .findFirst()
+              .orElse(null);
+
+      if (worker == null) {
+        onFailure(effectiveRetryCtx, new RuntimeException("Worker not found: " + workerId));
+        return;
+      }
+
+      Capability capability =
+          definition.getCapabilities().stream()
+              .filter(c -> c.name().equals(capabilityName))
+              .findFirst()
+              .orElse(null);
+
+      if (capability == null) {
+        onFailure(
+            effectiveRetryCtx, new RuntimeException("Capability not found: " + capabilityName));
+        return;
+      }
+
+      String bridgeTypeName =
+          eventLog.getMetadata().has("contextBridgeType")
+              ? eventLog.getMetadata().get("contextBridgeType").asText(null)
+              : null;
+      io.casehub.api.context.ContextBridge<?> bridge =
+          bridgeResolver.resolveByTypeName(bridgeTypeName);
+
+      Object typedInput;
+      if (bridge.isLiveView()) {
+        typedInput =
+            bridgeResolver.initialise(bridge, instance.getCaseContext(), eventLog.getPayload());
+      } else {
+        typedInput = bridgeResolver.deserialise(bridge, eventLog.getPayload());
+      }
+
+      Map<String, Object> inputDataForContext =
+          OBJECT_MAPPER.convertValue(eventLog.getPayload(), Map.class);
+
+      int timeoutMs = executionConfig.getEffectiveTimeout(worker.executionPolicy().timeoutMs());
+
+      WorkerContext workerContext =
+          workerContextProvider.buildContext(
+              workerId,
+              eventLog.getCaseId(),
+              WorkRequest.of(capabilityName, inputDataForContext),
+              instance.getPropagationContext());
+
+      ExecutionMetadata metadata = new ExecutionMetadata(workerId, inputDataHash);
+
+      workerExecutor
+          .execute(
+              worker.function(),
+              typedInput,
+              workerContext,
+              timeoutMs,
+              capability.outputSchema(),
+              metadata)
+          .subscribe()
+          .with(
+              workerResult -> {
+                Map<String, Object> output = workerResult.output();
+                if ((output == null || output.isEmpty()) && bridge.isLiveView()) {
+                  output = bridgeResolver.extractOutput(bridge, typedInput);
+                }
+                if (output != null && !output.equals(workerResult.output())) {
+                  workerResult =
+                      new io.casehub.worker.api.WorkerResult(output, workerResult.outcome());
+                }
+                onSuccess(instance, worker, inputDataHash, workerResult, bindingName, signalId);
+              },
+              failure -> onFailure(effectiveRetryCtx, failure));
+    } catch (Exception e) {
+      onFailure(retryCtx, e);
+    }
   }
 
   private void onSuccess(

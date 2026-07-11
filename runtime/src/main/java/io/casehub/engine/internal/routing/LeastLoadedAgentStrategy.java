@@ -15,10 +15,10 @@
  */
 package io.casehub.engine.internal.routing;
 
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.arc.Unremovable;
 import io.smallrye.mutiny.Uni;
@@ -42,10 +42,10 @@ public class LeastLoadedAgentStrategy implements AgentRoutingStrategy {
   }
 
   @Override
-  public Uni<AgentAssignment> select(
+  public Uni<RoutingResult> select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
     if (candidates.isEmpty()) {
-      return Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available"));
+      return Uni.createFrom().item(RoutingResult.unresolvable("no candidates available"));
     }
 
     final List<AgentCandidate> sorted =
@@ -64,6 +64,6 @@ public class LeastLoadedAgentStrategy implements AgentRoutingStrategy {
           "selected %s: load %d (sole candidate)".formatted(best.workerId(), best.runningJobs());
     }
 
-    return Uni.createFrom().item(AgentAssignment.assign(best.workerId(), rationale));
+    return Uni.createFrom().item(RoutingResult.assigned(best.workerId(), rationale));
   }
 }

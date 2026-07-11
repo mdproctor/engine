@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.ExecutorRef;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
@@ -49,8 +50,8 @@ class SequentialPlanningStrategyTest {
   void firstPending_isSelected() {
     Binding a = binding("step-a");
     Binding b = binding("step-b");
-    plan.addPlanItem(PlanItem.create("step-a", "workerA", 0, a.target()));
-    plan.addPlanItem(PlanItem.create("step-b", "workerB", 0, b.target()));
+    plan.addPlanItem(PlanItem.create("step-a", ExecutorRef.of("workerA"), 0, a.target()));
+    plan.addPlanItem(PlanItem.create("step-b", ExecutorRef.of("workerB"), 0, b.target()));
 
     List<Binding> result = strategy.select(plan, null, List.of(a, b)).await().indefinitely();
 
@@ -62,11 +63,11 @@ class SequentialPlanningStrategyTest {
   void completedStep_advancesToNext() {
     Binding a = binding("step-a");
     Binding b = binding("step-b");
-    PlanItem itemA = PlanItem.create("step-a", "workerA", 0, a.target());
+    PlanItem itemA = PlanItem.create("step-a", ExecutorRef.of("workerA"), 0, a.target());
     itemA.markRunning();
     itemA.markCompleted();
     plan.addPlanItem(itemA);
-    plan.addPlanItem(PlanItem.create("step-b", "workerB", 0, b.target()));
+    plan.addPlanItem(PlanItem.create("step-b", ExecutorRef.of("workerB"), 0, b.target()));
 
     List<Binding> result = strategy.select(plan, null, List.of(a, b)).await().indefinitely();
 
@@ -77,7 +78,7 @@ class SequentialPlanningStrategyTest {
   @Test
   void runningStep_returnsEmpty() {
     Binding a = binding("step-a");
-    PlanItem itemA = PlanItem.create("step-a", "workerA", 0, a.target());
+    PlanItem itemA = PlanItem.create("step-a", ExecutorRef.of("workerA"), 0, a.target());
     itemA.markRunning();
     plan.addPlanItem(itemA);
 
@@ -90,11 +91,11 @@ class SequentialPlanningStrategyTest {
   void faultedStep_haltsSequence() {
     Binding a = binding("step-a");
     Binding b = binding("step-b");
-    PlanItem itemA = PlanItem.create("step-a", "workerA", 0, a.target());
+    PlanItem itemA = PlanItem.create("step-a", ExecutorRef.of("workerA"), 0, a.target());
     itemA.markRunning();
     itemA.markFaulted();
     plan.addPlanItem(itemA);
-    plan.addPlanItem(PlanItem.create("step-b", "workerB", 0, b.target()));
+    plan.addPlanItem(PlanItem.create("step-b", ExecutorRef.of("workerB"), 0, b.target()));
 
     List<Binding> result = strategy.select(plan, null, List.of(a, b)).await().indefinitely();
 
@@ -104,7 +105,7 @@ class SequentialPlanningStrategyTest {
   @Test
   void allCompleted_returnsEmpty() {
     Binding a = binding("step-a");
-    PlanItem itemA = PlanItem.create("step-a", "workerA", 0, a.target());
+    PlanItem itemA = PlanItem.create("step-a", ExecutorRef.of("workerA"), 0, a.target());
     itemA.markRunning();
     itemA.markCompleted();
     plan.addPlanItem(itemA);

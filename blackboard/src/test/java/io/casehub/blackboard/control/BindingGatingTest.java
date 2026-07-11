@@ -24,6 +24,7 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.ExecutorRef;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
@@ -326,7 +327,7 @@ class BindingGatingTest {
             null);
 
     // Pre-populate a RUNNING PlanItem for this binding
-    PlanItem item = PlanItem.create("active-b", "some-worker", 0);
+    PlanItem item = PlanItem.create("active-b", ExecutorRef.of("some-worker"), 0);
     item.markRunning();
     plan().addPlanItem(item);
 
@@ -352,7 +353,7 @@ class BindingGatingTest {
             null,
             null);
 
-    PlanItem item = PlanItem.create("delegated-b", "ht-worker", 0);
+    PlanItem item = PlanItem.create("delegated-b", ExecutorRef.of("ht-worker"), 0);
     item.markDelegated();
     plan().addPlanItem(item);
 
@@ -381,7 +382,7 @@ class BindingGatingTest {
             null,
             null);
 
-    PlanItem item = PlanItem.create("done-b", "some-worker", 0);
+    PlanItem item = PlanItem.create("done-b", ExecutorRef.of("some-worker"), 0);
     item.markRunning();
     item.markCompleted();
     plan().addPlanItem(item);
@@ -398,7 +399,7 @@ class BindingGatingTest {
     // filterToDispatchable benefits RUNNING cases too — prevents re-dispatch of in-flight bindings
     Binding b = binding("in-flight-b");
 
-    PlanItem item = PlanItem.create("in-flight-b", "some-worker", 0);
+    PlanItem item = PlanItem.create("in-flight-b", ExecutorRef.of("some-worker"), 0);
     item.markRunning();
     plan().addPlanItem(item);
 

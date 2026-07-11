@@ -15,9 +15,9 @@
  */
 package io.casehub.persistence.memory;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -53,11 +53,14 @@ public class InMemoryPlanItemStore implements PlanItemStore {
             request.createdAt(),
             request.targetType(),
             request.outputMappingExpression(),
-            tenancyId));
+            tenancyId,
+            request.description(),
+            request.executorName(),
+            request.executorDescription()));
   }
 
   @Override
-  public void updateStatus(String planItemId, PlanItemStatus status) {
+  public void updateStatus(String planItemId, TaskStatus status) {
     records.computeIfPresent(
         planItemId,
         (k, r) ->
@@ -69,7 +72,10 @@ public class InMemoryPlanItemStore implements PlanItemStore {
                 r.createdAt(),
                 r.targetType(),
                 r.outputMappingExpression(),
-                r.tenancyId()));
+                r.tenancyId(),
+                r.description(),
+                r.executorName(),
+                r.executorDescription()));
   }
 
   @Override
@@ -82,14 +88,14 @@ public class InMemoryPlanItemStore implements PlanItemStore {
   @Override
   public List<PlanItemRecord> findDelegated(UUID caseId) {
     return records.values().stream()
-        .filter(r -> caseId.equals(r.caseId()) && r.status() == PlanItemStatus.DELEGATED)
+        .filter(r -> caseId.equals(r.caseId()) && r.status() == TaskStatus.DELEGATED)
         .collect(Collectors.toList());
   }
 
   @Override
   public List<PlanItemRecord> findAllDelegated() {
     return records.values().stream()
-        .filter(r -> r.status() == PlanItemStatus.DELEGATED)
+        .filter(r -> r.status() == TaskStatus.DELEGATED)
         .collect(Collectors.toList());
   }
 }

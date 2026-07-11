@@ -16,13 +16,13 @@
 package io.casehub.blackboard.handler;
 
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.OutcomeDisposition;
 import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -80,7 +80,7 @@ public class WorkerOutcomeResolvedHandler {
     plan.getPlanItemByBindingName(event.bindingName())
         .ifPresent(
             item -> {
-              if (item.getStatus() != PlanItemStatus.RUNNING) {
+              if (item.getStatus() != TaskStatus.RUNNING) {
                 LOG.debugf(
                     "PlanItem for binding '%s' has status %s — not RUNNING, skipping",
                     event.bindingName(), item.getStatus());

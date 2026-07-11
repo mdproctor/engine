@@ -21,11 +21,11 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.NullNode;
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.ledger.api.spi.TrustScoreSource;
@@ -74,15 +74,15 @@ class TrustWeightedAgentStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-busy", 5), candidate("agent-idle", 0));
 
-    final AgentAssignment result = select(candidates);
+    final RoutingResult result = select(candidates);
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-idle");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-idle");
   }
 
   @Test
   void phase0_emptyCandidates_returnsUnresolvable() {
-    assertThat(select(List.of())).isInstanceOf(AgentAssignment.Unresolvable.class);
+    assertThat(select(List.of())).isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   // ---- Phase 1: insufficient observations ---------------------------------
@@ -98,13 +98,13 @@ class TrustWeightedAgentStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-1", 2), candidate("agent-2", 0));
 
-    final AgentAssignment result = select(candidates);
+    final RoutingResult result = select(candidates);
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-2");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-2");
   }
 
-  // ---- Phase 2a: borderline → EscalateToOversight -----------------------
+  // ---- Phase 2a: borderline → Escalated -----------------------
 
   @Test
   void phase2a_singleBorderlineCandidate_escalates() {
@@ -112,12 +112,11 @@ class TrustWeightedAgentStrategyTest {
     when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
     when(source.decisionCount("agent-border", "research")).thenReturn(10);
 
-    final AgentAssignment result = select(List.of(candidate("agent-border", 0)));
+    final RoutingResult result = select(List.of(candidate("agent-border", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName())
-        .isEqualTo("research");
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).capabilityName()).isEqualTo("research");
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
@@ -128,9 +127,9 @@ class TrustWeightedAgentStrategyTest {
         .thenReturn(OptionalDouble.of(0.75));
     when(source.decisionCount("agent-above-border", "research")).thenReturn(10);
 
-    final AgentAssignment result = select(List.of(candidate("agent-above-border", 0)));
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    final RoutingResult result = select(List.of(candidate("agent-above-border", 0)));
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
@@ -141,11 +140,10 @@ class TrustWeightedAgentStrategyTest {
     when(source.capabilityScore("agent-2", "research")).thenReturn(OptionalDouble.of(0.75));
     when(source.decisionCount("agent-2", "research")).thenReturn(10);
 
-    final AgentAssignment result =
-        select(List.of(candidate("agent-1", 0), candidate("agent-2", 0)));
+    final RoutingResult result = select(List.of(candidate("agent-1", 0), candidate("agent-2", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
@@ -157,16 +155,16 @@ class TrustWeightedAgentStrategyTest {
     when(source.capabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.3));
     when(source.decisionCount("agent-low", "research")).thenReturn(10);
 
-    final AgentAssignment result =
+    final RoutingResult result =
         select(List.of(candidate("agent-border", 0), candidate("agent-low", 0)));
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
   @Test
   void phase2a_bootstrapPlusBorderline_bootstrapWins() {
-    // Phase 0 candidate has positive availability score → Assigned, not Escalate
+    // Phase 0 candidate has positive availability score → Selected, not Escalate
     when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
     when(source.decisionCount("agent-border", "research")).thenReturn(10);
     // agent-new has no history → Phase 0
@@ -174,10 +172,10 @@ class TrustWeightedAgentStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-border", 0), candidate("agent-new", 1));
 
-    final AgentAssignment result = select(candidates);
+    final RoutingResult result = select(candidates);
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-new");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-new");
   }
 
   // ---- Phase 2b: below threshold → Unresolvable ---------------------------
@@ -189,7 +187,7 @@ class TrustWeightedAgentStrategyTest {
     when(source.decisionCount("agent-low", "research")).thenReturn(10);
 
     assertThat(select(List.of(candidate("agent-low", 0))))
-        .isInstanceOf(AgentAssignment.Unresolvable.class);
+        .isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   @Test
@@ -197,10 +195,10 @@ class TrustWeightedAgentStrategyTest {
     when(source.capabilityScore("agent-good", "research")).thenReturn(OptionalDouble.of(0.85));
     when(source.decisionCount("agent-good", "research")).thenReturn(10);
 
-    final AgentAssignment result = select(List.of(candidate("agent-good", 0)));
+    final RoutingResult result = select(List.of(candidate("agent-good", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-good");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-good");
   }
 
   // ---- Phase 3: quality floor checks --------------------------------------
@@ -216,10 +214,10 @@ class TrustWeightedAgentStrategyTest {
     when(source.capabilityDimensionScore("agent-1", "research", "thoroughness"))
         .thenReturn(OptionalDouble.of(0.82));
 
-    final AgentAssignment result = select(List.of(candidate("agent-1", 0)));
+    final RoutingResult result = select(List.of(candidate("agent-1", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-1");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-1");
   }
 
   @Test
@@ -234,7 +232,7 @@ class TrustWeightedAgentStrategyTest {
         .thenReturn(OptionalDouble.of(0.60)); // below floor → EXCLUDED_PHASE3
 
     assertThat(select(List.of(candidate("agent-1", 0))))
-        .isInstanceOf(AgentAssignment.Unresolvable.class);
+        .isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   @Test
@@ -247,7 +245,10 @@ class TrustWeightedAgentStrategyTest {
     when(source.decisionCount("agent-1", "research")).thenReturn(10);
     // no dimension data → OptionalDouble.empty() → graceful, not penalised
 
-    assertThat(((AgentAssignment.Assigned) select(List.of(candidate("agent-1", 0)))).workerId())
+    assertThat(
+            ((RoutingResult.Selected) select(List.of(candidate("agent-1", 0))))
+                .single()
+                .executorId())
         .isEqualTo("agent-1");
   }
 
@@ -267,7 +268,7 @@ class TrustWeightedAgentStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-high-trust", 3), candidate("agent-low-trust", 0));
 
-    assertThat(((AgentAssignment.Assigned) select(candidates)).workerId())
+    assertThat(((RoutingResult.Selected) select(candidates)).single().executorId())
         .isEqualTo("agent-low-trust");
   }
 
@@ -285,7 +286,8 @@ class TrustWeightedAgentStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-a", 5), candidate("agent-b", 0));
 
-    assertThat(((AgentAssignment.Assigned) select(candidates)).workerId()).isEqualTo("agent-a");
+    assertThat(((RoutingResult.Selected) select(candidates)).single().executorId())
+        .isEqualTo("agent-a");
   }
 
   @Test
@@ -302,7 +304,8 @@ class TrustWeightedAgentStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-a", 5), candidate("agent-b", 0));
 
-    assertThat(((AgentAssignment.Assigned) select(candidates)).workerId()).isEqualTo("agent-b");
+    assertThat(((RoutingResult.Selected) select(candidates)).single().executorId())
+        .isEqualTo("agent-b");
   }
 
   // ---- All-excluded edge case ---------------------------------------------
@@ -317,7 +320,7 @@ class TrustWeightedAgentStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidate("agent-1", 0), candidate("agent-2", 0));
 
-    assertThat(select(candidates)).isInstanceOf(AgentAssignment.Unresolvable.class);
+    assertThat(select(candidates)).isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   // ---- Bootstrap guard (bootstrapEscalationRequired = true) -----------------------
@@ -327,14 +330,12 @@ class TrustWeightedAgentStrategyTest {
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
     // All candidates: no trust score → BOOTSTRAP phase
 
-    final AgentAssignment result =
-        select(List.of(candidate("agent-1", 0), candidate("agent-2", 1)));
+    final RoutingResult result = select(List.of(candidate("agent-1", 0), candidate("agent-2", 1)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
-    assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName())
-        .isEqualTo("research");
+    assertThat(((RoutingResult.Escalated) result).capabilityName()).isEqualTo("research");
   }
 
   @Test
@@ -345,11 +346,11 @@ class TrustWeightedAgentStrategyTest {
     when(source.decisionCount("agent-border", "research")).thenReturn(10);
     // agent-new: BOOTSTRAP (no score in cache)
 
-    final AgentAssignment result =
+    final RoutingResult result =
         select(List.of(candidate("agent-border", 0), candidate("agent-new", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
   }
 
@@ -361,11 +362,11 @@ class TrustWeightedAgentStrategyTest {
     when(source.decisionCount("agent-low", "research")).thenReturn(10);
     // agent-new: BOOTSTRAP
 
-    final AgentAssignment result =
+    final RoutingResult result =
         select(List.of(candidate("agent-low", 0), candidate("agent-new", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
   }
 
@@ -377,11 +378,12 @@ class TrustWeightedAgentStrategyTest {
     when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
     // agent-new: BOOTSTRAP, 0 jobs (would outscore QUALIFIED by workload without stripping)
 
-    final AgentAssignment result =
+    final RoutingResult result =
         select(List.of(candidate("agent-qualified", 2), candidate("agent-new", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId())
+        .isEqualTo("agent-qualified");
   }
 
   @Test
@@ -392,11 +394,12 @@ class TrustWeightedAgentStrategyTest {
     when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
     when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
 
-    final AgentAssignment result =
+    final RoutingResult result =
         select(List.of(candidate("agent-qualified", 5), candidate("agent-new", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId())
+        .isEqualTo("agent-qualified");
   }
 
   @Test
@@ -411,15 +414,16 @@ class TrustWeightedAgentStrategyTest {
     when(source.decisionCount("agent-border", "research")).thenReturn(10);
     // agent-new: BOOTSTRAP
 
-    final AgentAssignment result =
+    final RoutingResult result =
         select(
             List.of(
                 candidate("agent-qualified", 0),
                 candidate("agent-border", 0),
                 candidate("agent-new", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId())
+        .isEqualTo("agent-qualified");
   }
 
   @Test
@@ -431,10 +435,10 @@ class TrustWeightedAgentStrategyTest {
     when(source.capabilityScore("agent-lower", "research")).thenReturn(OptionalDouble.of(0.3));
     when(source.decisionCount("agent-lower", "research")).thenReturn(10);
 
-    final AgentAssignment result =
+    final RoutingResult result =
         select(List.of(candidate("agent-low", 0), candidate("agent-lower", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.Unresolvable.class);
+    assertThat(result).isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   @Test
@@ -442,16 +446,16 @@ class TrustWeightedAgentStrategyTest {
     // bootstrapEscalationRequired = false: pre-screen skipped; existing behaviour preserved
     when(policyProvider.forCapability("research")).thenReturn(DEFAULT_POLICY);
 
-    final AgentAssignment result =
+    final RoutingResult result =
         select(List.of(candidate("agent-busy", 5), candidate("agent-idle", 0)));
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-idle");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-idle");
   }
 
   // ---- Helpers ------------------------------------------------------------
 
-  private AgentAssignment select(final List<AgentCandidate> candidates) {
+  private RoutingResult select(final List<AgentCandidate> candidates) {
     return strategy.select(ctx, candidates).await().indefinitely();
   }
 

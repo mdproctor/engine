@@ -22,12 +22,13 @@ import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -244,7 +245,7 @@ class StageBlackboardTest {
               assertThat(itemOpt).isPresent();
               assertThat(itemOpt.get().getStatus())
                   .as("PlanItem must be COMPLETED once the worker has finished")
-                  .isEqualTo(PlanItemStatus.COMPLETED);
+                  .isEqualTo(TaskStatus.COMPLETED);
             });
 
     // The stage was activated before signalling and the PlanItem is COMPLETED.
@@ -272,7 +273,8 @@ class StageBlackboardTest {
     CasePlanModel plan = registry.get(caseId).get();
 
     // Add a synthetic PlanItem directly — not linked to any real worker
-    PlanItem syntheticItem = PlanItem.create("synthetic-binding", "synthetic-worker", 0);
+    PlanItem syntheticItem =
+        PlanItem.create("synthetic-binding", ExecutorRef.of("synthetic-worker"), 0);
     plan.addPlanItem(syntheticItem);
 
     Stage stage = Stage.alwaysActivate("no-autocomplete-stage").withAutocomplete(false);

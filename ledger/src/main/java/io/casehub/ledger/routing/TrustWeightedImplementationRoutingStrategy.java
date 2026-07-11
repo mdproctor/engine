@@ -15,13 +15,13 @@
  */
 package io.casehub.ledger.routing;
 
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.ImplementationCandidate;
 import io.casehub.api.spi.routing.ImplementationRoutingContext;
 import io.casehub.api.spi.routing.ImplementationRoutingStrategy;
 import io.casehub.api.spi.routing.ImplementationSelection;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.ledger.api.spi.TrustScoreSource;
@@ -150,19 +150,19 @@ public class TrustWeightedImplementationRoutingStrategy implements Implementatio
     }
 
     // Get decision from classifier
-    final AgentAssignment assignment =
+    final RoutingResult assignment =
         classifier.decide(classified, scored, context.capabilityName());
 
-    // Map AgentAssignment → ImplementationSelection
+    // Map RoutingResult → ImplementationSelection
     final ImplementationSelection selection =
         switch (assignment) {
-          case AgentAssignment.Assigned a -> {
-            final ImplementationCandidate winner = byWorker.get(a.workerId());
+          case RoutingResult.Selected s -> {
+            final ImplementationCandidate winner = byWorker.get(s.single().executorId());
             yield new ImplementationSelection.Selected(List.of(winner.bindingName()));
           }
-          case AgentAssignment.Unresolvable ignored ->
+          case RoutingResult.Unresolvable ignored ->
               new ImplementationSelection.Selected(List.of(resolveFallback(policy, candidates)));
-          case AgentAssignment.EscalateToOversight ignored ->
+          case RoutingResult.Escalated ignored ->
               new ImplementationSelection.Selected(List.of(resolveFallback(policy, candidates)));
         };
 

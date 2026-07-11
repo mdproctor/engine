@@ -15,9 +15,9 @@
  */
 package io.casehub.persistence.memory;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.common.spi.ReactivePlanItemStore;
 import io.smallrye.mutiny.Uni;
@@ -47,7 +47,7 @@ public class InMemoryReactivePlanItemStore implements ReactivePlanItemStore {
   }
 
   @Override
-  public Uni<Void> updateStatus(String planItemId, PlanItemStatus status) {
+  public Uni<Void> updateStatus(String planItemId, TaskStatus status) {
     delegate.updateStatus(planItemId, status);
     return Uni.createFrom().voidItem();
   }

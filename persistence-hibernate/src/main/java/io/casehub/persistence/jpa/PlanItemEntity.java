@@ -15,7 +15,7 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.TargetType;
 import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import jakarta.persistence.Column;
@@ -50,7 +50,7 @@ public class PlanItemEntity extends PanacheEntity {
 
   @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 50)
-  public PlanItemStatus status;
+  public TaskStatus status;
 
   @Column(name = "created_at", nullable = false)
   public Instant createdAt;
@@ -64,4 +64,13 @@ public class PlanItemEntity extends PanacheEntity {
 
   @Column(name = "tenancy_id", nullable = false, length = 64)
   public String tenancyId;
+
+  @Column(name = "description", length = 1000)
+  public String description;
+
+  @Column(name = "executor_name", length = 255)
+  public String executorName;
+
+  @Column(name = "executor_description", length = 1000)
+  public String executorDescription;
 }

@@ -15,9 +15,9 @@
  */
 package io.casehub.persistence.jpa;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.ReactivePlanItemStore;
 import io.quarkus.panache.common.Parameters;
 import io.smallrye.mutiny.Uni;
@@ -43,12 +43,15 @@ public class JpaReactivePlanItemStore extends TenantAwareRepository
           e.createdAt = request.createdAt();
           e.targetType = request.targetType();
           e.outputMappingExpression = request.outputMappingExpression();
+          e.description = request.description();
+          e.executorName = request.executorName();
+          e.executorDescription = request.executorDescription();
           return e.persist().replaceWithVoid();
         });
   }
 
   @Override
-  public Uni<Void> updateStatus(String planItemId, PlanItemStatus status) {
+  public Uni<Void> updateStatus(String planItemId, TaskStatus status) {
     return withTenantTransaction(
         () ->
             // Flush pending inserts so the JPQL UPDATE can see entities persisted
@@ -79,7 +82,7 @@ public class JpaReactivePlanItemStore extends TenantAwareRepository
     return withTenantTransaction(
         () ->
             PlanItemEntity.<PlanItemEntity>find(
-                    "caseId = ?1 AND status = ?2", caseId, PlanItemStatus.DELEGATED)
+                    "caseId = ?1 AND status = ?2", caseId, TaskStatus.DELEGATED)
                 .list()
                 .map(list -> list.stream().map(this::toRecord).collect(Collectors.toList())));
   }
@@ -89,7 +92,7 @@ public class JpaReactivePlanItemStore extends TenantAwareRepository
     // Recovery path: needs all tenants — startup only
     return withCrossTenantTransaction(
         () ->
-            PlanItemEntity.<PlanItemEntity>find("status", PlanItemStatus.DELEGATED)
+            PlanItemEntity.<PlanItemEntity>find("status", TaskStatus.DELEGATED)
                 .list()
                 .map(list -> list.stream().map(this::toRecord).collect(Collectors.toList())));
   }
@@ -103,6 +106,9 @@ public class JpaReactivePlanItemStore extends TenantAwareRepository
         e.createdAt,
         e.targetType,
         e.outputMappingExpression,
-        e.tenancyId);
+        e.tenancyId,
+        e.description,
+        e.executorName,
+        e.executorDescription);
   }
 }

@@ -16,7 +16,10 @@
 package io.casehub.blackboard.plan;
 
 import io.casehub.api.model.BindingTarget;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.TaskDescriptor;
+import io.casehub.api.model.TaskStatus;
+import jakarta.annotation.Nullable;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
@@ -29,54 +32,73 @@ import java.util.concurrent.atomic.AtomicReference;
  * <p>Priority is assigned by {@link io.casehub.blackboard.control.PlanningStrategy}. Status is
  * updated by {@link io.casehub.blackboard.handler.PlanItemCompletionHandler} on worker completion.
  * Implements {@link Comparable} for priority-ordered sorting (higher priority first; FIFO for equal
- * priority). See casehubio/engine#76.
+ * priority). Implements {@link TaskDescriptor} as the shared behavioral interface for any
+ * coordination model's work unit.
  */
-public class PlanItem implements Comparable<PlanItem> {
+public class PlanItem implements Comparable<PlanItem>, TaskDescriptor {
 
   private final String planItemId;
   private final String bindingName;
-  private final String workerName;
+  private final ExecutorRef executor;
   private final int priority;
-  private final AtomicReference<PlanItemStatus> status;
+  private final AtomicReference<TaskStatus> status;
   private final Instant createdAt;
-  private String parentStageId; // null means no parent stage
+  private String parentStageId;
   private final BindingTarget target;
+  private final String description;
 
-  private PlanItem(String bindingName, String workerName, int priority, BindingTarget target) {
+  private PlanItem(
+      String bindingName,
+      ExecutorRef executor,
+      int priority,
+      BindingTarget target,
+      String description) {
     this.planItemId = UUID.randomUUID().toString();
     this.bindingName = bindingName;
-    this.workerName = workerName;
+    this.executor = executor;
     this.priority = priority;
-    this.status = new AtomicReference<>(PlanItemStatus.PENDING);
+    this.status = new AtomicReference<>(TaskStatus.PENDING);
     this.createdAt = Instant.now();
     this.parentStageId = null;
     this.target = target;
+    this.description = description;
   }
 
-  /** For restoration from persistent store. Allows setting a specific planItemId and status. */
   private PlanItem(
       String planItemId,
       String bindingName,
+      ExecutorRef executor,
       BindingTarget target,
-      PlanItemStatus status,
-      Instant createdAt) {
+      TaskStatus status,
+      Instant createdAt,
+      String description) {
     this.planItemId = planItemId;
     this.bindingName = bindingName;
-    this.workerName = null;
+    this.executor = executor;
     this.priority = 0;
     this.target = target;
     this.status = new AtomicReference<>(status);
     this.createdAt = createdAt;
     this.parentStageId = null;
+    this.description = description;
   }
 
-  public static PlanItem create(String bindingName, String workerName, int priority) {
-    return new PlanItem(bindingName, workerName, priority, null);
+  public static PlanItem create(String bindingName, ExecutorRef executor, int priority) {
+    return new PlanItem(bindingName, executor, priority, null, null);
   }
 
   public static PlanItem create(
-      String bindingName, String workerName, int priority, BindingTarget target) {
-    return new PlanItem(bindingName, workerName, priority, target);
+      String bindingName, ExecutorRef executor, int priority, BindingTarget target) {
+    return new PlanItem(bindingName, executor, priority, target, null);
+  }
+
+  public static PlanItem create(
+      String bindingName,
+      ExecutorRef executor,
+      int priority,
+      BindingTarget target,
+      String description) {
+    return new PlanItem(bindingName, executor, priority, target, description);
   }
 
   /**
@@ -90,14 +112,26 @@ public class PlanItem implements Comparable<PlanItem> {
   public static PlanItem restore(
       String planItemId,
       String bindingName,
+      @Nullable ExecutorRef executor,
       BindingTarget target,
-      PlanItemStatus status,
+      TaskStatus status,
       Instant createdAt) {
-    if (status != PlanItemStatus.RUNNING && status != PlanItemStatus.DELEGATED) {
+    return restore(planItemId, bindingName, executor, target, status, createdAt, null);
+  }
+
+  public static PlanItem restore(
+      String planItemId,
+      String bindingName,
+      @Nullable ExecutorRef executor,
+      BindingTarget target,
+      TaskStatus status,
+      Instant createdAt,
+      String description) {
+    if (status != TaskStatus.RUNNING && status != TaskStatus.DELEGATED) {
       throw new IllegalArgumentException(
           "restore() only valid for RUNNING or DELEGATED status, got: " + status);
     }
-    return new PlanItem(planItemId, bindingName, target, status, createdAt);
+    return new PlanItem(planItemId, bindingName, executor, target, status, createdAt, description);
   }
 
   @Override
@@ -107,6 +141,38 @@ public class PlanItem implements Comparable<PlanItem> {
     return this.createdAt.compareTo(other.createdAt); // earlier first
   }
 
+  // ── TaskDescriptor implementation ─────────────────────────────────────────
+
+  @Override
+  public String id() {
+    return planItemId;
+  }
+
+  @Override
+  @Nullable
+  public String description() {
+    return description;
+  }
+
+  @Override
+  @Nullable
+  public ExecutorRef executor() {
+    return executor;
+  }
+
+  @Override
+  public TaskStatus status() {
+    return status.get();
+  }
+
+  @Override
+  public Instant createdAt() {
+    return createdAt;
+  }
+
+  // ── Legacy accessors (prefer TaskDescriptor methods) ──────────────────────
+
+  @Deprecated
   public String getPlanItemId() {
     return planItemId;
   }
@@ -115,40 +181,34 @@ public class PlanItem implements Comparable<PlanItem> {
     return bindingName;
   }
 
-  public String getWorkerName() {
-    return workerName;
+  @Nullable
+  public String executorName() {
+    return executor != null ? executor.name() : null;
   }
 
   public int getPriority() {
     return priority;
   }
 
-  public PlanItemStatus getStatus() {
+  public TaskStatus getStatus() {
     return status.get();
   }
 
-  /**
-   * Atomic CAS PENDING → RUNNING. Returns true if the caller won the race, false otherwise. Use
-   * this in concurrent dispatch paths to prevent double-dispatch.
-   */
+  // ── State transitions ─────────────────────────────────────────────────────
+
   public boolean tryMarkRunning() {
-    return status.compareAndSet(PlanItemStatus.PENDING, PlanItemStatus.RUNNING);
+    return status.compareAndSet(TaskStatus.PENDING, TaskStatus.RUNNING);
   }
 
-  /** Transitions PENDING → RUNNING. For CapabilityTarget only — a Quartz job is executing. */
   public void markRunning() {
-    if (!status.compareAndSet(PlanItemStatus.PENDING, PlanItemStatus.RUNNING)) {
+    if (!status.compareAndSet(TaskStatus.PENDING, TaskStatus.RUNNING)) {
       throw new IllegalStateException(
           "Cannot transition to RUNNING from " + status.get() + " (planItemId=" + planItemId + ")");
     }
   }
 
-  /**
-   * Transitions PENDING → DELEGATED. For SubCaseTarget, HumanTaskTarget, ExtensionTarget — control
-   * has passed to an external actor and the engine is waiting for a completion signal.
-   */
   public void markDelegated() {
-    if (!status.compareAndSet(PlanItemStatus.PENDING, PlanItemStatus.DELEGATED)) {
+    if (!status.compareAndSet(TaskStatus.PENDING, TaskStatus.DELEGATED)) {
       throw new IllegalStateException(
           "Cannot transition to DELEGATED from "
               + status.get()
@@ -158,22 +218,20 @@ public class PlanItem implements Comparable<PlanItem> {
     }
   }
 
-  /** Transitions RUNNING or DELEGATED → COMPLETED. */
   public void markCompleted() {
     while (true) {
-      PlanItemStatus current = status.get();
-      if (current != PlanItemStatus.RUNNING && current != PlanItemStatus.DELEGATED) {
+      TaskStatus current = status.get();
+      if (current != TaskStatus.RUNNING && current != TaskStatus.DELEGATED) {
         throw new IllegalStateException(
             "Cannot transition to COMPLETED from " + current + " (planItemId=" + planItemId + ")");
       }
-      if (status.compareAndSet(current, PlanItemStatus.COMPLETED)) return;
+      if (status.compareAndSet(current, TaskStatus.COMPLETED)) return;
     }
   }
 
-  /** Transitions to FAULTED from any active state. Throws if already terminal. */
   public void markFaulted() {
     while (true) {
-      PlanItemStatus current = status.get();
+      TaskStatus current = status.get();
       if (current.isTerminal()) {
         throw new IllegalStateException(
             "Cannot fault a terminal PlanItem (status="
@@ -182,21 +240,12 @@ public class PlanItem implements Comparable<PlanItem> {
                 + planItemId
                 + ")");
       }
-      if (status.compareAndSet(current, PlanItemStatus.FAULTED)) return;
+      if (status.compareAndSet(current, TaskStatus.FAULTED)) return;
     }
   }
 
-  /**
-   * Transitions DELEGATED → REJECTED.
-   *
-   * <p>DELEGATED-only: only human task refusals ({@code WorkItemStatus.REJECTED}) and M-of-N group
-   * threshold failures ({@code GroupStatus.REJECTED} on human task SpawnGroups) reach this path.
-   * CapabilityTarget PlanItems are always RUNNING — they fault via retry exhaustion, never via
-   * rejection. If a group-of-capability-targets path is added in future, this guard must be
-   * revisited to allow RUNNING → REJECTED.
-   */
   public void markRejected() {
-    if (!status.compareAndSet(PlanItemStatus.DELEGATED, PlanItemStatus.REJECTED)) {
+    if (!status.compareAndSet(TaskStatus.DELEGATED, TaskStatus.REJECTED)) {
       throw new IllegalStateException(
           "Cannot transition to REJECTED from "
               + status.get()
@@ -206,10 +255,9 @@ public class PlanItem implements Comparable<PlanItem> {
     }
   }
 
-  /** Obsoletes from any active state. Throws if already terminal. */
   public void markObsolete() {
     while (true) {
-      PlanItemStatus current = status.get();
+      TaskStatus current = status.get();
       if (current.isTerminal()) {
         throw new IllegalStateException(
             "Cannot obsolete a terminal PlanItem (status="
@@ -218,30 +266,27 @@ public class PlanItem implements Comparable<PlanItem> {
                 + planItemId
                 + ")");
       }
-      if (status.compareAndSet(current, PlanItemStatus.OBSOLETE)) return;
+      if (status.compareAndSet(current, TaskStatus.OBSOLETE)) return;
     }
   }
 
-  /** Suspends from DELEGATED only. Workers and unscheduled items cannot be suspended. */
   public void markSuspended() {
-    if (!status.compareAndSet(PlanItemStatus.DELEGATED, PlanItemStatus.SUSPENDED)) {
+    if (!status.compareAndSet(TaskStatus.DELEGATED, TaskStatus.SUSPENDED)) {
       throw new IllegalStateException(
           "Cannot suspend from " + status.get() + " (planItemId=" + planItemId + ")");
     }
   }
 
-  /** Resumes from SUSPENDED → DELEGATED. */
   public void markResumed() {
-    if (!status.compareAndSet(PlanItemStatus.SUSPENDED, PlanItemStatus.DELEGATED)) {
+    if (!status.compareAndSet(TaskStatus.SUSPENDED, TaskStatus.DELEGATED)) {
       throw new IllegalStateException(
           "Cannot resume from " + status.get() + " (planItemId=" + planItemId + ")");
     }
   }
 
-  /** Cancels from any active state. Throws if already terminal. */
   public void markCancelled() {
     while (true) {
-      PlanItemStatus current = status.get();
+      TaskStatus current = status.get();
       if (current.isTerminal()) {
         throw new IllegalStateException(
             "Cannot cancel a terminal PlanItem (status="
@@ -250,8 +295,14 @@ public class PlanItem implements Comparable<PlanItem> {
                 + planItemId
                 + ")");
       }
-      if (status.compareAndSet(current, PlanItemStatus.CANCELLED)) return;
+      if (status.compareAndSet(current, TaskStatus.CANCELLED)) return;
     }
+  }
+
+  // ── Other accessors ───────────────────────────────────────────────────────
+
+  public String getDescription() {
+    return description;
   }
 
   public BindingTarget getTarget() {

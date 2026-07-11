@@ -23,11 +23,11 @@ import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.NullNode;
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.eidos.api.AgentCapability;
@@ -85,59 +85,49 @@ class SemanticAgentRoutingStrategyTest {
 
   @Test
   void bootstrapCandidates_selectedByWorkloadOnly_notBySemantic() {
-    // BOOTSTRAP candidates (no trust history) score by workload only — semantic is not applied.
-    // The idle candidate wins regardless of semantic similarity.
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed(any())).thenReturn(new float[] {1.0f, 0.0f});
 
-    // agent-idle has 0 jobs, agent-busy has 3; both bootstrap → workload decides
     final List<AgentCandidate> candidates =
         List.of(
             candidateWithDescriptor("agent-idle", 0, "idle"),
             candidateWithDescriptor("agent-busy", 3, "busy"));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-idle");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-idle");
   }
 
   @Test
   void qualifiedCandidates_semanticAndTrustCombined() {
-    // agent-a: trust=0.85 (qualified), semantic similarity high
-    // agent-b: trust=0.82 (qualified), semantic similarity low
     when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.85));
     when(source.decisionCount("agent-a", "research")).thenReturn(10);
     when(source.capabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.82));
     when(source.decisionCount("agent-b", "research")).thenReturn(10);
 
-    // Use sequential returns:
-    // call 1: query text (JQ fallback = capability name)
-    // call 2: agent-a vocabulary (high similarity to query)
-    // call 3: agent-b vocabulary (low similarity to query)
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(
             ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("data science"))));
     when(embeddingProvider.embed(any()))
-        .thenReturn(new float[] {1.0f, 0.0f}) // query vector
-        .thenReturn(new float[] {0.98f, 0.02f}) // agent-a: high cosine similarity
-        .thenReturn(new float[] {0.1f, 0.99f}); // agent-b: low cosine similarity
+        .thenReturn(new float[] {1.0f, 0.0f})
+        .thenReturn(new float[] {0.98f, 0.02f})
+        .thenReturn(new float[] {0.1f, 0.99f});
 
     final List<AgentCandidate> candidates =
         List.of(
             candidateWithDescriptor("agent-a", 0, "agent-a"),
             candidateWithDescriptor("agent-b", 0, "agent-b"));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-a");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-a");
   }
 
   @Test
   void allBorderlineCandidates_escalates() {
-    // Both candidates are borderline — should escalate just like TrustWeightedAgentStrategy
     when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.65));
     when(source.decisionCount("agent-1", "research")).thenReturn(10);
     when(source.capabilityScore("agent-2", "research")).thenReturn(OptionalDouble.of(0.75));
@@ -148,16 +138,15 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-1", 0, "agent-1"),
             candidateWithDescriptor("agent-2", 0, "agent-2"));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
   @Test
   void nullDescriptor_treatedAsBootstrap() {
-    // Candidate without descriptor → bootstrap → availability routing only
     final AgentCandidate noDescriptor =
         new AgentCandidate("agent-x", Set.of("research"), 1, AgentHealth.READY, null, null);
 
@@ -165,59 +154,52 @@ class SemanticAgentRoutingStrategyTest {
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed("research")).thenReturn(new float[] {1.0f, 0.0f});
 
-    final AgentAssignment result =
+    final RoutingResult result =
         strategy.select(ctx(), List.of(noDescriptor)).await().indefinitely();
 
-    // Bootstrap candidates get availability score (positive) → Assigned
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-x");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-x");
   }
 
   @Test
   void nullCaseContext_fallsBackToCapabilityName() {
-    // NullNode context → JQ returns empty → fallback to capability name for embedding
     when(jqEvaluator.eval(anyString(), any())).thenReturn(ValidationResult.ok(List.of()));
     when(embeddingProvider.embed("research")).thenReturn(new float[] {1.0f, 0.0f});
     when(embeddingProvider.embed(vocabularyText("agent-x"))).thenReturn(new float[] {0.9f, 0.1f});
 
     final AgentCandidate candidate = candidateWithDescriptor("agent-x", 0, "agent-x");
-    final AgentAssignment result =
-        strategy.select(ctx(), List.of(candidate)).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), List.of(candidate)).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
   }
 
   @Test
   void emptyCandidates_returnsUnresolvable() {
     assertThat(strategy.select(ctx(), List.of()).await().indefinitely())
-        .isInstanceOf(AgentAssignment.Unresolvable.class);
+        .isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   // ---- Bootstrap guard (bootstrapEscalationRequired = true) -----------------------
 
   @Test
   void bootstrap_noQualified_allBootstrap_escalatesNoQualifiedAgent() {
-    // Pre-screen fires BEFORE emitOn(workerPool) — no embedding cost
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
-    // Both candidates: no trust score → BOOTSTRAP phase
 
     final List<AgentCandidate> candidates =
         List.of(
             new AgentCandidate("agent-1", Set.of("research"), 0, AgentHealth.READY, null, null),
             new AgentCandidate("agent-2", Set.of("research"), 1, AgentHealth.READY, null, null));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
-    assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName())
-        .isEqualTo("research");
+    assertThat(((RoutingResult.Escalated) result).capabilityName()).isEqualTo("research");
   }
 
   @Test
   void bootstrap_noQualified_bootstrapPlusBorderline_escalatesNoQualifiedAgent() {
-    // Mixed-pool gap: BOOTSTRAP + BORDERLINE → pre-screen fires, no embedding cost
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
     when(source.capabilityScore("agent-border", "research")).thenReturn(OptionalDouble.of(0.65));
     when(source.decisionCount("agent-border", "research")).thenReturn(10);
@@ -227,10 +209,10 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-border", 0, "agent-b"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
   }
 
@@ -245,40 +227,38 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-low", 0, "agent-l"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.NO_QUALIFIED_AGENT);
   }
 
   @Test
   void bootstrap_qualifiedExists_bootstrapStripped_qualifiedAssigned() {
-    // QUALIFIED exists → pre-screen skips, enters worker pool; BOOTSTRAP stripped from eligible
-    // Embedding mocks needed because QUALIFIED candidate triggers semantic scoring
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
     when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
     when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed(any()))
-        .thenReturn(new float[] {1.0f, 0.0f}) // query vector
-        .thenReturn(new float[] {0.9f, 0.1f}); // agent-qualified descriptor
+        .thenReturn(new float[] {1.0f, 0.0f})
+        .thenReturn(new float[] {0.9f, 0.1f});
 
     final List<AgentCandidate> candidates =
         List.of(
             candidateWithDescriptor("agent-qualified", 2, "agent-q"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId())
+        .isEqualTo("agent-qualified");
   }
 
   @Test
   void bootstrap_qualifiedExists_bootstrapStripped_busyQualifiedWinsOverIdleBootstrap() {
-    // Explicit: flag overrides workload comparison. Busy QUALIFIED beats idle BOOTSTRAP.
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
     when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
     when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
@@ -293,16 +273,15 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-qualified", 5, "agent-q"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId())
+        .isEqualTo("agent-qualified");
   }
 
   @Test
   void bootstrap_qualifiedExists_bootstrapPlusBorderline_qualifiedWins_noBorderlineStalemate() {
-    // [BOOTSTRAP, QUALIFIED, BORDERLINE]: BOOTSTRAP stripped; eligible=[QUALIFIED, BORDERLINE]
-    // QUALIFIED wins positive score; BORDERLINE_STALEMATE must NOT fire
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
     when(source.capabilityScore("agent-qualified", "research")).thenReturn(OptionalDouble.of(0.85));
     when(source.decisionCount("agent-qualified", "research")).thenReturn(10);
@@ -312,7 +291,7 @@ class SemanticAgentRoutingStrategyTest {
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed(any()))
         .thenReturn(new float[] {1.0f, 0.0f})
-        .thenReturn(new float[] {0.9f, 0.1f}); // QUALIFIED descriptor only; BORDERLINE scores 0.0
+        .thenReturn(new float[] {0.9f, 0.1f});
 
     final List<AgentCandidate> candidates =
         List.of(
@@ -320,10 +299,11 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-border", 0, "agent-b"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-qualified");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId())
+        .isEqualTo("agent-qualified");
   }
 
   @Test
@@ -331,7 +311,6 @@ class SemanticAgentRoutingStrategyTest {
     when(policyProvider.forCapability("research")).thenReturn(BOOTSTRAP_GUARD_POLICY);
     when(source.capabilityScore("agent-low", "research")).thenReturn(OptionalDouble.of(0.5));
     when(source.decisionCount("agent-low", "research")).thenReturn(10);
-    // EXCLUDED_PHASE2B: scores 0.0 — still enters worker pool, query text gets embedded
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed(any())).thenReturn(new float[] {1.0f, 0.0f});
@@ -339,14 +318,13 @@ class SemanticAgentRoutingStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidateWithDescriptor("agent-low", 0, "agent-l"));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.Unresolvable.class);
+    assertThat(result).isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   @Test
   void bootstrap_flagFalse_allBootstrap_assignsByWorkload() {
-    // POLICY has bootstrapEscalationRequired = false; pre-screen skipped; existing behaviour
     when(jqEvaluator.eval(anyString(), any()))
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed(any())).thenReturn(new float[] {1.0f, 0.0f});
@@ -356,10 +334,10 @@ class SemanticAgentRoutingStrategyTest {
             new AgentCandidate("agent-busy", Set.of("research"), 5, AgentHealth.READY, null, null),
             new AgentCandidate("agent-idle", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final AgentAssignment result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-idle");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-idle");
   }
 
   // ---- Helpers ---------------------------------------------------------------

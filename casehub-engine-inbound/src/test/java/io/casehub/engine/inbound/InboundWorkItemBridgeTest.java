@@ -144,7 +144,8 @@ class InboundWorkItemBridgeTest {
         "sender-id",
         "corr-id-1",
         Instant.now(),
-        "{\"msg\":\"hello\"}");
+        "{\"msg\":\"hello\"}",
+        null);
   }
 
   private static WorkItemCreateRequest minimalRequest() {
@@ -234,7 +235,8 @@ class InboundWorkItemBridgeTest {
             "sender",
             "corr-a",
             Instant.now(),
-            "{}");
+            "{}",
+            null);
     final MessageReceivedEvent channelB =
         new MessageReceivedEvent(
             "channel-b",
@@ -244,7 +246,8 @@ class InboundWorkItemBridgeTest {
             "sender",
             "corr-b",
             Instant.now(),
-            "{}");
+            "{}",
+            null);
 
     bridge.onMessage(channelA);
     assertThat(RecordingPolicy.lastEvent.channelName()).isEqualTo("channel-a");

@@ -13,21 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.model;
+package io.casehub.api.model;
 
-import io.casehub.api.model.TaskStatus;
-import java.time.Instant;
-import java.util.UUID;
+import jakarta.annotation.Nullable;
 
-public record PlanItemSaveRequest(
-    UUID caseId,
-    String planItemId,
-    String bindingName,
-    TaskStatus status,
-    Instant createdAt,
-    TargetType targetType,
-    String outputMappingExpression,
-    String tenancyId,
-    String description,
-    String executorName,
-    String executorDescription) {}
+record SimpleExecutorRef(String name, @Nullable String description) implements ExecutorRef {
+  SimpleExecutorRef {
+    java.util.Objects.requireNonNull(name, "name");
+  }
+}

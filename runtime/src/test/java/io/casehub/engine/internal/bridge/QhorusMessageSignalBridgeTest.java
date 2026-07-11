@@ -293,6 +293,7 @@ class QhorusMessageSignalBridgeTest {
             "sender-1",
             null,
             Instant.now(),
+            null,
             null));
     verifyNoInteractions(runtime);
     verifyNoInteractions(eventBus);
@@ -325,7 +326,8 @@ class QhorusMessageSignalBridgeTest {
             "human-operator",
             "corr-xyz",
             Instant.now(),
-            "approved");
+            "approved",
+            null);
 
     bridge.onMessage(event);
 
@@ -367,7 +369,8 @@ class QhorusMessageSignalBridgeTest {
         senderId,
         correlationId,
         Instant.now(),
-        type == MessageType.EVENT ? null : content);
+        type == MessageType.EVENT ? null : content,
+        null);
   }
 
   private void stubEventLog(

@@ -15,9 +15,9 @@
  */
 package io.casehub.blackboard.store;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -36,7 +36,7 @@ public class NoOpPlanItemStore implements PlanItemStore {
   public void save(PlanItemSaveRequest request, String tenancyId) {}
 
   @Override
-  public void updateStatus(String planItemId, PlanItemStatus status) {}
+  public void updateStatus(String planItemId, TaskStatus status) {}
 
   @Override
   public List<PlanItemRecord> findByCaseId(UUID caseId, String tenancyId) {

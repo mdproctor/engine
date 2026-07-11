@@ -25,6 +25,8 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.engine.CaseHubRuntime;
+import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.SubCaseExecutionCompleted;
@@ -35,7 +37,6 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.GroupStatus;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
@@ -184,7 +185,7 @@ class SubCaseCompletionServiceTest {
     // Set up a DELEGATED plan item in the registry
     DefaultCasePlanModel plan =
         (DefaultCasePlanModel) registry.getOrCreate(parentCaseId, "test-tenant");
-    PlanItem subcaseItem = PlanItem.create("spawn-sites", "unknown", 0);
+    PlanItem subcaseItem = PlanItem.create("spawn-sites", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(subcaseItem);
     subcaseItem.markDelegated();
     registry.indexForCompletion(parentCaseId, childCaseId.toString(), subcaseItem.getPlanItemId());
@@ -193,6 +194,6 @@ class SubCaseCompletionServiceTest {
 
     assertThat(subcaseItem.getStatus())
         .as("M-of-N REJECTED must cancel the SubCase PlanItem for observability")
-        .isEqualTo(PlanItemStatus.CANCELLED);
+        .isEqualTo(TaskStatus.CANCELLED);
   }
 }

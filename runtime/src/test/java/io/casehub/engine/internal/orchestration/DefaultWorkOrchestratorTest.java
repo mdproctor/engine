@@ -29,11 +29,11 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.CandidateMatchingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.eidos.api.CapabilityHealth.CapabilityStatus;
@@ -128,7 +128,7 @@ class DefaultWorkOrchestratorTest {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
+            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
 
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of("doc", "x")));
 
@@ -140,7 +140,7 @@ class DefaultWorkOrchestratorTest {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
+            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
 
     final CompletableFuture<WorkResult> future =
         orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -153,7 +153,7 @@ class DefaultWorkOrchestratorTest {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
+            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
 
     orchestrator.submitAndWait(instance, WorkRequest.of("analyse", Map.of("doc", "x")));
 
@@ -167,7 +167,7 @@ class DefaultWorkOrchestratorTest {
   void submit_strategyReturnsUnresolvable_failsFuture() {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available")));
+        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
 
     final var future =
         orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -183,7 +183,7 @@ class DefaultWorkOrchestratorTest {
         .thenReturn(
             Uni.createFrom()
                 .item(
-                    AgentAssignment.escalate(
+                    RoutingResult.escalate(
                         "analyse",
                         EscalationReason.BORDERLINE_STALEMATE,
                         "all candidates borderline")));
@@ -241,7 +241,7 @@ class DefaultWorkOrchestratorTest {
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityStatus.Unavailable("model offline"));
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available")));
+        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
 
     final CaseInstance instance = runningInstanceWithAgentWorker("analyse");
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -259,7 +259,7 @@ class DefaultWorkOrchestratorTest {
         .thenReturn(new CapabilityStatus.EpistemicallyWeak("rust", 0.25));
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom().item(AgentAssignment.assign("agent-worker", "selected by test")));
+            Uni.createFrom().item(RoutingResult.assigned("agent-worker", "selected by test")));
 
     final CaseInstance instance = runningInstanceWithAgentWorker("analyse");
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
@@ -279,7 +279,7 @@ class DefaultWorkOrchestratorTest {
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityStatus.Unavailable("all offline"));
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available")));
+        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
 
     final CaseInstance instance = runningInstanceWithAgentWorker("analyse");
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -294,7 +294,7 @@ class DefaultWorkOrchestratorTest {
   void probe_noDescriptor_probeSkipped_workerUsesReadyHealth() {
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
+            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
 
     final CaseInstance instance = runningInstance("analyse");
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));

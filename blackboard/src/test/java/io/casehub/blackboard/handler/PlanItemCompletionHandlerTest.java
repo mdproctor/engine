@@ -23,6 +23,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
@@ -31,7 +33,6 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
@@ -81,14 +82,14 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void marks_plan_item_completed_on_worker_finish() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
 
     handler.onWorkerFinished(eventFor("worker-a"));
 
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
   }
 
   @Test
@@ -98,7 +99,7 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void stage_autocompletes_when_all_required_items_done() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
@@ -117,8 +118,8 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void stage_does_not_autocomplete_when_not_all_required_done() {
-    PlanItem item1 = PlanItem.create("binding-a", "worker-a", 0);
-    PlanItem item2 = PlanItem.create("binding-b", "worker-b", 0);
+    PlanItem item1 = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    PlanItem item2 = PlanItem.create("binding-b", ExecutorRef.of("worker-b"), 0);
     plan.addPlanItem(item1);
     plan.addPlanItem(item2);
     item1.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
@@ -140,7 +141,7 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void completed_plan_item_is_removed_from_active_tracking() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
@@ -154,7 +155,7 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void autocomplete_with_unregistered_required_item_does_not_complete_stage() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
@@ -174,7 +175,7 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void autocomplete_false_stage_does_not_complete_even_when_all_done() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning(); // simulates indexSelectedForCompletion in PlanningStrategyLoopControl
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
@@ -194,7 +195,7 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void marks_subcase_plan_item_completed_on_subcase_execution_completed() {
-    PlanItem item = PlanItem.create("subcase-binding", "unknown", 0);
+    PlanItem item = PlanItem.create("subcase-binding", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
     item.markDelegated();
     UUID childCaseId = UUID.randomUUID();
@@ -202,12 +203,12 @@ class PlanItemCompletionHandlerTest {
 
     handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId, "test-tenant"));
 
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
   }
 
   @Test
   void subcase_completion_triggers_stage_autocomplete() {
-    PlanItem item = PlanItem.create("subcase-binding", "unknown", 0);
+    PlanItem item = PlanItem.create("subcase-binding", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
     item.markDelegated();
     UUID childCaseId = UUID.randomUUID();
@@ -233,7 +234,7 @@ class PlanItemCompletionHandlerTest {
 
   @Test
   void mofn_grouped_subcase_any_child_routes_to_same_plan_item() {
-    PlanItem item = PlanItem.create("subcase-group", "unknown", 0);
+    PlanItem item = PlanItem.create("subcase-group", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
     item.markDelegated();
     UUID child1 = UUID.randomUUID();
@@ -245,12 +246,12 @@ class PlanItemCompletionHandlerTest {
     // Completion arrives for child2 (threshold-triggering child)
     handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, child2, "test-tenant"));
 
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
   }
 
   @Test
   void binding_name_lookup_path_marks_plan_item_completed() {
-    PlanItem item = PlanItem.create("action-gate-handler", "worker-x", 0);
+    PlanItem item = PlanItem.create("action-gate-handler", ExecutorRef.of("worker-x"), 0);
     plan.addPlanItem(item);
     item.markRunning();
 
@@ -268,6 +269,6 @@ class PlanItemCompletionHandlerTest {
 
     handler.onWorkerFinished(event);
 
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
   }
 }

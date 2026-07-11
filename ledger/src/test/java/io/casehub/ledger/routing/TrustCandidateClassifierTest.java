@@ -20,10 +20,10 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
@@ -160,11 +160,11 @@ class TrustCandidateClassifierTest {
     final ClassifiedCandidate cand = classified("worker-1", Phase.QUALIFIED, 0.85, 1.0);
     final ScoredCandidate scored = new ScoredCandidate(cand, 0.75, "selected worker-1: trust 0.85");
 
-    final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
+    final RoutingResult result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("worker-1");
-    assertThat(((AgentAssignment.Assigned) result).rationale())
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("worker-1");
+    assertThat(((RoutingResult.Selected) result).single().reason())
         .isEqualTo("selected worker-1: trust 0.85");
   }
 
@@ -174,11 +174,11 @@ class TrustCandidateClassifierTest {
     final ScoredCandidate scored =
         new ScoredCandidate(cand, 0.0, "excluded worker-1: phase BORDERLINE");
 
-    final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
+    final RoutingResult result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).capabilityName()).isEqualTo(CAP);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).capabilityName()).isEqualTo(CAP);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
@@ -188,9 +188,9 @@ class TrustCandidateClassifierTest {
     final ScoredCandidate scored =
         new ScoredCandidate(cand, 0.0, "excluded worker-1: phase EXCLUDED_PHASE2B");
 
-    final AgentAssignment result = classifier.decide(List.of(cand), List.of(scored), CAP);
+    final RoutingResult result = classifier.decide(List.of(cand), List.of(scored), CAP);
 
-    assertThat(result).isInstanceOf(AgentAssignment.Unresolvable.class);
+    assertThat(result).isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   @Test
@@ -202,10 +202,10 @@ class TrustCandidateClassifierTest {
             new ScoredCandidate(border, 0.0, "excluded"),
             new ScoredCandidate(excluded, 0.0, "excluded"));
 
-    final AgentAssignment result = classifier.decide(List.of(border, excluded), scored, CAP);
+    final RoutingResult result = classifier.decide(List.of(border, excluded), scored, CAP);
 
-    assertThat(result).isInstanceOf(AgentAssignment.EscalateToOversight.class);
-    assertThat(((AgentAssignment.EscalateToOversight) result).reason())
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+    assertThat(((RoutingResult.Escalated) result).escalationReason())
         .isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
   }
 
@@ -221,10 +221,10 @@ class TrustCandidateClassifierTest {
                 "selected w1: availability 0.50 (bootstrap)"), // availability score > 0
             new ScoredCandidate(borderline, 0.0, "excluded")); // excluded
 
-    final AgentAssignment result = classifier.decide(List.of(bootstrap, borderline), scored, CAP);
+    final RoutingResult result = classifier.decide(List.of(bootstrap, borderline), scored, CAP);
 
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("w1");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("w1");
   }
 
   // ---- Helpers ---------------------------------------------------------------

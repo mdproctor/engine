@@ -35,10 +35,10 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.spi.ReactiveWorkerContextProvider;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.CandidateMatchingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -70,9 +70,9 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 /**
- * Unit tests for the sealed AgentAssignment pattern-match in
- * CaseContextChangedEventHandler.publishWorkerSchedule. Exercises all three branches: Assigned,
- * Unresolvable, and EscalateToOversight.
+ * Unit tests for the sealed RoutingResult pattern-match in
+ * CaseContextChangedEventHandler.publishWorkerSchedule. Exercises all three branches: Selected,
+ * Unresolvable, and Escalated.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -176,7 +176,7 @@ class CaseContextChangedEventHandlerRoutingTest {
   void routing_assigned_publishesWorkerScheduleEvent() {
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
+            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
 
     handler
         .onCaseStateContextChangedEventHandler(
@@ -192,7 +192,7 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Test
   void routing_unresolvable_triesToProvision_doesNotScheduleWorker() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available")));
+        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
     // tryProvision requires a provisioner that has the capability — no-op provisioner won't trigger
     when(reactiveWorkerProvisioner.getCapabilities())
         .thenReturn(Uni.createFrom().item(java.util.Set.of()));
@@ -215,7 +215,7 @@ class CaseContextChangedEventHandlerRoutingTest {
         .thenReturn(
             Uni.createFrom()
                 .item(
-                    AgentAssignment.escalate(
+                    RoutingResult.escalate(
                         "research",
                         EscalationReason.BORDERLINE_STALEMATE,
                         "all candidates borderline")));
@@ -277,7 +277,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(layerBinding)));
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom().item(AgentAssignment.assign("analyst-worker", "selected by test")));
+            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
 
     final CaseContext ctx = mock(CaseContext.class);
     final ReadableLayer workingLayer = mock(ReadableLayer.class);
@@ -371,7 +371,7 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Test
   void tryProvision_provisionerHasCapability_firesWorkerStartedLifecycleEvent() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available")));
+        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
     when(reactiveWorkerProvisioner.getCapabilities())
         .thenReturn(Uni.createFrom().item(java.util.Set.of("research")));
     when(reactiveWorkerContextProvider.buildContext(any(), any(), any()))

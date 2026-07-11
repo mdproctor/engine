@@ -76,7 +76,8 @@ class QhorusMessageSignalBridgeStatusTest {
             "agent-123",
             "corr-456",
             occurredAt,
-            "Processing document 3 of 10");
+            "Processing document 3 of 10",
+            null);
 
     bridge.onMessage(event);
 
@@ -118,7 +119,8 @@ class QhorusMessageSignalBridgeStatusTest {
             "sender-1",
             "corr-123",
             Instant.now(),
-            "status content");
+            "status content",
+            null);
 
     bridge.onMessage(event);
 

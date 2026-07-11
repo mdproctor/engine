@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.common.spi;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.UUID;
@@ -28,7 +28,7 @@ public interface ReactivePlanItemStore {
   Uni<Void> save(PlanItemSaveRequest request, String tenancyId);
 
   /** UUID planItemId — globally unique; no tenancyId needed. */
-  Uni<Void> updateStatus(String planItemId, PlanItemStatus status);
+  Uni<Void> updateStatus(String planItemId, TaskStatus status);
 
   Uni<List<PlanItemRecord>> findByCaseId(UUID caseId, String tenancyId);
 

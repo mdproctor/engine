@@ -15,9 +15,9 @@
  */
 package io.casehub.ledger.routing;
 
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.ledger.api.spi.TrustScoreSource;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -152,13 +152,14 @@ public class TrustCandidateClassifier {
    * Given classified candidates and their final scores, determine the routing outcome.
    *
    * <ul>
-   *   <li>Any candidate scored above 0.0 → {@link AgentAssignment#assign(String)} with the highest
-   *   <li>All scored 0.0 AND any was BORDERLINE → {@link AgentAssignment#escalate(String)} (human
-   *       oversight required per trust-maturity-model.md Phase 2)
-   *   <li>All scored 0.0 AND no BORDERLINE → {@link AgentAssignment#unresolvable()}
+   *   <li>Any candidate scored above 0.0 → {@link RoutingResult#assigned(String, String)} with the
+   *       highest
+   *   <li>All scored 0.0 AND any was BORDERLINE → {@link RoutingResult#escalate} (human oversight
+   *       required per trust-maturity-model.md Phase 2)
+   *   <li>All scored 0.0 AND no BORDERLINE → {@link RoutingResult#unresolvable(String)}
    * </ul>
    */
-  public AgentAssignment decide(
+  public RoutingResult decide(
       final List<ClassifiedCandidate> classified,
       final List<ScoredCandidate> scored,
       final String capabilityName) {
@@ -171,18 +172,18 @@ public class TrustCandidateClassifier {
     }
 
     if (best != null && best.finalScore() > 0.0) {
-      return AgentAssignment.assign(best.classified().candidate().workerId(), best.rationale());
+      return RoutingResult.assigned(best.classified().candidate().workerId(), best.rationale());
     }
 
     final boolean anyBorderline = classified.stream().anyMatch(c -> c.phase() == Phase.BORDERLINE);
 
     return anyBorderline
-        ? AgentAssignment.escalate(
+        ? RoutingResult.escalate(
             capabilityName,
             EscalationReason.BORDERLINE_STALEMATE,
             "all candidates borderline for capability '%s' — oversight required"
                 .formatted(capabilityName))
-        : AgentAssignment.unresolvable(
+        : RoutingResult.unresolvable(
             "all candidates excluded for capability '%s'".formatted(capabilityName));
   }
 }

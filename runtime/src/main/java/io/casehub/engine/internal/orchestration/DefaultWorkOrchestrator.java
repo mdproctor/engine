@@ -25,11 +25,12 @@ import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
+import io.casehub.api.spi.routing.Assignment;
 import io.casehub.api.spi.routing.RetrievedExperience;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -164,24 +165,27 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
             instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             instance.tenancyId,
             experiences);
-    final AgentAssignment assignment =
+    final RoutingResult assignment =
         agentRoutingStrategy.select(ctx, candidates).await().indefinitely();
 
     switch (assignment) {
-      case AgentAssignment.Unresolvable u -> {
+      case RoutingResult.Unresolvable u -> {
         final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
         failed.completeExceptionally(
             new IllegalStateException("No qualified agent for capability: " + capability.name()));
         return failed;
       }
-      case AgentAssignment.EscalateToOversight e -> {
+      case RoutingResult.Escalated e -> {
         LOG.infof(
             "Agent routing escalated to oversight for capability '%s' caseId=%s",
             capability.name(), instance.getUuid());
         eventBus.publish(
             EventBusAddresses.AGENT_ROUTING_ESCALATION,
             new AgentRoutingEscalationEvent(
-                instance.getUuid(), e.capabilityName(), "(direct-orchestration)", e.reason()));
+                instance.getUuid(),
+                e.capabilityName(),
+                "(direct-orchestration)",
+                e.escalationReason()));
         final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
         failed.completeExceptionally(
             new IllegalStateException(
@@ -190,20 +194,20 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
                     + ". A QUERY has been posted to the oversight channel."));
         return failed;
       }
-      case AgentAssignment.Assigned ignored -> {
+      case RoutingResult.Selected ignored -> {
         /* fall through — handled below */
       }
     }
 
-    // 4. Resolve the selected Worker object — assignment is Assigned; exhaustive switch guarantees
+    // 4. Resolve the selected Worker object — assignment is Selected; exhaustive switch guarantees
     // it
-    final AgentAssignment.Assigned assigned = (AgentAssignment.Assigned) assignment;
-    final Worker selectedWorker = findWorker(definition, assigned.workerId());
+    final Assignment selected = ((RoutingResult.Selected) assignment).single();
+    final Worker selectedWorker = findWorker(definition, selected.executorId());
     if (selectedWorker == null) {
       final CompletableFuture<WorkResult> failed = new CompletableFuture<>();
       failed.completeExceptionally(
           new IllegalStateException(
-              "Selected worker not found in definition: " + assigned.workerId()));
+              "Selected worker not found in definition: " + selected.executorId()));
       return failed;
     }
 

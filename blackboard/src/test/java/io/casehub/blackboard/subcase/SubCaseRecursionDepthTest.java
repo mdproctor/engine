@@ -24,14 +24,15 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.SubCase;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.SubCaseScheduleEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
@@ -128,14 +129,14 @@ class SubCaseRecursionDepthTest {
     CaseInstance root = buildInstance(rootId, null, NS, NAME, VERSION);
     caseInstanceCache.put(root);
     registry.getOrCreate(rootId, "test-tenant");
-    PlanItem item = PlanItem.create("spawn-self", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(rootId).orElseThrow()).addPlanItem(item);
 
     handler.onSubCaseSchedule(selfReferenceEvent(root, 0)).await().indefinitely();
 
     assertThat(item.getStatus())
         .as("maxRecursionDepth=0 must fault on self-reference (preserves current behavior)")
-        .isEqualTo(PlanItemStatus.FAULTED);
+        .isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
@@ -161,14 +162,14 @@ class SubCaseRecursionDepthTest {
         .thenReturn(CompletableFuture.completedFuture(l3Id));
 
     registry.getOrCreate(l2Id, "test-tenant");
-    PlanItem item = PlanItem.create("spawn-self", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(l2Id).orElseThrow()).addPlanItem(item);
 
     handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth)).await().indefinitely();
 
     assertThat(item.getStatus())
         .as("depth 2 < maxRecursionDepth 3 — spawn must succeed")
-        .isEqualTo(PlanItemStatus.DELEGATED);
+        .isEqualTo(TaskStatus.DELEGATED);
   }
 
   @Test
@@ -190,14 +191,14 @@ class SubCaseRecursionDepthTest {
 
     // L2 has depth=2 (root + L1). 2 >= 2 → fault.
     registry.getOrCreate(l2Id, "test-tenant");
-    PlanItem item = PlanItem.create("spawn-self", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(l2Id).orElseThrow()).addPlanItem(item);
 
     handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth)).await().indefinitely();
 
     assertThat(item.getStatus())
         .as("depth 2 >= maxRecursionDepth 2 — must fault")
-        .isEqualTo(PlanItemStatus.FAULTED);
+        .isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
@@ -211,7 +212,7 @@ class SubCaseRecursionDepthTest {
         .thenReturn(CompletableFuture.completedFuture(childId));
 
     registry.getOrCreate(parentId, "test-tenant");
-    PlanItem item = PlanItem.create("spawn-different", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-different", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(parentId).orElseThrow()).addPlanItem(item);
 
     // Parent is other-case, child is recursive-case — not a self-reference
@@ -224,7 +225,7 @@ class SubCaseRecursionDepthTest {
 
     assertThat(item.getStatus())
         .as("non-self-reference bypasses depth check entirely")
-        .isEqualTo(PlanItemStatus.DELEGATED);
+        .isEqualTo(TaskStatus.DELEGATED);
   }
 
   @Test
@@ -252,14 +253,14 @@ class SubCaseRecursionDepthTest {
         .thenReturn(CompletableFuture.completedFuture(childId));
 
     registry.getOrCreate(l2Id, "test-tenant");
-    PlanItem item = PlanItem.create("spawn-self", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(l2Id).orElseThrow()).addPlanItem(item);
 
     handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth)).await().indefinitely();
 
     assertThat(item.getStatus())
         .as("cache miss → walk stops early → lower depth → fail-open (permissive)")
-        .isEqualTo(PlanItemStatus.DELEGATED);
+        .isEqualTo(TaskStatus.DELEGATED);
   }
 
   @Test
@@ -287,14 +288,14 @@ class SubCaseRecursionDepthTest {
         .thenReturn(CompletableFuture.completedFuture(childId));
 
     registry.getOrCreate(a2Id, "test-tenant");
-    PlanItem item = PlanItem.create("spawn-self", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(a2Id).orElseThrow()).addPlanItem(item);
 
     handler.onSubCaseSchedule(selfReferenceEvent(a2, maxDepth)).await().indefinitely();
 
     assertThat(item.getStatus())
         .as("total counting finds A₁ across B — depth=1 < maxDepth=2 → allowed")
-        .isEqualTo(PlanItemStatus.DELEGATED);
+        .isEqualTo(TaskStatus.DELEGATED);
 
     // Now test the boundary: same chain but maxDepth=1 → 1 >= 1 → fault
     UUID a2bId = UUID.randomUUID();
@@ -302,13 +303,13 @@ class SubCaseRecursionDepthTest {
     caseInstanceCache.put(a2b);
 
     registry.getOrCreate(a2bId, "test-tenant");
-    PlanItem item2 = PlanItem.create("spawn-self", "unknown", 0);
+    PlanItem item2 = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(a2bId).orElseThrow()).addPlanItem(item2);
 
     handler.onSubCaseSchedule(selfReferenceEvent(a2b, 1)).await().indefinitely();
 
     assertThat(item2.getStatus())
         .as("total counting: A₁ across B gives depth=1, 1 >= 1 → faulted")
-        .isEqualTo(PlanItemStatus.FAULTED);
+        .isEqualTo(TaskStatus.FAULTED);
   }
 }

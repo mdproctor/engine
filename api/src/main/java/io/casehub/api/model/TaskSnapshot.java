@@ -13,21 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.model;
+package io.casehub.api.model;
 
-import io.casehub.api.model.TaskStatus;
+import jakarta.annotation.Nullable;
 import java.time.Instant;
-import java.util.UUID;
 
-public record PlanItemSaveRequest(
-    UUID caseId,
-    String planItemId,
-    String bindingName,
+/**
+ * Immutable read model projected from any {@link TaskDescriptor}. Flat, serializable — uses String
+ * executor identity instead of {@link ExecutorRef} for transport across serialization boundaries.
+ */
+public record TaskSnapshot(
+    String id,
+    @Nullable String description,
+    @Nullable String executorName,
+    @Nullable String executorDescription,
     TaskStatus status,
-    Instant createdAt,
-    TargetType targetType,
-    String outputMappingExpression,
-    String tenancyId,
-    String description,
-    String executorName,
-    String executorDescription) {}
+    Instant createdAt) {}

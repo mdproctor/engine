@@ -20,8 +20,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.BindingTarget;
 import io.casehub.api.model.CapabilityTarget;
+import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.HumanTaskTarget;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.worker.api.Capability;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -37,8 +38,8 @@ class PlanItemTest {
 
   @Test
   void higher_priority_sorts_before_lower() {
-    PlanItem low = PlanItem.create("binding-a", "worker-a", 0);
-    PlanItem high = PlanItem.create("binding-b", "worker-b", 10);
+    PlanItem low = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    PlanItem high = PlanItem.create("binding-b", ExecutorRef.of("worker-b"), 10);
     List<PlanItem> items = new ArrayList<>(List.of(low, high));
     Collections.sort(items);
     assertThat(items.get(0).getBindingName()).isEqualTo("binding-b");
@@ -46,9 +47,9 @@ class PlanItemTest {
 
   @Test
   void equal_priority_earlier_creation_sorts_first() throws InterruptedException {
-    PlanItem first = PlanItem.create("binding-a", "worker-a", 5);
+    PlanItem first = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 5);
     Thread.sleep(2);
-    PlanItem second = PlanItem.create("binding-b", "worker-b", 5);
+    PlanItem second = PlanItem.create("binding-b", ExecutorRef.of("worker-b"), 5);
     List<PlanItem> items = new ArrayList<>(List.of(second, first));
     Collections.sort(items);
     assertThat(items.get(0).getBindingName()).isEqualTo("binding-a");
@@ -56,41 +57,41 @@ class PlanItemTest {
 
   @Test
   void default_status_is_pending() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.PENDING);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.PENDING);
   }
 
   @Test
   void markRunning_from_pending_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.RUNNING);
   }
 
   @Test
   void markRunning_from_running_throws() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     assertThatThrownBy(item::markRunning).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void tryMarkRunning_fromPending_returnsTrue() {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     assertThat(item.tryMarkRunning()).isTrue();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.RUNNING);
   }
 
   @Test
   void tryMarkRunning_fromRunning_returnsFalse() {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     item.markRunning();
     assertThat(item.tryMarkRunning()).isFalse();
   }
 
   @Test
   void tryMarkRunning_fromCompleted_returnsFalse() {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     item.markRunning();
     item.markCompleted();
     assertThat(item.tryMarkRunning()).isFalse();
@@ -98,7 +99,7 @@ class PlanItemTest {
 
   @Test
   void tryMarkRunning_concurrentCallers_exactlyOneWins() throws Exception {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     int threadCount = 10;
     CountDownLatch ready = new CountDownLatch(threadCount);
     CountDownLatch go = new CountDownLatch(1);
@@ -126,49 +127,49 @@ class PlanItemTest {
     for (Thread t : threads) t.join();
 
     assertThat(wins.get()).isEqualTo(1);
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.RUNNING);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.RUNNING);
   }
 
   @Test
   void markCompleted_from_running_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     item.markCompleted();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
   }
 
   @Test
   void markCompleted_from_pending_throws() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     assertThatThrownBy(item::markCompleted).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markFaulted_from_running_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     item.markFaulted();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
   void markCancelled_from_pending_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markCancelled();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.CANCELLED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.CANCELLED);
   }
 
   @Test
   void create_withTarget_storesTarget() {
     BindingTarget target = HumanTaskTarget.template("irb-review").build();
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 5, target);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 5, target);
 
     assertThat(item.getTarget()).isSameAs(target);
   }
 
   @Test
   void create_withoutTarget_targetIsNull() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 5);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 5);
 
     assertThat(item.getTarget()).isNull();
   }
@@ -178,7 +179,7 @@ class PlanItemTest {
     Capability cap =
         Capability.builder().name("review").inputSchema("{}").outputSchema("{}").build();
     CapabilityTarget target = new CapabilityTarget(cap);
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 5, target);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 5, target);
 
     assertThat(item.getTarget()).isInstanceOf(CapabilityTarget.class);
     assertThat(((CapabilityTarget) item.getTarget()).capability()).isSameAs(cap);
@@ -196,83 +197,83 @@ class PlanItemTest {
 
   @Test
   void markDelegated_from_pending_transitions_to_delegated() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
   }
 
   @Test
   void markDelegated_from_running_throws() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     assertThatThrownBy(item::markDelegated).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markDelegated_from_delegated_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     assertThatThrownBy(item::markDelegated).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markCompleted_from_delegated_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     item.markCompleted();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
   }
 
   @Test
   void markFaulted_from_delegated_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     item.markFaulted();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
   void markCancelled_from_delegated_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     item.markCancelled();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.CANCELLED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.CANCELLED);
   }
 
   @Test
   void markFaulted_from_pending_succeeds() {
     // Pre-dispatch errors (spawn failure, guard block) must fault without prior RUNNING/DELEGATED.
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markFaulted();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
   }
 
   // --- REJECTED state ---
 
   @Test
   void markRejected_from_delegated_transitions_to_rejected() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     item.markRejected();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.REJECTED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.REJECTED);
   }
 
   @Test
   void markRejected_from_pending_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markRejected_from_running_throws() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markRejected_from_completed_throws() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     item.markCompleted();
     assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
@@ -280,14 +281,14 @@ class PlanItemTest {
 
   @Test
   void markRejected_from_faulted_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markFaulted();
     assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markRejected_from_cancelled_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markCancelled();
     assertThatThrownBy(item::markRejected).isInstanceOf(IllegalStateException.class);
   }
@@ -296,30 +297,30 @@ class PlanItemTest {
 
   @Test
   void markObsolete_from_pending_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markObsolete();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.OBSOLETE);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.OBSOLETE);
   }
 
   @Test
   void markObsolete_from_running_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     item.markObsolete();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.OBSOLETE);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.OBSOLETE);
   }
 
   @Test
   void markObsolete_from_delegated_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     item.markObsolete();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.OBSOLETE);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.OBSOLETE);
   }
 
   @Test
   void markObsolete_from_completed_throws() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     item.markCompleted();
     assertThatThrownBy(item::markObsolete).isInstanceOf(IllegalStateException.class);
@@ -327,35 +328,35 @@ class PlanItemTest {
 
   @Test
   void markObsolete_from_faulted_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markFaulted();
     assertThatThrownBy(item::markObsolete).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markObsolete_from_obsolete_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markObsolete();
     assertThatThrownBy(item::markObsolete).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markObsolete_from_cancelled_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markCancelled();
     assertThatThrownBy(item::markObsolete).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markFaulted_from_obsolete_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markObsolete();
     assertThatThrownBy(item::markFaulted).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markCancelled_from_obsolete_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markObsolete();
     assertThatThrownBy(item::markCancelled).isInstanceOf(IllegalStateException.class);
   }
@@ -364,28 +365,28 @@ class PlanItemTest {
 
   @Test
   void markSuspended_from_delegated_succeeds() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     item.markSuspended();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.SUSPENDED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.SUSPENDED);
   }
 
   @Test
   void markSuspended_from_pending_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     assertThatThrownBy(item::markSuspended).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markSuspended_from_running_throws() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     assertThatThrownBy(item::markSuspended).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markSuspended_from_completed_throws() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     item.markCompleted();
     assertThatThrownBy(item::markSuspended).isInstanceOf(IllegalStateException.class);
@@ -393,35 +394,35 @@ class PlanItemTest {
 
   @Test
   void markResumed_from_suspended_returns_to_delegated() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     item.markSuspended();
     item.markResumed();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
   }
 
   @Test
   void markResumed_from_delegated_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     assertThatThrownBy(item::markResumed).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void markResumed_from_pending_throws() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     assertThatThrownBy(item::markResumed).isInstanceOf(IllegalStateException.class);
   }
 
   @Test
   void suspend_resume_cycle_returns_to_delegated() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     item.markDelegated();
     item.markSuspended();
     item.markResumed();
     item.markSuspended();
     item.markResumed();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
   }
 
   // --- restore() factory ---
@@ -430,10 +431,10 @@ class PlanItemTest {
   void restore_createsPlanItemWithGivenStatusAndId() {
     String planItemId = UUID.randomUUID().toString();
     PlanItem item =
-        PlanItem.restore(planItemId, "my-binding", null, PlanItemStatus.DELEGATED, Instant.now());
+        PlanItem.restore(planItemId, "my-binding", null, null, TaskStatus.DELEGATED, Instant.now());
     assertThat(item.getPlanItemId()).isEqualTo(planItemId);
     assertThat(item.getBindingName()).isEqualTo("my-binding");
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
     assertThat(item.getTarget()).isNull();
   }
 
@@ -442,7 +443,12 @@ class PlanItemTest {
     assertThatThrownBy(
             () ->
                 PlanItem.restore(
-                    UUID.randomUUID().toString(), "b", null, PlanItemStatus.PENDING, Instant.now()))
+                    UUID.randomUUID().toString(),
+                    "b",
+                    null,
+                    null,
+                    TaskStatus.PENDING,
+                    Instant.now()))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("PENDING");
   }
@@ -451,7 +457,7 @@ class PlanItemTest {
 
   @Test
   void markCompleted_concurrentCallers_exactlyOneWins() throws Exception {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     item.markRunning();
 
     int threadCount = 10;
@@ -486,12 +492,12 @@ class PlanItemTest {
 
     assertThat(successes.get()).isEqualTo(1);
     assertThat(failures.get()).isEqualTo(threadCount - 1);
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.COMPLETED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
   }
 
   @Test
   void markFaulted_vs_markCompleted_exactlyOneWins() throws Exception {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     item.markRunning();
 
     CountDownLatch ready = new CountDownLatch(2);
@@ -548,7 +554,7 @@ class PlanItemTest {
 
   @Test
   void markFaulted_concurrentCallers_noSilentOverwrite() throws Exception {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     item.markRunning();
 
     int threadCount = 10;
@@ -583,12 +589,12 @@ class PlanItemTest {
 
     assertThat(successes.get()).isEqualTo(1);
     assertThat(failures.get()).isEqualTo(threadCount - 1);
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
   void markCancelled_concurrentCallers_exactlyOneWins() throws Exception {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     item.markDelegated();
 
     int threadCount = 10;
@@ -623,12 +629,12 @@ class PlanItemTest {
 
     assertThat(successes.get()).isEqualTo(1);
     assertThat(failures.get()).isEqualTo(threadCount - 1);
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.CANCELLED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.CANCELLED);
   }
 
   @Test
   void markObsolete_vs_markCancelled_exactlyOneWins() throws Exception {
-    PlanItem item = PlanItem.create("b1", "w1", 0, null);
+    PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
     item.markDelegated();
 
     CountDownLatch ready = new CountDownLatch(2);

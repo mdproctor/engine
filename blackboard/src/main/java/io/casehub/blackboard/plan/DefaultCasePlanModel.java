@@ -17,9 +17,9 @@ package io.casehub.blackboard.plan;
 
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SubCase;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.blackboard.stage.StageStatus;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -78,7 +78,7 @@ public class DefaultCasePlanModel implements CasePlanModel {
         (k, existing) -> {
           if (existing != null
               && (existing.getStatus().isActive()
-                  || existing.getStatus() == PlanItemStatus.COMPLETED)) {
+                  || existing.getStatus() == TaskStatus.COMPLETED)) {
             return existing; // active or completed item present — reject
           }
           agenda.add(item);
@@ -139,7 +139,7 @@ public class DefaultCasePlanModel implements CasePlanModel {
     // the explicit sort is required. RUNNING items remain in the queue (for observability via
     // itemsById) but are filtered here so only PENDING items appear on the returned agenda.
     return agenda.stream()
-        .filter(p -> p.getStatus() == PlanItemStatus.PENDING)
+        .filter(p -> p.getStatus() == TaskStatus.PENDING)
         .sorted()
         .collect(Collectors.toUnmodifiableList());
   }

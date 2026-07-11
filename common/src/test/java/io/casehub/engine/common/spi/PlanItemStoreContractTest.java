@@ -17,9 +17,9 @@ package io.casehub.engine.common.spi;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.TargetType;
 import java.time.Instant;
 import java.util.List;
@@ -33,30 +33,40 @@ public abstract class PlanItemStoreContractTest {
 
   protected abstract PlanItemStore store();
 
-  private PlanItemSaveRequest request(UUID caseId, String planItemId, PlanItemStatus status) {
+  private PlanItemSaveRequest request(UUID caseId, String planItemId, TaskStatus status) {
     return new PlanItemSaveRequest(
-        caseId, planItemId, "my-binding", status, Instant.now(), TargetType.HUMAN_TASK, null, null);
+        caseId,
+        planItemId,
+        "my-binding",
+        status,
+        Instant.now(),
+        TargetType.HUMAN_TASK,
+        null,
+        null,
+        null,
+        "test-worker",
+        null);
   }
 
   @Test
   void save_and_findByCaseId() {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
-    store().save(request(caseId, planItemId, PlanItemStatus.PENDING), TEST_TENANT);
+    store().save(request(caseId, planItemId, TaskStatus.PENDING), TEST_TENANT);
     List<PlanItemRecord> results = store().findByCaseId(caseId, TEST_TENANT);
     assertThat(results).hasSize(1);
     assertThat(results.get(0).planItemId()).isEqualTo(planItemId);
-    assertThat(results.get(0).status()).isEqualTo(PlanItemStatus.PENDING);
+    assertThat(results.get(0).status()).isEqualTo(TaskStatus.PENDING);
   }
 
   @Test
   void updateStatus_changes_stored_status() {
     UUID caseId = UUID.randomUUID();
     String planItemId = UUID.randomUUID().toString();
-    store().save(request(caseId, planItemId, PlanItemStatus.PENDING), TEST_TENANT);
-    store().updateStatus(planItemId, PlanItemStatus.RUNNING);
+    store().save(request(caseId, planItemId, TaskStatus.PENDING), TEST_TENANT);
+    store().updateStatus(planItemId, TaskStatus.RUNNING);
     List<PlanItemRecord> results = store().findByCaseId(caseId, TEST_TENANT);
-    assertThat(results.get(0).status()).isEqualTo(PlanItemStatus.RUNNING);
+    assertThat(results.get(0).status()).isEqualTo(TaskStatus.RUNNING);
   }
 
   @Test
@@ -64,8 +74,8 @@ public abstract class PlanItemStoreContractTest {
     UUID caseId = UUID.randomUUID();
     String delegatedId = UUID.randomUUID().toString();
     String pendingId = UUID.randomUUID().toString();
-    store().save(request(caseId, delegatedId, PlanItemStatus.DELEGATED), TEST_TENANT);
-    store().save(request(caseId, pendingId, PlanItemStatus.PENDING), TEST_TENANT);
+    store().save(request(caseId, delegatedId, TaskStatus.DELEGATED), TEST_TENANT);
+    store().save(request(caseId, pendingId, TaskStatus.PENDING), TEST_TENANT);
     List<PlanItemRecord> results = store().findDelegated(caseId);
     assertThat(results).hasSize(1);
     assertThat(results.get(0).planItemId()).isEqualTo(delegatedId);
@@ -77,8 +87,8 @@ public abstract class PlanItemStoreContractTest {
     UUID case2 = UUID.randomUUID();
     String id1 = UUID.randomUUID().toString();
     String id2 = UUID.randomUUID().toString();
-    store().save(request(case1, id1, PlanItemStatus.DELEGATED), TEST_TENANT);
-    store().save(request(case2, id2, PlanItemStatus.DELEGATED), TEST_TENANT);
+    store().save(request(case1, id1, TaskStatus.DELEGATED), TEST_TENANT);
+    store().save(request(case2, id2, TaskStatus.DELEGATED), TEST_TENANT);
     List<PlanItemRecord> results = store().findAllDelegated();
     assertThat(results.stream().map(PlanItemRecord::planItemId))
         .containsExactlyInAnyOrder(id1, id2);

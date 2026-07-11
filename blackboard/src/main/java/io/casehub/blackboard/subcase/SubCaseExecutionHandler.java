@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.SubCase;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.blackboard.plan.PlanItem;
@@ -29,7 +30,6 @@ import io.casehub.engine.common.internal.event.SubCaseScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
@@ -166,14 +166,14 @@ public class SubCaseExecutionHandler {
         .flatMap(plan -> plan.getPlanItemByBindingName(bindingName))
         .ifPresent(
             pi -> {
-              if (pi.getStatus() == PlanItemStatus.PENDING) {
+              if (pi.getStatus() == TaskStatus.PENDING) {
                 pi.markDelegated();
               }
               // Index ALL spawns → same planItemId (M-of-N: any completing child routes here)
               registry.indexForCompletion(parentCaseId, childCaseId.toString(), pi.getPlanItemId());
 
               // Fire-and-forget: completes immediately after spawning — no completion event needed.
-              if (!waitForCompletion && pi.getStatus() == PlanItemStatus.DELEGATED) {
+              if (!waitForCompletion && pi.getStatus() == TaskStatus.DELEGATED) {
                 pi.markCompleted();
               }
             });

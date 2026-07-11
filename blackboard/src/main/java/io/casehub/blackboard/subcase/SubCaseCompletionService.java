@@ -22,6 +22,7 @@ import io.casehub.api.context.ContextLayer;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.OnThresholdReached;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
@@ -32,7 +33,6 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.GroupStatus;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
@@ -299,10 +299,10 @@ public class SubCaseCompletionService {
             planItemId -> registry.get(parentCaseId).flatMap(plan -> plan.getPlanItem(planItemId)))
         .filter(
             pi ->
-                pi.getStatus() != PlanItemStatus.COMPLETED
-                    && pi.getStatus() != PlanItemStatus.FAULTED
-                    && pi.getStatus() != PlanItemStatus.REJECTED
-                    && pi.getStatus() != PlanItemStatus.CANCELLED)
+                pi.getStatus() != TaskStatus.COMPLETED
+                    && pi.getStatus() != TaskStatus.FAULTED
+                    && pi.getStatus() != TaskStatus.REJECTED
+                    && pi.getStatus() != TaskStatus.CANCELLED)
         .ifPresent(pi -> pi.markCancelled());
   }
 

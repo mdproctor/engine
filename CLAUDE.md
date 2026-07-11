@@ -84,11 +84,12 @@ If a schema change is needed, update the `@Entity` class. Hibernate recreates th
 
 Domain objects, SPI interfaces, and shared CDI infrastructure live in `casehub-engine-common` (no JPA):
 
-- `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`, `SubCaseGroup`, `PlanItemStatus` (enum), `PlanItemRecord` (read model)
+- `casehub-engine-common/src/main/java/io/casehub/engine/internal/model/` — `CaseMetaModel`, `CaseInstance`, `SubCaseGroup`, `PlanItemRecord` (read model)
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/history/` — `EventLog`, `CaseHubEventType`, `EventStreamType`
 - `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository` (blocking), `ReactiveCaseMetaModelRepository` (Uni<>), `ReactiveCaseInstanceRepository`, `ReactiveEventLogRepository`, `SubCaseGroupRepository` (blocking), `ReactiveSubCaseGroupRepository` (Uni<>), `PlanItemStore` (blocking), `ReactivePlanItemStore` (Uni<>), `CaseInstanceRepository` (blocking), `EventLogRepository` (blocking), `CrossTenantCaseInstanceRepository` (blocking), `CrossTenantEventLogRepository` (blocking). Dual-stack convention: unqualified = blocking, `Reactive` prefix = Uni-based. Implementations: memory blocking is canonical (reactive delegates), JPA reactive is canonical (blocking awaits). **Delegate injection convention:** reactive in-memory repos must inject blocking delegates by SPI interface (e.g. `CaseInstanceRepository`), NOT by concrete class (e.g. `InMemoryCaseInstanceRepository`). Concrete-class injection prevents `@Alternative @Priority(1)` test wrappers from being substituted — two separate stores are created, causing silent tenant mismatches. Refs engine#663, GE-20260707-f3bece.
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/jq/` — `JQEvaluator` (@ApplicationScoped), `ValidationResult` — canonical jq evaluation; lives here so `scheduler-quartz` can inject it without circular dependency. See protocol `PP-20260522-jq-evaluation-canonical`. Follow-on platform extraction tracked in engine#317.
 - `casehub-engine-common/src/main/java/io/casehub/engine/common/internal/executor/` — `WorkerExecutor` (SPI), `WorkerExecutionConfig` (@ApplicationScoped, default timeout), `RetryPolicies` (static utility, backoff computation), `RetryDecision` (sealed: Retry | Exhaust), `ExecutionMetadata` (lineage record for flow path)
+- `io.casehub.api.model/` — `TaskStatus` (enum, shared lifecycle — replaces `PlanItemStatus`), `TaskDescriptor` (behavioral interface — `PlanItem` implements it), `TaskSnapshot` (read model), `ExecutorRef` (shared executor identity), `OutcomeKind` (shared outcome taxonomy), `RoutingResult` (sealed: `Selected`, `Unresolvable`, `Escalated` — replaces `AgentAssignment`), `Assignment` (unified selection record)
 
 Both `engine` and both persistence modules depend on `casehub-engine-common`. Neither persistence module depends on `engine`. `scheduler-quartz` also depends on `casehub-engine-common` directly.
 
@@ -388,6 +389,8 @@ TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl casehub-blackboard
 - `SubCaseCompletionService` — handles grouped sub-case completion (M-of-N threshold). Fires `Event<SubCaseGroupLifecycleEvent>.fireAsync()` for every non-null `GroupStatus` transition (IN_PROGRESS, COMPLETED, REJECTED). Observers (monitoring, audit, Claudony dashboard) subscribe without coupling to the engine. Refs engine#249.
 
 **PlanItem CAS transitions:** `PlanItem.tryMarkRunning()` is a CAS-based transition (PENDING→RUNNING, AVAILABLE→RUNNING) that returns `true` on success, `false` when already RUNNING or terminal. Used by handlers to avoid duplicate CONTEXT_CHANGED fan-out. Per-case serialization of CONTEXT_CHANGED is tracked in engine#646. Refs engine#636.
+
+**PlanItem implements TaskDescriptor:** `PlanItem` implements `TaskDescriptor` (`api/model/`), providing `id()`, `description()`, `executor()`, `status()`, `createdAt()`, `snapshot()`. Stores `ExecutorRef` instead of bare `workerName`. `executorName()` is a derived convenience returning `executor().name()`. `getPlanItemId()` is deprecated — use `id()` (from `TaskDescriptor`). `PlanItem.create()` takes `ExecutorRef` instead of `String workerName`. `PlanItem.restore()` takes `ExecutorRef` as a nullable parameter. Persistence: `PlanItemRecord`, `PlanItemSaveRequest`, `PlanItemEntity` carry `executorName`/`executorDescription` (flat strings); `PlanItemRestorer` reconstructs `ExecutorRef.of(name, description)`. Refs engine#700.
 
 ## Quartz
 

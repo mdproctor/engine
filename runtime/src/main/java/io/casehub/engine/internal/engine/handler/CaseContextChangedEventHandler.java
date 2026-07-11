@@ -41,7 +41,6 @@ import io.casehub.api.model.event.ExecutionOrigin;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.ReactiveWorkerContextProvider;
 import io.casehub.api.spi.ReactiveWorkerProvisioner;
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
@@ -49,6 +48,7 @@ import io.casehub.api.spi.routing.CandidateSetContext;
 import io.casehub.api.spi.routing.CandidateSetSpec;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
 import io.casehub.api.spi.routing.RetrievedExperience;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -399,14 +399,15 @@ public class CaseContextChangedEventHandler {
         .chain(
             assignment ->
                 switch (assignment) {
-                  case AgentAssignment.Assigned a -> {
+                  case RoutingResult.Selected s -> {
+                    final var a = s.single();
                     LOG.infof(
                         "Agent selected: worker='%s' capability='%s' binding='%s' rationale='%s'",
-                        a.workerId(), capability.name(), binding.getName(), a.rationale());
+                        a.executorId(), capability.name(), binding.getName(), a.reason());
                     yield scheduleWorker(
-                        caseInstance, workers, binding, capability, a.workerId(), signalId);
+                        caseInstance, workers, binding, capability, a.executorId(), signalId);
                   }
-                  case AgentAssignment.Unresolvable u -> {
+                  case RoutingResult.Unresolvable u -> {
                     LOG.warnf(
                         "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
                         capability.name(), binding.getName());
@@ -418,8 +419,7 @@ public class CaseContextChangedEventHandler {
                         triggerCorrelationId,
                         binding.getInputSchemaOverride());
                   }
-                  case AgentAssignment.EscalateToOversight e ->
-                      handleEscalation(caseInstance, e, binding);
+                  case RoutingResult.Escalated e -> handleEscalation(caseInstance, e, binding);
                 });
   }
 
@@ -484,7 +484,7 @@ public class CaseContextChangedEventHandler {
 
   private Uni<Void> handleEscalation(
       final CaseInstance caseInstance,
-      final AgentAssignment.EscalateToOversight escalation,
+      final RoutingResult.Escalated escalation,
       final Binding binding) {
 
     LOG.infof(
@@ -498,7 +498,7 @@ public class CaseContextChangedEventHandler {
             caseInstance.getUuid(),
             escalation.capabilityName(),
             binding.getName(),
-            escalation.reason()));
+            escalation.escalationReason()));
 
     return Uni.createFrom().voidItem();
   }

@@ -16,6 +16,7 @@
 package io.casehub.blackboard.handler;
 
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.event.BlackboardEventBusAddresses;
 import io.casehub.blackboard.event.SubCaseExecutionCompleted;
 import io.casehub.blackboard.plan.CasePlanModel;
@@ -25,7 +26,6 @@ import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemCompletedEvent;
 import io.casehub.worker.api.WorkerOutcome;
 import io.quarkus.vertx.ConsumeEvent;
@@ -59,8 +59,8 @@ public class PlanItemCompletionHandler {
 
   private static final Logger LOG = Logger.getLogger(PlanItemCompletionHandler.class);
 
-  private static final Set<PlanItemStatus> COMPLETABLE =
-      EnumSet.of(PlanItemStatus.RUNNING, PlanItemStatus.DELEGATED);
+  private static final Set<TaskStatus> COMPLETABLE =
+      EnumSet.of(TaskStatus.RUNNING, TaskStatus.DELEGATED);
 
   private final BlackboardRegistry registry;
   private final EventBus eventBus;

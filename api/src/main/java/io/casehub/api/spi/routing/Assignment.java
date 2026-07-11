@@ -13,21 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.model;
+package io.casehub.api.spi.routing;
 
-import io.casehub.api.model.TaskStatus;
-import java.time.Instant;
-import java.util.UUID;
+import jakarta.annotation.Nullable;
+import java.util.Objects;
 
-public record PlanItemSaveRequest(
-    UUID caseId,
-    String planItemId,
-    String bindingName,
-    TaskStatus status,
-    Instant createdAt,
-    TargetType targetType,
-    String outputMappingExpression,
-    String tenancyId,
-    String description,
-    String executorName,
-    String executorDescription) {}
+public record Assignment(
+    String executorId, @Nullable String capabilityName, @Nullable String reason) {
+  public Assignment {
+    Objects.requireNonNull(executorId, "executorId");
+  }
+}

@@ -21,12 +21,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.event.StageCompletedEvent;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.stage.Stage;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
 import java.util.Optional;
@@ -56,7 +57,7 @@ class StageAutocompleteEvaluatorTest {
   @Test
   void all_completed_triggers_autocomplete() {
     UUID caseId = UUID.randomUUID();
-    CasePlanModel plan = planWith("item-1", PlanItemStatus.COMPLETED);
+    CasePlanModel plan = planWith("item-1", TaskStatus.COMPLETED);
     Stage stage = autocompleteStage("item-1");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
@@ -72,7 +73,7 @@ class StageAutocompleteEvaluatorTest {
   @Test
   void all_rejected_triggers_autocomplete() {
     UUID caseId = UUID.randomUUID();
-    CasePlanModel plan = planWith("item-1", PlanItemStatus.REJECTED);
+    CasePlanModel plan = planWith("item-1", TaskStatus.REJECTED);
     Stage stage = autocompleteStage("item-1");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
@@ -84,7 +85,7 @@ class StageAutocompleteEvaluatorTest {
   @Test
   void all_faulted_triggers_autocomplete() {
     UUID caseId = UUID.randomUUID();
-    CasePlanModel plan = planWith("item-1", PlanItemStatus.FAULTED);
+    CasePlanModel plan = planWith("item-1", TaskStatus.FAULTED);
     Stage stage = autocompleteStage("item-1");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
@@ -96,7 +97,7 @@ class StageAutocompleteEvaluatorTest {
   @Test
   void all_cancelled_triggers_autocomplete() {
     UUID caseId = UUID.randomUUID();
-    CasePlanModel plan = planWith("item-1", PlanItemStatus.CANCELLED);
+    CasePlanModel plan = planWith("item-1", TaskStatus.CANCELLED);
     Stage stage = autocompleteStage("item-1");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
@@ -109,9 +110,9 @@ class StageAutocompleteEvaluatorTest {
   void mixed_terminal_states_triggers_autocomplete() {
     UUID caseId = UUID.randomUUID();
     CasePlanModel plan = mock(CasePlanModel.class);
-    PlanItem item1 = itemWithStatus("item-1", PlanItemStatus.COMPLETED);
-    PlanItem item2 = itemWithStatus("item-2", PlanItemStatus.REJECTED);
-    PlanItem item3 = itemWithStatus("item-3", PlanItemStatus.FAULTED);
+    PlanItem item1 = itemWithStatus("item-1", TaskStatus.COMPLETED);
+    PlanItem item2 = itemWithStatus("item-2", TaskStatus.REJECTED);
+    PlanItem item3 = itemWithStatus("item-3", TaskStatus.FAULTED);
     when(plan.getPlanItem("item-1")).thenReturn(Optional.of(item1));
     when(plan.getPlanItem("item-2")).thenReturn(Optional.of(item2));
     when(plan.getPlanItem("item-3")).thenReturn(Optional.of(item3));
@@ -129,8 +130,8 @@ class StageAutocompleteEvaluatorTest {
   void non_terminal_item_blocks_autocomplete() {
     UUID caseId = UUID.randomUUID();
     CasePlanModel plan = mock(CasePlanModel.class);
-    PlanItem item1 = itemWithStatus("item-1", PlanItemStatus.COMPLETED);
-    PlanItem item2 = itemWithStatus("item-2", PlanItemStatus.RUNNING);
+    PlanItem item1 = itemWithStatus("item-1", TaskStatus.COMPLETED);
+    PlanItem item2 = itemWithStatus("item-2", TaskStatus.RUNNING);
     when(plan.getPlanItem("item-1")).thenReturn(Optional.of(item1));
     when(plan.getPlanItem("item-2")).thenReturn(Optional.of(item2));
     Stage stage = autocompleteStage("item-1", "item-2");
@@ -145,8 +146,8 @@ class StageAutocompleteEvaluatorTest {
   void delegated_item_blocks_autocomplete() {
     UUID caseId = UUID.randomUUID();
     CasePlanModel plan = mock(CasePlanModel.class);
-    PlanItem item1 = itemWithStatus("item-1", PlanItemStatus.COMPLETED);
-    PlanItem item2 = itemWithStatus("item-2", PlanItemStatus.DELEGATED);
+    PlanItem item1 = itemWithStatus("item-1", TaskStatus.COMPLETED);
+    PlanItem item2 = itemWithStatus("item-2", TaskStatus.DELEGATED);
     when(plan.getPlanItem("item-1")).thenReturn(Optional.of(item1));
     when(plan.getPlanItem("item-2")).thenReturn(Optional.of(item2));
     Stage stage = autocompleteStage("item-1", "item-2");
@@ -160,7 +161,7 @@ class StageAutocompleteEvaluatorTest {
   @Test
   void non_autocomplete_stage_never_fires() {
     UUID caseId = UUID.randomUUID();
-    CasePlanModel plan = planWith("item-1", PlanItemStatus.COMPLETED);
+    CasePlanModel plan = planWith("item-1", TaskStatus.COMPLETED);
     Stage stage = mock(Stage.class);
     when(stage.isAutocomplete()).thenReturn(false);
     when(stage.getRequiredItemIds()).thenReturn(List.of("item-1"));
@@ -174,7 +175,7 @@ class StageAutocompleteEvaluatorTest {
   @Test
   void stage_not_containing_changed_item_is_skipped() {
     UUID caseId = UUID.randomUUID();
-    CasePlanModel plan = planWith("item-1", PlanItemStatus.COMPLETED);
+    CasePlanModel plan = planWith("item-1", TaskStatus.COMPLETED);
     Stage stage = autocompleteStage("item-99"); // different item
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
@@ -185,14 +186,14 @@ class StageAutocompleteEvaluatorTest {
 
   // --- helpers ---
 
-  private CasePlanModel planWith(String itemId, PlanItemStatus status) {
+  private CasePlanModel planWith(String itemId, TaskStatus status) {
     CasePlanModel plan = mock(CasePlanModel.class);
     PlanItem item = itemWithStatus(itemId, status);
     when(plan.getPlanItem(itemId)).thenReturn(Optional.of(item));
     return plan;
   }
 
-  private PlanItem itemWithStatus(String itemId, PlanItemStatus status) {
+  private PlanItem itemWithStatus(String itemId, TaskStatus status) {
     PlanItem item = mock(PlanItem.class);
     when(item.getStatus()).thenReturn(status);
     return item;
@@ -221,7 +222,7 @@ class StageAutocompleteEvaluatorTest {
     stage.activate();
     plan.addStage(stage);
 
-    PlanItem item = PlanItem.create("do-work", "worker-a", 0);
+    PlanItem item = PlanItem.create("do-work", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     stage.addPlanItem(item.getPlanItemId());
     stage.addRequiredItem(item.getPlanItemId());

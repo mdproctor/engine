@@ -17,9 +17,9 @@ package io.casehub.blackboard.control;
 
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.quarkus.arc.Unremovable;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -51,13 +51,13 @@ public class SequentialPlanningStrategy implements PlanningStrategy {
         return Uni.createFrom().item(List.of(binding));
       }
 
-      PlanItemStatus status = itemOpt.get().getStatus();
+      TaskStatus status = itemOpt.get().getStatus();
 
-      if (status == PlanItemStatus.COMPLETED) {
+      if (status == TaskStatus.COMPLETED) {
         continue;
       }
 
-      if (status == PlanItemStatus.PENDING) {
+      if (status == TaskStatus.PENDING) {
         return Uni.createFrom().item(List.of(binding));
       }
 

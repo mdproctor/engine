@@ -18,11 +18,11 @@ package io.casehub.blackboard.registry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.persistence.memory.InMemoryPlanItemStore;
@@ -63,11 +63,14 @@ class BlackboardRegistryLazyHydrationTest {
             caseId,
             planItemId,
             "review-binding",
-            PlanItemStatus.DELEGATED,
+            TaskStatus.DELEGATED,
             Instant.now(),
             TargetType.HUMAN_TASK,
             ".result.decision",
-            "test-tenant"),
+            "test-tenant",
+            null,
+            null,
+            null),
         "test-tenant");
 
     Optional<CasePlanModel> result = registry.get(caseId);
@@ -75,7 +78,7 @@ class BlackboardRegistryLazyHydrationTest {
     assertThat(result).isPresent();
     assertThat(result.get().getPlanItem(planItemId)).isPresent();
     PlanItem item = result.get().getPlanItem(planItemId).get();
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
     assertThat(item.getBindingName()).isEqualTo("review-binding");
     assertThat(item.getTarget()).isInstanceOf(HumanTaskTarget.class);
     HumanTaskTarget ht = (HumanTaskTarget) item.getTarget();
@@ -95,11 +98,14 @@ class BlackboardRegistryLazyHydrationTest {
             caseId,
             planItemId,
             "approve-binding",
-            PlanItemStatus.DELEGATED,
+            TaskStatus.DELEGATED,
             Instant.now(),
             TargetType.HUMAN_TASK,
             null,
-            "test-tenant"),
+            "test-tenant",
+            null,
+            null,
+            null),
         "test-tenant");
 
     Optional<CasePlanModel> result = registry.get(caseId);
@@ -120,22 +126,28 @@ class BlackboardRegistryLazyHydrationTest {
             caseId,
             UUID.randomUUID().toString(),
             "pending-binding",
-            PlanItemStatus.PENDING,
+            TaskStatus.PENDING,
             Instant.now(),
             null,
             null,
-            "test-tenant"),
+            "test-tenant",
+            null,
+            null,
+            null),
         "test-tenant");
     planItemStore.save(
         new PlanItemSaveRequest(
             caseId,
             UUID.randomUUID().toString(),
             "completed-binding",
-            PlanItemStatus.COMPLETED,
+            TaskStatus.COMPLETED,
             Instant.now(),
             TargetType.HUMAN_TASK,
             null,
-            "test-tenant"),
+            "test-tenant",
+            null,
+            null,
+            null),
         "test-tenant");
 
     Optional<CasePlanModel> result = registry.get(caseId);

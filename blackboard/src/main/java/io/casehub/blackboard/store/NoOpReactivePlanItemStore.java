@@ -15,9 +15,9 @@
  */
 package io.casehub.blackboard.store;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.ReactivePlanItemStore;
 import io.quarkus.arc.DefaultBean;
 import io.smallrye.mutiny.Uni;
@@ -36,7 +36,7 @@ public class NoOpReactivePlanItemStore implements ReactivePlanItemStore {
   }
 
   @Override
-  public Uni<Void> updateStatus(String planItemId, PlanItemStatus status) {
+  public Uni<Void> updateStatus(String planItemId, TaskStatus status) {
     return Uni.createFrom().voidItem();
   }
 

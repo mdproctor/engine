@@ -18,9 +18,10 @@ package io.casehub.blackboard.plan;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.MilestoneLifecycleStatus;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.stage.Stage;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -42,9 +43,9 @@ class DefaultCasePlanModelTest {
 
   @Test
   void agenda_returns_only_pending_items_sorted_by_priority() {
-    PlanItem low = PlanItem.create("b-low", "w-low", 1);
-    PlanItem high = PlanItem.create("b-high", "w-high", 10);
-    PlanItem running = PlanItem.create("b-run", "w-run", 99);
+    PlanItem low = PlanItem.create("b-low", ExecutorRef.of("w-low"), 1);
+    PlanItem high = PlanItem.create("b-high", ExecutorRef.of("w-high"), 10);
+    PlanItem running = PlanItem.create("b-run", ExecutorRef.of("w-run"), 99);
     running.markRunning();
 
     plan.addPlanItem(low);
@@ -60,27 +61,27 @@ class DefaultCasePlanModelTest {
   @Test
   void getTopPlanItems_respects_limit() {
     for (int i = 0; i < 5; i++) {
-      plan.addPlanItem(PlanItem.create("b-" + i, "w-" + i, i));
+      plan.addPlanItem(PlanItem.create("b-" + i, ExecutorRef.of("w-" + i), i));
     }
     assertThat(plan.getTopPlanItems(3)).hasSize(3);
   }
 
   @Test
   void getTopPlanItems_handles_limit_larger_than_agenda() {
-    plan.addPlanItem(PlanItem.create("b-a", "w-a", 0));
+    plan.addPlanItem(PlanItem.create("b-a", ExecutorRef.of("w-a"), 0));
     assertThat(plan.getTopPlanItems(100)).hasSize(1);
   }
 
   @Test
   void getPlanItem_returns_by_id() {
-    PlanItem item = PlanItem.create("b-a", "w-a", 0);
+    PlanItem item = PlanItem.create("b-a", ExecutorRef.of("w-a"), 0);
     plan.addPlanItem(item);
     assertThat(plan.getPlanItem(item.getPlanItemId())).contains(item);
   }
 
   @Test
   void removePlanItem_removes_from_agenda() {
-    PlanItem item = PlanItem.create("b-a", "w-a", 0);
+    PlanItem item = PlanItem.create("b-a", ExecutorRef.of("w-a"), 0);
     plan.addPlanItem(item);
     plan.removePlanItem(item.getPlanItemId());
     assertThat(plan.getAgenda()).isEmpty();
@@ -222,14 +223,14 @@ class DefaultCasePlanModelTest {
 
   @Test
   void hasActivePlanItem_true_for_pending_item() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     assertThat(plan.hasActivePlanItem("binding-a")).isTrue();
   }
 
   @Test
   void hasActivePlanItem_true_for_running_item() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     plan.addPlanItem(item);
     assertThat(plan.hasActivePlanItem("binding-a")).isTrue();
@@ -237,7 +238,7 @@ class DefaultCasePlanModelTest {
 
   @Test
   void hasActivePlanItem_false_for_completed_item() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
     item.markCompleted();
     plan.addPlanItem(item);
@@ -251,7 +252,7 @@ class DefaultCasePlanModelTest {
 
   @Test
   void hasActivePlanItem_false_for_faulted_item() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markFaulted();
     plan.addPlanItem(item);
     assertThat(plan.hasActivePlanItem("binding-a")).isFalse();
@@ -278,15 +279,15 @@ class DefaultCasePlanModelTest {
 
   @Test
   void addPlanItemIfAbsent_returns_true_when_no_active_item() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     assertThat(plan.addPlanItemIfAbsent(item)).isTrue();
     assertThat(plan.getAgenda()).hasSize(1);
   }
 
   @Test
   void addPlanItemIfAbsent_returns_false_when_pending_item_exists() {
-    PlanItem first = PlanItem.create("binding-a", "worker-a", 0);
-    PlanItem second = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem first = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    PlanItem second = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItemIfAbsent(first);
     assertThat(plan.addPlanItemIfAbsent(second)).isFalse();
     assertThat(plan.getAgenda()).hasSize(1);
@@ -294,20 +295,20 @@ class DefaultCasePlanModelTest {
 
   @Test
   void addPlanItemIfAbsent_returns_false_when_running_item_exists() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItemIfAbsent(item);
     item.markRunning();
-    PlanItem second = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem second = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     assertThat(plan.addPlanItemIfAbsent(second)).isFalse();
   }
 
   @Test
   void addPlanItemIfAbsent_returns_false_when_prior_item_is_completed() {
-    PlanItem first = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem first = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItemIfAbsent(first);
     first.markRunning();
     first.markCompleted();
-    PlanItem second = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem second = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     assertThat(plan.addPlanItemIfAbsent(second))
         .as("COMPLETED PlanItems must not be replaced — prevents duplicate dispatch")
         .isFalse();
@@ -328,7 +329,7 @@ class DefaultCasePlanModelTest {
               () -> {
                 try {
                   start.await();
-                  PlanItem item = PlanItem.create("binding-a", "worker-" + idx, 0);
+                  PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-" + idx), 0);
                   if (plan.addPlanItemIfAbsent(item)) addedCount.incrementAndGet();
                 } catch (InterruptedException ignored) {
                 } finally {
@@ -349,8 +350,8 @@ class DefaultCasePlanModelTest {
 
   @Test
   void getTopPlanItems_with_zero_limit_returns_empty() {
-    plan.addPlanItem(PlanItem.create("b-a", "w-a", 5));
-    plan.addPlanItem(PlanItem.create("b-b", "w-b", 3));
+    plan.addPlanItem(PlanItem.create("b-a", ExecutorRef.of("w-a"), 5));
+    plan.addPlanItem(PlanItem.create("b-b", ExecutorRef.of("w-b"), 3));
     assertThat(plan.getTopPlanItems(0))
         .as("getTopPlanItems(0) must return empty, not all items")
         .isEmpty();
@@ -370,10 +371,10 @@ class DefaultCasePlanModelTest {
   @Test
   void addPlanItemIfAbsent_returns_false_when_delegated_item_exists() {
     // A DELEGATED item is active — must block duplicate scheduling
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     plan.addPlanItemIfAbsent(item);
     item.markDelegated();
-    PlanItem second = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem second = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     assertThat(plan.addPlanItemIfAbsent(second))
         .as("DELEGATED item must block new PlanItem for same binding")
         .isFalse();
@@ -381,7 +382,7 @@ class DefaultCasePlanModelTest {
 
   @Test
   void getPlanItemByBindingName_returns_delegated_item() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
     item.markDelegated();
     assertThat(plan.getPlanItemByBindingName("binding-a"))
@@ -391,7 +392,7 @@ class DefaultCasePlanModelTest {
 
   @Test
   void hasActivePlanItem_returns_true_for_delegated() {
-    PlanItem item = PlanItem.create("binding-a", "unknown", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
     item.markDelegated();
     assertThat(plan.hasActivePlanItem("binding-a"))
@@ -401,8 +402,8 @@ class DefaultCasePlanModelTest {
 
   @Test
   void agenda_excludes_delegated_items() {
-    PlanItem pending = PlanItem.create("b-pending", "unknown", 0);
-    PlanItem delegated = PlanItem.create("b-delegated", "unknown", 0);
+    PlanItem pending = PlanItem.create("b-pending", ExecutorRef.of("unknown"), 0);
+    PlanItem delegated = PlanItem.create("b-delegated", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(pending);
     plan.addPlanItem(delegated);
     delegated.markDelegated();
@@ -419,7 +420,8 @@ class DefaultCasePlanModelTest {
     DefaultCasePlanModel model = new DefaultCasePlanModel(caseId);
     String planItemId = UUID.randomUUID().toString();
     PlanItem item =
-        PlanItem.restore(planItemId, "task-binding", null, PlanItemStatus.DELEGATED, Instant.now());
+        PlanItem.restore(
+            planItemId, "task-binding", null, null, TaskStatus.DELEGATED, Instant.now());
 
     model.restorePlanItem(item);
 
@@ -433,7 +435,7 @@ class DefaultCasePlanModelTest {
     DefaultCasePlanModel model = new DefaultCasePlanModel(caseId);
     PlanItem item =
         PlanItem.restore(
-            UUID.randomUUID().toString(), "task", null, PlanItemStatus.DELEGATED, Instant.now());
+            UUID.randomUUID().toString(), "task", null, null, TaskStatus.DELEGATED, Instant.now());
 
     model.restorePlanItem(item);
 
@@ -445,7 +447,7 @@ class DefaultCasePlanModelTest {
 
   @Test
   void findPlanItemByBindingName_returnsCompletedItem() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning();
     item.markCompleted();
@@ -456,7 +458,7 @@ class DefaultCasePlanModelTest {
 
   @Test
   void findPlanItemByBindingName_returnsFaultedItem() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning();
     item.markFaulted();
@@ -465,7 +467,7 @@ class DefaultCasePlanModelTest {
 
   @Test
   void findPlanItemByBindingName_returnsPendingItem() {
-    PlanItem item = PlanItem.create("binding-a", "worker-a", 0);
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     assertThat(plan.findPlanItemByBindingName("binding-a")).contains(item);
   }

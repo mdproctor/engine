@@ -16,11 +16,11 @@
 package io.casehub.engine.ai.routing;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.eidos.api.AgentCapability;
@@ -115,10 +115,10 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
   }
 
   @Override
-  public Uni<AgentAssignment> select(
+  public Uni<RoutingResult> select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
     if (candidates.isEmpty()) {
-      return Uni.createFrom().item(AgentAssignment.unresolvable("no candidates available"));
+      return Uni.createFrom().item(RoutingResult.unresolvable("no candidates available"));
     }
 
     final TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
@@ -132,7 +132,7 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
       if (!hasQualified && hasBootstrap) {
         return Uni.createFrom()
             .item(
-                AgentAssignment.escalate(
+                RoutingResult.escalate(
                     context.capabilityName(),
                     EscalationReason.NO_QUALIFIED_AGENT,
                     "bootstrap only — no qualified agents for capability '%s'"

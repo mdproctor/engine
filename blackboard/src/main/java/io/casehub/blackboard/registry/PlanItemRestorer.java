@@ -34,7 +34,18 @@ class PlanItemRestorer {
         r.targetType() == TargetType.HUMAN_TASK
             ? buildHumanTaskTarget(r.outputMappingExpression())
             : null;
-    return PlanItem.restore(r.planItemId(), r.bindingName(), target, r.status(), r.createdAt());
+    io.casehub.api.model.ExecutorRef executor =
+        r.executorName() != null
+            ? io.casehub.api.model.ExecutorRef.of(r.executorName(), r.executorDescription())
+            : null;
+    return PlanItem.restore(
+        r.planItemId(),
+        r.bindingName(),
+        executor,
+        target,
+        r.status(),
+        r.createdAt(),
+        r.description());
   }
 
   private HumanTaskTarget buildHumanTaskTarget(String expr) {

@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.common.spi;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,7 +41,7 @@ public interface PlanItemStore {
   void save(PlanItemSaveRequest request, String tenancyId);
 
   /** Update status by planItemId (UUID string — globally unique; no tenancyId needed in WHERE). */
-  void updateStatus(String planItemId, PlanItemStatus status);
+  void updateStatus(String planItemId, TaskStatus status);
 
   /** Return all PlanItemRecords for the given case within the tenant. */
   List<PlanItemRecord> findByCaseId(UUID caseId, String tenancyId);

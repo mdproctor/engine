@@ -55,8 +55,8 @@ public interface AgentRoutingStrategy extends NamedStrategy {
    *
    * @param context routing context carrying caseId, capabilityName, and caseContext
    * @param candidates non-empty list of eligible candidates (filtered, health-probed)
-   * @return a {@code Uni} resolving to one of: {@link AgentAssignment.Assigned}, {@link
-   *     AgentAssignment.Unresolvable}, or {@link AgentAssignment.EscalateToOversight}
+   * @return a {@code Uni} resolving to one of: {@link RoutingResult.Selected}, {@link
+   *     RoutingResult.Unresolvable}, or {@link RoutingResult.Escalated}
    */
-  Uni<AgentAssignment> select(AgentRoutingContext context, List<AgentCandidate> candidates);
+  Uni<RoutingResult> select(AgentRoutingContext context, List<AgentCandidate> candidates);
 }

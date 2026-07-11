@@ -18,10 +18,10 @@ package io.casehub.engine.internal.routing;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.node.NullNode;
-import io.casehub.api.spi.routing.AgentAssignment;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
+import io.casehub.api.spi.routing.RoutingResult;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -44,20 +44,20 @@ class LeastLoadedAgentStrategyTest {
   @Test
   void emptyCandidates_returnsUnresolvable() {
     assertThat(strategy.select(ctx, List.of()).await().indefinitely())
-        .isInstanceOf(AgentAssignment.Unresolvable.class);
+        .isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   @Test
   void singleCandidate_isSelected() {
-    final AgentAssignment result =
+    final RoutingResult result =
         strategy.select(ctx, List.of(candidate("agent-1", 3))).await().indefinitely();
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-1");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-1");
   }
 
   @Test
   void selectsLeastLoaded_byRunningJobs() {
-    final AgentAssignment result =
+    final RoutingResult result =
         strategy
             .select(
                 ctx,
@@ -67,24 +67,24 @@ class LeastLoadedAgentStrategyTest {
                     candidate("agent-idle", 0)))
             .await()
             .indefinitely();
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-idle");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-idle");
   }
 
   @Test
   void tie_firstInListWins() {
-    final AgentAssignment result =
+    final RoutingResult result =
         strategy
             .select(ctx, List.of(candidate("agent-a", 2), candidate("agent-b", 2)))
             .await()
             .indefinitely();
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("agent-a");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-a");
   }
 
   @Test
   void healthDoesNotAffectSelection_leastLoadedWinsRegardlessOfHealth() {
-    final AgentAssignment result =
+    final RoutingResult result =
         strategy
             .select(
                 ctx,
@@ -93,8 +93,8 @@ class LeastLoadedAgentStrategyTest {
                     candidate("weak-idle", 0, AgentHealth.EPISTEMICALLY_WEAK)))
             .await()
             .indefinitely();
-    assertThat(result).isInstanceOf(AgentAssignment.Assigned.class);
-    assertThat(((AgentAssignment.Assigned) result).workerId()).isEqualTo("weak-idle");
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("weak-idle");
   }
 
   private static AgentCandidate candidate(final String workerId, final int jobs) {

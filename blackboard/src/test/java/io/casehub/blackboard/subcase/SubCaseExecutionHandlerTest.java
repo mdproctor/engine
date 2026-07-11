@@ -24,14 +24,15 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.SubCase;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.SubCaseScheduleEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
@@ -129,7 +130,7 @@ class SubCaseExecutionHandlerTest {
 
   @Test
   void subcase_spawn_marks_plan_item_delegated() {
-    PlanItem item = PlanItem.create("spawn-child", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
@@ -138,12 +139,12 @@ class SubCaseExecutionHandlerTest {
 
     handler.onSubCaseSchedule(eventFor("spawn-child", true)).await().indefinitely();
 
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
   }
 
   @Test
   void subcase_spawn_indexes_child_case_id_for_completion_routing() {
-    PlanItem item = PlanItem.create("spawn-child", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
@@ -159,7 +160,7 @@ class SubCaseExecutionHandlerTest {
 
   @Test
   void fire_and_forget_subcase_marks_plan_item_completed_immediately() {
-    PlanItem item = PlanItem.create("spawn-fire-forget", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-fire-forget", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
@@ -170,12 +171,12 @@ class SubCaseExecutionHandlerTest {
 
     assertThat(item.getStatus())
         .as("fire-and-forget: plan item must be COMPLETED once child is spawned")
-        .isEqualTo(PlanItemStatus.COMPLETED);
+        .isEqualTo(TaskStatus.COMPLETED);
   }
 
   @Test
   void circular_dependency_marks_plan_item_faulted() {
-    PlanItem item = PlanItem.create("spawn-child", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
 
     // Parent meta matches child definition — circular dependency detected
@@ -195,12 +196,12 @@ class SubCaseExecutionHandlerTest {
 
     assertThat(item.getStatus())
         .as("circular dependency must fault the PlanItem so the engine does not hang indefinitely")
-        .isEqualTo(PlanItemStatus.FAULTED);
+        .isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
   void startCase_failure_marks_plan_item_faulted() {
-    PlanItem item = PlanItem.create("spawn-child", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
 
     when(caseHubRuntime.startCase(any(), any(), any(), any()))
@@ -210,7 +211,7 @@ class SubCaseExecutionHandlerTest {
 
     assertThat(item.getStatus())
         .as("startCase failure must fault the PlanItem so the binding can be re-evaluated")
-        .isEqualTo(PlanItemStatus.FAULTED);
+        .isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
@@ -218,7 +219,7 @@ class SubCaseExecutionHandlerTest {
     BlackboardRegistry freshRegistry = new BlackboardRegistry();
     DefaultCasePlanModel freshPlan =
         (DefaultCasePlanModel) freshRegistry.getOrCreate(parentCaseId, "test-tenant");
-    PlanItem item = PlanItem.create("spawn-child", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
     freshPlan.addPlanItem(item);
 
     CaseDefinitionRegistry nullDefRegistry = mock(CaseDefinitionRegistry.class);
@@ -238,12 +239,12 @@ class SubCaseExecutionHandlerTest {
 
     assertThat(item.getStatus())
         .as("missing CaseDefinition must fault the PlanItem")
-        .isEqualTo(PlanItemStatus.FAULTED);
+        .isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
   void mofn_second_spawn_does_not_re_mark_delegated_but_indexes() {
-    PlanItem item = PlanItem.create("spawn-group", "unknown", 0);
+    PlanItem item = PlanItem.create("spawn-group", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
     item.markDelegated(); // first spawn already marked it DELEGATED
 
@@ -268,7 +269,7 @@ class SubCaseExecutionHandlerTest {
     handler.onSubCaseSchedule(event).await().indefinitely();
 
     // Still DELEGATED (not double-marked)
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.DELEGATED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
     // But child2 is indexed
     assertThat(registry.getPlanItemId(parentCaseId, child2.toString()))
         .contains(item.getPlanItemId());

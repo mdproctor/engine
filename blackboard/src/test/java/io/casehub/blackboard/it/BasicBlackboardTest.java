@@ -27,8 +27,8 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -134,7 +134,7 @@ class BasicBlackboardTest {
               assertThat(item).isPresent();
               assertThat(item.get().getStatus())
                   .as("PlanItem must be COMPLETED after worker finishes")
-                  .isEqualTo(PlanItemStatus.COMPLETED);
+                  .isEqualTo(TaskStatus.COMPLETED);
             });
   }
 

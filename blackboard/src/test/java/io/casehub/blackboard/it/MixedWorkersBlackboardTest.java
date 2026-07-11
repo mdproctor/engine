@@ -21,8 +21,8 @@ import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.registry.BlackboardRegistry;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemCompletedEvent;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -87,10 +87,10 @@ class MixedWorkersBlackboardTest {
 
     assertThat(plan.get().getPlanItem(aPlanItemId).map(i -> i.getStatus()))
         .as("worker-a PlanItem must be COMPLETED")
-        .contains(PlanItemStatus.COMPLETED);
+        .contains(TaskStatus.COMPLETED);
     assertThat(plan.get().getPlanItem(bPlanItemId).map(i -> i.getStatus()))
         .as("worker-b PlanItem must be COMPLETED")
-        .contains(PlanItemStatus.COMPLETED);
+        .contains(TaskStatus.COMPLETED);
   }
 
   /**

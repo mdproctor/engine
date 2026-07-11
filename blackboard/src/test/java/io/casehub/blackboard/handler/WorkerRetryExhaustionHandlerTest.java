@@ -19,12 +19,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.RetryState;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.plan.DefaultCasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
-import io.casehub.engine.common.internal.model.PlanItemStatus;
 import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Event;
@@ -67,7 +68,7 @@ class WorkerRetryExhaustionHandlerTest {
 
   @Test
   void running_planItem_is_marked_faulted_on_retries_exhausted() {
-    PlanItem item = PlanItem.create("capability-binding", "worker-a", 0);
+    PlanItem item = PlanItem.create("capability-binding", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning();
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
@@ -82,7 +83,7 @@ class WorkerRetryExhaustionHandlerTest {
             null,
             RetryState.empty()));
 
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
   }
 
   @Test
@@ -103,7 +104,7 @@ class WorkerRetryExhaustionHandlerTest {
 
   @Test
   void already_faulted_planItem_is_not_double_transitioned() {
-    PlanItem item = PlanItem.create("capability-binding", "worker-a", 0);
+    PlanItem item = PlanItem.create("capability-binding", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning();
     item.markFaulted(); // already terminal
@@ -119,14 +120,14 @@ class WorkerRetryExhaustionHandlerTest {
             null,
             RetryState.empty()));
 
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED); // unchanged, no throw
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED); // unchanged, no throw
   }
 
   @Test
   void pending_planItem_is_not_transitioned() {
     // Guard-blocked path fires WORKER_RETRIES_EXHAUSTED before the job is submitted.
     // The PlanItem may still be PENDING if indexing happened before the guard check.
-    PlanItem item = PlanItem.create("capability-binding", "worker-a", 0);
+    PlanItem item = PlanItem.create("capability-binding", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     // PENDING — no markRunning()
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
@@ -143,13 +144,13 @@ class WorkerRetryExhaustionHandlerTest {
 
     // PENDING is not RUNNING — handler must not transition it (guard fires before plan item
     // indexing in the guard-blocked path, so lookup returns empty; this tests a theoretical edge)
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.PENDING);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.PENDING);
   }
 
   @Test
   void onWorkerRetriesExhausted_firesBothPlanItemFaultedEventAndStageAutocomplete() {
     // Setup: create a RUNNING PlanItem
-    PlanItem item = PlanItem.create("capability-binding", "worker-a", 0);
+    PlanItem item = PlanItem.create("capability-binding", ExecutorRef.of("worker-a"), 0);
     plan.addPlanItem(item);
     item.markRunning();
     registry.indexForCompletion(caseId, "worker-a", item.getPlanItemId());
@@ -166,7 +167,7 @@ class WorkerRetryExhaustionHandlerTest {
             RetryState.empty()));
 
     // Assert: PlanItem marked FAULTED
-    assertThat(item.getStatus()).isEqualTo(PlanItemStatus.FAULTED);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
 
     // Assert: PlanItemFaultedEvent fired via CDI
     verify(planItemFaultedEvents)
