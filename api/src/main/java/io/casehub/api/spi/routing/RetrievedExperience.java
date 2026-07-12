@@ -24,9 +24,6 @@ import java.util.Objects;
  * problem to the current case, including the solution that was applied, the outcome achieved, and
  * the full plan trace showing which bindings were selected.
  *
- * <p>Routing strategies use retrieved experiences to predict which bindings and workers are most
- * likely to succeed for the current case based on similarity to past cases.
- *
  * @param problem the problem description from the past case
  * @param solution the solution that was applied
  * @param outcome the final case outcome (COMPLETED, FAULTED, etc.)
@@ -34,6 +31,7 @@ import java.util.Objects;
  * @param similarityScore how similar this past case is to the current case (-1.0 to 1.0)
  * @param features extracted features from the past case (empty map if none)
  * @param planTrace the sequence of plan steps that were executed (empty list if none)
+ * @param featureSimilarities per-feature similarity contributions (empty map when unavailable)
  */
 public record RetrievedExperience(
     String problem,
@@ -42,7 +40,8 @@ public record RetrievedExperience(
     Double confidence,
     double similarityScore,
     Map<String, Object> features,
-    List<ExperiencePlanStep> planTrace) {
+    List<ExperiencePlanStep> planTrace,
+    Map<String, Double> featureSimilarities) {
 
   public RetrievedExperience {
     Objects.requireNonNull(problem, "problem must not be null");
@@ -53,5 +52,6 @@ public record RetrievedExperience(
     }
     features = features != null ? Map.copyOf(features) : Map.of();
     planTrace = planTrace != null ? List.copyOf(planTrace) : List.of();
+    featureSimilarities = featureSimilarities != null ? Map.copyOf(featureSimilarities) : Map.of();
   }
 }

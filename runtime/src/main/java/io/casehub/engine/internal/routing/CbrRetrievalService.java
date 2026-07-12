@@ -20,6 +20,7 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.EpisodicMemoryConfig;
+import io.casehub.api.model.cbr.CbrCaseTypeRegistration;
 import io.casehub.api.model.cbr.CbrConfig;
 import io.casehub.api.model.cbr.CbrConfig.CbrRetrievalTiming;
 import io.casehub.api.model.cbr.JqFeatureExtractor;
@@ -30,15 +31,20 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.neocortex.memory.MemoryDomain;
+import io.casehub.neocortex.memory.cbr.CbrCase;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.CbrQuery;
+import io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
+import io.casehub.neocortex.memory.cbr.TextualCbrCase;
+import io.quarkus.arc.All;
 import io.quarkus.arc.Lock;
 import io.smallrye.mutiny.Uni;
 import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -47,19 +53,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
-/**
- * Runtime bridge for CBR retrieval. Evaluates feature extractors against the case context, builds a
- * {@link CbrQuery}, calls the {@link CbrCaseMemoryStore}, and maps results to engine-owned {@link
- * RetrievedExperience} types.
- *
- * <p>When {@link CbrRetrievalTiming#CASE_LIFETIME} is configured, retrieval results are cached per
- * case UUID and reused for the case's lifetime. The {@link #MAX_CACHE_SIZE} bound is enforced
- * atomically via {@link io.quarkus.arc.Lock @Lock(WRITE)} on {@link #cacheIfUnderBound}. Eviction
- * is triggered by {@link CbrCacheEvictionHandler} on terminal state transitions.
- *
- * <p>CBR failure never blocks case progression — the full chain is wrapped with {@code
- * .onFailure().recoverWithItem(List.of())}.
- */
 @ApplicationScoped
 public class CbrRetrievalService {
 
@@ -67,25 +60,50 @@ public class CbrRetrievalService {
 
   static final int MAX_CACHE_SIZE = 1000;
 
+  private static final Map<String, Class<? extends CbrCase>> BUILT_IN_TYPES =
+      Map.of(
+          "plan", PlanCbrCase.class,
+          "feature-vector", FeatureVectorCbrCase.class,
+          "textual", TextualCbrCase.class);
+
   private final ConcurrentHashMap<UUID, List<RetrievedExperience>> cache =
       new ConcurrentHashMap<>();
 
   private final JQEvaluator jqEvaluator;
   private final CbrCaseMemoryStore cbrStore;
+  private final Map<String, Class<? extends CbrCase>> typeMap;
 
   @Inject
-  public CbrRetrievalService(JQEvaluator jqEvaluator, CbrCaseMemoryStore cbrStore) {
+  public CbrRetrievalService(
+      JQEvaluator jqEvaluator,
+      CbrCaseMemoryStore cbrStore,
+      @All Instance<CbrCaseTypeRegistration> registrations) {
     this.jqEvaluator = jqEvaluator;
     this.cbrStore = cbrStore;
+    this.typeMap = buildTypeMap(registrations);
   }
 
-  /**
-   * Retrieve similar past cases for the given case definition and instance.
-   *
-   * @param definition the case definition (carries CbrConfig)
-   * @param instance the current case instance (carries context and tenancy)
-   * @return list of retrieved experiences, or empty list on failure or missing config
-   */
+  CbrRetrievalService(JQEvaluator jqEvaluator, CbrCaseMemoryStore cbrStore) {
+    this.jqEvaluator = jqEvaluator;
+    this.cbrStore = cbrStore;
+    this.typeMap = Map.copyOf(BUILT_IN_TYPES);
+  }
+
+  private static Map<String, Class<? extends CbrCase>> buildTypeMap(
+      Instance<CbrCaseTypeRegistration> registrations) {
+    Map<String, Class<? extends CbrCase>> map = new java.util.HashMap<>(BUILT_IN_TYPES);
+    for (CbrCaseTypeRegistration reg : registrations) {
+      @SuppressWarnings("unchecked")
+      Class<? extends CbrCase> caseClass = (Class<? extends CbrCase>) reg.caseClass();
+      Class<? extends CbrCase> existing = map.put(reg.cbrType(), caseClass);
+      if (existing != null && !BUILT_IN_TYPES.containsKey(reg.cbrType())) {
+        throw new IllegalStateException(
+            "Duplicate CbrCaseTypeRegistration for cbrType '" + reg.cbrType() + "'");
+      }
+    }
+    return Map.copyOf(map);
+  }
+
   public Uni<List<RetrievedExperience>> retrieve(CaseDefinition definition, CaseInstance instance) {
     return Uni.createFrom()
         .<List<RetrievedExperience>>deferred(
@@ -94,8 +112,39 @@ public class CbrRetrievalService {
               if (config == null) {
                 return Uni.createFrom().item(List.of());
               }
+              String cbrType = config.cbrType() != null ? config.cbrType() : "plan";
+              Class<? extends CbrCase> caseClass = typeMap.get(cbrType);
+              if (caseClass == null) {
+                throw new IllegalStateException("Unknown cbrType: " + cbrType);
+              }
+              return retrieveInternal(definition, instance, caseClass);
+            })
+        .onFailure()
+        .recoverWithItem(
+            failure -> {
+              LOG.warnf(
+                  failure,
+                  "CBR retrieval failed for case definition '%s' — proceeding without experiences",
+                  definition.getName());
+              return List.of();
+            });
+  }
 
-              // Cache hit path for CASE_LIFETIME timing
+  public <C extends CbrCase> Uni<List<RetrievedExperience>> retrieve(
+      CaseDefinition definition, CaseInstance instance, Class<C> caseClass) {
+    return retrieveInternal(definition, instance, caseClass);
+  }
+
+  private <C extends CbrCase> Uni<List<RetrievedExperience>> retrieveInternal(
+      CaseDefinition definition, CaseInstance instance, Class<C> caseClass) {
+    return Uni.createFrom()
+        .<List<RetrievedExperience>>deferred(
+            () -> {
+              CbrConfig config = definition.getCbrConfig();
+              if (config == null) {
+                return Uni.createFrom().item(List.of());
+              }
+
               if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME) {
                 List<RetrievedExperience> cached = cache.get(instance.getUuid());
                 if (cached != null) {
@@ -131,7 +180,7 @@ public class CbrRetrievalService {
                       .withVectorWeight(config.vectorWeight());
 
               return Uni.createFrom()
-                  .item(() -> cbrStore.retrieveSimilar(query, PlanCbrCase.class))
+                  .item(() -> cbrStore.retrieveSimilar(query, caseClass))
                   .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
                   .map(this::mapResults)
                   .map(List::copyOf)
@@ -153,10 +202,6 @@ public class CbrRetrievalService {
             });
   }
 
-  /**
-   * Cache a retrieval result if the cache has not reached its bound. The {@code @Lock(WRITE)}
-   * annotation makes size-check + put atomic, eliminating the TOCTOU race on MAX_CACHE_SIZE.
-   */
   @Lock(Lock.Type.WRITE)
   void cacheIfUnderBound(UUID caseId, List<RetrievedExperience> result) {
     if (cache.size() < MAX_CACHE_SIZE) {
@@ -164,17 +209,10 @@ public class CbrRetrievalService {
     }
   }
 
-  /**
-   * Evict the cached CBR retrieval result for the given case ID. Called by {@link
-   * CbrCacheEvictionHandler} when a case reaches a terminal state.
-   *
-   * @param caseId the case UUID to evict
-   */
   public void evict(UUID caseId) {
     cache.remove(caseId);
   }
 
-  /** Returns the current cache size. Package-private for testing. */
   int cacheSize() {
     return cache.size();
   }
@@ -232,12 +270,15 @@ public class CbrRetrievalService {
     return null;
   }
 
-  private List<RetrievedExperience> mapResults(List<ScoredCbrCase<PlanCbrCase>> scoredCases) {
+  private <C extends CbrCase> List<RetrievedExperience> mapResults(
+      List<ScoredCbrCase<C>> scoredCases) {
     return scoredCases.stream().map(this::mapScoredCase).toList();
   }
 
-  private RetrievedExperience mapScoredCase(ScoredCbrCase<PlanCbrCase> scored) {
-    PlanCbrCase c = scored.cbrCase();
+  private <C extends CbrCase> RetrievedExperience mapScoredCase(ScoredCbrCase<C> scored) {
+    CbrCase c = scored.cbrCase();
+    List<ExperiencePlanStep> trace =
+        (c instanceof PlanCbrCase plan) ? mapPlanTrace(plan.planTrace()) : List.of();
     return new RetrievedExperience(
         c.problem(),
         c.solution(),
@@ -245,7 +286,8 @@ public class CbrRetrievalService {
         c.confidence(),
         scored.score(),
         c.features(),
-        mapPlanTrace(c.planTrace()));
+        trace,
+        scored.featureSimilarities());
   }
 
   private List<ExperiencePlanStep> mapPlanTrace(List<PlanTrace> traces) {
@@ -262,10 +304,6 @@ public class CbrRetrievalService {
         .toList();
   }
 
-  /**
-   * Unwraps a JsonNode to a plain Java value. Returns null for null/missing nodes, the appropriate
-   * primitive for value nodes, and the textual representation for complex nodes.
-   */
   private static Object unwrap(JsonNode node) {
     if (node == null || node.isNull() || node.isMissingNode()) {
       return null;
@@ -288,7 +326,6 @@ public class CbrRetrievalService {
     if (node.isNumber()) {
       return node.numberValue();
     }
-    // For arrays and objects, return the textual JSON representation
     return node.toString();
   }
 }

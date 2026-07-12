@@ -554,6 +554,9 @@ public final class CaseDefinitionYamlMapper {
                   io.casehub.api.model.cbr.CbrConfig.CbrRetrievalTiming.PER_EVALUATION);
         }
       }
+      if (cbrNode != null && cbrNode.has("cbrType")) {
+        cbrBuilder.cbrType(cbrNode.get("cbrType").asText());
+      }
       def.setCbrConfig(cbrBuilder.build());
     }
 

@@ -121,4 +121,23 @@ class CbrConfigBuilderTest {
     assertTrue(config.weights().isEmpty());
     assertNull(config.caseType());
   }
+
+  @Test
+  void cbrType_defaults_to_null() {
+    var config = CbrConfig.builder().feature("f1", ".x").build();
+    assertNull(config.cbrType());
+  }
+
+  @Test
+  void cbrType_set_via_builder() {
+    var config = CbrConfig.builder().feature("f1", ".x").cbrType("feature-vector").build();
+    assertEquals("feature-vector", config.cbrType());
+  }
+
+  @Test
+  void cbrType_blank_rejected() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> CbrConfig.builder().feature("f1", ".x").cbrType("  ").build());
+  }
 }

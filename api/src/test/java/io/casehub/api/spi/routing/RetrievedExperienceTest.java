@@ -31,7 +31,14 @@ class RetrievedExperienceTest {
     var step = new ExperiencePlanStep("b1", "cap1", "w1", "SUCCESS", 0, Map.of());
     var exp =
         new RetrievedExperience(
-            "problem", "solution", "COMPLETED", 0.9, 0.85, Map.of("f1", "v1"), List.of(step));
+            "problem",
+            "solution",
+            "COMPLETED",
+            0.9,
+            0.85,
+            Map.of("f1", "v1"),
+            List.of(step),
+            Map.of());
     assertEquals("problem", exp.problem());
     assertEquals(0.85, exp.similarityScore());
     assertEquals(1, exp.planTrace().size());
@@ -41,33 +48,33 @@ class RetrievedExperienceTest {
   void null_problem_throws() {
     assertThrows(
         NullPointerException.class,
-        () -> new RetrievedExperience(null, "s", "o", 0.9, 0.5, Map.of(), List.of()));
+        () -> new RetrievedExperience(null, "s", "o", 0.9, 0.5, Map.of(), List.of(), Map.of()));
   }
 
   @Test
   void null_solution_throws() {
     assertThrows(
         NullPointerException.class,
-        () -> new RetrievedExperience("p", null, "o", 0.9, 0.5, Map.of(), List.of()));
+        () -> new RetrievedExperience("p", null, "o", 0.9, 0.5, Map.of(), List.of(), Map.of()));
   }
 
   @Test
   void score_out_of_range_high_throws() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new RetrievedExperience("p", "s", "o", 0.9, 1.1, Map.of(), List.of()));
+        () -> new RetrievedExperience("p", "s", "o", 0.9, 1.1, Map.of(), List.of(), Map.of()));
   }
 
   @Test
   void score_out_of_range_low_throws() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new RetrievedExperience("p", "s", "o", 0.9, -1.1, Map.of(), List.of()));
+        () -> new RetrievedExperience("p", "s", "o", 0.9, -1.1, Map.of(), List.of(), Map.of()));
   }
 
   @Test
   void negative_one_score_is_valid() {
-    var exp = new RetrievedExperience("p", "s", "o", null, -1.0, Map.of(), List.of());
+    var exp = new RetrievedExperience("p", "s", "o", null, -1.0, Map.of(), List.of(), Map.of());
     assertEquals(-1.0, exp.similarityScore());
   }
 
@@ -75,15 +82,37 @@ class RetrievedExperienceTest {
   void defensive_copies() {
     var features = new HashMap<String, Object>();
     features.put("k", "v");
-    var exp = new RetrievedExperience("p", "s", "o", null, 0.5, features, List.of());
+    var exp = new RetrievedExperience("p", "s", "o", null, 0.5, features, List.of(), Map.of());
     features.put("k2", "v2");
     assertEquals(1, exp.features().size());
   }
 
   @Test
   void null_features_defaults_to_empty() {
-    var exp = new RetrievedExperience("p", "s", "o", null, 0.5, null, null);
+    var exp = new RetrievedExperience("p", "s", "o", null, 0.5, null, null, null);
     assertTrue(exp.features().isEmpty());
     assertTrue(exp.planTrace().isEmpty());
+  }
+
+  @Test
+  void featureSimilarities_present() {
+    var sims = Map.of("temperature", 0.6, "severity", 0.3);
+    var exp = new RetrievedExperience("p", "s", "COMPLETED", 0.9, 0.8, Map.of(), List.of(), sims);
+    assertEquals(sims, exp.featureSimilarities());
+  }
+
+  @Test
+  void featureSimilarities_null_becomes_empty() {
+    var exp = new RetrievedExperience("p", "s", "COMPLETED", 0.9, 0.8, Map.of(), List.of(), null);
+    assertTrue(exp.featureSimilarities().isEmpty());
+  }
+
+  @Test
+  void featureSimilarities_defensive_copy() {
+    var sims = new HashMap<String, Double>();
+    sims.put("a", 0.5);
+    var exp = new RetrievedExperience("p", "s", "COMPLETED", 0.9, 0.8, Map.of(), List.of(), sims);
+    sims.put("b", 0.3);
+    assertEquals(1, exp.featureSimilarities().size());
   }
 }

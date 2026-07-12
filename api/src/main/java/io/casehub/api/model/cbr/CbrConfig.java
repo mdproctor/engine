@@ -21,19 +21,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.function.Function;
 
-/**
- * CBR retrieval configuration. Specifies feature extraction, similarity scoring, and result
- * filtering for case-based reasoning.
- *
- * @param featureExtractor The feature extraction strategy (JQ or lambda)
- * @param topK Maximum number of similar cases to retrieve (must be >= 1)
- * @param minSimilarity Minimum similarity score threshold (0.0 to 1.0)
- * @param weights Feature weights for similarity computation (non-negative)
- * @param domain Optional domain filter for scoping retrieval
- * @param caseType Optional case type filter
- * @param vectorWeight Weight for semantic vector similarity (0.0 to 1.0)
- * @param timing Retrieval timing strategy — PER_EVALUATION (default) or CASE_LIFETIME
- */
 public record CbrConfig(
     FeatureExtractor featureExtractor,
     int topK,
@@ -42,13 +29,11 @@ public record CbrConfig(
     String domain,
     String caseType,
     double vectorWeight,
-    CbrRetrievalTiming timing) {
+    CbrRetrievalTiming timing,
+    String cbrType) {
 
-  /** Controls when CBR retrieval occurs relative to the case lifecycle. */
   public enum CbrRetrievalTiming {
-    /** Retrieve on every evaluation (default — current behaviour). */
     PER_EVALUATION,
-    /** Retrieve once on first access and cache for the case's lifetime. */
     CASE_LIFETIME
   }
 
@@ -70,6 +55,9 @@ public record CbrConfig(
     }
     if (caseType != null && caseType.isBlank()) {
       throw new IllegalArgumentException("caseType must not be blank when provided");
+    }
+    if (cbrType != null && cbrType.isBlank()) {
+      throw new IllegalArgumentException("cbrType must not be blank when provided");
     }
     weights = Map.copyOf(weights);
     for (var entry : weights.entrySet()) {
@@ -100,15 +88,8 @@ public record CbrConfig(
     private String caseType;
     private double vectorWeight = 0.5;
     private CbrRetrievalTiming timing = CbrRetrievalTiming.PER_EVALUATION;
+    private String cbrType;
 
-    /**
-     * Add a JQ feature expression.
-     *
-     * @param name feature name
-     * @param jqExpression JQ expression
-     * @return this builder
-     * @throws IllegalStateException if lambda extractor was already set
-     */
     public Builder feature(final String name, final String jqExpression) {
       if (lambdaExtractor != null) {
         throw new IllegalStateException("Cannot mix JQ features with lambda extractor");
@@ -117,13 +98,6 @@ public record CbrConfig(
       return this;
     }
 
-    /**
-     * Set a lambda-based feature extractor.
-     *
-     * @param extractor extraction function
-     * @return this builder
-     * @throws IllegalStateException if JQ features were already added
-     */
     public Builder featureExtractor(final Function<CaseContext, Map<String, Object>> extractor) {
       if (!jqFeatures.isEmpty()) {
         throw new IllegalStateException("Cannot mix lambda extractor with JQ features");
@@ -142,13 +116,6 @@ public record CbrConfig(
       return this;
     }
 
-    /**
-     * Set weight for a feature.
-     *
-     * @param featureName feature name
-     * @param weight weight value (must be non-negative)
-     * @return this builder
-     */
     public Builder weight(final String featureName, final double weight) {
       this.weights.put(featureName, weight);
       return this;
@@ -169,23 +136,16 @@ public record CbrConfig(
       return this;
     }
 
-    /**
-     * Set the retrieval timing strategy.
-     *
-     * @param timing PER_EVALUATION (default) or CASE_LIFETIME
-     * @return this builder
-     */
     public Builder timing(final CbrRetrievalTiming timing) {
       this.timing = timing;
       return this;
     }
 
-    /**
-     * Build the configuration.
-     *
-     * @return immutable CbrConfig
-     * @throws IllegalStateException if no feature extractor was configured
-     */
+    public Builder cbrType(final String cbrType) {
+      this.cbrType = cbrType;
+      return this;
+    }
+
     public CbrConfig build() {
       final FeatureExtractor extractor;
       if (!jqFeatures.isEmpty()) {
@@ -196,7 +156,7 @@ public record CbrConfig(
         throw new IllegalStateException("No feature extractor configured");
       }
       return new CbrConfig(
-          extractor, topK, minSimilarity, weights, domain, caseType, vectorWeight, timing);
+          extractor, topK, minSimilarity, weights, domain, caseType, vectorWeight, timing, cbrType);
     }
   }
 }

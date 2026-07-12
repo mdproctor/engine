@@ -244,6 +244,80 @@ class CbrRetrievalServiceTest {
     assertFalse(cbrStore.wasCalled());
   }
 
+  @Test
+  void retrieve_with_feature_vector_cbrType() {
+    CbrConfig config =
+        CbrConfig.builder()
+            .featureExtractor(ctx -> Map.of("f1", "v1"))
+            .domain("test")
+            .cbrType("feature-vector")
+            .build();
+    CaseDefinition def = buildDefinition(config);
+    io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase fvCase =
+        new io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase(
+            "problem1", "solution1", "COMPLETED", 0.9, Map.of("f1", "v1"));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.85)));
+    List<RetrievedExperience> result =
+        service.retrieve(def, buildInstance()).await().indefinitely();
+    assertEquals(1, result.size());
+    assertEquals("problem1", result.get(0).problem());
+    assertTrue(result.get(0).planTrace().isEmpty());
+  }
+
+  @Test
+  void retrieve_with_explicit_class_overload() {
+    CbrConfig config =
+        CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
+    CaseDefinition def = buildDefinition(config);
+    io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase fvCase =
+        new io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase(
+            "problem1", "solution1", "COMPLETED", 0.8, Map.of("f1", "v1"));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.75)));
+    List<RetrievedExperience> result =
+        service
+            .retrieve(
+                def, buildInstance(), io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase.class)
+            .await()
+            .indefinitely();
+    assertEquals(1, result.size());
+    assertTrue(result.get(0).planTrace().isEmpty());
+  }
+
+  @Test
+  void unknown_cbrType_returns_empty() {
+    CbrConfig config =
+        CbrConfig.builder()
+            .featureExtractor(ctx -> Map.of("f1", "v1"))
+            .domain("test")
+            .cbrType("nonexistent")
+            .build();
+    CaseDefinition def = buildDefinition(config);
+    List<RetrievedExperience> result =
+        service.retrieve(def, buildInstance()).await().indefinitely();
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  void plan_case_with_explicit_cbrType_maps_plan_trace() {
+    CbrConfig config =
+        CbrConfig.builder()
+            .featureExtractor(ctx -> Map.of("f1", "v1"))
+            .domain("test")
+            .cbrType("plan")
+            .build();
+    CaseDefinition def = buildDefinition(config);
+    PlanTrace pt = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
+    PlanCbrCase planCase =
+        new PlanCbrCase(
+            "problem1", "solution1", "COMPLETED", 0.95, Map.of("f1", "v1"), List.of(pt));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.9)));
+    List<RetrievedExperience> result =
+        service.retrieve(def, buildInstance()).await().indefinitely();
+    assertEquals(1, result.size());
+    assertEquals(1, result.get(0).planTrace().size());
+    assertEquals("bind1", result.get(0).planTrace().get(0).bindingName());
+  }
+
   // --- helpers ---
 
   private CaseDefinition buildDefinition(CbrConfig config) {
@@ -270,10 +344,10 @@ class CbrRetrievalServiceTest {
   static class RecordingCbrStore implements CbrCaseMemoryStore {
     private boolean called;
     private CbrQuery lastQuery;
-    private List<ScoredCbrCase<PlanCbrCase>> result;
+    private List<?> result;
     private RuntimeException failure;
 
-    void setResult(List<ScoredCbrCase<PlanCbrCase>> result) {
+    void setResult(List<?> result) {
       this.result = result;
     }
 
