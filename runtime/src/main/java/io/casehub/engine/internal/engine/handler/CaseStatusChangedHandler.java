@@ -125,7 +125,9 @@ public class CaseStatusChangedHandler {
                   eventBus.publish(
                       EventBusAddresses.ACTION_GATE_CANCELLED,
                       new io.casehub.engine.common.internal.event.ActionGateCancelledEvent(
-                          caseInstance.getUuid(), caseInstance.getPendingActionGate().gateId()));
+                          caseInstance.getUuid(),
+                          caseInstance.tenancyId,
+                          caseInstance.getPendingActionGate().gateId()));
                 }
                 return schedulerService.cancelAllTriggers(caseInstance.getUuid());
               }

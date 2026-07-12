@@ -312,25 +312,30 @@ class CaseHubReactor {
       Object value,
       String triggerChannelId,
       String triggerCorrelationId) {
+    String tenancyId = requireInstance(caseId).tenancyId;
     return eventBus
         .<Void>request(
             SIGNAL_RECEIVED,
-            new SignalReceivedEvent(caseId, path, value, triggerChannelId, triggerCorrelationId))
+            new SignalReceivedEvent(
+                caseId, tenancyId, path, value, triggerChannelId, triggerCorrelationId))
         .replaceWithVoid();
   }
 
   Uni<Void> signalBulk(UUID caseId, Map<String, Object> updates) {
+    String tenancyId = requireInstance(caseId).tenancyId;
     return eventBus
-        .<Void>request(BULK_SIGNAL_RECEIVED, new BulkSignalReceivedEvent(caseId, updates))
+        .<Void>request(
+            BULK_SIGNAL_RECEIVED, new BulkSignalReceivedEvent(caseId, tenancyId, updates))
         .replaceWithVoid();
   }
 
   Uni<CaseContext> signalAndAwait(UUID caseId, Map<String, Object> updates, Duration timeout) {
+    String tenancyId = requireInstance(caseId).tenancyId;
     UUID signalId = settlementTracker.registerSignal(caseId);
     return eventBus
         .<Void>request(
             BULK_SIGNAL_RECEIVED,
-            new BulkSignalReceivedEvent(caseId, updates, null, null, signalId))
+            new BulkSignalReceivedEvent(caseId, tenancyId, updates, null, null, signalId))
         .replaceWithVoid()
         .chain(
             () -> {

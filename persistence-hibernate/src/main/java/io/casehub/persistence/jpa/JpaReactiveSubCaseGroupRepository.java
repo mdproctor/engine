@@ -36,6 +36,7 @@ public class JpaReactiveSubCaseGroupRepository extends TenantAwareRepository
       OnThresholdReached onThresholdReached,
       String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             SubCaseGroupEntity.<SubCaseGroupEntity>find(
                     "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
@@ -62,6 +63,7 @@ public class JpaReactiveSubCaseGroupRepository extends TenantAwareRepository
   public Uni<SubCaseGroup> registerChild(
       UUID parentCaseId, String groupId, UUID childCaseId, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             SubCaseGroupEntity.<SubCaseGroupEntity>find(
                     "parentCaseId = ?1 and groupId = ?2 and tenancyId = ?3",
@@ -84,6 +86,7 @@ public class JpaReactiveSubCaseGroupRepository extends TenantAwareRepository
   @Override
   public Uni<SubCaseGroup> incrementCompleted(UUID parentCaseId, String groupId, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             SubCaseGroupEntity.update(
                     "completedCount = completedCount + 1 "
@@ -119,6 +122,7 @@ public class JpaReactiveSubCaseGroupRepository extends TenantAwareRepository
   @Override
   public Uni<SubCaseGroup> incrementRejected(UUID parentCaseId, String groupId, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             SubCaseGroupEntity.update(
                     "rejectedCount = rejectedCount + 1 "
@@ -154,6 +158,7 @@ public class JpaReactiveSubCaseGroupRepository extends TenantAwareRepository
   @Override
   public Uni<Boolean> markPolicyTriggered(UUID parentCaseId, String groupId, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             SubCaseGroupEntity.update(
                     "policyTriggered = true "
@@ -168,6 +173,7 @@ public class JpaReactiveSubCaseGroupRepository extends TenantAwareRepository
   @Override
   public Uni<Optional<SubCaseGroup>> findByChildCaseId(UUID childCaseId, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             SubCaseGroupEntity.<SubCaseGroupEntity>find(
                     "?1 member of childCaseIds and tenancyId = ?2", childCaseId, tenancyId)

@@ -61,13 +61,13 @@ class StageAutocompleteEvaluatorTest {
     Stage stage = autocompleteStage("item-1");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage).complete();
     verify(eventBus)
         .publish(
             io.casehub.blackboard.event.BlackboardEventBusAddresses.STAGE_COMPLETED,
-            new StageCompletedEvent(caseId, stage, 0));
+            new StageCompletedEvent(caseId, "test-tenant", stage, 0));
   }
 
   @Test
@@ -77,7 +77,7 @@ class StageAutocompleteEvaluatorTest {
     Stage stage = autocompleteStage("item-1");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage).complete();
   }
@@ -89,7 +89,7 @@ class StageAutocompleteEvaluatorTest {
     Stage stage = autocompleteStage("item-1");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage).complete();
   }
@@ -101,7 +101,7 @@ class StageAutocompleteEvaluatorTest {
     Stage stage = autocompleteStage("item-1");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage).complete();
   }
@@ -119,7 +119,7 @@ class StageAutocompleteEvaluatorTest {
     Stage stage = autocompleteStage("item-1", "item-2", "item-3");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage).complete();
   }
@@ -137,7 +137,7 @@ class StageAutocompleteEvaluatorTest {
     Stage stage = autocompleteStage("item-1", "item-2");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage, never()).complete();
   }
@@ -153,7 +153,7 @@ class StageAutocompleteEvaluatorTest {
     Stage stage = autocompleteStage("item-1", "item-2");
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage, never()).complete();
   }
@@ -167,7 +167,7 @@ class StageAutocompleteEvaluatorTest {
     when(stage.getRequiredItemIds()).thenReturn(List.of("item-1"));
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage, never()).complete();
   }
@@ -179,7 +179,7 @@ class StageAutocompleteEvaluatorTest {
     Stage stage = autocompleteStage("item-99"); // different item
     when(plan.getActiveStages()).thenReturn(List.of(stage));
 
-    evaluator.evaluate(caseId, plan, "item-1");
+    evaluator.evaluate(caseId, "test-tenant", plan, "item-1");
 
     verify(stage, never()).complete();
   }
@@ -229,7 +229,7 @@ class StageAutocompleteEvaluatorTest {
     item.markRunning();
     item.markCompleted();
 
-    evaluator.evaluate(caseId, plan, item.getPlanItemId());
+    evaluator.evaluate(caseId, "test-tenant", plan, item.getPlanItemId());
 
     assertThat(stage.getStatus())
         .as("repeatable stage must reset to PENDING after autocomplete")

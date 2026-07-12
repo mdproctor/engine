@@ -126,7 +126,7 @@ public class PlanItemCompletionHandler {
                 return;
               }
               item.markCompleted();
-              stageAutocompleteEvaluator.evaluate(caseId, plan, item.getPlanItemId());
+              stageAutocompleteEvaluator.evaluate(caseId, tenancyId, plan, item.getPlanItemId());
               planItemCompletedEvents.fireAsync(
                   new PlanItemCompletedEvent(caseId, item.getPlanItemId(), bindingName, tenancyId));
             },
@@ -160,7 +160,7 @@ public class PlanItemCompletionHandler {
               item.markCompleted();
               // activeByBinding self-cleans lazily in hasActivePlanItem() — completed items remain
               // in itemsById for post-completion observability.
-              stageAutocompleteEvaluator.evaluate(caseId, plan, planItemId);
+              stageAutocompleteEvaluator.evaluate(caseId, tenancyId, plan, planItemId);
               // Fire after markCompleted() so observers see the exact planItemId that completed.
               planItemCompletedEvents.fireAsync(
                   new PlanItemCompletedEvent(caseId, planItemId, trackingKey, tenancyId));

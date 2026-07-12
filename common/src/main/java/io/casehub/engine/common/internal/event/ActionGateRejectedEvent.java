@@ -25,6 +25,12 @@ import java.util.UUID;
  * actionGateRejected} signal, calls {@code workerStatusListener}, fires CONTEXT_CHANGED) and by
  * {@code ActionGateRejectedPlanItemHandler} in the blackboard module (marks PlanItem FAULTED so
  * stage autocomplete can proceed).
+ *
+ * @param caseId the case this gate belongs to
+ * @param tenancyId the tenant owning the case
+ * @param gateId the gate identifier
+ * @param workItemResolution raw resolution JSON from the WorkItem
+ * @param rejectedBy the user who rejected the gate, or null
  */
 public record ActionGateRejectedEvent(
-    UUID caseId, long gateId, String workItemResolution, String rejectedBy) {}
+    UUID caseId, String tenancyId, long gateId, String workItemResolution, String rejectedBy) {}

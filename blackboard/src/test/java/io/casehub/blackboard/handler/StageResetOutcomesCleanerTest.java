@@ -74,7 +74,7 @@ class StageResetOutcomesCleanerTest {
             .binding("binding-b")
             .build();
 
-    cleaner.onStageActivated(new StageActivatedEvent(caseId, stage, 1));
+    cleaner.onStageActivated(new StageActivatedEvent(caseId, "test-tenant", stage, 1));
 
     Map<String, Object> outcomes =
         (Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
@@ -103,7 +103,7 @@ class StageResetOutcomesCleanerTest {
             .binding("stage-binding")
             .build();
 
-    cleaner.onStageActivated(new StageActivatedEvent(caseId, stage, 2));
+    cleaner.onStageActivated(new StageActivatedEvent(caseId, "test-tenant", stage, 2));
 
     Map<String, Object> outcomes =
         (Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
@@ -126,7 +126,7 @@ class StageResetOutcomesCleanerTest {
             .binding("binding-a")
             .build();
 
-    cleaner.onStageActivated(new StageActivatedEvent(caseId, stage, 0));
+    cleaner.onStageActivated(new StageActivatedEvent(caseId, "test-tenant", stage, 0));
 
     assertNotNull(
         caseInstance.getCaseContext().get("_outcomes"), "_outcomes should not be modified");
@@ -143,7 +143,7 @@ class StageResetOutcomesCleanerTest {
             .binding("binding-a")
             .build();
 
-    cleaner.onStageActivated(new StageActivatedEvent(caseId, stage, 1));
+    cleaner.onStageActivated(new StageActivatedEvent(caseId, "test-tenant", stage, 1));
 
     assertNull(caseInstance.getCaseContext().get("_outcomes"), "_outcomes should remain null");
   }

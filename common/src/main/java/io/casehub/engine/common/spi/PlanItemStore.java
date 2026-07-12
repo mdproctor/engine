@@ -24,38 +24,28 @@ import java.util.UUID;
 /**
  * Blocking SPI for durable PlanItem status persistence.
  *
- * <p>tenancyId is explicit on save and findByCaseId. Three methods intentionally omit it:
- *
- * <ul>
- *   <li>{@code updateStatus}: planItemId is a UUID string (globally unique) — no cross-tenant
- *       collision possible
- *   <li>{@code findDelegated(UUID)}: caseId is a UUID (globally unique); used by BlackboardRegistry
- *       hydration which self-bootstraps tenancyId from the returned PlanItemRecord
- *   <li>{@code findAllDelegated()}: cross-tenant by design — startup recovery only
- *       (HumanTaskRecoveryService)
- * </ul>
+ * <p>tenancyId is explicit on all tenant-scoped methods. Cross-tenant methods are explicitly named
+ * ({@code findDelegatedCrossTenant}, {@code findAllDelegated}).
  */
 public interface PlanItemStore {
 
-  /** Record a new PlanItem scoped to tenancyId. */
   void save(PlanItemSaveRequest request, String tenancyId);
 
-  /** Update status by planItemId (UUID string — globally unique; no tenancyId needed in WHERE). */
   void updateStatus(String planItemId, TaskStatus status);
 
-  /** Return all PlanItemRecords for the given case within the tenant. */
+  /** Update status with explicit tenancyId for RLS enforcement. */
+  default void updateStatus(String planItemId, TaskStatus status, String tenancyId) {
+    updateStatus(planItemId, status);
+  }
+
   List<PlanItemRecord> findByCaseId(UUID caseId, String tenancyId);
 
-  /**
-   * Return DELEGATED PlanItemRecords for the specific case. caseId is UUID (globally unique) — no
-   * tenancyId filter needed. Used by BlackboardRegistry lazy hydration; tenancyId self-bootstrapped
-   * from returned records.
-   */
-  List<PlanItemRecord> findDelegated(UUID caseId);
+  /** Tenant-scoped overload for callers that have tenancyId. */
+  default List<PlanItemRecord> findDelegated(UUID caseId, String tenancyId) {
+    return findDelegatedCrossTenant(caseId);
+  }
 
-  /**
-   * Return ALL DELEGATED PlanItemRecords across all tenants. Cross-tenant by design — startup
-   * recovery only (HumanTaskRecoveryService).
-   */
+  List<PlanItemRecord> findDelegatedCrossTenant(UUID caseId);
+
   List<PlanItemRecord> findAllDelegated();
 }

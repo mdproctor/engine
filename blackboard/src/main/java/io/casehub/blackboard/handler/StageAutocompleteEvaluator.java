@@ -48,14 +48,18 @@ public class StageAutocompleteEvaluator {
     this.eventBus = eventBus;
   }
 
-  /**
-   * Checks all active autocomplete stages in the plan. For each stage that contains {@code
-   * changedItemId} as a required item, fires stage completion if all required items are terminal.
-   */
-  public void evaluate(final UUID caseId, final CasePlanModel plan, final String changedItemId) {
+  public void evaluate(
+      final UUID caseId,
+      final String tenancyId,
+      final CasePlanModel plan,
+      final String changedItemId) {
     for (final Stage stage : plan.getActiveStages()) {
-      if (!stage.isAutocomplete()) continue;
-      if (!stage.getRequiredItemIds().contains(changedItemId)) continue;
+      if (!stage.isAutocomplete()) {
+        continue;
+      }
+      if (!stage.getRequiredItemIds().contains(changedItemId)) {
+        continue;
+      }
 
       final boolean allTerminal =
           stage.getRequiredItemIds().stream()
@@ -70,7 +74,7 @@ public class StageAutocompleteEvaluator {
         stage.complete();
         eventBus.publish(
             BlackboardEventBusAddresses.STAGE_COMPLETED,
-            new StageCompletedEvent(caseId, stage, completingIndex));
+            new StageCompletedEvent(caseId, tenancyId, stage, completingIndex));
         if (stage.isRepeatable()) {
           if (!stage.getContainedStageIds().isEmpty()
               || !stage.getContainedMilestoneIds().isEmpty()) {
@@ -82,8 +86,8 @@ public class StageAutocompleteEvaluator {
           }
         }
         LOG.debugf(
-            "Stage autocomplete fired for caseId=%s after item=%s settled (instance=%d)",
-            caseId, changedItemId, completingIndex);
+            "Stage '%s' autocompleted for case %s (instance %d)",
+            stage.getName(), caseId, completingIndex);
       }
     }
   }

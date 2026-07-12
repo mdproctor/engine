@@ -33,6 +33,7 @@ public class JpaReactivePlanItemStore extends TenantAwareRepository
   @Override
   public Uni<Void> save(PlanItemSaveRequest request, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () -> {
           PlanItemEntity e = new PlanItemEntity();
           e.tenancyId = tenancyId;
@@ -52,10 +53,23 @@ public class JpaReactivePlanItemStore extends TenantAwareRepository
 
   @Override
   public Uni<Void> updateStatus(String planItemId, TaskStatus status) {
-    return withTenantTransaction(
+    return withCrossTenantTransaction(
         () ->
-            // Flush pending inserts so the JPQL UPDATE can see entities persisted
-            // earlier in this transaction but not yet written to the DB row store.
+            PlanItemEntity.getSession()
+                .chain(session -> session.flush())
+                .chain(
+                    () ->
+                        PlanItemEntity.update(
+                            "status = :status WHERE planItemId = :planItemId",
+                            Parameters.with("status", status).and("planItemId", planItemId)))
+                .replaceWithVoid());
+  }
+
+  @Override
+  public Uni<Void> updateStatus(String planItemId, TaskStatus status, String tenancyId) {
+    return withTenantTransaction(
+        tenancyId,
+        () ->
             PlanItemEntity.getSession()
                 .chain(session -> session.flush())
                 .chain(
@@ -69,6 +83,7 @@ public class JpaReactivePlanItemStore extends TenantAwareRepository
   @Override
   public Uni<List<PlanItemRecord>> findByCaseId(UUID caseId, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             PlanItemEntity.<PlanItemEntity>find("caseId = ?1 AND tenancyId = ?2", caseId, tenancyId)
                 .list()
@@ -76,10 +91,22 @@ public class JpaReactivePlanItemStore extends TenantAwareRepository
   }
 
   @Override
-  public Uni<List<PlanItemRecord>> findDelegated(UUID caseId) {
-    // caseId is a globally unique UUID — caller already has correct tenant context;
-    // tenant-scoped transaction is sufficient and RLS correctly enforces the boundary.
+  public Uni<List<PlanItemRecord>> findDelegated(UUID caseId, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
+        () ->
+            PlanItemEntity.<PlanItemEntity>find(
+                    "caseId = ?1 AND status = ?2 AND tenancyId = ?3",
+                    caseId,
+                    TaskStatus.DELEGATED,
+                    tenancyId)
+                .list()
+                .map(list -> list.stream().map(this::toRecord).collect(Collectors.toList())));
+  }
+
+  @Override
+  public Uni<List<PlanItemRecord>> findDelegatedCrossTenant(UUID caseId) {
+    return withCrossTenantTransaction(
         () ->
             PlanItemEntity.<PlanItemEntity>find(
                     "caseId = ?1 AND status = ?2", caseId, TaskStatus.DELEGATED)

@@ -25,5 +25,9 @@ import java.util.UUID;
  * <p>Consumed by {@code ActionGateCancelledHandler} in work-adapter, which cancels the orphaned
  * gate WorkItem via {@code WorkItemService}. Prevents orphaned WorkItems resolving against a dead
  * case. Cancellation is a no-op if the WorkItem has already reached a terminal state.
+ *
+ * @param caseId the case this gate belongs to
+ * @param tenancyId the tenant owning the case
+ * @param gateId the gate identifier
  */
-public record ActionGateCancelledEvent(UUID caseId, long gateId) {}
+public record ActionGateCancelledEvent(UUID caseId, String tenancyId, long gateId) {}

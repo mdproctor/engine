@@ -436,7 +436,7 @@ class CbrCaseRetainObserverTest {
     public void updateStatus(String id, TaskStatus s) {}
 
     @Override
-    public List<PlanItemRecord> findDelegated(UUID id) {
+    public List<PlanItemRecord> findDelegatedCrossTenant(UUID id) {
       return List.of();
     }
 

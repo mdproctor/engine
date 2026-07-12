@@ -19,20 +19,17 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Published on {@link EventBusAddresses#SIGNAL_RECEIVED} when {@code signal(UUID, Map)} is called.
- * Applies all updates atomically via {@code setAll()}.
+ * Published on {@link EventBusAddresses#BULK_SIGNAL_RECEIVED} when {@code signal(UUID, Map)} is
+ * called. Applies all updates atomically via {@code setAll()}.
  *
- * <p>{@code signalId} is non-null only when called from {@code signalAndAwait()} — it tags the
- * context change so settlement can be tracked across worker execution completions.
- *
- * <p>Refs casehubio/engine#483.
- *
+ * @param tenancyId Tenant that owns this case — explicit for correct RLS enforcement.
  * @param triggerChannelId Qhorus channel ID of the COMMAND that caused this signal, or null.
  * @param triggerCorrelationId Qhorus correlationId of the triggering COMMAND, or null.
  * @param signalId Settlement tracking ID for {@code signalAndAwait()}, or null.
  */
 public record BulkSignalReceivedEvent(
     UUID caseId,
+    String tenancyId,
     Map<String, Object> updates,
     String triggerChannelId,
     String triggerCorrelationId,
@@ -42,14 +39,17 @@ public record BulkSignalReceivedEvent(
     if (caseId == null) {
       throw new IllegalArgumentException("caseId cannot be null");
     }
+    if (tenancyId == null) {
+      throw new IllegalArgumentException("tenancyId cannot be null");
+    }
     if (updates == null) {
       throw new IllegalArgumentException("updates cannot be null");
     }
   }
 
   /** Convenience constructor for signals not triggered by a Qhorus COMMAND and not awaiting. */
-  public BulkSignalReceivedEvent(UUID caseId, Map<String, Object> updates) {
-    this(caseId, updates, null, null, null);
+  public BulkSignalReceivedEvent(UUID caseId, String tenancyId, Map<String, Object> updates) {
+    this(caseId, tenancyId, updates, null, null, null);
   }
 
   @Override
@@ -57,6 +57,8 @@ public record BulkSignalReceivedEvent(
     return "BulkSignalReceivedEvent{"
         + "caseId="
         + caseId
+        + ", tenancyId="
+        + tenancyId
         + ", updates="
         + updates.keySet()
         + ", triggerChannelId="

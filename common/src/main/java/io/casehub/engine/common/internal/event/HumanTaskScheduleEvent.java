@@ -40,14 +40,24 @@ import java.util.UUID;
  *
  * <p>The binding name is the stable key for plan item lookup in the blackboard registry. See
  * engine#245.
+ *
+ * @param caseId the case this task belongs to
+ * @param tenancyId the tenant owning the case
+ * @param bindingName the binding name for plan item lookup
+ * @param target the human task target configuration
+ * @param inputData the pre-evaluated input payload
+ * @param resolvedCandidateGroups resolved candidate groups for assignment
+ * @param resolvedCandidateUsers resolved candidate users for assignment
+ * @param caseBudgetDeadline the case-level deadline, or null
+ * @param expiresAtDeadline the resolved expiration deadline, or null
  */
 public record HumanTaskScheduleEvent(
     UUID caseId,
+    String tenancyId,
     String bindingName,
     HumanTaskTarget target,
     Map<String, Object> inputData,
     Set<String> resolvedCandidateGroups,
     Set<String> resolvedCandidateUsers,
     Instant caseBudgetDeadline,
-    Instant expiresAtDeadline,
-    String tenancyId) {}
+    Instant expiresAtDeadline) {}

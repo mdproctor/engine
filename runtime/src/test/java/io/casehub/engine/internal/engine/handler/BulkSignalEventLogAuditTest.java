@@ -94,7 +94,7 @@ class BulkSignalEventLogAuditTest {
     when(lifecycleEvents.fireAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     Map<String, Object> updates = Map.of("result", "done", "score", 42);
-    BulkSignalReceivedEvent event = new BulkSignalReceivedEvent(caseId, updates);
+    BulkSignalReceivedEvent event = new BulkSignalReceivedEvent(caseId, tenancyId, updates);
 
     handler.onBulkSignalReceived(event).await().indefinitely();
 

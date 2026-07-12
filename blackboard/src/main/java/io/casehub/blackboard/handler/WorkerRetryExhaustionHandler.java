@@ -110,7 +110,8 @@ public class WorkerRetryExhaustionHandler {
                   new PlanItemFaultedEvent(
                       event.caseId(), planItemId, item.getBindingName(), event.tenancyId()));
 
-              stageAutocompleteEvaluator.evaluate(event.caseId(), plan, planItemId);
+              stageAutocompleteEvaluator.evaluate(
+                  event.caseId(), event.tenancyId(), plan, planItemId);
               LOG.warnf(
                   "PlanItem %s marked FAULTED — worker '%s' retries exhausted in case %s",
                   planItemId, event.workerId(), event.caseId());

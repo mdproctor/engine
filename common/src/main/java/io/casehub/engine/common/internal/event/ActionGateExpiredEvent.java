@@ -24,5 +24,9 @@ import java.util.UUID;
  * <p>Consumed by {@code ActionGateExpiredHandler} in the engine runtime (writes {@code
  * actionGateExpired} signal, calls {@code workerStatusListener}, fires CONTEXT_CHANGED) and by
  * {@code ActionGateExpiredPlanItemHandler} in the blackboard module (marks PlanItem FAULTED).
+ *
+ * @param caseId the case this gate belongs to
+ * @param tenancyId the tenant owning the case
+ * @param gateId the gate identifier
  */
-public record ActionGateExpiredEvent(UUID caseId, long gateId) {}
+public record ActionGateExpiredEvent(UUID caseId, String tenancyId, long gateId) {}

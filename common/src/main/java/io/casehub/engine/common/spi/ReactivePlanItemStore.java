@@ -30,10 +30,20 @@ public interface ReactivePlanItemStore {
   /** UUID planItemId — globally unique; no tenancyId needed. */
   Uni<Void> updateStatus(String planItemId, TaskStatus status);
 
+  /** Update status with explicit tenancyId for RLS enforcement. */
+  default Uni<Void> updateStatus(String planItemId, TaskStatus status, String tenancyId) {
+    return updateStatus(planItemId, status);
+  }
+
   Uni<List<PlanItemRecord>> findByCaseId(UUID caseId, String tenancyId);
 
+  /** Tenant-scoped overload for callers that have tenancyId. */
+  default Uni<List<PlanItemRecord>> findDelegated(UUID caseId, String tenancyId) {
+    return findDelegatedCrossTenant(caseId);
+  }
+
   /** UUID caseId — globally unique; no tenancyId filter needed for hydration. */
-  Uni<List<PlanItemRecord>> findDelegated(UUID caseId);
+  Uni<List<PlanItemRecord>> findDelegatedCrossTenant(UUID caseId);
 
   /** Cross-tenant: startup recovery only. */
   Uni<List<PlanItemRecord>> findAllDelegated();

@@ -28,6 +28,12 @@ import java.util.UUID;
  * <p>{@code workItemResolution} is the raw resolution JSON from the WorkItem — typically contains
  * approver notes. {@code approvedBy} is sourced from {@code WorkItem.assignee}; may be null if the
  * WorkItem was completed without an explicit claim.
+ *
+ * @param caseId the case this gate belongs to
+ * @param tenancyId the tenant owning the case
+ * @param gateId the gate identifier
+ * @param workItemResolution raw resolution JSON from the WorkItem
+ * @param approvedBy the user who approved the gate, or null
  */
 public record ActionGateApprovedEvent(
-    UUID caseId, long gateId, String workItemResolution, String approvedBy) {}
+    UUID caseId, String tenancyId, long gateId, String workItemResolution, String approvedBy) {}

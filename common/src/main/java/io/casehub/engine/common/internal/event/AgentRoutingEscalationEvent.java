@@ -22,6 +22,16 @@ import java.util.UUID;
  * Published when agent routing cannot proceed automatically and human oversight is required. The
  * {@link EscalationReason} indicates whether the trigger was a borderline stalemate or a pool with
  * no trust-qualified agents.
+ *
+ * @param caseId the case where routing escalation occurred
+ * @param tenancyId the tenant owning the case
+ * @param capabilityName the capability that could not be routed
+ * @param bindingName the binding that triggered the escalation
+ * @param reason the escalation reason
  */
 public record AgentRoutingEscalationEvent(
-    UUID caseId, String capabilityName, String bindingName, EscalationReason reason) {}
+    UUID caseId,
+    String tenancyId,
+    String capabilityName,
+    String bindingName,
+    EscalationReason reason) {}

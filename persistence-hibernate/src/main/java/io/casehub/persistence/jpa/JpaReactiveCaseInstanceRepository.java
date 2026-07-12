@@ -33,6 +33,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
   @Override
   public Uni<CaseInstance> save(CaseInstance instance, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             Panache.getSession()
                 .chain(
@@ -63,6 +64,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
   @Override
   public Uni<CaseInstance> update(CaseInstance instance, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             CaseInstanceEntity.<CaseInstanceEntity>find(
                     "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
@@ -81,6 +83,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
   @Override
   public Uni<CaseInstance> findByUuid(UUID uuid, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             CaseInstanceEntity.<CaseInstanceEntity>find(
                     "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
@@ -105,6 +108,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
     logEntity.metadata = eventLog.getMetadata();
 
     return withTenantTransaction(
+        tenancyId,
         () ->
             CaseInstanceEntity.<CaseInstanceEntity>find(
                     "id = ?1 and tenancyId = ?2", instance.id, tenancyId)
@@ -129,6 +133,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
   @Override
   public Uni<List<CaseInstance>> findByStatus(CaseStatus status, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             CaseInstanceEntity.<CaseInstanceEntity>find(
                     "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
@@ -142,6 +147,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
   @Override
   public Uni<List<CaseInstance>> findAll(String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             CaseInstanceEntity.<CaseInstanceEntity>find(
                     "from CaseInstanceEntity ci join fetch ci.caseMetaModel "
@@ -155,6 +161,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
   public Uni<List<CaseInstance>> findByNamespaceAndName(
       String namespace, String name, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             CaseInstanceEntity.<CaseInstanceEntity>find(
                     "from CaseInstanceEntity ci join fetch ci.caseMetaModel m "

@@ -103,7 +103,7 @@ class ActionGateResolutionTest {
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_APPROVED,
         new ActionGateApprovedEvent(
-            caseId, gateId, "{\"approverNote\": \"approved\"}", "mlro-user"));
+            caseId, "test-tenant", gateId, "{\"approverNote\": \"approved\"}", "mlro-user"));
 
     // Case should now complete — approved handler re-fires WorkflowExecutionCompleted
     await()
@@ -143,7 +143,7 @@ class ActionGateResolutionTest {
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_REJECTED,
         new ActionGateRejectedEvent(
-            caseId, gateId, "{\"reason\": \"insufficient evidence\"}", "mlro-user"));
+            caseId, "test-tenant", gateId, "{\"reason\": \"insufficient evidence\"}", "mlro-user"));
 
     // Wait for both: gate cleared AND signal written (gate cleared first per handler ordering)
     await()
@@ -180,7 +180,7 @@ class ActionGateResolutionTest {
     // Publishing ActionGateApprovedEvent for a completed case — should be a no-op
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_APPROVED,
-        new ActionGateApprovedEvent(caseId, 999L, null, null));
+        new ActionGateApprovedEvent(caseId, "test-tenant", 999L, null, null));
 
     // Case should remain COMPLETED without errors
     await()

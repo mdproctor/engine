@@ -98,7 +98,10 @@ public class WorkerOutcomeResolvedHandler {
               if (event.disposition() == OutcomeDisposition.EXHAUSTED
                   || event.disposition() == OutcomeDisposition.FAULT) {
                 stageAutocompleteEvaluator.evaluate(
-                    event.caseInstance().getUuid(), plan, item.getPlanItemId());
+                    event.caseInstance().getUuid(),
+                    event.caseInstance().tenancyId,
+                    plan,
+                    item.getPlanItemId());
               }
 
               if (event.disposition() != OutcomeDisposition.FAULT) {

@@ -176,6 +176,6 @@ class WorkerRetryExhaustionHandlerTest {
                 caseId, item.getPlanItemId(), "capability-binding", "test-tenant"));
 
     // Assert: stageAutocompleteEvaluator.evaluate() called
-    verify(stageAutocompleteEvaluator).evaluate(caseId, plan, item.getPlanItemId());
+    verify(stageAutocompleteEvaluator).evaluate(caseId, "test-tenant", plan, item.getPlanItemId());
   }
 }

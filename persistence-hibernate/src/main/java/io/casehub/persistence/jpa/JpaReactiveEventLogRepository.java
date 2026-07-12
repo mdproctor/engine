@@ -35,6 +35,7 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
   public Uni<Void> append(EventLog eventLog, String tenancyId) {
     EventLogEntity entity = toEntity(eventLog, tenancyId);
     return withTenantTransaction(
+        tenancyId,
         () ->
             entity
                 .persistAndFlush()
@@ -50,6 +51,7 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
   public Uni<Long> appendAndReturnId(EventLog eventLog, String tenancyId) {
     EventLogEntity entity = toEntity(eventLog, tenancyId);
     return withTenantTransaction(
+        tenancyId,
         () ->
             entity
                 .persistAndFlush()
@@ -64,6 +66,7 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
   @Override
   public Uni<EventLog> findById(Long id, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             EventLogEntity.<EventLogEntity>find("id = ?1 and tenancyId = ?2", id, tenancyId)
                 .firstResult()
@@ -74,6 +77,7 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
   public Uni<List<EventLog>> findSchedulingEvents(
       UUID caseId, String workerId, Instant after, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () -> {
           if (after == null) {
             return EventLogEntity.<EventLogEntity>find(
@@ -108,6 +112,7 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
   public Uni<List<EventLog>> findByCaseAndTypes(
       UUID caseId, Collection<CaseHubEventType> types, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             EventLogEntity.<EventLogEntity>find(
                     "caseId = ?1 and eventType in ?2 and tenancyId = ?3 order by seq asc",
@@ -122,6 +127,7 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
   public Uni<List<EventLog>> findByCaseAndWorkerAndType(
       UUID caseId, String workerId, CaseHubEventType type, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             EventLogEntity.<EventLogEntity>find(
                     "caseId = ?1 and workerId = ?2 and eventType = ?3 and tenancyId = ?4",
@@ -137,6 +143,7 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
   public Uni<List<EventLog>> findByWorkerAndType(
       String workerId, CaseHubEventType type, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             EventLogEntity.<EventLogEntity>find(
                     "workerId = ?1 and eventType = ?2 and tenancyId = ?3",
@@ -154,6 +161,7 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
       Collection<EventStreamType> streamTypes,
       String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () -> {
           StringBuilder query = new StringBuilder("caseId = ?1 and tenancyId = ?2");
           List<Object> params = new ArrayList<>();

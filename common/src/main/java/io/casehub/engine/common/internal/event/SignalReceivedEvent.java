@@ -18,17 +18,26 @@ package io.casehub.engine.common.internal.event;
 import java.util.UUID;
 
 /**
+ * @param tenancyId Tenant that owns this case — explicit for correct RLS enforcement.
  * @param triggerChannelId Qhorus channel ID of the COMMAND that caused this signal, or null.
  *     Threaded through to ProvisionContext so provisioners can establish causal lineage. Refs
  *     engine#231.
  * @param triggerCorrelationId Qhorus correlationId of the triggering COMMAND, or null.
  */
 public record SignalReceivedEvent(
-    UUID caseId, String path, Object value, String triggerChannelId, String triggerCorrelationId) {
+    UUID caseId,
+    String tenancyId,
+    String path,
+    Object value,
+    String triggerChannelId,
+    String triggerCorrelationId) {
 
   public SignalReceivedEvent {
     if (caseId == null) {
       throw new IllegalArgumentException("caseId cannot be null");
+    }
+    if (tenancyId == null) {
+      throw new IllegalArgumentException("tenancyId cannot be null");
     }
     if (path == null) {
       throw new IllegalArgumentException("path cannot be null");
@@ -36,8 +45,8 @@ public record SignalReceivedEvent(
   }
 
   /** Convenience constructor for signals not triggered by a Qhorus COMMAND. */
-  public SignalReceivedEvent(UUID caseId, String path, Object value) {
-    this(caseId, path, value, null, null);
+  public SignalReceivedEvent(UUID caseId, String tenancyId, String path, Object value) {
+    this(caseId, tenancyId, path, value, null, null);
   }
 
   @Override
@@ -45,6 +54,8 @@ public record SignalReceivedEvent(
     return "SignalReceivedEvent{"
         + "caseId="
         + caseId
+        + ", tenancyId="
+        + tenancyId
         + ", path='"
         + path
         + '\''

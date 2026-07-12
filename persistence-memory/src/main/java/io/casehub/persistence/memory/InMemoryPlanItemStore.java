@@ -86,7 +86,7 @@ public class InMemoryPlanItemStore implements PlanItemStore {
   }
 
   @Override
-  public List<PlanItemRecord> findDelegated(UUID caseId) {
+  public List<PlanItemRecord> findDelegatedCrossTenant(UUID caseId) {
     return records.values().stream()
         .filter(r -> caseId.equals(r.caseId()) && r.status() == TaskStatus.DELEGATED)
         .collect(Collectors.toList());

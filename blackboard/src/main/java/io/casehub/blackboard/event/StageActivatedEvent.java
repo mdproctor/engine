@@ -28,5 +28,10 @@ import java.util.UUID;
  * io.casehub.blackboard.event.BlackboardEventCodecRegistrar.LocalOnlyCodec}. Consumers must not
  * retain this reference — the Stage object is mutable and its state will reflect subsequent
  * lifecycle transitions.
+ *
+ * @param caseId the case this stage belongs to
+ * @param tenancyId the tenant owning the case
+ * @param stage the stage that was activated
+ * @param instanceIndex the instance index at activation time
  */
-public record StageActivatedEvent(UUID caseId, Stage stage, int instanceIndex) {}
+public record StageActivatedEvent(UUID caseId, String tenancyId, Stage stage, int instanceIndex) {}

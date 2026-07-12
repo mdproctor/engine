@@ -496,6 +496,7 @@ public class CaseContextChangedEventHandler {
         EventBusAddresses.AGENT_ROUTING_ESCALATION,
         new AgentRoutingEscalationEvent(
             caseInstance.getUuid(),
+            caseInstance.tenancyId,
             escalation.capabilityName(),
             binding.getName(),
             escalation.escalationReason()));
@@ -543,14 +544,14 @@ public class CaseContextChangedEventHandler {
                   EventBusAddresses.HUMAN_TASK_SCHEDULE,
                   new HumanTaskScheduleEvent(
                       caseInstance.getUuid(),
+                      caseInstance.tenancyId,
                       binding.getName(),
                       target,
                       inputData,
                       resolvedGroups,
                       resolvedUsers,
                       caseBudgetDeadline,
-                      expiresAtDeadline,
-                      caseInstance.tenancyId));
+                      expiresAtDeadline));
 
               return Uni.createFrom().voidItem();
             })

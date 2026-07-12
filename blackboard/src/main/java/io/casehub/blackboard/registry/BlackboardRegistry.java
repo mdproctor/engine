@@ -97,7 +97,7 @@ public class BlackboardRegistry {
 
     if (planItemStore == null) return Optional.empty();
 
-    List<PlanItemRecord> records = planItemStore.findDelegated(caseId);
+    List<PlanItemRecord> records = planItemStore.findDelegated(caseId, tenancyId);
     if (records.isEmpty()) return Optional.empty();
 
     CaseEntry hydrated = entries.computeIfAbsent(caseId, id -> new CaseEntry(id, tenancyId));
@@ -116,7 +116,7 @@ public class BlackboardRegistry {
 
     if (planItemStore == null) return Optional.empty();
 
-    List<PlanItemRecord> records = planItemStore.findDelegated(caseId);
+    List<PlanItemRecord> records = planItemStore.findDelegatedCrossTenant(caseId);
     if (records.isEmpty()) return Optional.empty();
 
     String inferredTenancyId =

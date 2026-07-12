@@ -30,6 +30,7 @@ public class JpaReactiveCaseMetaModelRepository extends TenantAwareRepository
   public Uni<CaseMetaModel> findByKey(
       String namespace, String name, String version, String tenancyId) {
     return withTenantTransaction(
+        tenancyId,
         () ->
             CaseMetaModelEntity.<CaseMetaModelEntity>find(
                     "namespace = ?1 and name = ?2 and version = ?3 and tenancyId = ?4",
@@ -46,6 +47,7 @@ public class JpaReactiveCaseMetaModelRepository extends TenantAwareRepository
     CaseMetaModelEntity entity = toEntity(metaModel, tenancyId);
     entity.createdAt = Instant.now().truncatedTo(ChronoUnit.MICROS);
     return withTenantTransaction(
+        tenancyId,
         () ->
             entity
                 .persist()

@@ -15,10 +15,8 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
-import jakarta.inject.Inject;
 import java.util.function.Supplier;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -35,19 +33,12 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  */
 abstract class TenantAwareRepository extends AbstractJpaRepository {
 
-  @Inject CurrentPrincipal currentPrincipal;
-
   @ConfigProperty(name = "casehub.rls.enabled", defaultValue = "false")
   boolean rlsEnabled;
 
-  protected <T> Uni<T> withTenantTransaction(Supplier<Uni<T>> work) {
-    // PostgreSQL does not support bind parameters in SET LOCAL — the value must be
-    // embedded directly. tenancyId() comes from the authenticated security context,
-    // not from user input, so interpolation is safe. We reject values containing
-    // single-quotes or backslashes as a defence-in-depth guard.
-    String tenancyId = currentPrincipal.tenancyId();
+  protected <T> Uni<T> withTenantTransaction(String tenancyId, Supplier<Uni<T>> work) {
     if (tenancyId == null || tenancyId.contains("'") || tenancyId.contains("\\")) {
-      throw new IllegalStateException("Invalid tenancyId in CurrentPrincipal: " + tenancyId);
+      throw new IllegalStateException("Invalid tenancyId: " + tenancyId);
     }
     String sql = "SET LOCAL \"casehub.tenancy_id\" = '" + tenancyId + "'";
     return withSafeContext(

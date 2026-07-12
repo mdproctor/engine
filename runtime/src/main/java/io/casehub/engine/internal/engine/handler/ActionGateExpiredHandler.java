@@ -144,7 +144,7 @@ public class ActionGateExpiredHandler {
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_WORKER_FAULTED,
         new ActionGateWorkerFaultedEvent(
-            instance.getUuid(), gate.workerId(), gate.idempotency(), instance.tenancyId));
+            instance.getUuid(), instance.tenancyId, gate.workerId(), gate.idempotency()));
 
     // EventLog write is best-effort — failures are logged, not propagated
     writeResolutionEventLog(instance, gate)

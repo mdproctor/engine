@@ -70,13 +70,13 @@ public abstract class PlanItemStoreContractTest {
   }
 
   @Test
-  void findDelegated_returns_only_delegated_for_case() {
+  void findDelegated_returns_only_delegated_CrossTenant_for_case() {
     UUID caseId = UUID.randomUUID();
     String delegatedId = UUID.randomUUID().toString();
     String pendingId = UUID.randomUUID().toString();
     store().save(request(caseId, delegatedId, TaskStatus.DELEGATED), TEST_TENANT);
     store().save(request(caseId, pendingId, TaskStatus.PENDING), TEST_TENANT);
-    List<PlanItemRecord> results = store().findDelegated(caseId);
+    List<PlanItemRecord> results = store().findDelegatedCrossTenant(caseId);
     assertThat(results).hasSize(1);
     assertThat(results.get(0).planItemId()).isEqualTo(delegatedId);
   }

@@ -53,7 +53,11 @@ class AgentRoutingEscalationHandlerTest {
 
     handler.handle(
         new AgentRoutingEscalationEvent(
-            caseId, "research", "research-binding", EscalationReason.BORDERLINE_STALEMATE));
+            caseId,
+            "test-tenant",
+            "research",
+            "research-binding",
+            EscalationReason.BORDERLINE_STALEMATE));
 
     verify(channelProvider)
         .postToChannel(
@@ -73,7 +77,11 @@ class AgentRoutingEscalationHandlerTest {
 
     handler.handle(
         new AgentRoutingEscalationEvent(
-            caseId, "research", "research-binding", EscalationReason.BORDERLINE_STALEMATE));
+            caseId,
+            "test-tenant",
+            "research",
+            "research-binding",
+            EscalationReason.BORDERLINE_STALEMATE));
 
     verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
   }
@@ -85,7 +93,11 @@ class AgentRoutingEscalationHandlerTest {
 
     handler.handle(
         new AgentRoutingEscalationEvent(
-            caseId, "research", "research-binding", EscalationReason.BORDERLINE_STALEMATE));
+            caseId,
+            "test-tenant",
+            "research",
+            "research-binding",
+            EscalationReason.BORDERLINE_STALEMATE));
 
     verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
   }
@@ -99,7 +111,11 @@ class AgentRoutingEscalationHandlerTest {
 
     handler.handle(
         new AgentRoutingEscalationEvent(
-            caseId, "merge-executor", "merge-binding", EscalationReason.NO_QUALIFIED_AGENT));
+            caseId,
+            "test-tenant",
+            "merge-executor",
+            "merge-binding",
+            EscalationReason.NO_QUALIFIED_AGENT));
 
     verify(channelProvider)
         .postToChannel(
@@ -120,7 +136,11 @@ class AgentRoutingEscalationHandlerTest {
 
     handler.handle(
         new AgentRoutingEscalationEvent(
-            caseId, "merge-executor", "merge-binding", EscalationReason.NO_QUALIFIED_AGENT));
+            caseId,
+            "test-tenant",
+            "merge-executor",
+            "merge-binding",
+            EscalationReason.NO_QUALIFIED_AGENT));
 
     verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
   }

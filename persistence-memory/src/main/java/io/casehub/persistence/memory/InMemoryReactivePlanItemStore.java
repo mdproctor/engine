@@ -58,8 +58,8 @@ public class InMemoryReactivePlanItemStore implements ReactivePlanItemStore {
   }
 
   @Override
-  public Uni<List<PlanItemRecord>> findDelegated(UUID caseId) {
-    return Uni.createFrom().item(delegate.findDelegated(caseId));
+  public Uni<List<PlanItemRecord>> findDelegatedCrossTenant(UUID caseId) {
+    return Uni.createFrom().item(delegate.findDelegatedCrossTenant(caseId));
   }
 
   @Override

@@ -183,6 +183,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
             EventBusAddresses.AGENT_ROUTING_ESCALATION,
             new AgentRoutingEscalationEvent(
                 instance.getUuid(),
+                instance.tenancyId,
                 e.capabilityName(),
                 "(direct-orchestration)",
                 e.escalationReason()));

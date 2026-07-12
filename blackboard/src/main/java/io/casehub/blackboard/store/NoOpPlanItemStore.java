@@ -44,7 +44,7 @@ public class NoOpPlanItemStore implements PlanItemStore {
   }
 
   @Override
-  public List<PlanItemRecord> findDelegated(UUID caseId) {
+  public List<PlanItemRecord> findDelegatedCrossTenant(UUID caseId) {
     return List.of();
   }
 

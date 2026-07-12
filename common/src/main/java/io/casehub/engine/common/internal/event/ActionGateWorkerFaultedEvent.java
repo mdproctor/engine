@@ -27,6 +27,11 @@ import java.util.UUID;
  * StageAutocompleteEvaluator} to fire. This is distinct from {@link WorkerRetriesExhaustedEvent}
  * which also faults the {@code CaseInstance} state — gate faults must leave the case RUNNING so the
  * rejection binding can react.
+ *
+ * @param caseId the case this gate belongs to
+ * @param tenancyId the tenant owning the case
+ * @param workerId the worker that was faulted
+ * @param idempotency the idempotency key for the faulted execution
  */
 public record ActionGateWorkerFaultedEvent(
-    UUID caseId, String workerId, String idempotency, String tenancyId) {}
+    UUID caseId, String tenancyId, String workerId, String idempotency) {}

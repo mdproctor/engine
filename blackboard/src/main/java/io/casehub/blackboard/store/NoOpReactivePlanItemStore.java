@@ -46,7 +46,7 @@ public class NoOpReactivePlanItemStore implements ReactivePlanItemStore {
   }
 
   @Override
-  public Uni<List<PlanItemRecord>> findDelegated(UUID caseId) {
+  public Uni<List<PlanItemRecord>> findDelegatedCrossTenant(UUID caseId) {
     return Uni.createFrom().item(List.of());
   }
 
