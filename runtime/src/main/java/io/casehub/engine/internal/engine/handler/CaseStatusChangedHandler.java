@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.MutableCaseContext;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -129,7 +130,14 @@ public class CaseStatusChangedHandler {
                           caseInstance.tenancyId,
                           caseInstance.getPendingActionGate().gateId()));
                 }
-                return schedulerService.cancelAllTriggers(caseInstance.getUuid());
+                return schedulerService
+                    .cancelAllTriggers(caseInstance.getUuid())
+                    .invoke(
+                        () -> {
+                          if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
+                            mctx.close();
+                          }
+                        });
               }
               return Uni.createFrom().voidItem();
             })

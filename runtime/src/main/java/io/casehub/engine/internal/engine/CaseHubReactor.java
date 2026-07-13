@@ -22,6 +22,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.SIGNAL_R
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.MutableCaseContext;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.SettlementTimeoutException;
 import io.casehub.api.model.CaseDefinition;
@@ -42,8 +43,8 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
+import io.casehub.engine.internal.context.WritableLayerImpl;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.neocortex.memory.Memory;
 import io.casehub.neocortex.memory.MemoryDomain;
@@ -95,26 +96,26 @@ class CaseHubReactor {
 
   @Inject SignalSettlementTracker settlementTracker;
 
-  CompletionStage<UUID> startCase(CaseDefinition definition, CaseContext context) {
+  CompletionStage<UUID> startCase(CaseDefinition definition, MutableCaseContext context) {
     return startCaseInternal(definition, context, null, null, null);
   }
 
   CompletionStage<UUID> startCase(
       CaseDefinition definition,
-      CaseContext context,
+      MutableCaseContext context,
       UUID parentCaseId,
       PropagationContext propagationContext) {
     return startCaseInternal(definition, context, parentCaseId, propagationContext, null);
   }
 
   CompletionStage<UUID> startCase(
-      CaseDefinition definition, CaseContext context, Map<String, Object> semanticData) {
+      CaseDefinition definition, MutableCaseContext context, Map<String, Object> semanticData) {
     return startCaseInternal(definition, context, null, null, semanticData);
   }
 
   CompletionStage<UUID> startCase(
       CaseDefinition definition,
-      CaseContext context,
+      MutableCaseContext context,
       Map<String, Object> semanticData,
       UUID parentCaseId,
       PropagationContext propagationContext) {
@@ -123,7 +124,7 @@ class CaseHubReactor {
 
   private CompletionStage<UUID> startCaseInternal(
       CaseDefinition definition,
-      CaseContext context,
+      MutableCaseContext context,
       UUID parentCaseId,
       PropagationContext parentPropCtx,
       Map<String, Object> semanticData) {
@@ -147,7 +148,7 @@ class CaseHubReactor {
 
   private Uni<CaseInstance> buildInstance(
       CaseDefinition definition,
-      CaseContext context,
+      MutableCaseContext context,
       UUID parentCaseId,
       PropagationContext parentPropCtx,
       Map<String, Object> semanticData) {
@@ -176,26 +177,23 @@ class CaseHubReactor {
 
     // Populate semantic layer: definition defaults first, call-site overrides second.
     // Semantic must be frozen before the inter-case memory query (entityId JQ needs it).
-    if (context instanceof CaseContextImpl ctx) {
-      Map<String, Object> defSemanticData = definition.getSemanticData();
-      if (defSemanticData != null && !defSemanticData.isEmpty()) {
-        ctx.writableLayer(ContextLayer.SEMANTIC).setAll(defSemanticData);
-      }
-      if (semanticData != null && !semanticData.isEmpty()) {
-        ctx.writableLayer(ContextLayer.SEMANTIC).setAll(semanticData);
-      }
-      ctx.freezeLayer(ContextLayer.SEMANTIC);
-      // Initialize episodic baseline before the inter-case query and before freeze
-      EpisodicLayerUpdater.initBaseline(ctx);
+    Map<String, Object> defSemanticData = definition.getSemanticData();
+    if (defSemanticData != null && !defSemanticData.isEmpty()) {
+      context.writableLayer(ContextLayer.SEMANTIC).setAll(defSemanticData);
     }
+    if (semanticData != null && !semanticData.isEmpty()) {
+      context.writableLayer(ContextLayer.SEMANTIC).setAll(semanticData);
+    }
+    context.freezeLayer(ContextLayer.SEMANTIC);
+    EpisodicLayerUpdater.initBaseline(context);
 
     // Inter-case memory query — async, runs before episodic layer is frozen
     EpisodicMemoryConfig memCfg = definition.getEpisodicMemoryConfig();
     final Uni<Void> memoryQueryStep;
 
-    if (memCfg != null && context instanceof CaseContextImpl ctxForMem) {
+    if (memCfg != null) {
       memoryQueryStep =
-          queryEpisodicMemory(ctxForMem, memCfg)
+          queryEpisodicMemory(context, memCfg)
               .invoke(
                   memories -> {
                     if (!memories.isEmpty()) {
@@ -211,7 +209,8 @@ class CaseHubReactor {
                                     return p;
                                   })
                               .toList();
-                      ctxForMem.writableLayer(ContextLayer.EPISODIC).engineSet("memory", projected);
+                      ((WritableLayerImpl) context.writableLayer(ContextLayer.EPISODIC))
+                          .engineSet("memory", projected);
                     }
                   })
               .replaceWithVoid();
@@ -222,18 +221,14 @@ class CaseHubReactor {
     return memoryQueryStep.chain(
         () -> {
           // Freeze episodic layer after memory injection — episodic is engine-managed
-          if (context instanceof CaseContextImpl ctx) {
-            ctx.freezeLayer(ContextLayer.EPISODIC);
-          }
+          context.freezeLayer(ContextLayer.EPISODIC);
 
           // Pre-create user-defined layers declared in the case definition (eager init so
           // asJsonNode() and snapshot() include them even before any worker writes to them)
           List<String> declaredLayers = definition.getLayerNames();
-          if (declaredLayers != null
-              && !declaredLayers.isEmpty()
-              && context instanceof CaseContextImpl ctx) {
+          if (declaredLayers != null && !declaredLayers.isEmpty()) {
             for (String layerName : declaredLayers) {
-              ctx.writableLayer(layerName);
+              context.writableLayer(layerName);
             }
           }
 
@@ -251,7 +246,7 @@ class CaseHubReactor {
         });
   }
 
-  private Uni<List<Memory>> queryEpisodicMemory(CaseContextImpl ctx, EpisodicMemoryConfig cfg) {
+  private Uni<List<Memory>> queryEpisodicMemory(MutableCaseContext ctx, EpisodicMemoryConfig cfg) {
     try {
       // Evaluate entityId JQ against frozen semantic layer
       var semNode = ctx.layer(ContextLayer.SEMANTIC).asJsonNode();

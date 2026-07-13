@@ -17,13 +17,13 @@ package io.casehub.engine.internal.context;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.CaseContextStore;
 import io.casehub.api.context.ReadOnlyLayerException;
 import io.casehub.api.context.ReadableLayer;
 import io.casehub.api.context.WritableLayer;
 import io.fabric8.zjsonpatch.JsonDiff;
 import io.fabric8.zjsonpatch.JsonPatch;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,27 +41,59 @@ public class WritableLayerImpl implements WritableLayer {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final String layerName;
-  private final Map<String, Object> data = new LinkedHashMap<>();
+  private final CaseContextStore store;
   private final ReadWriteLock lock = new ReentrantReadWriteLock();
   private long version = 0L;
   private volatile boolean frozen = false;
 
   public WritableLayerImpl(String layerName) {
+    this(layerName, new InMemoryCaseContextStore());
+  }
+
+  public WritableLayerImpl(String layerName, CaseContextStore store) {
     this.layerName = layerName;
+    this.store = store;
   }
 
   public WritableLayerImpl(String layerName, Map<String, Object> initial) {
-    this(layerName, initial, true);
+    this.layerName = layerName;
+    this.store = new InMemoryCaseContextStore(initial != null ? deepCopyMap(initial) : Map.of());
   }
 
   private WritableLayerImpl(String layerName, Map<String, Object> initial, boolean deepCopy) {
     this.layerName = layerName;
-    if (initial != null) {
-      data.putAll(deepCopy ? deepCopyMap(initial) : initial);
+    this.store = new InMemoryCaseContextStore(deepCopy ? deepCopyMap(initial) : initial);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> deepCopyMap(Map<String, Object> source) {
+    Map<String, Object> copy = new LinkedHashMap<>();
+    for (var e : source.entrySet()) {
+      Object v = e.getValue();
+      if (v instanceof Map) {
+        v = deepCopyMap((Map<String, Object>) v);
+      } else if (v instanceof List) {
+        List<?> original = (List<?>) v;
+        List<Object> listCopy = new ArrayList<>(original.size());
+        for (Object item : original) {
+          if (item instanceof Map) {
+            listCopy.add(deepCopyMap((Map<String, Object>) item));
+          } else {
+            listCopy.add(item);
+          }
+        }
+        v = listCopy;
+      }
+      copy.put(e.getKey(), v);
     }
+    return copy;
   }
 
   // ── ReadableLayer ─────────────────────────────────────────────────────────
+
+  CaseContextStore getStore() {
+    return store;
+  }
 
   @Override
   public String layerName() {
@@ -82,7 +114,7 @@ public class WritableLayerImpl implements WritableLayer {
   public Object get(String key) {
     lock.readLock().lock();
     try {
-      return data.get(key);
+      return store.get(key);
     } finally {
       lock.readLock().unlock();
     }
@@ -92,7 +124,7 @@ public class WritableLayerImpl implements WritableLayer {
   public <T> T getAs(String key, Class<T> type) {
     lock.readLock().lock();
     try {
-      Object value = data.get(key);
+      Object value = store.get(key);
       if (value == null) {
         return null;
       }
@@ -110,7 +142,7 @@ public class WritableLayerImpl implements WritableLayer {
   public <T> T getOrDefault(String key, T defaultValue) {
     lock.readLock().lock();
     try {
-      Object value = data.get(key);
+      Object value = store.get(key);
       return value != null ? (T) value : defaultValue;
     } finally {
       lock.readLock().unlock();
@@ -175,7 +207,7 @@ public class WritableLayerImpl implements WritableLayer {
   public <T> List<T> getList(String key, Class<T> elementType) {
     lock.readLock().lock();
     try {
-      Object v = data.get(key);
+      Object v = store.get(key);
       if (v == null) {
         return null;
       }
@@ -192,7 +224,7 @@ public class WritableLayerImpl implements WritableLayer {
   public boolean contains(String key) {
     lock.readLock().lock();
     try {
-      return data.containsKey(key);
+      return store.containsKey(key);
     } finally {
       lock.readLock().unlock();
     }
@@ -202,7 +234,7 @@ public class WritableLayerImpl implements WritableLayer {
   public Set<String> getKeys() {
     lock.readLock().lock();
     try {
-      return new HashSet<>(data.keySet());
+      return store.keySet();
     } finally {
       lock.readLock().unlock();
     }
@@ -212,7 +244,7 @@ public class WritableLayerImpl implements WritableLayer {
   public Map<String, Object> getData() {
     lock.readLock().lock();
     try {
-      return new LinkedHashMap<>(data);
+      return new LinkedHashMap<>(store.snapshot());
     } finally {
       lock.readLock().unlock();
     }
@@ -224,7 +256,7 @@ public class WritableLayerImpl implements WritableLayer {
     try {
       Map<String, Object> result = new LinkedHashMap<>();
       for (String key : keys) {
-        Object value = data.get(key);
+        Object value = store.get(key);
         if (value != null) {
           result.put(key, value);
         }
@@ -255,7 +287,7 @@ public class WritableLayerImpl implements WritableLayer {
   public boolean isEmpty() {
     lock.readLock().lock();
     try {
-      return data.isEmpty();
+      return store.isEmpty();
     } finally {
       lock.readLock().unlock();
     }
@@ -265,7 +297,7 @@ public class WritableLayerImpl implements WritableLayer {
   public int size() {
     lock.readLock().lock();
     try {
-      return data.size();
+      return store.size();
     } finally {
       lock.readLock().unlock();
     }
@@ -281,26 +313,26 @@ public class WritableLayerImpl implements WritableLayer {
     }
   }
 
+  // ── WritableLayer ──────────────────────────────────────────────────────────
+
   @Override
   public JsonNode asJsonNode() {
     lock.readLock().lock();
     try {
-      return MAPPER.convertValue(data, JsonNode.class);
+      return MAPPER.convertValue(store.snapshot(), JsonNode.class);
     } finally {
       lock.readLock().unlock();
     }
   }
-
-  // ── WritableLayer ──────────────────────────────────────────────────────────
 
   @Override
   public WritableLayer set(String key, Object value) {
     checkWritable();
     lock.writeLock().lock();
     try {
-      Object prev = data.get(key);
+      Object prev = store.get(key);
       if (!Objects.equals(prev, value)) {
-        data.put(key, value);
+        store.put(key, value);
         version++;
       }
       return this;
@@ -319,9 +351,9 @@ public class WritableLayerImpl implements WritableLayer {
     try {
       boolean changed = false;
       for (Map.Entry<String, Object> e : values.entrySet()) {
-        Object prev = data.get(e.getKey());
+        Object prev = store.get(e.getKey());
         if (!Objects.equals(prev, e.getValue())) {
-          data.put(e.getKey(), e.getValue());
+          store.put(e.getKey(), e.getValue());
           changed = true;
         }
       }
@@ -340,9 +372,26 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      String[] parts = path.split("\\.");
-      Map<String, Object> current = data;
-      for (int i = 0; i < parts.length - 1; i++) {
+      String[] parts = path.split("[.]");
+      if (parts.length == 1) {
+        Object prev = store.get(parts[0]);
+        if (!Objects.equals(prev, value)) {
+          store.put(parts[0], value);
+          version++;
+        }
+        return this;
+      }
+      Object rootValue = store.get(parts[0]);
+      Map<String, Object> current;
+      if (rootValue == null) {
+        rootValue = new LinkedHashMap<String, Object>();
+        current = (Map<String, Object>) rootValue;
+      } else if (rootValue instanceof Map) {
+        current = (Map<String, Object>) rootValue;
+      } else {
+        throw new IllegalStateException("Cannot set path: " + parts[0] + " is not a Map");
+      }
+      for (int i = 1; i < parts.length - 1; i++) {
         Object next = current.get(parts[i]);
         if (next == null) {
           next = new LinkedHashMap<String, Object>();
@@ -358,6 +407,7 @@ public class WritableLayerImpl implements WritableLayer {
       Object prev = current.get(leaf);
       if (!Objects.equals(prev, value)) {
         current.put(leaf, value);
+        store.put(parts[0], rootValue);
         version++;
       }
       return this;
@@ -371,8 +421,8 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      if (data.containsKey(key)) {
-        data.remove(key);
+      if (store.containsKey(key)) {
+        store.remove(key);
         version++;
       }
       return this;
@@ -386,8 +436,8 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      if (!data.isEmpty()) {
-        data.clear();
+      if (!store.isEmpty()) {
+        store.clear();
         version++;
       }
       return this;
@@ -407,9 +457,9 @@ public class WritableLayerImpl implements WritableLayer {
       Map<String, Object> otherData = other.getData();
       boolean changed = false;
       for (Map.Entry<String, Object> e : otherData.entrySet()) {
-        Object prev = data.get(e.getKey());
+        Object prev = store.get(e.getKey());
         if (!Objects.equals(prev, e.getValue())) {
-          data.put(e.getKey(), e.getValue());
+          store.put(e.getKey(), e.getValue());
           changed = true;
         }
       }
@@ -427,11 +477,11 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      Object value = data.get(key);
+      Object value = store.get(key);
       if (value == null) {
         value = mappingFunction.apply(key);
         if (value != null) {
-          data.put(key, value);
+          store.put(key, value);
           version++;
         }
       }
@@ -446,9 +496,9 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      Object existing = data.get(key);
+      Object existing = store.get(key);
       if (existing == null) {
-        data.put(key, value);
+        store.put(key, value);
         version++;
       }
       return existing;
@@ -462,10 +512,10 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      Object current = data.get(key);
+      Object current = store.get(key);
       if (Objects.equals(current, expected)) {
         if (!Objects.equals(current, newValue)) {
-          data.put(key, newValue);
+          store.put(key, newValue);
           version++;
         }
         return true;
@@ -481,16 +531,16 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      Object current = data.get(key);
+      Object current = store.get(key);
       Object newValue = updateFunction.apply(current);
       if (newValue != null) {
         if (!Objects.equals(current, newValue)) {
-          data.put(key, newValue);
+          store.put(key, newValue);
           version++;
         }
       } else {
-        if (data.containsKey(key)) {
-          data.remove(key);
+        if (store.containsKey(key)) {
+          store.remove(key);
           version++;
         }
       }
@@ -506,30 +556,48 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      JsonNode before = MAPPER.convertValue(data, JsonNode.class);
+      JsonNode before = MAPPER.convertValue(store.snapshot(), JsonNode.class);
 
-      String[] parts = path.split("\\.");
-      Map<String, Object> current = data;
-      for (int i = 0; i < parts.length - 1; i++) {
-        Object next = current.get(parts[i]);
-        if (next == null) {
-          next = new LinkedHashMap<String, Object>();
-          current.put(parts[i], next);
+      String[] parts = path.split("[.]");
+      if (parts.length == 1) {
+        Object prev = store.get(parts[0]);
+        if (!Objects.equals(prev, value)) {
+          store.put(parts[0], value);
+          version++;
         }
-        if (next instanceof Map) {
-          current = (Map<String, Object>) next;
+      } else {
+        Object rootValue = store.get(parts[0]);
+        Map<String, Object> current;
+        if (rootValue == null) {
+          rootValue = new LinkedHashMap<String, Object>();
+          current = (Map<String, Object>) rootValue;
+        } else if (rootValue instanceof Map) {
+          current = (Map<String, Object>) rootValue;
         } else {
-          throw new IllegalStateException("Cannot set path: " + parts[i] + " is not a Map");
+          throw new IllegalStateException("Cannot set path: " + parts[0] + " is not a Map");
+        }
+        for (int i = 1; i < parts.length - 1; i++) {
+          Object next = current.get(parts[i]);
+          if (next == null) {
+            next = new LinkedHashMap<String, Object>();
+            current.put(parts[i], next);
+          }
+          if (next instanceof Map) {
+            current = (Map<String, Object>) next;
+          } else {
+            throw new IllegalStateException("Cannot set path: " + parts[i] + " is not a Map");
+          }
+        }
+        String leaf = parts[parts.length - 1];
+        Object prev = current.get(leaf);
+        if (!Objects.equals(prev, value)) {
+          current.put(leaf, value);
+          store.put(parts[0], rootValue);
+          version++;
         }
       }
-      String leaf = parts[parts.length - 1];
-      Object prev = current.get(leaf);
-      if (!Objects.equals(prev, value)) {
-        current.put(leaf, value);
-        version++;
-      }
 
-      JsonNode after = MAPPER.convertValue(data, JsonNode.class);
+      JsonNode after = MAPPER.convertValue(store.snapshot(), JsonNode.class);
       JsonNode diff = JsonDiff.asJson(before, after);
       return diff.isEmpty() ? Optional.empty() : Optional.of(diff);
     } finally {
@@ -542,7 +610,7 @@ public class WritableLayerImpl implements WritableLayer {
     checkWritable();
     lock.writeLock().lock();
     try {
-      JsonNode current = MAPPER.convertValue(data, JsonNode.class);
+      JsonNode current = MAPPER.convertValue(store.snapshot(), JsonNode.class);
       JsonNode patched = JsonPatch.apply(diff, current);
       Map<String, Object> updated =
           MAPPER.convertValue(
@@ -550,19 +618,21 @@ public class WritableLayerImpl implements WritableLayer {
               MAPPER
                   .getTypeFactory()
                   .constructMapType(LinkedHashMap.class, String.class, Object.class));
-      data.clear();
-      data.putAll(updated);
+      store.clear();
+      store.putAll(updated);
       version++;
     } finally {
       lock.writeLock().unlock();
     }
   }
 
+  // ── Atomic read-modify-write primitive (package-private) ────────────────────
+
   @Override
   public JsonNode diff(ReadableLayer other) {
     lock.readLock().lock();
     try {
-      JsonNode thisNode = MAPPER.convertValue(this.data, JsonNode.class);
+      JsonNode thisNode = MAPPER.convertValue(store.snapshot(), JsonNode.class);
       JsonNode otherNode = MAPPER.convertValue(other.getData(), JsonNode.class);
       return JsonDiff.asJson(thisNode, otherNode);
     } finally {
@@ -570,7 +640,7 @@ public class WritableLayerImpl implements WritableLayer {
     }
   }
 
-  // ── Atomic read-modify-write primitive (package-private) ────────────────────
+  // ── Public helpers ─────────────────────────────────────────────────────────
 
   /**
    * Executes an atomic read-modify-write operation under the write lock. The action receives the
@@ -580,12 +650,12 @@ public class WritableLayerImpl implements WritableLayer {
    * <p>Used by {@link CaseContextImpl} to capture previous values for listener notification without
    * requiring a dedicated {@code *Prev()} variant of every mutating method.
    */
-  <R> R modify(BiFunction<Map<String, Object>, Runnable, R> action) {
+  <R> R modify(BiFunction<CaseContextStore, Runnable, R> action) {
     checkWritable();
     lock.writeLock().lock();
     try {
       boolean[] changed = {false};
-      R result = action.apply(data, () -> changed[0] = true);
+      R result = action.apply(store, () -> changed[0] = true);
       if (changed[0]) {
         version++;
       }
@@ -595,8 +665,6 @@ public class WritableLayerImpl implements WritableLayer {
     }
   }
 
-  // ── Public helpers ─────────────────────────────────────────────────────────
-
   /**
    * Engine-internal write that bypasses the frozen check. Used by {@code EpisodicLayerUpdater} to
    * update engine-managed layers (episodic) without exposing an unfreeze/refreeze cycle.
@@ -604,9 +672,9 @@ public class WritableLayerImpl implements WritableLayer {
   public WritableLayerImpl engineSet(String key, Object value) {
     lock.writeLock().lock();
     try {
-      Object prev = data.get(key);
+      Object prev = store.get(key);
       if (!Objects.equals(prev, value)) {
-        data.put(key, value);
+        store.put(key, value);
         // Intentionally does NOT increment version — episodic writes are engine-managed and must
         // not trigger working-layer version bumps observed by trigger evaluation.
       }
@@ -624,12 +692,12 @@ public class WritableLayerImpl implements WritableLayer {
   public void engineUpdate(String key, java.util.function.UnaryOperator<Object> updater) {
     lock.writeLock().lock();
     try {
-      Object current = data.get(key);
+      Object current = store.get(key);
       Object updated = updater.apply(current);
       if (updated != null) {
-        data.put(key, updated);
-      } else if (data.containsKey(key)) {
-        data.remove(key);
+        store.put(key, updated);
+      } else if (store.containsKey(key)) {
+        store.remove(key);
       }
     } finally {
       lock.writeLock().unlock();
@@ -641,6 +709,8 @@ public class WritableLayerImpl implements WritableLayer {
     return deepCopy();
   }
 
+  // ── Private helpers ────────────────────────────────────────────────────────
+
   /**
    * Returns a deep copy of this layer, detached from the original. The copy shares the same
    * layerName but has an independent data map.
@@ -648,65 +718,41 @@ public class WritableLayerImpl implements WritableLayer {
   public WritableLayerImpl deepCopy() {
     lock.readLock().lock();
     try {
-      return new WritableLayerImpl(layerName, deepCopyMap(data), false);
+      return new WritableLayerImpl(layerName, deepCopyMap(store.snapshot()), false);
     } finally {
       lock.readLock().unlock();
     }
   }
 
-  // ── Private helpers ────────────────────────────────────────────────────────
-
   private void checkWritable() {
-    if (frozen) throw new ReadOnlyLayerException(layerName);
+    if (frozen) {
+      throw new ReadOnlyLayerException(layerName);
+    }
   }
 
   private Object getPathInternal(String path) {
-    String[] parts = path.split("\\.");
-    Object current = data;
-    for (String part : parts) {
-      if (current instanceof Map<?, ?> map) {
-        current = map.get(part);
-      } else {
+    String[] parts = path.split("[.]");
+    Object current = store.get(parts[0]);
+    for (int i = 1; i < parts.length; i++) {
+      if (current == null) {
         return null;
       }
-      if (current == null) {
+      if (current instanceof Map<?, ?> map) {
+        current = map.get(parts[i]);
+      } else {
         return null;
       }
     }
     return current;
   }
 
-  @SuppressWarnings("unchecked")
-  private static Map<String, Object> deepCopyMap(Map<String, Object> source) {
-    Map<String, Object> copy = new LinkedHashMap<>();
-    for (var e : source.entrySet()) {
-      Object v = e.getValue();
-      if (v instanceof Map) {
-        v = deepCopyMap((Map<String, Object>) v);
-      } else if (v instanceof List) {
-        List<?> original = (List<?>) v;
-        List<Object> listCopy = new ArrayList<>(original.size());
-        for (Object item : original) {
-          if (item instanceof Map) {
-            listCopy.add(deepCopyMap((Map<String, Object>) item));
-          } else {
-            listCopy.add(item);
-          }
-        }
-        v = listCopy;
-      }
-      copy.put(e.getKey(), v);
-    }
-    return copy;
-  }
-
   @Override
   public String toString() {
     lock.readLock().lock();
     try {
-      return MAPPER.writeValueAsString(data);
+      return MAPPER.writeValueAsString(store.snapshot());
     } catch (Exception e) {
-      return data.toString();
+      return store.snapshot().toString();
     } finally {
       lock.readLock().unlock();
     }

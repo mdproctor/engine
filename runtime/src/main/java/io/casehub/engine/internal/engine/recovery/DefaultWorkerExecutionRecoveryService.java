@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.MutableCaseContext;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -331,7 +332,7 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
     // episodic). Each changeNode has "before"/"after" for the layer's full contents — not a
     // single flat key. We must update the named layer rather than setting the layer name as a key
     // inside the working layer (which is what CaseContext.set() would do via the flat API).
-    CaseContextImpl ctxImpl = caseContext instanceof CaseContextImpl c ? c : null;
+    MutableCaseContext mctx = caseContext instanceof MutableCaseContext m ? m : null;
 
     changes
         .fieldNames()
@@ -345,13 +346,13 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
               if (afterNode == null || afterNode.isNull()) {
                 // Removal — layer cleared; call remove on flat API (no-op for layers but safe)
                 caseContext.remove(key);
-              } else if (ctxImpl != null && afterNode.isObject()) {
+              } else if (mctx != null && afterNode.isObject()) {
                 // Layer-level diff: afterNode is the layer's FULL new contents — replace, not
                 // merge.
                 // clear() then setAll() ensures removed keys are not left behind.
                 @SuppressWarnings("unchecked")
                 Map<String, Object> afterMap = OBJECT_MAPPER.convertValue(afterNode, Map.class);
-                ctxImpl.writableLayer(key).clear().setAll(afterMap);
+                mctx.writableLayer(key).clear().setAll(afterMap);
               } else {
                 // Flat scalar (rare/legacy): fall back to flat set
                 Object value = OBJECT_MAPPER.convertValue(afterNode, Object.class);

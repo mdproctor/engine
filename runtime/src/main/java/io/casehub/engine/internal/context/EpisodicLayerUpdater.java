@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.context;
 
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.MutableCaseContext;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,8 +28,8 @@ public final class EpisodicLayerUpdater {
   private EpisodicLayerUpdater() {}
 
   /** Initializes the episodic layer baseline: {workers:[], milestones:[], goals:[]} */
-  public static void initBaseline(CaseContextImpl ctx) {
-    WritableLayerImpl episodic = ctx.writableLayer(ContextLayer.EPISODIC);
+  public static void initBaseline(MutableCaseContext ctx) {
+    WritableLayerImpl episodic = (WritableLayerImpl) ctx.writableLayer(ContextLayer.EPISODIC);
     if (!episodic.contains("workers")) episodic.engineSet("workers", new ArrayList<>());
     if (!episodic.contains("milestones")) episodic.engineSet("milestones", new ArrayList<>());
     if (!episodic.contains("goals")) episodic.engineSet("goals", new ArrayList<>());
@@ -42,8 +43,8 @@ public final class EpisodicLayerUpdater {
    */
   @SuppressWarnings("unchecked")
   public static void recordWorkerCompletion(
-      CaseContextImpl ctx, String workerName, String outcome) {
-    WritableLayerImpl episodic = ctx.writableLayer(ContextLayer.EPISODIC);
+      MutableCaseContext ctx, String workerName, String outcome) {
+    WritableLayerImpl episodic = (WritableLayerImpl) ctx.writableLayer(ContextLayer.EPISODIC);
     episodic.engineUpdate(
         "workers",
         currentValue -> {
@@ -82,8 +83,8 @@ public final class EpisodicLayerUpdater {
    * read-modify-write.
    */
   @SuppressWarnings("unchecked")
-  public static void recordMilestoneReached(CaseContextImpl ctx, String milestoneName) {
-    WritableLayerImpl episodic = ctx.writableLayer(ContextLayer.EPISODIC);
+  public static void recordMilestoneReached(MutableCaseContext ctx, String milestoneName) {
+    WritableLayerImpl episodic = (WritableLayerImpl) ctx.writableLayer(ContextLayer.EPISODIC);
     episodic.engineUpdate(
         "milestones",
         currentValue -> {
@@ -101,8 +102,8 @@ public final class EpisodicLayerUpdater {
    * layer is frozen. Uses {@link WritableLayerImpl#engineUpdate} for atomic read-modify-write.
    */
   @SuppressWarnings("unchecked")
-  public static void recordGoalReached(CaseContextImpl ctx, String goalName) {
-    WritableLayerImpl episodic = ctx.writableLayer(ContextLayer.EPISODIC);
+  public static void recordGoalReached(MutableCaseContext ctx, String goalName) {
+    WritableLayerImpl episodic = (WritableLayerImpl) ctx.writableLayer(ContextLayer.EPISODIC);
     episodic.engineUpdate(
         "goals",
         currentValue -> {

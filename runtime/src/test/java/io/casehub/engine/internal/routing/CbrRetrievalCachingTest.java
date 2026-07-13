@@ -279,5 +279,9 @@ class CbrRetrievalCachingTest {
     public Integer eraseEntity(String eid, String tid) {
       return 0;
     }
+
+    @Override
+    public void recordOutcome(
+        String caseId, String tenantId, io.casehub.neocortex.memory.cbr.CbrOutcome outcome) {}
   }
 }

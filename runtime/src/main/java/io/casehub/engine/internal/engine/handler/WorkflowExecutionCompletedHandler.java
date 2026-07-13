@@ -21,6 +21,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.MutableCaseContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
@@ -51,7 +52,6 @@ import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
-import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -129,8 +129,8 @@ public class WorkflowExecutionCompletedHandler {
 
     JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
     applyOutputWithConflictResolution(caseInstance, worker, rawOutput, bindingName);
-    if (caseInstance.getCaseContext() instanceof CaseContextImpl ctx) {
-      EpisodicLayerUpdater.recordWorkerCompletion(ctx, worker.name(), "COMPLETED");
+    if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
+      EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), "COMPLETED");
     }
     recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
     fireOutcomeRecorder(
@@ -393,8 +393,8 @@ public class WorkflowExecutionCompletedHandler {
     caseInstance.getCaseContext().set("_outcomes", outcomesMap);
 
     // Episodic
-    if (caseInstance.getCaseContext() instanceof CaseContextImpl ctx) {
-      EpisodicLayerUpdater.recordWorkerCompletion(ctx, worker.name(), outcomeStatus);
+    if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
+      EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), outcomeStatus);
     }
 
     // Event log

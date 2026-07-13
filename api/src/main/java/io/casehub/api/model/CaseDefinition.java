@@ -57,6 +57,7 @@ public class CaseDefinition {
   private Set<Path> labels = Set.of();
   private CbrConfig cbrConfig;
   private io.casehub.api.context.ContextBridge<?> defaultWorkerBridge;
+  private String contextStoreFactory;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -237,6 +238,14 @@ public class CaseDefinition {
     this.defaultWorkerBridge = defaultWorkerBridge;
   }
 
+  public String getContextStoreFactory() {
+    return contextStoreFactory;
+  }
+
+  public void setContextStoreFactory(String contextStoreFactory) {
+    this.contextStoreFactory = contextStoreFactory;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -266,6 +275,7 @@ public class CaseDefinition {
     private Set<Path> labels = new LinkedHashSet<>();
     private CbrConfig cbrConfig;
     private io.casehub.api.context.ContextBridge<?> defaultWorkerBridge;
+    private String contextStoreFactory;
 
     private Builder() {}
 
@@ -457,6 +467,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder contextStoreFactory(String contextStoreFactory) {
+      this.contextStoreFactory = contextStoreFactory;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -493,6 +508,7 @@ public class CaseDefinition {
       caseHubDefinition.setLabels(labels);
       caseHubDefinition.setCbrConfig(cbrConfig);
       caseHubDefinition.setDefaultWorkerBridge(defaultWorkerBridge);
+      caseHubDefinition.setContextStoreFactory(contextStoreFactory);
 
       return caseHubDefinition;
     }

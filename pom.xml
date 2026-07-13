@@ -106,6 +106,7 @@
         <module>actor-state</module>
         <module>engine-ai</module>
         <module>flow</module>
+        <module>examples/typed-context</module>
     </modules>
 
     <repositories>

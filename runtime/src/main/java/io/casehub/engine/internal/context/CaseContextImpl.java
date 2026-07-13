@@ -23,8 +23,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.CaseContextStoreFactory;
 import io.casehub.api.context.ContextChangeEvent;
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.MutableCaseContext;
 import io.casehub.api.context.ReadableLayer;
 import io.casehub.api.context.Subscription;
 import java.util.LinkedHashMap;
@@ -33,6 +35,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
@@ -40,12 +43,14 @@ import java.util.function.Function;
 import org.jboss.logging.Logger;
 
 @JsonDeserialize(as = CaseContextImpl.class)
-public class CaseContextImpl implements CaseContext {
+public class CaseContextImpl implements MutableCaseContext {
 
   private static final Logger LOG = Logger.getLogger(CaseContextImpl.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final Map<String, WritableLayerImpl> layers = new LinkedHashMap<>();
+  private final CaseContextStoreFactory storeFactory;
+  private final UUID caseId;
 
   // ── Listener infrastructure ────────────────────────────────────────────────
 
@@ -60,18 +65,23 @@ public class CaseContextImpl implements CaseContext {
   // ── Constructors ────────────────────────────────────────────────────────────
 
   public CaseContextImpl() {
-    initBuiltinLayers();
+    this(InMemoryCaseContextStoreFactory.INSTANCE, null);
   }
 
   public CaseContextImpl(Map<String, Object> initial) {
-    // Use WritableLayerImpl(name, data) constructor which pre-populates without incrementing
-    // version,
-    // preserving the original contract that the map constructor does not increment version.
+    this.storeFactory = InMemoryCaseContextStoreFactory.INSTANCE;
+    this.caseId = null;
     layers.put(
         ContextLayer.WORKING,
         new WritableLayerImpl(ContextLayer.WORKING, initial != null ? initial : Map.of()));
     layers.put(ContextLayer.SEMANTIC, new WritableLayerImpl(ContextLayer.SEMANTIC));
     layers.put(ContextLayer.EPISODIC, new WritableLayerImpl(ContextLayer.EPISODIC));
+  }
+
+  public CaseContextImpl(CaseContextStoreFactory storeFactory, UUID caseId) {
+    this.storeFactory = storeFactory;
+    this.caseId = caseId;
+    initBuiltinLayers();
   }
 
   public CaseContextImpl(Map<String, Object> initial, long ignoredVersion) {
@@ -93,9 +103,18 @@ public class CaseContextImpl implements CaseContext {
   }
 
   private void initBuiltinLayers() {
-    layers.put(ContextLayer.WORKING, new WritableLayerImpl(ContextLayer.WORKING));
-    layers.put(ContextLayer.SEMANTIC, new WritableLayerImpl(ContextLayer.SEMANTIC));
-    layers.put(ContextLayer.EPISODIC, new WritableLayerImpl(ContextLayer.EPISODIC));
+    layers.put(
+        ContextLayer.WORKING,
+        new WritableLayerImpl(
+            ContextLayer.WORKING, storeFactory.createStore(ContextLayer.WORKING, caseId)));
+    layers.put(
+        ContextLayer.SEMANTIC,
+        new WritableLayerImpl(
+            ContextLayer.SEMANTIC, storeFactory.createStore(ContextLayer.SEMANTIC, caseId)));
+    layers.put(
+        ContextLayer.EPISODIC,
+        new WritableLayerImpl(
+            ContextLayer.EPISODIC, storeFactory.createStore(ContextLayer.EPISODIC, caseId)));
   }
 
   private WritableLayerImpl working() {
@@ -106,12 +125,14 @@ public class CaseContextImpl implements CaseContext {
 
   @Override
   public ReadableLayer layer(String name) {
-    return layers.computeIfAbsent(name, WritableLayerImpl::new);
+    return layers.computeIfAbsent(
+        name, n -> new WritableLayerImpl(n, storeFactory.createStore(n, caseId)));
   }
 
   /** Engine-internal: returns writable view (engine writes to semantic/episodic this way). */
   public WritableLayerImpl writableLayer(String name) {
-    return layers.computeIfAbsent(name, WritableLayerImpl::new);
+    return layers.computeIfAbsent(
+        name, n -> new WritableLayerImpl(n, storeFactory.createStore(n, caseId)));
   }
 
   /** Freezes a layer (makes it read-only). */
@@ -176,10 +197,10 @@ public class CaseContextImpl implements CaseContext {
       Object prev =
           working()
               .modify(
-                  (data, changed) -> {
-                    Object p = data.get(key);
+                  (store, changed) -> {
+                    Object p = store.get(key);
                     if (!Objects.equals(p, value)) {
-                      data.put(key, value);
+                      store.put(key, value);
                       changed.run();
                     }
                     return p;
@@ -214,12 +235,12 @@ public class CaseContextImpl implements CaseContext {
     Object[] result =
         working()
             .modify(
-                (data, changed) -> {
-                  Object v = data.get(key);
+                (store, changed) -> {
+                  Object v = store.get(key);
                   if (v == null) {
                     v = mappingFunction.apply(key);
                     if (v != null) {
-                      data.put(key, v);
+                      store.put(key, v);
                       changed.run();
                       return new Object[] {Boolean.FALSE, v};
                     }
@@ -243,10 +264,10 @@ public class CaseContextImpl implements CaseContext {
     Object[] result =
         working()
             .modify(
-                (data, changed) -> {
-                  Object existing = data.get(key);
+                (store, changed) -> {
+                  Object existing = store.get(key);
                   if (existing == null) {
-                    data.put(key, value);
+                    store.put(key, value);
                     changed.run();
                     return new Object[] {null, Boolean.TRUE};
                   }
@@ -268,11 +289,11 @@ public class CaseContextImpl implements CaseContext {
     Object[] result =
         working()
             .modify(
-                (data, changed) -> {
-                  Object current = data.get(key);
+                (store, changed) -> {
+                  Object current = store.get(key);
                   if (Objects.equals(current, expected)) {
                     if (!Objects.equals(current, newValue)) {
-                      data.put(key, newValue);
+                      store.put(key, newValue);
                       changed.run();
                     }
                     return new Object[] {current, Boolean.TRUE};
@@ -295,16 +316,16 @@ public class CaseContextImpl implements CaseContext {
       Object[] result =
           working()
               .modify(
-                  (data, changed) -> {
-                    Object current = data.get(key);
+                  (store, changed) -> {
+                    Object current = store.get(key);
                     Object nv = updateFunction.apply(current);
                     if (nv != null) {
                       if (!Objects.equals(current, nv)) {
-                        data.put(key, nv);
+                        store.put(key, nv);
                         changed.run();
                       }
-                    } else if (data.containsKey(key)) {
-                      data.remove(key);
+                    } else if (store.containsKey(key)) {
+                      store.remove(key);
                       changed.run();
                     }
                     return new Object[] {current, nv};
@@ -368,10 +389,28 @@ public class CaseContextImpl implements CaseContext {
       Object prev =
           working()
               .modify(
-                  (data, changed) -> {
-                    String[] parts = path.split("\\.");
-                    Map<String, Object> current = data;
-                    for (int i = 0; i < parts.length - 1; i++) {
+                  (store, changed) -> {
+                    String[] parts = path.split("[.]");
+                    if (parts.length == 1) {
+                      Object p = store.get(parts[0]);
+                      if (!Objects.equals(p, value)) {
+                        store.put(parts[0], value);
+                        changed.run();
+                      }
+                      return p;
+                    }
+                    Object rootValue = store.get(parts[0]);
+                    Map<String, Object> current;
+                    if (rootValue == null) {
+                      rootValue = new LinkedHashMap<String, Object>();
+                      current = (Map<String, Object>) rootValue;
+                    } else if (rootValue instanceof Map) {
+                      current = (Map<String, Object>) rootValue;
+                    } else {
+                      throw new IllegalStateException(
+                          "Cannot set path: " + parts[0] + " is not a Map");
+                    }
+                    for (int i = 1; i < parts.length - 1; i++) {
                       Object next = current.get(parts[i]);
                       if (next == null) {
                         next = new LinkedHashMap<String, Object>();
@@ -388,6 +427,7 @@ public class CaseContextImpl implements CaseContext {
                     Object p = current.get(leaf);
                     if (!Objects.equals(p, value)) {
                       current.put(leaf, value);
+                      store.put(parts[0], rootValue);
                       changed.run();
                     }
                     return p;
@@ -407,12 +447,12 @@ public class CaseContextImpl implements CaseContext {
       Map<String, Object> changed =
           working()
               .modify(
-                  (data, markChanged) -> {
+                  (store, markChanged) -> {
                     Map<String, Object> diff = new LinkedHashMap<>();
                     for (Map.Entry<String, Object> e : values.entrySet()) {
-                      Object prev = data.get(e.getKey());
+                      Object prev = store.get(e.getKey());
                       if (!Objects.equals(prev, e.getValue())) {
-                        data.put(e.getKey(), e.getValue());
+                        store.put(e.getKey(), e.getValue());
                         diff.put(e.getKey(), prev);
                       }
                     }
@@ -446,10 +486,10 @@ public class CaseContextImpl implements CaseContext {
       Object prev =
           working()
               .modify(
-                  (data, changed) -> {
-                    if (data.containsKey(key)) {
+                  (store, changed) -> {
+                    if (store.containsKey(key)) {
                       changed.run();
-                      return data.remove(key);
+                      return store.remove(key);
                     }
                     return null;
                   });
@@ -468,10 +508,10 @@ public class CaseContextImpl implements CaseContext {
       Map<String, Object> prev =
           working()
               .modify(
-                  (data, changed) -> {
-                    if (!data.isEmpty()) {
-                      Map<String, Object> snapshot = new LinkedHashMap<>(data);
-                      data.clear();
+                  (store, changed) -> {
+                    if (!store.isEmpty()) {
+                      Map<String, Object> snapshot = store.snapshot();
+                      store.clear();
                       changed.run();
                       return snapshot;
                     }
@@ -525,12 +565,12 @@ public class CaseContextImpl implements CaseContext {
       Map<String, Object> changed =
           working()
               .modify(
-                  (data, markChanged) -> {
+                  (store, markChanged) -> {
                     Map<String, Object> diff = new LinkedHashMap<>();
                     for (Map.Entry<String, Object> e : otherData.entrySet()) {
-                      Object prev = data.get(e.getKey());
+                      Object prev = store.get(e.getKey());
                       if (!Objects.equals(prev, e.getValue())) {
-                        data.put(e.getKey(), e.getValue());
+                        store.put(e.getKey(), e.getValue());
                         diff.put(e.getKey(), prev);
                       }
                     }
@@ -603,6 +643,16 @@ public class CaseContextImpl implements CaseContext {
   }
 
   // ── equals / hashCode / toString — working layer data for backward compat ──
+
+  public void close() {
+    for (WritableLayerImpl layer : layers.values()) {
+      try {
+        layer.getStore().close();
+      } catch (Exception e) {
+        LOG.warnf(e, "Failed to close store for layer %s", layer.layerName());
+      }
+    }
+  }
 
   @Override
   public boolean equals(Object o) {

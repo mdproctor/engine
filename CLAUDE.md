@@ -159,6 +159,12 @@ is public (`public Long id`) and set by the repository after save.
 
 `ActionGatePolicy` — shared enum (`ALWAYS`, `THRESHOLD`, `CONDITIONAL`) in `api/spi/` for domain classifiers (AML, clinical, devtown, life) to reference instead of defining their own gate policy vocabulary. Refs engine#472.
 
+## CaseContextStore SPI
+
+`CaseContextStore` (`api/context/`) — pluggable storage backend for a single context layer. Flat key-value interface (`get`, `put`, `remove`, `containsKey`, `keySet`, `snapshot`, `clear`, `putAll`, `size`, `isEmpty`). Extends `AutoCloseable` for resource cleanup. Optional hybrid observation via `supportsExternalChangeNotification()` and `onExternalChange(Consumer<ContextChangeEvent>)` — store implementations that can detect external writes (e.g. Redis pub/sub) fire events; self-echo filtering is the store's responsibility, not the framework's. `CaseContextStoreFactory extends NamedStrategy` creates stores per layer per case. `loadStore()` for existing cases (persistent stores return pre-populated state). `isDurable()` signals whether stores survive JVM restarts (controls recovery path: EventLog replay vs direct load). `InMemoryCaseContextStoreFactory` (`@DefaultBean @ApplicationScoped`, id `"in-memory"`) is the default. `EngineStrategyResolver` discovers factory beans via `Instance<CaseContextStoreFactory>`. `CaseDefinition.contextStoreFactory` (nullable String) selects the factory by strategy ID. Refs engine#419.
+
+`MutableCaseContext` (`api/context/`) — engine-internal extension of `CaseContext`. Adds `writableLayer(String name)` returning `WritableLayer`, `freezeLayer(String name)`, and `close()` (default no-op). `CaseContextImpl` implements `MutableCaseContext`. All engine-internal code (`CaseHubReactor`, `EpisodicLayerUpdater`, handlers) programs to `MutableCaseContext` — zero `instanceof CaseContextImpl` checks remain. `WritableLayerImpl` delegates storage to `CaseContextStore`. `engineSet()` and `engineUpdate()` remain on `WritableLayerImpl` only (not on the `WritableLayer` interface) — `EpisodicLayerUpdater` uses a localized cast. Refs engine#419.
+
 ## CaseContext Change Listeners
 
 `CaseContext.onChange(key, listener)` / `onAnyChange(listener)` — per-key change listeners on the working layer. `ContextChangeEvent(key, oldValue, newValue)` with atomic old-value capture via `WritableLayerImpl.setPrev()`. Listeners fire after write lock release (no deadlock). Error isolation per listener. `engineSet()` and `applyDiff()` do NOT fire listeners. Default methods return `Subscription.NOOP`. Refs engine#619.

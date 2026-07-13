@@ -65,7 +65,8 @@ public class EngineStrategyResolver implements StrategyResolver {
       @Any
           Instance<io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy>
               execStrategies,
-      @Any Instance<io.casehub.api.spi.routing.TrustRoutingPolicyProvider> trustStrategies) {
+      @Any Instance<io.casehub.api.spi.routing.TrustRoutingPolicyProvider> trustStrategies,
+      @Any Instance<io.casehub.api.context.CaseContextStoreFactory> contextStoreFactories) {
     this();
     registerStrategies(agentStrategies);
     registerStrategies(implStrategies);
@@ -73,6 +74,7 @@ public class EngineStrategyResolver implements StrategyResolver {
     registerStrategies(candidateSetStrategies);
     registerStrategies(execStrategies);
     registerStrategies(trustStrategies);
+    registerStrategies(contextStoreFactories);
 
     org.jboss.logging.Logger.getLogger(EngineStrategyResolver.class)
         .infof(
