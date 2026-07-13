@@ -66,7 +66,8 @@ public class EngineStrategyResolver implements StrategyResolver {
           Instance<io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy>
               execStrategies,
       @Any Instance<io.casehub.api.spi.routing.TrustRoutingPolicyProvider> trustStrategies,
-      @Any Instance<io.casehub.api.context.CaseContextStoreFactory> contextStoreFactories) {
+      @Any Instance<io.casehub.api.context.CaseContextStoreFactory> contextStoreFactories,
+      @Any Instance<NamedStrategy> allStrategies) {
     this();
     registerStrategies(agentStrategies);
     registerStrategies(implStrategies);
@@ -75,6 +76,7 @@ public class EngineStrategyResolver implements StrategyResolver {
     registerStrategies(execStrategies);
     registerStrategies(trustStrategies);
     registerStrategies(contextStoreFactories);
+    registerRemainingStrategies(allStrategies);
 
     org.jboss.logging.Logger.getLogger(EngineStrategyResolver.class)
         .infof(
@@ -85,6 +87,22 @@ public class EngineStrategyResolver implements StrategyResolver {
                 .toList());
   }
 
+  private void registerRemainingStrategies(Instance<NamedStrategy> allStrategies) {
+    for (Instance.Handle<NamedStrategy> handle : allStrategies.handles()) {
+      NamedStrategy strategy = handle.get();
+      boolean alreadyRegistered =
+          index.values().stream()
+              .anyMatch(
+                  byId ->
+                      byId.values().stream().anyMatch(s -> s.getClass() == strategy.getClass()));
+      if (!alreadyRegistered) {
+        boolean isDefault =
+            (handle.getBean() instanceof InjectableBean<?> ib) && ib.isDefaultBean();
+        registerEntry(strategy, isDefault);
+      }
+    }
+  }
+
   private <T extends NamedStrategy> void registerStrategies(Instance<T> instance) {
     for (Instance.Handle<T> handle : instance.handles()) {
       T strategy = handle.get();
@@ -93,7 +111,7 @@ public class EngineStrategyResolver implements StrategyResolver {
     }
   }
 
-  void registerEntry(NamedStrategy strategy, boolean isDefault) {
+  public void registerEntry(NamedStrategy strategy, boolean isDefault) {
     for (Class<?> iface : resolveStrategyTypes(strategy.getClass())) {
       Map<String, NamedStrategy> byId = index.computeIfAbsent(iface, k -> new LinkedHashMap<>());
       NamedStrategy existing = byId.put(strategy.id(), strategy);
