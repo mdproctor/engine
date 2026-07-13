@@ -28,6 +28,7 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
+import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.scheduler.JobIdentifier;
@@ -194,8 +195,11 @@ public class MilestoneActivatedEventHandler {
     Duration delay = Duration.between(Instant.now(), slaDeadline);
     if (delay.isNegative() || delay.isZero()) {
       LOG.warnf(
-          "SLA deadline already passed for milestone=%s, immediate violation", milestone.getName());
-      // TODO: could immediately fire SLA violation here
+          "SLA deadline already passed for milestone=%s, firing immediate violation",
+          milestone.getName());
+      eventBus.publish(
+          EventBusAddresses.MILESTONE_SLA_VIOLATED,
+          new MilestoneSLAViolatedEvent(caseInstance, milestone.getName(), Instant.now()));
       return Uni.createFrom().voidItem();
     }
 

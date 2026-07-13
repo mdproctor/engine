@@ -90,6 +90,11 @@ class QhorusActorStateContributorTest {
       }
 
       @Override
+      public List<Commitment> findByIds(final Collection<UUID> ids) {
+        throw new UnsupportedOperationException();
+      }
+
+      @Override
       public List<Commitment> findOpenByObligor(final String obligor, final UUID channelId) {
         throw new UnsupportedOperationException();
       }

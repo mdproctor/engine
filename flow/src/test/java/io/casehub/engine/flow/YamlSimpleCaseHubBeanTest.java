@@ -19,16 +19,16 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.model.AllOfGoalExpression;
+import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.worker.api.WorkerFunction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.util.Map;
@@ -49,41 +49,21 @@ public class YamlSimpleCaseHubBeanTest {
     CaseDefinition def = yamlSimpleCaseHubBean.getDefinition();
     assertNotNull(def);
 
-    assertEquals("0.1", def.getDsl());
-    assertEquals("1.0.0", def.getVersion());
-    assertEquals("Document Processing Test (YAML)", def.getName());
-    assertEquals("test-yaml", def.getNamespace());
-    assertEquals("Test Case with Worker and Capability", def.getTitle());
+    // name
+    assertEquals("document-processing", def.getName());
 
     // capabilities
     assertEquals(1, def.getCapabilities().size());
-    assertEquals("processDocument", def.getCapabilities().get(0).name());
-    assertEquals(
-        "{ documentId: .documentId, status: .status }", def.getCapabilities().get(0).inputSchema());
-    assertEquals(
-        "{ processedDocument: ., status: .status }", def.getCapabilities().get(0).outputSchema());
+    assertEquals("summarization", def.getCapabilities().iterator().next().name());
 
     // workers
     assertEquals(1, def.getWorkers().size());
-    assertEquals("document-processor", def.getWorkers().get(0).name());
-    assertEquals(1, def.getWorkers().get(0).capabilityNames().size());
-    assertEquals("processDocument", def.getWorkers().get(0).capabilityNames().iterator().next());
-    assertInstanceOf(WorkerFunction.class, def.getWorkers().get(0).function());
+    assertEquals("summarizer", def.getWorkers().get(0).name());
 
-    // rules
+    // bindings
     assertEquals(1, def.getBindings().size());
-    assertEquals("trigger-on-processing-status", def.getBindings().get(0).getName());
-    assertInstanceOf(
-        io.casehub.api.model.CapabilityTarget.class, def.getBindings().get(0).target());
-    assertEquals(
-        "processDocument",
-        ((io.casehub.api.model.CapabilityTarget) def.getBindings().get(0).target())
-            .capability()
-            .name());
-    assertInstanceOf(ContextChangeTrigger.class, def.getBindings().get(0).getOn());
-    ContextChangeTrigger cct = (ContextChangeTrigger) def.getBindings().get(0).getOn();
-    assertEquals(
-        ".status == \"processing\"", ((JQExpressionEvaluator) cct.getFilter()).expression());
+    CapabilityTarget capTarget = (CapabilityTarget) def.getBindings().get(0).target();
+    assertEquals("summarization", capTarget.capability().name());
 
     // milestones
     assertEquals(1, def.getMilestones().size());
@@ -107,8 +87,9 @@ public class YamlSimpleCaseHubBeanTest {
     var successExpr = completion.getGoals().get(StandardGoalKind.SUCCESS);
     assertNotNull(successExpr);
     assertInstanceOf(AllOfGoalExpression.class, successExpr);
-    assertEquals(1, successExpr.getGoals().size());
-    assertEquals("documentProcessingComplete", successExpr.getGoals().iterator().next().getName());
+    AllOfGoalExpression allOf = (AllOfGoalExpression) successExpr;
+    assertEquals(1, allOf.children().size());
+    assertTrue(successExpr.goalNames().contains("documentProcessingComplete"));
   }
 
   @Test

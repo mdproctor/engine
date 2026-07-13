@@ -585,11 +585,19 @@ $defs:
     properties:
       allOf:
         type: array
-        items: { type: string } # refs to Goal.name
+        description: "All listed goals/expressions must be satisfied. Items are goal names (strings) or nested GoalExpression objects."
+        items:
+          oneOf:
+            - type: string
+            - $ref: "#/$defs/GoalExpression"
         minItems: 1
       anyOf:
         type: array
-        items: { type: string }
+        description: "At least one listed goal/expression must be satisfied. Items are goal names (strings) or nested GoalExpression objects."
+        items:
+          oneOf:
+            - type: string
+            - $ref: "#/$defs/GoalExpression"
         minItems: 1
 
   Milestone:

@@ -51,7 +51,14 @@ class TrustGatedAttestationPolicyTest {
   private static final String ACTOR = "claude:reviewer@v1";
   private static final CommitmentContext CTX =
       new CommitmentContext(
-          UUID.randomUUID().toString(), UUID.randomUUID(), "test-channel", UUID.randomUUID(), CAP);
+          UUID.randomUUID().toString(),
+          UUID.randomUUID(),
+          "test-channel",
+          UUID.randomUUID(),
+          CAP,
+          null,
+          null,
+          null);
 
   @BeforeEach
   void setUp() {
@@ -205,7 +212,14 @@ class TrustGatedAttestationPolicyTest {
   void done_nullCapabilityTag_soundAtBaseConfidence() {
     CommitmentContext nullCapCtx =
         new CommitmentContext(
-            UUID.randomUUID().toString(), UUID.randomUUID(), "ch", UUID.randomUUID(), null);
+            UUID.randomUUID().toString(),
+            UUID.randomUUID(),
+            "ch",
+            UUID.randomUUID(),
+            null,
+            null,
+            null,
+            null);
 
     Optional<AttestationOutcome> result =
         policy.attestationFor(MessageType.DONE, ACTOR, nullCapCtx);
@@ -218,7 +232,14 @@ class TrustGatedAttestationPolicyTest {
   void done_emptyCapabilityTag_soundAtBaseConfidence() {
     CommitmentContext emptyCapCtx =
         new CommitmentContext(
-            UUID.randomUUID().toString(), UUID.randomUUID(), "ch", UUID.randomUUID(), "");
+            UUID.randomUUID().toString(),
+            UUID.randomUUID(),
+            "ch",
+            UUID.randomUUID(),
+            "",
+            null,
+            null,
+            null);
 
     Optional<AttestationOutcome> result =
         policy.attestationFor(MessageType.DONE, ACTOR, emptyCapCtx);
@@ -235,7 +256,10 @@ class TrustGatedAttestationPolicyTest {
             UUID.randomUUID(),
             "ch",
             UUID.randomUUID(),
-            CapabilityTag.GLOBAL);
+            CapabilityTag.GLOBAL,
+            null,
+            null,
+            null);
 
     Optional<AttestationOutcome> result = policy.attestationFor(MessageType.DONE, ACTOR, globalCtx);
 

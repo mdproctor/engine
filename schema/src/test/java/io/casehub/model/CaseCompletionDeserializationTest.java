@@ -572,6 +572,35 @@ class CaseCompletionDeserializationTest {
       assertEquals(List.of("verified", "approved"), entries.get("success").getAllOf());
       assertTrue(entries.get("success").getAnyOf().isEmpty());
     }
+
+    @Test
+    @DisplayName("nested composition — allOf with nested anyOf subexpression")
+    void nestedComposition() throws IOException {
+      CaseCompletion completion =
+          parseCompletion(
+              """
+                          namespace: test
+                          name: Nested
+                          version: 1.0.0
+                          spec:
+                            completion:
+                              success:
+                                allOf:
+                                  - data-collected
+                                  - anyOf:
+                                      - manual-review-passed
+                                      - auto-approved
+                          """);
+
+      GoalExpression success = completion.getAdditionalProperties().get("success");
+      List<Object> allOfItems = success.getAllOf();
+      assertEquals(2, allOfItems.size());
+      assertEquals("data-collected", allOfItems.get(0));
+      assertInstanceOf(Map.class, allOfItems.get(1));
+      @SuppressWarnings("unchecked")
+      Map<String, Object> nestedExpr = (Map<String, Object>) allOfItems.get(1);
+      assertEquals(List.of("manual-review-passed", "auto-approved"), nestedExpr.get("anyOf"));
+    }
   }
 
   // ── doneWhen shortcut ──────────────────────────────────────────────────────
