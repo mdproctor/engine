@@ -38,6 +38,9 @@ import java.util.Set;
  *     Refs engine#625.
  * @param evidentialCheckPhases trust phases for which evidential verification runs at attestation
  *     time. Empty set means no evidential checks. Refs engine#711, devtown#141.
+ * @param cbrWeight weight of CBR similarity bonus vs trust blend for QUALIFIED candidates (0.0 =
+ *     pure trust, 1.0 = pure CBR). Only applied when {@code AgentRoutingContext.experiences()} is
+ *     non-empty and the candidate has matching plan trace data. Default: 0.0. Refs devtown#133.
  */
 public record TrustRoutingPolicy(
     double threshold,
@@ -47,7 +50,8 @@ public record TrustRoutingPolicy(
     Map<String, Double> qualityFloors,
     boolean bootstrapEscalationRequired,
     String fallbackBinding,
-    Set<TrustPhase> evidentialCheckPhases) {
+    Set<TrustPhase> evidentialCheckPhases,
+    double cbrWeight) {
 
   public TrustRoutingPolicy {
     qualityFloors = qualityFloors != null ? Map.copyOf(qualityFloors) : Map.of();
@@ -55,9 +59,9 @@ public record TrustRoutingPolicy(
         evidentialCheckPhases != null ? Set.copyOf(evidentialCheckPhases) : Set.of();
   }
 
-  /** Conservative defaults: 0.7 threshold, 10 observations, 0.1 margin, 60% trust blend. */
+  /** Conservative defaults: 0.7 threshold, 10 observations, 0.1 margin, 60% trust blend, no CBR. */
   public static final TrustRoutingPolicy DEFAULT =
-      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false, null, Set.of());
+      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false, null, Set.of(), 0.0);
 
   /** True when an agent lacks sufficient decision history for trust-based routing (Phase 0/1). */
   public boolean isBootstrap(final int decisionCount) {

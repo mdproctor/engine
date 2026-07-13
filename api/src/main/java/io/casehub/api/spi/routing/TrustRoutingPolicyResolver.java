@@ -46,6 +46,7 @@ public final class TrustRoutingPolicyResolver {
     IntPreference minObs = prefs.get(keys.minimumObservations());
     DoublePreference margin = prefs.get(keys.borderlineMargin());
     DoublePreference blend = prefs.get(keys.blendFactor());
+    DoublePreference cbrWeightPref = prefs.get(keys.cbrWeight());
 
     Map<String, Double> qualityFloors = collectFloors(prefs, keys.allFloorKeys());
 
@@ -57,7 +58,8 @@ public final class TrustRoutingPolicyResolver {
         Map.copyOf(qualityFloors),
         bootstrapEscalationRequired,
         TrustRoutingPolicy.DEFAULT.fallbackBinding(),
-        TrustRoutingPolicy.DEFAULT.evidentialCheckPhases());
+        TrustRoutingPolicy.DEFAULT.evidentialCheckPhases(),
+        cbrWeightPref != null ? cbrWeightPref.value() : 0.0);
   }
 
   /**

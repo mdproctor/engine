@@ -19,6 +19,7 @@ import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.ExperienceAnalyser;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
@@ -33,6 +34,9 @@ import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Trust-aware {@link AgentRoutingStrategy} implementing the four-phase trust maturity model
@@ -114,23 +118,56 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
             ? classified.stream().filter(c -> c.phase() != Phase.BOOTSTRAP).toList()
             : classified;
 
+    // CBR pre-computation: compute per-worker success rates from similar past cases
+    final Map<String, Double> cbrScores;
+    if (policy.cbrWeight() > 0.0 && !context.experiences().isEmpty()) {
+      final Set<String> qualifiedWorkerIds =
+          eligible.stream()
+              .filter(c -> c.phase() == Phase.QUALIFIED)
+              .map(c -> c.candidate().workerId())
+              .collect(Collectors.toSet());
+      cbrScores =
+          ExperienceAnalyser.workerSuccessRates(
+              context.experiences(),
+              qualifiedWorkerIds,
+              context.capabilityName(),
+              ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    } else {
+      cbrScores = Map.of();
+    }
+
     final List<ScoredCandidate> scored = new ArrayList<>(eligible.size());
     for (final ClassifiedCandidate cc : eligible) {
-      final double finalScore = score(cc, policy);
-      scored.add(new ScoredCandidate(cc, finalScore, buildRationale(cc, finalScore, policy)));
+      final double finalScore = score(cc, policy, cbrScores);
+      scored.add(
+          new ScoredCandidate(cc, finalScore, buildRationale(cc, finalScore, policy, cbrScores)));
     }
 
     return Uni.createFrom().item(classifier.decide(eligible, scored, context.capabilityName()));
   }
 
   private String buildRationale(
-      final ClassifiedCandidate cc, final double finalScore, final TrustRoutingPolicy policy) {
+      final ClassifiedCandidate cc,
+      final double finalScore,
+      final TrustRoutingPolicy policy,
+      final Map<String, Double> cbrScores) {
     final String workerId = cc.candidate().workerId();
     return switch (cc.phase()) {
       case Phase.BOOTSTRAP ->
           "selected %s: availability %.2f (bootstrap)".formatted(workerId, cc.workloadScore());
       case Phase.QUALIFIED -> {
         final double trustScore = cc.trustScore().getAsDouble();
+        if (policy.cbrWeight() > 0.0 && cbrScores.containsKey(workerId)) {
+          final double cbrBonus = cbrScores.get(workerId);
+          yield "selected %s: trust %.2f, cbr_bonus %.2f, blended %.2f (threshold %.2f, cbrWeight %.2f)"
+              .formatted(
+                  workerId,
+                  trustScore,
+                  cbrBonus,
+                  finalScore,
+                  policy.threshold(),
+                  policy.cbrWeight());
+        }
         yield "selected %s: trust %.2f, blended %.2f (threshold %.2f)"
             .formatted(workerId, trustScore, finalScore, policy.threshold());
       }
@@ -139,12 +176,21 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
     };
   }
 
-  private double score(final ClassifiedCandidate cc, final TrustRoutingPolicy policy) {
+  private double score(
+      final ClassifiedCandidate cc,
+      final TrustRoutingPolicy policy,
+      final Map<String, Double> cbrScores) {
     return switch (cc.phase()) {
       case Phase.BOOTSTRAP -> cc.workloadScore();
       case Phase.QUALIFIED -> {
         final double t = cc.trustScore().getAsDouble();
-        yield t * policy.blendFactor() + cc.workloadScore() * (1.0 - policy.blendFactor());
+        final double trustBlend =
+            t * policy.blendFactor() + cc.workloadScore() * (1.0 - policy.blendFactor());
+        if (policy.cbrWeight() > 0.0 && cbrScores.containsKey(cc.candidate().workerId())) {
+          final double cbrBonus = cbrScores.get(cc.candidate().workerId());
+          yield trustBlend * (1.0 - policy.cbrWeight()) + cbrBonus * policy.cbrWeight();
+        }
+        yield trustBlend;
       }
       case Phase.BORDERLINE, Phase.EXCLUDED_PHASE2B, Phase.EXCLUDED_PHASE3 -> 0.0;
     };

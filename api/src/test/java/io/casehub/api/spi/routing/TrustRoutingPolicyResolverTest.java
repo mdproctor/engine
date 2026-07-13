@@ -124,4 +124,25 @@ class TrustRoutingPolicyResolverTest {
     assertThat(floors).containsEntry("accuracy", 0.70);
     assertThat(floors).doesNotContainKey("precision");
   }
+
+  @Test
+  void cbrWeightResolved() {
+    Preferences prefs =
+        new MapPreferences(
+            Map.of(
+                "casehubio.test.trust-routing.threshold", "0.70",
+                "casehubio.test.trust-routing.cbr-weight", "0.2"));
+    TrustRoutingPolicy result =
+        io.casehub.api.spi.routing.TrustRoutingPolicyResolver.resolve(prefs, KEYS);
+    assertThat(result.cbrWeight()).isEqualTo(0.2);
+  }
+
+  @Test
+  void cbrWeightDefaultsToZero() {
+    Preferences prefs =
+        new MapPreferences(Map.of("casehubio.test.trust-routing.threshold", "0.70"));
+    TrustRoutingPolicy result =
+        io.casehub.api.spi.routing.TrustRoutingPolicyResolver.resolve(prefs, KEYS);
+    assertThat(result.cbrWeight()).isEqualTo(0.0);
+  }
 }

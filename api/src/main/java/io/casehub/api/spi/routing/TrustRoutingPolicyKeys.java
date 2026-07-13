@@ -20,21 +20,13 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-/**
- * Parameterised PreferenceKey definitions for trust routing YAML configuration.
- *
- * <p>The four universal keys (threshold, minimum-observations, borderline-margin, blend-factor) are
- * created from the scope prefix. Domain-specific quality floor keys are added via {@link
- * #withFloor(String, String)}.
- *
- * <p>Resolved at scope: {@code <scopePrefix>/<capabilityName>} by PreferenceProvider.
- */
 public final class TrustRoutingPolicyKeys {
 
   private final PreferenceKey<DoublePreference> threshold;
   private final PreferenceKey<IntPreference> minimumObservations;
   private final PreferenceKey<DoublePreference> borderlineMargin;
   private final PreferenceKey<DoublePreference> blendFactor;
+  private final PreferenceKey<DoublePreference> cbrWeight;
   private final Map<String, PreferenceKey<DoublePreference>> floorKeys;
 
   private final String scopePrefix;
@@ -54,6 +46,9 @@ public final class TrustRoutingPolicyKeys {
     this.blendFactor =
         new PreferenceKey<>(
             scopePrefix, "blend-factor", DoublePreference.of(0.0), DoublePreference::parse);
+    this.cbrWeight =
+        new PreferenceKey<>(
+            scopePrefix, "cbr-weight", DoublePreference.of(0.0), DoublePreference::parse);
     this.floorKeys = Collections.unmodifiableMap(floorKeys);
   }
 
@@ -84,6 +79,10 @@ public final class TrustRoutingPolicyKeys {
 
   public PreferenceKey<DoublePreference> blendFactor() {
     return blendFactor;
+  }
+
+  public PreferenceKey<DoublePreference> cbrWeight() {
+    return cbrWeight;
   }
 
   public Map<String, PreferenceKey<DoublePreference>> allFloorKeys() {

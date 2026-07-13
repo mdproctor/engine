@@ -44,7 +44,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
 
   // Default policy: threshold=0.7, minimumObservations=5, borderlineMargin=0.1, blendFactor=0.6
   private static final TrustRoutingPolicy DEFAULT_POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null, Set.of());
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null, Set.of(), 0.0);
 
   @BeforeEach
   void setUp() {
@@ -204,7 +204,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
   @Test
   void select_allExcluded_withFallback_selectsFallbackBinding() {
     var fallbackPolicy =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, "binding-b", Set.of());
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, "binding-b", Set.of(), 0.0);
     when(policyProvider.forCapability("strategy")).thenReturn(fallbackPolicy);
 
     when(source.capabilityScore("workerA", "strategy")).thenReturn(OptionalDouble.of(0.3));
@@ -228,7 +228,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
   @Test
   void select_borderline_fallbackExempted_selectsFallback() {
     var fallbackPolicy =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, "binding-b", Set.of());
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, "binding-b", Set.of(), 0.0);
     when(policyProvider.forCapability("strategy")).thenReturn(fallbackPolicy);
 
     when(source.capabilityScore("workerA", "strategy")).thenReturn(OptionalDouble.of(0.65));

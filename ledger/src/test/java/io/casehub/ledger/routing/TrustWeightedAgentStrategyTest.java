@@ -25,6 +25,8 @@ import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.EscalationReason;
+import io.casehub.api.spi.routing.ExperiencePlanStep;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
@@ -46,10 +48,10 @@ class TrustWeightedAgentStrategyTest {
 
   // Default policy: threshold=0.7, minimumObservations=5, borderlineMargin=0.1, blendFactor=0.6
   private static final TrustRoutingPolicy DEFAULT_POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null, Set.of());
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null, Set.of(), 0.0);
 
   private static final TrustRoutingPolicy BOOTSTRAP_GUARD_POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), true, null, Set.of());
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), true, null, Set.of(), 0.0);
 
   @BeforeEach
   void setUp() {
@@ -207,7 +209,7 @@ class TrustWeightedAgentStrategyTest {
   void phase3_qualityFloorMet_candidateSelected() {
     final TrustRoutingPolicy policyWithFloor =
         new TrustRoutingPolicy(
-            0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null, Set.of());
+            0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null, Set.of(), 0.0);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
     when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
@@ -225,7 +227,7 @@ class TrustWeightedAgentStrategyTest {
   void phase3_qualityFloorFailed_returnsUnresolvable() {
     final TrustRoutingPolicy policyWithFloor =
         new TrustRoutingPolicy(
-            0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null, Set.of());
+            0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null, Set.of(), 0.0);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
     when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
@@ -241,7 +243,7 @@ class TrustWeightedAgentStrategyTest {
   void phase3_noDimensionData_candidateNotPenalised() {
     final TrustRoutingPolicy policyWithFloor =
         new TrustRoutingPolicy(
-            0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null, Set.of());
+            0.7, 5, 0.1, 0.6, Map.of("thoroughness", 0.75), false, null, Set.of(), 0.0);
     when(policyProvider.forCapability("research")).thenReturn(policyWithFloor);
 
     when(source.capabilityScore("agent-1", "research")).thenReturn(OptionalDouble.of(0.85));
@@ -278,7 +280,7 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void blendScoring_purelyTrustBased_whenBlendFactorIsOne() {
     final TrustRoutingPolicy pureTrust =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 1.0, Map.of(), false, null, Set.of());
+        new TrustRoutingPolicy(0.7, 5, 0.1, 1.0, Map.of(), false, null, Set.of(), 0.0);
     when(policyProvider.forCapability("research")).thenReturn(pureTrust);
 
     when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.90));
@@ -296,7 +298,7 @@ class TrustWeightedAgentStrategyTest {
   @Test
   void blendScoring_purelyWorkloadBased_whenBlendFactorIsZero() {
     final TrustRoutingPolicy pureWorkload =
-        new TrustRoutingPolicy(0.7, 5, 0.1, 0.0, Map.of(), false, null, Set.of());
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.0, Map.of(), false, null, Set.of(), 0.0);
     when(policyProvider.forCapability("research")).thenReturn(pureWorkload);
 
     when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.95));
@@ -457,6 +459,194 @@ class TrustWeightedAgentStrategyTest {
   }
 
   // ---- Helpers ------------------------------------------------------------
+
+  // ---- CBR-enhanced scoring (cbrWeight > 0) --------------------------------
+
+  private static final TrustRoutingPolicy CBR_POLICY =
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null, Set.of(), 0.2);
+
+  @Test
+  void cbr_noExperiences_identicalToPureTrust() {
+    when(policyProvider.forCapability("research")).thenReturn(CBR_POLICY);
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.80));
+    when(source.decisionCount("agent-a", "research")).thenReturn(10);
+
+    final RoutingResult result = select(List.of(candidate("agent-a", 0)));
+
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().reason()).doesNotContain("cbr_bonus");
+  }
+
+  @Test
+  void cbr_agentWithHigherCbrBonusWins() {
+    when(policyProvider.forCapability("research")).thenReturn(CBR_POLICY);
+
+    // agent-a: trust=0.85 but strong CBR history (SUCCESS on similar case)
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.85));
+    when(source.decisionCount("agent-a", "research")).thenReturn(15);
+    // agent-b: trust=0.87 but no CBR history
+    when(source.capabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.87));
+    when(source.decisionCount("agent-b", "research")).thenReturn(15);
+
+    var experiences =
+        List.of(
+            new RetrievedExperience(
+                "problem",
+                "solution",
+                "COMPLETED",
+                1.0,
+                0.85,
+                Map.of(),
+                List.of(
+                    new ExperiencePlanStep(
+                        "binding", "research", "agent-a", "SUCCESS", 0, Map.of())),
+                Map.of()));
+    var cbrCtx =
+        new AgentRoutingContext(
+            UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
+
+    final RoutingResult result =
+        strategy
+            .select(cbrCtx, List.of(candidate("agent-a", 0), candidate("agent-b", 0)))
+            .await()
+            .indefinitely();
+
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    var selected = (RoutingResult.Selected) result;
+    assertThat(selected.single().executorId()).isEqualTo("agent-a");
+    assertThat(selected.single().reason()).contains("cbr_bonus");
+  }
+
+  @Test
+  void cbr_asymmetricHistory_workerWithoutHistory_retainsPureTrust() {
+    when(policyProvider.forCapability("research")).thenReturn(CBR_POLICY);
+
+    // Both agents same trust; agent-a has CBR history, agent-b does not
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.80));
+    when(source.decisionCount("agent-a", "research")).thenReturn(15);
+    when(source.capabilityScore("agent-b", "research")).thenReturn(OptionalDouble.of(0.80));
+    when(source.decisionCount("agent-b", "research")).thenReturn(15);
+
+    var experiences =
+        List.of(
+            new RetrievedExperience(
+                "problem",
+                "solution",
+                "COMPLETED",
+                1.0,
+                0.9,
+                Map.of(),
+                List.of(
+                    new ExperiencePlanStep(
+                        "binding", "research", "agent-a", "SUCCESS", 0, Map.of())),
+                Map.of()));
+    var cbrCtx =
+        new AgentRoutingContext(
+            UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
+
+    final RoutingResult result =
+        strategy
+            .select(cbrCtx, List.of(candidate("agent-a", 0), candidate("agent-b", 0)))
+            .await()
+            .indefinitely();
+
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-a");
+  }
+
+  @Test
+  void cbr_bootstrapCandidate_noCbrBonus() {
+    when(policyProvider.forCapability("research")).thenReturn(CBR_POLICY);
+
+    // agent-a is bootstrap (2 < 5 minimumObservations)
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.80));
+    when(source.decisionCount("agent-a", "research")).thenReturn(2);
+
+    var experiences =
+        List.of(
+            new RetrievedExperience(
+                "problem",
+                "solution",
+                "COMPLETED",
+                1.0,
+                0.9,
+                Map.of(),
+                List.of(
+                    new ExperiencePlanStep(
+                        "binding", "research", "agent-a", "SUCCESS", 0, Map.of())),
+                Map.of()));
+    var cbrCtx =
+        new AgentRoutingContext(
+            UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
+
+    final RoutingResult result =
+        strategy.select(cbrCtx, List.of(candidate("agent-a", 0))).await().indefinitely();
+
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().reason()).contains("bootstrap");
+    assertThat(((RoutingResult.Selected) result).single().reason()).doesNotContain("cbr_bonus");
+  }
+
+  @Test
+  void cbr_borderlineAgent_notRescuedByCbr() {
+    when(policyProvider.forCapability("research")).thenReturn(CBR_POLICY);
+
+    // agent-a trust=0.65 — borderline (within 0.1 of 0.7 threshold)
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.65));
+    when(source.decisionCount("agent-a", "research")).thenReturn(15);
+
+    var experiences =
+        List.of(
+            new RetrievedExperience(
+                "problem",
+                "solution",
+                "COMPLETED",
+                1.0,
+                0.9,
+                Map.of(),
+                List.of(
+                    new ExperiencePlanStep(
+                        "binding", "research", "agent-a", "SUCCESS", 0, Map.of())),
+                Map.of()));
+    var cbrCtx =
+        new AgentRoutingContext(
+            UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
+
+    final RoutingResult result =
+        strategy.select(cbrCtx, List.of(candidate("agent-a", 0))).await().indefinitely();
+
+    assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
+  }
+
+  @Test
+  void cbr_cbrWeightZero_experiencesIgnored() {
+    // DEFAULT_POLICY has cbrWeight=0.0; experiences present but should be ignored
+    when(source.capabilityScore("agent-a", "research")).thenReturn(OptionalDouble.of(0.80));
+    when(source.decisionCount("agent-a", "research")).thenReturn(15);
+
+    var experiences =
+        List.of(
+            new RetrievedExperience(
+                "problem",
+                "solution",
+                "COMPLETED",
+                1.0,
+                0.9,
+                Map.of(),
+                List.of(
+                    new ExperiencePlanStep(
+                        "binding", "research", "agent-a", "SUCCESS", 0, Map.of())),
+                Map.of()));
+    var cbrCtx =
+        new AgentRoutingContext(
+            UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
+
+    final RoutingResult result =
+        strategy.select(cbrCtx, List.of(candidate("agent-a", 0))).await().indefinitely();
+
+    assertThat(result).isInstanceOf(RoutingResult.Selected.class);
+    assertThat(((RoutingResult.Selected) result).single().reason()).doesNotContain("cbr_bonus");
+  }
 
   private RoutingResult select(final List<AgentCandidate> candidates) {
     return strategy.select(ctx, candidates).await().indefinitely();

@@ -46,7 +46,7 @@ class TrustGatedAttestationPolicyTest {
 
   // threshold=0.7, minimumObservations=10, borderlineMargin=0.1
   private static final TrustRoutingPolicy ROUTING_POLICY =
-      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false, null, Set.of());
+      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false, null, Set.of(), 0.0);
   private static final String CAP = "security-review";
   private static final String ACTOR = "claude:reviewer@v1";
   private static final CommitmentContext CTX =
@@ -129,7 +129,7 @@ class TrustGatedAttestationPolicyTest {
     // Score 1.0: 0.7 * (1.0 + (1.0 - 0.7)) = 0.7 * 1.3 = 0.91 — below cap
     // Score with very high trust: policy threshold 0.1 → 0.7 * (1.0 + 0.89) = 1.323 → capped
     TrustRoutingPolicy lowThreshold =
-        new TrustRoutingPolicy(0.1, 10, 0.01, 0.6, Map.of(), false, null, Set.of());
+        new TrustRoutingPolicy(0.1, 10, 0.01, 0.6, Map.of(), false, null, Set.of(), 0.0);
     when(policyProvider.forCapability(CAP)).thenReturn(lowThreshold);
     when(source.capabilityScore(ACTOR, CAP)).thenReturn(OptionalDouble.of(0.99));
     when(source.decisionCount(ACTOR, CAP)).thenReturn(15);
