@@ -51,8 +51,8 @@ class AgentTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("You are helpful.")
-            .inputSchema(".")
-            .outputSchema("{ value: .value }")
+            .inputProjection(".")
+            .outputProjection("{ value: .value }")
             .model(model)
             .build();
 
@@ -78,8 +78,8 @@ class AgentTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("System instruction here.")
-            .inputSchema("{ documentId: .documentId }")
-            .outputSchema(".")
+            .inputProjection("{ documentId: .documentId }")
+            .outputProjection(".")
             .model(capturingModel)
             .build();
 
@@ -102,8 +102,8 @@ class AgentTest {
     assertThatThrownBy(
             () ->
                 Agent.builder()
-                    .inputSchema(".")
-                    .outputSchema(".")
+                    .inputProjection(".")
+                    .outputProjection(".")
                     .model(fixedResponseModel("{}"))
                     .build())
         .isInstanceOf(IllegalStateException.class)
@@ -115,7 +115,12 @@ class AgentTest {
   @Test
   void builderThrowsWhenModelMissing() {
     assertThatThrownBy(
-            () -> Agent.builder().systemPrompt("prompt").inputSchema(".").outputSchema(".").build())
+            () ->
+                Agent.builder()
+                    .systemPrompt("prompt")
+                    .inputProjection(".")
+                    .outputProjection(".")
+                    .build())
         .isInstanceOf(IllegalStateException.class)
         .hasMessageContaining("model");
   }
@@ -125,8 +130,8 @@ class AgentTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("prompt")
-            .inputSchema(".")
-            .outputSchema(".")
+            .inputProjection(".")
+            .outputProjection(".")
             .model(fixedResponseModel("this is not json"))
             .build();
 
@@ -150,8 +155,8 @@ class AgentTest {
         Agent.builder()
             .systemPrompt("You are helpful")
             .userMessage("Answer about Quarkus {{version}}: {{question}}")
-            .inputSchema("{ question: .q, version: .v }")
-            .outputSchema(".")
+            .inputProjection("{ question: .q, version: .v }")
+            .outputProjection(".")
             .model(model)
             .build();
 
@@ -176,8 +181,8 @@ class AgentTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("You are helpful")
-            .inputSchema("{ question: .q }")
-            .outputSchema(".")
+            .inputProjection("{ question: .q }")
+            .outputProjection(".")
             .model(model)
             .build();
 
@@ -194,8 +199,8 @@ class AgentTest {
         Agent.builder()
             .systemPrompt("You are helpful")
             .userMessage("Hello {{name}}")
-            .inputSchema("{ question: .q }")
-            .outputSchema(".")
+            .inputProjection("{ question: .q }")
+            .outputProjection(".")
             .model(fixedResponseModel("{\"answer\": \"ok\"}"))
             .build();
 
@@ -230,8 +235,8 @@ class AgentTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("test")
-            .inputSchema(".")
-            .outputSchema(".")
+            .inputProjection(".")
+            .outputProjection(".")
             .model(provider)
             .build();
 
@@ -248,7 +253,7 @@ class AgentTest {
                 node -> {
                   throw new RuntimeException("input transform failed");
                 })
-            .outputSchema(".")
+            .outputProjection(".")
             .model(fixedResponseModel("{\"result\": \"ok\"}"))
             .build();
 
@@ -262,7 +267,7 @@ class AgentTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("test")
-            .inputSchema(".")
+            .inputProjection(".")
             .outputTransformer(
                 node -> {
                   throw new RuntimeException("output transform failed");
@@ -280,8 +285,8 @@ class AgentTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("test")
-            .inputSchema(".")
-            .outputSchema(".")
+            .inputProjection(".")
+            .outputProjection(".")
             .model(fixedResponseModel(""))
             .build();
 

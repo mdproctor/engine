@@ -34,6 +34,7 @@ import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.cbr.CbrCase;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.CbrQuery;
+import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
@@ -152,7 +153,8 @@ public class CbrRetrievalService {
                 }
               }
 
-              Map<String, Object> features = extractFeatures(config, instance.getCaseContext());
+              Map<String, FeatureValue> features =
+                  extractFeatures(config, instance.getCaseContext());
               if (features.isEmpty()) {
                 return Uni.createFrom().item(List.of());
               }
@@ -217,16 +219,16 @@ public class CbrRetrievalService {
     return cache.size();
   }
 
-  private Map<String, Object> extractFeatures(CbrConfig config, CaseContext context) {
+  private Map<String, FeatureValue> extractFeatures(CbrConfig config, CaseContext context) {
     return switch (config.featureExtractor()) {
       case JqFeatureExtractor jq -> extractJqFeatures(jq, context);
-      case LambdaFeatureExtractor lambda -> lambda.extract(context);
+      case LambdaFeatureExtractor lambda -> FeatureValue.toFeatureMap(lambda.extract(context));
     };
   }
 
-  private Map<String, Object> extractJqFeatures(JqFeatureExtractor jq, CaseContext context) {
+  private Map<String, FeatureValue> extractJqFeatures(JqFeatureExtractor jq, CaseContext context) {
     JsonNode workingNode = context.layer(ContextLayer.WORKING).asJsonNode();
-    Map<String, Object> features = new LinkedHashMap<>();
+    Map<String, FeatureValue> features = new LinkedHashMap<>();
 
     for (Map.Entry<String, String> entry : jq.featureExpressions().entrySet()) {
       String featureName = entry.getKey();
@@ -253,7 +255,7 @@ public class CbrRetrievalService {
         continue;
       }
 
-      features.put(featureName, value);
+      features.put(featureName, FeatureValue.of(value));
     }
 
     return features;
@@ -285,7 +287,7 @@ public class CbrRetrievalService {
         c.outcome(),
         c.confidence(),
         scored.score(),
-        c.features(),
+        new LinkedHashMap<>(c.features()),
         trace,
         scored.featureSimilarities());
   }

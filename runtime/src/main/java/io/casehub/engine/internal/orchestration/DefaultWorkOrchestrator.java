@@ -263,7 +263,8 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     // 9. Publish WorkerScheduleEvent
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
-        new WorkerScheduleEvent(instance, selectedWorker, capability));
+        new WorkerScheduleEvent(
+            instance, selectedWorker, capability, null, null, null, null, experiences));
 
     LOG.infof(
         "Work submitted: caseId=%s worker=%s capability=%s correlationKey=%s waitMode=%b",

@@ -7,8 +7,8 @@ title: "Document Classification with Ollama"
 spec:
   capabilities:
     - name: classifyDocument
-      inputSchema: "{ content: .document }"
-      outputSchema: "{ category: .category }"
+      inputProjection: "{ content: .document }"
+      outputProjection: "{ category: .category }"
 
   workers:
     - name: doc-classifier
@@ -16,8 +16,8 @@ spec:
         - classifyDocument
       agent:
         systemPrompt: "Classify documents into categories: technical, business, or personal."
-        inputSchema: "{ content: .document }"
-        outputSchema: "{ category: .category }"
+        inputProjection: "{ content: .document }"
+        outputProjection: "{ category: .category }"
         model:
           ollama:
             baseUrl: "http://localhost:11434"

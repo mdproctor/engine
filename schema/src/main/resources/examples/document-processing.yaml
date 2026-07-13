@@ -33,11 +33,11 @@ spec:
     - name: ocr-worker
       description: "Extracts text from document images using OCR"
       capabilities: [ "ocr" ]
-      inputSchema:
+      inputProjection:
         type: object
         properties:
           image: { type: string, description: "Base64-encoded document image" }
-      outputSchema:
+      outputProjection:
         type: object
         properties:
           text:       { type: string, description: "Extracted text content" }
@@ -60,11 +60,11 @@ spec:
     - name: classifier-worker
       description: "Classifies documents by type and content"
       capabilities: [ "document-classification" ]
-      inputSchema:
+      inputProjection:
         type: object
         properties:
           text: { type: string, description: "Document text to classify" }
-      outputSchema:
+      outputProjection:
         type: object
         properties:
           category: { type: string, description: "Document category" }
@@ -87,13 +87,13 @@ spec:
     - name: notification-worker
       description: "Sends notifications via email or Slack"
       capabilities: [ "notify" ]
-      inputSchema:
+      inputProjection:
         type: object
         properties:
           channel:   { type: string, description: "Notification channel (email, slack)" }
           recipient: { type: string }
           message:   { type: string }
-      outputSchema:
+      outputProjection:
         type: object
         properties:
           delivered: { type: boolean }
@@ -117,12 +117,12 @@ spec:
     - name: validator-worker
       description: "Validates document format and structure"
       capabilities: [ "validate-format" ]
-      inputSchema:
+      inputProjection:
         type: object
         properties:
           contentType: { type: string }
           size:        { type: number }
-      outputSchema:
+      outputProjection:
         type: object
         properties:
           valid:  { type: boolean }
@@ -146,12 +146,12 @@ spec:
     - name: archive-worker
       description: "Archives case data to long-term storage"
       capabilities: [ "archive" ]
-      inputSchema:
+      inputProjection:
         type: object
         properties:
           caseId: { type: string }
           data:   { type: object }
-      outputSchema:
+      outputProjection:
         type: object
         properties:
           archived: { type: boolean }

@@ -16,6 +16,7 @@
 package io.casehub.api.spi.routing;
 
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Per-capability trust routing policy parameters.
@@ -35,6 +36,8 @@ import java.util.Map;
  * @param fallbackBinding binding name exempt from BORDERLINE exclusion; used as the backstop when
  *     all candidates are excluded. Nullable — null means use first candidate (declaration order).
  *     Refs engine#625.
+ * @param evidentialCheckPhases trust phases for which evidential verification runs at attestation
+ *     time. Empty set means no evidential checks. Refs engine#711, devtown#141.
  */
 public record TrustRoutingPolicy(
     double threshold,
@@ -43,11 +46,18 @@ public record TrustRoutingPolicy(
     double blendFactor,
     Map<String, Double> qualityFloors,
     boolean bootstrapEscalationRequired,
-    String fallbackBinding) {
+    String fallbackBinding,
+    Set<TrustPhase> evidentialCheckPhases) {
+
+  public TrustRoutingPolicy {
+    qualityFloors = qualityFloors != null ? Map.copyOf(qualityFloors) : Map.of();
+    evidentialCheckPhases =
+        evidentialCheckPhases != null ? Set.copyOf(evidentialCheckPhases) : Set.of();
+  }
 
   /** Conservative defaults: 0.7 threshold, 10 observations, 0.1 margin, 60% trust blend. */
   public static final TrustRoutingPolicy DEFAULT =
-      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false, null);
+      new TrustRoutingPolicy(0.7, 10, 0.1, 0.6, Map.of(), false, null, Set.of());
 
   /** True when an agent lacks sufficient decision history for trust-based routing (Phase 0/1). */
   public boolean isBootstrap(final int decisionCount) {

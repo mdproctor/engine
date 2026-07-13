@@ -270,8 +270,8 @@ public final class CaseDefinitionYamlMapper {
         final Capability cap =
             Capability.builder()
                 .name(sc.getName())
-                .inputSchema(sc.getInputSchema() != null ? sc.getInputSchema() : ".")
-                .outputSchema(sc.getOutputSchema() != null ? sc.getOutputSchema() : ".")
+                .inputSchema(sc.getInputProjection() != null ? sc.getInputProjection() : ".")
+                .outputSchema(sc.getOutputProjection() != null ? sc.getOutputProjection() : ".")
                 .description(sc.getDescription())
                 .build();
         capabilityMap.put(sc.getName(), cap);
@@ -612,8 +612,8 @@ public final class CaseDefinitionYamlMapper {
       builder.conflictResolverStrategy(schemaBinding.getConflictResolverStrategy().value());
     }
 
-    if (schemaBinding.getInputSchemaOverride() != null) {
-      builder.inputSchemaOverride(schemaBinding.getInputSchemaOverride());
+    if (schemaBinding.getInputProjectionOverride() != null) {
+      builder.inputProjectionOverride(schemaBinding.getInputProjectionOverride());
     }
 
     if (schemaBinding.getContextWrite() != null) {

@@ -155,7 +155,6 @@ class SubCaseCompletionServiceTest {
             eq(childCaseId.toString()), eq(CaseHubEventType.SUBCASE_STARTED), any()))
         .thenReturn(Uni.createFrom().item(List.of(startedEntry)));
 
-    // IN_PROGRESS: 1 of 2 required completed; 3 total → 2 remaining ≥ 1 still needed
     SubCaseGroup group = new SubCaseGroup();
     group.setGroupId(groupId);
     group.setParentCaseId(parentCaseId);
@@ -172,6 +171,7 @@ class SubCaseCompletionServiceTest {
         .fireAsync(
             new SubCaseGroupLifecycleEvent(
                 parentCaseId,
+                null,
                 groupId,
                 group.getInstanceCount(),
                 group.getRequiredCount(),

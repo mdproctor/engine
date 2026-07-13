@@ -16,13 +16,13 @@ spec:
   capabilities:
     - name: process-data
       description: Process data with configurable behavior
-      inputSchema: "{ data: .context.data }"
-      outputSchema: "{ processed: .processed, metadata: .metadata }"
+      inputProjection: "{ data: .context.data }"
+      outputProjection: "{ processed: .processed, metadata: .metadata }"
 
     - name: store-result
       description: Store processing result in database
-      inputSchema: "{ result: .processed }"
-      outputSchema: "{ stored: .stored }"
+      inputProjection: "{ result: .processed }"
+      outputProjection: "{ stored: .stored }"
 
   workers:
     - name: data-processor

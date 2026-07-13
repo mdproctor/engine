@@ -30,6 +30,7 @@ import io.casehub.ledger.api.spi.TrustScoreSource;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -43,7 +44,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
 
   // Default policy: threshold=0.7, minimumObservations=5, borderlineMargin=0.1, blendFactor=0.6
   private static final TrustRoutingPolicy DEFAULT_POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null);
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null, Set.of());
 
   @BeforeEach
   void setUp() {
@@ -202,7 +203,8 @@ class TrustWeightedImplementationRoutingStrategyTest {
 
   @Test
   void select_allExcluded_withFallback_selectsFallbackBinding() {
-    var fallbackPolicy = new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, "binding-b");
+    var fallbackPolicy =
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, "binding-b", Set.of());
     when(policyProvider.forCapability("strategy")).thenReturn(fallbackPolicy);
 
     when(source.capabilityScore("workerA", "strategy")).thenReturn(OptionalDouble.of(0.3));
@@ -225,7 +227,8 @@ class TrustWeightedImplementationRoutingStrategyTest {
 
   @Test
   void select_borderline_fallbackExempted_selectsFallback() {
-    var fallbackPolicy = new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, "binding-b");
+    var fallbackPolicy =
+        new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, "binding-b", Set.of());
     when(policyProvider.forCapability("strategy")).thenReturn(fallbackPolicy);
 
     when(source.capabilityScore("workerA", "strategy")).thenReturn(OptionalDouble.of(0.65));

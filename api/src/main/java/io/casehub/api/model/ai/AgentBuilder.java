@@ -31,8 +31,8 @@ import java.util.function.UnaryOperator;
 public final class AgentBuilder {
 
   private String systemPrompt;
-  private String inputSchema;
-  private String outputSchema;
+  private String inputProjection;
+  private String outputProjection;
   private UnaryOperator<JsonNode> inputTransformerFn;
   private UnaryOperator<JsonNode> outputTransformerFn;
   private String userMessageTemplate;
@@ -48,13 +48,13 @@ public final class AgentBuilder {
     return this;
   }
 
-  public AgentBuilder inputSchema(String jqExpression) {
-    this.inputSchema = jqExpression;
+  public AgentBuilder inputProjection(String jqExpression) {
+    this.inputProjection = jqExpression;
     return this;
   }
 
-  public AgentBuilder outputSchema(String jqExpression) {
-    this.outputSchema = jqExpression;
+  public AgentBuilder outputProjection(String jqExpression) {
+    this.outputProjection = jqExpression;
     return this;
   }
 
@@ -129,20 +129,20 @@ public final class AgentBuilder {
               .get();
     }
 
-    if (inputSchema != null && inputTransformerFn != null)
+    if (inputProjection != null && inputTransformerFn != null)
       throw new IllegalStateException(
           "Cannot set both inputSchema and inputTransformer — choose one");
-    if (outputSchema != null && outputTransformerFn != null)
+    if (outputProjection != null && outputTransformerFn != null)
       throw new IllegalStateException(
           "Cannot set both outputSchema and outputTransformer — choose one");
 
     final UnaryOperator<JsonNode> resolvedInput =
-        inputSchema != null
-            ? new JqTransformer(inputSchema)::apply
+        inputProjection != null
+            ? new JqTransformer(inputProjection)::apply
             : (inputTransformerFn != null ? inputTransformerFn : UnaryOperator.identity());
     final UnaryOperator<JsonNode> resolvedOutput =
-        outputSchema != null
-            ? new JqTransformer(outputSchema)::apply
+        outputProjection != null
+            ? new JqTransformer(outputProjection)::apply
             : (outputTransformerFn != null ? outputTransformerFn : UnaryOperator.identity());
 
     return new Agent(

@@ -37,8 +37,8 @@ class AgentModelDeserializationTest {
           - analyzeSentiment
         agent:
           systemPrompt: "Analyze sentiment"
-          inputSchema: "{ text: .text }"
-          outputSchema: "{ sentiment: .sentiment }"
+          inputProjection: "{ text: .text }"
+          outputProjection: "{ sentiment: .sentiment }"
           model:
             openai:
               apiKey: "sk-test-key-12345"
@@ -54,8 +54,8 @@ class AgentModelDeserializationTest {
 
     Agent agent = worker.getAgent();
     assertEquals("Analyze sentiment", agent.getSystemPrompt());
-    assertEquals("{ text: .text }", agent.getInputSchema());
-    assertEquals("{ sentiment: .sentiment }", agent.getOutputSchema());
+    assertEquals("{ text: .text }", agent.getInputProjection());
+    assertEquals("{ sentiment: .sentiment }", agent.getOutputProjection());
 
     assertNotNull(agent.getModel());
     assertNotNull(agent.getModel().getOpenai());
@@ -75,8 +75,8 @@ class AgentModelDeserializationTest {
           - classify
         agent:
           systemPrompt: "Classify documents"
-          inputSchema: "{ content: .document }"
-          outputSchema: "{ category: .category }"
+          inputProjection: "{ content: .document }"
+          outputProjection: "{ category: .category }"
           model:
             ollama:
               baseUrl: "http://localhost:11434"
@@ -119,8 +119,8 @@ class AgentModelDeserializationTest {
 
     Agent agent = worker.getAgent();
     assertNotNull(agent.getSystemPrompt());
-    assertNotNull(agent.getInputSchema());
-    assertNotNull(agent.getOutputSchema());
+    assertNotNull(agent.getInputProjection());
+    assertNotNull(agent.getOutputProjection());
     assertNotNull(agent.getModel());
     assertNotNull(agent.getModel().getOpenai());
   }
@@ -134,8 +134,8 @@ class AgentModelDeserializationTest {
           - assist
         agent:
           systemPrompt: "You are helpful"
-          inputSchema: "."
-          outputSchema: "."
+          inputProjection: "."
+          outputProjection: "."
           model:
             anthropic:
               apiKey: "sk-ant-test123"
@@ -171,8 +171,8 @@ class AgentModelDeserializationTest {
           - assist
         agent:
           systemPrompt: "Helpful assistant"
-          inputSchema: "."
-          outputSchema: "."
+          inputProjection: "."
+          outputProjection: "."
           model:
             mistralAi:
               apiKey: "test-mistral-key"
@@ -202,8 +202,8 @@ class AgentModelDeserializationTest {
           - assist
         agent:
           systemPrompt: "Google assistant"
-          inputSchema: "."
-          outputSchema: "."
+          inputProjection: "."
+          outputProjection: "."
           model:
             googleAiGemini:
               apiKey: "test-google-key"

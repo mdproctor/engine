@@ -5,8 +5,8 @@ namespace: test
 spec:
   capabilities:
     - name: process
-      inputSchema: "."
-      outputSchema: "."
+      inputProjection: "."
+      outputProjection: "."
   bindings:
     - name: trigger
       capability: process

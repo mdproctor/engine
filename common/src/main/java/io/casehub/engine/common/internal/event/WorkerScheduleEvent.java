@@ -16,9 +16,11 @@
 package io.casehub.engine.common.internal.event;
 
 import io.casehub.api.model.event.ExecutionOrigin;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -27,35 +29,51 @@ import java.util.UUID;
  *     WorkflowExecutionCompleted. Refs engine#483.
  * @param origin Provenance metadata — the execution path that triggered this worker schedule
  *     (nullable). Refs engine#618.
+ * @param experiences Retrieved CBR experiences from similar past cases (nullable, defaults to
+ *     empty). Flowed from routing to worker execution so agents can reference historical patterns.
+ *     Refs engine#707.
  */
 public record WorkerScheduleEvent(
     CaseInstance caseInstance,
     Worker worker,
     Capability capability,
     String bindingName,
-    String inputSchemaOverride,
+    String inputProjectionOverride,
     UUID signalId,
-    ExecutionOrigin origin) {
+    ExecutionOrigin origin,
+    List<RetrievedExperience> experiences) {
+
+  public WorkerScheduleEvent {
+    experiences = experiences == null ? List.of() : experiences;
+  }
 
   public WorkerScheduleEvent(
       CaseInstance caseInstance,
       Worker worker,
       Capability capability,
       String bindingName,
-      String inputSchemaOverride) {
-    this(caseInstance, worker, capability, bindingName, inputSchemaOverride, null, null);
+      String inputProjectionOverride) {
+    this(
+        caseInstance,
+        worker,
+        capability,
+        bindingName,
+        inputProjectionOverride,
+        null,
+        null,
+        List.of());
   }
 
   public WorkerScheduleEvent(
       CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
-    this(caseInstance, worker, capability, bindingName, null, null, null);
+    this(caseInstance, worker, capability, bindingName, null, null, null, List.of());
   }
 
   public WorkerScheduleEvent(CaseInstance caseInstance, Worker worker, Capability capability) {
-    this(caseInstance, worker, capability, null, null, null, null);
+    this(caseInstance, worker, capability, null, null, null, null, List.of());
   }
 
-  public String effectiveInputSchema() {
-    return inputSchemaOverride != null ? inputSchemaOverride : capability.inputSchema();
+  public String effectiveInputProjection() {
+    return inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
   }
 }

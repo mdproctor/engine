@@ -28,6 +28,7 @@ import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
+import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -77,7 +78,7 @@ class CbrRoutingFuncDslIntegrationTest {
             "Flag for manual review",
             "COMPLETED",
             0.88,
-            Map.of("riskLevel", "high", "amount", 50000),
+            Map.of("riskLevel", FeatureValue.string("high"), "amount", FeatureValue.number(50000)),
             List.of(trace));
     cbrStore.store(
         pastCase,

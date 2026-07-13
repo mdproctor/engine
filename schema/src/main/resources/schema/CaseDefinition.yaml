@@ -359,10 +359,10 @@ $defs:
         type: string
         title: CapabilityDescription
         description: "What this capability represents"
-      inputSchema:
-        { type: string, description: "JQ producing capability input" }
-      outputSchema:
-        { type: string, description: "JQ producing capability output" }
+      inputProjection:
+        { type: string, description: "JQ expression producing capability input from case context" }
+      outputProjection:
+        { type: string, description: "JQ expression producing capability output from worker result" }
 
   HumanTask:
     type: object
@@ -457,9 +457,9 @@ $defs:
         description: "Strategy for resolving concurrent writes to the same CaseContext key"
       outcomePolicy:
         $ref: "#/$defs/OutcomePolicy"
-      inputSchemaOverride:
+      inputProjectionOverride:
         type: string
-        description: "JQ expression overriding the capability's inputSchema for this binding. Use for failure cascade scope reduction."
+        description: "JQ expression overriding the capability's input projection for this binding. Use for failure cascade scope reduction."
       contextWrite:
         type: object
         additionalProperties: true
@@ -802,16 +802,16 @@ $defs:
       using JQ expressions, invoke an LLM with a system prompt, and transform
       the LLM response back to output data.
     type: object
-    required: [ systemPrompt, inputSchema, outputSchema, model ]
+    required: [ systemPrompt, inputProjection, outputProjection, model ]
     unevaluatedProperties: false
     properties:
       systemPrompt:
         type: string
         description: "System prompt sent to the LLM to define its behavior and context"
-      inputSchema:
+      inputProjection:
         type: string
         description: "JQ expression to transform case context into agent input"
-      outputSchema:
+      outputProjection:
         type: string
         description: "JQ expression to transform agent output back to case context"
       userMessageTemplate:

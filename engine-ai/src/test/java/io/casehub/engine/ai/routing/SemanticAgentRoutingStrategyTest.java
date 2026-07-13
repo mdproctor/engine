@@ -54,9 +54,9 @@ class SemanticAgentRoutingStrategyTest {
   private SemanticAgentRoutingStrategy strategy;
 
   private static final TrustRoutingPolicy POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null);
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), false, null, Set.of());
   private static final TrustRoutingPolicy BOOTSTRAP_GUARD_POLICY =
-      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), true, null);
+      new TrustRoutingPolicy(0.7, 5, 0.1, 0.6, Map.of(), true, null, Set.of());
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @BeforeEach

@@ -66,14 +66,14 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
       Object inputData,
       WorkerContext context,
       int timeoutMs,
-      String outputSchema,
+      String outputProjection,
       ExecutionMetadata metadata) {
 
     for (WorkerFunctionHandler handler : handlers) {
       if (handler.supports(function)) {
         return handler
             .execute(function, inputData, context, timeoutMs, metadata)
-            .map(result -> applyOutputSchema(result, outputSchema));
+            .map(result -> applyOutputSchema(result, outputProjection));
       }
     }
     throw new UnsupportedOperationException("No handler for: " + function.getClass().getName());

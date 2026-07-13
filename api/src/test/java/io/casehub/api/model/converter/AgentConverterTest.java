@@ -45,8 +45,8 @@ class AgentConverterTest {
   void toApiAgent_nullModel_throwsIllegalArgument() {
     io.casehub.model.Agent schemaAgent = new io.casehub.model.Agent();
     schemaAgent.setSystemPrompt("You are a test agent");
-    schemaAgent.setInputSchema(".");
-    schemaAgent.setOutputSchema(".");
+    schemaAgent.setInputProjection(".");
+    schemaAgent.setOutputProjection(".");
     // model is null
 
     assertThatThrownBy(() -> AgentConverter.toApiAgent(schemaAgent))
@@ -58,8 +58,8 @@ class AgentConverterTest {
   void toApiAgent_emptyModel_throwsIllegalArgument() {
     io.casehub.model.Agent schemaAgent = new io.casehub.model.Agent();
     schemaAgent.setSystemPrompt("You are a test agent");
-    schemaAgent.setInputSchema(".");
-    schemaAgent.setOutputSchema(".");
+    schemaAgent.setInputProjection(".");
+    schemaAgent.setOutputProjection(".");
     schemaAgent.setModel(new AgentModel()); // no provider set
 
     assertThatThrownBy(() -> AgentConverter.toApiAgent(schemaAgent))
@@ -300,8 +300,8 @@ class AgentConverterTest {
   private static io.casehub.model.Agent schemaAgent() {
     io.casehub.model.Agent agent = new io.casehub.model.Agent();
     agent.setSystemPrompt("You are a test agent");
-    agent.setInputSchema(".");
-    agent.setOutputSchema(".");
+    agent.setInputProjection(".");
+    agent.setOutputProjection(".");
     return agent;
   }
 }

@@ -17,11 +17,13 @@ package io.casehub.engine.scheduler.quartz;
 
 import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.spi.WorkerContextProvider;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.WorkerExecutionConfig;
@@ -41,6 +43,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
@@ -171,12 +174,23 @@ class QuartzWorkerExecutionJob implements Job {
 
       int timeoutMs = executionConfig.getEffectiveTimeout(worker.executionPolicy().timeoutMs());
 
-      WorkerContext workerContext =
+      WorkerContext baseContext =
           workerContextProvider.buildContext(
               workerId,
               eventLog.getCaseId(),
               WorkRequest.of(capabilityName, inputDataForContext),
               instance.getPropagationContext());
+
+      List<RetrievedExperience> experiences = deserializeExperiences(eventLog);
+      WorkerContext workerContext =
+          new WorkerContext(
+              baseContext.taskDescription(),
+              baseContext.caseId(),
+              baseContext.channels(),
+              baseContext.priorWorkers(),
+              baseContext.propagationContext(),
+              baseContext.properties(),
+              experiences);
 
       ExecutionMetadata metadata = new ExecutionMetadata(workerId, inputDataHash);
 
@@ -242,5 +256,23 @@ class QuartzWorkerExecutionJob implements Job {
   private Uni<EventLog> findEventLog(String eventLogId) {
     return ReactiveUtils.runOnSafeVertxContext(
         vertx, () -> eventLogRepository.findById(Long.parseLong(eventLogId)));
+  }
+
+  private static List<RetrievedExperience> deserializeExperiences(EventLog eventLog) {
+    JsonNode experiencesNode = eventLog.getMetadata().get("experiences");
+    if (experiencesNode == null || experiencesNode.isNull() || experiencesNode.isEmpty()) {
+      return List.of();
+    }
+    try {
+      return OBJECT_MAPPER.convertValue(
+          experiencesNode,
+          OBJECT_MAPPER
+              .getTypeFactory()
+              .constructCollectionType(List.class, RetrievedExperience.class));
+    } catch (Exception e) {
+      LOG.warnf(
+          e, "Failed to deserialize CBR experiences from EventLog metadata — proceeding without");
+      return List.of();
+    }
   }
 }

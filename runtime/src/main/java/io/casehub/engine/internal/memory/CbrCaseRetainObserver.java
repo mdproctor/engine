@@ -34,6 +34,7 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
+import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -123,7 +124,7 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
       return;
     }
 
-    Map<String, Object> features = extractFeatures(config, event.caseFileSnapshot());
+    Map<String, FeatureValue> features = extractFeatures(config, event.caseFileSnapshot());
     if (features.isEmpty()) {
       LOG.warnf(
           "CBR retain: all features evaluated to empty for case definition '%s' — skipping",
@@ -178,17 +179,19 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
     return null;
   }
 
-  private Map<String, Object> extractFeatures(CbrConfig config, Map<String, Object> snapshot) {
+  private Map<String, FeatureValue> extractFeatures(
+      CbrConfig config, Map<String, Object> snapshot) {
     return switch (config.featureExtractor()) {
       case JqFeatureExtractor jq -> extractJqFeatures(jq, snapshot);
-      case LambdaFeatureExtractor lambda -> lambda.extract(new SnapshotCaseContext(snapshot));
+      case LambdaFeatureExtractor lambda ->
+          FeatureValue.toFeatureMap(lambda.extract(new SnapshotCaseContext(snapshot)));
     };
   }
 
-  private Map<String, Object> extractJqFeatures(
+  private Map<String, FeatureValue> extractJqFeatures(
       JqFeatureExtractor jq, Map<String, Object> snapshot) {
     JsonNode node = MAPPER.valueToTree(snapshot);
-    Map<String, Object> features = new LinkedHashMap<>();
+    Map<String, FeatureValue> features = new LinkedHashMap<>();
 
     for (var entry : jq.featureExpressions().entrySet()) {
       ValidationResult result = jqEvaluator.eval(entry.getValue(), node);
@@ -204,7 +207,7 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
       }
       Object value = unwrap(output.get(0));
       if (value != null) {
-        features.put(entry.getKey(), value);
+        features.put(entry.getKey(), FeatureValue.of(value));
       }
     }
     return features;

@@ -147,7 +147,7 @@ class AgentBuilderTest {
             () ->
                 Agent.builder()
                     .systemPrompt("prompt")
-                    .inputSchema(".")
+                    .inputProjection(".")
                     .inputTransformer(UnaryOperator.identity())
                     .outputTransformer(UnaryOperator.identity())
                     .model(stubModel("{}"))
@@ -164,7 +164,7 @@ class AgentBuilderTest {
                 Agent.builder()
                     .systemPrompt("prompt")
                     .inputTransformer(UnaryOperator.identity())
-                    .outputSchema(".")
+                    .outputProjection(".")
                     .outputTransformer(UnaryOperator.identity())
                     .model(stubModel("{}"))
                     .build())
@@ -181,8 +181,8 @@ class AgentBuilderTest {
             () ->
                 Agent.builder()
                     .systemPrompt("You are a helpful assistant.")
-                    .inputSchema("{ status: .status }")
-                    .outputSchema(".")
+                    .inputProjection("{ status: .status }")
+                    .outputProjection(".")
                     .model(stubModel("{\"answer\": \"yes\"}"))
                     .build());
   }

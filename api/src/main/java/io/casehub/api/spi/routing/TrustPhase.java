@@ -13,17 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.blackboard.subcase;
+package io.casehub.api.spi.routing;
 
-import io.casehub.engine.common.internal.model.GroupStatus;
-import java.util.UUID;
-
-public record SubCaseGroupLifecycleEvent(
-    UUID parentCaseId,
-    String tenancyId,
-    String groupId,
-    int instanceCount,
-    int requiredCount,
-    int completedCount,
-    int rejectedCount,
-    GroupStatus groupStatus) {}
+/**
+ * Trust maturity phases for routing policy configuration. Determines which phases trigger
+ * evidential verification at attestation time.
+ *
+ * <p>Distinct from {@code TrustCandidateClassifier.Phase} which is a routing-time classification.
+ * This enum is policy-level vocabulary — it configures <em>when</em> evidential checking runs, not
+ * <em>how</em> candidates are classified.
+ *
+ * <p>Refs casehubio/engine#711, devtown#141.
+ */
+public enum TrustPhase {
+  BOOTSTRAP,
+  QUALIFIED,
+  BORDERLINE,
+  BELOW_THRESHOLD,
+  QUALITY_FAILED
+}

@@ -32,6 +32,7 @@ import io.casehub.neocortex.memory.cbr.CbrCase;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.CbrFeatureSchema;
 import io.casehub.neocortex.memory.cbr.CbrQuery;
+import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
@@ -145,9 +146,9 @@ class CbrRetrievalServiceTest {
     service.retrieve(def, instance).await().indefinitely();
 
     assertTrue(cbrStore.wasCalled());
-    Map<String, Object> features = cbrStore.lastQuery().features();
+    Map<String, FeatureValue> features = cbrStore.lastQuery().features();
     assertEquals(1, features.size());
-    assertEquals("defensive", features.get("exists"));
+    assertEquals(FeatureValue.string("defensive"), features.get("exists"));
   }
 
   @Test
@@ -188,7 +189,12 @@ class CbrRetrievalServiceTest {
     PlanTrace planTrace = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
     PlanCbrCase cbrCase =
         new PlanCbrCase(
-            "problem1", "solution1", "COMPLETED", 0.95, Map.of("f1", "v1"), List.of(planTrace));
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.95,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(planTrace));
     cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, 0.87)));
 
     List<RetrievedExperience> result =
@@ -255,7 +261,7 @@ class CbrRetrievalServiceTest {
     CaseDefinition def = buildDefinition(config);
     io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase fvCase =
         new io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase(
-            "problem1", "solution1", "COMPLETED", 0.9, Map.of("f1", "v1"));
+            "problem1", "solution1", "COMPLETED", 0.9, Map.of("f1", FeatureValue.string("v1")));
     cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.85)));
     List<RetrievedExperience> result =
         service.retrieve(def, buildInstance()).await().indefinitely();
@@ -271,7 +277,7 @@ class CbrRetrievalServiceTest {
     CaseDefinition def = buildDefinition(config);
     io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase fvCase =
         new io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase(
-            "problem1", "solution1", "COMPLETED", 0.8, Map.of("f1", "v1"));
+            "problem1", "solution1", "COMPLETED", 0.8, Map.of("f1", FeatureValue.string("v1")));
     cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.75)));
     List<RetrievedExperience> result =
         service
@@ -309,7 +315,12 @@ class CbrRetrievalServiceTest {
     PlanTrace pt = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
     PlanCbrCase planCase =
         new PlanCbrCase(
-            "problem1", "solution1", "COMPLETED", 0.95, Map.of("f1", "v1"), List.of(pt));
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.95,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(pt));
     cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.9)));
     List<RetrievedExperience> result =
         service.retrieve(def, buildInstance()).await().indefinitely();

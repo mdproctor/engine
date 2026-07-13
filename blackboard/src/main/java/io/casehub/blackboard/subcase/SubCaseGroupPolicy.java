@@ -31,9 +31,11 @@ public final class SubCaseGroupPolicy {
     return GroupStatus.IN_PROGRESS;
   }
 
-  public static SubCaseGroupLifecycleEvent toEvent(SubCaseGroup group, GroupStatus status) {
+  public static SubCaseGroupLifecycleEvent toEvent(
+      SubCaseGroup group, GroupStatus status, String tenancyId) {
     return new SubCaseGroupLifecycleEvent(
         group.getParentCaseId(),
+        tenancyId,
         group.getGroupId(),
         group.getInstanceCount(),
         group.getRequiredCount(),

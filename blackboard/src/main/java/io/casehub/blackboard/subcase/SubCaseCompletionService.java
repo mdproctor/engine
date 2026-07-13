@@ -160,9 +160,12 @@ public class SubCaseCompletionService {
     }
 
     GroupStatus groupStatus = SubCaseGroupPolicy.evaluate(group);
-    if (groupStatus == null) return; // policyTriggered — already handled
+    if (groupStatus == null) {
+      return; // policyTriggered — already handled
+    }
 
-    groupLifecycleEvents.fireAsync(SubCaseGroupPolicy.toEvent(group, groupStatus));
+    groupLifecycleEvents.fireAsync(
+        SubCaseGroupPolicy.toEvent(group, groupStatus, event.tenancyId()));
 
     LOG.infof(
         "SubCaseGroup event: parentCaseId=%s groupId=%s status=%s completed=%d/%d",
@@ -205,15 +208,11 @@ public class SubCaseCompletionService {
             .await()
             .atMost(Duration.ofSeconds(10));
 
-        // Notify PlanItemCompletionHandler so it can mark the SubCase PlanItem COMPLETED
-        // and evaluate stage autocomplete. childCaseId is the completion tracking key.
         eventBus.publish(
             BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED,
             new SubCaseExecutionCompleted(parentCaseId, childCaseId, event.tenancyId()));
 
       } else {
-        // REJECTED — threshold is unreachable; cancel parent to prevent indefinite WAITING.
-        // Cancel the PlanItem first so it is in a terminal state before the registry is evicted.
         cancelPlanItemOnRejected(parentCaseId, childCaseId);
         writeCompletedLog(parentCaseId, childCaseId, groupId, groupStatus, null, event.tenancyId());
         LOG.warnf(

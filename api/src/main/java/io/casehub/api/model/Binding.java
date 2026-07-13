@@ -34,7 +34,7 @@ public class Binding {
   private ExpressionEvaluator when;
   private String conflictResolverStrategy;
   private OutcomePolicy outcomePolicy;
-  private String inputSchemaOverride;
+  private String inputProjectionOverride;
   private Map<String, Object> contextWrite;
   private Set<String> producedKeys;
 
@@ -56,8 +56,8 @@ public class Binding {
     this.outcomePolicy = outcomePolicy;
   }
 
-  public void setInputSchemaOverride(String inputSchemaOverride) {
-    this.inputSchemaOverride = inputSchemaOverride;
+  public void setInputProjectionOverride(String inputProjectionOverride) {
+    this.inputProjectionOverride = inputProjectionOverride;
   }
 
   public void setContextWrite(Map<String, Object> contextWrite) {
@@ -97,8 +97,8 @@ public class Binding {
     return outcomePolicy;
   }
 
-  public String getInputSchemaOverride() {
-    return inputSchemaOverride;
+  public String getInputProjectionOverride() {
+    return inputProjectionOverride;
   }
 
   public Map<String, Object> getContextWrite() {
@@ -113,8 +113,8 @@ public class Binding {
     return producedKeys != null ? producedKeys : Collections.emptySet();
   }
 
-  public String effectiveInputSchema(Capability capability) {
-    return inputSchemaOverride != null ? inputSchemaOverride : capability.inputSchema();
+  public String effectiveInputProjection(Capability capability) {
+    return inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
   }
 
   public static Builder builder() {
@@ -129,7 +129,7 @@ public class Binding {
     private ExpressionEvaluator when;
     private String conflictResolverStrategy;
     private OutcomePolicy outcomePolicy;
-    private String inputSchemaOverride;
+    private String inputProjectionOverride;
     private Map<String, Object> contextWrite;
     private Set<String> producedKeys;
 
@@ -189,8 +189,8 @@ public class Binding {
       return this;
     }
 
-    public Builder inputSchemaOverride(String inputSchemaOverride) {
-      this.inputSchemaOverride = inputSchemaOverride;
+    public Builder inputProjectionOverride(String inputProjectionOverride) {
+      this.inputProjectionOverride = inputProjectionOverride;
       return this;
     }
 
@@ -215,7 +215,7 @@ public class Binding {
       b.setWhen(when);
       b.setConflictResolverStrategy(conflictResolverStrategy);
       b.setOutcomePolicy(outcomePolicy);
-      b.setInputSchemaOverride(inputSchemaOverride);
+      b.setInputProjectionOverride(inputProjectionOverride);
       b.setContextWrite(contextWrite);
       b.setProducedKeys(producedKeys);
       return b;

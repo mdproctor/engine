@@ -18,6 +18,7 @@ package io.casehub.engine.internal.engine.handler;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.model.CaseDefinition;
@@ -28,6 +29,7 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.api.spi.WorkerExecutionGuard;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
@@ -96,7 +98,7 @@ public class WorkerScheduleEventHandler {
     JsonNode narrowedInput =
         evalJqAsJsonNode(
             instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
-            event.effectiveInputSchema());
+            event.effectiveInputProjection());
 
     CaseDefinition definition =
         caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
@@ -139,7 +141,8 @@ public class WorkerScheduleEventHandler {
             bindingName,
             event.signalId(),
             event.origin(),
-            bridge.contextType().getName());
+            bridge.contextType().getName(),
+            event.experiences());
 
     String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
 
@@ -149,7 +152,14 @@ public class WorkerScheduleEventHandler {
         .chain(
             lock ->
                 scheduleUnderLock(
-                    lock, eventLog, instance, worker, capability, inputDataForHash, inputDataHash));
+                    lock,
+                    eventLog,
+                    instance,
+                    worker,
+                    capability,
+                    inputDataForHash,
+                    inputDataHash,
+                    bindingName));
   }
 
   private Uni<Void> scheduleUnderLock(
@@ -159,7 +169,8 @@ public class WorkerScheduleEventHandler {
       Worker worker,
       Capability capability,
       Map<String, Object> inputData,
-      String inputDataHash) {
+      String inputDataHash,
+      String bindingName) {
     Instant idempotencyAfter = idempotencyWindow.map(w -> Instant.now().minus(w)).orElse(null);
 
     return reactiveEventLogRepository
@@ -167,7 +178,9 @@ public class WorkerScheduleEventHandler {
             instance.getUuid(), worker.name(), idempotencyAfter, instance.tenancyId)
         .map(existing -> decideAction(existing, inputDataHash))
         .chain(action -> executeAction(action, eventLog, instance, worker, capability))
-        .chain(eventLogId -> submitIfNeeded(eventLogId, instance, worker, capability, inputData))
+        .chain(
+            eventLogId ->
+                submitIfNeeded(eventLogId, instance, worker, capability, inputData, bindingName))
         .invoke(
             () ->
                 LOG.infof(
@@ -184,7 +197,8 @@ public class WorkerScheduleEventHandler {
                     instance.getUuid(),
                     worker.name(),
                     capability.name()))
-        .invoke(lock::release);
+        .onFailure()
+        .invoke(t -> lock.release());
   }
 
   private EventLog buildEventLog(
@@ -196,7 +210,8 @@ public class WorkerScheduleEventHandler {
       String bindingName,
       java.util.UUID signalId,
       io.casehub.api.model.event.ExecutionOrigin origin,
-      String contextBridgeType) {
+      String contextBridgeType,
+      List<RetrievedExperience> experiences) {
     Map<String, String> metadataBuilder = new HashMap<>();
     metadataBuilder.put("workerName", worker.name());
     metadataBuilder.put("capabilityName", capability.name());
@@ -213,7 +228,11 @@ public class WorkerScheduleEventHandler {
     if (contextBridgeType != null) {
       metadataBuilder.put("contextBridgeType", contextBridgeType);
     }
-    Map<String, String> metadata = java.util.Collections.unmodifiableMap(metadataBuilder);
+
+    ObjectNode metaNode = OBJECT_MAPPER.valueToTree(metadataBuilder);
+    if (experiences != null && !experiences.isEmpty()) {
+      metaNode.set("experiences", OBJECT_MAPPER.valueToTree(experiences));
+    }
 
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(instance.getUuid());
@@ -221,7 +240,7 @@ public class WorkerScheduleEventHandler {
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
     eventLog.setWorkerId(worker.name());
-    eventLog.setMetadata(OBJECT_MAPPER.valueToTree(metadata));
+    eventLog.setMetadata(metaNode);
     eventLog.setPayload(serialisedPayload);
     return eventLog;
   }
@@ -248,12 +267,13 @@ public class WorkerScheduleEventHandler {
       CaseInstance instance,
       Worker worker,
       Capability capability,
-      Map<String, Object> inputData) {
+      Map<String, Object> inputData,
+      String bindingName) {
     if (eventLogId == null) {
       return Uni.createFrom().voidItem();
     }
     return workflowExecutionManager
-        .submit(eventLogId, instance, worker, capability, inputData)
+        .submit(eventLogId, instance, worker, capability, inputData, bindingName)
         .invoke(() -> dispatchCommand(instance, worker, capability, inputData, eventLogId));
   }
 

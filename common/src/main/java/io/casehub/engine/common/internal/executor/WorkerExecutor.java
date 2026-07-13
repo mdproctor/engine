@@ -36,6 +36,6 @@ public interface WorkerExecutor {
       Object inputData,
       WorkerContext context,
       int timeoutMs,
-      String outputSchema,
+      String outputProjection,
       ExecutionMetadata metadata);
 }

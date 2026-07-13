@@ -136,8 +136,8 @@ public class AgentWorkerExecutionTest {
           Agent.builder()
               .systemPrompt(
                   "You are a sentiment analyzer. Analyze the text and return POSITIVE, NEGATIVE, or NEUTRAL.")
-              .inputSchema("{ text: .text }")
-              .outputSchema("{ sentiment: .sentiment }")
+              .inputProjection("{ text: .text }")
+              .outputProjection("{ sentiment: .sentiment }")
               .model(mockProvider)
               .build();
 

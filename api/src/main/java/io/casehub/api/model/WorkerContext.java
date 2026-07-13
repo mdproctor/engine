@@ -16,6 +16,7 @@
 package io.casehub.api.model;
 
 import io.casehub.api.context.PropagationContext;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -27,10 +28,11 @@ import java.util.UUID;
  *
  * <p>Built by {@code WorkerContextProvider} from CaseLedgerEntry history. Contains the task
  * description, the case identifier, the channels open for the case, ordered summaries of prior
- * workers, the propagation context for tracing, and arbitrary backend-specific properties.
+ * workers, the propagation context for tracing, arbitrary backend-specific properties, and
+ * retrieved CBR experiences from similar past cases.
  *
- * <p>{@code channels}, {@code priorWorkers}, and {@code properties} default to empty collections
- * when {@code null} is supplied and are always immutable.
+ * <p>{@code channels}, {@code priorWorkers}, {@code properties}, and {@code experiences} default to
+ * empty collections when {@code null} is supplied and are always immutable.
  */
 public record WorkerContext(
     String taskDescription,
@@ -38,16 +40,27 @@ public record WorkerContext(
     List<CaseChannel> channels,
     List<WorkerSummary> priorWorkers,
     PropagationContext propagationContext,
-    Map<String, Object> properties) {
+    Map<String, Object> properties,
+    List<RetrievedExperience> experiences) {
 
   public WorkerContext {
     channels = channels == null ? List.of() : List.copyOf(channels);
     priorWorkers = priorWorkers == null ? List.of() : List.copyOf(priorWorkers);
-    // WorkerContext.properties are arbitrary implementor hints — null values are tolerated
-    // (unlike CaseChannel.properties which are validated backend configuration).
     properties =
         properties == null
             ? Map.of()
             : Collections.unmodifiableMap(new LinkedHashMap<>(properties));
+    experiences = experiences == null ? List.of() : List.copyOf(experiences);
+  }
+
+  public WorkerContext(
+      String taskDescription,
+      UUID caseId,
+      List<CaseChannel> channels,
+      List<WorkerSummary> priorWorkers,
+      PropagationContext propagationContext,
+      Map<String, Object> properties) {
+    this(
+        taskDescription, caseId, channels, priorWorkers, propagationContext, properties, List.of());
   }
 }

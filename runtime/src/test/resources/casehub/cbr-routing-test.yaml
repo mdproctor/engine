@@ -18,8 +18,8 @@ spec:
   capabilities:
     - name: planBattle
       description: Plan a battle strategy
-      inputSchema: "{ posture: .enemy.posture }"
-      outputSchema: "{ strategy: .strategy }"
+      inputProjection: "{ posture: .enemy.posture }"
+      outputProjection: "{ strategy: .strategy }"
   workers:
     - name: battle-planner
       description: Plans battle strategies

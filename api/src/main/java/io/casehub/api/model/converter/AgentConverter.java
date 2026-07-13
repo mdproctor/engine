@@ -42,8 +42,8 @@ public class AgentConverter {
     AgentBuilder builder =
         io.casehub.api.model.ai.Agent.builder()
             .systemPrompt(schemaAgent.getSystemPrompt())
-            .inputSchema(schemaAgent.getInputSchema())
-            .outputSchema(schemaAgent.getOutputSchema())
+            .inputProjection(schemaAgent.getInputProjection())
+            .outputProjection(schemaAgent.getOutputProjection())
             .model(modelProvider);
 
     if (schemaAgent.getUserMessageTemplate() != null) {

@@ -59,8 +59,8 @@ class AgentWorkerTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("You are a helpful assistant")
-            .inputSchema("{ text: .input }")
-            .outputSchema("{ result: .output }")
+            .inputProjection("{ text: .input }")
+            .outputProjection("{ result: .output }")
             .model(fixedResponseProvider("{\"output\": \"processed\"}"))
             .build();
 
@@ -86,8 +86,8 @@ class AgentWorkerTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("You translate text to uppercase")
-            .inputSchema(".")
-            .outputSchema(".")
+            .inputProjection(".")
+            .outputProjection(".")
             .model(fixedResponseProvider("{\"result\": \"HELLO WORLD\"}"))
             .build();
 
@@ -109,8 +109,8 @@ class AgentWorkerTest {
     Agent agent =
         Agent.builder()
             .systemPrompt("Test agent")
-            .inputSchema(".")
-            .outputSchema(".")
+            .inputProjection(".")
+            .outputProjection(".")
             .model(fixedResponseProvider("{}"))
             .build();
 

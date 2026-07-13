@@ -88,10 +88,10 @@ class BindingTest {
             .name("b")
             .capability(cap)
             .on(new ContextChangeTrigger(".x"))
-            .inputSchemaOverride(".reduced")
+            .inputProjectionOverride(".reduced")
             .build();
 
-    assertThat(b.getInputSchemaOverride()).isEqualTo(".reduced");
+    assertThat(b.getInputProjectionOverride()).isEqualTo(".reduced");
   }
 
   @Test
@@ -100,7 +100,7 @@ class BindingTest {
     Binding b =
         Binding.builder().name("b").capability(cap).on(new ContextChangeTrigger(".x")).build();
 
-    assertThat(b.getInputSchemaOverride()).isNull();
+    assertThat(b.getInputProjectionOverride()).isNull();
   }
 
   @Test
@@ -111,10 +111,10 @@ class BindingTest {
             .name("b")
             .capability(cap)
             .on(new ContextChangeTrigger(".x"))
-            .inputSchemaOverride(".reduced")
+            .inputProjectionOverride(".reduced")
             .build();
 
-    assertThat(b.effectiveInputSchema(cap)).isEqualTo(".reduced");
+    assertThat(b.effectiveInputProjection(cap)).isEqualTo(".reduced");
   }
 
   @Test
@@ -123,7 +123,7 @@ class BindingTest {
     Binding b =
         Binding.builder().name("b").capability(cap).on(new ContextChangeTrigger(".x")).build();
 
-    assertThat(b.effectiveInputSchema(cap)).isEqualTo(".full");
+    assertThat(b.effectiveInputProjection(cap)).isEqualTo(".full");
   }
 
   @Test

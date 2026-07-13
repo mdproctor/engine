@@ -336,7 +336,7 @@ public class CaseContextChangedEventHandler {
           binding.getName(),
           triggerChannelId,
           triggerCorrelationId,
-          binding.getInputSchemaOverride());
+          binding.getInputProjectionOverride());
     }
 
     List<AgentCandidate> candidates =
@@ -353,7 +353,7 @@ public class CaseContextChangedEventHandler {
           binding.getName(),
           triggerChannelId,
           triggerCorrelationId,
-          binding.getInputSchemaOverride());
+          binding.getInputProjectionOverride());
     }
 
     // Filter agents excluded by previous DECLINED/FAILED outcomes for this binding
@@ -405,7 +405,13 @@ public class CaseContextChangedEventHandler {
                         "Agent selected: worker='%s' capability='%s' binding='%s' rationale='%s'",
                         a.executorId(), capability.name(), binding.getName(), a.reason());
                     yield scheduleWorker(
-                        caseInstance, workers, binding, capability, a.executorId(), signalId);
+                        caseInstance,
+                        workers,
+                        binding,
+                        capability,
+                        a.executorId(),
+                        signalId,
+                        experiences);
                   }
                   case RoutingResult.Unresolvable u -> {
                     LOG.warnf(
@@ -417,7 +423,7 @@ public class CaseContextChangedEventHandler {
                         binding.getName(),
                         triggerChannelId,
                         triggerCorrelationId,
-                        binding.getInputSchemaOverride());
+                        binding.getInputProjectionOverride());
                   }
                   case RoutingResult.Escalated e -> handleEscalation(caseInstance, e, binding);
                 });
@@ -449,7 +455,8 @@ public class CaseContextChangedEventHandler {
       final Binding binding,
       final Capability capability,
       final String workerId,
-      final java.util.UUID signalId) {
+      final java.util.UUID signalId,
+      final List<RetrievedExperience> experiences) {
 
     final Worker selectedWorker =
         workers.stream().filter(w -> w.name().equals(workerId)).findFirst().orElse(null);
@@ -475,9 +482,10 @@ public class CaseContextChangedEventHandler {
             selectedWorker,
             capability,
             binding.getName(),
-            binding.getInputSchemaOverride(),
+            binding.getInputProjectionOverride(),
             signalId,
-            ExecutionOrigin.BINDING_DISPATCH));
+            ExecutionOrigin.BINDING_DISPATCH,
+            experiences));
 
     return Uni.createFrom().voidItem();
   }
@@ -637,14 +645,14 @@ public class CaseContextChangedEventHandler {
       final String bindingName,
       final String triggerChannelId,
       final String triggerCorrelationId,
-      final String inputSchemaOverride) {
+      final String inputProjectionOverride) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
-    final String effectiveSchema =
-        inputSchemaOverride != null ? inputSchemaOverride : capability.inputSchema();
+    final String effectiveProjection =
+        inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
     final Map<String, Object> inputData =
         evalJqAsMap(
             caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
-            effectiveSchema);
+            effectiveProjection);
     final WorkRequest workRequest = WorkRequest.of(capability.name(), inputData);
     return reactiveWorkerContextProvider
         .buildContext(

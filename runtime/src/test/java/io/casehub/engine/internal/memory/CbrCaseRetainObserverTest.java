@@ -39,6 +39,7 @@ import io.casehub.neocortex.memory.cbr.CbrCase;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.CbrFeatureSchema;
 import io.casehub.neocortex.memory.cbr.CbrQuery;
+import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
 import io.casehub.worker.api.Capability;
@@ -92,7 +93,7 @@ class CbrCaseRetainObserverTest {
     PlanCbrCase stored = store.storedCases.get(0);
     assertThat(stored.problem()).isEqualTo("test-case");
     assertThat(stored.outcome()).isEqualTo("COMPLETED");
-    assertThat(stored.features()).containsEntry("amount", 50000);
+    assertThat(stored.features()).containsEntry("amount", FeatureValue.number(50000));
     assertThat(stored.planTrace()).hasSize(1);
     assertThat(stored.planTrace().get(0).bindingName()).isEqualTo("assess-risk");
     assertThat(stored.planTrace().get(0).capabilityName()).isEqualTo("risk-assessment");
@@ -288,7 +289,8 @@ class CbrCaseRetainObserverTest {
 
     observer.onOutcome(event("lambda-case", "COMPLETED", Map.of("raw", "data")));
 
-    assertThat(store.storedCases.get(0).features()).containsEntry("extracted", "data");
+    assertThat(store.storedCases.get(0).features())
+        .containsEntry("extracted", FeatureValue.string("data"));
   }
 
   @Test

@@ -106,6 +106,33 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
   }
 
   @Override
+  public Uni<Void> submit(
+      Long eventLogId,
+      CaseInstance instance,
+      Worker worker,
+      Capability capability,
+      Map<String, Object> inputData,
+      String bindingName) {
+    if (backends.isEmpty()) {
+      return Uni.createFrom()
+          .failure(new ProvisioningException("No WorkerExecutionManager backend configured"));
+    }
+    Optional<WorkerExecutionManager> selected =
+        routingStrategy.select(backends, worker, capability, instance.tenancyId);
+    if (selected.isEmpty()) {
+      return Uni.createFrom()
+          .failure(
+              new ProvisioningException(
+                  "No backend supports capability '"
+                      + capability.name()
+                      + "' for tenant '"
+                      + instance.tenancyId
+                      + "'"));
+    }
+    return selected.get().submit(eventLogId, instance, worker, capability, inputData, bindingName);
+  }
+
+  @Override
   public Uni<Void> schedulePersistedEvent(EventLog scheduledEventLog) {
     if (backends.isEmpty()) {
       return Uni.createFrom().voidItem();

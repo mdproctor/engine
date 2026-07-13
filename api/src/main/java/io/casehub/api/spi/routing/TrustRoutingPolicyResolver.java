@@ -56,7 +56,8 @@ public final class TrustRoutingPolicyResolver {
         blend != null ? blend.value() : TrustRoutingPolicy.DEFAULT.blendFactor(),
         Map.copyOf(qualityFloors),
         bootstrapEscalationRequired,
-        TrustRoutingPolicy.DEFAULT.fallbackBinding());
+        TrustRoutingPolicy.DEFAULT.fallbackBinding(),
+        TrustRoutingPolicy.DEFAULT.evidentialCheckPhases());
   }
 
   /**

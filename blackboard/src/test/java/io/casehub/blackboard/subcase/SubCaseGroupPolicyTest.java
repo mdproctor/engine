@@ -74,8 +74,10 @@ class SubCaseGroupPolicyTest {
   @Test
   void toEvent_mapsAllFields() {
     SubCaseGroup g = group(3, 2, 2, 1);
-    SubCaseGroupLifecycleEvent evt = SubCaseGroupPolicy.toEvent(g, GroupStatus.COMPLETED);
+    SubCaseGroupLifecycleEvent evt =
+        SubCaseGroupPolicy.toEvent(g, GroupStatus.COMPLETED, "tenant-1");
     assertThat(evt.parentCaseId()).isEqualTo(g.getParentCaseId());
+    assertThat(evt.tenancyId()).isEqualTo("tenant-1");
     assertThat(evt.groupId()).isEqualTo("test-group");
     assertThat(evt.groupStatus()).isEqualTo(GroupStatus.COMPLETED);
     assertThat(evt.completedCount()).isEqualTo(2);

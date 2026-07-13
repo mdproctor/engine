@@ -34,6 +34,7 @@ import io.casehub.neocortex.memory.cbr.CbrCase;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.CbrFeatureSchema;
 import io.casehub.neocortex.memory.cbr.CbrQuery;
+import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
@@ -230,7 +231,13 @@ class CbrRetrievalCachingTest {
   private ScoredCbrCase<PlanCbrCase> scoredCase(String problem, String solution) {
     PlanTrace trace = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
     PlanCbrCase cbrCase =
-        new PlanCbrCase(problem, solution, "COMPLETED", 0.95, Map.of("f1", "v1"), List.of(trace));
+        new PlanCbrCase(
+            problem,
+            solution,
+            "COMPLETED",
+            0.95,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(trace));
     return new ScoredCbrCase<>(cbrCase, 0.87);
   }
 

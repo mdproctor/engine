@@ -31,6 +31,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
+import java.util.List;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 import org.quartz.DisallowConcurrentExecution;
@@ -167,7 +168,8 @@ public class ConditionalScheduledTriggerJob implements Job {
             null,
             null,
             null,
-            io.casehub.api.model.event.ExecutionOrigin.SCHEDULE_TRIGGER));
+            io.casehub.api.model.event.ExecutionOrigin.SCHEDULE_TRIGGER,
+            List.of()));
   }
 
   private Worker findWorker(CaseDefinition definition, String workerName) {
