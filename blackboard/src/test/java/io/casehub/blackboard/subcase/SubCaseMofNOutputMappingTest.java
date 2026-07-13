@@ -125,7 +125,7 @@ class SubCaseMofNOutputMappingTest {
   }
 
   private static CaseLifecycleEvent completionEvent(UUID childId) {
-    return new CaseLifecycleEvent(
+    return CaseLifecycleEvent.of(
         childId,
         TenancyConstants.DEFAULT_TENANT_ID,
         "CompleteCase",

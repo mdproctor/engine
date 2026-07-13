@@ -17,21 +17,46 @@ package io.casehub.api.model;
 
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.function.Predicate;
+import java.util.List;
+import java.util.Set;
 
-public interface GoalExpression extends Predicate<Collection<Goal>> {
+public sealed interface GoalExpression
+    permits AllOfGoalExpression, AnyOfGoalExpression, SingleGoalExpression {
 
-  Collection<Goal> getGoals();
+  boolean isSatisfiedBy(Set<String> reachedGoalNames);
 
-  static GoalExpression allOf(Collection<Goal> goals) {
-    return new AllOfGoalExpression(goals);
-  }
+  Set<String> goalNames();
+
+  String satisfiedGoalName(Set<String> reachedGoalNames);
 
   static GoalExpression allOf(Goal... goals) {
-    return new AllOfGoalExpression(Arrays.asList(goals));
+    return new AllOfGoalExpression(
+        Arrays.stream(goals)
+            .map(g -> (GoalExpression) new SingleGoalExpression(g.getName()))
+            .toList());
+  }
+
+  static GoalExpression allOf(Collection<Goal> goals) {
+    return new AllOfGoalExpression(
+        goals.stream().map(g -> (GoalExpression) new SingleGoalExpression(g.getName())).toList());
   }
 
   static GoalExpression anyOf(Goal... goals) {
-    return new AnyOfGoalExpression(Arrays.asList(goals));
+    return new AnyOfGoalExpression(
+        Arrays.stream(goals)
+            .map(g -> (GoalExpression) new SingleGoalExpression(g.getName()))
+            .toList());
+  }
+
+  static GoalExpression allOf(GoalExpression... children) {
+    return new AllOfGoalExpression(List.of(children));
+  }
+
+  static GoalExpression anyOf(GoalExpression... children) {
+    return new AnyOfGoalExpression(List.of(children));
+  }
+
+  static GoalExpression goal(String name) {
+    return new SingleGoalExpression(name);
   }
 }

@@ -36,6 +36,7 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.PredicateBasedCompletion;
+import io.casehub.api.model.SingleGoalExpression;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.WorkerFunctions;
@@ -718,15 +719,33 @@ public final class CaseDefinitionYamlMapper {
     }
 
     if (expr.getAllOf() != null && !expr.getAllOf().isEmpty()) {
-      final List<Goal> goals =
-          expr.getAllOf().stream().map(goalMap::get).collect(Collectors.toList());
-      return new AllOfGoalExpression(goals);
+      return new AllOfGoalExpression(
+          expr.getAllOf().stream()
+              .map(
+                  name -> {
+                    Goal goal = goalMap.get(name);
+                    if (goal == null) {
+                      throw new IllegalArgumentException(
+                          "Goal '" + name + "' referenced in completion expression is not defined");
+                    }
+                    return (GoalExpression) new SingleGoalExpression(goal.getName());
+                  })
+              .collect(Collectors.toList()));
     }
 
     if (expr.getAnyOf() != null && !expr.getAnyOf().isEmpty()) {
-      final List<Goal> goals =
-          expr.getAnyOf().stream().map(goalMap::get).collect(Collectors.toList());
-      return new AnyOfGoalExpression(goals);
+      return new AnyOfGoalExpression(
+          expr.getAnyOf().stream()
+              .map(
+                  name -> {
+                    Goal goal = goalMap.get(name);
+                    if (goal == null) {
+                      throw new IllegalArgumentException(
+                          "Goal '" + name + "' referenced in completion expression is not defined");
+                    }
+                    return (GoalExpression) new SingleGoalExpression(goal.getName());
+                  })
+              .collect(Collectors.toList()));
     }
 
     return null;
@@ -760,18 +779,50 @@ public final class CaseDefinitionYamlMapper {
   private static GoalExpression parseGoalExpressionFromNode(
       JsonNode node, Map<String, Goal> goalMap) {
     JsonNode allOfNode = node.get("allOf");
-    if (allOfNode != null && allOfNode.isArray() && !allOfNode.isEmpty()) {
-      List<Goal> goals = new java.util.ArrayList<>();
-      allOfNode.forEach(n -> goals.add(goalMap.get(n.asText())));
-      return new AllOfGoalExpression(goals);
+    if (allOfNode != null && allOfNode.isArray()) {
+      if (allOfNode.isEmpty()) {
+        throw new IllegalArgumentException("allOf array must not be empty");
+      }
+      List<GoalExpression> children = new java.util.ArrayList<>();
+      for (JsonNode element : allOfNode) {
+        children.add(parseGoalElement(element, goalMap));
+      }
+      return new AllOfGoalExpression(children);
     }
     JsonNode anyOfNode = node.get("anyOf");
-    if (anyOfNode != null && anyOfNode.isArray() && !anyOfNode.isEmpty()) {
-      List<Goal> goals = new java.util.ArrayList<>();
-      anyOfNode.forEach(n -> goals.add(goalMap.get(n.asText())));
-      return new AnyOfGoalExpression(goals);
+    if (anyOfNode != null && anyOfNode.isArray()) {
+      if (anyOfNode.isEmpty()) {
+        throw new IllegalArgumentException("anyOf array must not be empty");
+      }
+      List<GoalExpression> children = new java.util.ArrayList<>();
+      for (JsonNode element : anyOfNode) {
+        children.add(parseGoalElement(element, goalMap));
+      }
+      return new AnyOfGoalExpression(children);
     }
     return null;
+  }
+
+  private static GoalExpression parseGoalElement(JsonNode element, Map<String, Goal> goalMap) {
+    if (element.isTextual()) {
+      String goalName = element.asText();
+      Goal goal = goalMap.get(goalName);
+      if (goal == null) {
+        throw new IllegalArgumentException(
+            "Goal '" + goalName + "' referenced in completion expression is not defined");
+      }
+      return new SingleGoalExpression(goal.getName());
+    }
+    if (element.isObject()) {
+      GoalExpression nested = parseGoalExpressionFromNode(element, goalMap);
+      if (nested == null) {
+        throw new IllegalArgumentException(
+            "Completion expression object must contain 'allOf' or 'anyOf'");
+      }
+      return nested;
+    }
+    throw new IllegalArgumentException(
+        "Completion expression element must be a goal name (string) or an object with allOf/anyOf");
   }
 
   private static HumanTaskTarget convertHumanTask(final io.casehub.model.HumanTask schema) {

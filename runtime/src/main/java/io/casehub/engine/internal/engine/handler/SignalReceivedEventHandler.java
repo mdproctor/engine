@@ -165,15 +165,8 @@ public class SignalReceivedEventHandler {
             () -> {
               lifecycleEvents
                   .fireAsync(
-                      new CaseLifecycleEvent(
-                          instance.getUuid(),
-                          instance.tenancyId,
-                          "SignalCase",
-                          "SignalReceived",
-                          instance.getState().name(),
-                          null,
-                          "System",
-                          traceId))
+                      CaseLifecycleEvent.of(
+                          instance, "SignalCase", "SignalReceived", null, "System", traceId))
                   .whenComplete(
                       (v, t) -> {
                         if (t != null)
@@ -272,15 +265,8 @@ public class SignalReceivedEventHandler {
             () -> {
               lifecycleEvents
                   .fireAsync(
-                      new CaseLifecycleEvent(
-                          instance.getUuid(),
-                          instance.tenancyId,
-                          "SignalCase",
-                          "BulkSignalReceived",
-                          instance.getState().name(),
-                          null,
-                          "System",
-                          traceId))
+                      CaseLifecycleEvent.of(
+                          instance, "SignalCase", "BulkSignalReceived", null, "System", traceId))
                   .whenComplete(
                       (v, t) -> {
                         if (t != null)

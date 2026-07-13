@@ -15,26 +15,39 @@
  */
 package io.casehub.api.model;
 
-import java.util.Collection;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-public class AllOfGoalExpression implements GoalExpression {
+public record AllOfGoalExpression(List<GoalExpression> children) implements GoalExpression {
 
-  private final Collection<Goal> allOf;
-
-  public AllOfGoalExpression(Collection<Goal> allOf) {
-    this.allOf = allOf;
-  }
-
-  @Override
-  public Collection<Goal> getGoals() {
-    return allOf;
-  }
-
-  @Override
-  public boolean test(Collection<Goal> currentGoals) {
-    if (allOf == null || allOf.isEmpty()) {
-      return true;
+  public AllOfGoalExpression {
+    if (children.isEmpty()) {
+      throw new IllegalArgumentException("AllOfGoalExpression requires at least one child");
     }
-    return currentGoals != null && currentGoals.containsAll(allOf);
+    children = List.copyOf(children);
+  }
+
+  @Override
+  public boolean isSatisfiedBy(Set<String> reachedGoalNames) {
+    return children.stream().allMatch(c -> c.isSatisfiedBy(reachedGoalNames));
+  }
+
+  @Override
+  public Set<String> goalNames() {
+    return children.stream()
+        .flatMap(c -> c.goalNames().stream())
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
+  @Override
+  public String satisfiedGoalName(Set<String> reachedGoalNames) {
+    String firstName = null;
+    for (GoalExpression child : children) {
+      String name = child.satisfiedGoalName(reachedGoalNames);
+      if (name == null) return null;
+      if (firstName == null) firstName = name;
+    }
+    return firstName;
   }
 }

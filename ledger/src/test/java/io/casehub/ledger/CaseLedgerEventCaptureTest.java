@@ -53,7 +53,7 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null));
 
     Awaitility.await()
@@ -84,13 +84,13 @@ class CaseLedgerEventCaptureTest {
     // In production, the engine processes one case event at a time — concurrency doesn't arise.
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId,
                 "test-tenant",
                 "SuspendCase",
@@ -103,7 +103,7 @@ class CaseLedgerEventCaptureTest {
         .join();
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId,
                 "test-tenant",
                 "ResumeCase",
@@ -134,19 +134,19 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseA, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseB, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseA,
                 "test-tenant",
                 "CompleteCase",
@@ -174,7 +174,7 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId,
             "test-tenant",
             "StartCase",
@@ -201,7 +201,7 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId,
             "test-tenant",
             "SuspendCase",
@@ -226,7 +226,7 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null));
 
     Awaitility.await()
@@ -246,13 +246,13 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId,
                 "test-tenant",
                 "CompleteCase",
@@ -280,7 +280,7 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId, "test-tenant", "SignalCase", "SignalReceived", null, null, "System", null));
 
     Awaitility.await()
@@ -311,7 +311,7 @@ class CaseLedgerEventCaptureTest {
     final String workerId = "researcher-worker";
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId,
             "test-tenant",
             "ExecuteWorker",
@@ -344,7 +344,7 @@ class CaseLedgerEventCaptureTest {
     final UUID caseId = UUID.randomUUID();
 
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId,
             "test-tenant",
             "ExecuteWorker",
@@ -378,7 +378,7 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
@@ -398,13 +398,13 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId,
                 "test-tenant",
                 "SuspendCase",
@@ -417,7 +417,7 @@ class CaseLedgerEventCaptureTest {
         .join();
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId,
                 "test-tenant",
                 "CompleteCase",
@@ -448,7 +448,7 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId,
                 "test-tenant",
                 "StartCase",
@@ -478,7 +478,7 @@ class CaseLedgerEventCaptureTest {
 
     lifecycleEvents
         .fireAsync(
-            new CaseLifecycleEvent(
+            CaseLifecycleEvent.of(
                 caseId, "test-tenant", "StartCase", "CaseStarted", "RUNNING", null, "System", null))
         .toCompletableFuture()
         .join();

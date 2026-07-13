@@ -89,7 +89,7 @@ class SubCaseMofNIntegrationTest {
     // Complete only the first 2 (requiredCount=2). Invoke the listener directly to bypass
     // CDI @ObservesAsync delivery which is unreliable in the test context.
     CaseLifecycleEvent completedEvent0 =
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             childIds.get(0),
             TenancyConstants.DEFAULT_TENANT_ID,
             "CompleteCase",
@@ -99,7 +99,7 @@ class SubCaseMofNIntegrationTest {
             "System",
             null);
     CaseLifecycleEvent completedEvent1 =
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             childIds.get(1),
             TenancyConstants.DEFAULT_TENANT_ID,
             "CompleteCase",

@@ -25,13 +25,13 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.AgentWorkerFunction;
-import io.casehub.api.model.AllOfGoalExpression;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
+import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.ai.ChatModelProvider;
@@ -43,7 +43,6 @@ import io.casehub.worker.api.Worker;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
@@ -183,7 +182,7 @@ public class AgentWorkerExecutionTest {
       // Set completion criteria
       definition.setCompletion(
           GoalBasedCompletion.<StandardGoalKind>builder()
-              .goal(StandardGoalKind.SUCCESS, new AllOfGoalExpression(List.of(analysisComplete)))
+              .goal(StandardGoalKind.SUCCESS, GoalExpression.allOf(analysisComplete))
               .build());
 
       return definition;

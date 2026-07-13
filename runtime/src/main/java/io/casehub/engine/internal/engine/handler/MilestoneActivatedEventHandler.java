@@ -82,12 +82,10 @@ public class MilestoneActivatedEventHandler {
                   .completionStage(
                       () ->
                           lifecycleEvents.fireAsync(
-                              new CaseLifecycleEvent(
-                                  caseInstance.getUuid(),
-                                  caseInstance.tenancyId,
+                              CaseLifecycleEvent.of(
+                                  caseInstance,
                                   "ActivateMilestone",
                                   "MilestoneActivated",
-                                  caseInstance.getState().name(),
                                   null,
                                   "System",
                                   traceId)))

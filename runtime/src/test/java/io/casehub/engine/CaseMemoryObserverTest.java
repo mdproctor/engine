@@ -55,7 +55,7 @@ class CaseMemoryObserverTest {
     final UUID caseId = UUID.randomUUID();
 
     observer.onCaseLifecycleEvent(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId, null, "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
 
     verify(memoryStore, times(1)).store(any(MemoryInput.class));
@@ -73,7 +73,7 @@ class CaseMemoryObserverTest {
             });
 
     observer.onCaseLifecycleEvent(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId, null, "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
 
     assertThat(captured[0]).isNotNull();
@@ -87,7 +87,7 @@ class CaseMemoryObserverTest {
     final UUID caseId = UUID.randomUUID();
 
     observer.onCaseLifecycleEvent(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             caseId, null, "StartCase", "CaseStarted", "RUNNING", null, null, null));
 
     verify(memoryStore, never()).store(any());
@@ -101,7 +101,7 @@ class CaseMemoryObserverTest {
     final CaseMemoryObserver noStoreObserver = new CaseMemoryObserver(absent);
 
     noStoreObserver.onCaseLifecycleEvent(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             UUID.randomUUID(), null, "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
 
     verify(absent, never()).get();

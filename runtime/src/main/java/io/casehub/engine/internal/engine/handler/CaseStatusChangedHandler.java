@@ -175,12 +175,10 @@ public class CaseStatusChangedHandler {
                   .completionStage(
                       () ->
                           lifecycleEvents.fireAsync(
-                              new CaseLifecycleEvent(
-                                  caseInstance.getUuid(),
-                                  caseInstance.tenancyId,
+                              CaseLifecycleEvent.of(
+                                  caseInstance,
                                   resolveCommandType(newState),
                                   resolveEventType(newState),
-                                  newState.name(),
                                   null,
                                   "System",
                                   traceId)))

@@ -316,11 +316,16 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
     // Warn if goals are not referenced in any GoalExpression
     if (definition.getGoals() != null
         && definition.getCompletion() instanceof GoalBasedCompletion<?> gbc) {
+      Map<String, Goal> goalsByName =
+          definition.getGoals().stream()
+              .collect(
+                  java.util.stream.Collectors.toMap(
+                      Goal::getName, java.util.function.Function.identity()));
       var referencedGoals = new HashSet<String>();
       for (var entry : gbc.getGoals().entrySet()) {
         GoalExpression expr = entry.getValue();
-        if (expr != null && expr.getGoals() != null) {
-          expr.getGoals().forEach(g -> referencedGoals.add(g.getName()));
+        if (expr != null) {
+          referencedGoals.addAll(expr.goalNames());
         }
       }
       for (Goal goal : definition.getGoals()) {
@@ -336,9 +341,10 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
       for (var entry : gbc.getGoals().entrySet()) {
         String kindValue = entry.getKey().value();
         GoalExpression expr = entry.getValue();
-        if (expr != null && expr.getGoals() != null) {
-          for (Goal g : expr.getGoals()) {
-            if (g.getKind() != null && !g.getKind().equals(kindValue)) {
+        if (expr != null) {
+          for (String goalName : expr.goalNames()) {
+            Goal g = goalsByName.get(goalName);
+            if (g != null && g.getKind() != null && !g.getKind().equals(kindValue)) {
               LOG.warnf(
                   "Goal '%s' has kind '%s' but is referenced in completion entry '%s'"
                       + " — kind mismatch may indicate a configuration error.",

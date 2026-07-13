@@ -91,15 +91,8 @@ public class GoalReachedEventHandler {
                 // gated on optional audit observer completion. Refs casehubio/engine#491.
                 lifecycleEvents
                     .fireAsync(
-                        new CaseLifecycleEvent(
-                            caseInstance.getUuid(),
-                            caseInstance.tenancyId,
-                            "ReachGoal",
-                            "GoalReached",
-                            caseInstance.getState().name(),
-                            null,
-                            "System",
-                            traceId))
+                        CaseLifecycleEvent.of(
+                            caseInstance, "ReachGoal", "GoalReached", null, "System", traceId))
                     .whenComplete(
                         (v, t) -> {
                           if (t != null)
@@ -134,18 +127,18 @@ public class GoalReachedEventHandler {
               for (var entry : gbc.getGoals().entrySet()) {
                 GoalKind kind = entry.getKey();
                 GoalExpression expr = entry.getValue();
-                if (isGoalExpressionSatisfied(expr, reachedGoals)) {
-                  String satisfiedGoalName = findSatisfiedGoalName(expr, reachedGoals);
+                String satisfiedName = expr.satisfiedGoalName(reachedGoals);
+                if (satisfiedName != null) {
                   LOG.infof(
                       "Goal kind '%s' satisfied (goal '%s'): caseId=%s",
-                      kind.value(), satisfiedGoalName, caseInstance.getUuid());
+                      kind.value(), satisfiedName, caseInstance.getUuid());
                   eventBus.publish(
                       EventBusAddresses.CASE_STATUS_CHANGED,
                       new CaseStatusChanged(
                           caseInstance,
                           oldStatus,
                           kind.terminalStatus().name(),
-                          satisfiedGoalName,
+                          satisfiedName,
                           kind.value()));
                   return Uni.createFrom().voidItem();
                 }
@@ -153,29 +146,5 @@ public class GoalReachedEventHandler {
 
               return Uni.createFrom().voidItem();
             });
-  }
-
-  private boolean isGoalExpressionSatisfied(GoalExpression expression, Set<String> reachedGoals) {
-    if (expression == null || expression.getGoals() == null || expression.getGoals().isEmpty()) {
-      return false;
-    }
-    Set<String> expressionGoalNames =
-        expression.getGoals().stream().map(Goal::getName).collect(Collectors.toSet());
-    if (expression instanceof io.casehub.api.model.AllOfGoalExpression) {
-      return reachedGoals.containsAll(expressionGoalNames);
-    }
-    if (expression instanceof io.casehub.api.model.AnyOfGoalExpression) {
-      return expressionGoalNames.stream().anyMatch(reachedGoals::contains);
-    }
-    return false;
-  }
-
-  private String findSatisfiedGoalName(GoalExpression expression, Set<String> reachedGoals) {
-    if (expression == null || expression.getGoals() == null) return null;
-    return expression.getGoals().stream()
-        .map(Goal::getName)
-        .filter(reachedGoals::contains)
-        .findFirst()
-        .orElse(null);
   }
 }

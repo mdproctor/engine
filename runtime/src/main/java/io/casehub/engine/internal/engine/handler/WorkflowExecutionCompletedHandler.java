@@ -175,12 +175,10 @@ public class WorkflowExecutionCompletedHandler {
               // being published. Refs casehubio/engine#491.
               lifecycleEvents
                   .fireAsync(
-                      new CaseLifecycleEvent(
-                          caseInstance.getUuid(),
-                          caseInstance.tenancyId,
+                      CaseLifecycleEvent.of(
+                          caseInstance,
                           "ExecuteWorker",
                           "WorkerExecutionCompleted",
-                          caseInstance.getState().name(),
                           "system",
                           "SYSTEM",
                           traceId))
@@ -449,12 +447,10 @@ public class WorkflowExecutionCompletedHandler {
               // CDI lifecycle events (fire-and-forget)
               lifecycleEvents
                   .fireAsync(
-                      new CaseLifecycleEvent(
-                          caseInstance.getUuid(),
-                          caseInstance.tenancyId,
+                      CaseLifecycleEvent.of(
+                          caseInstance,
                           "WorkerOutcome",
                           outcomeStatus + "Outcome",
-                          caseInstance.getState().name(),
                           worker.name(),
                           "WORKER",
                           traceId))
@@ -564,12 +560,10 @@ public class WorkflowExecutionCompletedHandler {
                   () ->
                       lifecycleEvents
                           .fireAsync(
-                              new CaseLifecycleEvent(
-                                  caseInstance.getUuid(),
-                                  caseInstance.tenancyId,
+                              CaseLifecycleEvent.of(
+                                  caseInstance,
                                   "ActionGate",
                                   "ActionGatePending",
-                                  caseInstance.getState().name(),
                                   worker.name(),
                                   "WORKER",
                                   traceId))

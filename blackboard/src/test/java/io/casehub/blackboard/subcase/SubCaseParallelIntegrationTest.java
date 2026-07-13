@@ -87,7 +87,7 @@ class SubCaseParallelIntegrationTest {
     // Simulate all 3 children completing by invoking the listener directly.
     // This bypasses CDI @ObservesAsync delivery which is unreliable in the test context.
     CaseLifecycleEvent completedEvent0 =
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             childIds.get(0),
             TenancyConstants.DEFAULT_TENANT_ID,
             "CompleteCase",
@@ -97,7 +97,7 @@ class SubCaseParallelIntegrationTest {
             "System",
             null);
     CaseLifecycleEvent completedEvent1 =
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             childIds.get(1),
             TenancyConstants.DEFAULT_TENANT_ID,
             "CompleteCase",
@@ -107,7 +107,7 @@ class SubCaseParallelIntegrationTest {
             "System",
             null);
     CaseLifecycleEvent completedEvent2 =
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             childIds.get(2),
             TenancyConstants.DEFAULT_TENANT_ID,
             "CompleteCase",

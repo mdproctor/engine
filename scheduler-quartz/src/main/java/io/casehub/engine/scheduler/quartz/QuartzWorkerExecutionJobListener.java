@@ -86,7 +86,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     LOG.infof("Job is about to be executed: %s, idempotency=%s", jobName, idempotency);
     workerStatusListener.onWorkerStarted(workerId, Map.of("caseId", caseHubInstanceUuid));
     lifecycleEvents.fireAsync(
-        new CaseLifecycleEvent(
+        CaseLifecycleEvent.of(
             UUID.fromString(caseHubInstanceUuid),
             tenancyId,
             "ExecuteWorker",

@@ -15,37 +15,27 @@
  */
 package io.casehub.api.model;
 
-import java.util.List;
+import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
-public record AnyOfGoalExpression(List<GoalExpression> children) implements GoalExpression {
+public record SingleGoalExpression(String goalName) implements GoalExpression {
 
-  public AnyOfGoalExpression {
-    if (children.isEmpty()) {
-      throw new IllegalArgumentException("AnyOfGoalExpression requires at least one child");
-    }
-    children = List.copyOf(children);
+  public SingleGoalExpression {
+    Objects.requireNonNull(goalName, "goalName must not be null");
   }
 
   @Override
   public boolean isSatisfiedBy(Set<String> reachedGoalNames) {
-    return children.stream().anyMatch(c -> c.isSatisfiedBy(reachedGoalNames));
+    return reachedGoalNames.contains(goalName);
   }
 
   @Override
   public Set<String> goalNames() {
-    return children.stream()
-        .flatMap(c -> c.goalNames().stream())
-        .collect(Collectors.toUnmodifiableSet());
+    return Set.of(goalName);
   }
 
   @Override
   public String satisfiedGoalName(Set<String> reachedGoalNames) {
-    for (GoalExpression child : children) {
-      String name = child.satisfiedGoalName(reachedGoalNames);
-      if (name != null) return name;
-    }
-    return null;
+    return reachedGoalNames.contains(goalName) ? goalName : null;
   }
 }

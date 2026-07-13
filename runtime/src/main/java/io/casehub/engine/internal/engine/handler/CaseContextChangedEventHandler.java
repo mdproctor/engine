@@ -677,12 +677,10 @@ public class CaseContextChangedEventHandler {
                               .completionStage(
                                   () ->
                                       lifecycleEvents.fireAsync(
-                                          new CaseLifecycleEvent(
-                                              caseInstance.getUuid(),
-                                              caseInstance.tenancyId,
+                                          CaseLifecycleEvent.of(
+                                              caseInstance,
                                               "ProvisionWorker",
                                               "WorkerStarted",
-                                              caseInstance.getState().name(),
                                               null,
                                               "System",
                                               traceId)))

@@ -119,7 +119,7 @@ class SubCaseCompletionServiceTest {
   }
 
   private CaseLifecycleEvent completionEvent(UUID caseId) {
-    return new CaseLifecycleEvent(
+    return CaseLifecycleEvent.of(
         caseId, null, "CompleteCase", "CaseCompleted", "COMPLETED", null, "system", null);
   }
 

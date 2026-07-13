@@ -102,15 +102,8 @@ public class CaseStartedEventHandler {
             () -> {
               lifecycleEvents
                   .fireAsync(
-                      new CaseLifecycleEvent(
-                          instance.getUuid(),
-                          instance.tenancyId,
-                          "StartCase",
-                          "CaseStarted",
-                          instance.getState().name(),
-                          null,
-                          "System",
-                          traceId))
+                      CaseLifecycleEvent.of(
+                          instance, "StartCase", "CaseStarted", null, "System", traceId))
                   .whenComplete(
                       (v, t) -> {
                         if (t != null)
