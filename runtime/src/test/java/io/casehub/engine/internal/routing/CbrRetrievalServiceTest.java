@@ -126,8 +126,8 @@ class CbrRetrievalServiceTest {
     assertEquals(3, query.topK());
     assertEquals(0.4, query.minSimilarity());
     assertEquals(0.6, query.vectorWeight());
-    assertEquals("aggressive", query.features().get("posture"));
-    assertEquals(50, query.features().get("size"));
+    assertEquals(FeatureValue.string("aggressive"), query.features().get("posture"));
+    assertEquals(FeatureValue.number(50), query.features().get("size"));
     assertEquals(2.0, query.weights().get("posture"));
   }
 
@@ -178,7 +178,7 @@ class CbrRetrievalServiceTest {
     service.retrieve(def, buildInstance()).await().indefinitely();
 
     assertTrue(cbrStore.wasCalled());
-    assertEquals("extracted", cbrStore.lastQuery().features().get("f1"));
+    assertEquals(FeatureValue.string("extracted"), cbrStore.lastQuery().features().get("f1"));
   }
 
   @Test

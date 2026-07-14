@@ -114,7 +114,7 @@ class CbrRoutingIntegrationTest {
     assertThat(exp.outcome()).isEqualTo("COMPLETED");
     assertThat(exp.confidence()).isEqualTo(0.92);
     assertThat(exp.similarityScore()).isGreaterThan(0.0);
-    assertThat(exp.features()).containsEntry("posture", "aggressive");
+    assertThat(exp.features()).containsEntry("posture", FeatureValue.string("aggressive"));
     assertThat(exp.planTrace()).hasSize(1);
     assertThat(exp.planTrace().get(0).bindingName()).isEqualTo("plan-on-enemy-sighted");
     assertThat(exp.planTrace().get(0).capabilityName()).isEqualTo("planBattle");
