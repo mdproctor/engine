@@ -34,6 +34,7 @@ import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.StandardGoalKind;
+import io.casehub.api.model.SubCaseMapping;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.routing.CandidateSetSpec;
@@ -92,8 +93,8 @@ class CaseDefinitionYamlMapperTest {
         spec:
           capabilities:
             - name: validate
-              inputSchema: ".request"
-              outputSchema: ".valid"
+              inputProjection: ".request"
+              outputProjection: ".valid"
               description: Validates input
           workers:
             - name: validator-worker
@@ -252,7 +253,7 @@ class CaseDefinitionYamlMapperTest {
     assertThat(subCase.requiredCount()).isEqualTo(2);
     assertThat(subCase.onThresholdReached())
         .isEqualTo(io.casehub.api.model.OnThresholdReached.KEEP);
-    assertThat(subCase.outputMapping()).isEqualTo("{ result: .result }");
+    assertThat(subCase.outputMapping()).isEqualTo(SubCaseMapping.of("{ result: .result }"));
   }
 
   @Test
