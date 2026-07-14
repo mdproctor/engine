@@ -35,40 +35,49 @@ class WorkerRecoveryCoordinatorTest {
   }
 
   @Test
-  void successfulRecovery_transitionsToCompleted() throws InterruptedException {
+  void successfulRecovery_transitionsToCompleted() {
     var coordinator =
         new WorkerRecoveryCoordinator(
             serviceWith(Uni.createFrom().voidItem()), Duration.ofSeconds(60));
 
     coordinator.triggerRecovery();
-    Thread.sleep(50); // Allow async subscription to complete
 
-    assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.COMPLETED);
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.COMPLETED));
   }
 
   @Test
-  void failedRecovery_transitionsToFailed() throws InterruptedException {
+  void failedRecovery_transitionsToFailed() {
     var coordinator =
         new WorkerRecoveryCoordinator(
             serviceWith(Uni.createFrom().failure(new RuntimeException("DB down"))),
             Duration.ofSeconds(60));
 
     coordinator.triggerRecovery();
-    Thread.sleep(50); // Allow async subscription to complete
 
-    assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.FAILED);
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.FAILED));
   }
 
   @Test
-  void hungRecovery_transitionsToFailedAfterTimeout() throws InterruptedException {
+  void hungRecovery_transitionsToFailedAfterTimeout() {
     var coordinator =
         new WorkerRecoveryCoordinator(
             serviceWith(Uni.createFrom().nothing()), Duration.ofMillis(100));
 
     coordinator.triggerRecovery();
-    Thread.sleep(200); // Wait for timeout to fire
 
-    assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.FAILED);
+    org.awaitility.Awaitility.await()
+        .atMost(Duration.ofSeconds(5))
+        .pollInterval(Duration.ofMillis(50))
+        .untilAsserted(
+            () -> assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.FAILED));
   }
 
   private WorkerExecutionRecoveryService serviceWith(Uni<Void> recoveryResult) {
