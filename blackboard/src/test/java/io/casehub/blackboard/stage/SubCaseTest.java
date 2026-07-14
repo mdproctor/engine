@@ -106,7 +106,7 @@ class SubCaseTest {
   @Test
   void builder_inputMapping_defaultIdentity() {
     SubCase sc = SubCase.builder().namespace("ns").name("n").version("1.0").build();
-    assertThat(sc.inputMapping()).isEqualTo(".");
+    assertThat(sc.inputMapping()).isEqualTo(io.casehub.api.model.SubCaseMapping.of("."));
   }
 
   @Test
@@ -125,8 +125,10 @@ class SubCaseTest {
             .inputMapping("{ id: .caseId }")
             .outputMapping("{ result: .childResult }")
             .build();
-    assertThat(sc.inputMapping()).isEqualTo("{ id: .caseId }");
-    assertThat(sc.outputMapping()).isEqualTo("{ result: .childResult }");
+    assertThat(sc.inputMapping())
+        .isEqualTo(io.casehub.api.model.SubCaseMapping.of("{ id: .caseId }"));
+    assertThat(sc.outputMapping())
+        .isEqualTo(io.casehub.api.model.SubCaseMapping.of("{ result: .childResult }"));
   }
 
   @Test

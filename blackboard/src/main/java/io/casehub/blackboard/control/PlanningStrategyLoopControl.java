@@ -163,7 +163,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
               }
               return strategy.select(plan, ctx, routed);
             })
-        .map(selected -> filterAndIndexForDispatch(caseId, plan, selected));
+        .map(selected -> filterAndIndexForDispatch(caseId, plan, selected, ctx));
   }
 
   /**
@@ -240,15 +240,21 @@ public class PlanningStrategyLoopControl implements LoopControl {
    * — the handler owns the transition.
    */
   private List<Binding> filterAndIndexForDispatch(
-      UUID caseId, CasePlanModel plan, List<Binding> selected) {
+      UUID caseId, CasePlanModel plan, List<Binding> selected, PlanExecutionContext ctx) {
     List<Binding> dispatched = new ArrayList<>();
     for (Binding binding : selected) {
-      Optional<PlanItem> piOpt = plan.getPlanItemByBindingName(binding.getName());
+      Optional<PlanItem> piOpt = plan.findPlanItemByBindingName(binding.getName());
       if (piOpt.isEmpty()) {
         dispatched.add(binding);
         continue;
       }
       PlanItem pi = piOpt.get();
+      if (pi.getStatus().isTerminal()) {
+        if (ctx.caseStatus() != CaseStatus.RUNNING) {
+          dispatched.add(binding);
+        }
+        continue;
+      }
       if (binding.target() instanceof CapabilityTarget) {
         if (pi.tryMarkRunning()) {
           registry.indexForCompletion(caseId, pi.executorName(), pi.getPlanItemId());
