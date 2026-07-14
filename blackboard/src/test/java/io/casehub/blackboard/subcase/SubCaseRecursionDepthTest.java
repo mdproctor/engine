@@ -120,7 +120,7 @@ class SubCaseRecursionDepthTest {
             .version(VERSION)
             .maxRecursionDepth(maxRecursionDepth)
             .build();
-    return new SubCaseScheduleEvent(parent, subCase, Map.of(), "spawn-self");
+    return new SubCaseScheduleEvent(parent, subCase, Map.of(), null, "spawn-self");
   }
 
   @Test
@@ -219,7 +219,7 @@ class SubCaseRecursionDepthTest {
     SubCase differentChild =
         SubCase.builder().namespace(NS).name(NAME).version(VERSION).maxRecursionDepth(0).build();
     SubCaseScheduleEvent event =
-        new SubCaseScheduleEvent(parent, differentChild, Map.of(), "spawn-different");
+        new SubCaseScheduleEvent(parent, differentChild, Map.of(), null, "spawn-different");
 
     handler.onSubCaseSchedule(event).await().indefinitely();
 

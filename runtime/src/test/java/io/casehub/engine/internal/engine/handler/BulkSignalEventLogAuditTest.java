@@ -58,6 +58,7 @@ class BulkSignalEventLogAuditTest {
   @Mock Event<CaseLifecycleEvent> lifecycleEvents;
   @Mock LedgerTraceIdProvider traceIdProvider;
   @Mock Vertx vertx;
+  @Mock io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
   private SignalReceivedEventHandler handler;
 
@@ -74,7 +75,8 @@ class BulkSignalEventLogAuditTest {
             recoveryService,
             reactiveEventLogRepository,
             lifecycleEvents,
-            traceIdProvider);
+            traceIdProvider,
+            bridgeResolver);
     when(traceIdProvider.currentTraceId()).thenReturn(Optional.empty());
   }
 

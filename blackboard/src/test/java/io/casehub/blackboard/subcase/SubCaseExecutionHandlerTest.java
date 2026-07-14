@@ -125,7 +125,8 @@ class SubCaseExecutionHandlerTest {
             .version("1.0.0")
             .waitForCompletion(waitForCompletion)
             .build();
-    return new SubCaseScheduleEvent(parentInstance(parentCaseId), subCase, Map.of(), bindingName);
+    return new SubCaseScheduleEvent(
+        parentInstance(parentCaseId), subCase, Map.of(), null, bindingName);
   }
 
   @Test
@@ -190,7 +191,7 @@ class SubCaseExecutionHandlerTest {
     SubCase selfReference =
         SubCase.builder().namespace("test").name("child-case").version("1.0.0").build();
     SubCaseScheduleEvent event =
-        new SubCaseScheduleEvent(parent, selfReference, Map.of(), "spawn-child");
+        new SubCaseScheduleEvent(parent, selfReference, Map.of(), null, "spawn-child");
 
     handler.onSubCaseSchedule(event).await().indefinitely();
 
@@ -263,7 +264,7 @@ class SubCaseExecutionHandlerTest {
             .build();
     SubCaseScheduleEvent event =
         new SubCaseScheduleEvent(
-            parentInstance(parentCaseId), groupedSubCase, Map.of(), "spawn-group");
+            parentInstance(parentCaseId), groupedSubCase, Map.of(), null, "spawn-group");
 
     // Should not throw even though PlanItem is already DELEGATED
     handler.onSubCaseSchedule(event).await().indefinitely();

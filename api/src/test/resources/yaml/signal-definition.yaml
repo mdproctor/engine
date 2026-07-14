@@ -1,0 +1,22 @@
+dsl: "1.0.0"
+namespace: test
+name: signal-test
+version: "1.0.0"
+signals:
+  - name: payment-received
+    contextType: java.util.Map
+  - name: kyc-result
+    contextType: java.lang.String
+spec:
+  capabilities:
+    - name: process
+      inputProjection: "."
+  workers:
+    - name: processor
+      capabilities: [process]
+  bindings:
+    - name: process-binding
+      capability: process
+      on:
+        contextChange:
+          expression: ".signals"

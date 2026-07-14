@@ -31,6 +31,7 @@ public final class EventBusAddresses {
 
   public static final String SIGNAL_RECEIVED = "casehub.signal.received";
   public static final String BULK_SIGNAL_RECEIVED = "casehub.signal.bulk.received";
+  public static final String TYPED_SIGNAL_RECEIVED = "casehub.engine.typed-signal-received";
 
   public static final String WORKER_SCHEDULE = "casehub.worker.schedule";
   public static final String WORKER_EXECUTION_STARTED = "casehub.worker.start";

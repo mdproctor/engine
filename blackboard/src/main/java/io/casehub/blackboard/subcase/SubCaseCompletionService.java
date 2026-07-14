@@ -80,6 +80,7 @@ public class SubCaseCompletionService {
   private final EventBus eventBus;
   private final BlackboardRegistry registry;
   private final Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents;
+  private final io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
 
   @Inject
   public SubCaseCompletionService(
@@ -91,7 +92,8 @@ public class SubCaseCompletionService {
       CaseHubRuntime caseHubRuntime,
       EventBus eventBus,
       BlackboardRegistry registry,
-      Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents) {
+      Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents,
+      io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry) {
     this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.jqEvaluator = jqEvaluator;
     this.caseInstanceCache = caseInstanceCache;
@@ -101,6 +103,7 @@ public class SubCaseCompletionService {
     this.eventBus = eventBus;
     this.registry = registry;
     this.groupLifecycleEvents = groupLifecycleEvents;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
   }
 
   public void handleCompletion(CaseLifecycleEvent event) {
@@ -235,10 +238,6 @@ public class SubCaseCompletionService {
   private void handleUngroupedCompletion(
       UUID childCaseId, CaseLifecycleEvent event, EventLog startedEntry) {
     UUID parentCaseId = startedEntry.getCaseId();
-    String outputMapping =
-        startedEntry.getMetadata().has("outputMapping")
-            ? startedEntry.getMetadata().get("outputMapping").asText()
-            : null;
 
     CaseStatus childStatus =
         event.caseStatus() != null ? CaseStatus.valueOf(event.caseStatus()) : CaseStatus.FAULTED;
@@ -249,9 +248,10 @@ public class SubCaseCompletionService {
       return;
     }
 
+    io.casehub.api.model.SubCaseMapping mapping = resolveOutputMapping(startedEntry, parentCaseId);
     Map<String, Object> appliedData = null;
-    if (outputMapping != null) {
-      appliedData = applyOutputMappingToParent(childCaseId, parent, outputMapping);
+    if (mapping != null) {
+      appliedData = applyMappingToParent(childCaseId, parent, mapping);
     }
 
     LOG.infof(
@@ -307,39 +307,82 @@ public class SubCaseCompletionService {
 
   private Map<String, Object> applyOutputMapping(
       EventLog startedEntry, UUID childCaseId, UUID parentCaseId) {
-    String outputMapping =
+    io.casehub.api.model.SubCaseMapping mapping = resolveOutputMapping(startedEntry, parentCaseId);
+    if (mapping == null) return null;
+    CaseInstance parent = caseInstanceCache.get(parentCaseId);
+    if (parent == null) return null;
+    return applyMappingToParent(childCaseId, parent, mapping);
+  }
+
+  private io.casehub.api.model.SubCaseMapping resolveOutputMapping(
+      EventLog startedEntry, UUID parentCaseId) {
+    String outputMappingExpr =
         startedEntry.getMetadata().has("outputMapping")
             ? startedEntry.getMetadata().get("outputMapping").asText()
             : null;
-    if (outputMapping == null) return null;
-    CaseInstance parent = caseInstanceCache.get(parentCaseId);
-    if (parent != null) {
-      return applyOutputMappingToParent(childCaseId, parent, outputMapping);
+    if (outputMappingExpr != null) {
+      return io.casehub.api.model.SubCaseMapping.of(outputMappingExpr);
+    }
+    String bindingName =
+        startedEntry.getMetadata().has("bindingName")
+            ? startedEntry.getMetadata().get("bindingName").asText()
+            : null;
+    if (bindingName != null) {
+      CaseInstance parent = caseInstanceCache.get(parentCaseId);
+      if (parent != null && parent.getCaseMetaModel() != null) {
+        var definition = caseDefinitionRegistry.getCaseDefinition(parent.getCaseMetaModel());
+        if (definition != null) {
+          return definition.getBindings().stream()
+              .filter(b -> bindingName.equals(b.getName()))
+              .findFirst()
+              .map(
+                  b ->
+                      b.target() instanceof io.casehub.api.model.SubCaseTarget st
+                          ? st.subCase().outputMapping()
+                          : null)
+              .orElse(null);
+        }
+      }
     }
     return null;
   }
 
-  private Map<String, Object> applyOutputMappingToParent(
-      UUID childCaseId, CaseInstance parent, String outputMapping) {
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> applyMappingToParent(
+      UUID childCaseId, CaseInstance parent, io.casehub.api.model.SubCaseMapping mapping) {
     CaseInstance child = caseInstanceCache.get(childCaseId);
-    if (child != null) {
-      try {
-        ValidationResult vr =
-            jqEvaluator.eval(
-                outputMapping, child.getCaseContext().layer(ContextLayer.WORKING).asJsonNode());
-        if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return null;
-        Map<String, Object> mapped = OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
-        mapped.forEach((k, v) -> parent.getCaseContext().set(k, v));
-        return mapped;
-      } catch (Exception e) {
-        LOG.warnf(e, "outputMapping evaluation failed for child case %s", childCaseId);
-        return null;
-      }
-    } else {
+    if (child == null) {
       LOG.warnf(
           "SubCaseCompletionService: child %s not in cache — outputMapping skipped", childCaseId);
+      return null;
     }
-    return null;
+    try {
+      Object result;
+      switch (mapping) {
+        case io.casehub.api.model.SubCaseMapping.Expression expr -> {
+          ValidationResult vr =
+              jqEvaluator.eval(
+                  expr.expression(),
+                  child.getCaseContext().layer(ContextLayer.WORKING).asJsonNode());
+          if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return null;
+          result = OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
+        }
+        case io.casehub.api.model.SubCaseMapping.Lambda lambda -> {
+          result = lambda.fn().apply(child.getCaseContext());
+        }
+      }
+      Map<String, Object> mapped;
+      if (result instanceof Map) {
+        mapped = (Map<String, Object>) result;
+      } else {
+        mapped = OBJECT_MAPPER.convertValue(result, MAP_TYPE);
+      }
+      mapped.forEach((k, v) -> parent.getCaseContext().set(k, v));
+      return mapped;
+    } catch (Exception e) {
+      LOG.warnf(e, "outputMapping evaluation failed for child case %s", childCaseId);
+      return null;
+    }
   }
 
   private void cancelRemainingChildren(SubCaseGroup group, UUID justCompletedChildId) {

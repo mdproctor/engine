@@ -64,6 +64,7 @@ public class SignalReceivedEventHandler {
   private final ReactiveEventLogRepository reactiveEventLogRepository;
   private final Event<CaseLifecycleEvent> lifecycleEvents;
   private final LedgerTraceIdProvider traceIdProvider;
+  private final io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
   @Inject
   SignalReceivedEventHandler(
@@ -73,7 +74,8 @@ public class SignalReceivedEventHandler {
       WorkerExecutionRecoveryService recoveryService,
       ReactiveEventLogRepository reactiveEventLogRepository,
       Event<CaseLifecycleEvent> lifecycleEvents,
-      LedgerTraceIdProvider traceIdProvider) {
+      LedgerTraceIdProvider traceIdProvider,
+      io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver) {
     this.vertx = vertx;
     this.eventBus = eventBus;
     this.caseInstanceCache = caseInstanceCache;
@@ -81,6 +83,7 @@ public class SignalReceivedEventHandler {
     this.reactiveEventLogRepository = reactiveEventLogRepository;
     this.lifecycleEvents = lifecycleEvents;
     this.traceIdProvider = traceIdProvider;
+    this.bridgeResolver = bridgeResolver;
   }
 
   private static final int MAX_STARTING_RETRIES = 30;
@@ -94,6 +97,148 @@ public class SignalReceivedEventHandler {
   @ConsumeEvent(value = EventBusAddresses.BULK_SIGNAL_RECEIVED)
   public Uni<Void> onBulkSignalReceived(BulkSignalReceivedEvent event) {
     return onBulkSignalReceivedWithRetry(event, 0);
+  }
+
+  @ConsumeEvent(value = EventBusAddresses.TYPED_SIGNAL_RECEIVED)
+  public Uni<Void> onTypedSignalReceived(
+      io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event) {
+    return onTypedSignalReceivedWithRetry(event, 0);
+  }
+
+  private Uni<Void> onTypedSignalReceivedWithRetry(
+      io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event, int attempt) {
+    CaseInstance cached = caseInstanceCache.get(event.caseId());
+    if (cached == null) {
+      LOG.warnf("CaseInstance not found in cache for caseId=%s, trying recovery", event.caseId());
+      return recoveryService
+          .loadOrRestoreCaseInstance(event.caseId())
+          .chain(instance -> applyTypedSignal(instance, event));
+    }
+    CaseStatus state = cached.getState();
+    if (state == CaseStatus.RUNNING || state == CaseStatus.WAITING) {
+      return applyTypedSignal(cached, event);
+    }
+    if (state != CaseStatus.STARTING) {
+      LOG.warnf(
+          "Ignoring typed signal '%s' for caseId=%s — case is %s",
+          event.signalName(), event.caseId(), state);
+      return Uni.createFrom().voidItem();
+    }
+    if (attempt >= MAX_STARTING_RETRIES) {
+      LOG.warnf(
+          "CaseInstance caseId=%s still STARTING after %d retries, proceeding anyway",
+          event.caseId(), MAX_STARTING_RETRIES);
+      return applyTypedSignal(cached, event);
+    }
+    LOG.debugf(
+        "CaseInstance caseId=%s is still STARTING (attempt %d/%d), retrying in %dms",
+        event.caseId(), attempt + 1, MAX_STARTING_RETRIES, STARTING_RETRY_DELAY_MS);
+    return Uni.createFrom()
+        .emitter(em -> vertx.setTimer(STARTING_RETRY_DELAY_MS, id -> em.complete(null)))
+        .chain(() -> onTypedSignalReceivedWithRetry(event, attempt + 1));
+  }
+
+  private Uni<Void> applyTypedSignal(
+      CaseInstance instance,
+      io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event) {
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
+    String lockKey = "signal:" + instance.getUuid() + ":signals." + event.signalName();
+    return vertx
+        .sharedData()
+        .getLocalLock(lockKey)
+        .chain(lock -> applyTypedSignalUnderLock(instance, event, lock, traceId));
+  }
+
+  private Uni<Void> applyTypedSignalUnderLock(
+      CaseInstance instance,
+      io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event,
+      Lock lock,
+      String traceId) {
+    String signalPath = "signals." + event.signalName();
+    Optional<JsonNode> maybeDiff;
+    try {
+      maybeDiff = instance.getCaseContext().applyAndDiff(signalPath, event.payload());
+    } finally {
+      lock.release();
+    }
+
+    if (maybeDiff.isEmpty()) {
+      LOG.debugf(
+          "Typed signal '%s' produced no state change for caseId=%s — skipping",
+          event.signalName(), event.caseId());
+      return Uni.createFrom().voidItem();
+    }
+
+    JsonNode diff = maybeDiff.get();
+    EventLog eventLog = buildTypedSignalEventLog(instance, diff, event);
+
+    return reactiveEventLogRepository
+        .append(eventLog, instance.tenancyId)
+        .invoke(
+            () -> {
+              lifecycleEvents
+                  .fireAsync(
+                      CaseLifecycleEvent.of(
+                          instance, "SignalCase", "TypedSignalReceived", null, "System", traceId))
+                  .whenComplete(
+                      (v, t) -> {
+                        if (t != null) {
+                          LOG.warnf(
+                              t,
+                              "CaseLifecycleEvent observer failed for caseId=%s event=TypedSignalReceived",
+                              instance.getUuid());
+                        }
+                      });
+            })
+        .invoke(
+            () ->
+                eventBus.publish(
+                    CONTEXT_CHANGED,
+                    new CaseContextChangedEvent(
+                        instance,
+                        instance.getCaseContext().snapshot(),
+                        ContextLayer.WORKING,
+                        null,
+                        null)))
+        .replaceWithVoid()
+        .onFailure()
+        .invoke(
+            t ->
+                LOG.errorf(
+                    t,
+                    "Failed to process typed signal '%s' for caseId=%s",
+                    event.signalName(),
+                    event.caseId()));
+  }
+
+  private EventLog buildTypedSignalEventLog(
+      CaseInstance instance,
+      JsonNode diff,
+      io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event) {
+    EventLog eventLog = new EventLog();
+    eventLog.setCaseId(instance.getUuid());
+    eventLog.setEventType(CaseHubEventType.SIGNAL_RECEIVED);
+    eventLog.setStreamType(EventStreamType.CASE);
+    eventLog.setTimestamp(Instant.now());
+    eventLog.setPayload(OBJECT_MAPPER.createObjectNode().set("patch", diff.deepCopy()));
+
+    ObjectNode metadata = OBJECT_MAPPER.createObjectNode();
+    metadata.put("origin", io.casehub.api.model.event.ExecutionOrigin.SIGNAL.name());
+    metadata.put("signalTypeName", event.signalName());
+    metadata.put("payloadType", event.payloadTypeName());
+
+    io.casehub.api.context.ContextBridge<?> bridge =
+        bridgeResolver.resolveByType(event.payloadType());
+    try {
+      JsonNode serialisedPayload = bridgeResolver.serialise(bridge, event.payload());
+      metadata.set("typedPayload", serialisedPayload);
+    } catch (Exception e) {
+      LOG.warnf(
+          e, "Failed to serialise typed signal payload for EventLog — audit data unavailable");
+    }
+
+    eventLog.setMetadata(metadata);
+    return eventLog;
   }
 
   private Uni<Void> onSignalReceivedWithRetry(SignalReceivedEvent event, int attempt) {

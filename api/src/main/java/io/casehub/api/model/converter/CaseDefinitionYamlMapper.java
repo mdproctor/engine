@@ -36,6 +36,7 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.PredicateBasedCompletion;
+import io.casehub.api.model.SignalType;
 import io.casehub.api.model.SingleGoalExpression;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.StandardGoalKind;
@@ -559,6 +560,21 @@ public final class CaseDefinitionYamlMapper {
         cbrBuilder.cbrType(cbrNode.get("cbrType").asText());
       }
       def.setCbrConfig(cbrBuilder.build());
+    }
+
+    if (schema.getSignals() != null && !schema.getSignals().isEmpty()) {
+      var signalTypes = new java.util.ArrayList<SignalType<?>>();
+      for (var sig : schema.getSignals()) {
+        try {
+          Class<?> payloadClass = Class.forName(sig.getContextType());
+          signalTypes.add(SignalType.of(sig.getName(), payloadClass));
+        } catch (ClassNotFoundException e) {
+          throw new IllegalArgumentException(
+              "Signal '" + sig.getName() + "' contextType class not found: " + sig.getContextType(),
+              e);
+        }
+      }
+      def.setSignals(signalTypes);
     }
 
     return def;

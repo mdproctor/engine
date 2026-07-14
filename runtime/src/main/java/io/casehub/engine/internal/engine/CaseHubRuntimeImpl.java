@@ -21,15 +21,22 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.SignalRejectedException;
+import io.casehub.api.model.SignalType;
 import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletionStage;
@@ -41,6 +48,8 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
   @Inject CaseHubReactor reactor;
+  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
+  @Inject CaseInstanceCache caseInstanceCache;
 
   @Override
   public CompletionStage<UUID> startCase(CaseDefinition definition) {
@@ -117,6 +126,47 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   public CompletionStage<CaseContext> signalAndAwait(
       UUID caseId, Map<String, Object> updates, Duration timeout) {
     return reactor.signalAndAwait(caseId, updates, timeout).subscribeAsCompletionStage();
+  }
+
+  @Override
+  public <T> CompletionStage<Void> signal(UUID caseId, SignalType<T> signalType, T payload) {
+    Objects.requireNonNull(payload, "Typed signal payload must not be null");
+    CaseInstance instance = caseInstanceCache.get(caseId);
+    if (instance == null) {
+      throw new IllegalArgumentException("CaseInstance not found: " + caseId);
+    }
+    CaseMetaModel meta = instance.getCaseMetaModel();
+    if (meta != null) {
+      CaseDefinition definition = caseDefinitionRegistry.getCaseDefinition(meta);
+      if (definition != null && !definition.getSignals().isEmpty()) {
+        var declared =
+            definition.getSignals().stream()
+                .filter(s -> s.name().equals(signalType.name()))
+                .findFirst()
+                .orElse(null);
+        if (declared == null) {
+          throw new SignalRejectedException(
+              "Signal '" + signalType.name() + "' not declared on definition " + meta.getName());
+        }
+        if (!declared.payloadType().equals(signalType.payloadType())) {
+          throw new SignalRejectedException(
+              "Signal '"
+                  + signalType.name()
+                  + "' declared with type "
+                  + declared.payloadType().getName()
+                  + " but received "
+                  + signalType.payloadType().getName());
+        }
+      }
+    }
+    return reactor
+        .signalTyped(
+            caseId,
+            signalType.name(),
+            payload,
+            signalType.payloadType(),
+            signalType.payloadType().getName())
+        .subscribeAsCompletionStage();
   }
 
   @Override

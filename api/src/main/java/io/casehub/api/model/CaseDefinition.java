@@ -23,6 +23,7 @@ import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +59,7 @@ public class CaseDefinition {
   private CbrConfig cbrConfig;
   private io.casehub.api.context.ContextBridge<?> defaultWorkerBridge;
   private String contextStoreFactory;
+  private List<SignalType<?>> signals = List.of();
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -246,6 +248,14 @@ public class CaseDefinition {
     this.contextStoreFactory = contextStoreFactory;
   }
 
+  public List<SignalType<?>> getSignals() {
+    return signals;
+  }
+
+  public void setSignals(List<SignalType<?>> signals) {
+    this.signals = signals != null ? List.copyOf(signals) : List.of();
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -276,6 +286,7 @@ public class CaseDefinition {
     private CbrConfig cbrConfig;
     private io.casehub.api.context.ContextBridge<?> defaultWorkerBridge;
     private String contextStoreFactory;
+    private List<SignalType<?>> signals = new java.util.ArrayList<>();
 
     private Builder() {}
 
@@ -472,6 +483,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder signal(SignalType<?> signal) {
+      this.signals.add(signal);
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -509,6 +525,14 @@ public class CaseDefinition {
       caseHubDefinition.setCbrConfig(cbrConfig);
       caseHubDefinition.setDefaultWorkerBridge(defaultWorkerBridge);
       caseHubDefinition.setContextStoreFactory(contextStoreFactory);
+
+      Set<String> signalNames = new HashSet<>();
+      for (SignalType<?> s : signals) {
+        if (!signalNames.add(s.name())) {
+          throw new IllegalArgumentException("Duplicate signal name: " + s.name());
+        }
+      }
+      caseHubDefinition.setSignals(signals);
 
       return caseHubDefinition;
     }

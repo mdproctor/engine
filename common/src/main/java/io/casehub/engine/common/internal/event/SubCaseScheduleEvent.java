@@ -17,7 +17,6 @@ package io.casehub.engine.common.internal.event;
 
 import io.casehub.api.model.SubCase;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import java.util.Map;
 
 /**
  * Published by {@link io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler}
@@ -30,5 +29,6 @@ import java.util.Map;
 public record SubCaseScheduleEvent(
     CaseInstance parentInstance,
     SubCase subCase,
-    Map<String, Object> childInitialContext,
+    Object childInitialContext,
+    String contextBridgeType,
     String bindingName) {}

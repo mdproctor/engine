@@ -155,7 +155,7 @@ public class SubCaseExecutionHandler {
     if (subCase.groupId() != null) {
       return handleGrouped(parent, subCase, childCaseId, bindingName);
     } else {
-      return handleUngrouped(parent, subCase, childCaseId);
+      return handleUngrouped(parent, subCase, childCaseId, bindingName);
     }
   }
 
@@ -243,8 +243,10 @@ public class SubCaseExecutionHandler {
               meta.put("childCaseId", childCaseId.toString());
               meta.put("groupId", groupId);
               meta.put("waitForCompletion", true);
-              if (subCase.outputMapping() != null) {
-                meta.put("outputMapping", subCase.outputMapping());
+              meta.put("bindingName", bindingName);
+              if (subCase.outputMapping()
+                  instanceof io.casehub.api.model.SubCaseMapping.Expression expr) {
+                meta.put("outputMapping", expr.expression());
               }
               log.setMetadata(meta);
 
@@ -263,7 +265,8 @@ public class SubCaseExecutionHandler {
             });
   }
 
-  private Uni<Void> handleUngrouped(CaseInstance parent, SubCase subCase, UUID childCaseId) {
+  private Uni<Void> handleUngrouped(
+      CaseInstance parent, SubCase subCase, UUID childCaseId, String bindingName) {
     EventLog log = new EventLog();
     log.setCaseId(parent.getUuid());
     log.setWorkerId(childCaseId.toString());
@@ -273,8 +276,9 @@ public class SubCaseExecutionHandler {
     ObjectNode meta = OBJECT_MAPPER.createObjectNode();
     meta.put("childCaseId", childCaseId.toString());
     meta.put("waitForCompletion", subCase.waitForCompletion());
-    if (subCase.outputMapping() != null) {
-      meta.put("outputMapping", subCase.outputMapping());
+    meta.put("bindingName", bindingName);
+    if (subCase.outputMapping() instanceof io.casehub.api.model.SubCaseMapping.Expression expr) {
+      meta.put("outputMapping", expr.expression());
     }
     log.setMetadata(meta);
 

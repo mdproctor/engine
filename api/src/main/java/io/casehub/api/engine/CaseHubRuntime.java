@@ -18,6 +18,7 @@ package io.casehub.api.engine;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.SignalType;
 import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -126,6 +127,10 @@ public interface CaseHubRuntime {
   default CaseContext signalAndAwaitSync(
       UUID caseId, Map<String, Object> updates, Duration timeout) {
     return signalAndAwait(caseId, updates, timeout).toCompletableFuture().join();
+  }
+
+  default <T> CompletionStage<Void> signal(UUID caseId, SignalType<T> signalType, T payload) {
+    throw new UnsupportedOperationException("Typed signals not supported by this runtime");
   }
 
   /**

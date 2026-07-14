@@ -27,8 +27,8 @@ public class SubCase {
   private final String version;
   private final SubCaseCompletionStrategy completionStrategy;
   private final boolean waitForCompletion;
-  private final String inputMapping;
-  private final String outputMapping;
+  private final SubCaseMapping inputMapping;
+  private final SubCaseMapping outputMapping;
   private final String groupId;
   private final int totalInGroup;
   private final int requiredCount;
@@ -44,7 +44,7 @@ public class SubCase {
             ? b.completionStrategy
             : new DefaultSubCaseCompletionStrategy();
     this.waitForCompletion = b.waitForCompletion;
-    this.inputMapping = b.inputMapping != null ? b.inputMapping : ".";
+    this.inputMapping = b.inputMapping != null ? b.inputMapping : SubCaseMapping.of(".");
     this.outputMapping = b.outputMapping;
     this.groupId = b.groupId;
     this.totalInGroup = b.totalInGroup;
@@ -78,11 +78,11 @@ public class SubCase {
     return waitForCompletion;
   }
 
-  public String inputMapping() {
+  public SubCaseMapping inputMapping() {
     return inputMapping;
   }
 
-  public String outputMapping() {
+  public SubCaseMapping outputMapping() {
     return outputMapping;
   }
 
@@ -116,8 +116,8 @@ public class SubCase {
     private String version;
     private SubCaseCompletionStrategy completionStrategy;
     private boolean waitForCompletion = true;
-    private String inputMapping;
-    private String outputMapping;
+    private SubCaseMapping inputMapping;
+    private SubCaseMapping outputMapping;
     private String groupId;
     private int totalInGroup = 0;
     private int requiredCount = 0;
@@ -150,11 +150,21 @@ public class SubCase {
     }
 
     public Builder inputMapping(String v) {
+      inputMapping = SubCaseMapping.of(v);
+      return this;
+    }
+
+    public Builder inputMapping(SubCaseMapping v) {
       inputMapping = v;
       return this;
     }
 
     public Builder outputMapping(String v) {
+      outputMapping = SubCaseMapping.of(v);
+      return this;
+    }
+
+    public Builder outputMapping(SubCaseMapping v) {
       outputMapping = v;
       return this;
     }

@@ -130,6 +130,26 @@ properties:
         name:
           type: string
           description: User-defined layer name
+  signals:
+    type: array
+    title: CaseSignals
+    description: >
+      Typed signal declarations for this case definition. Each signal has a name
+      and a contextType (fully qualified Java class name). When declared, only
+      signals with matching name and payload type are accepted on the typed API.
+    items:
+      type: object
+      required: [name, contextType]
+      unevaluatedProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Signal name — must be unique within the definition
+        contextType:
+          type: string
+          minLength: 1
+          description: Fully qualified Java class name for the signal payload type
   spec:
     $ref: "#/$defs/CaseDefinitionSpec"
 $defs:

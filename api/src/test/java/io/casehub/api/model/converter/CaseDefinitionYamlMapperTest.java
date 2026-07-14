@@ -1807,4 +1807,24 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
     assertThat(def.getGoals().get(0).getKind()).isEqualTo("escalated");
   }
+
+  @Test
+  void load_signalsArray_parsesSignalTypes() throws Exception {
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            getClass().getClassLoader().getResourceAsStream("yaml/signal-definition.yaml"));
+    assertThat(def.getSignals()).hasSize(2);
+    assertThat(def.getSignals().get(0).name()).isEqualTo("payment-received");
+    assertThat(def.getSignals().get(0).payloadType()).isEqualTo(java.util.Map.class);
+    assertThat(def.getSignals().get(1).name()).isEqualTo("kyc-result");
+    assertThat(def.getSignals().get(1).payloadType()).isEqualTo(String.class);
+  }
+
+  @Test
+  void load_noSignals_emptyList() throws Exception {
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            getClass().getClassLoader().getResourceAsStream("casehub/minimal.yaml"));
+    assertThat(def.getSignals()).isEmpty();
+  }
 }

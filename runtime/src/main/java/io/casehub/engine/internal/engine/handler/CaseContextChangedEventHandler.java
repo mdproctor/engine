@@ -713,10 +713,36 @@ public class CaseContextChangedEventHandler {
       final CaseInstance caseInstance,
       final io.casehub.api.model.SubCase subCase,
       final String bindingName) {
-    final Map<String, Object> childContext =
-        evalJqAsMap(
-            caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
-            subCase.inputMapping());
+
+    Object childContext;
+    io.casehub.api.model.SubCaseMapping mapping = subCase.inputMapping();
+    switch (mapping) {
+      case io.casehub.api.model.SubCaseMapping.Expression expr -> {
+        Map<String, Object> result =
+            evalJqAsMap(
+                caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
+                expr.expression());
+        if (result.isEmpty()) {
+          LOG.errorf(
+              "SubCase inputMapping produced empty result for binding '%s' on case %s — not dispatching",
+              bindingName, caseInstance.getUuid());
+          return Uni.createFrom().voidItem();
+        }
+        childContext = result;
+      }
+      case io.casehub.api.model.SubCaseMapping.Lambda lambda -> {
+        try {
+          childContext = lambda.fn().apply(caseInstance.getCaseContext());
+        } catch (Exception e) {
+          LOG.errorf(
+              e,
+              "SubCase inputMapping lambda failed for binding '%s' on case %s — not dispatching",
+              bindingName,
+              caseInstance.getUuid());
+          return Uni.createFrom().voidItem();
+        }
+      }
+    }
 
     LOG.infof(
         "Publishing SubCaseScheduleEvent: parentCaseId=%s binding=%s subCase=%s/%s/%s waitForCompletion=%s",
@@ -729,7 +755,7 @@ public class CaseContextChangedEventHandler {
 
     eventBus.publish(
         EventBusAddresses.SUBCASE_SCHEDULE,
-        new SubCaseScheduleEvent(caseInstance, subCase, childContext, bindingName));
+        new SubCaseScheduleEvent(caseInstance, subCase, childContext, null, bindingName));
 
     return Uni.createFrom().voidItem();
   }

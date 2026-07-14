@@ -61,19 +61,24 @@ public class BridgeResolver {
     return new JacksonPojoBridge<>(inputType);
   }
 
-  public ContextBridge<?> resolveByTypeName(String typeName) {
-    if (typeName == null) return MAP_BRIDGE;
-
+  public ContextBridge<?> resolveByType(Class<?> payloadType) {
     for (ContextBridge<?> bridge : bridges) {
-      if (bridge.contextType().getName().equals(typeName)) {
+      if (bridge.contextType().equals(payloadType)) {
         return bridge;
       }
     }
+    if (Map.class.equals(payloadType)) {
+      return MAP_BRIDGE;
+    }
+    return new JacksonPojoBridge<>(payloadType);
+  }
 
+  public ContextBridge<?> resolveByTypeName(String typeName) {
+    if (typeName == null) {
+      return MAP_BRIDGE;
+    }
     try {
-      Class<?> clazz = Class.forName(typeName);
-      if (Map.class.equals(clazz)) return MAP_BRIDGE;
-      return new JacksonPojoBridge<>(clazz);
+      return resolveByType(Class.forName(typeName));
     } catch (ClassNotFoundException e) {
       return MAP_BRIDGE;
     }

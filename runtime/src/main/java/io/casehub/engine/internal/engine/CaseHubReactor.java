@@ -19,6 +19,7 @@ import static io.casehub.engine.common.internal.event.EventBusAddresses.BULK_SIG
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STARTED;
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
 import static io.casehub.engine.common.internal.event.EventBusAddresses.SIGNAL_RECEIVED;
+import static io.casehub.engine.common.internal.event.EventBusAddresses.TYPED_SIGNAL_RECEIVED;
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
@@ -34,6 +35,7 @@ import io.casehub.engine.common.internal.event.BulkSignalReceivedEvent;
 import io.casehub.engine.common.internal.event.CaseStartedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.SignalReceivedEvent;
+import io.casehub.engine.common.internal.event.TypedSignalReceivedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
@@ -321,6 +323,21 @@ class CaseHubReactor {
     return eventBus
         .<Void>request(
             BULK_SIGNAL_RECEIVED, new BulkSignalReceivedEvent(caseId, tenancyId, updates))
+        .replaceWithVoid();
+  }
+
+  Uni<Void> signalTyped(
+      UUID caseId,
+      String signalName,
+      Object payload,
+      Class<?> payloadType,
+      String payloadTypeName) {
+    String tenancyId = requireInstance(caseId).tenancyId;
+    return eventBus
+        .<Void>request(
+            TYPED_SIGNAL_RECEIVED,
+            new TypedSignalReceivedEvent(
+                caseId, signalName, payload, payloadType, payloadTypeName, tenancyId))
         .replaceWithVoid();
   }
 
