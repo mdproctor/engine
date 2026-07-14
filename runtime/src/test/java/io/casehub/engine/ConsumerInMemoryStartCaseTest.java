@@ -39,7 +39,6 @@ import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
-import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
@@ -199,18 +198,18 @@ public class ConsumerInMemoryStartCaseTest {
     }
   }
 
-  // ── @Priority(1) repo subclasses — mimics engine-testing's Test* repos ──
+  // ── Alternative repo subclasses — mimics engine-testing's Test* repos ──
+  // @Alternative WITHOUT @Priority — only enabled via getEnabledAlternatives() below.
+  // @Priority(1) would make these globally enabled across ALL test profiles,
+  // contaminating other profiles' CDI contexts and causing intermittent boot failures.
 
   @Alternative
-  @Priority(1)
   @ApplicationScoped
-  public static class PriorityActivatedCaseInstanceRepository
-      extends InMemoryCaseInstanceRepository {}
+  public static class ProfileScopedCaseInstanceRepository extends InMemoryCaseInstanceRepository {}
 
   @Alternative
-  @Priority(1)
   @ApplicationScoped
-  public static class PriorityActivatedReactiveCaseInstanceRepository
+  public static class ProfileScopedReactiveCaseInstanceRepository
       extends InMemoryReactiveCaseInstanceRepository {}
 
   // ── Test profile ──
