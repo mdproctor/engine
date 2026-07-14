@@ -160,7 +160,7 @@ class CaseLifecycleCdiEventTest {
     private final Capability capability =
         Capability.builder()
             .name("do-work")
-            .inputSchema(".working")
+            .inputSchema(".")
             .outputSchema("{ done: true }")
             .build();
 

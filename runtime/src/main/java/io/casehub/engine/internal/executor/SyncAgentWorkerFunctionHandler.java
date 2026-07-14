@@ -65,11 +65,23 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
       int timeoutMs,
       ExecutionMetadata metadata) {
 
+    // Null inputData from JQ projection against empty/missing context keys — coerce to
+    // empty Map for Map-typed functions (the common case), fail clearly otherwise.
+    if (inputData == null) {
+      if (function.inputType() == java.util.Map.class) {
+        inputData = java.util.Map.of();
+      } else {
+        throw new io.casehub.api.context.BridgeTypeMismatchException(
+            function.inputType().getName(), "null");
+      }
+    }
+
     if (!function.inputType().isInstance(inputData) && !(inputData instanceof java.util.Map)) {
       throw new io.casehub.api.context.BridgeTypeMismatchException(
           function.inputType().getName(), inputData.getClass().getName());
     }
 
+    final Object resolvedInput = inputData;
     java.util.function.Function<Object, WorkerResult> fn =
         switch (function) {
           case WorkerFunction.Sync<?> sync ->
@@ -87,7 +99,7 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
               WorkerExecutionContext.set(context);
               WorkerExecutionContext.setRuntime(workerRuntimeFactory.create(context.caseId()));
               try {
-                return fn.apply(inputData);
+                return fn.apply(resolvedInput);
               } finally {
                 WorkerExecutionContext.clear();
               }

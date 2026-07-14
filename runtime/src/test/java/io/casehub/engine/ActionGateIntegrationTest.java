@@ -294,7 +294,7 @@ class ActionGateIntegrationTest {
       final Capability cap =
           Capability.builder()
               .name("file-sar-gate-test")
-              .inputSchema(".working")
+              .inputSchema(".")
               .outputSchema(".")
               .build();
       final Goal goal =

@@ -224,7 +224,7 @@ class ActionGateResolutionTest {
       final Capability cap =
           Capability.builder()
               .name("resolution-gate-cap")
-              .inputSchema(".working")
+              .inputSchema(".")
               .outputSchema(".")
               .build();
       final Goal goal =
