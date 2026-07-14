@@ -55,6 +55,7 @@ class InboundWorkItemBridgeGuardTest {
 
   private static MessageReceivedEvent anyEvent() {
     return new MessageReceivedEvent(
+        null,
         "ch",
         UUID.randomUUID(),
         "t1",

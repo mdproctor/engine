@@ -15,7 +15,8 @@
  */
 package io.casehub.engine.internal.engine;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.SignalRejectedException;

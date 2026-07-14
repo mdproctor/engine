@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

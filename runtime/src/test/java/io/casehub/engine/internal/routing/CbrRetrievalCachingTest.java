@@ -283,5 +283,10 @@ class CbrRetrievalCachingTest {
     @Override
     public void recordOutcome(
         String caseId, String tenantId, io.casehub.neocortex.memory.cbr.CbrOutcome outcome) {}
+
+    @Override
+    public Integer purge(io.casehub.neocortex.memory.cbr.CbrRetentionPolicy policy) {
+      return 0;
+    }
   }
 }

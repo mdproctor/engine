@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.common.internal.context;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.context.ContextBridge;
 import io.casehub.api.context.JacksonPojoBridge;

@@ -69,6 +69,7 @@ class QhorusMessageSignalBridgeStatusTest {
 
     MessageReceivedEvent event =
         new MessageReceivedEvent(
+            null,
             channelName,
             channelId,
             "test-tenancy",
@@ -112,6 +113,7 @@ class QhorusMessageSignalBridgeStatusTest {
   void statusOnNonCaseChannel_isIgnored() {
     MessageReceivedEvent event =
         new MessageReceivedEvent(
+            null,
             "general-channel",
             UUID.randomUUID(),
             "test-tenancy",

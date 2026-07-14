@@ -137,6 +137,7 @@ class InboundWorkItemBridgeTest {
 
   private static MessageReceivedEvent commandEvent(final String tenancyId) {
     return new MessageReceivedEvent(
+        null,
         "test-channel",
         UUID.randomUUID(),
         tenancyId,
@@ -228,6 +229,7 @@ class InboundWorkItemBridgeTest {
     // which MessageObserverDispatcher treats as "all channels". Policies must self-filter.
     final MessageReceivedEvent channelA =
         new MessageReceivedEvent(
+            null,
             "channel-a",
             UUID.randomUUID(),
             "tenant-a",
@@ -239,6 +241,7 @@ class InboundWorkItemBridgeTest {
             null);
     final MessageReceivedEvent channelB =
         new MessageReceivedEvent(
+            null,
             "channel-b",
             UUID.randomUUID(),
             "tenant-a",

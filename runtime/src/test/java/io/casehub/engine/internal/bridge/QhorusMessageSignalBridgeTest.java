@@ -286,6 +286,7 @@ class QhorusMessageSignalBridgeTest {
   void eventOnCaseChannel_isIgnored() {
     bridge.onMessage(
         new MessageReceivedEvent(
+            null,
             caseChannelName(UUID.randomUUID(), "observe"),
             UUID.randomUUID(),
             "test-tenancy",
@@ -319,6 +320,7 @@ class QhorusMessageSignalBridgeTest {
     String channelName = caseChannelName(caseId, "oversight");
     MessageReceivedEvent event =
         new MessageReceivedEvent(
+            null,
             channelName,
             channelId,
             "test-tenancy",
@@ -362,6 +364,7 @@ class QhorusMessageSignalBridgeTest {
   private static MessageReceivedEvent event(
       String channelName, MessageType type, String senderId, String correlationId, String content) {
     return new MessageReceivedEvent(
+        null,
         channelName,
         UUID.randomUUID(),
         "test-tenancy",

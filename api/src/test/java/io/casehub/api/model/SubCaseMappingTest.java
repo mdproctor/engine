@@ -15,7 +15,8 @@
  */
 package io.casehub.api.model;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.context.CaseContext;
 import java.util.Map;
