@@ -163,6 +163,24 @@ is public (`public Long id`) and set by the repository after save.
 
 `CaseContextStore` (`api/context/`) — pluggable storage backend for a single context layer. Flat key-value interface (`get`, `put`, `remove`, `containsKey`, `keySet`, `snapshot`, `clear`, `putAll`, `size`, `isEmpty`). Extends `AutoCloseable` for resource cleanup. Optional hybrid observation via `supportsExternalChangeNotification()` and `onExternalChange(Consumer<ContextChangeEvent>)` — store implementations that can detect external writes (e.g. Redis pub/sub) fire events; self-echo filtering is the store's responsibility, not the framework's. `CaseContextStoreFactory extends NamedStrategy` creates stores per layer per case. `loadStore()` for existing cases (persistent stores return pre-populated state). `isDurable()` signals whether stores survive JVM restarts (controls recovery path: EventLog replay vs direct load). `InMemoryCaseContextStoreFactory` (`@DefaultBean @ApplicationScoped`, id `"in-memory"`) is the default. `EngineStrategyResolver` discovers factory beans via `Instance<CaseContextStoreFactory>`. `CaseDefinition.contextStoreFactory` (nullable String) selects the factory by strategy ID. Refs engine#419.
 
+**CaseContextStoreFactory wiring (engine#725):** `CaseHubRuntimeImpl.startCase()` resolves the factory via `StrategyResolver.resolve(CaseContextStoreFactory.class, definition.getContextStoreFactory())`. UUID is generated early and threaded through to `CaseHubReactor.buildInstance()`. Durable factories (`isDurable()=true`) throw `UnsupportedOperationException` until recovery path migration (engine#732). YAML: `context: { storeFactory: "auditing" }` — nested under `context:` block, read from raw node. `SubCaseExecutionHandler` delegates to `CaseHubRuntime.startCase()` — no separate wiring needed. `snapshot()` and `fromLayerDocument()` intentionally use in-memory factory (detached copies). Refs engine#725.
+
+## DAG Execution Driver
+
+`io.casehub.engine.plan` (`casehub-engine-common`) — DAG-aware parallel execution driver for topological dispatch with dependency scheduling. Pure `java.util.concurrent` — no CDI, no Mutiny. Refs engine#695.
+
+**Types:**
+- `DagPlan<T>` — immutable validated DAG. Construction rejects cycles, dangling references, and plans with no entry nodes. `entryNodeIds()`, `exitNodeIds()`, `topologicalSort()`. Factories: `singleton(id, task)`, `sequence(nodes)`, `parallel(tasks)`.
+- `DagNode<T>` — record `(id, task, dependsOn, joinType)`. `dependsOn` defaults to empty, `joinType` defaults to `ALL_OF`.
+- `JoinType` — `ALL_OF` (conjunction, fire when every predecessor completes) | `ANY_OF` (disjunction, fire when any predecessor succeeds).
+- `NodeState<R>` — sealed interface: `Pending`, `Dispatched`, `Completed(R)`, `Failed(reason, cause)`, `Skipped(reason)`, `Cancelled`. `isTerminal()` and `toTaskStatus()` mapping to `io.casehub.api.model.TaskStatus`.
+- `DispatchMode` — `STREAMING` (default, reactive dispatch on each completion) | `BARRIER` (wave-based, all ready → await all → next wave).
+- `DagResult<R>` — record `(nodeStates, completedResults, allSucceeded, elapsed)`. `taskStatuses()` projects to `TaskStatus` map.
+- `DagEventListener<T, R>` — observation callbacks: `onNodeDispatched`, `onNodeCompleted`, `onNodeFailed`, `onNodeSkipped`, `onNodeCancelled`, `onExecutionComplete`. Listener exceptions isolated — never crash the scheduler.
+- `DagDriver<T, R>` — single-use executor. `execute(Function<T, R>)` or `execute(Function<T, R>, Executor)`. `cancel()` marks pending nodes CANCELLED. Continue-by-default failure: failed node dependents transitively SKIPPED per join rules, independent paths unaffected.
+
+**Relationship to blocks' `ExecutionPlan<T>`:** `DagPlan<T>` is structurally equivalent but generic over `T` (no blocks coupling). Convergence path: when blocks#51 (`LeafTask implements TaskDescriptor`) ships, `ExecutionPlan<T>` can be promoted to engine-api and `DagPlan<T>` merges into it.
+
 `MutableCaseContext` (`api/context/`) — engine-internal extension of `CaseContext`. Adds `writableLayer(String name)` returning `WritableLayer`, `freezeLayer(String name)`, and `close()` (default no-op). `CaseContextImpl` implements `MutableCaseContext`. All engine-internal code (`CaseHubReactor`, `EpisodicLayerUpdater`, handlers) programs to `MutableCaseContext` — zero `instanceof CaseContextImpl` checks remain. `WritableLayerImpl` delegates storage to `CaseContextStore`. `engineSet()` and `engineUpdate()` remain on `WritableLayerImpl` only (not on the `WritableLayer` interface) — `EpisodicLayerUpdater` uses a localized cast. Refs engine#419.
 
 ## CaseContext Change Listeners

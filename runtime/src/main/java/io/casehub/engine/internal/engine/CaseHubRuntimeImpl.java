@@ -50,15 +50,20 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   @Inject CaseHubReactor reactor;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject CaseInstanceCache caseInstanceCache;
+  @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
 
   @Override
   public CompletionStage<UUID> startCase(CaseDefinition definition) {
-    return reactor.startCase(definition, new CaseContextImpl());
+    var factory = resolveFactory(definition);
+    UUID caseId = UUID.randomUUID();
+    return reactor.startCase(definition, new CaseContextImpl(factory, caseId), caseId);
   }
 
   @Override
   public CompletionStage<UUID> startCase(CaseDefinition definition, Object inputData) {
-    return reactor.startCase(definition, new CaseContextImpl(toContextMap(inputData)));
+    var factory = resolveFactory(definition);
+    UUID caseId = UUID.randomUUID();
+    return reactor.startCase(definition, createContext(factory, caseId, inputData), caseId);
   }
 
   @Override
@@ -67,15 +72,23 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
       Object inputData,
       UUID parentCaseId,
       PropagationContext propagationContext) {
+    var factory = resolveFactory(definition);
+    UUID caseId = UUID.randomUUID();
     return reactor.startCase(
-        definition, new CaseContextImpl(toContextMap(inputData)), parentCaseId, propagationContext);
+        definition,
+        createContext(factory, caseId, inputData),
+        caseId,
+        parentCaseId,
+        propagationContext);
   }
 
   @Override
   public CompletionStage<UUID> startCase(
       CaseDefinition definition, Object inputData, Map<String, Object> semanticData) {
+    var factory = resolveFactory(definition);
+    UUID caseId = UUID.randomUUID();
     return reactor.startCase(
-        definition, new CaseContextImpl(toContextMap(inputData)), semanticData);
+        definition, createContext(factory, caseId, inputData), caseId, semanticData);
   }
 
   @Override
@@ -85,12 +98,42 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
       Map<String, Object> semanticData,
       UUID parentCaseId,
       PropagationContext propagationContext) {
+    var factory = resolveFactory(definition);
+    UUID caseId = UUID.randomUUID();
     return reactor.startCase(
         definition,
-        new CaseContextImpl(toContextMap(inputData)),
+        createContext(factory, caseId, inputData),
+        caseId,
         semanticData,
         parentCaseId,
         propagationContext);
+  }
+
+  private io.casehub.api.context.CaseContextStoreFactory resolveFactory(CaseDefinition definition) {
+    var factory =
+        strategyResolver.resolve(
+            io.casehub.api.context.CaseContextStoreFactory.class,
+            definition.getContextStoreFactory());
+    if (factory.isDurable()) {
+      throw new UnsupportedOperationException(
+          "CaseContextStoreFactory '"
+              + factory.id()
+              + "' reports isDurable()=true but "
+              + "recovery path is not yet wired — durable factories will silently lose case "
+              + "state on JVM restart. Implement recovery migration before deploying "
+              + "durable factories.");
+    }
+    return factory;
+  }
+
+  private CaseContextImpl createContext(
+      io.casehub.api.context.CaseContextStoreFactory factory, UUID caseId, Object inputData) {
+    CaseContextImpl context = new CaseContextImpl(factory, caseId);
+    Map<String, Object> inputMap = toContextMap(inputData);
+    if (!inputMap.isEmpty()) {
+      context.setAll(inputMap);
+    }
+    return context;
   }
 
   @SuppressWarnings("unchecked")

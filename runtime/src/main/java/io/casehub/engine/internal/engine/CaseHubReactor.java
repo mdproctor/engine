@@ -98,39 +98,47 @@ class CaseHubReactor {
 
   @Inject SignalSettlementTracker settlementTracker;
 
-  CompletionStage<UUID> startCase(CaseDefinition definition, MutableCaseContext context) {
-    return startCaseInternal(definition, context, null, null, null);
+  CompletionStage<UUID> startCase(
+      CaseDefinition definition, MutableCaseContext context, UUID caseId) {
+    return startCaseInternal(definition, context, caseId, null, null, null);
   }
 
   CompletionStage<UUID> startCase(
       CaseDefinition definition,
       MutableCaseContext context,
+      UUID caseId,
       UUID parentCaseId,
       PropagationContext propagationContext) {
-    return startCaseInternal(definition, context, parentCaseId, propagationContext, null);
-  }
-
-  CompletionStage<UUID> startCase(
-      CaseDefinition definition, MutableCaseContext context, Map<String, Object> semanticData) {
-    return startCaseInternal(definition, context, null, null, semanticData);
+    return startCaseInternal(definition, context, caseId, parentCaseId, propagationContext, null);
   }
 
   CompletionStage<UUID> startCase(
       CaseDefinition definition,
       MutableCaseContext context,
+      UUID caseId,
+      Map<String, Object> semanticData) {
+    return startCaseInternal(definition, context, caseId, null, null, semanticData);
+  }
+
+  CompletionStage<UUID> startCase(
+      CaseDefinition definition,
+      MutableCaseContext context,
+      UUID caseId,
       Map<String, Object> semanticData,
       UUID parentCaseId,
       PropagationContext propagationContext) {
-    return startCaseInternal(definition, context, parentCaseId, propagationContext, semanticData);
+    return startCaseInternal(
+        definition, context, caseId, parentCaseId, propagationContext, semanticData);
   }
 
   private CompletionStage<UUID> startCaseInternal(
       CaseDefinition definition,
       MutableCaseContext context,
+      UUID caseId,
       UUID parentCaseId,
       PropagationContext parentPropCtx,
       Map<String, Object> semanticData) {
-    return buildInstance(definition, context, parentCaseId, parentPropCtx, semanticData)
+    return buildInstance(definition, context, caseId, parentCaseId, parentPropCtx, semanticData)
         .chain(
             instance -> {
               LOG.info("Case started with caseId: " + instance.getUuid());
@@ -151,6 +159,7 @@ class CaseHubReactor {
   private Uni<CaseInstance> buildInstance(
       CaseDefinition definition,
       MutableCaseContext context,
+      UUID caseId,
       UUID parentCaseId,
       PropagationContext parentPropCtx,
       Map<String, Object> semanticData) {
@@ -235,7 +244,7 @@ class CaseHubReactor {
           }
 
           CaseInstance instance = new CaseInstance();
-          instance.setUuid(UUID.randomUUID());
+          instance.setUuid(caseId);
           instance.setCaseMetaModel(model);
           instance.setVersion(0L);
           instance.setState(CaseStatus.STARTING);

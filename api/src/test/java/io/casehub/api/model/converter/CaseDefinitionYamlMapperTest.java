@@ -1053,51 +1053,6 @@ class CaseDefinitionYamlMapperTest {
 
   // ── ExpressionEvaluatorFactory / expressionLang tests ──────────────────────
 
-  /** Stub registry that records all create() calls for assertion. */
-  private static final class RecordingRegistry implements ExpressionEngineRegistry {
-    final List<String> langs = new ArrayList<>();
-    final List<String> exprs = new ArrayList<>();
-
-    @Override
-    public ExpressionEvaluator create(final String expression, final String expressionLang) {
-      exprs.add(expression);
-      langs.add(expressionLang);
-      return new JQExpressionEvaluator(expression); // return a real evaluator so parsing continues
-    }
-
-    @Override
-    public void assertLanguageSupported(final String expressionLang) {
-      // no-op — accept any lang in tests
-    }
-
-    @Override
-    public boolean evaluate(final ExpressionEvaluator evaluator, final CaseContext context) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean evaluate(final ExpressionEvaluator evaluator, final JsonNode asNode) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void validate(final ExpressionEvaluator evaluator) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public java.util.List<JsonNode> transform(
-        final ExpressionEvaluator evaluator, final JsonNode input) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public java.util.Optional<String> extractString(
-        final ExpressionEvaluator evaluator, final CaseContext context) {
-      throw new UnsupportedOperationException();
-    }
-  }
-
   @Test
   void load_withRegistry_allFiveCallSitesUseRegistry() throws IOException {
     // YAML with all five expression sites populated:
@@ -1274,8 +1229,6 @@ class CaseDefinitionYamlMapperTest {
         .hasMessageContaining("unknown-lang");
   }
 
-  // ── semanticData / episodic.memory / layers / listenLayer tests ────────────
-
   @Test
   void parseSemanticData() throws IOException {
     String yaml =
@@ -1295,6 +1248,8 @@ class CaseDefinitionYamlMapperTest {
         .isCloseTo(0.8, org.assertj.core.data.Offset.offset(0.001));
     assertThat(def.getSemanticData().get("domain")).isEqualTo("fraud-check");
   }
+
+  // ── semanticData / episodic.memory / layers / listenLayer tests ────────────
 
   @Test
   void parseEpisodicMemoryConfig() throws IOException {
@@ -1826,5 +1781,90 @@ class CaseDefinitionYamlMapperTest {
         CaseDefinitionYamlMapper.load(
             getClass().getClassLoader().getResourceAsStream("casehub/minimal.yaml"));
     assertThat(def.getSignals()).isEmpty();
+  }
+
+  @Test
+  void load_contextStoreFactory_setsFactory() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Factory Case
+                version: 1.0.0
+                context:
+                  storeFactory: auditing
+                spec:
+                  capabilities: []
+                  workers: []
+                  bindings: []
+                """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getContextStoreFactory()).isEqualTo("auditing");
+  }
+
+  @Test
+  void load_noContextBlock_storeFactoryNull() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: No Context Case
+                version: 1.0.0
+                spec:
+                  capabilities: []
+                  workers: []
+                  bindings: []
+                """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getContextStoreFactory()).isNull();
+  }
+
+  /** Stub registry that records all create() calls for assertion. */
+  private static final class RecordingRegistry implements ExpressionEngineRegistry {
+    final List<String> langs = new ArrayList<>();
+    final List<String> exprs = new ArrayList<>();
+
+    @Override
+    public ExpressionEvaluator create(final String expression, final String expressionLang) {
+      exprs.add(expression);
+      langs.add(expressionLang);
+      return new JQExpressionEvaluator(expression); // return a real evaluator so parsing continues
+    }
+
+    @Override
+    public void assertLanguageSupported(final String expressionLang) {
+      // no-op — accept any lang in tests
+    }
+
+    @Override
+    public boolean evaluate(final ExpressionEvaluator evaluator, final CaseContext context) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean evaluate(final ExpressionEvaluator evaluator, final JsonNode asNode) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void validate(final ExpressionEvaluator evaluator) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public java.util.List<JsonNode> transform(
+        final ExpressionEvaluator evaluator, final JsonNode input) {
+      throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public java.util.Optional<String> extractString(
+        final ExpressionEvaluator evaluator, final CaseContext context) {
+      throw new UnsupportedOperationException();
+    }
   }
 }

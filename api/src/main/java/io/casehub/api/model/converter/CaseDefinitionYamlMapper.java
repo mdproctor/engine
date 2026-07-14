@@ -265,6 +265,12 @@ public final class CaseDefinitionYamlMapper {
               .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new)));
     }
 
+    // context.storeFactory — read from raw node (not in generated schema)
+    final JsonNode contextNode = rawNode.get("context");
+    if (contextNode != null && contextNode.has("storeFactory")) {
+      def.setContextStoreFactory(contextNode.get("storeFactory").asText());
+    }
+
     // Convert capabilities
     final Map<String, Capability> capabilityMap = new LinkedHashMap<>();
     if (schema.getSpec() != null && schema.getSpec().getCapabilities() != null) {
