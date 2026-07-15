@@ -38,6 +38,7 @@ jobs:
         run: mvn --batch-mode verify
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QUARKUS_LANGCHAIN4J_OLLAMA_DEVSERVICES_ENABLED: false
 
       - name: Upload Surefire reports
         uses: actions/upload-artifact@v4
