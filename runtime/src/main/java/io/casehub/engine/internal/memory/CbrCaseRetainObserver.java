@@ -40,6 +40,8 @@ import io.casehub.neocortex.memory.cbr.PlanTrace;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -137,13 +139,18 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
     PlanItemStore planItemStore = planItemStoreInstance.get();
     List<PlanItemRecord> records = planItemStore.findByCaseId(event.caseId(), event.tenancyId());
 
-    List<PlanTrace> traces =
+    List<PlanItemRecord> sorted =
         records.stream()
             .filter(r -> r.status().isTerminal())
             .filter(r -> capabilityNameMap.containsKey(r.bindingName()))
             .filter(r -> r.executorName() != null)
-            .map(r -> toPlanTrace(r, capabilityNameMap))
+            .sorted(Comparator.comparing(PlanItemRecord::createdAt))
             .toList();
+
+    List<PlanTrace> traces = new ArrayList<>(sorted.size());
+    for (int i = 0; i < sorted.size(); i++) {
+      traces.add(toPlanTrace(sorted.get(i), capabilityNameMap, i));
+    }
 
     if (traces.isEmpty()) {
       LOG.debugf(
@@ -223,13 +230,14 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
     return map;
   }
 
-  private PlanTrace toPlanTrace(PlanItemRecord record, Map<String, String> capabilityNameMap) {
+  private PlanTrace toPlanTrace(
+      PlanItemRecord record, Map<String, String> capabilityNameMap, int priority) {
     return new PlanTrace(
         record.bindingName(),
         capabilityNameMap.get(record.bindingName()),
         record.executorName(),
         OUTCOME_MAP.getOrDefault(record.status(), record.status().name()),
-        0,
+        priority,
         Map.of());
   }
 

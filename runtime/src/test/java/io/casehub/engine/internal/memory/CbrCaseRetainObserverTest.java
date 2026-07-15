@@ -270,6 +270,76 @@ class CbrCaseRetainObserverTest {
   }
 
   @Test
+  void plan_trace_priorities_reflect_creation_order() {
+    registry.register(
+        defWithJqCbr(
+            "pri-case",
+            "dom",
+            Map.of("k", ".k"),
+            capBinding("first", "cap1"),
+            capBinding("second", "cap2"),
+            capBinding("third", "cap3")));
+
+    Instant t0 = Instant.parse("2026-01-01T00:00:00Z");
+    planItemStore.items =
+        List.of(
+            planItemAt("third", "w3", TaskStatus.COMPLETED, t0.plusSeconds(20)),
+            planItemAt("first", "w1", TaskStatus.COMPLETED, t0),
+            planItemAt("second", "w2", TaskStatus.COMPLETED, t0.plusSeconds(10)));
+
+    observer.onOutcome(event("pri-case", "COMPLETED", Map.of("k", "v")));
+
+    var traces = store.storedCases.get(0).planTrace();
+    assertThat(traces).hasSize(3);
+    assertThat(traces.get(0).bindingName()).isEqualTo("first");
+    assertThat(traces.get(0).priority()).isEqualTo(0);
+    assertThat(traces.get(1).bindingName()).isEqualTo("second");
+    assertThat(traces.get(1).priority()).isEqualTo(1);
+    assertThat(traces.get(2).bindingName()).isEqualTo("third");
+    assertThat(traces.get(2).priority()).isEqualTo(2);
+  }
+
+  @Test
+  void single_plan_item_gets_priority_zero() {
+    registry.register(
+        defWithJqCbr("single-case", "dom", Map.of("k", ".k"), capBinding("only", "cap1")));
+    planItemStore.items =
+        List.of(
+            planItemAt("only", "w1", TaskStatus.COMPLETED, Instant.parse("2026-01-01T00:00:00Z")));
+
+    observer.onOutcome(event("single-case", "COMPLETED", Map.of("k", "v")));
+
+    var traces = store.storedCases.get(0).planTrace();
+    assertThat(traces).hasSize(1);
+    assertThat(traces.get(0).priority()).isEqualTo(0);
+  }
+
+  @Test
+  void priorities_assigned_only_to_filtered_items() {
+    registry.register(
+        defWithJqCbr(
+            "gap-case",
+            "dom",
+            Map.of("k", ".k"),
+            capBinding("first", "cap1"),
+            capBinding("second", "cap2")));
+
+    Instant t0 = Instant.parse("2026-01-01T00:00:00Z");
+    planItemStore.items =
+        List.of(
+            planItemAt("first", "w1", TaskStatus.COMPLETED, t0),
+            planItemAt("second", null, TaskStatus.COMPLETED, t0.plusSeconds(10)),
+            planItemAt("first", "w3", TaskStatus.COMPLETED, t0.plusSeconds(20)));
+
+    observer.onOutcome(event("gap-case", "COMPLETED", Map.of("k", "v")));
+
+    var traces = store.storedCases.get(0).planTrace();
+    assertThat(traces).hasSize(2);
+    assertThat(traces.get(0).priority()).isEqualTo(0);
+    assertThat(traces.get(1).priority()).isEqualTo(1);
+  }
+
+  @Test
   void lambda_feature_extraction() {
     var config =
         CbrConfig.builder()
@@ -382,6 +452,22 @@ class CbrCaseRetainObserverTest {
         bindingName,
         status,
         Instant.now(),
+        TargetType.CAPABILITY,
+        null,
+        "test-tenant",
+        bindingName + " description",
+        executorName,
+        null);
+  }
+
+  private PlanItemRecord planItemAt(
+      String bindingName, String executorName, TaskStatus status, Instant createdAt) {
+    return new PlanItemRecord(
+        UUID.randomUUID(),
+        UUID.randomUUID().toString(),
+        bindingName,
+        status,
+        createdAt,
         TargetType.CAPABILITY,
         null,
         "test-tenant",
