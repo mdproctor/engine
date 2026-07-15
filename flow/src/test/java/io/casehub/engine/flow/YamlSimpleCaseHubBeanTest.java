@@ -50,20 +50,20 @@ public class YamlSimpleCaseHubBeanTest {
     assertNotNull(def);
 
     // name
-    assertEquals("document-processing", def.getName());
+    assertEquals("Document Processing Test (YAML)", def.getName());
 
     // capabilities
     assertEquals(1, def.getCapabilities().size());
-    assertEquals("summarization", def.getCapabilities().iterator().next().name());
+    assertEquals("processDocument", def.getCapabilities().iterator().next().name());
 
     // workers
     assertEquals(1, def.getWorkers().size());
-    assertEquals("summarizer", def.getWorkers().get(0).name());
+    assertEquals("document-processor", def.getWorkers().get(0).name());
 
     // bindings
     assertEquals(1, def.getBindings().size());
     CapabilityTarget capTarget = (CapabilityTarget) def.getBindings().get(0).target();
-    assertEquals("summarization", capTarget.capability().name());
+    assertEquals("processDocument", capTarget.capability().name());
 
     // milestones
     assertEquals(1, def.getMilestones().size());
