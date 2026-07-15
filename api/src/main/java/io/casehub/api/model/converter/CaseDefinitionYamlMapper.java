@@ -565,6 +565,9 @@ public final class CaseDefinitionYamlMapper {
       if (cbrNode != null && cbrNode.has("cbrType")) {
         cbrBuilder.cbrType(cbrNode.get("cbrType").asText());
       }
+      if (cbr.getTemporalDecayHalfLifeDays() != null) {
+        cbrBuilder.temporalDecayHalfLifeDays(cbr.getTemporalDecayHalfLifeDays());
+      }
       def.setCbrConfig(cbrBuilder.build());
     }
 

@@ -361,6 +361,13 @@ $defs:
           Retrieval timing strategy. 'per-evaluation' retrieves on every
           evaluation (default). 'case-lifetime' retrieves once on first access
           and caches the result for the case's lifetime.
+      temporalDecayHalfLifeDays:
+        type: integer
+        minimum: 1
+        description: >
+          Half-life in days for temporal decay during retrieval. Older cases
+          lose relevance via similarity *= 0.5^(age / halfLife). Null means
+          no decay (backward compatible).
 
   Capability:
     description: >

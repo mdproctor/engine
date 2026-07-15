@@ -140,4 +140,30 @@ class CbrConfigBuilderTest {
         IllegalArgumentException.class,
         () -> CbrConfig.builder().feature("f1", ".x").cbrType("  ").build());
   }
+
+  @Test
+  void temporalDecayHalfLifeDays_defaults_to_null() {
+    var config = CbrConfig.builder().feature("f1", ".x").build();
+    assertNull(config.temporalDecayHalfLifeDays());
+  }
+
+  @Test
+  void temporalDecayHalfLifeDays_set_via_builder() {
+    var config = CbrConfig.builder().feature("f1", ".x").temporalDecayHalfLifeDays(30).build();
+    assertEquals(30, config.temporalDecayHalfLifeDays());
+  }
+
+  @Test
+  void temporalDecayHalfLifeDays_zero_rejected() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> CbrConfig.builder().feature("f1", ".x").temporalDecayHalfLifeDays(0).build());
+  }
+
+  @Test
+  void temporalDecayHalfLifeDays_negative_rejected() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () -> CbrConfig.builder().feature("f1", ".x").temporalDecayHalfLifeDays(-5).build());
+  }
 }

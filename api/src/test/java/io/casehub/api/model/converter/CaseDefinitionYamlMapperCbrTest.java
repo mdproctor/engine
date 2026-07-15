@@ -114,6 +114,45 @@ class CaseDefinitionYamlMapperCbrTest {
   }
 
   @Test
+  void cbr_temporalDecayHalfLifeDays_parsed() throws IOException {
+    String yaml =
+        """
+        dsl: "0.1.0"
+        namespace: test
+        name: test-case
+        version: "1.0.0"
+        spec:
+          cbr:
+            features:
+              f1: ".x"
+            temporalDecayHalfLifeDays: 30
+        """;
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+    assertThat(def.getCbrConfig()).isNotNull();
+    assertThat(def.getCbrConfig().temporalDecayHalfLifeDays()).isEqualTo(30);
+  }
+
+  @Test
+  void cbr_temporalDecayHalfLifeDays_defaults_to_null() throws IOException {
+    String yaml =
+        """
+        dsl: "0.1.0"
+        namespace: test
+        name: test-case
+        version: "1.0.0"
+        spec:
+          cbr:
+            features:
+              f1: ".x"
+        """;
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+    assertThat(def.getCbrConfig()).isNotNull();
+    assertThat(def.getCbrConfig().temporalDecayHalfLifeDays()).isNull();
+  }
+
+  @Test
   void cbr_cbrType_parsed() throws IOException {
     String yaml =
         """

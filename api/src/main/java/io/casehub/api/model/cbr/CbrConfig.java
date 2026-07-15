@@ -30,7 +30,8 @@ public record CbrConfig(
     String caseType,
     double vectorWeight,
     CbrRetrievalTiming timing,
-    String cbrType) {
+    String cbrType,
+    Integer temporalDecayHalfLifeDays) {
 
   public enum CbrRetrievalTiming {
     PER_EVALUATION,
@@ -58,6 +59,10 @@ public record CbrConfig(
     }
     if (cbrType != null && cbrType.isBlank()) {
       throw new IllegalArgumentException("cbrType must not be blank when provided");
+    }
+    if (temporalDecayHalfLifeDays != null && temporalDecayHalfLifeDays < 1) {
+      throw new IllegalArgumentException(
+          "temporalDecayHalfLifeDays must be >= 1, got: " + temporalDecayHalfLifeDays);
     }
     weights = Map.copyOf(weights);
     for (var entry : weights.entrySet()) {
@@ -89,6 +94,7 @@ public record CbrConfig(
     private double vectorWeight = 0.5;
     private CbrRetrievalTiming timing = CbrRetrievalTiming.PER_EVALUATION;
     private String cbrType;
+    private Integer temporalDecayHalfLifeDays;
 
     public Builder feature(final String name, final String jqExpression) {
       if (lambdaExtractor != null) {
@@ -146,6 +152,11 @@ public record CbrConfig(
       return this;
     }
 
+    public Builder temporalDecayHalfLifeDays(final Integer temporalDecayHalfLifeDays) {
+      this.temporalDecayHalfLifeDays = temporalDecayHalfLifeDays;
+      return this;
+    }
+
     public CbrConfig build() {
       final FeatureExtractor extractor;
       if (!jqFeatures.isEmpty()) {
@@ -156,7 +167,16 @@ public record CbrConfig(
         throw new IllegalStateException("No feature extractor configured");
       }
       return new CbrConfig(
-          extractor, topK, minSimilarity, weights, domain, caseType, vectorWeight, timing, cbrType);
+          extractor,
+          topK,
+          minSimilarity,
+          weights,
+          domain,
+          caseType,
+          vectorWeight,
+          timing,
+          cbrType,
+          temporalDecayHalfLifeDays);
     }
   }
 }
