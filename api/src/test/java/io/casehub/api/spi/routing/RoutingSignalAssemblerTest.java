@@ -1,0 +1,246 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.api.spi.routing;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.fasterxml.jackson.databind.node.NullNode;
+import jakarta.annotation.Priority;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class RoutingSignalAssemblerTest {
+
+  @Test
+  void noProviders_returnsEmptyMap() {
+    var assembler = new RoutingSignalAssembler(List.of());
+    assertThat(assembler.assemble(context(), candidates())).isEmpty();
+  }
+
+  @Test
+  void singleProvider_returnsSignalKeyedById() {
+    var provider = provider("trust", signal("agent-1", 0.8, "high trust"));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result).containsOnlyKeys("trust");
+    assertThat(result.get("trust").candidates().get("agent-1").score()).isEqualTo(0.8);
+    assertThat(result.get("trust").candidates().get("agent-1").reason()).isEqualTo("high trust");
+  }
+
+  @Test
+  void multipleProviders_allContribute() {
+    var p1 = provider("trust", signal("agent-1", 0.9, null));
+    var p2 = provider("experience", signal("agent-1", 0.7, "3 prior cases"));
+    var assembler = new RoutingSignalAssembler(List.of(p1, p2));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result).containsOnlyKeys("trust", "experience");
+  }
+
+  @Test
+  void providerReturnsNull_skipped() {
+    var nullProvider = provider("empty", null);
+    var realProvider = provider("trust", signal("agent-1", 0.5, null));
+    var assembler = new RoutingSignalAssembler(List.of(nullProvider, realProvider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result).containsOnlyKeys("trust");
+  }
+
+  @Test
+  void throwingProvider_loggedAndSkipped_othersSurvive() {
+    RoutingSignalProvider boom =
+        new RoutingSignalProvider() {
+          @Override
+          public String id() {
+            return "boom";
+          }
+
+          @Override
+          public RoutingSignal signal(AgentRoutingContext ctx, List<AgentCandidate> eligible) {
+            throw new RuntimeException("provider failure");
+          }
+        };
+    var ok = provider("trust", signal("agent-1", 0.6, null));
+    var assembler = new RoutingSignalAssembler(List.of(boom, ok));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result).containsOnlyKeys("trust");
+    assertThat(result.get("trust").candidates().get("agent-1").score()).isEqualTo(0.6);
+  }
+
+  @Test
+  void scoreAboveOne_clampedToOne() {
+    var provider = provider("over", signal("agent-1", 1.5, null));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result.get("over").candidates().get("agent-1").score()).isEqualTo(1.0);
+  }
+
+  @Test
+  void scoreBelowZero_clampedToZero() {
+    var provider = provider("under", signal("agent-1", -0.3, null));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result.get("under").candidates().get("agent-1").score()).isEqualTo(0.0);
+  }
+
+  @Test
+  void inRangeScores_notClamped() {
+    var candidates = new LinkedHashMap<String, RoutingSignal.CandidateSignal>();
+    candidates.put("a", new RoutingSignal.CandidateSignal(0.0, null));
+    candidates.put("b", new RoutingSignal.CandidateSignal(1.0, null));
+    candidates.put("c", new RoutingSignal.CandidateSignal(0.5, "mid"));
+    var provider = provider("valid", new RoutingSignal(candidates));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    var signal = result.get("valid");
+    assertThat(signal.candidates().get("a").score()).isEqualTo(0.0);
+    assertThat(signal.candidates().get("b").score()).isEqualTo(1.0);
+    assertThat(signal.candidates().get("c").score()).isEqualTo(0.5);
+    assertThat(signal.candidates().get("c").reason()).isEqualTo("mid");
+  }
+
+  @Test
+  void priorityOrdering_lowerValueComesFirst() {
+    @Priority(100)
+    class HighPriority implements RoutingSignalProvider {
+      @Override
+      public String id() {
+        return "high";
+      }
+
+      @Override
+      public RoutingSignal signal(AgentRoutingContext ctx, List<AgentCandidate> eligible) {
+        return RoutingSignalAssemblerTest.signal("agent-1", 0.9, null);
+      }
+    }
+
+    @Priority(200)
+    class LowPriority implements RoutingSignalProvider {
+      @Override
+      public String id() {
+        return "low";
+      }
+
+      @Override
+      public RoutingSignal signal(AgentRoutingContext ctx, List<AgentCandidate> eligible) {
+        return RoutingSignalAssemblerTest.signal("agent-1", 0.1, null);
+      }
+    }
+
+    class NoPriority implements RoutingSignalProvider {
+      @Override
+      public String id() {
+        return "none";
+      }
+
+      @Override
+      public RoutingSignal signal(AgentRoutingContext ctx, List<AgentCandidate> eligible) {
+        return RoutingSignalAssemblerTest.signal("agent-1", 0.5, null);
+      }
+    }
+
+    var assembler =
+        new RoutingSignalAssembler(
+            List.of(new NoPriority(), new LowPriority(), new HighPriority()));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result.keySet()).containsExactly("high", "low", "none");
+  }
+
+  @Test
+  void clampPreservesReason() {
+    var provider = provider("clamped", signal("agent-1", 2.0, "important reason"));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    var cs = result.get("clamped").candidates().get("agent-1");
+    assertThat(cs.score()).isEqualTo(1.0);
+    assertThat(cs.reason()).isEqualTo("important reason");
+  }
+
+  @Test
+  void mixedClampedAndValid_onlyOutOfRangeClamped() {
+    var candidates = new LinkedHashMap<String, RoutingSignal.CandidateSignal>();
+    candidates.put("ok", new RoutingSignal.CandidateSignal(0.7, null));
+    candidates.put("over", new RoutingSignal.CandidateSignal(1.2, null));
+    candidates.put("under", new RoutingSignal.CandidateSignal(-0.1, null));
+    var provider = provider("mixed", new RoutingSignal(candidates));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    var signal = result.get("mixed");
+    assertThat(signal.candidates().get("ok").score()).isEqualTo(0.7);
+    assertThat(signal.candidates().get("over").score()).isEqualTo(1.0);
+    assertThat(signal.candidates().get("under").score()).isEqualTo(0.0);
+  }
+
+  @Test
+  void allProvidersReturnNull_returnsEmptyMap() {
+    var p1 = provider("a", null);
+    var p2 = provider("b", null);
+    var assembler = new RoutingSignalAssembler(List.of(p1, p2));
+
+    assertThat(assembler.assemble(context(), candidates())).isEmpty();
+  }
+
+  private static AgentRoutingContext context() {
+    return new AgentRoutingContext(
+        UUID.randomUUID(), "analysis", NullNode.instance, "test-tenant", List.of());
+  }
+
+  private static List<AgentCandidate> candidates() {
+    return List.of(
+        new AgentCandidate("agent-1", Set.of("analysis"), 0, AgentHealth.READY, null, null));
+  }
+
+  private static RoutingSignal signal(String workerId, double score, String reason) {
+    return new RoutingSignal(Map.of(workerId, new RoutingSignal.CandidateSignal(score, reason)));
+  }
+
+  private static RoutingSignalProvider provider(String id, RoutingSignal signal) {
+    return new RoutingSignalProvider() {
+      @Override
+      public String id() {
+        return id;
+      }
+
+      @Override
+      public RoutingSignal signal(AgentRoutingContext ctx, List<AgentCandidate> eligible) {
+        return signal;
+      }
+    };
+  }
+}
