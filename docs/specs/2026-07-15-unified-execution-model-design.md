@@ -428,3 +428,127 @@ After each phase:
 | engine-planning ↔ engine-api | `PlanningStrategy` via `StrategyResolver` | engine-api defines, planning implements | Per-case, per-node resolution |
 | blocks ↔ consumers | Pattern builders, techniques | blocks exports | No change |
 | engine-common ↔ planning | `DagPlan` used by decomposition output | common provides, planning consumes | Already works |
+
+## 10. Unresolved — contradictions, tensions, and open questions
+
+This section captures everything surfaced during the design discussion that is NOT yet resolved in the spec above. The spec body has contradictions from iterative refinement. This section is the honest list of what doesn't fit yet.
+
+### Contradiction C1: Choreography appears as both archetype and strategy
+
+The spec lists choreography as one of two fundamental dispatch archetypes (Section 3, Invariant 3) AND as a planning strategy name (Section 4 resolution table, Phase 6 integration test). These can't both be true:
+
+- If choreography is an archetype ("do this when" — trigger-driven, no central planner), it's not a strategy
+- If choreography is a strategy (`DefaultPlanningStrategy` returning all eligible), it's just another algorithm
+
+**The resolution reached in discussion but NOT reflected in the spec:** Choreography is a dispatch MODE, not a planning algorithm. `DefaultPlanningStrategy` is a passthrough (no planning). When a compound PlanItem has no strategy, its children are purely choreographed — triggers drive dispatch. Specifying a strategy opts into orchestration. The spec tables need rewriting to reflect this.
+
+### Contradiction C2: DAG listed as both planning algorithm and output format
+
+The spec lists DAG alongside Sequential, HTN as a planning algorithm (Section 4 table). But `DagPlan<T>` is the universal OUTPUT FORMAT that all algorithms produce — Sequential produces a linear DAG, Flow produces a control-flow DAG, HTN decomposes into a DAG of primitives.
+
+**The resolution reached in discussion but NOT reflected in the spec:** DAG is infrastructure (plan representation), not an algorithm. Remove from the planning algorithm list. All algorithms produce `DagPlan<T>`.
+
+### Contradiction C3: The planning algorithm taxonomy is incomplete
+
+The spec lists: choreography (wrong — see C1), sequential, HTN. Discussion identified:
+
+```
+Orchestration planning algorithms:
+  ├─ Sequential          — fixed ordered list, pick next
+  ├─ Flow                — control flow: loops, conditionals, compensation
+  │                        (engine already has casehub-engine-flow with Serverless Workflow)
+  ├─ HTN                 — hierarchical task decomposition via methods
+  └─ (unnamed)           — goal-directed: define operators + goal state, solver finds plan
+                           (LangChain4j calls this GoalOrientedPlanner)
+```
+
+**Key insight from discussion:** Sequential should stay simple (ordered list). The moment you need loops or conditionals, use Flow — don't grow Sequential into a workflow language. Flow is already partially implemented via `casehub-engine-flow` (Serverless Workflow SDK) but positioned as a worker execution tier, not a planning strategy.
+
+**The unnamed fourth algorithm:** Goal-directed planning — you define operators (capabilities with input/output schemas) and a goal state, the solver chains operators to reach the goal. LangChain4j's `GoalOrientedPlanner` does this via graph search over agent I/O keys. Our capabilities already declare `inputSchema`/`outputSchema` — the infrastructure exists. LLM-based decomposition (`LlmDecomposition` in blocks) is ALSO a form of this — the LLM is the solver. No name was agreed on; "Goal" collides with existing `Goal`/`GoalKind`/`GoalBasedCompletion` terminology.
+
+### Contradiction C4: Stage vs compound PlanItem transition unclear
+
+The spec says "Stage becomes compound PlanItem" (Section 5.3) but doesn't address:
+
+1. Does Stage literally become a PlanItem subtype? Or does it stay a separate concept that compound PlanItem replaces?
+2. Current Stage has `containedBindingNames` (strings) and `containedPlanItemIds` (strings). Compound PlanItem has `children` (PlanItem references). These are different structures.
+3. Current `StageAutocompleteEvaluator` checks if all `requiredItemIds` are terminal. Compound PlanItem completion semantics (all, M-of-N, first-wins) would need to subsume this.
+4. YAML `stages:` backward compatibility — existing case definitions use stages; they must keep working.
+
+### Open question Q1: How does LangChain4j's P2P Planner map?
+
+LangChain4j's `P2PPlanner` = "an agent is triggered by the presence of its own required inputs as state variables." This IS choreography — it maps directly to `ContextChangeTrigger`. But it's called a "Planner" in their framework. In our model, it's not a planner at all — it's the choreography dispatch mode.
+
+**Does this mean our model is right (choreography isn't a planner), or does LangChain4j's framing reveal something we're missing?**
+
+### Open question Q2: engine#101 sub-issue coverage
+
+engine#101 is the agentic orchestration epic. Its sub-issues define specific patterns that need to work. The unified model must cover ALL of them. Need to enumerate the sub-issues and verify each maps to either a planning strategy (engine) or a problem-solving technique (blocks).
+
+**Not yet done.** Must verify before finalising the spec.
+
+### Open question Q3: Flow as top-level planning strategy
+
+`casehub-engine-flow` currently positions Serverless Workflow as a `FlowWorkerFunction` — a worker execution tier (Tier 3 in the hybrid model). The discussion concluded it should be a peer planning strategy alongside Sequential and HTN.
+
+**Implications not yet worked through:**
+- Does `FlowWorkerFunctionHandler` become a `PlanningStrategy` implementation?
+- Can a Serverless Workflow definition be the `planningStrategy` for a compound PlanItem?
+- How does Flow's built-in error handling / compensation interact with engine's case lifecycle?
+
+### Open question Q4: Selection criteria vs planning algorithms
+
+Discussion identified that orchestration has two orthogonal dimensions:
+
+- **Selection criteria** — HOW the strategy picks (priority-based, goal-driven, resource-aware)
+- **Planning algorithms** — WHAT structure the plan has (sequential, flow, HTN)
+
+These are independent — an HTN strategy could use priority-based selection when choosing between decomposition methods. The spec doesn't model this distinction.
+
+### Open question Q5: Adversarial review findings not fully addressed
+
+The adversarial review (subagent) found issues that are noted but not resolved in the spec:
+
+1. **TaskNode.LeafTask depends on AgentRef** — resolution proposed (`AgentRef extends ExecutorRef`) but not verified against blocks' codebase
+2. **DecompositionContext depends on RoutingCandidate(AgentRef)** — same dependency issue
+3. **sequentialMerge on DagPlan** — hard prerequisite, not designed yet
+4. **CasePlanModel has no parent-child PlanItem support** — resolution proposed (compound tasks are ephemeral / compound PlanItems replace Stage) but structural implications not fully worked through
+5. **DagDriver is synchronous, blackboard is reactive** — resolution proposed (don't use DagDriver in planning path) but means DagDriver serves a different purpose than the planning dispatch path
+6. **HtnBuilder should NOT move to engine** — agreed, but spec still lists it in "promote" tables in some places
+7. **Missing type inventory** — `Decomposition` factory class, `NoMethodMatchedException`, listener types, activation/aggregation/termination impls not fully accounted for
+
+### Open question Q6: What is PlanItem, really?
+
+Discussion evolved through several framings:
+
+1. PlanItem = flat work unit (current)
+2. PlanItem = graph node (primitive or compound) — the plan model
+3. CaseInstance = execution context — runs the plan
+4. Stage = compound PlanItem (container of workers)
+5. "A case is also a PlanItem" — SubCase PlanItem represents a child case
+
+**The agreed position:** PlanItem is the plan graph (model of execution). CaseInstance is the execution runtime. But the PlanItem sealed hierarchy (`Primitive | Compound`) is not yet designed in detail:
+- What fields does Compound carry?
+- How does parent-child indexing work in `CasePlanModel`?
+- How does completion propagate from children to compound parent?
+- How does per-compound strategy resolution work in `PlanningStrategyLoopControl`?
+
+### Open question Q7: Naming — "blackboard" → what?
+
+Agreed to rename `casehub-engine-blackboard` → `casehub-engine-planning`. But:
+- This is a cross-repo rename affecting every consumer's imports and Maven coordinates
+- Must coordinate with trebleel before executing
+- The classical blackboard concept (shared state + knowledge sources + control) doesn't disappear — it's the architectural pattern that informed the design. Belongs in documentation, not package names.
+
+### Key design principles agreed
+
+These were agreed during discussion and should survive any spec rewrite:
+
+1. **Two dispatch archetypes only:** Orchestrated ("do this now") and Choreographed ("do this when"). Everything else maps into one or a composition of both. No third axis.
+2. **PlanItem is the graph, CaseInstance is the runtime.** Plan = what to do. Case = how it executes.
+3. **Strategies are peers, composable by nesting.** Any strategy can delegate to any other by name via StrategyResolver. No compile-time @Alternative. Per-node, per-case, runtime resolution.
+4. **Planning produces structure, techniques produce answers.** Engine owns planning. Blocks owns techniques. The boundary test: does it produce a `DagPlan<T>` or an answer?
+5. **Sequential stays simple.** The moment you need loops or conditionals, use Flow. Don't grow Sequential into a workflow.
+6. **SubCases are for isolation, not scoping.** Compound PlanItems scope within a case. SubCases create new execution contexts.
+7. **Stages are compound PlanItems.** Not a separate concept — a compound PlanItem with entry conditions and autocomplete configuration.
+8. **Don't be wedded to CMMN.** Stage, Sentry, Milestone — these are CMMN terms for specific configurations of general concepts. The internal model is more general.
