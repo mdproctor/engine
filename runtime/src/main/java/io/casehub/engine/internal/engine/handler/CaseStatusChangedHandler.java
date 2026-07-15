@@ -83,11 +83,20 @@ public class CaseStatusChangedHandler {
     final CaseStatus newState = CaseStatus.valueOf(event.newStatus());
     final String oldStatus = event.oldStatus();
 
+    if (isTerminalState(newState)) {
+      if (!caseInstance.trySetTerminalState(newState)) {
+        LOG.infof(
+            "Ignoring duplicate terminal transition for caseId=%s — already %s, rejecting %s",
+            caseInstance.getUuid(), caseInstance.getState(), newState);
+        return Uni.createFrom().voidItem();
+      }
+    } else {
+      caseInstance.setState(newState);
+    }
+
     LOG.infof(
         "Case status changed: caseId=%s, %s -> %s",
         caseInstance.getUuid(), oldStatus, event.newStatus());
-
-    caseInstance.setState(newState);
 
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(caseInstance.getUuid());

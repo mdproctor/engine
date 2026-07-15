@@ -19,6 +19,7 @@ import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.casehub.api.engine.CaseHub;
+import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.Goal;
@@ -39,6 +40,8 @@ import org.junit.jupiter.api.Test;
 public class CustomGoalKindCompletionTest {
 
   @Inject CustomGoalKindBean bean;
+
+  @Inject CaseHubRuntime runtime;
 
   @Inject CaseInstanceCache caseInstanceCache;
 
@@ -84,8 +87,7 @@ public class CustomGoalKindCompletionTest {
 
     assertEquals(CaseStatus.RUNNING, caseInstanceCache.get(caseId).getState());
 
-    bean.signal(caseId, "done", true).toCompletableFuture().join();
-    bean.signal(caseId, "escalate", true).toCompletableFuture().join();
+    runtime.signal(caseId, Map.of("done", true, "escalate", true)).toCompletableFuture().join();
 
     await()
         .atMost(5, TimeUnit.SECONDS)

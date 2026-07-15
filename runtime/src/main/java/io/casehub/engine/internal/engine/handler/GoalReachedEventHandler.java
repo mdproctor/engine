@@ -20,6 +20,7 @@ import static io.casehub.api.model.event.CaseHubEventType.GOAL_REACHED;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseCompletion;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
@@ -50,18 +51,12 @@ import org.jboss.logging.Logger;
 public class GoalReachedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(GoalReachedEventHandler.class);
-
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-
-  @Inject EventBus eventBus;
-
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
-
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-
-  @Inject LedgerTraceIdProvider traceIdProvider;
-
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
+  @Inject EventBus eventBus;
+  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
+  @Inject LedgerTraceIdProvider traceIdProvider;
 
   @ConsumeEvent(value = EventBusAddresses.GOAL_REACHED)
   public Uni<Void> onGoalReachedEventHandler(GoalReachedEvent event) {
@@ -95,17 +90,28 @@ public class GoalReachedEventHandler {
                             caseInstance, "ReachGoal", "GoalReached", null, "System", traceId))
                     .whenComplete(
                         (v, t) -> {
-                          if (t != null)
+                          if (t != null) {
                             LOG.warnf(
                                 t,
                                 "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
                                 caseInstance.getUuid());
+                          }
                         }))
         .chain(() -> evaluateCompletion(caseInstance, definition.getCompletion()));
   }
 
   private Uni<Void> evaluateCompletion(CaseInstance caseInstance, CaseCompletion completion) {
     if (!(completion instanceof GoalBasedCompletion<?> gbc)) {
+      return Uni.createFrom().voidItem();
+    }
+
+    CaseStatus currentState = caseInstance.getState();
+    if (currentState == CaseStatus.COMPLETED
+        || currentState == CaseStatus.FAULTED
+        || currentState == CaseStatus.CANCELLED) {
+      LOG.debugf(
+          "Skipping completion evaluation — caseId=%s is already %s",
+          caseInstance.getUuid(), currentState);
       return Uni.createFrom().voidItem();
     }
 

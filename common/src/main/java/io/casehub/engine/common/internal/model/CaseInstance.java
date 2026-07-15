@@ -112,6 +112,16 @@ public class CaseInstance {
     this.state = state;
   }
 
+  public synchronized boolean trySetTerminalState(CaseStatus newState) {
+    if (state == CaseStatus.COMPLETED
+        || state == CaseStatus.FAULTED
+        || state == CaseStatus.CANCELLED) {
+      return false;
+    }
+    this.state = newState;
+    return true;
+  }
+
   /**
    * Non-null while an action gate is pending human approval. Set by the engine when {@link
    * io.casehub.api.spi.RiskDecision.GateRequired} fires; cleared by the gate resolution handlers
