@@ -1,10 +1,155 @@
-# Unified Execution Model — engine-planning
+# Unified Execution Model
 
-## The Model
+## 1. Current State
 
-Two primitives, one graph, one runtime.
+Execution infrastructure is spread across engine and blocks with overlapping concerns, inconsistent abstraction levels, and compile-time decisions that should be runtime choices.
 
-### PlanItem — the universal execution unit
+### 1.1 Engine's execution infrastructure
+
+| Component | Module | What it does | Abstraction level |
+|---|---|---|---|
+| `ChoreographyLoopControl` | runtime | Fire all eligible bindings concurrently | Case — global default |
+| `PlanningStrategyLoopControl` | blackboard (`@Alternative @Priority(10)`) | Stage gating + strategy delegation | Case — replaces choreography when present |
+| `DefaultPlanningStrategy` | blackboard | Fire all eligible (choreography within blackboard) | Binding selection |
+| `SequentialPlanningStrategy` | blackboard | Fire one binding at a time | Binding selection |
+| `Stage` | blackboard | Container of bindings with entry conditions and autocomplete | Scope boundary |
+| `PlanItem` | blackboard | Unit of work: binding name, status, executor | Work tracking |
+| `CasePlanModel` | blackboard | Per-case plan state: plan items, stages, milestones | Plan state |
+| `DagPlan<T>`, `DagNode<T>`, `JoinType` | engine-common | DAG plan construction and validation | Generic infrastructure |
+| `DagDriver<T,R>` | engine-common | Synchronous topological task dispatch | Generic infrastructure |
+| `DefaultWorkOrchestrator` | runtime | Submit work to Quartz backends | Dispatch |
+| `CaseInstance` | common | Case lifecycle, context, EventLog | Execution context |
+
+### 1.2 Blocks' execution infrastructure
+
+| Component | Package | What it does | Abstraction level |
+|---|---|---|---|
+| `ExecutionPlan<T>` | `agentic/plan` | DAG plan construction and validation | Generic infrastructure |
+| `ExecutionNode<T>` | `agentic/plan` | DAG node (id, task, dependsOn, joinType) | Generic infrastructure |
+| `AbstractExecutionDriver` | `agentic/model` | Five-phase loop: route → activate → dispatch → aggregate → terminate | Task-level execution |
+| `OrchestratedDriver` | `agentic/model` | Orchestrated variant of five-phase loop | Task-level execution |
+| `ChoreographedDriver` | `agentic/model` | Choreographed variant of five-phase loop | Task-level execution |
+| `TaskNode<T>` | `agentic/decomposition` | Sealed hierarchy: LeafTask / CompoundTask | Task model |
+| `DecompositionStrategy<T>` | `agentic/decomposition` | HTN: compound tasks → subtask tree | Planning |
+| `RoutingStrategy<T>` | `agentic/routing` | Which agent handles this task in a pattern? | Task-level routing |
+| `AggregationStrategy<T>` | `agentic/aggregation` | Combine results from multiple agents | Result composition |
+| `TerminationCondition<T>` | `agentic/termination` | When is the pattern done? | Completion |
+| `ActivationRule<T>` | `agentic/activation` | Should this agent fire? | Gating |
+| Pattern builders (8) | `agentic/pattern` | Supervisor, Debate, Voting, Loop, Parallel, Sequence, Conditional, HTN | Problem-solving patterns |
+| `AgentRef` (sealed, 5 variants) | `agentic` | Agent identity: Worker, Channel, Human, External, Composed | Identity |
+
+## 2. Tensions
+
+### T1: Global execution model — compile-time binary
+
+```
+ChoreographyLoopControl (runtime, always active)
+         ↕ @Alternative @Priority(10)
+PlanningStrategyLoopControl (blackboard, replaces choreography when on classpath)
+```
+
+Every case in a deployment gets the same execution model. A deployment that includes `casehub-engine-blackboard` uses planning strategies for ALL cases. A deployment without it uses choreography for ALL cases. There is no per-case choice.
+
+**Consequence:** A case that needs sequential planning forces ALL cases into the blackboard module, even those that only need simple choreography.
+
+### T2: DAG infrastructure duplication
+
+| Engine | Blocks | Structural difference |
+|---|---|---|
+| `DagPlan<T>` | `ExecutionPlan<T>` | None — identical validation, topo-sort, cycle detection |
+| `DagNode<T>` | `ExecutionNode<T>` | None — same fields (id, task, dependsOn, joinType) |
+| `JoinType` (enum) | `ExecutionPlan.JoinType` (enum) | None — ALL_OF / ANY_OF |
+
+Two implementations of the same DAG. Bugs fixed in one are not fixed in the other. Consumers must choose which to use with no guidance.
+
+### T3: Stage is hardcoded choreography
+
+A Stage fires all contained bindings when active. There is no per-stage strategy. You cannot orchestrate within a stage — all contained workers dispatch concurrently.
+
+| What you can do | What you cannot do |
+|---|---|
+| All workers in a stage fire concurrently | Sequence workers within a stage |
+| Stage autocompletes when all items terminal | Choose M-of-N completion within a stage |
+| Stage has entry conditions | Compose strategies within a stage |
+
+**Consequence:** Any orchestration (sequential, HTN, DAG-ordered) must happen at the case level, not within a stage. Stages are purely choreographed containers.
+
+### T4: PlanItem is flat — no compound tasks
+
+`PlanItem` has no parent-child relationship. There is no concept of a compound task that decomposes into subtasks. The only grouping mechanism is Stage, which is a separate type from PlanItem.
+
+| PlanItem has | PlanItem lacks |
+|---|---|
+| Binding name, status, executor | Children |
+| Owning stage (via stage registration) | Decomposition strategy |
+| Completion tracking | Completion semantics (all, M-of-N, first-wins) |
+| CAS-based status transitions | Hierarchical structure |
+
+**Consequence:** HTN decomposition has nowhere to put compound tasks. Decomposition would need to either (a) create sub-cases (heavyweight — full CaseInstance per phase) or (b) abuse stages as compound task containers.
+
+### T5: Routing at two tiers — parallel but unconnected
+
+| Engine | Blocks | Scope |
+|---|---|---|
+| `AgentRoutingStrategy` | — | Case-scoped: which worker handles this capability? |
+| — | `RoutingStrategy<T>` | Pattern-scoped: which agent handles this task in this pattern? |
+
+These answer different questions at different tiers but share the same concept (select an executor for a task). They don't compose — there's no way for a pattern-scoped routing decision to delegate to engine's case-scoped routing.
+
+### T6: Planning and techniques interleaved in blocks
+
+Blocks' `agentic` package mixes two fundamentally different concerns:
+
+| Concern | Examples | What it produces |
+|---|---|---|
+| **Planning** | `DecompositionStrategy`, `ExecutionPlan`, `TaskNode`, `HtnBuilder` | Task structures — what to do and in what order |
+| **Techniques** | `SupervisorBuilder`, `DebateBuilder`, `VotingBuilder` | Answers — by coordinating agents to solve a problem |
+
+These are interleaved in the same package hierarchy with no clear separation. `HtnBuilder` (planning) extends the same `AbstractPatternBuilder` as `DebateBuilder` (technique), making them look like peers when they operate at different abstraction levels.
+
+### T7: CMMN terminology limits the model
+
+"Stage" implies CMMN semantics — entry sentries, exit sentries, autocomplete, milestones. The general concept is broader: a container of workers with a dispatch strategy and completion semantics. By naming the concept "Stage," the engine inherits CMMN's assumptions and constraints.
+
+| CMMN Stage assumption | General concept |
+|---|---|
+| Choreographed dispatch (all fire when active) | Any dispatch strategy |
+| Autocomplete when all required items terminal | Configurable completion (all, M-of-N, first-wins) |
+| Entry/exit sentries | Entry conditions (sentries are one form) |
+| Part of a CMMN case model | Part of any plan graph |
+
+### T8: Dispatch modes are implicit
+
+Choreography (trigger-based, "do this when") and orchestration (strategy-based, "do this now") are the two fundamental dispatch archetypes. But they're not named or first-class in the model — they emerge from how `ContextChangeTrigger` interacts with `PlanningStrategy.select()`.
+
+| Archetype | Current mechanism | Named? | First-class? |
+|---|---|---|---|
+| Choreography | `ContextChangeTrigger.filter` on binding | No | No — it's a binding property |
+| Orchestration | `PlanningStrategy.select()` return value | No | No — it's a strategy side-effect |
+
+**Consequence:** You can't declare "this PlanItem is orchestrated" or "this PlanItem is choreographed." The dispatch mode is an emergent property, not a design choice.
+
+### T9: Strategies don't compose
+
+`PlanningStrategy.select()` returns a list of bindings to fire. It cannot delegate to another strategy. A sequential strategy cannot say "within this step, use choreography for sub-tasks." There is no nesting.
+
+**Consequence:** Hybrid execution (orchestrate phases, choreograph within each phase) requires either (a) complex per-binding logic within a single strategy or (b) sub-cases, each with their own strategy.
+
+### T10: Three execution loops with unclear relationship
+
+| Loop | Module | What it drives |
+|---|---|---|
+| `PlanningStrategyLoopControl` | blackboard | Binding evaluation → strategy → dispatch |
+| `DefaultWorkOrchestrator` | runtime | Work submission to Quartz backends |
+| `AbstractExecutionDriver` | blocks | Five-phase agentic loop |
+
+Are these peers? Do they compose? Do they overlap? The answer is: they nest (`PlanningStrategyLoopControl` → `DefaultWorkOrchestrator` → Quartz → worker → `AbstractExecutionDriver`), but this nesting is implicit and undocumented.
+
+## 3. The Universal Model
+
+Six design invariants resolve all ten tensions:
+
+### Invariant 1: PlanItem is the graph
 
 ```
 PlanItem (sealed)
@@ -12,83 +157,53 @@ PlanItem (sealed)
   └─ Compound      — contains children + strategy + completion semantics
 ```
 
-A compound PlanItem is a container of workers. It has children, a dispatch strategy, completion semantics, entry conditions, and repeat capability. What CMMN called a "Stage" is one configuration of a compound PlanItem. HTN phases, parallel groups, sequential pipelines, voting rounds — all compound PlanItems with different configuration.
+A compound PlanItem replaces Stage as the universal container of workers. It has children, a dispatch strategy, completion semantics, entry conditions, and repeat capability. Primitive PlanItems dispatch workers and track status.
 
-### Two dispatch modes — the only two archetypes
+**Resolves T4** (flat PlanItem) — compound PlanItems provide hierarchical structure.
+**Resolves T7** (CMMN terminology) — Stage becomes one configuration of a compound PlanItem, not a distinct concept.
+
+### Invariant 2: CaseInstance is the runtime
+
+The PlanItem graph is the PLAN — what needs to happen. The CaseInstance is the RUNTIME — context, EventLog, lifecycle. One CaseInstance hosts arbitrarily deep PlanItem graphs. SubCases create new CaseInstances only when true isolation is needed (independent context, independent lifecycle).
+
+**Resolves T4** — compound PlanItems scope within a single CaseInstance. No sub-case overhead for HTN phases.
+
+### Invariant 3: Two dispatch modes
 
 Every PlanItem dispatch has exactly two dimensions:
 
 | Dimension | Name | Meaning | Mechanism |
 |---|---|---|---|
-| **trigger** | Choreography | "do this when" | Condition on context/time/event |
-| **strategy** | Orchestration | "do this now" | Selected by containing compound |
+| `trigger` | Choreography | "do this when" | Condition on context, time, or event |
+| `strategy` | Orchestration | "do this now" | Selected by containing compound's strategy |
 
-Both can be present (hybrid), either can be absent (pure orchestration or pure choreography). No third axis exists — time-based, event-based, priority-based, goal-driven all reduce to one or a composition of both.
+Both can be present (hybrid), either can be absent (pure orchestration or pure choreography). Time-based, event-based, priority-based, goal-driven — all reduce to one or a composition of both.
 
-### CaseInstance — the execution context
+**Resolves T8** (implicit dispatch modes) — dispatch modes are named and first-class.
+**Resolves T3** (hardcoded choreography) — a compound PlanItem can orchestrate, choreograph, or both.
 
-The PlanItem graph is the PLAN (what needs to happen). The CaseInstance is the RUNTIME (how it executes). One CaseInstance provides context, EventLog, lifecycle, tenancy. The PlanItem graph can be arbitrarily deep within a single CaseInstance. SubCases create separate CaseInstances only when true isolation is needed (independent context, independent lifecycle).
+### Invariant 4: Strategies are peers
 
-### Composable strategies — peers, not alternatives
+All planning strategies are `NamedStrategy` implementations resolved per-compound-node at runtime. No compile-time `@Alternative`. No global choice. Per-node, per-case, runtime resolution via `StrategyResolver`.
 
-All planning strategies are `NamedStrategy` implementations resolved per-compound-node at runtime:
-
-| Strategy | Dispatch mode | What it does |
+| Strategy | Mode | What it does |
 |---|---|---|
-| choreography | "when" | Fire all children whose triggers are met |
-| sequential | "now" | Fire children one at a time, in order |
-| htn | "now" + decomposition | Decompose compound task, then delegate to child strategies |
-| dag | "now" + dependencies | Fire children in topological order as dependencies are met |
+| `choreography` | "when" | Fire all children whose triggers are met |
+| `sequential` | "now" | Fire children one at a time, in order |
+| `htn` | "now" + decompose | Decompose compound task, then delegate to child strategies |
+| `dag` | "now" + dependencies | Fire children as dependencies are met |
 
-Strategies compose by nesting. A compound PlanItem's strategy can create child compound PlanItems with their own strategies. No compile-time alternatives. No global `@Alternative @Priority`. Per-node, per-case, runtime resolution.
+Strategies compose by nesting — a compound PlanItem's strategy can create child compound PlanItems with their own strategies. A strategy delegates to any other strategy by name via `StrategyResolver`.
 
-A strategy can delegate to any other strategy by name via `StrategyResolver`.
+**Resolves T1** (compile-time binary) — per-case, per-node strategy resolution replaces `@Alternative`.
+**Resolves T9** (non-composable) — strategies delegate to peers by name.
+**Resolves T3** (hardcoded choreography) — any strategy per compound node.
 
-## Structural changes
+### Invariant 5: Planning produces structure — techniques produce answers
 
-### Rename: blackboard → engine-planning
+**Planning** (engine) — strategies that produce task structures. PlanItem graphs. "What to do and in what order."
 
-The module is no longer an optional CMMN-inspired alternative. It's the engine's core planning infrastructure — always active, hosting all execution models. The name should describe what it does.
-
-- Module: `casehub-engine-planning`
-- Package: `io.casehub.engine.planning`
-- Subpackages: `control`, `plan`, `handler`, `registry`, `decomposition`
-
-### Retire: ChoreographyLoopControl
-
-`PlanningStrategyLoopControl` becomes the only `LoopControl`. `DefaultPlanningStrategy` provides choreography behavior. No `@Alternative`. No compile-time choice.
-
-### Retire: Stage as a distinct type
-
-Stage becomes a compound PlanItem. CMMN `stages:` in YAML maps to compound PlanItems with entry conditions and autocomplete. Internally, the same type.
-
-### PlanItem evolution
-
-`PlanItem` gains:
-- `children` — contained PlanItems (for compound nodes)
-- `planningStrategy` — how to dispatch children (for compound nodes)
-- `completionSemantics` — when this node is "done" (all, M-of-N, first-wins)
-- `entryCondition` — when to activate (replaces Stage entry conditions)
-- `repeatable` — iteration support (replaces Stage repeat)
-
-Primitive PlanItems have none of these — they dispatch a worker and track status. The sealed hierarchy enforces this.
-
-### Dispatch per compound node
-
-`PlanningStrategyLoopControl` changes from one-strategy-for-all to per-compound-node resolution:
-
-```
-eligible bindings
-  → group by containing compound PlanItem
-  → each compound's strategy selects from its children
-  → free-floating bindings use case-level strategy
-```
-
-## The planning vs technique line
-
-**Planning** (engine) — produces task structures. PlanItem graphs. "What to do and in what order."
-
-**Techniques** (blocks) — produces answers by coordinating agents. "How to solve this specific task."
+**Techniques** (blocks) — patterns that produce answers by coordinating agents. "How to solve this specific task."
 
 | Engine (planning strategies) | Blocks (problem-solving techniques) |
 |---|---|
@@ -97,79 +212,131 @@ eligible bindings
 | HTN — decompose then dispatch | Voting — majority consensus |
 | DAG — topological dispatch | Loop — iterative refinement |
 
-Planning happens BEFORE dispatch (structuring work). Techniques happen DURING worker execution (solving problems). Blocks' techniques are consumers of the planning layer.
+Planning happens BEFORE dispatch (structuring work). Techniques happen DURING worker execution (solving problems). The boundary test: does it produce a `DagPlan<T>` (planning) or an answer (technique)?
 
-## Redesign requirements
+**Resolves T6** (interleaved concerns) — clear ownership boundary.
+**Resolves T10** (three loops) — engine's planning loop and blocks' technique loop nest cleanly: planning dispatches workers, workers use techniques.
 
-### TaskNode uses ExecutorRef (not AgentRef)
+### Invariant 6: SubCases are for isolation, not scoping
 
-`AgentRef` stays sealed in blocks, gains `extends ExecutorRef`:
+Compound PlanItems scope within a CaseInstance. SubCases create new CaseInstances when true execution isolation is needed — independent context, independent EventLog, different tenancy.
+
+**Resolves T4** — HTN decomposition produces compound PlanItems, not sub-cases.
+
+## 4. How each tension is resolved
+
+| Tension | Root cause | Resolution | Invariant |
+|---|---|---|---|
+| T1: Global execution model | `@Alternative @Priority(10)` | Per-node strategy resolution via `StrategyResolver` | 4 |
+| T2: DAG duplication | Parallel implementations | Retire blocks' `ExecutionPlan`, adopt engine's `DagPlan` | — |
+| T3: Hardcoded choreography | Stage has no strategy field | Compound PlanItem with per-node strategy | 3, 4 |
+| T4: Flat PlanItem | No compound type | Sealed hierarchy: Primitive / Compound | 1 |
+| T5: Two routing tiers | Different scopes, no composition | Documented as complementary tiers; orchestration routing (engine) and technique routing (blocks) | 5 |
+| T6: Planning/techniques mixed | Same package, same base class | Planning → engine, techniques → blocks | 5 |
+| T7: CMMN terminology | "Stage" name | Rename module, Stage → compound PlanItem | 1 |
+| T8: Implicit dispatch modes | Emergent from trigger + strategy | Named first-class: choreographed / orchestrated | 3 |
+| T9: Non-composable strategies | No delegation mechanism | Strategies access `StrategyResolver`, delegate by name | 4 |
+| T10: Three execution loops | Unclear nesting | Planning loop (engine) → dispatches worker → technique loop (blocks) | 5 |
+
+## 5. Structural Changes
+
+### 5.1 Rename: `casehub-engine-blackboard` → `casehub-engine-planning`
+
+The module is no longer an optional CMMN-inspired alternative. It's the engine's core planning infrastructure — always active, hosting all execution models as peer strategies.
+
+- Module: `casehub-engine-planning`
+- Package: `io.casehub.engine.planning`
+- Subpackages: `control`, `plan`, `handler`, `registry`, `decomposition`
+
+### 5.2 Retire: `ChoreographyLoopControl`
+
+`PlanningStrategyLoopControl` becomes the only `LoopControl` implementation. `DefaultPlanningStrategy` provides choreography behavior. No `@Alternative`. Choreography is a strategy, not a special default.
+
+### 5.3 PlanItem sealed hierarchy
+
 ```java
-// blocks — sealed, blocks controls variants
-sealed interface AgentRef extends ExecutorRef
-    permits WorkerAgent, ChannelAgent, HumanAgent, ExternalAgent, ComposedAgent
+sealed interface PlanItem permits PlanItem.Primitive, PlanItem.Compound {
+
+    // Primitive — dispatches a worker
+    record Primitive(...) implements PlanItem {}
+
+    // Compound — contains children with strategy and completion semantics
+    record Compound(
+        List<PlanItem> children,
+        String planningStrategy,         // resolved by name via StrategyResolver
+        CompletionSemantics completion,  // all, M-of-N, first-wins
+        EntryCondition entryCondition,   // when to activate (nullable)
+        boolean repeatable               // iteration support
+    ) implements PlanItem {}
+}
 ```
 
-Engine's `TaskNode.LeafTask` uses `ExecutorRef executor()`. Blocks creates `LeafTask` passing `AgentRef` transparently. Engine sees `ExecutorRef`. No unsealing.
+CMMN `stages:` in YAML maps to compound PlanItems with entry conditions and autocomplete.
 
-### DecompositionContext uses ExecutorRef
+### 5.4 Per-compound dispatch in PlanningStrategyLoopControl
 
-```java
-// engine-api
-record DecompositionContext<T>(T state, List<? extends ExecutorRef> executors, int depth) {}
+```
+eligible bindings
+  → group by containing compound PlanItem
+  → each compound's strategy selects from its children
+  → free-floating bindings use case-level strategy
 ```
 
-Blocks wraps with richer context in blocks-specific decomposition implementations.
+### 5.5 Composable strategy delegation
 
-### Compound tasks are compound PlanItems, not CaseInstances
+`PlanningStrategy` gains access to `StrategyResolver` so it can resolve sibling strategies by name. An HTN strategy decomposes, creates child compound PlanItems, and tags each with its own `planningStrategy`. The loop control resolves recursively.
 
-Decomposition produces compound PlanItems within the same CaseInstance. No sub-case overhead. The compound PlanItem's strategy handles dispatch. Sub-cases reserved for true execution isolation.
+## 6. Redesign Requirements
 
-### DagDriver stays standalone
+### 6.1 TaskNode uses ExecutorRef
 
-The blackboard (now planning) dispatch path does not use `DagDriver`. Compound PlanItems dispatch children via their strategy. `DagDriver` remains in engine-common for standalone use (WorkerRuntime Tier 1, non-planning execution).
+`AgentRef` stays sealed in blocks, gains `extends ExecutorRef`. Engine's `TaskNode.LeafTask` uses `ExecutorRef executor()`. Blocks passes `AgentRef` transparently. Engine never sees `AgentRef`.
 
-### sequentialMerge on DagPlan is a prerequisite
+### 6.2 DecompositionContext uses ExecutorRef
 
-`StaticDecomposition` needs `sequentialMerge` as its primary composition mechanism. Must be designed and added to `DagPlan` before any migration.
+Engine-api version uses `List<? extends ExecutorRef>`. Blocks wraps with richer context in LLM-specific implementations.
 
-### HtnBuilder stays in blocks
+### 6.3 sequentialMerge on DagPlan
 
-It's a blocks pattern builder, not planning infrastructure. Engine gets `DecompositionStrategy` SPI and an HTN-aware planning strategy. Blocks keeps the builder.
+Hard prerequisite. `StaticDecomposition` needs this as its primary composition mechanism.
 
-## What moves where
+### 6.4 HtnBuilder stays in blocks
 
-### Promote to engine-api
+It's a blocks pattern builder extending `AbstractPatternBuilder` — not planning infrastructure. Engine gets the decomposition SPI and an HTN-aware planning strategy.
+
+## 7. What Moves Where and Why
+
+### Promote to engine-api (planning model — shared vocabulary)
 
 | Type | Why | Redesign |
 |---|---|---|
-| `TaskNode<T>` (LeafTask, CompoundTask) | Plan graph node types | `ExecutorRef` instead of `AgentRef` |
-| `DecompositionStrategy<T>` | HTN SPI — how compound tasks decompose | Return type → `DagPlan<LeafTask<T>>` |
-| `DecompositionMethod<T>` | Method selection for decomposition | Minimal |
-| `DecompositionContext<T>` | Context for decomposition | `ExecutorRef` list instead of `RoutingCandidate` |
-| `NoMethodMatchedException` | Thrown by `StaticDecomposition` | None |
+| `TaskNode<T>` (LeafTask, CompoundTask) | HTN task model for decomposition input/output | `ExecutorRef` replaces `AgentRef` |
+| `DecompositionStrategy<T>` | Core HTN SPI — same SPI pattern as `AgentRoutingStrategy` | Return type → `DagPlan<LeafTask<T>>` |
+| `DecompositionMethod<T>` | Method selection — which decomposition applies | Minimal |
+| `DecompositionContext<T>` | Context for decomposition decisions | `ExecutorRef` list replaces `RoutingCandidate` |
+| `NoMethodMatchedException` | Thrown by `StaticDecomposition`, caught by blocks' `HybridDecomposition` | None |
 
-### Promote to engine-planning
-
-| Type | Why |
-|---|---|
-| `StaticDecomposition` | Predefined methods, pure logic, `@DefaultBean` |
-| `IdentityDecomposition` | Leaf task passthrough |
-| HTN-aware `PlanningStrategy` | Calls `DecompositionStrategy`, creates compound PlanItems |
-
-### Stay in blocks permanently
+### Promote to engine-planning (planning strategy implementations)
 
 | Type | Why |
 |---|---|
-| All pattern builders (Supervisor, Debate, Voting, Loop, etc.) | Problem-solving techniques, not planning |
-| `HtnBuilder` | Blocks pattern builder using five-phase loop |
-| `AbstractExecutionDriver`, `OrchestratedDriver`, `ChoreographedDriver` | Blocks' execution model |
-| `LlmDecomposition`, `HybridDecomposition` | LLM-powered (implements engine-api SPI) |
-| `AgentRef` (sealed, extends `ExecutorRef`) | Blocks agent identity |
-| Five-phase loop SPIs (Aggregation, Termination, Activation) | Part of blocks' execution model |
-| `OrchestrationRoutingStrategy<T>` | Task-level routing |
+| `StaticDecomposition` | Predefined decomposition methods, pure logic, `@DefaultBean` |
+| `IdentityDecomposition` | Leaf task passthrough, no decomposition |
+| HTN-aware `PlanningStrategy` (new) | Calls `DecompositionStrategy`, creates compound PlanItems, delegates to child strategies |
 
-### Retire
+### Stay in blocks permanently (problem-solving techniques)
+
+| Type | Why it stays |
+|---|---|
+| All pattern builders (Supervisor, Debate, Voting, Loop, Parallel, Sequence, Conditional, HTN) | Produce answers by coordinating agents, not task structures |
+| `AbstractExecutionDriver`, `OrchestratedDriver`, `ChoreographedDriver` | Blocks' five-phase technique execution model |
+| `LlmDecomposition`, `HybridDecomposition` | LLM-powered decomposition (implements engine-api SPI from blocks) |
+| `AgentRef` (sealed, extends `ExecutorRef`) | Blocks agent identity — engine uses `ExecutorRef` |
+| Five-phase loop SPIs (Aggregation, Termination, Activation) | Part of blocks' technique execution model |
+| `OrchestrationRoutingStrategy<T>` | Task-level routing within techniques |
+| All pattern-specific listeners, factories, DSL entry points | Blocks convenience layer |
+
+### Retire (replaced by unified model)
 
 | Type | Replaced by |
 |---|---|
@@ -177,8 +344,23 @@ It's a blocks pattern builder, not planning infrastructure. Engine gets `Decompo
 | `Stage` (as distinct type) | Compound PlanItem |
 | `ExecutionPlan<T>` (blocks) | `DagPlan<T>` (engine-common) |
 | `ExecutionNode<T>` (blocks) | `DagNode<T>` (engine-common) |
+| `ExecutionPlan.JoinType` (blocks) | `JoinType` (engine-common) |
 
-## Phased migration
+### Already in engine (no change)
+
+| Type | Where | Role |
+|---|---|---|
+| `DagPlan<T>`, `DagNode<T>`, `JoinType` | engine-common | DAG planning infrastructure |
+| `DagDriver<T,R>`, `DagResult<R>`, `NodeState<R>` | engine-common | Standalone DAG execution (not used in planning dispatch path) |
+| `ExecutorRef`, `TaskDescriptor`, `TaskStatus` | engine-api | Shared task identity |
+| `PlanningStrategy` (interface) | engine-api | Per-node strategy SPI |
+| `DefaultPlanningStrategy` | engine-planning | Choreography behavior |
+| `SequentialPlanningStrategy` | engine-planning | Sequential behavior |
+| `CasePlanModel`, `PlanItem` | engine-planning | Plan state (PlanItem evolves to sealed hierarchy) |
+| `AgentRoutingStrategy`, `RoutingResult` | engine-api | Case-level agent routing |
+| `CbrRetrievalService` | engine-runtime | CBR retrieval (future decomposition input) |
+
+## 8. Phased Migration
 
 ### Phase 0: Prerequisites
 - `sequentialMerge()` on `DagPlan`
@@ -186,21 +368,21 @@ It's a blocks pattern builder, not planning infrastructure. Engine gets `Decompo
 - Verify engine-common transitively available to blocks
 
 ### Phase 1: Retire ChoreographyLoopControl
-- `PlanningStrategyLoopControl` becomes the only `LoopControl`, moves from blackboard to runtime
+- `PlanningStrategyLoopControl` becomes the only `LoopControl`, moves to runtime
 - `DefaultPlanningStrategy` provides choreography behavior
-- All existing tests pass unchanged
+- All existing tests pass unchanged — no behavioral change
 
 ### Phase 2: Rename blackboard → engine-planning
 - Module: `casehub-engine-planning`
 - Package: `io.casehub.engine.planning`
-- Coordinate with trebleel
-- All consumer repos update imports
+- Coordinate with trebleel before executing
+- Consumer repos update imports
 
 ### Phase 3: PlanItem sealed hierarchy
 - `PlanItem` becomes sealed: `Primitive | Compound`
-- Stage migrates to compound PlanItem (YAML `stages:` maps to compound PlanItems)
+- Stage migrates to compound PlanItem configuration
 - Per-compound strategy resolution in `PlanningStrategyLoopControl`
-- Completion semantics, entry conditions, repeat on compound PlanItem
+- YAML `stages:` maps to compound PlanItems with entry conditions and autocomplete
 
 ### Phase 4: DAG plan unification (blocks)
 - `ExecutionPlan<T>` → `DagPlan<T>` throughout blocks
@@ -213,15 +395,36 @@ It's a blocks pattern builder, not planning infrastructure. Engine gets `Decompo
 - blocks' `LlmDecomposition` implements the SPI
 
 ### Phase 6: Composable strategy wiring
-- Strategies access `StrategyResolver` for sibling delegation
-- Per-subtask strategy overrides
-- Integration test: mixed strategies in one case
+- Strategies access `StrategyResolver` for delegation
+- Per-subtask strategy overrides on compound PlanItems
+- Integration test: mixed strategies in one case (HTN top-level → sequential phase 1 → choreography phase 2)
 
-## Design invariants
+## 9. Verification
 
-1. **PlanItem is the graph.** Primitive nodes dispatch workers. Compound nodes dispatch according to their strategy.
-2. **CaseInstance is the runtime.** Context, EventLog, lifecycle. The graph executes within it.
-3. **Two dispatch modes.** Orchestrated ("now") and choreographed ("when"). No third axis.
-4. **Strategies are peers.** Same SPI, same resolution, composable by nesting. No special treatment.
-5. **Planning produces structure. Techniques produce answers.** Engine owns planning. Blocks owns techniques.
-6. **SubCases are for isolation, not scoping.** Compound PlanItems scope within a case. SubCases create new execution contexts.
+After each phase:
+1. `mvn install` in engine — all modules
+2. `mvn install` in blocks
+3. `mvn test` in both — all existing tests pass
+4. No new dependencies introduced that weren't already transitive
+5. Consumer repos still compile
+
+### Hypotheses to test
+
+| ID | Hypothesis | Test |
+|---|---|---|
+| H1 | All execution models expressible as composable `PlanningStrategy` | Choreography, sequential, HTN each implemented as named strategies |
+| H2 | `ChoreographyLoopControl` retirable without behavioral change | All existing tests pass with `PlanningStrategyLoopControl` as sole `LoopControl` |
+| H3 | Compound PlanItems replace Stage without losing functionality | Entry conditions, autocomplete, repeat, milestones all work on compound PlanItems |
+| H4 | `DagDriver` not needed in planning dispatch path | Compound PlanItems dispatch children via strategy, not DagDriver |
+| H5 | `TaskNode` works with `ExecutorRef` | blocks creates `LeafTask(agentRef)`, engine sees `ExecutorRef` |
+| H6 | Strategies compose via delegation | HTN strategy delegates sequential phase to `SequentialPlanningStrategy` by name |
+
+### Boundary seams to verify
+
+| Seam | What crosses | Direction | Risk |
+|---|---|---|---|
+| engine-api ↔ blocks | `DecompositionStrategy<T>` SPI | engine defines, blocks implements | blocks must not pull engine-api types backward |
+| engine-api ↔ blocks | `ExecutorRef` ← `AgentRef extends` | blocks extends engine type | `LeafTask(agentRef)` must work as `LeafTask(executorRef)` |
+| engine-planning ↔ engine-api | `PlanningStrategy` via `StrategyResolver` | engine-api defines, planning implements | Per-case, per-node resolution |
+| blocks ↔ consumers | Pattern builders, techniques | blocks exports | No change |
+| engine-common ↔ planning | `DagPlan` used by decomposition output | common provides, planning consumes | Already works |
