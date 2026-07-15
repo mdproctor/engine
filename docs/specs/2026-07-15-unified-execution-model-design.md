@@ -65,7 +65,7 @@ Both stacks share leaf types (`ExecutorRef`, `TaskDescriptor`) but diverge on ev
 
 **T7: CMMN terminology limits the model.** "Stage" implies CMMN semantics. The general concept — container of workers with dispatch strategy and completion semantics — is broader.
 
-**T8: Activation modes are implicit.** Choreography ("do this when") and orchestration ("do this now") are the two fundamental archetypes, but they're not named or first-class. They emerge from how `ContextChangeTrigger` interacts with `PlanningStrategy.select()`.
+**T8: Dispatch modes are implicit.** Choreography ("do this when") and orchestration ("do this now") are the two fundamental archetypes, but they're not named or first-class. They emerge from how `ContextChangeTrigger` interacts with `PlanningStrategy.select()`.
 
 **T9: Strategies don't compose.** A sequential strategy cannot say "within this step, use choreography for sub-tasks." No delegation mechanism between strategies.
 
@@ -91,37 +91,45 @@ A **compound** PlanItem is a container of other PlanItems. It has:
 - **children** — the PlanItems it contains (primitive or compound)
 - **planningStrategy** — how to dispatch those children (resolved by name)
 - **completionSemantics** — when this node is "done" (all, M-of-N, first-wins)
-- **activationMode** — how this PlanItem is activated (see below)
+- **dispatchMode** — how this PlanItem is activated (see below)
 - **entryCondition** — the trigger expression (required when choreographable)
 - **exitCondition** — optional, evaluated for early completion
 - **repeatable** — iteration support
 
 **Plan definition vs execution state.** `PlanItem` is the immutable plan definition — what work needs to happen and how it should be dispatched. Execution state (status, timestamps, CAS transitions) is tracked externally by `CasePlanModel`, keyed by PlanItem ID. This separates two concerns currently conflated in the existing `PlanItem` class:
 
-- **Plan definition** (sealed, immutable): task identity, executor reference, activation mode, entry conditions, parent-child relationships
+- **Plan definition** (sealed, immutable): task identity, executor reference, dispatch mode, entry conditions, parent-child relationships
 - **Execution state** (mutable, CasePlanModel-managed): `TaskStatus` lifecycle (PENDING → RUNNING → COMPLETED/FAULTED/...), created/activated timestamps, CAS-guarded transitions
 
 The current `PlanItem`'s `AtomicReference<TaskStatus>`, `tryMarkRunning()`, `markCompleted()`, etc. move to an execution state tracker within `CasePlanModel`. The plan definition type becomes a sealed interface with record variants — immutable by construction.
 
 **Compound PlanItems are persistent.** Both primitive and compound PlanItems are stored in `CasePlanModel`. A compound PlanItem replacing a Stage is a first-class persistent plan node with its own lifecycle. This is distinct from `TaskNode.CompoundTask` (blocks), which is an HTN decomposition *input* — consumed during decomposition to produce PlanItems. The input is ephemeral; the resulting PlanItems are persistent.
 
+**Declared children vs runtime children.** The Compound record's `children` field is the *declared* set — the children specified at plan definition time (from the case definition, YAML DSL, or initial decomposition). Runtime plan modifications (HTN decomposition creating new children, `BlackboardPlanConfigurer` adding bindings during initialization, repeatable compounds resetting with fresh children) are tracked by `CasePlanModel`'s parent-child index, not by mutating the immutable Compound record. `CasePlanModel` maintains a `Map<String, Set<String>>` of compound ID → child IDs that starts from the declared children and evolves at runtime. Queries like "what are this compound's children?" go through `CasePlanModel.getChildrenOf(compoundId)`, which merges declared and runtime children.
+
+**Implicit root compound.** Every case has a root compound PlanItem that serves as the top-level container. It is never declared by the user — the runtime creates it transparently when the case starts. The case definition's `planningStrategy` field (currently resolved as the single per-case strategy by `PlanningStrategyLoopControl`) becomes the root compound's strategy name. If null, the root compound uses `ChoreographyStrategy` — which is exactly the current behavior.
+
+This eliminates the need for special-case handling of "free-floating" bindings (those not in any Stage). In the new model, all top-level bindings are children of the root compound. Per-compound dispatch treats the root compound like any other compound — no special cases. Simple cases never see or declare the root compound; it is infrastructure. Complex cases with nested compounds add them as children of the root.
+
+The current code already implements this pattern implicitly: `PlanningStrategyLoopControl.select()` treats the entire case as a single scope with one strategy (line 154: `ctx.definition().getPlanningStrategy()`). The root compound formalizes what is already happening, making the per-compound dispatch model uniform from top to bottom.
+
 **Resolves:** T4 (flat PlanItem), T7 (CMMN terminology — Stage becomes a compound PlanItem configuration)
 
-### 2.2 Two activation modes
+### 2.2 Two dispatch modes
 
 Every known model of execution control reduces to two archetypes, or a composition of both. This is not CaseHub-specific — it is an observation about the structure of coordination models in general.
 
-**Naming note:** `ActivationMode` (not `DispatchMode`). The existing `io.casehub.engine.plan.DispatchMode` enum (`STREAMING`/`BARRIER`) controls DagDriver wave scheduling — an orthogonal concept. `ActivationMode` describes HOW a PlanItem gets activated: by its parent's strategy, by its own trigger condition, or both.
+**Naming note:** `DispatchMode` is the right name for this universal concept — it describes how work gets dispatched. The existing `io.casehub.engine.plan.DispatchMode` enum (`STREAMING`/`BARRIER`) must be renamed to `DagSchedulingMode` — it controls DagDriver wave scheduling, a narrower concern that should yield the name.
 
 | Dimension | Name | Question | Mechanism |
 |---|---|---|---|
 | **trigger** | Choreography | "when should this happen?" | Condition on context, time, event |
 | **strategy** | Orchestration | "what should happen now?" | Selected by containing compound's strategy |
 
-Each PlanItem declares which dimensions apply via its `ActivationMode`:
+Each PlanItem declares which dimensions apply via its `DispatchMode`:
 
 ```
-ActivationMode (enum)
+DispatchMode (enum)
   ORCHESTRATED    — parent's strategy selects this item ("do this now")
   CHOREOGRAPHED   — fires when entry condition is satisfied ("do this when")
   HYBRID          — both: eligible for strategy selection AND trigger-activated
@@ -133,7 +141,7 @@ A PlanItem declared `CHOREOGRAPHED` fires when its entry condition is satisfied,
 
 A PlanItem declared `HYBRID` participates in both. Whichever happens first activates the item.
 
-**Resolves:** T8 (implicit activation modes), T3 (hardcoded choreography — compound PlanItems can orchestrate, choreograph, or both)
+**Resolves:** T8 (implicit dispatch modes), T3 (hardcoded choreography — compound PlanItems can orchestrate, choreograph, or both)
 
 ### 2.3 Evidence: every execution model maps to these two archetypes
 
@@ -235,9 +243,9 @@ CMMN Stages were a distinct type: a named container with entry/exit sentries, au
 - `planningStrategy` = choreography (fire children whose triggers are met)
 - `completionSemantics` = ALL (autocomplete when all children complete)
 - `entryCondition` = sentry expression
-- `activationMode` of children = CHOREOGRAPHED
+- `dispatchMode` of children = CHOREOGRAPHED
 
-YAML `stages:` maps to compound PlanItems with this configuration. Internally, one type.
+The programmatic Stage builder API (`Stage.builder()`) maps to compound PlanItems with this configuration. Internally, one type. There is no YAML `stages:` feature today — Stages are configured exclusively through the Java DSL and `BlackboardPlanConfigurer`.
 
 Retiring Stage as a distinct type removes the temptation to model execution phases as Stages when they should be compound PlanItems. An HTN phase is not a Stage — it's a compound PlanItem with an HTN strategy. A parallel fan-out is not a Stage — it's a compound PlanItem whose strategy fires all children.
 
@@ -256,7 +264,7 @@ Retiring Stage as a distinct type removes the temptation to model execution phas
 | `containedMilestoneIds` | Milestone containment moves to compound PlanItem |
 | `requiredItemIds` | Derived from `CompletionSemantics` — ALL means all children are required |
 | `repeatable` + `resetForRepetition()` | `repeatable` flag on compound PlanItem + reset logic in execution state tracker |
-| Manual activation flag | `activationMode = ORCHESTRATED` — parent explicitly activates |
+| Manual activation flag | `dispatchMode = ORCHESTRATED` — parent explicitly activates |
 | Exit conditions | `exitCondition` on compound PlanItem (already in §2.1) |
 | `parentStageId` on PlanItem | Parent compound PlanItem ID — natural tree relationship |
 
@@ -316,12 +324,12 @@ LangChain4j (1.17.0, June 2026) provides a `Planner` interface that all orchestr
 | LangChain4j Planner | CaseHub equivalent | Category |
 |---|---|---|
 | `SequentialPlanner` | Sequential planning strategy | Planning |
-| `ParallelPlanner` | Choreography dispatch mode (concurrent) | Activation mode |
+| `ParallelPlanner` | Choreography dispatch mode (concurrent) | Dispatch mode |
 | `LoopPlanner` | Flow planning strategy | Planning |
 | `ConditionalPlanner` | Flow planning strategy (branching) | Planning |
 | `GoalOrientedPlanner` | (unnamed) goal-directed planning strategy | Planning |
 | `SupervisorPlanner` | Blocks Supervisor technique (or HTN with LLM) | Technique |
-| `P2PPlanner` | Choreography — `ContextChangeTrigger` | Activation mode |
+| `P2PPlanner` | Choreography — `ContextChangeTrigger` | Dispatch mode |
 
 ### Structural differences
 
@@ -329,7 +337,7 @@ LangChain4j (1.17.0, June 2026) provides a `Planner` interface that all orchestr
 |---|---|---|
 | Pattern representation | Monolithic `Planner` class per pattern | Composition of independent SPIs |
 | Composition | Agent nesting (implicit) | Strategy delegation by name (explicit, per-node) |
-| Activation modes | Mixed into each Planner impl | Two orthogonal dimensions, declared per PlanItem |
+| Dispatch modes | Mixed into each Planner impl | Two orthogonal dimensions, declared per PlanItem |
 | Execution scope | Single JVM, `AgentInstance` references | Distributed: workers, channels, humans |
 | State model | `AgenticScope` (mutable key-value) | `CaseContext` (typed layers, auditable, event-sourced) |
 | Durability | Application-managed or via Flow | Engine runtime (uniform, EventLog checkpoint + replay) |
@@ -339,7 +347,7 @@ LangChain4j (1.17.0, June 2026) provides a `Planner` interface that all orchestr
 
 ### Where CaseHub's model is stronger
 
-- **Orthogonal activation modes composable per-node.** LangChain4j's P2P (choreography) and workflow (orchestration) are separate implementations. No per-node hybrid.
+- **Orthogonal dispatch modes composable per-node.** LangChain4j's P2P (choreography) and workflow (orchestration) are separate implementations. No per-node hybrid.
 - **Compound PlanItems with nested strategies.** Arbitrary depth, each level can use a different algorithm. LangChain4j's planners are flat.
 - **Plan graph as model, CaseInstance as runtime.** Clean separation. LangChain4j's `AgenticScope` mixes both.
 - **Planning algorithms as peers with shared output format.** LangChain4j has separate Planner implementations with no shared plan representation.
@@ -373,7 +381,7 @@ Complexity must be layered and never leak. If simple cases force users to unders
 
 **Rename:** `casehub-engine-blackboard` → `casehub-engine-planning`. Module: `casehub-engine-planning`. Package: `io.casehub.engine.planning`. Coordinate with trebleel before executing.
 
-**Retire:** `ChoreographyLoopControl`. `PlanningStrategyLoopControl` becomes the only `LoopControl`. Choreography behavior via `DefaultPlanningStrategy`.
+**Retire:** `ChoreographyLoopControl`. `PlanningStrategyLoopControl` becomes the only `LoopControl`. Choreography behavior via `ChoreographyStrategy` (renamed from `DefaultPlanningStrategy`, see §2.5).
 
 **Retire:** `Stage` as a distinct type. Replaced by compound PlanItem configuration.
 
@@ -383,23 +391,23 @@ Complexity must be layered and never leak. If simple cases force users to unders
 sealed interface PlanItem permits PlanItem.Primitive, PlanItem.Compound {
     String id();
     String name();
-    ActivationMode activationMode();
+    DispatchMode dispatchMode();
 
     record Primitive(
         String id, String name,
         ExecutorRef executor,
-        ActivationMode activationMode,
-        EntryCondition entryCondition
+        DispatchMode dispatchMode,
+        ExpressionEvaluator entryCondition   // required when CHOREOGRAPHED; null when ORCHESTRATED
     ) implements PlanItem {}
 
     record Compound(
         String id, String name,
-        List<PlanItem> children,
-        String planningStrategy,        // resolved by name via StrategyResolver
+        List<PlanItem> children,             // declared children; runtime additions via CasePlanModel
+        String planningStrategy,             // resolved by name via StrategyResolver; null → "choreography"
         CompletionSemantics completion,
-        ActivationMode activationMode,
-        EntryCondition entryCondition,
-        ExpressionEvaluator exitCondition,
+        DispatchMode dispatchMode,
+        ExpressionEvaluator entryCondition,  // required when CHOREOGRAPHED; null when ORCHESTRATED
+        ExpressionEvaluator exitCondition,   // optional, evaluated for early completion
         boolean repeatable
     ) implements PlanItem {}
 }
@@ -417,7 +425,7 @@ Uni<List<Binding>> select(
     List<Binding> eligible);        // pre-filtered to this compound's children
 ```
 
-Existing implementations (`DefaultPlanningStrategy`, `SequentialPlanningStrategy`) add the parameter — `compound` scopes their decisions to the containing node.
+Existing implementations (`ChoreographyStrategy`, `SequentialPlanningStrategy`) add the parameter — `compound` scopes their decisions to the containing node.
 
 **Composable delegation:** `PlanningStrategy` gains access to `StrategyResolver` for sibling delegation.
 
@@ -434,6 +442,24 @@ Existing implementations (`DefaultPlanningStrategy`, `SequentialPlanningStrategy
 
 `Binding` itself remains as the runtime dispatch unit — `PlanningStrategyLoopControl` still produces `List<Binding>` for the engine's dispatch infrastructure. The compound PlanItem model structures the plan; bindings are the dispatch mechanism. Full binding migration design: casehubio/engine#TBD.
 
+**CasePlanModel API evolution.** The current `CasePlanModel` interface has 30+ methods organized around mutable PlanItems and separate Stages. The unified model requires:
+
+| Current API | New API | Rationale |
+|---|---|---|
+| `addPlanItem(PlanItem)` — stores mutable object | `registerPlanItem(PlanItem)` — stores immutable record | Plan definition is immutable |
+| `getPlanItem(id)` → live mutable object | `getPlanItem(id)` → immutable snapshot | Callers cannot mutate through the returned object |
+| `PlanItem.tryMarkRunning()` (caller mutates) | `tryTransition(id, from, to)` → boolean | CAS-guarded state transitions owned by CasePlanModel |
+| `getStatus()` on PlanItem object | `getStatus(id)` → TaskStatus | Execution state queried from CasePlanModel, not from PlanItem |
+| `addStage(Stage)` | `registerPlanItem(PlanItem.Compound)` | Stages are compound PlanItems |
+| `getActiveStages()` | `getActiveCompounds()` | Compound lifecycle queries replace stage queries |
+| `getPendingStages()` | `getPendingCompounds()` | Same |
+| — (no parent-child API) | `getChildrenOf(compoundId)` → Set\<String\> | Runtime parent-child index (merges declared + dynamic) |
+| — | `getParentOf(planItemId)` → Optional\<String\> | Reverse lookup for completion propagation |
+| — | `addChild(compoundId, PlanItem)` | Runtime plan modification (HTN decomposition, configurers) |
+| Stage autocomplete evaluation | `evaluateCompletion(compoundId)` | CompletionSemantics-driven, replaces StageAutocompleteEvaluator |
+
+The priority queue (`PriorityBlockingQueue<PlanItem>`) is replaced by priority ordering on the execution state tracker — priority is an execution concern, not a plan definition property. The `ConcurrentHashMap<String, PlanItem>` by-ID index remains but now stores immutable records. Execution state lives in a parallel `ConcurrentHashMap<String, PlanItemExecutionState>` with CAS-guarded transitions.
+
 ### 4.2 Redesign requirements
 
 - **TaskNode uses ExecutorRef at SPI boundary** — `AgentRef extends ExecutorRef` (the subtype relationship is already implemented). Promotion to engine-api requires: (1) change `LeafTask.agent()` → `LeafTask.executor()` returning `ExecutorRef`, (2) change `PrimitiveTask` and `PlannedTask` constructor parameters from `AgentRef` to `ExecutorRef`, (3) remove the `agent()` method from the promoted SPI (blocks subclasses can add it back). This is the actual work of promotion — the subtype relationship makes it possible, but the field-level migration is required.
@@ -443,6 +469,7 @@ Existing implementations (`DefaultPlanningStrategy`, `SequentialPlanningStrategy
 - **`TaskNode.CompoundTask` is ephemeral; compound PlanItems are not.** `CompoundTask` is an HTN decomposition *input* — consumed by `DecompositionStrategy` to produce a plan. The decomposition process creates PlanItems (both primitive and compound) that ARE persistent in `CasePlanModel`. The compound PlanItem replacing a Stage is a first-class persistent plan node. `CompoundTask`'s methods and name are recorded in EventLog metadata for audit.
 - **DagPlan<T> type alignment** — `DagPlan<T>` remains generic. In the planning path, `T` is instantiated as `LeafTask<ContextType>`, yielding `DagPlan<LeafTask<ContextType>>`. `DagNode<T>` wraps `T` directly as payload — `DagNode<LeafTask<ContextType>>` carries the leaf task. `ExecutionNode<T>` wraps `LeafTask<T>` explicitly; when `ExecutionPlan` is retired, this wrapping becomes `DagNode`'s generic parameter. No structural change to DagPlan — it stays general-purpose.
 - **DagDriver stays standalone** — not used in planning dispatch path. Compound PlanItems dispatch children via strategy.
+- **Persistence layer redesign** — the current persistence model (`PlanItemStore` SPI, `PlanItemRecord`, `PlanItemSaveRequest`, `PlanItemEntity`, `InMemoryPlanItemStore`, `PlanItemRestorer`) is flat: 11 fields covering both plan definition (bindingName, executorName) and execution state (status, createdAt) in a single record, with no compound support (no type discriminator, no parent-child relationship, no planning strategy, no completion semantics, no dispatch mode). The new model requires: (1) a type discriminator (Primitive vs Compound) on the persistence record, (2) compound-specific fields (planningStrategy, completionSemantics, dispatchMode, repeatable), (3) parent-child relationship persistence for runtime-created children (HTN decomposition, configurer additions), and (4) a design decision on whether plan-definition persistence and execution-state persistence remain co-located (denormalized, simpler migration) or split into separate stores (cleaner separation, matches domain model). Note: Stages are NOT persisted today — they are rebuilt by `BlackboardPlanConfigurer` from case definitions on each case access. Compound PlanItem persistence is therefore net-new work, not adaptation of existing Stage persistence. `PlanItemRestorer` must learn to reconstruct `PlanItem.Compound` variants.
 
 ### 4.3 What moves where
 
@@ -492,7 +519,12 @@ Existing implementations (`DefaultPlanningStrategy`, `SequentialPlanningStrategy
 
 **Phase 2: Rename blackboard → engine-planning.** Coordinate with trebleel. Consumer repos update imports.
 
-**Phase 3: PlanItem sealed hierarchy.** `Primitive | Compound`. Stage migrates to compound PlanItem. Per-compound strategy resolution.
+**Phase 3: PlanItem sealed hierarchy and Stage migration.** The largest phase — broken into sub-phases:
+
+- **Phase 3a: Sealed hierarchy + execution state externalization.** Define `PlanItem` sealed interface with `Primitive`/`Compound` records. Create `PlanItemExecutionState` for CAS-guarded status transitions. Existing `PlanItem` class adapts to the new model with a compatibility layer during migration. Persistence schema changes: add type discriminator to `PlanItemRecord`/`PlanItemSaveRequest`/`PlanItemEntity`, add compound-specific columns (planningStrategy, completionSemantics, dispatchMode, repeatable). Compound PlanItem persistence is net-new — Stages are not persisted today (rebuilt by `BlackboardPlanConfigurer`), so this introduces a new persistence path. Update `PlanItemRestorer` to reconstruct `PlanItem.Compound` variants.
+- **Phase 3b: CasePlanModel API redesign.** New state management (`tryTransition`, `getStatus`), parent-child tracking (`getChildrenOf`, `getParentOf`, `addChild`), compound lifecycle queries (`getActiveCompounds`). Replace mutable-object-return pattern with immutable-record-return + external state. Parent-child relationship persistence: `CasePlanModel`'s `Map<String, Set<String>>` compound-to-children index must be persistable for runtime-created children (HTN decomposition, configurer additions) to survive engine restart. Design decision: co-locate plan-definition and execution-state in a denormalized record (simpler migration) or split into separate stores (matches domain model separation). Either way, the `PlanItemStore` SPI expands to support compound save/restore.
+- **Phase 3c: Stage infrastructure migration.** `StageLifecycleEvaluator` → compound lifecycle evaluator. `StageAutocompleteEvaluator` → `CompletionSemantics` evaluator. Stage events → compound PlanItem lifecycle events. `StageResetOutcomesCleaner` → compound reset logic. Milestone containment migration.
+- **Phase 3d: Per-compound strategy dispatch + Stage builder API compatibility.** `PlanningStrategyLoopControl` per-compound dispatch with `PlanItem.Compound` parameter. Programmatic Stage builder API compatibility — `Stage.builder()` produces compound PlanItems with choreography strategy. Binding-to-PlanItem mapping in the builder layer.
 
 **Phase 4: DAG plan unification (blocks).** `ExecutionPlan<T>` → `DagPlan<T>`.
 
@@ -512,7 +544,7 @@ Existing implementations (`DefaultPlanningStrategy`, `SequentialPlanningStrategy
 
 **C3: Selection criteria vs planning algorithms.** Orchestration has two orthogonal dimensions: selection criteria (HOW the strategy picks — priority, goal-driven, resource-aware) and planning algorithms (WHAT structure the plan has — sequential, flow, HTN). These are independent but not modeled separately.
 
-**C4: Stage-to-compound-PlanItem structural transition.** Current Stage has `containedBindingNames` (strings) and `containedPlanItemIds` (strings). Compound PlanItem has `children` (PlanItem references). Different structures. `StageAutocompleteEvaluator` must be migrated. YAML backward compatibility must be preserved.
+**C4: Stage-to-compound-PlanItem structural transition.** Current Stage has `containedBindingNames` (strings) and `containedPlanItemIds` (strings). Compound PlanItem has `children` (PlanItem references). Different structures. `StageAutocompleteEvaluator` must be migrated. Programmatic Stage builder API (`Stage.builder()`) compatibility must be preserved — there is no YAML `stages:` feature (see §2.7).
 
 ### Open questions
 
@@ -528,19 +560,19 @@ Existing implementations (`DefaultPlanningStrategy`, `SequentialPlanningStrategy
 
 Completion propagates upward: when a compound completes, its parent re-evaluates its own CompletionSemantics. `GoalBasedCompletion` (case-level) is orthogonal — it evaluates case goals, not compound PlanItem completion. Detailed design: casehubio/engine#TBD.
 
-**Q4: Compound PlanItem detailed design.** How does parent-child indexing work in `CasePlanModel`? How does completion propagate from children to compound parent? How does per-compound strategy resolution work in `PlanningStrategyLoopControl`?
+**Q4: RESOLVED — Compound PlanItem detailed design.** Parent-child indexing: §2.1 "Declared children vs runtime children" + §4.1 CasePlanModel API table (`getChildrenOf`, `getParentOf`, `addChild`). Completion propagation: §5 Q3 outline + §4.1 API table (`evaluateCompletion`). Per-compound strategy resolution: §4.1 updated SPI signature with `PlanItem.Compound` parameter + per-compound grouping. Root compound: §2.1 "Implicit root compound."
 
-**Q5: Adversarial review findings.** TaskNode.LeafTask depends on AgentRef (resolution: `AgentRef extends ExecutorRef` — done). DecompositionContext depends on RoutingCandidate (resolution: use `ExecutorRef` list). CasePlanModel has no parent-child PlanItem support (resolution: compound tasks ephemeral, but needs verification). DagDriver synchronous vs blackboard reactive (resolution: don't use DagDriver in planning path).
+**Q5: RESOLVED — Adversarial review findings.** TaskNode.LeafTask depends on AgentRef (resolution: `AgentRef extends ExecutorRef` — field migration scoped in §4.2). DecompositionContext depends on RoutingCandidate (resolution: use `List<? extends ExecutorRef>` — see §4.2). CasePlanModel parent-child support (resolution: compound PlanItems persistent in CasePlanModel; parent-child index tracks declared + runtime children — see §2.1). DagDriver synchronous vs blackboard reactive (resolution: don't use DagDriver in planning path).
 
 ---
 
 ## Design Invariants
 
-1. **PlanItem is the graph.** Primitive nodes dispatch workers. Compound nodes dispatch according to their strategy. No other node type exists.
+1. **PlanItem is the graph.** Primitive nodes dispatch workers. Compound nodes dispatch according to their strategy. No other node type exists. Every case has an implicit root compound — the per-compound dispatch model is uniform from top to bottom.
 
 2. **CaseInstance is the runtime.** Context, EventLog, lifecycle, tenancy. The PlanItem graph executes within it. One CaseInstance, arbitrarily deep nesting. SubCases only for true execution isolation.
 
-3. **Two activation modes, declared not inferred.** Orchestrated ("now") and choreographed ("when"). Each PlanItem declares its `ActivationMode`. No third axis. Everything reduces to one or a composition of both.
+3. **Two dispatch modes, declared not inferred.** Orchestrated ("now") and choreographed ("when"). Each PlanItem declares its `DispatchMode`. No third axis. Everything reduces to one or a composition of both.
 
 4. **Strategies are peers.** Same SPI, same resolution, composable by nesting. No strategy is more fundamental than another. No compile-time alternatives.
 
