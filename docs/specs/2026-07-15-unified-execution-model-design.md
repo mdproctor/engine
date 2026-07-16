@@ -5,9 +5,9 @@ graph, and one runtime — and why that's enough for every execution
 model we've encountered.
 
 **Companion documents:**
-- Blocks migration spec: casehubio/blocks#60
-- Execution backend architecture: `blocks/docs/execution-backend-architecture.md`
-- Agentic orchestration research: `blocks/docs/agentic-orchestration-research.md`
+- Blocks migration spec: [casehubio/blocks#60](https://github.com/casehubio/blocks/issues/60)
+- [Execution backend architecture](../../../blocks/docs/execution-backend-architecture.md) — Quarkus Flow integration, LangChain4j pattern catalogue, backend selection criteria
+- [Agentic orchestration research](../../../blocks/docs/agentic-orchestration-research.md) — research notes, LangChain4j API detail, GOAP vs HTN, execution model catalogue
 
 ---
 
