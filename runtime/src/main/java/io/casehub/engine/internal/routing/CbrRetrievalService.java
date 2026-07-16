@@ -174,6 +174,7 @@ public class CbrRetrievalService {
                   CbrQuery.of(
                           instance.tenancyId,
                           new MemoryDomain(resolvedDomain),
+                          io.casehub.platform.api.path.Path.root(),
                           caseType,
                           features,
                           config.topK())

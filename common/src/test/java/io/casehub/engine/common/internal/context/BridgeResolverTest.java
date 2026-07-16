@@ -16,6 +16,7 @@
 package io.casehub.engine.common.internal.context;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.context.ContextBridge;
 import io.casehub.api.context.JacksonPojoBridge;
@@ -65,6 +66,27 @@ class BridgeResolverTest {
   void resolveByTypeName_unknownClassName_returnsMapBridge() {
     var resolver = new BridgeResolver(stubBridges(List.of()));
     assertThat(resolver.resolveByTypeName("com.nonexistent.Foo")).isInstanceOf(MapBridge.class);
+  }
+
+  @Test
+  void resolveByTypeNameStrict_throwsOnUnknownClass() {
+    var resolver = new BridgeResolver(stubBridges(List.of()));
+    assertThatThrownBy(() -> resolver.resolveByTypeNameStrict("com.nonexistent.FooBar"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("com.nonexistent.FooBar");
+  }
+
+  @Test
+  void resolveByTypeNameStrict_returnsMapBridgeForMapClass() {
+    var resolver = new BridgeResolver(stubBridges(List.of()));
+    assertThat(resolver.resolveByTypeNameStrict(Map.class.getName())).isInstanceOf(MapBridge.class);
+  }
+
+  @Test
+  void resolveByTypeNameStrict_throwsOnNull() {
+    var resolver = new BridgeResolver(stubBridges(List.of()));
+    assertThatThrownBy(() -> resolver.resolveByTypeNameStrict(null))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test

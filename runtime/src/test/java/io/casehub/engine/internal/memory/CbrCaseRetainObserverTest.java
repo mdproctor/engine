@@ -541,7 +541,14 @@ class CbrCaseRetainObserverTest {
     RuntimeException throwOnStore;
 
     @Override
-    public String store(CbrCase c, String ct, String eid, MemoryDomain d, String tid, String cid) {
+    public String store(
+        CbrCase c,
+        String ct,
+        String eid,
+        MemoryDomain d,
+        String tid,
+        String cid,
+        io.casehub.platform.api.path.Path scope) {
       if (throwOnStore != null) {
         throw throwOnStore;
       }
@@ -581,6 +588,10 @@ class CbrCaseRetainObserverTest {
       return 0;
     }
 
+    @Override
+    public void supersede(String caseId, String tenantId, String newCaseId, String reason) {}
 
+    @Override
+    public void reinstate(String caseId, String tenantId) {}
   }
 }

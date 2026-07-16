@@ -55,6 +55,8 @@ public final class HumanTaskTarget implements BindingTarget {
   private final String scope;
   private final ExpressionEvaluator scopeExpression;
   private final Set<String> outcomes;
+  private final Class<?> payloadType;
+  private final Class<?> resolutionType;
 
   private HumanTaskTarget(Builder builder) {
     this.templateRef = builder.templateRef;
@@ -72,6 +74,8 @@ public final class HumanTaskTarget implements BindingTarget {
     this.scope = builder.scope;
     this.scopeExpression = builder.scopeExpression;
     this.outcomes = builder.outcomes;
+    this.payloadType = builder.payloadType;
+    this.resolutionType = builder.resolutionType;
   }
 
   /**
@@ -163,6 +167,14 @@ public final class HumanTaskTarget implements BindingTarget {
     return outcomes;
   }
 
+  public Class<?> payloadType() {
+    return payloadType;
+  }
+
+  public Class<?> resolutionType() {
+    return resolutionType;
+  }
+
   public static final class Builder {
 
     private final String templateRef;
@@ -180,6 +192,8 @@ public final class HumanTaskTarget implements BindingTarget {
     private String scope;
     private ExpressionEvaluator scopeExpression;
     private Set<String> outcomes;
+    private Class<?> payloadType;
+    private Class<?> resolutionType;
 
     private Builder(String templateRef) {
       this.templateRef = templateRef;
@@ -347,6 +361,16 @@ public final class HumanTaskTarget implements BindingTarget {
 
     public Builder outcomes(Set<String> outcomes) {
       this.outcomes = outcomes;
+      return this;
+    }
+
+    public Builder payloadType(Class<?> payloadType) {
+      this.payloadType = payloadType;
+      return this;
+    }
+
+    public Builder resolutionType(Class<?> resolutionType) {
+      this.resolutionType = resolutionType;
       return this;
     }
 

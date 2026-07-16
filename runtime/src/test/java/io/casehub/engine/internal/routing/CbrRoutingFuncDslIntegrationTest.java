@@ -86,7 +86,8 @@ class CbrRoutingFuncDslIntegrationTest {
         "entity-2",
         new MemoryDomain("func-dsl-domain"),
         TenancyConstants.DEFAULT_TENANT_ID,
-        UUID.randomUUID().toString());
+        UUID.randomUUID().toString(),
+        io.casehub.platform.api.path.Path.root());
 
     // Start the case with context that triggers the binding
     caseHub

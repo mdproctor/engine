@@ -172,7 +172,8 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
         "case-retain",
         new MemoryDomain(domain),
         event.tenancyId(),
-        event.caseId().toString());
+        event.caseId().toString(),
+        io.casehub.platform.api.path.Path.root());
   }
 
   private String resolveDomain(CbrConfig config, CaseDefinition definition) {

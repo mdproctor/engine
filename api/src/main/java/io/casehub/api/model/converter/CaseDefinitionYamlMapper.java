@@ -927,6 +927,22 @@ public final class CaseDefinitionYamlMapper {
     if (schema.getOutcomes() != null && !schema.getOutcomes().isEmpty()) {
       builder.outcomes(new LinkedHashSet<>(schema.getOutcomes()));
     }
+    if (schema.getPayloadType() != null) {
+      try {
+        builder.payloadType(Class.forName(schema.getPayloadType()));
+      } catch (ClassNotFoundException e) {
+        throw new IllegalArgumentException(
+            "humanTask payloadType class not found: " + schema.getPayloadType(), e);
+      }
+    }
+    if (schema.getResolutionType() != null) {
+      try {
+        builder.resolutionType(Class.forName(schema.getResolutionType()));
+      } catch (ClassNotFoundException e) {
+        throw new IllegalArgumentException(
+            "humanTask resolutionType class not found: " + schema.getResolutionType(), e);
+      }
+    }
     return builder.build();
   }
 

@@ -1927,6 +1927,104 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getContextStoreFactory()).isNull();
   }
 
+  @Test
+  void humanTask_payloadAndResolutionType_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Typed HumanTask
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: review
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+                payloadType: java.util.Map
+                resolutionType: java.lang.String
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    assertThat(ht.payloadType()).isEqualTo(java.util.Map.class);
+    assertThat(ht.resolutionType()).isEqualTo(String.class);
+  }
+
+  @Test
+  void humanTask_nullTypesWhenNotSpecified() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Untyped HumanTask
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: review
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    assertThat(ht.payloadType()).isNull();
+    assertThat(ht.resolutionType()).isNull();
+  }
+
+  @Test
+  void humanTask_invalidPayloadType_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Bad Type
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: review
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+                payloadType: com.nonexistent.FooBar
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("payloadType class not found");
+  }
+
+  @Test
+  void humanTask_invalidResolutionType_throwsIllegalArgument() {
+    String yaml =
+        """
+        namespace: test
+        name: Bad Resolution
+        version: 1.0.0
+        spec:
+          bindings:
+            - name: review
+              on: { contextChange: {} }
+              humanTask:
+                title: "Review"
+                resolutionType: com.nonexistent.BazQux
+        """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("resolutionType class not found");
+  }
+
   /** Stub registry that records all create() calls for assertion. */
   private static final class RecordingRegistry implements ExpressionEngineRegistry {
     final List<String> langs = new ArrayList<>();

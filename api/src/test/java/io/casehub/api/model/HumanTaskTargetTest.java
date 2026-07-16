@@ -337,4 +337,41 @@ class HumanTaskTargetTest {
 
     assertThat(target.expiresInExpression()).isNull();
   }
+
+  @Test
+  void payloadType_storedOnBuilder() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").payloadType(java.util.Map.class).build();
+    assertThat(target.payloadType()).isEqualTo(java.util.Map.class);
+  }
+
+  @Test
+  void resolutionType_storedOnBuilder() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").resolutionType(String.class).build();
+    assertThat(target.resolutionType()).isEqualTo(String.class);
+  }
+
+  @Test
+  void payloadType_nullByDefault() {
+    HumanTaskTarget target = HumanTaskTarget.inline().title("Review").build();
+    assertThat(target.payloadType()).isNull();
+  }
+
+  @Test
+  void resolutionType_nullByDefault() {
+    HumanTaskTarget target = HumanTaskTarget.inline().title("Review").build();
+    assertThat(target.resolutionType()).isNull();
+  }
+
+  @Test
+  void templateMode_acceptsPayloadAndResolutionTypes() {
+    HumanTaskTarget target =
+        HumanTaskTarget.template("tmpl-1")
+            .payloadType(java.util.Map.class)
+            .resolutionType(String.class)
+            .build();
+    assertThat(target.payloadType()).isEqualTo(java.util.Map.class);
+    assertThat(target.resolutionType()).isEqualTo(String.class);
+  }
 }

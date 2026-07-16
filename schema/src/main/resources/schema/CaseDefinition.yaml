@@ -466,6 +466,12 @@ $defs:
         type: array
         items: { type: string }
         description: "Valid outcome names for this WorkItem (e.g. APPROVED, REJECTED). Enforced at completion by casehub-work."
+      payloadType:
+        type: string
+        description: "Fully-qualified Java class name for typed payload validation via ContextBridge. Engine validates inputMapping output against this type at dispatch time."
+      resolutionType:
+        type: string
+        description: "Fully-qualified Java class name for typed resolution validation via ContextBridge. Engine validates WorkItem resolution against this type at completion time."
 
   Binding:
     type: object

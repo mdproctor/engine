@@ -119,6 +119,8 @@ public class CaseContextChangedEventHandler {
 
   @Inject CbrRetrievalService cbrRetrievalService;
 
+  @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
+
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED, blocking = true)
@@ -515,6 +517,23 @@ public class CaseContextChangedEventHandler {
   private Uni<Void> publishHumanTaskSchedule(
       final CaseInstance caseInstance, final Binding binding, final HumanTaskTarget target) {
     final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
+
+    if (target.payloadType() != null && target.inputMapping() != null && !inputData.isEmpty()) {
+      try {
+        var bridge = bridgeResolver.resolveByType(target.payloadType());
+        bridge.initialise(caseInstance.getCaseContext(), MAPPER.valueToTree(inputData));
+      } catch (Exception e) {
+        LOG.warnf(
+            e,
+            "Bridge validation failed for HumanTask binding '%s' caseId=%s — "
+                + "inputMapping output does not match payloadType %s. PlanItem stays PENDING.",
+            binding.getName(),
+            caseInstance.getUuid(),
+            target.payloadType().getName());
+        return Uni.createFrom().voidItem();
+      }
+    }
+
     final JsonNode caseContext =
         caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
 
@@ -557,6 +576,11 @@ public class CaseContextChangedEventHandler {
                   caseBudgetDeadline,
                   expiresAtDeadline);
 
+              final String payloadTypeName =
+                  target.payloadType() != null ? target.payloadType().getName() : null;
+              final String resolutionTypeName =
+                  target.resolutionType() != null ? target.resolutionType().getName() : null;
+
               eventBus.publish(
                   EventBusAddresses.HUMAN_TASK_SCHEDULE,
                   new HumanTaskScheduleEvent(
@@ -565,6 +589,8 @@ public class CaseContextChangedEventHandler {
                       binding.getName(),
                       target,
                       inputData,
+                      payloadTypeName,
+                      resolutionTypeName,
                       resolvedGroups,
                       resolvedUsers,
                       caseBudgetDeadline,

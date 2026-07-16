@@ -66,6 +66,8 @@ public record HumanTaskScheduleEvent(
     String bindingName,
     HumanTaskTarget target,
     Map<String, Object> inputData,
+    String payloadTypeName,
+    String resolutionTypeName,
     Set<String> resolvedCandidateGroups,
     Set<String> resolvedCandidateUsers,
     Instant caseBudgetDeadline,

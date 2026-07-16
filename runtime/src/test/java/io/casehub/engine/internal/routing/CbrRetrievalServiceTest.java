@@ -390,7 +390,14 @@ class CbrRetrievalServiceTest {
     public void registerSchema(CbrFeatureSchema schema) {}
 
     @Override
-    public String store(CbrCase c, String ct, String eid, MemoryDomain d, String tid, String cid) {
+    public String store(
+        CbrCase c,
+        String ct,
+        String eid,
+        MemoryDomain d,
+        String tid,
+        String cid,
+        io.casehub.platform.api.path.Path scope) {
       return "";
     }
 
@@ -413,6 +420,10 @@ class CbrRetrievalServiceTest {
       return 0;
     }
 
+    @Override
+    public void supersede(String caseId, String tenantId, String newCaseId, String reason) {}
 
+    @Override
+    public void reinstate(String caseId, String tenantId) {}
   }
 }

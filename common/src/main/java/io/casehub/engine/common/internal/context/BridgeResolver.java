@@ -84,6 +84,17 @@ public class BridgeResolver {
     }
   }
 
+  public ContextBridge<?> resolveByTypeNameStrict(String typeName) {
+    if (typeName == null) {
+      throw new IllegalArgumentException("typeName must not be null for strict resolution");
+    }
+    try {
+      return resolveByType(Class.forName(typeName));
+    } catch (ClassNotFoundException e) {
+      throw new IllegalArgumentException("Bridge type class not found: " + typeName, e);
+    }
+  }
+
   @SuppressWarnings("unchecked")
   public <T> T initialise(ContextBridge<T> bridge, CaseContext context, JsonNode narrowedInput) {
     return bridge.initialise(context, narrowedInput);
