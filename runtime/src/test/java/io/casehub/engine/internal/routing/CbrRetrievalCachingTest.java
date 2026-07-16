@@ -289,10 +289,6 @@ class CbrRetrievalCachingTest {
       return 0;
     }
 
-    @Override
-    public void supersede(String caseId, String tenantId, String newCaseId, String newTenantId) {}
 
-    @Override
-    public void reinstate(String caseId, String tenantId) {}
   }
 }
