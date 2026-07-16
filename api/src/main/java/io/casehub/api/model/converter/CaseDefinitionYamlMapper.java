@@ -852,15 +852,21 @@ public final class CaseDefinitionYamlMapper {
   }
 
   private static HumanTaskTarget convertHumanTask(final io.casehub.model.HumanTask schema) {
-    if (schema.getTitle() != null && schema.getTemplateRef() != null) {
+    if ((schema.getTitle() != null || schema.getTitleExpression() != null)
+        && schema.getTemplateRef() != null) {
       throw new IllegalArgumentException(
-          "humanTask cannot specify both title and templateRef"
-              + " - use inline mode (title) or template mode (templateRef), not both");
+          "humanTask cannot specify both title/titleExpression and templateRef"
+              + " - use inline mode (title or titleExpression) or template mode (templateRef), not both");
     }
-    final HumanTaskTarget.Builder builder =
-        schema.getTemplateRef() != null
-            ? HumanTaskTarget.template(schema.getTemplateRef())
-            : HumanTaskTarget.inline().title(schema.getTitle());
+    final HumanTaskTarget.Builder builder;
+    if (schema.getTemplateRef() != null) {
+      builder = HumanTaskTarget.template(schema.getTemplateRef());
+    } else {
+      builder = HumanTaskTarget.inline();
+      if (schema.getTitle() != null) {
+        builder.title(schema.getTitle());
+      }
+    }
 
     if (schema.getInputMapping() != null) {
       builder.inputMapping(schema.getInputMapping());
@@ -902,19 +908,20 @@ public final class CaseDefinitionYamlMapper {
       }
       builder.expiresIn(duration);
     }
+    if (schema.getTitleExpression() != null && !schema.getTitleExpression().isBlank()) {
+      validateJqSyntax(schema.getTitleExpression(), "titleExpression");
+      builder.titleExpression(schema.getTitleExpression());
+    }
+    if (schema.getScopeExpression() != null && !schema.getScopeExpression().isBlank()) {
+      validateJqSyntax(schema.getScopeExpression(), "scopeExpression");
+      builder.scopeExpression(schema.getScopeExpression());
+    }
+    if (schema.getExpiresInExpression() != null && !schema.getExpiresInExpression().isBlank()) {
+      validateJqSyntax(schema.getExpiresInExpression(), "expiresInExpression");
+      builder.expiresInExpression(schema.getExpiresInExpression());
+    }
     if (schema.getExpiresAtExpression() != null && !schema.getExpiresAtExpression().isBlank()) {
-      // Validate JQ syntax at load time — a silent runtime null is a regulatory SLA failure
-      try {
-        net.thisptr.jackson.jq.JsonQuery.compile(
-            schema.getExpiresAtExpression(), net.thisptr.jackson.jq.Versions.JQ_1_6);
-      } catch (Exception e) {
-        throw new IllegalArgumentException(
-            "invalid expiresAtExpression '"
-                + schema.getExpiresAtExpression()
-                + "' — "
-                + e.getMessage(),
-            e);
-      }
+      validateJqSyntax(schema.getExpiresAtExpression(), "expiresAtExpression");
       builder.expiresAtExpression(schema.getExpiresAtExpression());
     }
     if (schema.getOutcomes() != null && !schema.getOutcomes().isEmpty()) {
@@ -975,5 +982,14 @@ public final class CaseDefinitionYamlMapper {
       }
     }
     return (List<String>) raw;
+  }
+
+  private static void validateJqSyntax(final String expression, final String fieldName) {
+    try {
+      net.thisptr.jackson.jq.JsonQuery.compile(expression, net.thisptr.jackson.jq.Versions.JQ_1_6);
+    } catch (Exception e) {
+      throw new IllegalArgumentException(
+          "invalid " + fieldName + " '" + expression + "' — " + e.getMessage(), e);
+    }
   }
 }

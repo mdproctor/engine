@@ -49,6 +49,32 @@ class HumanTaskTargetDispatchTest {
   @Inject DynamicGroupsCaseBean dynamicGroupsCaseBean;
   @Inject BadGroupsCaseBean badGroupsCaseBean;
   @Inject ConjunctionFailCaseBean conjunctionFailCaseBean;
+  @Inject DynamicFieldsCaseBean dynamicFieldsCaseBean;
+
+  @Test
+  void humanTaskBinding_dynamicTitle_resolvesFromContext() {
+    CompletionStage<UUID> future =
+        dynamicFieldsCaseBean.startCase(
+            Map.of(
+                "stage", "review",
+                "protocol", Map.of("id", "PROTO-42"),
+                "trial",
+                    Map.of(
+                        "site",
+                        Map.of("code", "site-london"),
+                        "regulatoryDeadlineDuration",
+                        "PT72H")));
+    future.toCompletableFuture().join();
+
+    await()
+        .atMost(5, TimeUnit.SECONDS)
+        .untilAsserted(() -> assertThat(HumanTaskEventRecorder.events).isNotEmpty());
+
+    HumanTaskScheduleEvent event = HumanTaskEventRecorder.events.get(0);
+    assertThat(event.resolvedTitle()).isEqualTo("IRB Review — PROTO-42");
+    assertThat(event.resolvedScope()).isEqualTo("site-london");
+    assertThat(event.resolvedExpiresIn()).isEqualTo(java.time.Duration.ofHours(72));
+  }
 
   @BeforeEach
   void reset() {
@@ -235,6 +261,32 @@ class HumanTaskTargetDispatchTest {
           .bindings(
               Binding.builder()
                   .name("conjunction-binding")
+                  .humanTask(target)
+                  .on(new ContextChangeTrigger(".stage == \"review\""))
+                  .build())
+          .build();
+    }
+  }
+
+  @ApplicationScoped
+  static class DynamicFieldsCaseBean extends CaseHub {
+    @Override
+    public CaseDefinition getDefinition() {
+      HumanTaskTarget target =
+          HumanTaskTarget.inline()
+              .title("IRB Review")
+              .titleExpression("\"IRB Review — \" + .protocol.id")
+              .scopeExpression(".trial.site.code")
+              .expiresInExpression(".trial.regulatoryDeadlineDuration")
+              .build();
+
+      return CaseDefinition.builder()
+          .namespace("test")
+          .name("DynamicFieldsCase")
+          .version("1.0.0")
+          .bindings(
+              Binding.builder()
+                  .name("dynamic-fields-binding")
                   .humanTask(target)
                   .on(new ContextChangeTrigger(".stage == \"review\""))
                   .build())

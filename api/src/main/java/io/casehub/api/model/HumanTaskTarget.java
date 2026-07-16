@@ -42,29 +42,35 @@ public final class HumanTaskTarget implements BindingTarget {
 
   private final String templateRef;
   private final String title;
+  private final ExpressionEvaluator titleExpression;
   private final CandidateSetSpec candidateGroups;
   private final CandidateSetSpec candidateUsers;
   private final Duration expiresIn;
+  private final ExpressionEvaluator expiresInExpression;
   private final Integer claimDeadlineHours;
   private final ExpressionEvaluator expiresAtExpression;
   private final String priority;
   private final ExpressionEvaluator inputMapping;
   private final ExpressionEvaluator outputMapping;
   private final String scope;
+  private final ExpressionEvaluator scopeExpression;
   private final Set<String> outcomes;
 
   private HumanTaskTarget(Builder builder) {
     this.templateRef = builder.templateRef;
     this.title = builder.title;
+    this.titleExpression = builder.titleExpression;
     this.candidateGroups = builder.candidateGroups;
     this.candidateUsers = builder.candidateUsers;
     this.expiresIn = builder.expiresIn;
+    this.expiresInExpression = builder.expiresInExpression;
     this.claimDeadlineHours = builder.claimDeadlineHours;
     this.expiresAtExpression = builder.expiresAtExpression;
     this.priority = builder.priority;
     this.inputMapping = builder.inputMapping;
     this.outputMapping = builder.outputMapping;
     this.scope = builder.scope;
+    this.scopeExpression = builder.scopeExpression;
     this.outcomes = builder.outcomes;
   }
 
@@ -95,6 +101,10 @@ public final class HumanTaskTarget implements BindingTarget {
     return title;
   }
 
+  public ExpressionEvaluator titleExpression() {
+    return titleExpression;
+  }
+
   public CandidateSetSpec candidateGroups() {
     return candidateGroups;
   }
@@ -105,6 +115,10 @@ public final class HumanTaskTarget implements BindingTarget {
 
   public Duration expiresIn() {
     return expiresIn;
+  }
+
+  public ExpressionEvaluator expiresInExpression() {
+    return expiresInExpression;
   }
 
   /** Business hours allowed to claim this WorkItem before escalation. Null means unset. */
@@ -141,6 +155,10 @@ public final class HumanTaskTarget implements BindingTarget {
     return scope;
   }
 
+  public ExpressionEvaluator scopeExpression() {
+    return scopeExpression;
+  }
+
   public Set<String> outcomes() {
     return outcomes;
   }
@@ -149,15 +167,18 @@ public final class HumanTaskTarget implements BindingTarget {
 
     private final String templateRef;
     private String title;
+    private ExpressionEvaluator titleExpression;
     private CandidateSetSpec candidateGroups;
     private CandidateSetSpec candidateUsers;
     private Duration expiresIn;
+    private ExpressionEvaluator expiresInExpression;
     private Integer claimDeadlineHours;
     private ExpressionEvaluator expiresAtExpression;
     private String priority;
     private ExpressionEvaluator inputMapping;
     private ExpressionEvaluator outputMapping;
     private String scope;
+    private ExpressionEvaluator scopeExpression;
     private Set<String> outcomes;
 
     private Builder(String templateRef) {
@@ -166,6 +187,16 @@ public final class HumanTaskTarget implements BindingTarget {
 
     public Builder title(String title) {
       this.title = title;
+      return this;
+    }
+
+    public Builder titleExpression(String jqExpression) {
+      this.titleExpression = new JQExpressionEvaluator(jqExpression);
+      return this;
+    }
+
+    public Builder titleExpression(ExpressionEvaluator evaluator) {
+      this.titleExpression = evaluator;
       return this;
     }
 
@@ -248,6 +279,16 @@ public final class HumanTaskTarget implements BindingTarget {
       return this;
     }
 
+    public Builder expiresInExpression(String jqExpression) {
+      this.expiresInExpression = new JQExpressionEvaluator(jqExpression);
+      return this;
+    }
+
+    public Builder expiresInExpression(ExpressionEvaluator evaluator) {
+      this.expiresInExpression = evaluator;
+      return this;
+    }
+
     public Builder claimDeadlineHours(Integer hours) {
       this.claimDeadlineHours = hours;
       return this;
@@ -294,14 +335,25 @@ public final class HumanTaskTarget implements BindingTarget {
       return this;
     }
 
+    public Builder scopeExpression(String jqExpression) {
+      this.scopeExpression = new JQExpressionEvaluator(jqExpression);
+      return this;
+    }
+
+    public Builder scopeExpression(ExpressionEvaluator evaluator) {
+      this.scopeExpression = evaluator;
+      return this;
+    }
+
     public Builder outcomes(Set<String> outcomes) {
       this.outcomes = outcomes;
       return this;
     }
 
     public HumanTaskTarget build() {
-      if (templateRef == null && (title == null || title.isBlank())) {
-        throw new IllegalStateException("Inline HumanTaskTarget requires a non-blank title");
+      if (templateRef == null && (title == null || title.isBlank()) && titleExpression == null) {
+        throw new IllegalStateException(
+            "Inline HumanTaskTarget requires a non-blank title or a titleExpression");
       }
       return new HumanTaskTarget(this);
     }

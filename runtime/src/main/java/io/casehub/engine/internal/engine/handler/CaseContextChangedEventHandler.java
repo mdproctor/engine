@@ -540,6 +540,15 @@ public class CaseContextChangedEventHandler {
               final java.time.Instant expiresAtDeadline =
                   resolveExpiresAtDeadline(caseInstance, target);
 
+              final String resolvedTitle =
+                  resolveStringExpression(
+                      caseInstance, target.titleExpression(), "titleExpression");
+              final String resolvedScope =
+                  resolveStringExpression(
+                      caseInstance, target.scopeExpression(), "scopeExpression");
+              final java.time.Duration resolvedExpiresIn =
+                  resolveExpiresInExpression(caseInstance, target);
+
               LOG.infof(
                   "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s deadline=%s expiresAtDeadline=%s",
                   caseInstance.getUuid(),
@@ -559,7 +568,10 @@ public class CaseContextChangedEventHandler {
                       resolvedGroups,
                       resolvedUsers,
                       caseBudgetDeadline,
-                      expiresAtDeadline));
+                      expiresAtDeadline,
+                      resolvedTitle,
+                      resolvedScope,
+                      resolvedExpiresIn));
 
               return Uni.createFrom().voidItem();
             })
@@ -605,6 +617,39 @@ public class CaseContextChangedEventHandler {
               } catch (Exception e) {
                 LOG.warnf(
                     "expiresAtExpression result '%s' is not a valid ISO-8601 instant — ignoring",
+                    s);
+                return null;
+              }
+            })
+        .orElse(null);
+  }
+
+  private String resolveStringExpression(
+      final CaseInstance caseInstance,
+      final io.casehub.api.model.evaluator.ExpressionEvaluator evaluator,
+      final String fieldName) {
+    if (evaluator == null) {
+      return null;
+    }
+    return expressionEngineRegistry
+        .extractString(evaluator, caseInstance.getCaseContext())
+        .orElse(null);
+  }
+
+  private java.time.Duration resolveExpiresInExpression(
+      final CaseInstance caseInstance, final HumanTaskTarget target) {
+    if (target.expiresInExpression() == null) {
+      return null;
+    }
+    return expressionEngineRegistry
+        .extractString(target.expiresInExpression(), caseInstance.getCaseContext())
+        .map(
+            s -> {
+              try {
+                return java.time.Duration.parse(s);
+              } catch (Exception e) {
+                LOG.warnf(
+                    "expiresInExpression result '%s' is not a valid ISO-8601 duration — ignoring",
                     s);
                 return null;
               }

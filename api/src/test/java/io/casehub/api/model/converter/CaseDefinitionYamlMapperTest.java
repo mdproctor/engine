@@ -781,6 +781,109 @@ class CaseDefinitionYamlMapperTest {
   }
 
   @Test
+  void humanTask_titleExpression_parsedAsJQEvaluator() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Dynamic Title Case
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        titleExpression: '"IRB Review — " + .protocol.id'
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.title()).isNull();
+    assertThat(ht.titleExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.titleExpression()).expression())
+        .isEqualTo("\"IRB Review — \" + .protocol.id");
+  }
+
+  @Test
+  void humanTask_scopeExpression_parsedAsJQEvaluator() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Dynamic Scope Case
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        scopeExpression: ".trial.site.code"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.scope()).isNull();
+    assertThat(ht.scopeExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.scopeExpression()).expression())
+        .isEqualTo(".trial.site.code");
+  }
+
+  @Test
+  void humanTask_expiresInExpression_parsedAsJQEvaluator() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Dynamic ExpiresIn Case
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: ".trial.regulatoryDeadlineDuration"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresIn()).isNull();
+    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+        .isEqualTo(".trial.regulatoryDeadlineDuration");
+  }
+
+  @Test
+  void humanTask_invalidTitleExpression_throwsIllegalArgument() {
+    String yaml =
+        """
+                namespace: test
+                name: Bad Expression
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        titleExpression: ".["
+                """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("titleExpression");
+  }
+
+  @Test
   void load_failureGoalAndCompletionFailure_parsedCorrectly() throws IOException {
     String yaml =
         """

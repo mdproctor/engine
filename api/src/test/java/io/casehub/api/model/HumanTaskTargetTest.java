@@ -245,4 +245,96 @@ class HumanTaskTargetTest {
     assertThat(target.outcomes()).containsExactlyInAnyOrder("APPROVED", "REJECTED");
     assertThat(target.isTemplateMode()).isTrue();
   }
+
+  @Test
+  void titleExpression_stringBecomesJQEvaluator() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("fallback")
+            .titleExpression("\"IRB Review — \" + .protocol.id")
+            .build();
+
+    assertThat(target.titleExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) target.titleExpression()).expression())
+        .isEqualTo("\"IRB Review — \" + .protocol.id");
+  }
+
+  @Test
+  void titleExpression_evaluatorInstanceStoredDirectly() {
+    ExpressionEvaluator evaluator = new JQExpressionEvaluator(".title");
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("fallback").titleExpression(evaluator).build();
+
+    assertThat(target.titleExpression()).isSameAs(evaluator);
+  }
+
+  @Test
+  void titleExpression_nullByDefault() {
+    HumanTaskTarget target = HumanTaskTarget.template("t1").build();
+
+    assertThat(target.titleExpression()).isNull();
+  }
+
+  @Test
+  void inlineMode_withTitleExpression_noStaticTitle_builds() {
+    HumanTaskTarget target = HumanTaskTarget.inline().titleExpression(".dynamicTitle").build();
+
+    assertThat(target.title()).isNull();
+    assertThat(target.titleExpression()).isNotNull();
+  }
+
+  @Test
+  void scopeExpression_stringBecomesJQEvaluator() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").scopeExpression(".trial.site.code").build();
+
+    assertThat(target.scopeExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) target.scopeExpression()).expression())
+        .isEqualTo(".trial.site.code");
+  }
+
+  @Test
+  void scopeExpression_evaluatorInstanceStoredDirectly() {
+    ExpressionEvaluator evaluator = new JQExpressionEvaluator(".scope");
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").scopeExpression(evaluator).build();
+
+    assertThat(target.scopeExpression()).isSameAs(evaluator);
+  }
+
+  @Test
+  void scopeExpression_nullByDefault() {
+    HumanTaskTarget target = HumanTaskTarget.template("t1").build();
+
+    assertThat(target.scopeExpression()).isNull();
+  }
+
+  @Test
+  void expiresInExpression_stringBecomesJQEvaluator() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Review")
+            .expiresInExpression(".trial.regulatoryDeadlineDuration")
+            .build();
+
+    assertThat(target.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) target.expiresInExpression()).expression())
+        .isEqualTo(".trial.regulatoryDeadlineDuration");
+  }
+
+  @Test
+  void expiresInExpression_evaluatorInstanceStoredDirectly() {
+    ExpressionEvaluator evaluator = new JQExpressionEvaluator(".deadline");
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").expiresInExpression(evaluator).build();
+
+    assertThat(target.expiresInExpression()).isSameAs(evaluator);
+  }
+
+  @Test
+  void expiresInExpression_nullByDefault() {
+    HumanTaskTarget target = HumanTaskTarget.template("t1").build();
+
+    assertThat(target.expiresInExpression()).isNull();
+  }
 }

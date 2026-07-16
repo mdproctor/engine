@@ -38,6 +38,12 @@ import java.util.UUID;
  * earliest-deadline chain alongside {@code expiresIn} and {@code caseBudgetDeadline}. See
  * casehubio/engine#549, casehubio/clinical#83.
  *
+ * <p>{@code resolvedTitle}, {@code resolvedScope}, and {@code resolvedExpiresIn} carry values
+ * resolved from {@link HumanTaskTarget#titleExpression()}, {@link
+ * HumanTaskTarget#scopeExpression()}, and {@link HumanTaskTarget#expiresInExpression()} at publish
+ * time. When non-null, they override the corresponding static field on the target. See
+ * casehubio/engine#439.
+ *
  * <p>The binding name is the stable key for plan item lookup in the blackboard registry. See
  * engine#245.
  *
@@ -50,6 +56,9 @@ import java.util.UUID;
  * @param resolvedCandidateUsers resolved candidate users for assignment
  * @param caseBudgetDeadline the case-level deadline, or null
  * @param expiresAtDeadline the resolved expiration deadline, or null
+ * @param resolvedTitle the resolved title from titleExpression, or null
+ * @param resolvedScope the resolved scope from scopeExpression, or null
+ * @param resolvedExpiresIn the resolved expiresIn duration from expiresInExpression, or null
  */
 public record HumanTaskScheduleEvent(
     UUID caseId,
@@ -60,4 +69,7 @@ public record HumanTaskScheduleEvent(
     Set<String> resolvedCandidateGroups,
     Set<String> resolvedCandidateUsers,
     Instant caseBudgetDeadline,
-    Instant expiresAtDeadline) {}
+    Instant expiresAtDeadline,
+    String resolvedTitle,
+    String resolvedScope,
+    java.time.Duration resolvedExpiresIn) {}
