@@ -63,7 +63,9 @@ class CbrRetrievalCachingTest {
     init.invoke(jqEvaluator);
 
     cbrStore = new CountingCbrStore();
-    service = new CbrRetrievalService(jqEvaluator, cbrStore);
+    service =
+        new CbrRetrievalService(
+            jqEvaluator, cbrStore, new io.casehub.neocortex.memory.cbr.runtime.NoOpPlanAdapter());
     evictionHandler = new CbrCacheEvictionHandler(service);
   }
 
@@ -301,5 +303,10 @@ class CbrRetrievalCachingTest {
 
     @Override
     public void reinstate(String caseId, String tenantId) {}
+
+    @Override
+    public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
+      return 0;
+    }
   }
 }

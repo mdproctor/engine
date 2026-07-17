@@ -208,6 +208,85 @@ class ExperienceAnalyserTest {
         "problem", "solution", "COMPLETED", 1.0, similarity, Map.of(), List.of(steps), Map.of());
   }
 
+  @Test
+  void addedSteps_excludedFromStatistics() {
+    var addedStep =
+        new ExperiencePlanStep(
+            "binding-agent-a",
+            "security-review",
+            "agent-a",
+            "SUCCESS",
+            0,
+            Map.of(),
+            "ADDED",
+            "adapter recommendation");
+    var retainedStep =
+        new ExperiencePlanStep(
+            "binding-agent-b",
+            "security-review",
+            "agent-b",
+            "SUCCESS",
+            0,
+            Map.of(),
+            "RETAINED",
+            null);
+    var exp =
+        new RetrievedExperience(
+            "problem",
+            "solution",
+            "COMPLETED",
+            1.0,
+            0.8,
+            Map.of(),
+            List.of(addedStep, retainedStep),
+            Map.of());
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("agent-a", "agent-b"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).doesNotContainKey("agent-a");
+    assertThat(result).containsEntry("agent-b", 1.0);
+  }
+
+  @Test
+  void nonAddedAdaptationSteps_includedInStatistics() {
+    var boostedStep =
+        new ExperiencePlanStep(
+            "binding-agent-a",
+            "security-review",
+            "agent-a",
+            "SUCCESS",
+            0,
+            Map.of(),
+            "BOOSTED",
+            "high relevance");
+    var exp =
+        new RetrievedExperience(
+            "problem", "solution", "COMPLETED", 1.0, 0.8, Map.of(), List.of(boostedStep), Map.of());
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("agent-a"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).containsEntry("agent-a", 1.0);
+  }
+
+  @Test
+  void nullAdaptationAction_includedInStatistics() {
+    var unadaptedStep = step("agent-a", "security-review", "SUCCESS");
+    var exp = experience(0.8, unadaptedStep);
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("agent-a"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).containsEntry("agent-a", 1.0);
+  }
+
   private static ExperiencePlanStep step(String worker, String capability, String outcome) {
     return new ExperiencePlanStep("binding-" + worker, capability, worker, outcome, 0, Map.of());
   }

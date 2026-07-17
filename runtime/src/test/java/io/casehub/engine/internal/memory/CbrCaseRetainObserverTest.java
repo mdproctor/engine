@@ -593,5 +593,10 @@ class CbrCaseRetainObserverTest {
 
     @Override
     public void reinstate(String caseId, String tenantId) {}
+
+    @Override
+    public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
+      return 0;
+    }
   }
 }

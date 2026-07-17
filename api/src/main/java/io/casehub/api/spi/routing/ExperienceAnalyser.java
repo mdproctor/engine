@@ -62,7 +62,6 @@ public final class ExperienceAnalyser {
       final Set<String> eligibleWorkerIds,
       final String capabilityName,
       final Map<RoutingOutcome, Double> outcomeWeights) {
-
     final Map<String, double[]> workerStats = new HashMap<>();
 
     for (final RetrievedExperience exp : experiences) {
@@ -75,6 +74,10 @@ public final class ExperienceAnalyser {
         if (!capabilityName.equals(step.capabilityName())
             || step.workerName() == null
             || !eligibleWorkerIds.contains(step.workerName())) {
+          continue;
+        }
+
+        if ("ADDED".equals(step.adaptationAction())) {
           continue;
         }
 

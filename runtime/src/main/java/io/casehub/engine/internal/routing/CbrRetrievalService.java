@@ -31,11 +31,14 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.neocortex.memory.MemoryDomain;
+import io.casehub.neocortex.memory.cbr.AdaptationAction;
+import io.casehub.neocortex.memory.cbr.AdaptedPlan;
 import io.casehub.neocortex.memory.cbr.CbrCase;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.CbrQuery;
 import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase;
+import io.casehub.neocortex.memory.cbr.PlanAdapter;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
@@ -74,21 +77,26 @@ public class CbrRetrievalService {
 
   private final JQEvaluator jqEvaluator;
   private final CbrCaseMemoryStore cbrStore;
+  private final PlanAdapter planAdapter;
   private final Map<String, Class<? extends CbrCase>> typeMap;
 
   @Inject
   public CbrRetrievalService(
       JQEvaluator jqEvaluator,
       CbrCaseMemoryStore cbrStore,
+      PlanAdapter planAdapter,
       @All Instance<CbrCaseTypeRegistration> registrations) {
     this.jqEvaluator = jqEvaluator;
     this.cbrStore = cbrStore;
+    this.planAdapter = planAdapter;
     this.typeMap = buildTypeMap(registrations);
   }
 
-  CbrRetrievalService(JQEvaluator jqEvaluator, CbrCaseMemoryStore cbrStore) {
+  CbrRetrievalService(
+      JQEvaluator jqEvaluator, CbrCaseMemoryStore cbrStore, PlanAdapter planAdapter) {
     this.jqEvaluator = jqEvaluator;
     this.cbrStore = cbrStore;
+    this.planAdapter = planAdapter;
     this.typeMap = Map.copyOf(BUILT_IN_TYPES);
   }
 
@@ -194,7 +202,7 @@ public class CbrRetrievalService {
               return Uni.createFrom()
                   .item(() -> cbrStore.retrieveSimilar(query, caseClass))
                   .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
-                  .map(this::mapResults)
+                  .map(scoredCases -> mapResults(scoredCases, caseType, features))
                   .map(List::copyOf)
                   .invoke(
                       result -> {
@@ -283,14 +291,20 @@ public class CbrRetrievalService {
   }
 
   private <C extends CbrCase> List<RetrievedExperience> mapResults(
-      List<ScoredCbrCase<C>> scoredCases) {
-    return scoredCases.stream().map(this::mapScoredCase).toList();
+      List<ScoredCbrCase<C>> scoredCases, String caseType, Map<String, FeatureValue> features) {
+    return scoredCases.stream().map(s -> mapScoredCase(s, caseType, features)).toList();
   }
 
-  private <C extends CbrCase> RetrievedExperience mapScoredCase(ScoredCbrCase<C> scored) {
+  @SuppressWarnings("unchecked")
+  private <C extends CbrCase> RetrievedExperience mapScoredCase(
+      ScoredCbrCase<C> scored, String caseType, Map<String, FeatureValue> features) {
     CbrCase c = scored.cbrCase();
-    List<ExperiencePlanStep> trace =
-        (c instanceof PlanCbrCase plan) ? mapPlanTrace(plan.planTrace()) : List.of();
+    List<ExperiencePlanStep> trace;
+    if (c instanceof PlanCbrCase) {
+      trace = adaptAndMapPlanTrace((ScoredCbrCase<PlanCbrCase>) scored, caseType, features);
+    } else {
+      trace = List.of();
+    }
     return new RetrievedExperience(
         c.problem(),
         c.solution(),
@@ -300,6 +314,30 @@ public class CbrRetrievalService {
         new LinkedHashMap<>(c.features()),
         trace,
         scored.featureSimilarities());
+  }
+
+  private List<ExperiencePlanStep> adaptAndMapPlanTrace(
+      ScoredCbrCase<PlanCbrCase> scored, String caseType, Map<String, FeatureValue> features) {
+    try {
+      AdaptedPlan adapted = planAdapter.adapt(caseType, scored, features);
+      return adapted.steps().stream()
+          .filter(s -> s.action() != AdaptationAction.REMOVED)
+          .map(
+              s ->
+                  new ExperiencePlanStep(
+                      s.bindingName(),
+                      s.capabilityName(),
+                      s.workerName(),
+                      s.stepOutcome(),
+                      s.priority(),
+                      s.parameters(),
+                      s.action().name(),
+                      s.reason()))
+          .toList();
+    } catch (Exception e) {
+      LOG.warnf(e, "PlanAdapter.adapt() failed — falling back to raw plan trace");
+      return mapPlanTrace(scored.cbrCase().planTrace());
+    }
   }
 
   private List<ExperiencePlanStep> mapPlanTrace(List<PlanTrace> traces) {

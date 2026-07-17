@@ -31,11 +31,15 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.neocortex.memory.EraseRequest;
 import io.casehub.neocortex.memory.MemoryDomain;
+import io.casehub.neocortex.memory.cbr.AdaptationAction;
+import io.casehub.neocortex.memory.cbr.AdaptedPlan;
+import io.casehub.neocortex.memory.cbr.AdaptedStep;
 import io.casehub.neocortex.memory.cbr.CbrCase;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.CbrFeatureSchema;
 import io.casehub.neocortex.memory.cbr.CbrQuery;
 import io.casehub.neocortex.memory.cbr.FeatureValue;
+import io.casehub.neocortex.memory.cbr.PlanAdapter;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
@@ -53,16 +57,18 @@ class CbrRetrievalServiceTest {
   private JQEvaluator jqEvaluator;
   private CbrRetrievalService service;
 
+  private RecordingPlanAdapter planAdapter;
+
   @BeforeEach
   void setUp() throws Exception {
     jqEvaluator = new JQEvaluator();
-    // JQEvaluator.init() is package-private @PostConstruct — invoke via reflection
     Method init = JQEvaluator.class.getDeclaredMethod("init");
     init.setAccessible(true);
     init.invoke(jqEvaluator);
 
     cbrStore = new RecordingCbrStore();
-    service = new CbrRetrievalService(jqEvaluator, cbrStore);
+    planAdapter = new RecordingPlanAdapter();
+    service = new CbrRetrievalService(jqEvaluator, cbrStore, planAdapter);
   }
 
   @Test
@@ -366,6 +372,151 @@ class CbrRetrievalServiceTest {
 
   // --- helpers ---
 
+  @Test
+  void planCbrCase_adaptationInvoked() {
+    CbrConfig config =
+        CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
+    CaseDefinition def = buildDefinition(config);
+    PlanTrace pt = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
+    PlanCbrCase planCase =
+        new PlanCbrCase(
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.95,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(pt));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.87)));
+
+    List<RetrievedExperience> result =
+        service.retrieve(def, buildInstance()).await().indefinitely();
+
+    assertTrue(planAdapter.wasCalled());
+    assertEquals("test-case", planAdapter.lastCaseType());
+    assertEquals(1, result.size());
+    assertEquals("RETAINED", result.get(0).planTrace().get(0).adaptationAction());
+  }
+
+  @Test
+  void planCbrCase_caseType_threaded_from_config() {
+    CbrConfig config =
+        CbrConfig.builder()
+            .featureExtractor(ctx -> Map.of("f1", "v1"))
+            .domain("test")
+            .caseType("custom-type")
+            .build();
+    CaseDefinition def = buildDefinition(config);
+    PlanCbrCase planCase =
+        new PlanCbrCase(
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.9,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of())));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
+
+    service.retrieve(def, buildInstance()).await().indefinitely();
+
+    assertEquals("custom-type", planAdapter.lastCaseType());
+  }
+
+  @Test
+  void planCbrCase_removedSteps_filtered() {
+    CbrConfig config =
+        CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
+    CaseDefinition def = buildDefinition(config);
+    PlanCbrCase planCase =
+        new PlanCbrCase(
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.9,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(
+                new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of()),
+                new PlanTrace("b2", "c2", "w2", "FAILURE", 0, Map.of())));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
+
+    planAdapter.setResult(
+        new AdaptedPlan(
+            List.of(
+                new AdaptedStep(
+                    "b1", "c1", "w1", "SUCCESS", 0, Map.of(), AdaptationAction.RETAINED, null),
+                new AdaptedStep(
+                    "b2",
+                    "c2",
+                    "w2",
+                    "FAILURE",
+                    0,
+                    Map.of(),
+                    AdaptationAction.REMOVED,
+                    "irrelevant to current case"))));
+
+    List<RetrievedExperience> result =
+        service.retrieve(def, buildInstance()).await().indefinitely();
+
+    assertEquals(1, result.get(0).planTrace().size());
+    assertEquals("b1", result.get(0).planTrace().get(0).bindingName());
+  }
+
+  @Test
+  void featureVectorCase_adapterNotCalled() {
+    CbrConfig config =
+        CbrConfig.builder()
+            .featureExtractor(ctx -> Map.of("f1", "v1"))
+            .domain("test")
+            .cbrType("feature-vector")
+            .build();
+    CaseDefinition def = buildDefinition(config);
+    io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase fvCase =
+        new io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase(
+            "problem1", "solution1", "COMPLETED", 0.9, Map.of("f1", FeatureValue.string("v1")));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.85)));
+
+    service.retrieve(def, buildInstance()).await().indefinitely();
+
+    assertFalse(planAdapter.wasCalled());
+  }
+
+  @Test
+  void adapterFailure_fallsBackToRawMapping() {
+    CbrConfig config =
+        CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
+    CaseDefinition def = buildDefinition(config);
+    PlanTrace pt = new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of());
+    PlanCbrCase planCase =
+        new PlanCbrCase(
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.9,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(pt));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
+
+    service =
+        new CbrRetrievalService(
+            jqEvaluator,
+            cbrStore,
+            new PlanAdapter() {
+              @Override
+              public AdaptedPlan adapt(
+                  String caseType,
+                  ScoredCbrCase<PlanCbrCase> retrieved,
+                  Map<String, FeatureValue> currentFeatures) {
+                throw new RuntimeException("adapter explosion");
+              }
+            });
+
+    List<RetrievedExperience> result =
+        service.retrieve(def, buildInstance()).await().indefinitely();
+
+    assertEquals(1, result.size());
+    assertEquals("b1", result.get(0).planTrace().get(0).bindingName());
+    assertNull(result.get(0).planTrace().get(0).adaptationAction());
+  }
+
   private CaseDefinition buildDefinition(CbrConfig config) {
     CaseDefinition def =
         CaseDefinition.builder().namespace("ns").name("test-case").version("1.0.0").build();
@@ -460,5 +611,54 @@ class CbrRetrievalServiceTest {
 
     @Override
     public void reinstate(String caseId, String tenantId) {}
+
+    @Override
+    public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
+      return 0;
+    }
+  }
+
+  static class RecordingPlanAdapter implements PlanAdapter {
+    private boolean called;
+    private String lastCaseType;
+    private AdaptedPlan result;
+
+    void setResult(AdaptedPlan result) {
+      this.result = result;
+    }
+
+    boolean wasCalled() {
+      return called;
+    }
+
+    String lastCaseType() {
+      return lastCaseType;
+    }
+
+    @Override
+    public AdaptedPlan adapt(
+        String caseType,
+        ScoredCbrCase<PlanCbrCase> retrieved,
+        Map<String, FeatureValue> currentFeatures) {
+      called = true;
+      lastCaseType = caseType;
+      if (result != null) {
+        return result;
+      }
+      return new AdaptedPlan(
+          retrieved.cbrCase().planTrace().stream()
+              .map(
+                  t ->
+                      new AdaptedStep(
+                          t.bindingName(),
+                          t.capabilityName(),
+                          t.workerName(),
+                          t.stepOutcome(),
+                          t.priority(),
+                          t.parameters(),
+                          AdaptationAction.RETAINED,
+                          null))
+              .toList());
+    }
   }
 }

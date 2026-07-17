@@ -18,32 +18,15 @@ package io.casehub.api.spi.routing;
 import java.util.Map;
 import java.util.Objects;
 
-/**
- * A single step in a retrieved case's plan trace. Captures which binding was selected, the
- * capability it targeted, the worker that executed, the routing outcome, and the priority at which
- * it was selected.
- *
- * <p>Used by {@link RetrievedExperience} to record the execution path of a similar past case. CBR
- * routing strategies use the plan trace to predict which bindings are most likely to succeed for
- * the current case.
- *
- * @param bindingName the binding that was selected in this step
- * @param capabilityName the capability this binding targets
- * @param workerName the worker that executed (nullable — may be absent for humanTask/subCase
- *     bindings)
- * @param stepOutcome the routing outcome — one of {@link RoutingOutcome} enum values ({@code
- *     SUCCESS}, {@code FAILURE}, {@code GATE_REJECTED}, {@code GATE_EXPIRED}). Stored as the enum's
- *     {@code name()} string.
- * @param priority the selection priority (0-based — lower is higher priority)
- * @param parameters custom parameters for this step (empty map if none)
- */
 public record ExperiencePlanStep(
     String bindingName,
     String capabilityName,
     String workerName,
     String stepOutcome,
     int priority,
-    Map<String, Object> parameters) {
+    Map<String, Object> parameters,
+    String adaptationAction,
+    String adaptationReason) {
 
   public ExperiencePlanStep {
     Objects.requireNonNull(bindingName, "bindingName must not be null");
@@ -52,5 +35,15 @@ public record ExperiencePlanStep(
       throw new IllegalArgumentException("priority must be non-negative, got: " + priority);
     }
     parameters = parameters != null ? Map.copyOf(parameters) : Map.of();
+  }
+
+  public ExperiencePlanStep(
+      String bindingName,
+      String capabilityName,
+      String workerName,
+      String stepOutcome,
+      int priority,
+      Map<String, Object> parameters) {
+    this(bindingName, capabilityName, workerName, stepOutcome, priority, parameters, null, null);
   }
 }
