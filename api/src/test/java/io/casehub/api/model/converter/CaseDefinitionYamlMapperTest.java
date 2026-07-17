@@ -183,6 +183,89 @@ class CaseDefinitionYamlMapperTest {
   }
 
   @Test
+  void capability_oldYamlFieldNames_inputSchemaOutputSchema_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Legacy Fields Case
+                version: 1.0.0
+                spec:
+                  capabilities:
+                    - name: inspect
+                      inputSchema: "{ request: .request }"
+                      outputSchema: "{ inspection: . }"
+                  workers:
+                    - name: inspect-agent
+                      capabilities:
+                        - inspect
+                  bindings:
+                    - name: inspect-binding
+                      capability: inspect
+                      on:
+                        contextChange:
+                          filter: ".request != null"
+                """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    Capability cap = def.getCapabilities().get(0);
+    assertThat(cap.inputSchema()).isEqualTo("{ request: .request }");
+    assertThat(cap.outputSchema()).isEqualTo("{ inspection: . }");
+  }
+
+  @Test
+  void capability_mixedOldAndNewFieldNames_bothParsedCorrectly() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Mixed Fields Case
+                version: 1.0.0
+                spec:
+                  capabilities:
+                    - name: legacy-cap
+                      inputSchema: "{ req: .request }"
+                      outputSchema: "{ result: . }"
+                    - name: current-cap
+                      inputProjection: "{ data: .data }"
+                      outputProjection: "{ processed: . }"
+                  workers:
+                    - name: legacy-worker
+                      capabilities:
+                        - legacy-cap
+                    - name: current-worker
+                      capabilities:
+                        - current-cap
+                  bindings:
+                    - name: legacy-binding
+                      capability: legacy-cap
+                      on:
+                        contextChange:
+                          filter: ".request != null"
+                    - name: current-binding
+                      capability: current-cap
+                      on:
+                        contextChange:
+                          filter: ".data != null"
+                """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getCapabilities()).hasSize(2);
+
+    Capability legacy = def.getCapabilities().get(0);
+    assertThat(legacy.name()).isEqualTo("legacy-cap");
+    assertThat(legacy.inputSchema()).isEqualTo("{ req: .request }");
+    assertThat(legacy.outputSchema()).isEqualTo("{ result: . }");
+
+    Capability current = def.getCapabilities().get(1);
+    assertThat(current.name()).isEqualTo("current-cap");
+    assertThat(current.inputSchema()).isEqualTo("{ data: .data }");
+    assertThat(current.outputSchema()).isEqualTo("{ processed: . }");
+  }
+
+  @Test
   void load_subCaseBinding_convertsSuccessfully() throws IOException {
     String yaml =
         """

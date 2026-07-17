@@ -271,15 +271,39 @@ public final class CaseDefinitionYamlMapper {
       def.setContextStoreFactory(contextNode.get("storeFactory").asText());
     }
 
-    // Convert capabilities
+    // Convert capabilities — accepts both current (inputProjection/outputProjection) and
+    // legacy (inputSchema/outputSchema) YAML field names for backward compatibility.
     final Map<String, Capability> capabilityMap = new LinkedHashMap<>();
     if (schema.getSpec() != null && schema.getSpec().getCapabilities() != null) {
-      for (io.casehub.model.Capability sc : schema.getSpec().getCapabilities()) {
+      final JsonNode rawCaps =
+          rawNode.has("spec") && rawNode.get("spec").has("capabilities")
+              ? rawNode.get("spec").get("capabilities")
+              : null;
+      final List<io.casehub.model.Capability> schemaCaps = schema.getSpec().getCapabilities();
+      for (int i = 0; i < schemaCaps.size(); i++) {
+        final io.casehub.model.Capability sc = schemaCaps.get(i);
+        final JsonNode rawCap = rawCaps != null && i < rawCaps.size() ? rawCaps.get(i) : null;
+
+        String inputProj = sc.getInputProjection();
+        if (inputProj == null && rawCap != null && rawCap.has("inputSchema")) {
+          inputProj = rawCap.get("inputSchema").asText();
+          LOG.warnf(
+              "Capability '%s': 'inputSchema' is deprecated — use 'inputProjection'", sc.getName());
+        }
+
+        String outputProj = sc.getOutputProjection();
+        if (outputProj == null && rawCap != null && rawCap.has("outputSchema")) {
+          outputProj = rawCap.get("outputSchema").asText();
+          LOG.warnf(
+              "Capability '%s': 'outputSchema' is deprecated — use 'outputProjection'",
+              sc.getName());
+        }
+
         final Capability cap =
             Capability.builder()
                 .name(sc.getName())
-                .inputSchema(sc.getInputProjection() != null ? sc.getInputProjection() : ".")
-                .outputSchema(sc.getOutputProjection() != null ? sc.getOutputProjection() : ".")
+                .inputSchema(inputProj != null ? inputProj : ".")
+                .outputSchema(outputProj != null ? outputProj : ".")
                 .description(sc.getDescription())
                 .build();
         capabilityMap.put(sc.getName(), cap);
