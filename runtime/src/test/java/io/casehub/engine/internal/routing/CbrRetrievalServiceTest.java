@@ -17,6 +17,9 @@ package io.casehub.engine.internal.routing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.model.CaseDefinition;
@@ -36,7 +39,9 @@ import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
+import io.casehub.neocortex.memory.cbr.TemporalDecay;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -327,6 +332,36 @@ class CbrRetrievalServiceTest {
     assertEquals(1, result.size());
     assertEquals(1, result.get(0).planTrace().size());
     assertEquals("bind1", result.get(0).planTrace().get(0).bindingName());
+  }
+
+  @Test
+  void temporalDecay_set_on_query_when_configured() {
+    CbrConfig config =
+        CbrConfig.builder()
+            .featureExtractor(ctx -> Map.of("f1", "v1"))
+            .domain("test")
+            .temporalDecayHalfLifeDays(30)
+            .build();
+    CaseDefinition def = buildDefinition(config);
+    cbrStore.setResult(List.of());
+    service.retrieve(def, buildInstance()).await().indefinitely();
+
+    CbrQuery query = cbrStore.lastQuery();
+    assertNotNull(query.temporalDecay());
+    assertInstanceOf(TemporalDecay.HalfLife.class, query.temporalDecay());
+    TemporalDecay.HalfLife halfLife = (TemporalDecay.HalfLife) query.temporalDecay();
+    assertEquals(Duration.ofDays(30), halfLife.halfLife());
+  }
+
+  @Test
+  void temporalDecay_null_when_not_configured() {
+    CbrConfig config =
+        CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
+    CaseDefinition def = buildDefinition(config);
+    cbrStore.setResult(List.of());
+    service.retrieve(def, buildInstance()).await().indefinitely();
+
+    assertNull(cbrStore.lastQuery().temporalDecay());
   }
 
   // --- helpers ---

@@ -39,6 +39,7 @@ import io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.PlanTrace;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
+import io.casehub.neocortex.memory.cbr.TemporalDecay;
 import io.casehub.neocortex.memory.cbr.TextualCbrCase;
 import io.quarkus.arc.All;
 import io.quarkus.arc.Lock;
@@ -47,6 +48,7 @@ import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -170,7 +172,7 @@ public class CbrRetrievalService {
               String caseType =
                   config.caseType() != null ? config.caseType() : definition.getName();
 
-              CbrQuery query =
+              CbrQuery baseQuery =
                   CbrQuery.of(
                           instance.tenancyId,
                           new MemoryDomain(resolvedDomain),
@@ -181,6 +183,13 @@ public class CbrRetrievalService {
                       .withMinSimilarity(config.minSimilarity())
                       .withWeights(config.weights())
                       .withVectorWeight(config.vectorWeight());
+
+              CbrQuery query =
+                  config.temporalDecayHalfLifeDays() != null
+                      ? baseQuery.withTemporalDecay(
+                          new TemporalDecay.HalfLife(
+                              Duration.ofDays(config.temporalDecayHalfLifeDays())))
+                      : baseQuery;
 
               return Uni.createFrom()
                   .item(() -> cbrStore.retrieveSimilar(query, caseClass))
