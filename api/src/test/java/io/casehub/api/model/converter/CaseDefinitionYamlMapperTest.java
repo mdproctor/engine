@@ -430,16 +430,16 @@ class CaseDefinitionYamlMapperTest {
         spec:
           capabilities:
             - name: analyze
-              inputSchema: "{ text: .text }"
-              outputSchema: "{ result: .result }"
+              inputProjection: "{ text: .text }"
+              outputProjection: "{ result: .result }"
           workers:
             - name: analyzer-worker
               capabilities:
                 - analyze
               agent:
                 systemPrompt: "You are an analyzer"
-                inputSchema: "{ text: .text }"
-                outputSchema: "{ result: .result }"
+                inputProjection: "{ text: .text }"
+                outputProjection: "{ result: .result }"
                 model:
                   openai:
                     apiKey: "test-key"
@@ -2160,35 +2160,7 @@ class CaseDefinitionYamlMapperTest {
   }
 
   @Test
-  void load_deprecatedCapabilityFields_renamedAndParsedCorrectly() throws IOException {
-    String yaml =
-        """
-        namespace: test
-        name: Deprecated Fields Test
-        version: 1.0.0
-        spec:
-          capabilities:
-            - name: cap1
-              inputSchema: "{ in: .data }"
-              outputSchema: "{ out: .result }"
-          workers:
-            - name: w1
-              capabilities:
-                - cap1
-        """;
-
-    CaseDefinition def =
-        CaseDefinitionYamlMapper.load(
-            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-
-    assertThat(def.getCapabilities()).hasSize(1);
-    Capability cap = def.getCapabilities().get(0);
-    assertThat(cap.inputSchema()).isEqualTo("{ in: .data }");
-    assertThat(cap.outputSchema()).isEqualTo("{ out: .result }");
-  }
-
-  @Test
-  void load_newProjectionFields_parsedCorrectly() throws IOException {
+  void load_projectionFields_parsedCorrectly() throws IOException {
     String yaml =
         """
         namespace: test

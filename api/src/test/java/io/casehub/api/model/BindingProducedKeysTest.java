@@ -64,8 +64,8 @@ class BindingProducedKeysTest {
         spec:
           capabilities:
             - name: test-capability
-              inputSchema: .
-              outputSchema: .
+              inputProjection: .
+              outputProjection: .
           workers:
             - name: test-worker
               capabilities:
@@ -121,8 +121,8 @@ class BindingProducedKeysTest {
         spec:
           capabilities:
             - name: test-capability
-              inputSchema: .
-              outputSchema: .
+              inputProjection: .
+              outputProjection: .
           workers:
             - name: test-worker
               capabilities:
