@@ -167,6 +167,10 @@ public final class CaseDefinitionYamlMapper {
     // model
     final byte[] bytes = yamlStream.readAllBytes();
     final JsonNode rawNode = objectMapper.readTree(bytes);
+
+    // Rename deprecated fields for backward compatibility (logs DEPRECATION warnings)
+    DeprecatedFieldRenamer.apply(rawNode);
+
     // Disable FAIL_ON_UNKNOWN_PROPERTIES so free-form schema fields (e.g. semanticData with
     // additionalProperties:true) are silently ignored by the generated empty schema class.
     final ObjectMapper lenient =
@@ -174,8 +178,10 @@ public final class CaseDefinitionYamlMapper {
             .copy()
             .disable(
                 com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+    lenient.addHandler(UnknownPropertyWarningHandler.INSTANCE);
+
     final io.casehub.model.CaseDefinition schema =
-        lenient.readValue(bytes, io.casehub.model.CaseDefinition.class);
+        lenient.treeToValue(rawNode, io.casehub.model.CaseDefinition.class);
     return convertToApiModel(schema, rawNode, objectMapper, registry, providerRegistry);
   }
 

@@ -450,6 +450,12 @@ class CaseDefinitionYamlMapperTest {
     InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
     CaseDefinition def = CaseDefinitionYamlMapper.load(is);
 
+    assertThat(def.getCapabilities()).hasSize(1);
+    Capability cap = def.getCapabilities().get(0);
+    assertThat(cap.name()).isEqualTo("analyze");
+    assertThat(cap.inputSchema()).isEqualTo("{ text: .text }");
+    assertThat(cap.outputSchema()).isEqualTo("{ result: .result }");
+
     assertThat(def.getWorkers()).hasSize(1);
     Worker worker = def.getWorkers().get(0);
     assertThat(worker.name()).isEqualTo("analyzer-worker");
@@ -2151,5 +2157,61 @@ class CaseDefinitionYamlMapperTest {
         final ExpressionEvaluator evaluator, final CaseContext context) {
       throw new UnsupportedOperationException();
     }
+  }
+
+  @Test
+  void load_deprecatedCapabilityFields_renamedAndParsedCorrectly() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: Deprecated Fields Test
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: cap1
+              inputSchema: "{ in: .data }"
+              outputSchema: "{ out: .result }"
+          workers:
+            - name: w1
+              capabilities:
+                - cap1
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getCapabilities()).hasSize(1);
+    Capability cap = def.getCapabilities().get(0);
+    assertThat(cap.inputSchema()).isEqualTo("{ in: .data }");
+    assertThat(cap.outputSchema()).isEqualTo("{ out: .result }");
+  }
+
+  @Test
+  void load_newProjectionFields_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+        namespace: test
+        name: New Fields Test
+        version: 1.0.0
+        spec:
+          capabilities:
+            - name: cap1
+              inputProjection: "{ in: .data }"
+              outputProjection: "{ out: .result }"
+          workers:
+            - name: w1
+              capabilities:
+                - cap1
+        """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getCapabilities()).hasSize(1);
+    Capability cap = def.getCapabilities().get(0);
+    assertThat(cap.inputSchema()).isEqualTo("{ in: .data }");
+    assertThat(cap.outputSchema()).isEqualTo("{ out: .result }");
   }
 }
