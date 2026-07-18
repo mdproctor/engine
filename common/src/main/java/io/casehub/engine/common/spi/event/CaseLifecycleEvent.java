@@ -39,6 +39,10 @@ import java.util.UUID;
  * @param caseDefinitionName the case definition name; null when meta model not yet associated
  * @param namespace the case definition namespace; null when meta model not yet associated
  * @param contextSnapshot working layer as JsonNode at fire time (point-in-time, read-only)
+ * @param satisfiedGoalName name of the goal that caused this terminal transition; null if not
+ *     goal-triggered
+ * @param satisfiedGoalKind kind of the satisfied goal (e.g. "success", "failure"); null if not
+ *     goal-triggered
  */
 public record CaseLifecycleEvent(
     UUID caseId,
@@ -51,7 +55,9 @@ public record CaseLifecycleEvent(
     String traceId,
     String caseDefinitionName,
     String namespace,
-    JsonNode contextSnapshot) {
+    JsonNode contextSnapshot,
+    String satisfiedGoalName,
+    String satisfiedGoalKind) {
 
   public static CaseLifecycleEvent of(
       CaseInstance caseInstance,
@@ -60,6 +66,18 @@ public record CaseLifecycleEvent(
       String actorId,
       String actorRole,
       String traceId) {
+    return of(caseInstance, commandType, eventType, actorId, actorRole, traceId, null, null);
+  }
+
+  public static CaseLifecycleEvent of(
+      CaseInstance caseInstance,
+      String commandType,
+      String eventType,
+      String actorId,
+      String actorRole,
+      String traceId,
+      String satisfiedGoalName,
+      String satisfiedGoalKind) {
     CaseMetaModel mm = caseInstance.getCaseMetaModel();
     String defName = mm != null ? mm.getName() : null;
     String ns = mm != null ? mm.getNamespace() : null;
@@ -78,7 +96,9 @@ public record CaseLifecycleEvent(
         traceId,
         defName,
         ns,
-        snapshot);
+        snapshot,
+        satisfiedGoalName,
+        satisfiedGoalKind);
   }
 
   public static CaseLifecycleEvent of(
@@ -99,6 +119,8 @@ public record CaseLifecycleEvent(
         actorId,
         actorRole,
         traceId,
+        null,
+        null,
         null,
         null,
         null);
