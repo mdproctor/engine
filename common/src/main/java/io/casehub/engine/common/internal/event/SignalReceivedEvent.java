@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.common.internal.event;
 
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -23,6 +24,8 @@ import java.util.UUID;
  *     Threaded through to ProvisionContext so provisioners can establish causal lineage. Refs
  *     engine#231.
  * @param triggerCorrelationId Qhorus correlationId of the triggering COMMAND, or null.
+ * @param signalMetadata Caller-provided metadata merged into the EventLog entry. Enables cross-case
+ *     provenance linking. Nullable.
  */
 public record SignalReceivedEvent(
     UUID caseId,
@@ -30,7 +33,8 @@ public record SignalReceivedEvent(
     String path,
     Object value,
     String triggerChannelId,
-    String triggerCorrelationId) {
+    String triggerCorrelationId,
+    Map<String, Object> signalMetadata) {
 
   public SignalReceivedEvent {
     if (caseId == null) {
@@ -46,7 +50,18 @@ public record SignalReceivedEvent(
 
   /** Convenience constructor for signals not triggered by a Qhorus COMMAND. */
   public SignalReceivedEvent(UUID caseId, String tenancyId, String path, Object value) {
-    this(caseId, tenancyId, path, value, null, null);
+    this(caseId, tenancyId, path, value, null, null, null);
+  }
+
+  /** Convenience constructor with Qhorus trigger context but no signal metadata. */
+  public SignalReceivedEvent(
+      UUID caseId,
+      String tenancyId,
+      String path,
+      Object value,
+      String triggerChannelId,
+      String triggerCorrelationId) {
+    this(caseId, tenancyId, path, value, triggerChannelId, triggerCorrelationId, null);
   }
 
   @Override

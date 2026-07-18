@@ -150,6 +150,12 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
 
   @Override
   public CompletionStage<Void> signal(
+      UUID caseId, String path, Object value, Map<String, Object> signalMetadata) {
+    return reactor.signal(caseId, path, value, signalMetadata).subscribeAsCompletionStage();
+  }
+
+  @Override
+  public CompletionStage<Void> signal(
       UUID caseId,
       String path,
       Object value,

@@ -302,7 +302,7 @@ public class SignalReceivedEventHandler {
     }
 
     JsonNode diff = maybeDiff.get();
-    EventLog eventLog = buildSignalEventLog(instance, diff);
+    EventLog eventLog = buildSignalEventLog(instance, diff, event.signalMetadata());
 
     return reactiveEventLogRepository
         .append(eventLog, instance.tenancyId)
@@ -342,16 +342,23 @@ public class SignalReceivedEventHandler {
                     event.caseId()));
   }
 
-  private EventLog buildSignalEventLog(CaseInstance instance, JsonNode diff) {
+  private EventLog buildSignalEventLog(
+      CaseInstance instance, JsonNode diff, java.util.Map<String, Object> signalMetadata) {
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(instance.getUuid());
     eventLog.setEventType(CaseHubEventType.SIGNAL_RECEIVED);
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
     eventLog.setPayload(OBJECT_MAPPER.createObjectNode().set("patch", diff.deepCopy()));
-    java.util.Map<String, String> metadata = new java.util.HashMap<>();
-    metadata.put("origin", io.casehub.api.model.event.ExecutionOrigin.SIGNAL.name());
-    eventLog.setMetadata(OBJECT_MAPPER.valueToTree(metadata));
+    ObjectNode metadataNode = OBJECT_MAPPER.createObjectNode();
+    metadataNode.put("origin", io.casehub.api.model.event.ExecutionOrigin.SIGNAL.name());
+    if (signalMetadata != null) {
+      OBJECT_MAPPER
+          .valueToTree(signalMetadata)
+          .fields()
+          .forEachRemaining(e -> metadataNode.set(e.getKey(), e.getValue()));
+    }
+    eventLog.setMetadata(metadataNode);
     return eventLog;
   }
 

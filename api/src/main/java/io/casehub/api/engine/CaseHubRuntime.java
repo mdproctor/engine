@@ -62,6 +62,15 @@ public interface CaseHubRuntime {
   CompletionStage<Void> signal(UUID caseId, String path, Object value);
 
   /**
+   * Signals a case context update with caller-provided metadata that is stored in the EventLog
+   * entry. Use for cross-case provenance linking — callers pass causedByCaseId and causedByEvent.
+   */
+  default CompletionStage<Void> signal(
+      UUID caseId, String path, Object value, Map<String, Object> signalMetadata) {
+    return signal(caseId, path, value);
+  }
+
+  /**
    * Signals a case context update with Qhorus trigger context for causal lineage.
    *
    * <p>When a Qhorus COMMAND triggers a context update (e.g. Claudony notifying the engine that a
