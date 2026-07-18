@@ -287,6 +287,101 @@ class ExperienceAnalyserTest {
     assertThat(result).containsEntry("agent-a", 1.0);
   }
 
+  @Test
+  void substitutedSteps_excludedFromStatistics() {
+    var substitutedStep =
+        new ExperiencePlanStep(
+            "binding-agent-a",
+            "security-review",
+            "agent-a",
+            "SUCCESS",
+            0,
+            Map.of(),
+            "SUBSTITUTED",
+            "replaced original-worker due to availability");
+    var retainedStep =
+        new ExperiencePlanStep(
+            "binding-agent-b",
+            "security-review",
+            "agent-b",
+            "SUCCESS",
+            0,
+            Map.of(),
+            "RETAINED",
+            null);
+    var exp =
+        new RetrievedExperience(
+            "problem",
+            "solution",
+            "COMPLETED",
+            1.0,
+            0.8,
+            Map.of(),
+            List.of(substitutedStep, retainedStep),
+            Map.of());
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("agent-a", "agent-b"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).doesNotContainKey("agent-a");
+    assertThat(result).containsEntry("agent-b", 1.0);
+  }
+
+  @Test
+  void substitutedAndAdded_bothExcluded() {
+    var substitutedStep =
+        new ExperiencePlanStep(
+            "binding-agent-a",
+            "security-review",
+            "agent-a",
+            "SUCCESS",
+            0,
+            Map.of(),
+            "SUBSTITUTED",
+            "replaced original-worker");
+    var addedStep =
+        new ExperiencePlanStep(
+            "binding-agent-b",
+            "security-review",
+            "agent-b",
+            "SUCCESS",
+            0,
+            Map.of(),
+            "ADDED",
+            "adapter recommendation");
+    var boostedStep =
+        new ExperiencePlanStep(
+            "binding-agent-c",
+            "security-review",
+            "agent-c",
+            "FAILURE",
+            0,
+            Map.of(),
+            "BOOSTED",
+            "high relevance");
+    var exp =
+        new RetrievedExperience(
+            "problem",
+            "solution",
+            "COMPLETED",
+            1.0,
+            0.8,
+            Map.of(),
+            List.of(substitutedStep, addedStep, boostedStep),
+            Map.of());
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("agent-a", "agent-b", "agent-c"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).doesNotContainKey("agent-a");
+    assertThat(result).doesNotContainKey("agent-b");
+    assertThat(result).containsEntry("agent-c", 0.0);
+  }
+
   private static ExperiencePlanStep step(String worker, String capability, String outcome) {
     return new ExperiencePlanStep("binding-" + worker, capability, worker, outcome, 0, Map.of());
   }

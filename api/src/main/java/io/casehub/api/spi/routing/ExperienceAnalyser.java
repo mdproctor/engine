@@ -48,7 +48,8 @@ public final class ExperienceAnalyser {
    * average: {@code sum(outcomeWeight × similarity) / sum(similarity)}.
    *
    * <p>Negative similarity scores are skipped — a dissimilar past case provides no signal about the
-   * current one.
+   * current one. ADDED steps (adapter recommendations with no historical backing) and SUBSTITUTED
+   * steps (misattributed outcomes) are excluded from scoring.
    *
    * @param experiences retrieved similar cases from the CBR store
    * @param eligibleWorkerIds worker IDs to score (from {@link AgentCandidate#workerId()})
@@ -77,7 +78,8 @@ public final class ExperienceAnalyser {
           continue;
         }
 
-        if ("ADDED".equals(step.adaptationAction())) {
+        if ("ADDED".equals(step.adaptationAction())
+            || "SUBSTITUTED".equals(step.adaptationAction())) {
           continue;
         }
 
