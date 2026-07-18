@@ -312,6 +312,15 @@ class CaseHubReactor {
     return signal(caseId, path, value, null, null);
   }
 
+  Uni<Void> signal(UUID caseId, String path, Object value, Map<String, Object> signalMetadata) {
+    String tenancyId = requireInstance(caseId).tenancyId;
+    return eventBus
+        .<Void>request(
+            SIGNAL_RECEIVED,
+            new SignalReceivedEvent(caseId, tenancyId, path, value, null, null, signalMetadata))
+        .replaceWithVoid();
+  }
+
   Uni<Void> signal(
       UUID caseId,
       String path,
