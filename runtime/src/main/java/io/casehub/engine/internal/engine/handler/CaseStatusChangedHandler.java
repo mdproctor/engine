@@ -198,7 +198,9 @@ public class CaseStatusChangedHandler {
                                   resolveEventType(newState),
                                   null,
                                   "System",
-                                  traceId)))
+                                  traceId,
+                                  event.satisfiedGoalName(),
+                                  event.satisfiedGoalKind())))
                   .onFailure()
                   .recoverWithItem(
                       t -> {
