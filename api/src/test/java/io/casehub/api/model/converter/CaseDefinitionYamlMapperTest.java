@@ -950,6 +950,436 @@ class CaseDefinitionYamlMapperTest {
   }
 
   @Test
+  void humanTask_expiresInExpression_templateMode_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Template ExpiresIn Expression
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        templateRef: "sla-review-template"
+                        expiresInExpression: ".sla.reviewWindow"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.isTemplateMode()).isTrue();
+    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+        .isEqualTo(".sla.reviewWindow");
+  }
+
+  @Test
+  void humanTask_expiresInExpression_blankString_treatedAsNotSet() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Blank ExpiresIn Expression
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: ""
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isNull();
+  }
+
+  @Test
+  void humanTask_expiresInExpression_whitespaceOnly_treatedAsNotSet() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Whitespace ExpiresIn Expression
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: "   "
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isNull();
+  }
+
+  @Test
+  void humanTask_withBothExpiresInAndExpiresInExpression_throwsIllegalArgument() {
+    String yaml =
+        """
+                namespace: test
+                name: Mutual Exclusion
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: conflict-binding
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresIn: "PT24H"
+                        expiresInExpression: ".sla.window"
+                """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("conflict-binding")
+        .hasMessageContaining("cannot specify both");
+  }
+
+  @Test
+  void humanTask_withInvalidExpiresInExpression_throwsIllegalArgumentAtLoadTime() {
+    String yaml =
+        """
+                namespace: test
+                name: Bad ExpiresIn Expression
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: bad-binding
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: ".foo bar("
+                """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("bad-binding")
+        .hasMessageContaining("expiresInExpression");
+  }
+
+  @Test
+  void humanTask_allThreeExpiresFields_throwsOnExpiresInMutualExclusion() {
+    String yaml =
+        """
+                namespace: test
+                name: Triple Expires
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: triple-binding
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresIn: "PT24H"
+                        expiresInExpression: ".sla.window"
+                        expiresAtExpression: ".regulatory.deadline"
+                """;
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("triple-binding")
+        .hasMessageContaining("cannot specify both");
+  }
+
+  @Test
+  void humanTask_expiresInExpression_pipeOperator_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Pipe Expression
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: ".sla | .reviewWindow"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+        .isEqualTo(".sla | .reviewWindow");
+  }
+
+  @Test
+  void humanTask_expiresInExpression_yamlExplicitNull_treatedAsNotSet() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Explicit Null
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: ~
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isNull();
+  }
+
+  @Test
+  void humanTask_expiresInExpression_withExpiresAtExpression_bothAllowed() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Both Expressions
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: ".sla.reviewWindow"
+                        expiresAtExpression: ".regulatory.absoluteDeadline"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+        .isEqualTo(".sla.reviewWindow");
+    assertThat(ht.expiresAtExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.expiresAtExpression()).expression())
+        .isEqualTo(".regulatory.absoluteDeadline");
+  }
+
+  @Test
+  void humanTask_expiresInExpression_complexJqExpression_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Complex JQ
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: 'if .priority == "HIGH" then "PT4H" else "PT24H" end'
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+  }
+
+  @Test
+  void humanTask_expiresInExpression_withAllOtherFields_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Full Fields
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: full-review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Full review task"
+                        inputMapping: "{ pr: .pr }"
+                        outputMapping: "{ approval: .decision }"
+                        candidateGroups:
+                          - architects
+                          - seniors
+                        candidateUsers:
+                          - alice
+                        expiresInExpression: ".sla.reviewWindow"
+                        expiresAtExpression: ".regulatory.absoluteDeadline"
+                        scope: "casehubio/devtown/pr-review"
+                        outcomes:
+                          - APPROVED
+                          - REJECTED
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+        .isEqualTo(".sla.reviewWindow");
+    assertThat(ht.expiresAtExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(ht.inputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(ht.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(ht.candidateGroups()).isNotNull();
+    assertThat(ht.candidateUsers()).isNotNull();
+    assertThat(ht.scope()).isEqualTo("casehubio/devtown/pr-review");
+    assertThat(ht.outcomes()).containsExactlyInAnyOrder("APPROVED", "REJECTED");
+  }
+
+  @Test
+  void humanTask_expiresInExpression_dotExpression_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Simple Dot
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: ".expiryDuration"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+        .isEqualTo(".expiryDuration");
+  }
+
+  @Test
+  void humanTask_noExpiresInOrExpression_bothNull() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: No Expires
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresIn()).isNull();
+    assertThat(ht.expiresInExpression()).isNull();
+  }
+
+  @Test
+  void humanTask_withExpiresInOnly_expiresInExpressionNull() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Static Only
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresIn: "PT24H"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresIn()).isEqualTo(Duration.parse("PT24H"));
+    assertThat(ht.expiresInExpression()).isNull();
+  }
+
+  @Test
+  void humanTask_expiresInExpression_fullRoundTrip() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: RoundTrip
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresInExpression: ".sla.reviewWindow"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    JQExpressionEvaluator evaluator = (JQExpressionEvaluator) ht.expiresInExpression();
+    assertThat(evaluator.expression()).isEqualTo(".sla.reviewWindow");
+    assertThat(evaluator.type()).isEqualTo("jq");
+    assertThat(ht.expiresIn()).isNull();
+  }
+
+  @Test
+  void humanTask_staticExpiresIn_fullRoundTrip_unchanged() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Static RoundTrip
+                version: 1.0.0
+                spec:
+                  bindings:
+                    - name: review
+                      on: { contextChange: {} }
+                      humanTask:
+                        title: "Review"
+                        expiresIn: "PT72H"
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+
+    assertThat(ht.expiresIn()).isEqualTo(Duration.parse("PT72H"));
+    assertThat(ht.expiresInExpression()).isNull();
+  }
+
+  @Test
   void humanTask_invalidTitleExpression_throwsIllegalArgument() {
     String yaml =
         """

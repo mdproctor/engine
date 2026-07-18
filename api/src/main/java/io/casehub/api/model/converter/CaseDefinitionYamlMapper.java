@@ -942,6 +942,11 @@ public final class CaseDefinitionYamlMapper {
       builder.scopeExpression(schema.getScopeExpression());
     }
     if (schema.getExpiresInExpression() != null && !schema.getExpiresInExpression().isBlank()) {
+      if (schema.getExpiresIn() != null) {
+        throw new IllegalArgumentException(
+            "cannot specify both expiresIn and expiresInExpression"
+                + " — use static duration or dynamic expression, not both");
+      }
       validateJqSyntax(schema.getExpiresInExpression(), "expiresInExpression");
       builder.expiresInExpression(schema.getExpiresInExpression());
     }
