@@ -15,7 +15,11 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.MutableCaseContext;
+import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -25,9 +29,13 @@ import io.casehub.engine.common.internal.event.CaseStartedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.engine.internal.context.WritableLayerImpl;
+import io.casehub.engine.internal.routing.CbrRetrievalService;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
@@ -37,6 +45,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.List;
+import java.util.Map;
 import org.jboss.logging.Logger;
 
 /** Records a {@code CASE_STARTED} event and notifies listeners that the context has changed. */
@@ -59,6 +69,10 @@ public class CaseStartedEventHandler {
   @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
 
   @Inject LedgerTraceIdProvider traceIdProvider;
+
+  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
+
+  @Inject CbrRetrievalService cbrRetrievalService;
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STARTED, blocking = true)
   public Uni<Void> onCaseStarted(CaseStartedEvent event) {
@@ -98,6 +112,7 @@ public class CaseStartedEventHandler {
                       .put("newStatus", CaseStatus.RUNNING.name()));
               return reactiveEventLogRepository.append(runningLog, instance.tenancyId);
             })
+        .chain(() -> injectCbrExperiences(instance))
         .invoke(
             () -> {
               lifecycleEvents
@@ -106,11 +121,12 @@ public class CaseStartedEventHandler {
                           instance, "StartCase", "CaseStarted", null, "System", traceId))
                   .whenComplete(
                       (v, t) -> {
-                        if (t != null)
+                        if (t != null) {
                           LOG.warnf(
                               t,
                               "CaseLifecycleEvent observer failed for caseId=%s event=CaseStarted",
                               instance.getUuid());
+                        }
                       });
             })
         .invoke(
@@ -119,5 +135,30 @@ public class CaseStartedEventHandler {
                     EventBusAddresses.CONTEXT_CHANGED,
                     new CaseContextChangedEvent(
                         instance, instance.getCaseContext().snapshot(), null)));
+  }
+
+  private Uni<Void> injectCbrExperiences(CaseInstance instance) {
+    CaseMetaModel metaModel = instance.getCaseMetaModel();
+    if (metaModel == null) {
+      return Uni.createFrom().voidItem();
+    }
+    CaseDefinition definition = caseDefinitionRegistry.getCaseDefinition(metaModel);
+    if (definition == null || definition.getCbrConfig() == null) {
+      return Uni.createFrom().voidItem();
+    }
+    return cbrRetrievalService
+        .retrieve(definition, instance)
+        .invoke(
+            experiences -> {
+              if (!experiences.isEmpty()) {
+                List<Map<String, Object>> serialised =
+                    OBJECT_MAPPER.convertValue(
+                        experiences, new TypeReference<List<Map<String, Object>>>() {});
+                MutableCaseContext mutableContext = (MutableCaseContext) instance.getCaseContext();
+                ((WritableLayerImpl) mutableContext.writableLayer(ContextLayer.WORKING))
+                    .engineSet("cbrExperiences", serialised);
+              }
+            })
+        .replaceWithVoid();
   }
 }
