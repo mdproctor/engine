@@ -47,6 +47,10 @@ import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.CandidateSetContext;
 import io.casehub.api.spi.routing.CandidateSetSpec;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
+import io.casehub.api.spi.routing.HumanTaskCandidates;
+import io.casehub.api.spi.routing.HumanTaskRoutingContext;
+import io.casehub.api.spi.routing.HumanTaskRoutingResult;
+import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.eidos.api.CapabilityHealth;
@@ -256,7 +260,9 @@ public class CaseContextChangedEventHandler {
                                   signalId,
                                   experiences));
                         }
-                        if (unis.isEmpty()) return Uni.createFrom().voidItem();
+                        if (unis.isEmpty()) {
+                          return Uni.createFrom().voidItem();
+                        }
                         return Uni.combine().all().unis(unis).discardItems();
                       });
             });
@@ -272,7 +278,9 @@ public class CaseContextChangedEventHandler {
     }
 
     for (final Goal goal : goals) {
-      if (!expressionEngineRegistry.evaluate(goal.getCondition(), contextSnapshot)) continue;
+      if (!expressionEngineRegistry.evaluate(goal.getCondition(), contextSnapshot)) {
+        continue;
+      }
 
       LOG.infof("Goal '%s' REACHED! Publishing GoalReachedEvent", goal.getName());
       eventBus.publish(EventBusAddresses.GOAL_REACHED, new GoalReachedEvent(caseInstance, goal));
@@ -309,7 +317,8 @@ public class CaseContextChangedEventHandler {
               experiences);
       case SubCaseTarget st ->
           publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
-      case HumanTaskTarget ht -> publishHumanTaskSchedule(caseInstance, binding, ht);
+      case HumanTaskTarget ht ->
+          publishHumanTaskSchedule(caseInstance, caseDefinition, binding, ht, experiences);
       case ExtensionTarget et -> {
         LOG.warnf(
             "No handler for ExtensionTarget %s on binding '%s'",
@@ -515,7 +524,11 @@ public class CaseContextChangedEventHandler {
   }
 
   private Uni<Void> publishHumanTaskSchedule(
-      final CaseInstance caseInstance, final Binding binding, final HumanTaskTarget target) {
+      final CaseInstance caseInstance,
+      final CaseDefinition caseDefinition,
+      final Binding binding,
+      final HumanTaskTarget target,
+      final List<RetrievedExperience> experiences) {
     final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
 
     if (target.payloadType() != null && target.inputMapping() != null && !inputData.isEmpty()) {
@@ -551,55 +564,100 @@ public class CaseContextChangedEventHandler {
               final Set<String> resolvedGroups = tuple.getItem1();
               final Set<String> resolvedUsers = tuple.getItem2();
 
-              final java.time.Instant caseBudgetDeadline =
-                  java.util.Optional.ofNullable(caseInstance.getPropagationContext())
-                      .flatMap(PropagationContext::getDeadline)
-                      .orElse(null);
-
-              final java.time.Instant expiresAtDeadline =
-                  resolveExpiresAtDeadline(caseInstance, target);
-
-              final String resolvedTitle =
-                  resolveStringExpression(
-                      caseInstance, target.titleExpression(), "titleExpression");
-              final String resolvedScope =
-                  resolveStringExpression(
-                      caseInstance, target.scopeExpression(), "scopeExpression");
-              final java.time.Duration resolvedExpiresIn =
-                  resolveExpiresInExpression(caseInstance, target);
-
-              LOG.infof(
-                  "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s deadline=%s expiresAtDeadline=%s",
-                  caseInstance.getUuid(),
-                  binding.getName(),
-                  target.templateRef(),
-                  caseBudgetDeadline,
-                  expiresAtDeadline);
-
-              final String payloadTypeName =
-                  target.payloadType() != null ? target.payloadType().getName() : null;
-              final String resolutionTypeName =
-                  target.resolutionType() != null ? target.resolutionType().getName() : null;
-
-              eventBus.publish(
-                  EventBusAddresses.HUMAN_TASK_SCHEDULE,
-                  new HumanTaskScheduleEvent(
+              final HumanTaskRoutingStrategy humanTaskStrategy =
+                  strategyResolver.resolve(
+                      HumanTaskRoutingStrategy.class, caseDefinition.getHumanTaskRouting());
+              final var routingCtx =
+                  new HumanTaskRoutingContext(
                       caseInstance.getUuid(),
-                      caseInstance.tenancyId,
                       binding.getName(),
-                      target,
-                      inputData,
-                      payloadTypeName,
-                      resolutionTypeName,
-                      resolvedGroups,
-                      resolvedUsers,
-                      caseBudgetDeadline,
-                      expiresAtDeadline,
-                      resolvedTitle,
-                      resolvedScope,
-                      resolvedExpiresIn));
+                      caseInstance.tenancyId,
+                      caseContext,
+                      experiences);
+              final var htCandidates = new HumanTaskCandidates(resolvedGroups, resolvedUsers);
 
-              return Uni.createFrom().voidItem();
+              return humanTaskStrategy
+                  .select(routingCtx, htCandidates)
+                  .chain(
+                      routingResult -> {
+                        final Set<String> finalGroups;
+                        final Set<String> finalUsers;
+                        final Map<String, Double> scores;
+                        switch (routingResult) {
+                          case HumanTaskRoutingResult.Enriched e -> {
+                            finalGroups = e.candidateGroups();
+                            finalUsers = e.candidateUsers();
+                            scores = e.candidateScores();
+                          }
+                          case HumanTaskRoutingResult.Unchanged u -> {
+                            finalGroups = resolvedGroups;
+                            finalUsers = resolvedUsers;
+                            scores = Map.of();
+                          }
+                          case HumanTaskRoutingResult.Escalated e -> {
+                            LOG.warnf(
+                                "HumanTask routing escalated for caseId=%s binding=%s: %s",
+                                caseInstance.getUuid(), binding.getName(), e.reason());
+                            finalGroups = resolvedGroups;
+                            finalUsers = resolvedUsers;
+                            scores = Map.of();
+                          }
+                        }
+
+                        final java.time.Instant caseBudgetDeadline =
+                            java.util.Optional.ofNullable(caseInstance.getPropagationContext())
+                                .flatMap(PropagationContext::getDeadline)
+                                .orElse(null);
+
+                        final java.time.Instant expiresAtDeadline =
+                            resolveExpiresAtDeadline(caseInstance, target);
+
+                        final String resolvedTitle =
+                            resolveStringExpression(
+                                caseInstance, target.titleExpression(), "titleExpression");
+                        final String resolvedScope =
+                            resolveStringExpression(
+                                caseInstance, target.scopeExpression(), "scopeExpression");
+                        final java.time.Duration resolvedExpiresIn =
+                            resolveExpiresInExpression(caseInstance, target);
+
+                        LOG.infof(
+                            "Publishing HumanTaskScheduleEvent: caseId=%s binding=%s template=%s deadline=%s expiresAtDeadline=%s",
+                            caseInstance.getUuid(),
+                            binding.getName(),
+                            target.templateRef(),
+                            caseBudgetDeadline,
+                            expiresAtDeadline);
+
+                        final String payloadTypeName =
+                            target.payloadType() != null ? target.payloadType().getName() : null;
+                        final String resolutionTypeName =
+                            target.resolutionType() != null
+                                ? target.resolutionType().getName()
+                                : null;
+
+                        eventBus.publish(
+                            EventBusAddresses.HUMAN_TASK_SCHEDULE,
+                            new HumanTaskScheduleEvent(
+                                caseInstance.getUuid(),
+                                caseInstance.tenancyId,
+                                binding.getName(),
+                                target,
+                                inputData,
+                                payloadTypeName,
+                                resolutionTypeName,
+                                finalGroups,
+                                finalUsers,
+                                caseBudgetDeadline,
+                                expiresAtDeadline,
+                                resolvedTitle,
+                                resolvedScope,
+                                resolvedExpiresIn,
+                                experiences,
+                                scores));
+
+                        return Uni.createFrom().voidItem();
+                      });
             })
         .onFailure()
         .recoverWithUni(
@@ -832,10 +890,14 @@ public class CaseContextChangedEventHandler {
   }
 
   private Map<String, Object> evalJqAsMap(final JsonNode context, final String expression) {
-    if (expression == null || expression.isBlank()) return Map.of();
+    if (expression == null || expression.isBlank()) {
+      return Map.of();
+    }
     try {
       final ValidationResult vr = jqEvaluator.eval(expression, context);
-      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return Map.of();
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
+        return Map.of();
+      }
       return MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
     } catch (Exception e) {
       LOG.warnf(e, "jq evaluation failed for expression '%s'", expression);

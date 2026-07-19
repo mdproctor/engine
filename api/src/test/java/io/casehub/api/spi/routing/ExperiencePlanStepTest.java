@@ -40,10 +40,9 @@ class ExperiencePlanStepTest {
   }
 
   @Test
-  void null_capabilityName_throws() {
-    assertThrows(
-        NullPointerException.class,
-        () -> new ExperiencePlanStep("b", null, "w", "ok", 0, Map.of()));
+  void null_capabilityName_accepted() {
+    var step = new ExperiencePlanStep("b", null, "w", "ok", 0, Map.of());
+    assertNull(step.capabilityName());
   }
 
   @Test

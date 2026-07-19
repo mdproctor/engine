@@ -134,7 +134,7 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
       return;
     }
 
-    Map<String, String> capabilityNameMap = buildCapabilityNameMap(definition);
+    Map<String, String> capabilityNameMap = buildRoutingKeyMap(definition);
 
     PlanItemStore planItemStore = planItemStoreInstance.get();
     List<PlanItemRecord> records = planItemStore.findByCaseId(event.caseId(), event.tenancyId());
@@ -221,11 +221,15 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
     return features;
   }
 
-  private Map<String, String> buildCapabilityNameMap(CaseDefinition definition) {
+  private Map<String, String> buildRoutingKeyMap(CaseDefinition definition) {
     Map<String, String> map = new LinkedHashMap<>();
     for (Binding binding : definition.getBindings()) {
-      if (binding.target() instanceof CapabilityTarget ct) {
-        map.put(binding.getName(), ct.capability().name());
+      switch (binding.target()) {
+        case CapabilityTarget ct -> map.put(binding.getName(), ct.capability().name());
+        case io.casehub.api.model.HumanTaskTarget ht -> map.put(binding.getName(), null);
+        default -> {
+          /* SubCase, Extension — not retained */
+        }
       }
     }
     return map;

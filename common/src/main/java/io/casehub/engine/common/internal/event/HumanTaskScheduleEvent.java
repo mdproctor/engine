@@ -44,34 +44,46 @@ import java.util.UUID;
  * time. When non-null, they override the corresponding static field on the target. See
  * casehubio/engine#439.
  *
+ * <p>{@code experiences} carries retrieved CBR experiences for downstream consumption by the work
+ * repo. Threaded from the handler, not from the routing strategy result. See engine#741.
+ *
+ * <p>{@code candidateScores} carries per-candidate historical success scores from {@link
+ * io.casehub.api.spi.routing.HumanTaskRoutingStrategy}. Empty map when the strategy returns
+ * {@link io.casehub.api.spi.routing.HumanTaskRoutingResult.Unchanged} or {@link
+ * io.casehub.api.spi.routing.HumanTaskRoutingResult.Escalated}. See engine#741.
+ *
  * <p>The binding name is the stable key for plan item lookup in the blackboard registry. See
  * engine#245.
  *
- * @param caseId the case this task belongs to
- * @param tenancyId the tenant owning the case
- * @param bindingName the binding name for plan item lookup
- * @param target the human task target configuration
- * @param inputData the pre-evaluated input payload
+ * @param caseId                  the case this task belongs to
+ * @param tenancyId               the tenant owning the case
+ * @param bindingName             the binding name for plan item lookup
+ * @param target                  the human task target configuration
+ * @param inputData               the pre-evaluated input payload
  * @param resolvedCandidateGroups resolved candidate groups for assignment
- * @param resolvedCandidateUsers resolved candidate users for assignment
- * @param caseBudgetDeadline the case-level deadline, or null
- * @param expiresAtDeadline the resolved expiration deadline, or null
- * @param resolvedTitle the resolved title from titleExpression, or null
- * @param resolvedScope the resolved scope from scopeExpression, or null
- * @param resolvedExpiresIn the resolved expiresIn duration from expiresInExpression, or null
+ * @param resolvedCandidateUsers  resolved candidate users for assignment
+ * @param caseBudgetDeadline      the case-level deadline, or null
+ * @param expiresAtDeadline       the resolved expiration deadline, or null
+ * @param resolvedTitle           the resolved title from titleExpression, or null
+ * @param resolvedScope           the resolved scope from scopeExpression, or null
+ * @param resolvedExpiresIn       the resolved expiresIn duration from expiresInExpression, or null
+ * @param experiences             retrieved CBR experiences for downstream consumption, or empty list
+ * @param candidateScores         per-candidate success scores from HumanTaskRoutingStrategy, or empty map
  */
 public record HumanTaskScheduleEvent(
-    UUID caseId,
-    String tenancyId,
-    String bindingName,
-    HumanTaskTarget target,
-    Map<String, Object> inputData,
-    String payloadTypeName,
-    String resolutionTypeName,
-    Set<String> resolvedCandidateGroups,
-    Set<String> resolvedCandidateUsers,
-    Instant caseBudgetDeadline,
-    Instant expiresAtDeadline,
-    String resolvedTitle,
-    String resolvedScope,
-    java.time.Duration resolvedExpiresIn) {}
+        UUID caseId,
+        String tenancyId,
+        String bindingName,
+        HumanTaskTarget target,
+        Map<String, Object> inputData,
+        String payloadTypeName,
+        String resolutionTypeName,
+        Set<String> resolvedCandidateGroups,
+        Set<String> resolvedCandidateUsers,
+        Instant caseBudgetDeadline,
+        Instant expiresAtDeadline,
+        String resolvedTitle,
+        String resolvedScope,
+        java.time.Duration resolvedExpiresIn,
+        java.util.List<io.casehub.api.spi.routing.RetrievedExperience> experiences,
+        Map<String, Double> candidateScores) {}

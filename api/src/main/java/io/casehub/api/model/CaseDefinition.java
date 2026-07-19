@@ -53,6 +53,8 @@ public class CaseDefinition {
   private String planningStrategy;
   private String agentRouting;
   private String implementationRouting;
+  private String humanTaskRouting;
+
   private String candidateMatching;
   private Set<Path> types = Set.of();
   private Set<Path> labels = Set.of();
@@ -200,6 +202,14 @@ public class CaseDefinition {
     this.implementationRouting = implementationRouting;
   }
 
+  public String getHumanTaskRouting() {
+    return humanTaskRouting;
+  }
+
+  public void setHumanTaskRouting(String humanTaskRouting) {
+    this.humanTaskRouting = humanTaskRouting;
+  }
+
   public String getCandidateMatching() {
     return candidateMatching;
   }
@@ -280,6 +290,8 @@ public class CaseDefinition {
     private String planningStrategy;
     private String agentRouting;
     private String implementationRouting;
+    private String humanTaskRouting;
+
     private String candidateMatching;
     private Set<Path> types = new LinkedHashSet<>();
     private Set<Path> labels = new LinkedHashSet<>();
@@ -443,6 +455,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder humanTaskRouting(String humanTaskRouting) {
+      this.humanTaskRouting = humanTaskRouting;
+      return this;
+    }
+
     public Builder candidateMatching(String candidateMatching) {
       this.candidateMatching = candidateMatching;
       return this;
@@ -519,6 +536,7 @@ public class CaseDefinition {
       caseHubDefinition.setPlanningStrategy(planningStrategy);
       caseHubDefinition.setAgentRouting(agentRouting);
       caseHubDefinition.setImplementationRouting(implementationRouting);
+      caseHubDefinition.setHumanTaskRouting(humanTaskRouting);
       caseHubDefinition.setCandidateMatching(candidateMatching);
       caseHubDefinition.setTypes(types);
       caseHubDefinition.setLabels(labels);

@@ -160,7 +160,7 @@ class CbrCaseRetainObserverTest {
   }
 
   @Test
-  void filters_non_capability_bindings() {
+  void includes_humanTask_bindings_in_plan_trace() {
     registry.register(
         defWithJqCbr(
             "f-case",
@@ -180,8 +180,11 @@ class CbrCaseRetainObserverTest {
     observer.onOutcome(event("f-case", "COMPLETED", Map.of("k", "v")));
 
     assertThat(store.storedCases).hasSize(1);
-    assertThat(store.storedCases.get(0).planTrace()).hasSize(1);
+    assertThat(store.storedCases.get(0).planTrace()).hasSize(2);
     assertThat(store.storedCases.get(0).planTrace().get(0).bindingName()).isEqualTo("cap-bind");
+    assertThat(store.storedCases.get(0).planTrace().get(0).capabilityName()).isEqualTo("cap1");
+    assertThat(store.storedCases.get(0).planTrace().get(1).bindingName()).isEqualTo("ht-bind");
+    assertThat(store.storedCases.get(0).planTrace().get(1).capabilityName()).isNull();
   }
 
   @Test
