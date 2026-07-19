@@ -44,37 +44,35 @@ public interface CaseChannelProvider {
    */
   CaseChannel openChannel(UUID caseId, String purpose);
 
-  /**
-   * Post a message to a channel.
-   *
-   * @param channel the channel reference returned by {@link #openChannel}
-   * @param from sender identity (worker ID or "human")
-   * @param content message content
-   * @param type the intent type of the message (e.g. {@link MessageType#COMMAND}); {@code null} if
-   *     unspecified
-   * @param correlationId correlation identifier for causal linkage (e.g. eventLogId); {@code null}
-   *     if unspecified
-   * @param deadline ISO-8601 deadline for temporal obligation tracking; {@code null} if no deadline
-   */
-  void postToChannel(
-      CaseChannel channel,
-      String from,
-      String content,
-      MessageType type,
-      String correlationId,
-      String deadline);
+    /**
+     * Post a message to a channel.
+     *
+     * @param channel       the channel reference returned by {@link #openChannel}
+     * @param from          sender identity (worker ID or "human")
+     * @param content       message content
+     * @param type          the intent type of the message (e.g. {@link MessageType#COMMAND}); {@code null} if
+     *                      unspecified
+     * @param correlationId correlation identifier for causal linkage (e.g. eventLogId); {@code null}
+     *                      if unspecified
+     * @param deadline      ISO-8601 deadline for temporal obligation tracking; {@code null} if no deadline
+     * @param target        the intended recipient (e.g. worker name / agent ID); {@code null} if untargeted
+     */
+    void postToChannel(
+            CaseChannel channel,
+            String from,
+            String content,
+            MessageType type,
+            String correlationId,
+            String deadline,
+            String target);
 
   /**
    * Post a message to a channel. Delegates to {@link #postToChannel(CaseChannel, String, String,
-   * MessageType, String, String)} with {@code type}, {@code correlationId}, and {@code deadline}
-   * all {@code null}.
-   *
-   * @param channel the channel reference returned by {@link #openChannel}
-   * @param from sender identity (worker ID or "human")
-   * @param content message content
+   * MessageType, String, String, String)} with {@code type}, {@code correlationId}, {@code deadline},
+   * and {@code target} all {@code null}.
    */
   default void postToChannel(CaseChannel channel, String from, String content) {
-    postToChannel(channel, from, content, null, null, null);
+    postToChannel(channel, from, content, null, null, null, null);
   }
 
   /**

@@ -47,7 +47,7 @@ public class NoOpReactiveCaseChannelProvider implements ReactiveCaseChannelProvi
       String content,
       MessageType type,
       String correlationId,
-      String deadline) {
+      String deadline, String target) {
     return Uni.createFrom().voidItem();
   }
 

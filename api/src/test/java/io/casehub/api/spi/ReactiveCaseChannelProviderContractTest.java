@@ -81,7 +81,7 @@ class ReactiveCaseChannelProviderContractTest {
                         "cmd",
                         MessageType.COMMAND,
                         "corr-1",
-                        "2026-06-01T00:00:00Z")
+                        "2026-06-01T00:00:00Z", null)
                     .await()
                     .indefinitely());
   }
@@ -94,7 +94,7 @@ class ReactiveCaseChannelProviderContractTest {
         .isThrownBy(
             () ->
                 provider
-                    .postToChannel(ch, "system", "msg", null, null, null)
+                    .postToChannel(ch, "system", "msg", null, null, null, null)
                     .await()
                     .indefinitely());
   }
@@ -129,7 +129,7 @@ class ReactiveCaseChannelProviderContractTest {
         String content,
         MessageType type,
         String correlationId,
-        String deadline) {
+        String deadline, String target) {
       return Uni.createFrom().voidItem();
     }
 

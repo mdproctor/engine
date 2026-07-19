@@ -298,7 +298,8 @@ public class WorkerScheduleEventHandler {
         serialize(command),
         MessageType.COMMAND,
         String.valueOf(eventLogId),
-        deadline);
+        deadline,
+        worker.name());
     LOG.debugf(
         "COMMAND dispatched: caseId=%s worker=%s capability=%s correlationId=%d",
         instance.getUuid(), worker.name(), capability.name(), eventLogId);

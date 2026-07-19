@@ -66,6 +66,7 @@ class AgentRoutingEscalationHandlerTest {
             contains("borderline"),
             eq(MessageType.QUERY),
             eq(null),
+            eq(null),
             eq(null));
   }
 
@@ -83,7 +84,7 @@ class AgentRoutingEscalationHandlerTest {
             "research-binding",
             EscalationReason.BORDERLINE_STALEMATE));
 
-    verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
+    verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -99,7 +100,7 @@ class AgentRoutingEscalationHandlerTest {
             "research-binding",
             EscalationReason.BORDERLINE_STALEMATE));
 
-    verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
+    verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any(), any());
   }
 
   @Test
@@ -124,6 +125,7 @@ class AgentRoutingEscalationHandlerTest {
             contains("No trust-qualified agent"),
             eq(MessageType.QUERY),
             eq(null),
+            eq(null),
             eq(null));
   }
 
@@ -142,7 +144,7 @@ class AgentRoutingEscalationHandlerTest {
             "merge-binding",
             EscalationReason.NO_QUALIFIED_AGENT));
 
-    verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any());
+    verify(channelProvider, never()).postToChannel(any(), any(), any(), any(), any(), any(), any());
   }
 
   private static CaseChannel channel(final String name) {

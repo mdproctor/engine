@@ -96,7 +96,7 @@ public class AgentRoutingEscalationHandler {
         };
 
     channelProvider.postToChannel(
-        channel, "casehub-engine", message, MessageType.QUERY, null, null);
+        channel, "casehub-engine", message, MessageType.QUERY, null, null, null);
 
     LOG.infof(
         "Agent routing escalation: QUERY posted to oversight channel '%s' for"

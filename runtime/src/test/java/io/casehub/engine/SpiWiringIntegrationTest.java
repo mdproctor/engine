@@ -481,7 +481,8 @@ class SpiWiringIntegrationTest {
         String content,
         MessageType type,
         String correlationId,
-        String deadline) {
+        String deadline,
+        String target) {
       postedFroms.add(from);
       postedContents.add(content);
       postedTypes.add(type);

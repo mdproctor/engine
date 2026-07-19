@@ -44,7 +44,7 @@ public class NoOpCaseChannelProvider implements CaseChannelProvider {
       String content,
       MessageType type,
       String correlationId,
-      String deadline) {
+      String deadline, String target) {
     // intentional no-op
   }
 
