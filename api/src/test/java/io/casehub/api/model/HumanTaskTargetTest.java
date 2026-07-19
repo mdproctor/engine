@@ -339,6 +339,136 @@ class HumanTaskTargetTest {
   }
 
   @Test
+  void expiresInExpression_templateMode_storedAndReturned() {
+    HumanTaskTarget target =
+        HumanTaskTarget.template("irb-template").expiresInExpression(".sla.reviewWindow").build();
+
+    assertThat(target.isTemplateMode()).isTrue();
+    assertThat(target.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) target.expiresInExpression()).expression())
+        .isEqualTo(".sla.reviewWindow");
+  }
+
+  @Test
+  void expiresInExpression_inlineMode_storedAndReturned() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Urgent Review")
+            .expiresInExpression(".urgency.deadline")
+            .build();
+
+    assertThat(target.isTemplateMode()).isFalse();
+    assertThat(target.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) target.expiresInExpression()).expression())
+        .isEqualTo(".urgency.deadline");
+  }
+
+  @Test
+  void expiresIn_andExpiresInExpression_mutuallyExclusive() {
+    assertThatThrownBy(
+            () ->
+                HumanTaskTarget.inline()
+                    .title("Review")
+                    .expiresIn(Duration.ofHours(24))
+                    .expiresInExpression(".sla.window")
+                    .build())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("cannot specify both")
+        .hasMessageContaining("expiresIn")
+        .hasMessageContaining("expiresInExpression");
+  }
+
+  @Test
+  void expiresInExpression_withoutExpiresIn_builds() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").expiresInExpression(".sla.window").build();
+
+    assertThat(target.expiresIn()).isNull();
+    assertThat(target.expiresInExpression()).isNotNull();
+  }
+
+  @Test
+  void expiresIn_withoutExpiresInExpression_builds() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline().title("Review").expiresIn(Duration.ofHours(72)).build();
+
+    assertThat(target.expiresIn()).isEqualTo(Duration.ofHours(72));
+    assertThat(target.expiresInExpression()).isNull();
+  }
+
+  @Test
+  void expiresInExpression_coexistsWithExpiresAtExpression() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Review")
+            .expiresInExpression(".sla.window")
+            .expiresAtExpression(".regulatory.absoluteDeadline")
+            .build();
+
+    assertThat(target.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(target.expiresAtExpression()).isInstanceOf(JQExpressionEvaluator.class);
+  }
+
+  @Test
+  void expiresInExpression_thenExpiresIn_mutuallyExclusive_reversedOrder() {
+    assertThatThrownBy(
+            () ->
+                HumanTaskTarget.inline()
+                    .title("Review")
+                    .expiresInExpression(".sla.window")
+                    .expiresIn(Duration.ofHours(24))
+                    .build())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("cannot specify both");
+  }
+
+  @Test
+  void expiresIn_expiresInExpression_expiresAtExpression_allThree_throwsOnFirst() {
+    assertThatThrownBy(
+            () ->
+                HumanTaskTarget.inline()
+                    .title("Review")
+                    .expiresIn(Duration.ofHours(24))
+                    .expiresInExpression(".sla.window")
+                    .expiresAtExpression(".regulatory.deadline")
+                    .build())
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("cannot specify both");
+  }
+
+  @Test
+  void expiresInExpression_nullEvaluator_thenExpiresIn_buildsOk() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Review")
+            .expiresInExpression((ExpressionEvaluator) null)
+            .expiresIn(Duration.ofHours(24))
+            .build();
+
+    assertThat(target.expiresIn()).isEqualTo(Duration.ofHours(24));
+    assertThat(target.expiresInExpression()).isNull();
+  }
+
+  @Test
+  void expiresInExpression_coexistsWithCandidateGroupsAndPriority() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Full Review")
+            .expiresInExpression(".sla.reviewWindow")
+            .candidateGroups(Set.of("ethics-committee"))
+            .priority("HIGH")
+            .scope("casehubio/clinical/adverse-event")
+            .build();
+
+    assertThat(target.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) target.expiresInExpression()).expression())
+        .isEqualTo(".sla.reviewWindow");
+    assertThat(target.candidateGroups()).isNotNull();
+    assertThat(target.priority()).isEqualTo("HIGH");
+    assertThat(target.scope()).isEqualTo("casehubio/clinical/adverse-event");
+  }
+
+  @Test
   void payloadType_storedOnBuilder() {
     HumanTaskTarget target =
         HumanTaskTarget.inline().title("Review").payloadType(java.util.Map.class).build();

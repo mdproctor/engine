@@ -40,28 +40,22 @@ public final class ExperienceAnalyser {
   private ExperienceAnalyser() {}
 
   /**
-   * Computes per-worker success rates from retrieved CBR experiences.
+   * Computes per-worker success rates using a caller-supplied step filter predicate.
    *
-   * <p>For each experience with {@code similarityScore > 0.0}, iterates plan trace steps matching
-   * the requested capability and eligible worker set. Each step's outcome is weighted by the
-   * experience's similarity score and the outcome weight. The per-worker score is the weighted
-   * average: {@code sum(outcomeWeight × similarity) / sum(similarity)}.
-   *
-   * <p>Negative similarity scores are skipped — a dissimilar past case provides no signal about the
-   * current one. ADDED steps (adapter recommendations with no historical backing) and SUBSTITUTED
-   * steps (misattributed outcomes) are excluded from scoring.
+   * <p>Generalisation of {@link #workerSuccessRates(List, Set, String, Map)} — the predicate
+   * replaces the hardcoded {@code capabilityName.equals(step.capabilityName())} check, enabling
+   * callers to match on any step field (e.g. {@code step.bindingName()} for humanTask traces).
    *
    * @param experiences retrieved similar cases from the CBR store
-   * @param eligibleWorkerIds worker IDs to score (from {@link AgentCandidate#workerId()})
-   * @param capabilityName the capability being routed
-   * @param outcomeWeights per-outcome scoring weights ({@link #DEFAULT_OUTCOME_WEIGHTS} for
-   *     defaults)
+   * @param eligibleWorkerIds worker IDs to score
+   * @param stepFilter predicate selecting which plan trace steps to include in scoring
+   * @param outcomeWeights per-outcome scoring weights
    * @return per-worker scores in [0.0, 1.0]; empty map when no matching data
    */
   public static Map<String, Double> workerSuccessRates(
       final List<RetrievedExperience> experiences,
       final Set<String> eligibleWorkerIds,
-      final String capabilityName,
+      final java.util.function.Predicate<ExperiencePlanStep> stepFilter,
       final Map<RoutingOutcome, Double> outcomeWeights) {
     final Map<String, double[]> workerStats = new HashMap<>();
 
@@ -72,7 +66,7 @@ public final class ExperienceAnalyser {
       }
 
       for (final ExperiencePlanStep step : exp.planTrace()) {
-        if (!capabilityName.equals(step.capabilityName())
+        if (!stepFilter.test(step)
             || step.workerName() == null
             || !eligibleWorkerIds.contains(step.workerName())) {
           continue;
@@ -105,5 +99,23 @@ public final class ExperienceAnalyser {
       }
     }
     return scores;
+  }
+
+  /**
+   * Computes per-worker success rates, filtering plan trace steps by capability name.
+   *
+   * <p>Delegates to the predicate overload. Steps with null {@code capabilityName} (e.g. humanTask
+   * traces) are naturally excluded since {@code "x".equals(null)} is false.
+   */
+  public static Map<String, Double> workerSuccessRates(
+      final List<RetrievedExperience> experiences,
+      final Set<String> eligibleWorkerIds,
+      final String capabilityName,
+      final Map<RoutingOutcome, Double> outcomeWeights) {
+    return workerSuccessRates(
+        experiences,
+        eligibleWorkerIds,
+        step -> capabilityName.equals(step.capabilityName()),
+        outcomeWeights);
   }
 }

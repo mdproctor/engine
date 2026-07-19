@@ -329,6 +329,26 @@ Selects which binding(s) handle a capability when multiple bindings target the s
 
 **Integration:** `PlanningStrategyLoopControl.applyImplementationRouting()` runs at step 3.5 — after `stageLifecycleEvaluator.evaluate()`, before `planningStrategy.select()`. Routing filters bindings before PlanItem creation (no create-then-cancel).
 
+## HumanTaskRoutingStrategy SPI
+
+Enriches humanTask candidate sets with historical data from CBR plan traces. Symmetric with `AgentRoutingStrategy` — follows the routing strategy convention (engine#634): `select()` method, context/candidates separation, sealed result type. Package: `io.casehub.api.spi.routing`. Refs engine#741.
+
+**Pipeline:** Binding eligibility → Stage gating → ImplementationRouting → PlanningStrategy → **HumanTaskRouting** (for HumanTaskTarget bindings) → HumanTaskScheduleEvent.
+
+**SPI:** `HumanTaskRoutingStrategy extends NamedStrategy` — `select(HumanTaskRoutingContext, HumanTaskCandidates) → Uni<HumanTaskRoutingResult>`. `HumanTaskRoutingContext` carries `caseId`, `bindingName`, `tenancyId`, `caseContext`, `experiences`. `HumanTaskCandidates` carries pre-resolved `groups` and `users` (null-safe, defensive copies). `HumanTaskRoutingResult` is sealed: `Enriched(candidateGroups, candidateUsers, candidateScores)` | `Unchanged()` | `Escalated(reason)`. `candidateScores` keys are from `candidateUsers` only — group scoring requires group membership resolution (engine#757).
+
+**Default:** `NoOpHumanTaskRoutingStrategy` (`@DefaultBean @ApplicationScoped @Unremovable` in `runtime/internal/routing/`) returns `Unchanged`.
+
+**Integration:** `CaseContextChangedEventHandler.publishHumanTaskSchedule()` resolves the strategy via `EngineStrategyResolver` from `CaseDefinition.getHumanTaskRouting()`. Called between candidate set resolution and `HumanTaskScheduleEvent` publishing. `Escalated` logs and falls through to unchanged dispatch (no automated fallback for human tasks — blocking would halt the case).
+
+**HumanTaskScheduleEvent** carries `List<RetrievedExperience> experiences` and `Map<String, Double> candidateScores` — threaded from the handler, not from the strategy result (matching the agent routing path where `scheduleWorker()` passes experiences directly).
+
+**ExperienceAnalyser generalization:** `workerSuccessRates(experiences, eligibleIds, Predicate<ExperiencePlanStep>, weights)` — predicate overload replaces the hardcoded `capabilityName` matching. Existing `String capabilityName` overload delegates. For humanTask, callers pass `step -> bindingName.equals(step.bindingName())`.
+
+**Retention:** `CbrCaseRetainObserver.buildRoutingKeyMap()` (was `buildCapabilityNameMap`) includes `HumanTaskTarget` bindings with null `capabilityName`. `PlanTrace.capabilityName`, `AdaptedStep.capabilityName`, and `ExperiencePlanStep.capabilityName` are nullable — null means "no capability" (humanTask trace).
+
+**CaseDefinition** gains `humanTaskRouting` (nullable String, strategy ID). Builder: `.humanTaskRouting("cbr")`. Resolved by `EngineStrategyResolver`.
+
 ## Universal Routing Strategy Architecture
 
 `NamedStrategy` marker interface (`io.casehub.platform.api.routing`) and `StrategyResolver` CDI bean provide a consistent named-strategy convention across the platform. All per-case-selectable routing strategies extend `NamedStrategy`, declare `id()`, and are resolved by `StrategyResolver`. Resolution: YAML-specified ID → `@DefaultBean` fallback.

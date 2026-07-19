@@ -379,6 +379,11 @@ public final class HumanTaskTarget implements BindingTarget {
         throw new IllegalStateException(
             "Inline HumanTaskTarget requires a non-blank title or a titleExpression");
       }
+      if (expiresIn != null && expiresInExpression != null) {
+        throw new IllegalStateException(
+            "cannot specify both expiresIn and expiresInExpression"
+                + " — use static duration or dynamic expression, not both");
+      }
       return new HumanTaskTarget(this);
     }
   }

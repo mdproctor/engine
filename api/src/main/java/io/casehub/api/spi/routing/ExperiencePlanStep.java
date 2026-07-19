@@ -30,7 +30,6 @@ public record ExperiencePlanStep(
 
   public ExperiencePlanStep {
     Objects.requireNonNull(bindingName, "bindingName must not be null");
-    Objects.requireNonNull(capabilityName, "capabilityName must not be null");
     if (priority < 0) {
       throw new IllegalArgumentException("priority must be non-negative, got: " + priority);
     }

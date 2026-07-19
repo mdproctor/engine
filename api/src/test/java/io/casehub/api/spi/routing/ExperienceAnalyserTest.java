@@ -382,6 +382,36 @@ class ExperienceAnalyserTest {
     assertThat(result).containsEntry("agent-c", 0.0);
   }
 
+  @Test
+  void predicateOverload_matchesByBindingName() {
+    var step = new ExperiencePlanStep("review-binding", null, "reviewer-a", "SUCCESS", 0, Map.of());
+    var exp =
+        new RetrievedExperience(
+            "problem", "solution", "COMPLETED", 1.0, 0.8, Map.of(), List.of(step), Map.of());
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("reviewer-a"),
+            s -> "review-binding".equals(s.bindingName()),
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).containsEntry("reviewer-a", 1.0);
+  }
+
+  @Test
+  void predicateOverload_nullCapabilityName_noMatchOnCapabilityString() {
+    var step = new ExperiencePlanStep("review-binding", null, "reviewer-a", "SUCCESS", 0, Map.of());
+    var exp =
+        new RetrievedExperience(
+            "problem", "solution", "COMPLETED", 1.0, 0.8, Map.of(), List.of(step), Map.of());
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("reviewer-a"),
+            "review-binding",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).isEmpty();
+  }
+
   private static ExperiencePlanStep step(String worker, String capability, String outcome) {
     return new ExperiencePlanStep("binding-" + worker, capability, worker, outcome, 0, Map.of());
   }

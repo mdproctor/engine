@@ -76,6 +76,14 @@ class EngineStrategyResolverTest {
     assertEquals("a", defaultStrategy.id());
   }
 
+  @Test
+  void resolvesHumanTaskRoutingStrategy() {
+    var noop = new NoOpHumanTaskRoutingStrategy();
+    var resolver = buildResolver(List.of(handle(noop, true)));
+    var result = resolver.resolve(io.casehub.api.spi.routing.HumanTaskRoutingStrategy.class, null);
+    assertEquals("default", result.id());
+  }
+
   private EngineStrategyResolver buildResolver(
       List<EngineStrategyResolver.TestHandle<? extends NamedStrategy>> handles) {
     return EngineStrategyResolver.forTest(handles);
