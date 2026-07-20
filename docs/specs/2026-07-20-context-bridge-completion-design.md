@@ -416,6 +416,8 @@ All three issues add new types and conventions that should be documented in CLAU
 
 | Issue | Test approach |
 |-------|--------------|
-| #742 | Unit test: `GateRequired` with `resolutionType` threads to `ActionGateApprovedHandler`. Integration test: gate approval with typed resolution validates via bridge. |
+| #742 | Unit test: `GateRequired` with `resolutionType` threads to `ActionGateApprovedHandler`. Integration test: gate approval with typed resolution validates via bridge. Verify deserialized resolution is included in `actionGateApproved` context entry under `resolution` key. |
 | #692 | Unit test: `InboundSignalBridge` processes `InboundMessage` → typed signal. Unit test: `InboundSignalMapping` validation. Integration test: full path from `InboundMessage` to case context update. Unit test: `UuidCorrelationResolver`. |
-| #740 | Unit test: `DataRef` serialization/deserialization. Unit test: `DataRefRegistry` resolution. Unit test: `BridgeResolver` transparent DataRef resolution. Integration test: worker output with DataRef → downstream worker receives resolved object. |
+| #740 | Unit test: `DataRef` serialization/deserialization. Unit test: `DataRefRegistry` resolution. Unit test: `BridgeResolver` DataRef resolution at deserialise() time. Integration test: worker output with DataRef → downstream worker receives resolved object. |
+| Signal auto-activation | Unit test: `signal()` to a dormant case (persisted but uncached) auto-loads and delivers. Unit test: `signal()` to a non-existent case throws `IllegalArgumentException`. Unit test: `signal()` to a terminal case throws `SignalRejectedException`. |
+| DataRef interception scope | Unit test: `InboundSignalBridge` does NOT trigger DataRef interception when external payload contains a `$dataRef` key — verifies the direct `bridge.deserialise()` path. |
