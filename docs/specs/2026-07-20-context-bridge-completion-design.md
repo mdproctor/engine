@@ -33,24 +33,12 @@ Thread `resolutionType` from the classifier's `GateRequired` decision through th
 
 `Class<?>` at API boundaries where the classifier knows the type at compile time. `String` at event transport boundaries (events must be serializable across module boundaries).
 
-### Validation and Consumption at Approval
+### Validation at Approval
 
 `ActionGateApprovedHandler.onActionGateApproved()`:
-- When `resolutionTypeName` is non-null: resolve via `BridgeResolver.resolveByTypeNameStrict(resolutionTypeName)`, then call `BridgeResolver.deserialise(bridge, payload)` to validate and deserialize the `workItemResolution` payload (uses `BridgeResolver.deserialise()`, not `bridge.deserialise()` directly, so DataRef interception is active — gate resolution is internal engine data). The deserialized resolution value is included in the `actionGateApproved` context entry under the `resolution` key, making it accessible to downstream workers via bindings.
+- When `resolutionTypeName` is non-null: resolve via `BridgeResolver.resolveByTypeNameStrict(resolutionTypeName)`, then call `bridge.deserialise()` to validate the `workItemResolution` payload.
 - Validation failure: log error and discard the gate (deferred output not applied, case stalls — same failure semantics as a corrupted WorkItem resolution).
-- When `resolutionTypeName` is null: no validation, raw `workItemResolution` passed through as-is (current behavior). The `resolution` key is set to the raw string value.
-
-The context write becomes:
-```java
-instance.getCaseContext().set("actionGateApproved", Map.of(
-    "actionType", gate.plannedAction().actionType(),
-    "workerId", gate.workerId(),
-    "approvedBy", event.approvedBy() != null ? event.approvedBy() : "unknown",
-    "gateId", gate.gateId(),
-    "resolution", deserializedResolution));
-```
-
-This ensures the classifier's structured resolution type is not validated and then discarded — the typed approval data reaches downstream workers through the same context path as all other gate metadata.
+- When `resolutionTypeName` is null: no validation, raw `workItemResolution` passed through as-is (current behavior).
 
 ### Threading Path
 
@@ -78,7 +66,7 @@ ActionRiskClassifier.classify()
 
 The connector boundary is NOT a `BindingTarget`. Bindings are reactive (trigger on context changes) and outbound (the case pushes work out). Connectors are inbound — external data arrives. The trigger direction is reversed.
 
-The correct model is an **inbound signal bridge** — analogous in role to the existing `InboundWorkItemBridge` (in `casehub-engine-inbound`) but routing to typed case signals instead of WorkItems. Both bridge external data into engine concepts and live in `casehub-engine-inbound`, but differ architecturally: `InboundWorkItemBridge` uses qhorus `MessageObserver` with SPI-driven `InboundWorkItemPolicy`; `InboundSignalBridge` uses CDI `@ObservesAsync` with declarative `InboundSignalMapping` on `CaseDefinition`.
+The correct model is an **inbound signal bridge** — symmetric to the existing `InboundWorkItemBridge` (in `casehub-engine-inbound`) but routing to typed case signals instead of WorkItems.
 
 ```
 External system
@@ -113,15 +101,15 @@ public record InboundSignalMapping(
 - `payload` — JQ expression evaluated against the InboundMessage composite; extracts the typed payload portion
 - `correlationResolver` — strategy ID for `CaseCorrelationResolver` (nullable → default `"uuid"`)
 
-Builder (String convenience methods auto-wrap into `JQExpressionEvaluator`, JQ being the default expression language):
+Builder:
 ```java
 CaseDefinition.builder()
     .signal(SignalType.of("aml-alert", AmlAlert.class))
     .inboundMapping(InboundSignalMapping.builder()
         .signalName("aml-alert")
         .connectorType("aml-system")
-        .correlation(".metadata.caseRef")       // auto-wrapped to JQExpressionEvaluator
-        .payload(".content | fromjson")          // auto-wrapped to JQExpressionEvaluator
+        .correlation(".metadata.caseRef")
+        .payload(".content | fromjson")
         .correlationResolver("uuid")
         .build())
 ```
@@ -158,39 +146,20 @@ Resolved via `EngineStrategyResolver` — adding this SPI requires updating `Eng
 
 `@ApplicationScoped`. Observes `@ObservesAsync InboundMessage`. Processing:
 
-1. Build composite JsonNode from InboundMessage: `{content, connectorType, connectorId, externalSenderId, externalChannelRef, metadata, receivedAt, tenancyId, attachments}`. All fields from `InboundMessage` are included — `tenancyId` is needed for case correlation; `attachments` may be referenced by signal payloads carrying file/media data.
-2. Look up matching mappings from the in-memory index by `connectorType` (O(1)).
+1. Build composite JsonNode from InboundMessage: `{content, connectorType, connectorId, externalSenderId, externalChannelRef, metadata, receivedAt}`
+2. Iterate all `CaseDefinition`s registered in `CaseDefinitionRegistry` that have `inboundMappings` with matching `connectorType`
 3. For each matching mapping:
    a. Evaluate `correlation` JQ against the composite → correlation value (String)
-   b. Extract `tenancyId` directly from the `InboundMessage` (not from JQ output). Pass both to `CaseCorrelationResolver.resolve(correlationValue, tenancyId)` via `EngineStrategyResolver`.
-   c. Resolve case UUID from the correlation result.
-   d. Evaluate `payload` JQ against the composite → payload JsonNode
-   e. Look up `SignalType` from the definition's signals list by `signalName`
-   f. `BridgeResolver.resolveByType(signalType.payloadType())` → `bridge.deserialise(payloadJson)` → typed T. Note: uses `bridge.deserialise()` directly, NOT `BridgeResolver.deserialise()` — connector data is external and must not trigger DataRef interception (`$dataRef` is an internal engine convention that external systems don't produce).
-   g. `CaseHubRuntime.signal(caseId, signalType, typedPayload)` — signal() auto-activates the case if not in cache (see §Cross-Cutting: Signal auto-activation).
+   b. Resolve case UUID via `CaseCorrelationResolver` (from `EngineStrategyResolver`)
+   c. Evaluate `payload` JQ against the composite → payload JsonNode
+   d. Look up `SignalType` from the definition's signals list by `signalName`
+   e. `BridgeResolver.resolveByType(signalType.payloadType())` → `bridge.deserialise(payloadJson)` → typed T
+   f. `CaseHubRuntime.signal(caseId, signalType, typedPayload)`
 4. Exceptions caught per-mapping — one failed mapping does not block others. Logged with connector context.
 
-Inert when no `InboundSignalMapping`s are registered.
+Inert when no `InboundSignalMapping`s are registered (same pattern as `InboundWorkItemBridge` being inert with no policy).
 
-#### Index construction
-
-Builds an in-memory index `Map<String, List<MappingEntry>>` keyed by `connectorType`. The index is populated by observing `CaseDefinitionRegisteredEvent` (CDI event fired by `CaseDefinitionRegistry` after each successful registration). This avoids requiring an iteration API on the registry — new definitions are indexed incrementally as they register.
-
-#### CaseDefinitionRegistry API additions
-
-`CaseDefinitionRegistry` gains:
-
-- `Collection<CaseDefinition> allDefinitions()` — returns all registered definitions. Used for initial index build at `@PostConstruct` time (definitions registered before the bridge starts).
-- `CaseDefinitionRegisteredEvent` — CDI event fired by `DefaultCaseDefinitionRegistry` after `registerCaseDefinition()` completes. Carries the registered `CaseDefinition`. Enables incremental index updates without polling.
-
-#### Deserialization path — DataRef interception scope
-
-`InboundSignalBridge` calls `bridge.deserialise(payloadJson)` directly, NOT `BridgeResolver.deserialise(bridge, payload)`. The distinction matters: `BridgeResolver.deserialise()` intercepts `$dataRef` discriminators for DataRef resolution, but `$dataRef` is an internal engine convention. External connector data should never trigger DataRef interception — a coincidental `$dataRef` key in an external message would be misinterpreted as a linked data reference.
-
-Callers by path:
-- **Engine pipeline** (`QuartzWorkerExecutionJob`): uses `BridgeResolver.deserialise()` — DataRef interception active. Internal engine data may contain DataRef references.
-- **ActionGateApprovedHandler**: uses `BridgeResolver.deserialise()` — gate resolution is internal engine data.
-- **InboundSignalBridge**: uses `bridge.deserialise()` directly — external data, no DataRef interception.
+Performance: builds an in-memory index `Map<String, List<MappingEntry>>` keyed by `connectorType` at startup (listening to `CaseDefinitionRegistry` registrations). Message dispatch is O(1) lookup by connectorType, not iteration over all definitions.
 
 ### CaseDefinition Additions
 
@@ -211,7 +180,7 @@ Callers by path:
 - No HTTP endpoint creation in the engine (connectors own reception)
 - No changes to `casehub-connectors`
 - No `ConnectorTarget` binding type
-- The architecture spec's YAML projection (`connectors: webhooks: - path: ...` in `2026-07-09-context-bridge-architecture.md` §5 Connectors) is superseded — the engine does not create HTTP endpoints. `inboundMappings` replaces this. Follow-on: update the architecture spec to reflect this change (tracked as engine#764).
+- The spec's original YAML projection (`connectors: webhooks: - path: ...`) is superseded — the engine does not create HTTP endpoints. `inboundMappings` replaces this.
 
 ---
 
@@ -234,12 +203,12 @@ Three new types plus BridgeResolver integration.
 Standard reference to externally-stored domain data.
 
 ```java
-public record DataRef<T>(String source, String key, String typeName) {
+public record DataRef<T>(String source, String key, Class<T> type) {
 
     public static final String DISCRIMINATOR = "$dataRef";
 
     public static <T> DataRef<T> of(String source, String key, Class<T> type) {
-        return new DataRef<>(source, key, type.getName());
+        return new DataRef<>(source, key, type);
     }
 
     public static boolean isRef(JsonNode node) {
@@ -248,14 +217,14 @@ public record DataRef<T>(String source, String key, String typeName) {
 
     public static DataRef<?> fromJson(JsonNode node) {
         JsonNode ref = node.get(DISCRIMINATOR);
-        if (ref == null || !ref.has("source") || !ref.has("key") || !ref.has("type")) {
-            throw new IllegalArgumentException(
-                "Malformed $dataRef: requires source, key, and type fields");
+        String source = ref.get("source").asText();
+        String key = ref.get("key").asText();
+        String typeName = ref.get("type").asText();
+        try {
+            return new DataRef<>(source, key, Class.forName(typeName));
+        } catch (ClassNotFoundException e) {
+            throw new IllegalArgumentException("DataRef type not found: " + typeName, e);
         }
-        return new DataRef<>(
-            ref.get("source").asText(),
-            ref.get("key").asText(),
-            ref.get("type").asText());
     }
 
     public JsonNode toJson(ObjectMapper mapper) {
@@ -263,16 +232,12 @@ public record DataRef<T>(String source, String key, String typeName) {
         ObjectNode ref = mapper.createObjectNode();
         ref.put("source", source);
         ref.put("key", key);
-        ref.put("type", typeName);
+        ref.put("type", type.getName());
         root.set(DISCRIMINATOR, ref);
         return root;
     }
 }
 ```
-
-**Security:** `DataRef` stores the type name as a `String`, not a `Class<?>`. No `Class.forName()` call occurs at deserialization time. Type resolution is deferred to `DataRefRegistry.resolve()`, which validates the type name against registered `DataRefResolver` sources before any class loading. This prevents class loading attacks from user-controlled JSON payloads (the `$dataRef.type` field originates from context JSON at storage boundaries).
-
-**Reserved key:** `$dataRef` is a reserved top-level JSON key in the ContextBridge protocol. Domain objects used with ContextBridge must not contain `$dataRef` as a top-level key. The `$` prefix follows the JSON Schema convention for meta-properties (`$ref`, `$id`, `$schema`), reducing collision probability with domain data.
 
 JSON representation — `$dataRef` discriminator makes references unambiguous anywhere in context:
 
@@ -320,42 +285,25 @@ public class DataRefRegistry {
 }
 ```
 
-### BridgeResolver Integration — Deferred Resolution at Execution Time
+### BridgeResolver Integration — Transparent Eager Resolution
 
-`BridgeResolver` gains DataRef awareness. The resolution strategy is **deferred**: DataRef references pass through at scheduling time and are resolved at execution time (deserialise path). This design serves three purposes:
-
-1. **Preserves reference semantics in EventLog.** The EventLog stores the `$dataRef` reference, not the resolved object. Large/sensitive data remains external.
-2. **Avoids blocking on the event loop.** Scheduling runs on the Vert.x event bus; `DataRefResolver.resolve()` involves external I/O. Execution runs on Quartz worker threads where blocking is safe.
-3. **Ensures fresh resolution.** The resolved data reflects the state at execution time, not scheduling time — important for living data (documents that evolve).
+`BridgeResolver` gains DataRef awareness. Before calling `bridge.initialise()` or `bridge.deserialise()`, it checks whether the input is a DataRef. If so, it resolves eagerly and returns the resolved object. Bridges never see DataRef — they receive the resolved object.
 
 ```java
 public <T> Object initialise(ContextBridge<T> bridge, CaseContext context, JsonNode narrowedInput) {
     if (DataRef.isRef(narrowedInput)) {
-        // Pass through: DataRef is stored as a reference in EventLog
-        return DataRef.fromJson(narrowedInput);
+        return dataRefRegistry.resolve(DataRef.fromJson(narrowedInput));
     }
     return bridge.initialise(context, narrowedInput);
 }
 
-@SuppressWarnings("unchecked")
-public <T> JsonNode serialise(ContextBridge<T> bridge, Object input) {
-    if (input instanceof DataRef<?> ref) {
-        // Serialise the reference directly — no bridge involvement
-        return ref.toJson(objectMapper);
-    }
-    return bridge.serialise((T) input);
-}
-
 public <T> Object deserialise(ContextBridge<T> bridge, JsonNode payload) {
     if (DataRef.isRef(payload)) {
-        // Resolve at execution time — runs on Quartz worker thread
         return dataRefRegistry.resolve(DataRef.fromJson(payload));
     }
     return bridge.deserialise(payload);
 }
 ```
-
-`DataRefResolver.resolve()` is a blocking SPI. This is safe because resolution only occurs in the `deserialise()` path, which runs on Quartz worker threads (`QuartzWorkerExecutionJob`), not on the Vert.x event loop.
 
 ### How Data Enters as a DataRef
 
@@ -367,20 +315,18 @@ Workers or signals place DataRef values in context:
         .toJson(mapper))))
 ```
 
-When a downstream binding fires and JQ narrows the context to the `medicalRecord` field, at scheduling time BridgeResolver sees the `$dataRef` discriminator and passes the reference through to EventLog. At execution time, `BridgeResolver.deserialise()` resolves it via `DataRefRegistry`, and the worker receives the full `MedicalRecord` object.
+When a downstream binding fires and JQ narrows the context to the `medicalRecord` field, BridgeResolver sees the `$dataRef` discriminator, resolves it via `DataRefRegistry`, and the worker receives the full `MedicalRecord` object.
 
 ### Resolution Timing
 
-Deferred to execution — resolve at `deserialise()` time in `QuartzWorkerExecutionJob`. The bridge receives the fully resolved object, never a proxy or lazy handle. Lazy resolution (proxy-based, resolve on access) is a future optimization deferred until a concrete performance need arises.
-
-**Known limitation — no caching across repeated resolutions:** when the same DataRef appears in context consumed by multiple downstream bindings (e.g., three workers all read `medicalRecord` from shared context), each triggers an independent `DataRefResolver.resolve()` call. Request-scoped caching (keyed by `source + key` within a single case processing cycle) is a future optimization deferred until profiling identifies redundant resolution as a bottleneck.
+Eager only — resolve at bridge time. The bridge receives the fully resolved object, never a proxy or lazy handle. Lazy resolution (proxy-based, resolve on access) is a future optimization deferred until a concrete performance need arises.
 
 ### What This Branch Delivers
 
 - `DataRef<T>` record in engine-api
 - `DataRefResolver` SPI in engine-api
 - `DataRefRegistry` in engine-common
-- BridgeResolver DataRef awareness (deferred resolution at execution time)
+- BridgeResolver DataRef awareness (transparent eager resolution)
 - Tests with a test resolver
 
 ### What This Branch Does NOT Deliver
@@ -392,14 +338,6 @@ Deferred to execution — resolve at `deserialise()` time in `QuartzWorkerExecut
 ---
 
 ## Cross-Cutting Concerns
-
-### Signal Auto-Activation (#692)
-
-`CaseHubRuntimeImpl.signal(UUID, SignalType<T>, T)` currently throws `IllegalArgumentException` if the case is not in `CaseInstanceCache`. This is overly restrictive — for external signal paths (InboundSignalBridge, future API-driven signals), the case may exist in the event store but not be loaded.
-
-Change: `signal()` auto-activates cases not in cache. If `caseInstanceCache.get(caseId)` returns null, load the case from the event store (via `ReactiveCaseInstanceRepository`), reconstruct the `CaseInstance`, place it in cache, and proceed. If the case does not exist in the event store, throw `IllegalArgumentException` (same as today). If the case is in a terminal state (COMPLETED, CANCELLED, FAULTED), throw `SignalRejectedException`.
-
-This is a general improvement to the `CaseHubRuntime` API — all callers benefit, not just InboundSignalBridge. InboundSignalBridge calls `CaseHubRuntime.signal()` directly with no cache check or activation logic of its own.
 
 ### EngineStrategyResolver Updates
 
@@ -416,8 +354,6 @@ All three issues add new types and conventions that should be documented in CLAU
 
 | Issue | Test approach |
 |-------|--------------|
-| #742 | Unit test: `GateRequired` with `resolutionType` threads to `ActionGateApprovedHandler`. Integration test: gate approval with typed resolution validates via bridge. Verify deserialized resolution is included in `actionGateApproved` context entry under `resolution` key. |
+| #742 | Unit test: `GateRequired` with `resolutionType` threads to `ActionGateApprovedHandler`. Integration test: gate approval with typed resolution validates via bridge. |
 | #692 | Unit test: `InboundSignalBridge` processes `InboundMessage` → typed signal. Unit test: `InboundSignalMapping` validation. Integration test: full path from `InboundMessage` to case context update. Unit test: `UuidCorrelationResolver`. |
-| #740 | Unit test: `DataRef` serialization/deserialization. Unit test: `DataRefRegistry` resolution. Unit test: `BridgeResolver` DataRef resolution at deserialise() time. Integration test: worker output with DataRef → downstream worker receives resolved object. |
-| Signal auto-activation | Unit test: `signal()` to a dormant case (persisted but uncached) auto-loads and delivers. Unit test: `signal()` to a non-existent case throws `IllegalArgumentException`. Unit test: `signal()` to a terminal case throws `SignalRejectedException`. |
-| DataRef interception scope | Unit test: `InboundSignalBridge` does NOT trigger DataRef interception when external payload contains a `$dataRef` key — verifies the direct `bridge.deserialise()` path. |
+| #740 | Unit test: `DataRef` serialization/deserialization. Unit test: `DataRefRegistry` resolution. Unit test: `BridgeResolver` transparent DataRef resolution. Integration test: worker output with DataRef → downstream worker receives resolved object. |
