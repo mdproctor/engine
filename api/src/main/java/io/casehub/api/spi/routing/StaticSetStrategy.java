@@ -15,7 +15,6 @@
  */
 package io.casehub.api.spi.routing;
 
-import io.smallrye.mutiny.Uni;
 import java.util.Set;
 
 public final class StaticSetStrategy implements CandidateSetStrategy {
@@ -40,8 +39,8 @@ public final class StaticSetStrategy implements CandidateSetStrategy {
   }
 
   @Override
-  public Uni<Set<String>> evaluate(CandidateSetContext context) {
-    return Uni.createFrom().item(values);
+  public Set<String> evaluate(CandidateSetContext context) {
+    return values;
   }
 
   public Set<String> values() {

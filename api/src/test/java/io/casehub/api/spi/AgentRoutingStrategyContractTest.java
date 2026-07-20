@@ -24,7 +24,6 @@ import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.api.spi.routing.RoutingResult;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -33,11 +32,11 @@ import org.junit.jupiter.api.Test;
 class AgentRoutingStrategyContractTest {
 
   @Test
-  void interface_hasSelectMethod_returningUni() throws Exception {
+  void interface_hasSelectMethod_returningRoutingResult() throws Exception {
     final var method =
         AgentRoutingStrategy.class.getMethod("select", AgentRoutingContext.class, List.class);
     assertThat(method).isNotNull();
-    assertThat(method.getReturnType()).isEqualTo(Uni.class);
+    assertThat(method.getReturnType()).isEqualTo(RoutingResult.class);
   }
 
   @Test
@@ -89,14 +88,10 @@ class AgentRoutingStrategyContractTest {
           }
 
           @Override
-          public Uni<RoutingResult> select(
-              AgentRoutingContext ctx, List<AgentCandidate> candidates) {
+          public RoutingResult select(AgentRoutingContext ctx, List<AgentCandidate> candidates) {
             return candidates.isEmpty()
-                ? Uni.createFrom().item(RoutingResult.unresolvable("no candidates available"))
-                : Uni.createFrom()
-                    .item(
-                        RoutingResult.assigned(
-                            candidates.get(0).workerId(), "selected by test strategy"));
+                ? RoutingResult.unresolvable("no candidates available")
+                : RoutingResult.assigned(candidates.get(0).workerId(), "selected by test strategy");
           }
         };
 
@@ -106,7 +101,7 @@ class AgentRoutingStrategyContractTest {
     final AgentCandidate candidate =
         new AgentCandidate("agent-x", Set.of("research"), 0, AgentHealth.READY, null, null);
 
-    final RoutingResult result = strategy.select(ctx, List.of(candidate)).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx, List.of(candidate));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-x");
@@ -124,16 +119,15 @@ class AgentRoutingStrategyContractTest {
           }
 
           @Override
-          public Uni<RoutingResult> select(
-              AgentRoutingContext ctx, List<AgentCandidate> candidates) {
-            return Uni.createFrom().item(RoutingResult.unresolvable("no candidates available"));
+          public RoutingResult select(AgentRoutingContext ctx, List<AgentCandidate> candidates) {
+            return RoutingResult.unresolvable("no candidates available");
           }
         };
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
             UUID.randomUUID(), "research", NullNode.instance, "test-tenant", List.of());
 
-    final RoutingResult result = strategy.select(ctx, List.of()).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx, List.of());
 
     assertThat(result).isInstanceOf(RoutingResult.Unresolvable.class);
     assertThat(((RoutingResult.Unresolvable) result).reason()).isEqualTo("no candidates available");
@@ -149,22 +143,19 @@ class AgentRoutingStrategyContractTest {
           }
 
           @Override
-          public Uni<RoutingResult> select(
-              AgentRoutingContext ctx, List<AgentCandidate> candidates) {
-            return Uni.createFrom()
-                .item(
-                    RoutingResult.escalate(
-                        ctx.capabilityName(),
-                        EscalationReason.BORDERLINE_STALEMATE,
-                        "all candidates borderline for capability '%s' — oversight required"
-                            .formatted(ctx.capabilityName())));
+          public RoutingResult select(AgentRoutingContext ctx, List<AgentCandidate> candidates) {
+            return RoutingResult.escalate(
+                ctx.capabilityName(),
+                EscalationReason.BORDERLINE_STALEMATE,
+                "all candidates borderline for capability '%s' — oversight required"
+                    .formatted(ctx.capabilityName()));
           }
         };
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
             UUID.randomUUID(), "sensitive-review", NullNode.instance, "test-tenant", List.of());
 
-    final RoutingResult result = strategy.select(ctx, List.of()).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx, List.of());
 
     assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
     assertThat(((RoutingResult.Escalated) result).capabilityName()).isEqualTo("sensitive-review");

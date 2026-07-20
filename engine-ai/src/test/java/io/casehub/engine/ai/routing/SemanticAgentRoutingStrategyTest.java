@@ -94,7 +94,7 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-idle", 0, "idle"),
             candidateWithDescriptor("agent-busy", 3, "busy"));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-idle");
@@ -120,7 +120,7 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-a", 0, "agent-a"),
             candidateWithDescriptor("agent-b", 0, "agent-b"));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-a");
@@ -138,7 +138,7 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-1", 0, "agent-1"),
             candidateWithDescriptor("agent-2", 0, "agent-2"));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
     assertThat(((RoutingResult.Escalated) result).escalationReason())
@@ -154,8 +154,7 @@ class SemanticAgentRoutingStrategyTest {
         .thenReturn(ValidationResult.ok(List.of(MAPPER.createObjectNode().textNode("research"))));
     when(embeddingProvider.embed("research")).thenReturn(new float[] {1.0f, 0.0f});
 
-    final RoutingResult result =
-        strategy.select(ctx(), List.of(noDescriptor)).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), List.of(noDescriptor));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-x");
@@ -168,15 +167,14 @@ class SemanticAgentRoutingStrategyTest {
     when(embeddingProvider.embed(vocabularyText("agent-x"))).thenReturn(new float[] {0.9f, 0.1f});
 
     final AgentCandidate candidate = candidateWithDescriptor("agent-x", 0, "agent-x");
-    final RoutingResult result = strategy.select(ctx(), List.of(candidate)).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), List.of(candidate));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
   }
 
   @Test
   void emptyCandidates_returnsUnresolvable() {
-    assertThat(strategy.select(ctx(), List.of()).await().indefinitely())
-        .isInstanceOf(RoutingResult.Unresolvable.class);
+    assertThat(strategy.select(ctx(), List.of())).isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   // ---- Bootstrap guard (bootstrapEscalationRequired = true) -----------------------
@@ -190,7 +188,7 @@ class SemanticAgentRoutingStrategyTest {
             new AgentCandidate("agent-1", Set.of("research"), 0, AgentHealth.READY, null, null),
             new AgentCandidate("agent-2", Set.of("research"), 1, AgentHealth.READY, null, null));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
     assertThat(((RoutingResult.Escalated) result).escalationReason())
@@ -209,7 +207,7 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-border", 0, "agent-b"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
     assertThat(((RoutingResult.Escalated) result).escalationReason())
@@ -227,7 +225,7 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-low", 0, "agent-l"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
     assertThat(((RoutingResult.Escalated) result).escalationReason())
@@ -250,7 +248,7 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-qualified", 2, "agent-q"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId())
@@ -273,7 +271,7 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-qualified", 5, "agent-q"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId())
@@ -299,7 +297,7 @@ class SemanticAgentRoutingStrategyTest {
             candidateWithDescriptor("agent-border", 0, "agent-b"),
             new AgentCandidate("agent-new", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId())
@@ -318,7 +316,7 @@ class SemanticAgentRoutingStrategyTest {
     final List<AgentCandidate> candidates =
         List.of(candidateWithDescriptor("agent-low", 0, "agent-l"));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Unresolvable.class);
   }
@@ -334,7 +332,7 @@ class SemanticAgentRoutingStrategyTest {
             new AgentCandidate("agent-busy", Set.of("research"), 5, AgentHealth.READY, null, null),
             new AgentCandidate("agent-idle", Set.of("research"), 0, AgentHealth.READY, null, null));
 
-    final RoutingResult result = strategy.select(ctx(), candidates).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx(), candidates);
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-idle");

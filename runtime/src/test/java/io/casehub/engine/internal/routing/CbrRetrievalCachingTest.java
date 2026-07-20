@@ -75,8 +75,8 @@ class CbrRetrievalCachingTest {
     CaseInstance instance = buildInstance();
     cbrStore.setResult(List.of(scoredCase("problem1", "solution1")));
 
-    List<RetrievedExperience> first = service.retrieve(def, instance).await().indefinitely();
-    List<RetrievedExperience> second = service.retrieve(def, instance).await().indefinitely();
+    List<RetrievedExperience> first = service.retrieve(def, instance);
+    List<RetrievedExperience> second = service.retrieve(def, instance);
 
     assertEquals(1, cbrStore.callCount(), "store should be called only once");
     assertSame(first, second, "second call should return the cached instance");
@@ -89,8 +89,8 @@ class CbrRetrievalCachingTest {
     CaseInstance instance = buildInstance();
     cbrStore.setResult(List.of(scoredCase("problem1", "solution1")));
 
-    service.retrieve(def, instance).await().indefinitely();
-    service.retrieve(def, instance).await().indefinitely();
+    service.retrieve(def, instance);
+    service.retrieve(def, instance);
 
     assertEquals(2, cbrStore.callCount(), "PER_EVALUATION should call store every time");
   }
@@ -110,7 +110,7 @@ class CbrRetrievalCachingTest {
     cbrStore.setResult(List.of(scoredCase("problem1", "solution1")));
 
     // Populate cache
-    service.retrieve(def, instance).await().indefinitely();
+    service.retrieve(def, instance);
     assertEquals(1, service.cacheSize());
 
     // Evict via terminal status event
@@ -121,7 +121,7 @@ class CbrRetrievalCachingTest {
     assertEquals(0, service.cacheSize(), "cache should be empty after eviction");
 
     // Next retrieval should hit the store again
-    service.retrieve(def, instance).await().indefinitely();
+    service.retrieve(def, instance);
     assertEquals(2, cbrStore.callCount(), "store should be called again after eviction");
   }
 
@@ -131,7 +131,7 @@ class CbrRetrievalCachingTest {
     CaseInstance instance = buildInstance();
     cbrStore.setResult(List.of(scoredCase("problem1", "solution1")));
 
-    service.retrieve(def, instance).await().indefinitely();
+    service.retrieve(def, instance);
     CaseStatusChanged event =
         new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.FAULTED.name());
     evictionHandler.onCaseStatusChanged(event).await().indefinitely();
@@ -145,7 +145,7 @@ class CbrRetrievalCachingTest {
     CaseInstance instance = buildInstance();
     cbrStore.setResult(List.of(scoredCase("problem1", "solution1")));
 
-    service.retrieve(def, instance).await().indefinitely();
+    service.retrieve(def, instance);
     CaseStatusChanged event =
         new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.CANCELLED.name());
     evictionHandler.onCaseStatusChanged(event).await().indefinitely();
@@ -159,7 +159,7 @@ class CbrRetrievalCachingTest {
     CaseInstance instance = buildInstance();
     cbrStore.setResult(List.of(scoredCase("problem1", "solution1")));
 
-    service.retrieve(def, instance).await().indefinitely();
+    service.retrieve(def, instance);
     CaseStatusChanged event =
         new CaseStatusChanged(instance, CaseStatus.STARTING.name(), CaseStatus.RUNNING.name());
     evictionHandler.onCaseStatusChanged(event).await().indefinitely();
@@ -176,14 +176,14 @@ class CbrRetrievalCachingTest {
     // Fill cache to MAX_CACHE_SIZE
     for (int i = 0; i < CbrRetrievalService.MAX_CACHE_SIZE; i++) {
       CaseInstance instance = buildInstance();
-      service.retrieve(def, instance).await().indefinitely();
+      service.retrieve(def, instance);
     }
     assertEquals(CbrRetrievalService.MAX_CACHE_SIZE, service.cacheSize());
 
     // One more should not grow the cache
     int storeCallsBefore = cbrStore.callCount();
     CaseInstance overflow = buildInstance();
-    service.retrieve(def, overflow).await().indefinitely();
+    service.retrieve(def, overflow);
 
     assertEquals(
         CbrRetrievalService.MAX_CACHE_SIZE,
@@ -199,7 +199,7 @@ class CbrRetrievalCachingTest {
     CaseInstance instance = buildInstance();
     cbrStore.setResult(List.of(scoredCase("problem1", "solution1")));
 
-    List<RetrievedExperience> result = service.retrieve(def, instance).await().indefinitely();
+    List<RetrievedExperience> result = service.retrieve(def, instance);
 
     assertThrows(
         UnsupportedOperationException.class,

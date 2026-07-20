@@ -20,7 +20,6 @@ import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.spi.routing.CandidateSetContext;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
-import io.smallrye.mutiny.Uni;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -51,24 +50,22 @@ public final class ExpressionSetStrategy implements CandidateSetStrategy {
   }
 
   @Override
-  public Uni<Set<String>> evaluate(CandidateSetContext context) {
-    return Uni.createFrom()
-        .item(
-            () -> {
-              List<JsonNode> results = registry.transform(evaluator, context.caseContext());
-              Set<String> values = new LinkedHashSet<>();
-              for (JsonNode node : results) {
-                if (node.isArray()) {
-                  node.forEach(
-                      element -> {
-                        if (element.isTextual()) values.add(element.asText());
-                      });
-                } else if (node.isTextual()) {
-                  values.add(node.asText());
-                }
+  public Set<String> evaluate(CandidateSetContext context) {
+    List<JsonNode> results = registry.transform(evaluator, context.caseContext());
+    Set<String> values = new LinkedHashSet<>();
+    for (JsonNode node : results) {
+      if (node.isArray()) {
+        node.forEach(
+            element -> {
+              if (element.isTextual()) {
+                values.add(element.asText());
               }
-              return Set.copyOf(values);
             });
+      } else if (node.isTextual()) {
+        values.add(node.asText());
+      }
+    }
+    return Set.copyOf(values);
   }
 
   public ExpressionEvaluator evaluator() {

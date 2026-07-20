@@ -19,7 +19,6 @@ import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 
 /**
@@ -44,6 +43,5 @@ public interface PlanningStrategy extends NamedStrategy {
 
   String getName();
 
-  Uni<List<Binding>> select(
-      CasePlanModel plan, PlanExecutionContext context, List<Binding> eligible);
+  List<Binding> select(CasePlanModel plan, PlanExecutionContext context, List<Binding> eligible);
 }

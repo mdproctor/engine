@@ -33,8 +33,6 @@ import io.casehub.ledger.routing.TrustCandidateClassifier;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ScoredCandidate;
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -115,56 +113,44 @@ public class SemanticAgentRoutingStrategy implements AgentRoutingStrategy {
   }
 
   @Override
-  public Uni<RoutingResult> select(
+  public RoutingResult select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
     if (candidates.isEmpty()) {
-      return Uni.createFrom().item(RoutingResult.unresolvable("no candidates available"));
+      return RoutingResult.unresolvable("no candidates available");
     }
 
     final TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
     final List<ClassifiedCandidate> classified =
         classifier.classify(candidates, context.capabilityName(), policy, source);
 
-    // Bootstrap guard: pre-screen before entering worker pool — avoids embedding cost
     if (policy.bootstrapEscalationRequired()) {
       final boolean hasQualified = classified.stream().anyMatch(c -> c.phase() == Phase.QUALIFIED);
       final boolean hasBootstrap = classified.stream().anyMatch(c -> c.phase() == Phase.BOOTSTRAP);
       if (!hasQualified && hasBootstrap) {
-        return Uni.createFrom()
-            .item(
-                RoutingResult.escalate(
-                    context.capabilityName(),
-                    EscalationReason.NO_QUALIFIED_AGENT,
-                    "bootstrap only — no qualified agents for capability '%s'"
-                        .formatted(context.capabilityName())));
+        return RoutingResult.escalate(
+            context.capabilityName(),
+            EscalationReason.NO_QUALIFIED_AGENT,
+            "bootstrap only — no qualified agents for capability '%s'"
+                .formatted(context.capabilityName()));
       }
     }
 
-    // Compute eligible before entering worker pool; lambda captures eligible (not classified)
     final List<ClassifiedCandidate> eligible =
         policy.bootstrapEscalationRequired()
             ? classified.stream().filter(c -> c.phase() != Phase.BOOTSTRAP).toList()
             : classified;
 
-    return Uni.createFrom()
-        .voidItem()
-        .emitOn(Infrastructure.getDefaultWorkerPool())
-        .map(
-            ignored -> {
-              final String queryText =
-                  extractQueryText(context.caseContext(), context.capabilityName());
-              final float[] queryVector = embeddingCache.getOrCompute(queryText, embeddingProvider);
+    final String queryText = extractQueryText(context.caseContext(), context.capabilityName());
+    final float[] queryVector = embeddingCache.getOrCompute(queryText, embeddingProvider);
 
-              final List<ScoredCandidate> scored = new ArrayList<>(eligible.size());
-              for (final ClassifiedCandidate cc : eligible) {
-                final double finalScore = score(cc, queryVector, policy);
-                scored.add(
-                    new ScoredCandidate(
-                        cc, finalScore, buildRationale(cc, finalScore, queryVector, policy)));
-              }
+    final List<ScoredCandidate> scored = new ArrayList<>(eligible.size());
+    for (final ClassifiedCandidate cc : eligible) {
+      final double finalScore = score(cc, queryVector, policy);
+      scored.add(
+          new ScoredCandidate(cc, finalScore, buildRationale(cc, finalScore, queryVector, policy)));
+    }
 
-              return classifier.decide(eligible, scored, context.capabilityName());
-            });
+    return classifier.decide(eligible, scored, context.capabilityName());
   }
 
   private String buildRationale(

@@ -43,14 +43,12 @@ class LeastLoadedAgentStrategyTest {
 
   @Test
   void emptyCandidates_returnsUnresolvable() {
-    assertThat(strategy.select(ctx, List.of()).await().indefinitely())
-        .isInstanceOf(RoutingResult.Unresolvable.class);
+    assertThat(strategy.select(ctx, List.of())).isInstanceOf(RoutingResult.Unresolvable.class);
   }
 
   @Test
   void singleCandidate_isSelected() {
-    final RoutingResult result =
-        strategy.select(ctx, List.of(candidate("agent-1", 3))).await().indefinitely();
+    final RoutingResult result = strategy.select(ctx, List.of(candidate("agent-1", 3)));
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-1");
   }
@@ -58,15 +56,10 @@ class LeastLoadedAgentStrategyTest {
   @Test
   void selectsLeastLoaded_byRunningJobs() {
     final RoutingResult result =
-        strategy
-            .select(
-                ctx,
-                List.of(
-                    candidate("agent-busy", 5),
-                    candidate("agent-mid", 2),
-                    candidate("agent-idle", 0)))
-            .await()
-            .indefinitely();
+        strategy.select(
+            ctx,
+            List.of(
+                candidate("agent-busy", 5), candidate("agent-mid", 2), candidate("agent-idle", 0)));
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-idle");
   }
@@ -74,10 +67,7 @@ class LeastLoadedAgentStrategyTest {
   @Test
   void tie_firstInListWins() {
     final RoutingResult result =
-        strategy
-            .select(ctx, List.of(candidate("agent-a", 2), candidate("agent-b", 2)))
-            .await()
-            .indefinitely();
+        strategy.select(ctx, List.of(candidate("agent-a", 2), candidate("agent-b", 2)));
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-a");
   }
@@ -85,14 +75,11 @@ class LeastLoadedAgentStrategyTest {
   @Test
   void healthDoesNotAffectSelection_leastLoadedWinsRegardlessOfHealth() {
     final RoutingResult result =
-        strategy
-            .select(
-                ctx,
-                List.of(
-                    candidate("ready-busy", 5, AgentHealth.READY),
-                    candidate("weak-idle", 0, AgentHealth.EPISTEMICALLY_WEAK)))
-            .await()
-            .indefinitely();
+        strategy.select(
+            ctx,
+            List.of(
+                candidate("ready-busy", 5, AgentHealth.READY),
+                candidate("weak-idle", 0, AgentHealth.EPISTEMICALLY_WEAK)));
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("weak-idle");
   }

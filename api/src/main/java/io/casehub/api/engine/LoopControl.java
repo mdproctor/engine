@@ -16,7 +16,6 @@
 package io.casehub.api.engine;
 
 import io.casehub.api.model.Binding;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 
 /**
@@ -37,8 +36,7 @@ public interface LoopControl {
    * @param context case identity, definition, and current case state — enables implementations to
    *     look up plan models without requiring access to internal engine structures
    * @param eligible bindings whose trigger conditions matched — may be empty, never null
-   * @return Uni that resolves to the subset to fire; may be empty, may be the full list, must not
-   *     be null
+   * @return the subset to fire; may be empty, may be the full list, must not be null
    */
-  Uni<List<Binding>> select(PlanExecutionContext context, List<Binding> eligible);
+  List<Binding> select(PlanExecutionContext context, List<Binding> eligible);
 }

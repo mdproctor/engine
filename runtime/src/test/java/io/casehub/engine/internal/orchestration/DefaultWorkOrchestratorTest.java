@@ -66,6 +66,26 @@ import org.junit.jupiter.api.Test;
 
 class DefaultWorkOrchestratorTest {
 
+  private static final AgentDescriptor AGENT_DESCRIPTOR =
+      new AgentDescriptor(
+          "agent-1",
+          "TestAgent",
+          "1.0",
+          "openai",
+          "gpt-4",
+          "4-turbo",
+          null,
+          null,
+          null,
+          null,
+          null,
+          "review",
+          List.of(),
+          null,
+          null,
+          null,
+          "casehubio",
+          null);
   private AgentRoutingStrategy agentRoutingStrategy;
   private WorkerExecutionManager executionManager;
   private CapabilityHealth capabilityHealth;
@@ -77,6 +97,39 @@ class DefaultWorkOrchestratorTest {
   private JQEvaluator jqEvaluator;
   private CbrRetrievalService cbrRetrievalService;
   private DefaultWorkOrchestrator orchestrator;
+
+  // ---- happy path -----------------------------------------------------------
+
+  private static StrategyResolver testStrategyResolver() {
+    final SubsumptionMatchStrategy matchStrategy =
+        new SubsumptionMatchStrategy(
+            new io.casehub.engine.internal.worker.NoOpVocabularyRegistry());
+    return new StrategyResolver() {
+      @Override
+      @SuppressWarnings("unchecked")
+      public <T extends NamedStrategy> T resolve(Class<T> type, String id) {
+        if (type == CandidateMatchingStrategy.class) return (T) matchStrategy;
+        throw new IllegalStateException("No strategy for " + type);
+      }
+
+      @Override
+      public <T extends NamedStrategy> java.util.Optional<T> find(Class<T> type, String id) {
+        return java.util.Optional.empty();
+      }
+
+      @Override
+      @SuppressWarnings("unchecked")
+      public <T extends NamedStrategy> T defaultStrategy(Class<T> type) {
+        if (type == CandidateMatchingStrategy.class) return (T) matchStrategy;
+        throw new IllegalStateException("No default for " + type);
+      }
+
+      @Override
+      public <T extends NamedStrategy> java.util.List<T> available(Class<T> type) {
+        return java.util.List.of();
+      }
+    };
+  }
 
   @BeforeEach
   void setUp() {
@@ -91,7 +144,7 @@ class DefaultWorkOrchestratorTest {
     jqEvaluator = mock(JQEvaluator.class);
     cbrRetrievalService = mock(CbrRetrievalService.class);
 
-    when(cbrRetrievalService.retrieve(any(), any())).thenReturn(Uni.createFrom().item(List.of()));
+    when(cbrRetrievalService.retrieve(any(), any())).thenReturn(List.of());
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
     when(executionManager.getActiveWorkCount(any())).thenReturn(0);
@@ -121,26 +174,24 @@ class DefaultWorkOrchestratorTest {
             cbrRetrievalService);
   }
 
-  // ---- happy path -----------------------------------------------------------
-
   @Test
   void submit_workerSelected_publishesScheduleEvent() {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(
-            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
+        .thenReturn(RoutingResult.assigned("analyst-worker", "selected by test"));
 
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of("doc", "x")));
 
     verify(eventBus).publish(any(), any(WorkerScheduleEvent.class));
   }
 
+  // ---- robustness -----------------------------------------------------------
+
   @Test
   void submit_workerSelected_returnsPendingFuture() {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(
-            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
+        .thenReturn(RoutingResult.assigned("analyst-worker", "selected by test"));
 
     final CompletableFuture<WorkResult> future =
         orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -152,8 +203,7 @@ class DefaultWorkOrchestratorTest {
   void submitAndWait_transitionsCaseToWaiting() {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(
-            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
+        .thenReturn(RoutingResult.assigned("analyst-worker", "selected by test"));
 
     orchestrator.submitAndWait(instance, WorkRequest.of("analyse", Map.of("doc", "x")));
 
@@ -161,13 +211,11 @@ class DefaultWorkOrchestratorTest {
     assertThat(instance.getWaitingForWorkId()).isNotNull();
   }
 
-  // ---- robustness -----------------------------------------------------------
-
   @Test
   void submit_strategyReturnsUnresolvable_failsFuture() {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
+        .thenReturn(RoutingResult.unresolvable("no candidates available"));
 
     final var future =
         orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -176,17 +224,15 @@ class DefaultWorkOrchestratorTest {
     verify(eventBus, never()).publish(any(), any(WorkerScheduleEvent.class));
   }
 
+  // ---- capability health probe -----------------------------------------------
+
   @Test
   void submit_strategyReturnsEscalate_failsFutureAndPublishesEscalation() {
     final CaseInstance instance = runningInstance("analyse");
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom()
-                .item(
-                    RoutingResult.escalate(
-                        "analyse",
-                        EscalationReason.BORDERLINE_STALEMATE,
-                        "all candidates borderline")));
+            RoutingResult.escalate(
+                "analyse", EscalationReason.BORDERLINE_STALEMATE, "all candidates borderline"));
 
     final var future =
         orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -212,36 +258,13 @@ class DefaultWorkOrchestratorTest {
     assertThat(future.isCompletedExceptionally()).isTrue();
   }
 
-  // ---- capability health probe -----------------------------------------------
-
-  private static final AgentDescriptor AGENT_DESCRIPTOR =
-      new AgentDescriptor(
-          "agent-1",
-          "TestAgent",
-          "1.0",
-          "openai",
-          "gpt-4",
-          "4-turbo",
-          null,
-          null,
-          null,
-          null,
-          null,
-          "review",
-          List.of(),
-          null,
-          null,
-          null,
-          "casehubio",
-          null);
-
   @Test
   @SuppressWarnings("unchecked")
   void probe_unavailable_workerExcludedFromCandidates() {
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityStatus.Unavailable("model offline"));
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
+        .thenReturn(RoutingResult.unresolvable("no candidates available"));
 
     final CaseInstance instance = runningInstanceWithAgentWorker("analyse");
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -258,8 +281,7 @@ class DefaultWorkOrchestratorTest {
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityStatus.EpistemicallyWeak("rust", 0.25));
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(
-            Uni.createFrom().item(RoutingResult.assigned("agent-worker", "selected by test")));
+        .thenReturn(RoutingResult.assigned("agent-worker", "selected by test"));
 
     final CaseInstance instance = runningInstanceWithAgentWorker("analyse");
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
@@ -279,7 +301,7 @@ class DefaultWorkOrchestratorTest {
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityStatus.Unavailable("all offline"));
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
+        .thenReturn(RoutingResult.unresolvable("no candidates available"));
 
     final CaseInstance instance = runningInstanceWithAgentWorker("analyse");
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
@@ -290,19 +312,18 @@ class DefaultWorkOrchestratorTest {
     assertThat(captor.getValue()).isEmpty();
   }
 
+  // ---- helper ---------------------------------------------------------------
+
   @Test
   void probe_noDescriptor_probeSkipped_workerUsesReadyHealth() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(
-            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
+        .thenReturn(RoutingResult.assigned("analyst-worker", "selected by test"));
 
     final CaseInstance instance = runningInstance("analyse");
     orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
 
     verify(capabilityHealth, never()).probe(any(), any(), any());
   }
-
-  // ---- helper ---------------------------------------------------------------
 
   private CaseInstance runningInstanceWithAgentWorker(final String capabilityName) {
     final Capability capability =
@@ -385,36 +406,5 @@ class DefaultWorkOrchestratorTest {
     when(ctx.asJsonNode()).thenReturn(emptyNode);
     instance.setCaseContext(ctx);
     return instance;
-  }
-
-  private static StrategyResolver testStrategyResolver() {
-    final SubsumptionMatchStrategy matchStrategy =
-        new SubsumptionMatchStrategy(
-            new io.casehub.engine.internal.worker.NoOpVocabularyRegistry());
-    return new StrategyResolver() {
-      @Override
-      @SuppressWarnings("unchecked")
-      public <T extends NamedStrategy> T resolve(Class<T> type, String id) {
-        if (type == CandidateMatchingStrategy.class) return (T) matchStrategy;
-        throw new IllegalStateException("No strategy for " + type);
-      }
-
-      @Override
-      public <T extends NamedStrategy> java.util.Optional<T> find(Class<T> type, String id) {
-        return java.util.Optional.empty();
-      }
-
-      @Override
-      @SuppressWarnings("unchecked")
-      public <T extends NamedStrategy> T defaultStrategy(Class<T> type) {
-        if (type == CandidateMatchingStrategy.class) return (T) matchStrategy;
-        throw new IllegalStateException("No default for " + type);
-      }
-
-      @Override
-      public <T extends NamedStrategy> java.util.List<T> available(Class<T> type) {
-        return java.util.List.of();
-      }
-    };
   }
 }

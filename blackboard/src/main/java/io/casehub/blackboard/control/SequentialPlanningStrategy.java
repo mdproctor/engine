@@ -21,7 +21,6 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.plan.PlanItem;
 import io.quarkus.arc.Unremovable;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
@@ -41,14 +40,14 @@ public class SequentialPlanningStrategy implements PlanningStrategy {
   }
 
   @Override
-  public Uni<List<Binding>> select(
+  public List<Binding> select(
       CasePlanModel plan, PlanExecutionContext context, List<Binding> eligible) {
 
     for (Binding binding : eligible) {
       Optional<PlanItem> itemOpt = plan.findPlanItemByBindingName(binding.getName());
 
       if (itemOpt.isEmpty()) {
-        return Uni.createFrom().item(List.of(binding));
+        return List.of(binding);
       }
 
       TaskStatus status = itemOpt.get().getStatus();
@@ -58,16 +57,16 @@ public class SequentialPlanningStrategy implements PlanningStrategy {
       }
 
       if (status == TaskStatus.PENDING) {
-        return Uni.createFrom().item(List.of(binding));
+        return List.of(binding);
       }
 
       if (status.isTerminal()) {
-        return Uni.createFrom().item(List.of());
+        return List.of();
       }
 
-      return Uni.createFrom().item(List.of());
+      return List.of();
     }
 
-    return Uni.createFrom().item(List.of());
+    return List.of();
   }
 }

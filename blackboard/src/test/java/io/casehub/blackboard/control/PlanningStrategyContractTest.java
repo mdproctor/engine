@@ -63,7 +63,7 @@ public abstract class PlanningStrategyContractTest {
     Binding outsider = mock(Binding.class);
     List<Binding> eligible = List.of(b1, b2);
 
-    List<Binding> result = strategy().select(plan, ctx(), eligible).await().indefinitely();
+    List<Binding> result = strategy().select(plan, ctx(), eligible);
 
     assertThat(result).doesNotHaveDuplicates();
     assertThat(result).doesNotContain(outsider);
@@ -73,7 +73,7 @@ public abstract class PlanningStrategyContractTest {
   @Test
   void handles_empty_eligible_without_throwing() {
     CasePlanModel plan = new DefaultCasePlanModel(UUID.randomUUID());
-    List<Binding> result = strategy().select(plan, ctx(), List.of()).await().indefinitely();
+    List<Binding> result = strategy().select(plan, ctx(), List.of());
     assertThat(result).isNotNull();
   }
 
@@ -83,8 +83,7 @@ public abstract class PlanningStrategyContractTest {
     Binding b1 = mock(Binding.class);
     List<Binding> eligibleWithDuplicate = List.of(b1, b1);
 
-    List<Binding> result =
-        strategy().select(plan, ctx(), eligibleWithDuplicate).await().indefinitely();
+    List<Binding> result = strategy().select(plan, ctx(), eligibleWithDuplicate);
 
     assertThat(result)
         .as("strategy must not return duplicate bindings even if eligible list contains duplicates")

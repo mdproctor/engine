@@ -27,7 +27,6 @@ import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ScoredCandidate;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -87,38 +86,33 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
   }
 
   @Override
-  public Uni<RoutingResult> select(
+  public RoutingResult select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
     if (candidates.isEmpty()) {
-      return Uni.createFrom().item(RoutingResult.unresolvable("no candidates available"));
+      return RoutingResult.unresolvable("no candidates available");
     }
 
     final TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
     final List<ClassifiedCandidate> classified =
         classifier.classify(candidates, context.capabilityName(), policy, source);
 
-    // Bootstrap guard: pre-screen before scoring
     if (policy.bootstrapEscalationRequired()) {
       final boolean hasQualified = classified.stream().anyMatch(c -> c.phase() == Phase.QUALIFIED);
       final boolean hasBootstrap = classified.stream().anyMatch(c -> c.phase() == Phase.BOOTSTRAP);
       if (!hasQualified && hasBootstrap) {
-        return Uni.createFrom()
-            .item(
-                RoutingResult.escalate(
-                    context.capabilityName(),
-                    EscalationReason.NO_QUALIFIED_AGENT,
-                    "bootstrap only — no qualified agents for capability '%s'"
-                        .formatted(context.capabilityName())));
+        return RoutingResult.escalate(
+            context.capabilityName(),
+            EscalationReason.NO_QUALIFIED_AGENT,
+            "bootstrap only — no qualified agents for capability '%s'"
+                .formatted(context.capabilityName()));
       }
     }
 
-    // Strip BOOTSTRAP from scoring when guard is active (only reached if QUALIFIED exists)
     final List<ClassifiedCandidate> eligible =
         policy.bootstrapEscalationRequired()
             ? classified.stream().filter(c -> c.phase() != Phase.BOOTSTRAP).toList()
             : classified;
 
-    // CBR pre-computation: compute per-worker success rates from similar past cases
     final Map<String, Double> cbrScores;
     if (policy.cbrWeight() > 0.0 && !context.experiences().isEmpty()) {
       final Set<String> qualifiedWorkerIds =
@@ -143,7 +137,7 @@ public class TrustWeightedAgentStrategy implements AgentRoutingStrategy {
           new ScoredCandidate(cc, finalScore, buildRationale(cc, finalScore, policy, cbrScores)));
     }
 
-    return Uni.createFrom().item(classifier.decide(eligible, scored, context.capabilityName()));
+    return classifier.decide(eligible, scored, context.capabilityName());
   }
 
   private String buildRationale(

@@ -24,6 +24,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.CaseChannelProvider;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.CaseStartedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -146,19 +147,15 @@ public class CaseStartedEventHandler {
     if (definition == null || definition.getCbrConfig() == null) {
       return Uni.createFrom().voidItem();
     }
-    return cbrRetrievalService
-        .retrieve(definition, instance)
-        .invoke(
-            experiences -> {
-              if (!experiences.isEmpty()) {
-                List<Map<String, Object>> serialised =
-                    OBJECT_MAPPER.convertValue(
-                        experiences, new TypeReference<List<Map<String, Object>>>() {});
-                MutableCaseContext mutableContext = (MutableCaseContext) instance.getCaseContext();
-                ((WritableLayerImpl) mutableContext.writableLayer(ContextLayer.WORKING))
-                    .engineSet("cbrExperiences", serialised);
-              }
-            })
-        .replaceWithVoid();
+    List<RetrievedExperience> experiences = cbrRetrievalService.retrieve(definition, instance);
+    if (!experiences.isEmpty()) {
+      List<Map<String, Object>> serialised =
+          OBJECT_MAPPER.convertValue(
+              experiences, new TypeReference<List<Map<String, Object>>>() {});
+      MutableCaseContext mutableContext = (MutableCaseContext) instance.getCaseContext();
+      ((WritableLayerImpl) mutableContext.writableLayer(ContextLayer.WORKING))
+          .engineSet("cbrExperiences", serialised);
+    }
+    return Uni.createFrom().voidItem();
   }
 }

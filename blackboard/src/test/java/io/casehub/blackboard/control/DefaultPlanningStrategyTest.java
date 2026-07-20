@@ -52,7 +52,7 @@ class DefaultPlanningStrategyTest {
     Binding b2 = mock(Binding.class);
     List<Binding> eligible = List.of(b1, b2);
 
-    List<Binding> result = strategy.select(plan, ctx(), eligible).await().indefinitely();
+    List<Binding> result = strategy.select(plan, ctx(), eligible);
 
     assertThat(result).containsExactlyInAnyOrderElementsOf(eligible);
   }
@@ -60,14 +60,14 @@ class DefaultPlanningStrategyTest {
   @Test
   void empty_eligible_returns_empty_not_null() {
     DefaultCasePlanModel plan = new DefaultCasePlanModel(UUID.randomUUID());
-    List<Binding> result = strategy.select(plan, ctx(), List.of()).await().indefinitely();
+    List<Binding> result = strategy.select(plan, ctx(), List.of());
     assertThat(result).isNotNull().isEmpty();
   }
 
   @Test
   void does_not_modify_plan_focus_or_budget() {
     DefaultCasePlanModel plan = new DefaultCasePlanModel(UUID.randomUUID());
-    strategy.select(plan, ctx(), List.of()).await().indefinitely();
+    strategy.select(plan, ctx(), List.of());
     assertThat(plan.getFocus()).isEmpty();
     assertThat(plan.getResourceBudget()).isEmpty();
   }

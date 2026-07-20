@@ -21,7 +21,6 @@ import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.arc.Unremovable;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Comparator;
 import java.util.List;
@@ -42,10 +41,10 @@ public class LeastLoadedAgentStrategy implements AgentRoutingStrategy {
   }
 
   @Override
-  public Uni<RoutingResult> select(
+  public RoutingResult select(
       final AgentRoutingContext context, final List<AgentCandidate> candidates) {
     if (candidates.isEmpty()) {
-      return Uni.createFrom().item(RoutingResult.unresolvable("no candidates available"));
+      return RoutingResult.unresolvable("no candidates available");
     }
 
     final List<AgentCandidate> sorted =
@@ -63,7 +62,6 @@ public class LeastLoadedAgentStrategy implements AgentRoutingStrategy {
       rationale =
           "selected %s: load %d (sole candidate)".formatted(best.workerId(), best.runningJobs());
     }
-
-    return Uni.createFrom().item(RoutingResult.assigned(best.workerId(), rationale));
+    return RoutingResult.assigned(best.workerId(), rationale);
   }
 }

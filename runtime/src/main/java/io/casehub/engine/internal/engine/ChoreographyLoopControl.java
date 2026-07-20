@@ -19,7 +19,6 @@ import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseStatus;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
@@ -35,11 +34,10 @@ import java.util.List;
 public class ChoreographyLoopControl implements LoopControl {
 
   @Override
-  public Uni<List<Binding>> select(
-      final PlanExecutionContext context, final List<Binding> eligible) {
+  public List<Binding> select(final PlanExecutionContext context, final List<Binding> eligible) {
     if (context.caseStatus() != CaseStatus.RUNNING) {
-      return Uni.createFrom().item(List.of());
+      return List.of();
     }
-    return Uni.createFrom().item(eligible);
+    return eligible;
   }
 }

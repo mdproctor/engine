@@ -17,6 +17,7 @@ package io.casehub.blackboard.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -30,7 +31,6 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.UUID;
@@ -71,7 +71,7 @@ class BindingGatingTest {
 
     // StageLifecycleEvaluator — package-private constructor for unit tests (no EventBus events).
     StageLifecycleEvaluator evaluator = mock(StageLifecycleEvaluator.class);
-    when(evaluator.evaluate(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    doNothing().when(evaluator).evaluate(any(), any());
 
     // Mock Instance<PlanningStrategy> returning the default strategy
     @SuppressWarnings("unchecked")
@@ -126,7 +126,7 @@ class BindingGatingTest {
   @Test
   void free_floating_binding_always_passes_when_no_stages_exist() {
     Binding b = binding("free-b");
-    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName)).contains("free-b");
   }
 
@@ -136,7 +136,7 @@ class BindingGatingTest {
     plan().addStage(Stage.alwaysActivate("lifecycle-only"));
 
     Binding b = binding("any-b");
-    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
         .as("binding must pass when no stage has declared ownership of it")
         .contains("any-b");
@@ -153,7 +153,7 @@ class BindingGatingTest {
     plan().addStage(stage);
 
     Binding b = binding("staged-b");
-    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
         .as("staged binding must be blocked when its stage is PENDING")
         .doesNotContain("staged-b");
@@ -171,7 +171,7 @@ class BindingGatingTest {
     plan().addStage(stage);
 
     Binding b = binding("staged-b");
-    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
         .as("staged binding must pass when its stage is ACTIVE")
         .contains("staged-b");
@@ -189,7 +189,7 @@ class BindingGatingTest {
 
     Binding free = binding("free-b");
     Binding staged = binding("staged-b");
-    List<Binding> result = loopControl.select(ctx, List.of(free, staged)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(free, staged));
 
     assertThat(result.stream().map(Binding::getName))
         .as("free-floating binding must pass even when a staged binding is blocked")
@@ -210,7 +210,7 @@ class BindingGatingTest {
     plan().addStage(stage);
 
     Binding b = binding("any-b");
-    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
         .as("binding must pass when no stage has declared ownership of it (pure choreography)")
         .contains("any-b");
@@ -227,7 +227,7 @@ class BindingGatingTest {
     plan().addStage(stage);
 
     Binding b = binding("design-b");
-    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
         .as("builder-declared binding must be gated just like addBinding()")
         .doesNotContain("design-b");
@@ -240,7 +240,7 @@ class BindingGatingTest {
     plan().addStage(stage);
 
     Binding b = binding("design-b");
-    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
         .as("builder-declared binding must pass when stage is ACTIVE")
         .contains("design-b");
@@ -264,7 +264,7 @@ class BindingGatingTest {
             null);
     Binding b = binding("any-b");
 
-    List<Binding> result = loopControl.select(suspended, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(suspended, List.of(b));
 
     assertThat(result).isEmpty();
   }
@@ -283,7 +283,7 @@ class BindingGatingTest {
             null);
     Binding b = binding("any-b");
 
-    List<Binding> result = loopControl.select(completed, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(completed, List.of(b));
 
     assertThat(result).isEmpty();
   }
@@ -304,7 +304,7 @@ class BindingGatingTest {
             null);
 
     // No PlanItem created yet — first time this binding is eligible
-    List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(waiting, List.of(b));
 
     assertThat(result.stream().map(Binding::getName))
         .as("WAITING case must dispatch bindings with no existing PlanItem")
@@ -331,7 +331,7 @@ class BindingGatingTest {
     item.markRunning();
     plan().addPlanItem(item);
 
-    List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(waiting, List.of(b));
 
     assertThat(result.stream().map(Binding::getName))
         .as("WAITING case must not re-dispatch a binding whose PlanItem is already RUNNING")
@@ -357,7 +357,7 @@ class BindingGatingTest {
     item.markDelegated();
     plan().addPlanItem(item);
 
-    List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(waiting, List.of(b));
 
     assertThat(result.stream().map(Binding::getName))
         .as("WAITING case must not re-dispatch a binding whose PlanItem is DELEGATED")
@@ -387,7 +387,7 @@ class BindingGatingTest {
     item.markCompleted();
     plan().addPlanItem(item);
 
-    List<Binding> result = loopControl.select(waiting, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(waiting, List.of(b));
 
     assertThat(result.stream().map(Binding::getName))
         .as("COMPLETED binding may re-dispatch if trigger conditions are met again")
@@ -403,7 +403,7 @@ class BindingGatingTest {
     item.markRunning();
     plan().addPlanItem(item);
 
-    List<Binding> result = loopControl.select(ctx, List.of(b)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b));
 
     assertThat(result.stream().map(Binding::getName))
         .as("RUNNING case must not re-dispatch a binding whose PlanItem is already RUNNING")
@@ -423,7 +423,7 @@ class BindingGatingTest {
     plan().addStage(stage);
 
     Binding b = binding("staged-b");
-    loopControl.select(ctx, List.of(b)).await().indefinitely();
+    loopControl.select(ctx, List.of(b));
 
     assertThat(stage.getContainedPlanItemIds())
         .as("PlanItem must be auto-registered in stage's containedPlanItemIds")
@@ -444,7 +444,7 @@ class BindingGatingTest {
     plan().addStage(stage);
 
     Binding b = binding("free-b");
-    loopControl.select(ctx, List.of(b)).await().indefinitely();
+    loopControl.select(ctx, List.of(b));
 
     assertThat(stage.getContainedPlanItemIds())
         .as("free-floating binding must not register with unrelated stage")
@@ -463,12 +463,12 @@ class BindingGatingTest {
 
     Binding b = binding("staged-b");
     // First select creates and registers the PlanItem
-    loopControl.select(ctx, List.of(b)).await().indefinitely();
+    loopControl.select(ctx, List.of(b));
     int afterFirst = stage.getRequiredItemIds().size();
 
     // Second select — PlanItem exists (RUNNING after indexSelectedForCompletion),
     // addPlanItemIfAbsent returns false, no duplicate registration
-    loopControl.select(ctx, List.of(b)).await().indefinitely();
+    loopControl.select(ctx, List.of(b));
 
     assertThat(stage.getRequiredItemIds())
         .as("second select must not duplicate registration")

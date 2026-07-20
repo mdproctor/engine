@@ -15,7 +15,6 @@
  */
 package io.casehub.api.spi.routing;
 
-import io.smallrye.mutiny.Uni;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import net.thisptr.jackson.jq.BuiltinFunctionLoader;
@@ -58,31 +57,29 @@ public final class JqCandidateSetStrategy implements CandidateSetStrategy {
   }
 
   @Override
-  public Uni<Set<String>> evaluate(CandidateSetContext context) {
-    return Uni.createFrom()
-        .item(
-            () -> {
-              try {
-                Set<String> values = new LinkedHashSet<>();
-                Scope childScope = Scope.newChildScope(ROOT_SCOPE);
-                compiledQuery.apply(
-                    childScope,
-                    context.caseContext(),
-                    node -> {
-                      if (node.isArray()) {
-                        node.forEach(
-                            element -> {
-                              if (element.isTextual()) values.add(element.asText());
-                            });
-                      } else if (node.isTextual()) {
-                        values.add(node.asText());
-                      }
-                    });
-                return Set.copyOf(values);
-              } catch (Exception e) {
-                throw new RuntimeException("JQ evaluation failed for expression: " + expression, e);
-              }
-            });
+  public Set<String> evaluate(CandidateSetContext context) {
+    try {
+      Set<String> values = new LinkedHashSet<>();
+      Scope childScope = Scope.newChildScope(ROOT_SCOPE);
+      compiledQuery.apply(
+          childScope,
+          context.caseContext(),
+          node -> {
+            if (node.isArray()) {
+              node.forEach(
+                  element -> {
+                    if (element.isTextual()) {
+                      values.add(element.asText());
+                    }
+                  });
+            } else if (node.isTextual()) {
+              values.add(node.asText());
+            }
+          });
+      return Set.copyOf(values);
+    } catch (Exception e) {
+      throw new RuntimeException("JQ evaluation failed for expression: " + expression, e);
+    }
   }
 
   public String expression() {

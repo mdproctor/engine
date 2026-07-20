@@ -33,7 +33,6 @@ import io.casehub.blackboard.plan.PlanItem;
 import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.blackboard.stage.Stage;
 import io.casehub.worker.api.Worker;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -87,28 +86,20 @@ public class PlanningStrategyLoopControl implements LoopControl {
   }
 
   @Override
-  public Uni<List<Binding>> select(PlanExecutionContext ctx, List<Binding> eligible) {
+  public List<Binding> select(PlanExecutionContext ctx, List<Binding> eligible) {
     CaseStatus status = ctx.caseStatus();
     if (status != CaseStatus.RUNNING && status != CaseStatus.WAITING) {
-      return Uni.createFrom().item(List.of());
+      return List.of();
     }
     UUID caseId = ctx.caseId();
     CasePlanModel plan = registry.getOrCreate(caseId, ctx.tenancyId());
 
-    // On the first select() call for a case, run all applicable BlackboardPlanConfigurer beans.
-    // markConfigured() is atomic — only returns true once, guaranteeing exactly-once invocation.
     if (registry.markConfigured(caseId)) {
       configurers.stream()
           .filter(c -> c.supports(ctx.definition()))
           .forEach(c -> c.configure(plan, ctx));
     }
 
-    // Stage-gating (ADR-0002): compute which binding names are "owned" by at least one stage
-    // (allStagedNames), and which of those stages are currently ACTIVE (activeStagedNames).
-    // Free-floating bindings (not in allStagedNames) always pass.
-    // Staged bindings only pass when their stage is ACTIVE.
-    // If no stage declares any binding, allStagedNames is empty → gatedEligible == eligible
-    // (pure choreography, no behaviour change).
     Set<String> allStagedNames =
         plan.getAllStages().stream()
             .flatMap(s -> s.getContainedBindingNames().stream())
@@ -121,58 +112,45 @@ public class PlanningStrategyLoopControl implements LoopControl {
 
     List<Binding> gatedEligible =
         allStagedNames.isEmpty()
-            ? eligible // fast path: pure choreography — avoid stream allocation
+            ? eligible
             : eligible.stream()
                 .filter(
                     b ->
-                        !allStagedNames.contains(b.getName()) // free-floating → always pass
-                            || activeStagedNames.contains(b.getName())) // staged → only if ACTIVE
+                        !allStagedNames.contains(b.getName())
+                            || activeStagedNames.contains(b.getName()))
                 .collect(Collectors.toList());
 
-    return stageLifecycleEvaluator
-        .evaluate(plan, ctx)
-        .chain(() -> applyImplementationRouting(ctx, gatedEligible))
-        .invoke(
-            routed -> {
-              // Create PlanItems only for surviving bindings — routing decision is upstream.
-              // addPlanItemIfAbsent is atomic (no TOCTOU). Auto-register with owning stages
-              // for autocomplete tracking. Refs casehubio/engine#497, engine#476.
-              routed.forEach(
-                  binding -> {
-                    io.casehub.api.model.ExecutorRef executor = resolveExecutor(binding, ctx);
-                    PlanItem item =
-                        PlanItem.create(binding.getName(), executor, 0, binding.target());
-                    if (plan.addPlanItemIfAbsent(item)) {
-                      registerWithOwningStages(plan, binding.getName(), item.getPlanItemId());
-                    }
-                  });
-            })
-        .chain(
-            routed -> {
-              String strategyId = ctx.definition().getPlanningStrategy();
-              if (strategyId == null || strategyId.isEmpty()) {
-                strategyId = "default";
-              }
-              PlanningStrategy strategy = strategies.get(strategyId);
-              if (strategy == null) {
-                strategy = strategies.get("default");
-                if (strategy == null) {
-                  throw new IllegalStateException(
-                      "No default planning strategy found. Available: " + strategies.keySet());
-                }
-              }
-              return strategy.select(plan, ctx, routed);
-            })
-        .map(selected -> filterAndIndexForDispatch(caseId, plan, selected, ctx));
+    stageLifecycleEvaluator.evaluate(plan, ctx);
+
+    List<Binding> routed = applyImplementationRouting(ctx, gatedEligible);
+
+    routed.forEach(
+        binding -> {
+          io.casehub.api.model.ExecutorRef executor = resolveExecutor(binding, ctx);
+          PlanItem item = PlanItem.create(binding.getName(), executor, 0, binding.target());
+          if (plan.addPlanItemIfAbsent(item)) {
+            registerWithOwningStages(plan, binding.getName(), item.getPlanItemId());
+          }
+        });
+
+    String strategyId = ctx.definition().getPlanningStrategy();
+    if (strategyId == null || strategyId.isEmpty()) {
+      strategyId = "default";
+    }
+    PlanningStrategy strategy = strategies.get(strategyId);
+    if (strategy == null) {
+      strategy = strategies.get("default");
+      if (strategy == null) {
+        throw new IllegalStateException(
+            "No default planning strategy found. Available: " + strategies.keySet());
+      }
+    }
+    List<Binding> selected = strategy.select(plan, ctx, routed);
+
+    return filterAndIndexForDispatch(caseId, plan, selected, ctx);
   }
 
-  /**
-   * Groups gated-eligible bindings by capability name. Groups with a single binding pass through
-   * unchanged. Groups with multiple bindings consult {@link ImplementationRoutingStrategy} to
-   * select which binding(s) survive. Non-capability bindings are never grouped. Refs
-   * casehubio/engine#476.
-   */
-  private Uni<List<Binding>> applyImplementationRouting(
+  private List<Binding> applyImplementationRouting(
       PlanExecutionContext ctx, List<Binding> gatedEligible) {
     Map<String, List<Binding>> byCapability = new LinkedHashMap<>();
     List<Binding> nonCapability = new ArrayList<>();
@@ -184,50 +162,37 @@ public class PlanningStrategyLoopControl implements LoopControl {
       }
     }
 
-    Uni<List<Binding>> result = Uni.createFrom().item(new ArrayList<>(nonCapability));
+    List<Binding> result = new ArrayList<>(nonCapability);
     for (var entry : byCapability.entrySet()) {
       String capName = entry.getKey();
       List<Binding> group = entry.getValue();
       if (group.size() == 1) {
-        result = result.invoke(acc -> acc.addAll(group));
+        result.addAll(group);
       } else {
-        result =
-            result.chain(
-                acc -> {
-                  List<ImplementationCandidate> candidates =
-                      group.stream()
-                          .map(
-                              b ->
-                                  new ImplementationCandidate(
-                                      b.getName(), resolveExecutor(b, ctx).name(), capName))
-                          .toList();
-                  var routingCtx =
-                      new ImplementationRoutingContext(
-                          ctx.caseId(),
-                          capName,
-                          ctx.caseContext() != null ? ctx.caseContext().asJsonNode() : null,
-                          ctx.tenancyId(),
-                          ctx.experiences());
-                  return implementationRoutingStrategy
-                      .select(routingCtx, candidates)
-                      .map(
-                          selection ->
-                              switch (selection) {
-                                case ImplementationSelection.Selected s -> {
-                                  Set<String> kept = Set.copyOf(s.bindingNames());
-                                  acc.addAll(
-                                      group.stream()
-                                          .filter(b -> kept.contains(b.getName()))
-                                          .toList());
-                                  yield acc;
-                                }
-                                case ImplementationSelection.RunAll ignored -> {
-                                  acc.addAll(group);
-                                  yield acc;
-                                }
-                                case ImplementationSelection.RunNone ignored -> acc;
-                              });
-                });
+        List<ImplementationCandidate> candidates =
+            group.stream()
+                .map(
+                    b ->
+                        new ImplementationCandidate(
+                            b.getName(), resolveExecutor(b, ctx).name(), capName))
+                .toList();
+        var routingCtx =
+            new ImplementationRoutingContext(
+                ctx.caseId(),
+                capName,
+                ctx.caseContext() != null ? ctx.caseContext().asJsonNode() : null,
+                ctx.tenancyId(),
+                ctx.experiences());
+        ImplementationSelection selection =
+            implementationRoutingStrategy.select(routingCtx, candidates);
+        switch (selection) {
+          case ImplementationSelection.Selected s -> {
+            Set<String> kept = Set.copyOf(s.bindingNames());
+            result.addAll(group.stream().filter(b -> kept.contains(b.getName())).toList());
+          }
+          case ImplementationSelection.RunAll ignored -> result.addAll(group);
+          case ImplementationSelection.RunNone ignored -> {}
+        }
       }
     }
     return result;

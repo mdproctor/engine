@@ -28,7 +28,6 @@ import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ScoredCandidate;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -100,20 +99,18 @@ public class TrustWeightedImplementationRoutingStrategy implements Implementatio
   }
 
   @Override
-  public Uni<ImplementationSelection> select(
+  public ImplementationSelection select(
       final ImplementationRoutingContext context, final List<ImplementationCandidate> candidates) {
     if (candidates.isEmpty() || candidates.size() == 1) {
-      return Uni.createFrom().item(new ImplementationSelection.RunAll());
+      return new ImplementationSelection.RunAll();
     }
 
     final TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
 
-    // Build lookup: workerName → ImplementationCandidate
     final Map<String, ImplementationCandidate> byWorker =
         candidates.stream()
             .collect(Collectors.toMap(ImplementationCandidate::workerName, c -> c, (a, b) -> a));
 
-    // Adapt ImplementationCandidate → AgentCandidate
     final List<AgentCandidate> agentCandidates =
         candidates.stream()
             .map(
@@ -121,52 +118,42 @@ public class TrustWeightedImplementationRoutingStrategy implements Implementatio
                     new AgentCandidate(
                         c.workerName(),
                         Set.of(c.capabilityName()),
-                        0, // no workload concept for in-process implementations
+                        0,
                         AgentHealth.READY,
                         null,
                         null))
             .toList();
 
-    // Classify candidates using trust maturity model
     final List<ClassifiedCandidate> classified =
         classifier.classify(agentCandidates, context.capabilityName(), policy, source);
 
-    // Score each candidate (filter excluded)
     final List<ScoredCandidate> scored = new ArrayList<>(classified.size());
     for (final ClassifiedCandidate cc : classified) {
       final double finalScore = score(cc, policy, policy.fallbackBinding(), byWorker);
       scored.add(new ScoredCandidate(cc, finalScore, "implementation routing"));
     }
 
-    // When all candidates score equally AND positively (e.g., all BOOTSTRAP with score=1.0),
-    // run all instead of arbitrarily picking. Excluded candidates (score=0.0) fall through to
-    // backstop.
     final boolean allEqualPositiveScores =
         scored.size() > 1
             && scored.stream().mapToDouble(ScoredCandidate::finalScore).distinct().count() == 1
             && scored.stream().allMatch(sc -> sc.finalScore() > 0.0);
     if (allEqualPositiveScores) {
-      return Uni.createFrom().item(new ImplementationSelection.RunAll());
+      return new ImplementationSelection.RunAll();
     }
 
-    // Get decision from classifier
     final RoutingResult assignment =
         classifier.decide(classified, scored, context.capabilityName());
 
-    // Map RoutingResult → ImplementationSelection
-    final ImplementationSelection selection =
-        switch (assignment) {
-          case RoutingResult.Selected s -> {
-            final ImplementationCandidate winner = byWorker.get(s.single().executorId());
-            yield new ImplementationSelection.Selected(List.of(winner.bindingName()));
-          }
-          case RoutingResult.Unresolvable ignored ->
-              new ImplementationSelection.Selected(List.of(resolveFallback(policy, candidates)));
-          case RoutingResult.Escalated ignored ->
-              new ImplementationSelection.Selected(List.of(resolveFallback(policy, candidates)));
-        };
-
-    return Uni.createFrom().item(selection);
+    return switch (assignment) {
+      case RoutingResult.Selected s -> {
+        final ImplementationCandidate winner = byWorker.get(s.single().executorId());
+        yield new ImplementationSelection.Selected(List.of(winner.bindingName()));
+      }
+      case RoutingResult.Unresolvable ignored ->
+          new ImplementationSelection.Selected(List.of(resolveFallback(policy, candidates)));
+      case RoutingResult.Escalated ignored ->
+          new ImplementationSelection.Selected(List.of(resolveFallback(policy, candidates)));
+    };
   }
 
   private double score(

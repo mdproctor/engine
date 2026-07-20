@@ -19,7 +19,6 @@ import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.quarkus.arc.Unremovable;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
@@ -43,9 +42,9 @@ public class DefaultPlanningStrategy implements PlanningStrategy {
   }
 
   @Override
-  public Uni<List<Binding>> select(
+  public List<Binding> select(
       CasePlanModel plan, PlanExecutionContext context, List<Binding> eligible) {
     List<Binding> deduped = eligible.stream().distinct().toList();
-    return Uni.createFrom().item(deduped);
+    return deduped;
   }
 }

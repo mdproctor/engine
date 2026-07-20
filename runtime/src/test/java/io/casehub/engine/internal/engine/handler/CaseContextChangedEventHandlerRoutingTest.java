@@ -33,8 +33,6 @@ import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
-import io.casehub.api.spi.ReactiveWorkerContextProvider;
-import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.CandidateMatchingStrategy;
 import io.casehub.api.spi.routing.EscalationReason;
@@ -56,7 +54,6 @@ import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
 import java.util.UUID;
@@ -92,8 +89,8 @@ class CaseContextChangedEventHandlerRoutingTest {
   io.casehub.engine.internal.routing.AgentCandidateFactory agentCandidateFactory =
       new io.casehub.engine.internal.routing.AgentCandidateFactory(new TestStrategyResolver());
 
-  @Mock ReactiveWorkerContextProvider reactiveWorkerContextProvider;
-  @Mock ReactiveWorkerProvisioner reactiveWorkerProvisioner;
+  @Mock io.casehub.api.spi.WorkerContextProvider workerContextProvider;
+  @Mock io.casehub.api.spi.WorkerProvisioner workerProvisioner;
 
   @Mock
   jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseLifecycleEvent>
@@ -167,23 +164,19 @@ class CaseContextChangedEventHandlerRoutingTest {
     caseInstance.setCaseMetaModel(metaModel);
     caseInstance.setCaseContext(ctx);
 
-    when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(binding)));
+    when(loopControl.select(any(), any())).thenReturn(List.of(binding));
     when(traceIdProvider.currentTraceId()).thenReturn(java.util.Optional.empty());
-    when(cbrRetrievalService.retrieve(any(), any())).thenReturn(Uni.createFrom().item(List.of()));
+    when(cbrRetrievalService.retrieve(any(), any())).thenReturn(List.of());
   }
 
   @Test
   void routing_assigned_publishesWorkerScheduleEvent() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(
-            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
+        .thenReturn(RoutingResult.assigned("analyst-worker", "selected by test"));
 
-    handler
-        .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(
-                caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING))
-        .await()
-        .indefinitely();
+    handler.onCaseStateContextChangedEventHandler(
+        new CaseContextChangedEvent(
+            caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING));
 
     verify(eventBus).publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
     verify(eventBus, never()).publish(eq(EventBusAddresses.AGENT_ROUTING_ESCALATION), any());
@@ -192,17 +185,13 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Test
   void routing_unresolvable_triesToProvision_doesNotScheduleWorker() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
+        .thenReturn(RoutingResult.unresolvable("no candidates available"));
     // tryProvision requires a provisioner that has the capability — no-op provisioner won't trigger
-    when(reactiveWorkerProvisioner.getCapabilities())
-        .thenReturn(Uni.createFrom().item(java.util.Set.of()));
+    when(workerProvisioner.getCapabilities()).thenReturn(java.util.Set.of());
 
-    handler
-        .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(
-                caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING))
-        .await()
-        .indefinitely();
+    handler.onCaseStateContextChangedEventHandler(
+        new CaseContextChangedEvent(
+            caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING));
 
     verify(eventBus, never())
         .publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
@@ -213,19 +202,12 @@ class CaseContextChangedEventHandlerRoutingTest {
   void routing_escalateToOversight_publishesEscalationEvent() {
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(
-            Uni.createFrom()
-                .item(
-                    RoutingResult.escalate(
-                        "research",
-                        EscalationReason.BORDERLINE_STALEMATE,
-                        "all candidates borderline")));
+            RoutingResult.escalate(
+                "research", EscalationReason.BORDERLINE_STALEMATE, "all candidates borderline"));
 
-    handler
-        .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(
-                caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING))
-        .await()
-        .indefinitely();
+    handler.onCaseStateContextChangedEventHandler(
+        new CaseContextChangedEvent(
+            caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING));
 
     verify(eventBus, never())
         .publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
@@ -274,10 +256,9 @@ class CaseContextChangedEventHandlerRoutingTest {
             .build();
 
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(layerDef);
-    when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of(layerBinding)));
+    when(loopControl.select(any(), any())).thenReturn(List.of(layerBinding));
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(
-            Uni.createFrom().item(RoutingResult.assigned("analyst-worker", "selected by test")));
+        .thenReturn(RoutingResult.assigned("analyst-worker", "selected by test"));
 
     final CaseContext ctx = mock(CaseContext.class);
     final ReadableLayer workingLayer = mock(ReadableLayer.class);
@@ -293,10 +274,8 @@ class CaseContextChangedEventHandlerRoutingTest {
     inst.setCaseMetaModel(metaModel);
     inst.setCaseContext(ctx);
 
-    handler
-        .onCaseStateContextChangedEventHandler(new CaseContextChangedEvent(inst, ctx, "extracted"))
-        .await()
-        .indefinitely();
+    handler.onCaseStateContextChangedEventHandler(
+        new CaseContextChangedEvent(inst, ctx, "extracted"));
 
     verify(eventBus).publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
   }
@@ -342,7 +321,7 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(layerDef);
     // loopControl.select is never reached because the binding is filtered out before it
-    when(loopControl.select(any(), any())).thenReturn(Uni.createFrom().item(List.of()));
+    when(loopControl.select(any(), any())).thenReturn(List.of());
 
     final CaseContext ctx = mock(CaseContext.class);
     final ReadableLayer workingLayer = mock(ReadableLayer.class);
@@ -358,11 +337,8 @@ class CaseContextChangedEventHandlerRoutingTest {
     inst.setCaseMetaModel(metaModel);
     inst.setCaseContext(ctx);
 
-    handler
-        .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(inst, ctx, ContextLayer.WORKING))
-        .await()
-        .indefinitely();
+    handler.onCaseStateContextChangedEventHandler(
+        new CaseContextChangedEvent(inst, ctx, ContextLayer.WORKING));
 
     verify(eventBus, never())
         .publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
@@ -371,29 +347,23 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Test
   void tryProvision_provisionerHasCapability_firesWorkerStartedLifecycleEvent() {
     when(agentRoutingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(RoutingResult.unresolvable("no candidates available")));
-    when(reactiveWorkerProvisioner.getCapabilities())
-        .thenReturn(Uni.createFrom().item(java.util.Set.of("research")));
-    when(reactiveWorkerContextProvider.buildContext(any(), any(), any()))
+        .thenReturn(RoutingResult.unresolvable("no candidates available"));
+    when(workerProvisioner.getCapabilities()).thenReturn(java.util.Set.of("research"));
+    when(workerContextProvider.buildContext(any(), any(), any(), any()))
         .thenReturn(
-            Uni.createFrom()
-                .item(
-                    new io.casehub.api.model.WorkerContext(
-                        "desc",
-                        null,
-                        null,
-                        java.util.List.of(),
-                        io.casehub.api.context.PropagationContext.createRoot(),
-                        java.util.Map.of())));
-    when(reactiveWorkerProvisioner.provision(any(), any()))
-        .thenReturn(Uni.createFrom().item(io.casehub.api.spi.ProvisionResult.empty()));
+            new io.casehub.api.model.WorkerContext(
+                "desc",
+                null,
+                null,
+                java.util.List.of(),
+                io.casehub.api.context.PropagationContext.createRoot(),
+                java.util.Map.of()));
+    when(workerProvisioner.provision(any(), any()))
+        .thenReturn(io.casehub.api.spi.ProvisionResult.empty());
 
-    handler
-        .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(
-                caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING))
-        .await()
-        .indefinitely();
+    handler.onCaseStateContextChangedEventHandler(
+        new CaseContextChangedEvent(
+            caseInstance, caseInstance.getCaseContext(), ContextLayer.WORKING));
 
     verify(lifecycleEvents)
         .fireAsync(
@@ -432,11 +402,8 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     caseInstance.setCaseContext(ctx);
 
-    handler
-        .onCaseStateContextChangedEventHandler(
-            new CaseContextChangedEvent(caseInstance, ctx, ContextLayer.WORKING))
-        .await()
-        .indefinitely();
+    handler.onCaseStateContextChangedEventHandler(
+        new CaseContextChangedEvent(caseInstance, ctx, ContextLayer.WORKING));
 
     verify(eventBus, never())
         .publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));

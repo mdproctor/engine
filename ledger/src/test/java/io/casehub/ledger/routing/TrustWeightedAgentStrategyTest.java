@@ -506,10 +506,7 @@ class TrustWeightedAgentStrategyTest {
             UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
 
     final RoutingResult result =
-        strategy
-            .select(cbrCtx, List.of(candidate("agent-a", 0), candidate("agent-b", 0)))
-            .await()
-            .indefinitely();
+        strategy.select(cbrCtx, List.of(candidate("agent-a", 0), candidate("agent-b", 0)));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     var selected = (RoutingResult.Selected) result;
@@ -545,10 +542,7 @@ class TrustWeightedAgentStrategyTest {
             UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
 
     final RoutingResult result =
-        strategy
-            .select(cbrCtx, List.of(candidate("agent-a", 0), candidate("agent-b", 0)))
-            .await()
-            .indefinitely();
+        strategy.select(cbrCtx, List.of(candidate("agent-a", 0), candidate("agent-b", 0)));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-a");
@@ -579,8 +573,7 @@ class TrustWeightedAgentStrategyTest {
         new AgentRoutingContext(
             UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
 
-    final RoutingResult result =
-        strategy.select(cbrCtx, List.of(candidate("agent-a", 0))).await().indefinitely();
+    final RoutingResult result = strategy.select(cbrCtx, List.of(candidate("agent-a", 0)));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().reason()).contains("bootstrap");
@@ -612,8 +605,7 @@ class TrustWeightedAgentStrategyTest {
         new AgentRoutingContext(
             UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
 
-    final RoutingResult result =
-        strategy.select(cbrCtx, List.of(candidate("agent-a", 0))).await().indefinitely();
+    final RoutingResult result = strategy.select(cbrCtx, List.of(candidate("agent-a", 0)));
 
     assertThat(result).isInstanceOf(RoutingResult.Escalated.class);
   }
@@ -641,15 +633,14 @@ class TrustWeightedAgentStrategyTest {
         new AgentRoutingContext(
             UUID.randomUUID(), "research", NullNode.instance, "test-tenant", experiences);
 
-    final RoutingResult result =
-        strategy.select(cbrCtx, List.of(candidate("agent-a", 0))).await().indefinitely();
+    final RoutingResult result = strategy.select(cbrCtx, List.of(candidate("agent-a", 0)));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().reason()).doesNotContain("cbr_bonus");
   }
 
   private RoutingResult select(final List<AgentCandidate> candidates) {
-    return strategy.select(ctx, candidates).await().indefinitely();
+    return strategy.select(ctx, candidates);
   }
 
   private static AgentCandidate candidate(final String workerId, final int jobs) {

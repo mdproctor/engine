@@ -39,7 +39,7 @@ class NoOpImplementationRoutingStrategyTest {
             new ImplementationCandidate("b1", "w1", "someCapability"),
             new ImplementationCandidate("b2", "w2", "someCapability"));
 
-    ImplementationSelection result = strategy.select(ctx, candidates).await().indefinitely();
+    ImplementationSelection result = strategy.select(ctx, candidates);
 
     assertThat(result).isInstanceOf(ImplementationSelection.RunAll.class);
   }

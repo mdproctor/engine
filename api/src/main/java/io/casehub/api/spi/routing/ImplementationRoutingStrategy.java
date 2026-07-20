@@ -31,6 +31,6 @@ import java.util.List;
  */
 public interface ImplementationRoutingStrategy extends NamedStrategy {
 
-  Uni<ImplementationSelection> select(
+  ImplementationSelection select(
       ImplementationRoutingContext context, List<ImplementationCandidate> candidates);
 }

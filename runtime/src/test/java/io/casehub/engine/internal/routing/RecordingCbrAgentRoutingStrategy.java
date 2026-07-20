@@ -20,7 +20,6 @@ import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.quarkus.arc.Unremovable;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -57,12 +56,11 @@ public class RecordingCbrAgentRoutingStrategy implements AgentRoutingStrategy {
   }
 
   @Override
-  public Uni<RoutingResult> select(AgentRoutingContext context, List<AgentCandidate> candidates) {
+  public RoutingResult select(AgentRoutingContext context, List<AgentCandidate> candidates) {
     capturedContexts.add(context);
     if (candidates.isEmpty()) {
-      return Uni.createFrom().item(RoutingResult.unresolvable("no candidates"));
+      return RoutingResult.unresolvable("no candidates");
     }
-    return Uni.createFrom()
-        .item(RoutingResult.assigned(candidates.get(0).workerId(), "cbr-recording-test"));
+    return RoutingResult.assigned(candidates.get(0).workerId(), "cbr-recording-test");
   }
 }

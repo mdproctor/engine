@@ -53,7 +53,7 @@ class SequentialPlanningStrategyTest {
     plan.addPlanItem(PlanItem.create("step-a", ExecutorRef.of("workerA"), 0, a.target()));
     plan.addPlanItem(PlanItem.create("step-b", ExecutorRef.of("workerB"), 0, b.target()));
 
-    List<Binding> result = strategy.select(plan, null, List.of(a, b)).await().indefinitely();
+    List<Binding> result = strategy.select(plan, null, List.of(a, b));
 
     assertEquals(1, result.size());
     assertEquals("step-a", result.get(0).getName());
@@ -69,7 +69,7 @@ class SequentialPlanningStrategyTest {
     plan.addPlanItem(itemA);
     plan.addPlanItem(PlanItem.create("step-b", ExecutorRef.of("workerB"), 0, b.target()));
 
-    List<Binding> result = strategy.select(plan, null, List.of(a, b)).await().indefinitely();
+    List<Binding> result = strategy.select(plan, null, List.of(a, b));
 
     assertEquals(1, result.size());
     assertEquals("step-b", result.get(0).getName());
@@ -82,7 +82,7 @@ class SequentialPlanningStrategyTest {
     itemA.markRunning();
     plan.addPlanItem(itemA);
 
-    List<Binding> result = strategy.select(plan, null, List.of(a)).await().indefinitely();
+    List<Binding> result = strategy.select(plan, null, List.of(a));
 
     assertTrue(result.isEmpty());
   }
@@ -97,7 +97,7 @@ class SequentialPlanningStrategyTest {
     plan.addPlanItem(itemA);
     plan.addPlanItem(PlanItem.create("step-b", ExecutorRef.of("workerB"), 0, b.target()));
 
-    List<Binding> result = strategy.select(plan, null, List.of(a, b)).await().indefinitely();
+    List<Binding> result = strategy.select(plan, null, List.of(a, b));
 
     assertTrue(result.isEmpty());
   }
@@ -110,7 +110,7 @@ class SequentialPlanningStrategyTest {
     itemA.markCompleted();
     plan.addPlanItem(itemA);
 
-    List<Binding> result = strategy.select(plan, null, List.of(a)).await().indefinitely();
+    List<Binding> result = strategy.select(plan, null, List.of(a));
 
     assertTrue(result.isEmpty());
   }

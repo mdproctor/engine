@@ -504,25 +504,22 @@ public class WorkflowExecutionCompletedHandler {
     final String bindingName = event.bindingName();
     final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
-    Uni<Set<String>> groupsUni;
+    Set<String> resolvedGroupsEager;
     if (gate.candidateGroups() != null) {
       JsonNode contextNode = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
-      groupsUni =
-          gate.candidateGroups()
-              .evaluate(new CandidateSetContext(contextNode))
-              .onFailure()
-              .recoverWithUni(
-                  t -> {
-                    LOG.warnf(
-                        t,
-                        "CandidateSetStrategy evaluation failed for caseId=%s — "
-                            + "proceeding with empty candidate groups",
-                        caseInstance.getUuid());
-                    return Uni.createFrom().item(Set.of());
-                  });
+      try {
+        resolvedGroupsEager = gate.candidateGroups().evaluate(new CandidateSetContext(contextNode));
+      } catch (Exception t) {
+        LOG.warnf(
+            t,
+            "CandidateSetStrategy evaluation failed for caseId=%s — proceeding with empty candidate groups",
+            caseInstance.getUuid());
+        resolvedGroupsEager = Set.of();
+      }
     } else {
-      groupsUni = Uni.createFrom().item(Set.of());
+      resolvedGroupsEager = Set.of();
     }
+    Uni<Set<String>> groupsUni = Uni.createFrom().item(resolvedGroupsEager);
 
     return groupsUni.chain(
         resolvedGroups -> {

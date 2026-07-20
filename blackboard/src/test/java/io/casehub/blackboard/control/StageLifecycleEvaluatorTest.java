@@ -68,7 +68,7 @@ class StageLifecycleEvaluatorTest {
     Stage stage = Stage.builder("intake").entryCondition(c -> true).build();
     plan.addStage(stage);
 
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
 
     assertThat(stage.getStatus()).isEqualTo(StageStatus.ACTIVE);
     verify(mockBus).publish(eq(BlackboardEventBusAddresses.STAGE_ACTIVATED), any());
@@ -79,7 +79,7 @@ class StageLifecycleEvaluatorTest {
     Stage stage = Stage.builder("intake").entryCondition(c -> false).build();
     plan.addStage(stage);
 
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
 
     assertThat(stage.getStatus()).isEqualTo(StageStatus.PENDING);
     verifyNoInteractions(mockBus);
@@ -90,7 +90,7 @@ class StageLifecycleEvaluatorTest {
     Stage stage = Stage.alwaysActivate("intake"); // no entry condition
     plan.addStage(stage);
 
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
 
     assertThat(stage.getStatus()).isEqualTo(StageStatus.ACTIVE);
   }
@@ -102,7 +102,7 @@ class StageLifecycleEvaluatorTest {
     stage.activate();
     plan.addStage(stage);
 
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
 
     assertThat(stage.getStatus()).isEqualTo(StageStatus.TERMINATED);
     verify(mockBus).publish(eq(BlackboardEventBusAddresses.STAGE_TERMINATED), any());
@@ -115,7 +115,7 @@ class StageLifecycleEvaluatorTest {
     stage.activate();
     plan.addStage(stage);
 
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
 
     assertThat(stage.getStatus()).isEqualTo(StageStatus.ACTIVE);
     verifyNoInteractions(mockBus);
@@ -127,7 +127,7 @@ class StageLifecycleEvaluatorTest {
         Stage.builder("intake").entryCondition(c -> true).withManualActivation(true).build();
     plan.addStage(stage);
 
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
 
     assertThat(stage.getStatus()).isEqualTo(StageStatus.PENDING);
     verifyNoInteractions(mockBus);
@@ -141,7 +141,7 @@ class StageLifecycleEvaluatorTest {
     plan.addStage(parent);
     plan.addStage(child);
 
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
 
     assertThat(parent.getStatus()).isEqualTo(StageStatus.PENDING);
     assertThat(child.getStatus())
@@ -159,11 +159,11 @@ class StageLifecycleEvaluatorTest {
 
     // First cycle: parent activates. Child is still PENDING this cycle
     // because getPendingStages() snapshot was taken before parent activated.
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
     assertThat(parent.getStatus()).isEqualTo(StageStatus.ACTIVE);
 
     // Second cycle: parent is now ACTIVE, child can activate
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
     assertThat(child.getStatus())
         .as("child stage must activate once parent is ACTIVE")
         .isEqualTo(StageStatus.ACTIVE);
@@ -174,7 +174,7 @@ class StageLifecycleEvaluatorTest {
     Stage root = Stage.alwaysActivate("root"); // no parentStageId
     plan.addStage(root);
 
-    evaluator.evaluate(plan, ctx).await().indefinitely();
+    evaluator.evaluate(plan, ctx);
 
     assertThat(root.getStatus())
         .as("root stage (no parent) must not be affected by parent-active guard")

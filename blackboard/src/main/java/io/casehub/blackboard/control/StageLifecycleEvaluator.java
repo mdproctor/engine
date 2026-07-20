@@ -25,7 +25,6 @@ import io.casehub.blackboard.event.StageActivatedEvent;
 import io.casehub.blackboard.event.StageTerminatedEvent;
 import io.casehub.blackboard.plan.CasePlanModel;
 import io.casehub.blackboard.stage.Stage;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -72,12 +71,10 @@ public class StageLifecycleEvaluator {
    *
    * @param plan the current case plan model
    * @param ctx the current plan execution context
-   * @return a completed {@code Uni<Void>} — evaluation is synchronous, Uni is for composability
    */
-  public Uni<Void> evaluate(CasePlanModel plan, PlanExecutionContext ctx) {
+  public void evaluate(CasePlanModel plan, PlanExecutionContext ctx) {
     activatePendingStages(plan, ctx);
     terminateActiveStages(plan, ctx);
-    return Uni.createFrom().voidItem();
   }
 
   private void activatePendingStages(CasePlanModel plan, PlanExecutionContext ctx) {

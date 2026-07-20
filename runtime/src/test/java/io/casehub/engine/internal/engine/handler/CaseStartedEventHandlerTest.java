@@ -124,7 +124,7 @@ class CaseStartedEventHandlerTest {
             List.of(),
             Map.of());
     when(cbrRetrievalService.retrieve(eq(definition), eq(instance)))
-        .thenReturn(Uni.createFrom().item(List.of(experience)));
+        .thenReturn(List.of(experience));
 
     handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
 
@@ -183,8 +183,7 @@ class CaseStartedEventHandlerTest {
     CaseInstance instance = createCaseInstance(metaModel);
 
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
-    when(cbrRetrievalService.retrieve(definition, instance))
-        .thenReturn(Uni.createFrom().item(List.of()));
+    when(cbrRetrievalService.retrieve(definition, instance)).thenReturn(List.of());
 
     handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
 

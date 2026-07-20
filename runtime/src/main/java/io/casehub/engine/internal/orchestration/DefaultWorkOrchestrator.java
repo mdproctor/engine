@@ -157,7 +157,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
 
     // 3. Route via AgentRoutingStrategy (blocking await — not on Vert.x IO thread)
     final java.util.List<RetrievedExperience> experiences =
-        cbrRetrievalService.retrieve(definition, instance).await().indefinitely();
+        cbrRetrievalService.retrieve(definition, instance);
     final AgentRoutingContext ctx =
         new AgentRoutingContext(
             instance.getUuid(),
@@ -165,8 +165,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
             instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             instance.tenancyId,
             experiences);
-    final RoutingResult assignment =
-        agentRoutingStrategy.select(ctx, candidates).await().indefinitely();
+    final RoutingResult assignment = agentRoutingStrategy.select(ctx, candidates);
 
     switch (assignment) {
       case RoutingResult.Unresolvable u -> {

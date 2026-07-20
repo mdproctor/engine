@@ -46,8 +46,6 @@ import io.casehub.neocortex.memory.cbr.TemporalDecay;
 import io.casehub.neocortex.memory.cbr.TextualCbrCase;
 import io.quarkus.arc.All;
 import io.quarkus.arc.Lock;
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -62,10 +60,8 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class CbrRetrievalService {
 
-  private static final Logger LOG = Logger.getLogger(CbrRetrievalService.class);
-
   static final int MAX_CACHE_SIZE = 1000;
-
+  private static final Logger LOG = Logger.getLogger(CbrRetrievalService.class);
   private static final Map<String, Class<? extends CbrCase>> BUILT_IN_TYPES =
       Map.of(
           "plan", PlanCbrCase.class,
@@ -115,111 +111,120 @@ public class CbrRetrievalService {
     return Map.copyOf(map);
   }
 
-  public Uni<List<RetrievedExperience>> retrieve(CaseDefinition definition, CaseInstance instance) {
-    return Uni.createFrom()
-        .<List<RetrievedExperience>>deferred(
-            () -> {
-              CbrConfig config = definition.getCbrConfig();
-              if (config == null) {
-                return Uni.createFrom().item(List.of());
-              }
-              String cbrType = config.cbrType() != null ? config.cbrType() : "plan";
-              Class<? extends CbrCase> caseClass = typeMap.get(cbrType);
-              if (caseClass == null) {
-                throw new IllegalStateException("Unknown cbrType: " + cbrType);
-              }
-              return retrieveInternal(definition, instance, caseClass);
-            })
-        .onFailure()
-        .recoverWithItem(
-            failure -> {
-              LOG.warnf(
-                  failure,
-                  "CBR retrieval failed for case definition '%s' — proceeding without experiences",
-                  definition.getName());
-              return List.of();
-            });
+  private static Object unwrap(JsonNode node) {
+    if (node == null || node.isNull() || node.isMissingNode()) {
+      return null;
+    }
+    if (node.isTextual()) {
+      return node.asText();
+    }
+    if (node.isInt()) {
+      return node.asInt();
+    }
+    if (node.isLong()) {
+      return node.asLong();
+    }
+    if (node.isDouble() || node.isFloat()) {
+      return node.asDouble();
+    }
+    if (node.isBoolean()) {
+      return node.asBoolean();
+    }
+    if (node.isNumber()) {
+      return node.numberValue();
+    }
+    return node.toString();
   }
 
-  public <C extends CbrCase> Uni<List<RetrievedExperience>> retrieve(
+  public List<RetrievedExperience> retrieve(CaseDefinition definition, CaseInstance instance) {
+    try {
+      CbrConfig config = definition.getCbrConfig();
+      if (config == null) {
+        return List.of();
+      }
+      String cbrType = config.cbrType() != null ? config.cbrType() : "plan";
+      Class<? extends CbrCase> caseClass = typeMap.get(cbrType);
+      if (caseClass == null) {
+        throw new IllegalStateException("Unknown cbrType: " + cbrType);
+      }
+      return retrieveInternal(definition, instance, caseClass);
+    } catch (Exception failure) {
+      LOG.warnf(
+          failure,
+          "CBR retrieval failed for case definition '%s' — proceeding without experiences",
+          definition.getName());
+      return List.of();
+    }
+  }
+
+  public <C extends CbrCase> List<RetrievedExperience> retrieve(
       CaseDefinition definition, CaseInstance instance, Class<C> caseClass) {
     return retrieveInternal(definition, instance, caseClass);
   }
 
-  private <C extends CbrCase> Uni<List<RetrievedExperience>> retrieveInternal(
+  private <C extends CbrCase> List<RetrievedExperience> retrieveInternal(
       CaseDefinition definition, CaseInstance instance, Class<C> caseClass) {
-    return Uni.createFrom()
-        .<List<RetrievedExperience>>deferred(
-            () -> {
-              CbrConfig config = definition.getCbrConfig();
-              if (config == null) {
-                return Uni.createFrom().item(List.of());
-              }
+    try {
+      CbrConfig config = definition.getCbrConfig();
+      if (config == null) {
+        return List.of();
+      }
 
-              if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME) {
-                List<RetrievedExperience> cached = cache.get(instance.getUuid());
-                if (cached != null) {
-                  return Uni.createFrom().item(cached);
-                }
-              }
+      if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME) {
+        List<RetrievedExperience> cached = cache.get(instance.getUuid());
+        if (cached != null) {
+          return cached;
+        }
+      }
 
-              Map<String, FeatureValue> features =
-                  extractFeatures(config, instance.getCaseContext());
-              if (features.isEmpty()) {
-                return Uni.createFrom().item(List.of());
-              }
+      Map<String, FeatureValue> features = extractFeatures(config, instance.getCaseContext());
+      if (features.isEmpty()) {
+        return List.of();
+      }
 
-              String resolvedDomain = resolveDomain(config, definition);
-              if (resolvedDomain == null) {
-                LOG.warnf(
-                    "CbrConfig present but domain unresolvable for case definition '%s' — CBR retrieval skipped",
-                    definition.getName());
-                return Uni.createFrom().item(List.of());
-              }
+      String resolvedDomain = resolveDomain(config, definition);
+      if (resolvedDomain == null) {
+        LOG.warnf(
+            "CbrConfig present but domain unresolvable for case definition '%s' — CBR retrieval skipped",
+            definition.getName());
+        return List.of();
+      }
 
-              String caseType =
-                  config.caseType() != null ? config.caseType() : definition.getName();
+      String caseType = config.caseType() != null ? config.caseType() : definition.getName();
 
-              CbrQuery baseQuery =
-                  CbrQuery.of(
-                          instance.tenancyId,
-                          new MemoryDomain(resolvedDomain),
-                          io.casehub.platform.api.path.Path.root(),
-                          caseType,
-                          features,
-                          config.topK())
-                      .withMinSimilarity(config.minSimilarity())
-                      .withWeights(config.weights())
-                      .withVectorWeight(config.vectorWeight());
+      CbrQuery baseQuery =
+          CbrQuery.of(
+                  instance.tenancyId,
+                  new MemoryDomain(resolvedDomain),
+                  io.casehub.platform.api.path.Path.root(),
+                  caseType,
+                  features,
+                  config.topK())
+              .withMinSimilarity(config.minSimilarity())
+              .withWeights(config.weights())
+              .withVectorWeight(config.vectorWeight());
 
-              CbrQuery query =
-                  config.temporalDecayHalfLifeDays() != null
-                      ? baseQuery.withTemporalDecay(
-                          new TemporalDecay.HalfLife(
-                              Duration.ofDays(config.temporalDecayHalfLifeDays())))
-                      : baseQuery;
+      CbrQuery query =
+          config.temporalDecayHalfLifeDays() != null
+              ? baseQuery.withTemporalDecay(
+                  new TemporalDecay.HalfLife(Duration.ofDays(config.temporalDecayHalfLifeDays())))
+              : baseQuery;
 
-              return Uni.createFrom()
-                  .item(() -> cbrStore.retrieveSimilar(query, caseClass))
-                  .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
-                  .map(scoredCases -> mapResults(scoredCases, caseType, features))
-                  .map(List::copyOf)
-                  .invoke(
-                      result -> {
-                        if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME) {
-                          cacheIfUnderBound(instance.getUuid(), result);
-                        }
-                      });
-            })
-        .onFailure()
-        .recoverWithItem(
-            failure -> {
-              LOG.warnf(
-                  failure,
-                  "CBR retrieval failed for case definition '%s' — proceeding without experiences",
-                  definition.getName());
-              return List.of();
-            });
+      List<ScoredCbrCase<C>> scoredCases = cbrStore.retrieveSimilar(query, caseClass);
+      List<RetrievedExperience> result = List.copyOf(mapResults(scoredCases, caseType, features));
+
+      if (config.timing() == CbrRetrievalTiming.CASE_LIFETIME) {
+        cacheIfUnderBound(instance.getUuid(), result);
+      }
+
+      return result;
+    } catch (Exception failure) {
+      LOG.warnf(
+          failure,
+          "CBR retrieval failed for case definition '%s' — proceeding without experiences",
+          definition.getName());
+      return List.of();
+    }
   }
 
   @Lock(Lock.Type.WRITE)
@@ -352,30 +357,5 @@ public class CbrRetrievalService {
                     t.priority(),
                     t.parameters()))
         .toList();
-  }
-
-  private static Object unwrap(JsonNode node) {
-    if (node == null || node.isNull() || node.isMissingNode()) {
-      return null;
-    }
-    if (node.isTextual()) {
-      return node.asText();
-    }
-    if (node.isInt()) {
-      return node.asInt();
-    }
-    if (node.isLong()) {
-      return node.asLong();
-    }
-    if (node.isDouble() || node.isFloat()) {
-      return node.asDouble();
-    }
-    if (node.isBoolean()) {
-      return node.asBoolean();
-    }
-    if (node.isNumber()) {
-      return node.numberValue();
-    }
-    return node.toString();
   }
 }

@@ -53,8 +53,7 @@ class ChoreographyLoopControlTest {
   void runningCase_returnsAllEligibleBindings() {
     List<Binding> eligible = List.of(binding("a"), binding("b"));
 
-    List<Binding> selected =
-        loopControl.select(ctx(CaseStatus.RUNNING), eligible).await().indefinitely();
+    List<Binding> selected = loopControl.select(ctx(CaseStatus.RUNNING), eligible);
 
     assertThat(selected).containsExactlyElementsOf(eligible);
   }
@@ -63,8 +62,7 @@ class ChoreographyLoopControlTest {
   void waitingCase_returnsEmptyList() {
     List<Binding> eligible = List.of(binding("a"), binding("b"));
 
-    List<Binding> selected =
-        loopControl.select(ctx(CaseStatus.WAITING), eligible).await().indefinitely();
+    List<Binding> selected = loopControl.select(ctx(CaseStatus.WAITING), eligible);
 
     assertThat(selected).isEmpty();
   }
@@ -73,8 +71,7 @@ class ChoreographyLoopControlTest {
   void suspendedCase_returnsEmptyList() {
     List<Binding> eligible = List.of(binding("a"));
 
-    List<Binding> selected =
-        loopControl.select(ctx(CaseStatus.SUSPENDED), eligible).await().indefinitely();
+    List<Binding> selected = loopControl.select(ctx(CaseStatus.SUSPENDED), eligible);
 
     assertThat(selected).isEmpty();
   }
@@ -83,8 +80,7 @@ class ChoreographyLoopControlTest {
   void completedCase_returnsEmptyList() {
     List<Binding> eligible = List.of(binding("a"));
 
-    List<Binding> selected =
-        loopControl.select(ctx(CaseStatus.COMPLETED), eligible).await().indefinitely();
+    List<Binding> selected = loopControl.select(ctx(CaseStatus.COMPLETED), eligible);
 
     assertThat(selected).isEmpty();
   }
@@ -93,16 +89,14 @@ class ChoreographyLoopControlTest {
   void faultedCase_returnsEmptyList() {
     List<Binding> eligible = List.of(binding("a"));
 
-    List<Binding> selected =
-        loopControl.select(ctx(CaseStatus.FAULTED), eligible).await().indefinitely();
+    List<Binding> selected = loopControl.select(ctx(CaseStatus.FAULTED), eligible);
 
     assertThat(selected).isEmpty();
   }
 
   @Test
   void runningCase_emptyEligible_returnsEmpty() {
-    List<Binding> selected =
-        loopControl.select(ctx(CaseStatus.RUNNING), List.of()).await().indefinitely();
+    List<Binding> selected = loopControl.select(ctx(CaseStatus.RUNNING), List.of());
 
     assertThat(selected).isEmpty();
   }

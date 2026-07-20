@@ -16,7 +16,6 @@
 package io.casehub.api.spi.routing;
 
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 
 /**
  * Pluggable strategy for enriching humanTask candidate sets with historical data. Symmetric with
@@ -30,6 +29,5 @@ import io.smallrye.mutiny.Uni;
  * <p>Resolved via {@code StrategyResolver} from {@code CaseDefinition.getHumanTaskRouting()}.
  */
 public interface HumanTaskRoutingStrategy extends NamedStrategy {
-  Uni<HumanTaskRoutingResult> select(
-      HumanTaskRoutingContext context, HumanTaskCandidates candidates);
+  HumanTaskRoutingResult select(HumanTaskRoutingContext context, HumanTaskCandidates candidates);
 }

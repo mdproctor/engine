@@ -83,7 +83,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
             new ImplementationCandidate("binding-b", "workerB", "strategy"),
             new ImplementationCandidate("binding-c", "workerC", "strategy"));
 
-    var result = strategy.select(ctx, candidates).await().indefinitely();
+    var result = strategy.select(ctx, candidates);
 
     assertThat(result).isInstanceOf(ImplementationSelection.Selected.class);
     var selected = (ImplementationSelection.Selected) result;
@@ -102,7 +102,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
             new ImplementationCandidate("binding-a", "workerA", "strategy"),
             new ImplementationCandidate("binding-b", "workerB", "strategy"));
 
-    var result = strategy.select(ctx, candidates).await().indefinitely();
+    var result = strategy.select(ctx, candidates);
 
     // BOOTSTRAP with equal scores → RunAll (no clear winner)
     assertThat(result).isInstanceOf(ImplementationSelection.RunAll.class);
@@ -124,7 +124,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
             new ImplementationCandidate("binding-a", "workerA", "strategy"),
             new ImplementationCandidate("binding-b", "workerB", "strategy"));
 
-    var result = strategy.select(ctx, candidates).await().indefinitely();
+    var result = strategy.select(ctx, candidates);
 
     assertThat(result).isInstanceOf(ImplementationSelection.Selected.class);
     var selected = (ImplementationSelection.Selected) result;
@@ -138,14 +138,14 @@ class TrustWeightedImplementationRoutingStrategyTest {
   void select_singleCandidate_returnsRunAll() {
     var candidates = List.of(new ImplementationCandidate("binding-a", "workerA", "strategy"));
 
-    var result = strategy.select(ctx, candidates).await().indefinitely();
+    var result = strategy.select(ctx, candidates);
 
     assertThat(result).isInstanceOf(ImplementationSelection.RunAll.class);
   }
 
   @Test
   void select_emptyCandidates_returnsRunAll() {
-    var result = strategy.select(ctx, List.of()).await().indefinitely();
+    var result = strategy.select(ctx, List.of());
 
     assertThat(result).isInstanceOf(ImplementationSelection.RunAll.class);
   }
@@ -167,7 +167,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
             new ImplementationCandidate("binding-a", "workerA", "strategy"),
             new ImplementationCandidate("binding-b", "workerB", "strategy"));
 
-    var result = strategy.select(ctx, candidates).await().indefinitely();
+    var result = strategy.select(ctx, candidates);
 
     // All borderline → all excluded → backstop selects first
     assertThat(result).isInstanceOf(ImplementationSelection.Selected.class);
@@ -192,7 +192,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
             new ImplementationCandidate("binding-a", "workerA", "strategy"),
             new ImplementationCandidate("binding-b", "workerB", "strategy"));
 
-    var result = strategy.select(ctx, candidates).await().indefinitely();
+    var result = strategy.select(ctx, candidates);
 
     assertThat(result).isInstanceOf(ImplementationSelection.Selected.class);
     var selected = (ImplementationSelection.Selected) result;
@@ -218,7 +218,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
             new ImplementationCandidate("binding-a", "workerA", "strategy"),
             new ImplementationCandidate("binding-b", "workerB", "strategy"));
 
-    var result = strategy.select(ctx, candidates).await().indefinitely();
+    var result = strategy.select(ctx, candidates);
 
     assertThat(result).isInstanceOf(ImplementationSelection.Selected.class);
     var selected = (ImplementationSelection.Selected) result;
@@ -242,7 +242,7 @@ class TrustWeightedImplementationRoutingStrategyTest {
             new ImplementationCandidate("binding-a", "workerA", "strategy"),
             new ImplementationCandidate("binding-b", "workerB", "strategy"));
 
-    var result = strategy.select(ctx, candidates).await().indefinitely();
+    var result = strategy.select(ctx, candidates);
 
     assertThat(result).isInstanceOf(ImplementationSelection.Selected.class);
     var selected = (ImplementationSelection.Selected) result;

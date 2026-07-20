@@ -16,9 +16,8 @@
 package io.casehub.api.spi.routing;
 
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 import java.util.Set;
 
 public interface CandidateSetStrategy extends NamedStrategy {
-  Uni<Set<String>> evaluate(CandidateSetContext context);
+  Set<String> evaluate(CandidateSetContext context);
 }

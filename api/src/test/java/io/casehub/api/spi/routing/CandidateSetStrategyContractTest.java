@@ -19,7 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.smallrye.mutiny.Uni;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -38,8 +37,8 @@ class CandidateSetStrategyContractTest {
           }
 
           @Override
-          public Uni<Set<String>> evaluate(CandidateSetContext context) {
-            return Uni.createFrom().item(Set.of("group-a"));
+          public Set<String> evaluate(CandidateSetContext context) {
+            return Set.of("group-a");
           }
         };
     assertThat(strategy).isInstanceOf(io.casehub.platform.api.routing.NamedStrategy.class);
@@ -56,13 +55,13 @@ class CandidateSetStrategyContractTest {
           }
 
           @Override
-          public Uni<Set<String>> evaluate(CandidateSetContext context) {
-            return Uni.createFrom().item(Set.of("group-a", "group-b"));
+          public Set<String> evaluate(CandidateSetContext context) {
+            return Set.of("group-a", "group-b");
           }
         };
 
     JsonNode context = MAPPER.createObjectNode();
-    Set<String> result = strategy.evaluate(new CandidateSetContext(context)).await().indefinitely();
+    Set<String> result = strategy.evaluate(new CandidateSetContext(context));
     assertThat(result).containsExactlyInAnyOrder("group-a", "group-b");
   }
 

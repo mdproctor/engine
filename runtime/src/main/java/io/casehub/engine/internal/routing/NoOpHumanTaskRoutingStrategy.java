@@ -21,7 +21,6 @@ import io.casehub.api.spi.routing.HumanTaskRoutingResult;
 import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.arc.Unremovable;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 
 /**
@@ -40,8 +39,8 @@ public class NoOpHumanTaskRoutingStrategy implements HumanTaskRoutingStrategy {
   }
 
   @Override
-  public Uni<HumanTaskRoutingResult> select(
+  public HumanTaskRoutingResult select(
       HumanTaskRoutingContext ctx, HumanTaskCandidates candidates) {
-    return Uni.createFrom().item(new HumanTaskRoutingResult.Unchanged());
+    return new HumanTaskRoutingResult.Unchanged();
   }
 }

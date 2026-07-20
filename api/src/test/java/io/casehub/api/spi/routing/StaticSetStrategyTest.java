@@ -35,7 +35,7 @@ class StaticSetStrategyTest {
   void evaluateReturnsFixedSet() {
     var strategy = StaticSetStrategy.of("compliance-team", "legal");
     var ctx = new CandidateSetContext(MAPPER.createObjectNode());
-    Set<String> result = strategy.evaluate(ctx).await().indefinitely();
+    Set<String> result = strategy.evaluate(ctx);
     assertThat(result).containsExactlyInAnyOrder("compliance-team", "legal");
   }
 
@@ -43,18 +43,14 @@ class StaticSetStrategyTest {
   void evaluateIgnoresContext() {
     var strategy = StaticSetStrategy.of("group-a");
     var ctx = new CandidateSetContext(MAPPER.createObjectNode().put("irrelevant", "data"));
-    Set<String> result = strategy.evaluate(ctx).await().indefinitely();
+    Set<String> result = strategy.evaluate(ctx);
     assertThat(result).containsExactly("group-a");
   }
 
   @Test
   void defensiveCopyOfInput() {
     var strategy = StaticSetStrategy.of("a", "b");
-    Set<String> result =
-        strategy
-            .evaluate(new CandidateSetContext(MAPPER.createObjectNode()))
-            .await()
-            .indefinitely();
+    Set<String> result = strategy.evaluate(new CandidateSetContext(MAPPER.createObjectNode()));
     assertThat(result).isUnmodifiable();
   }
 }

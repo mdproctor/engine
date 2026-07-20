@@ -17,6 +17,7 @@ package io.casehub.blackboard.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -34,7 +35,6 @@ import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.UUID;
@@ -60,7 +60,7 @@ class ImplementationRoutingTest {
     registry = new BlackboardRegistry();
     DefaultPlanningStrategy strategy = new DefaultPlanningStrategy();
     StageLifecycleEvaluator evaluator = mock(StageLifecycleEvaluator.class);
-    when(evaluator.evaluate(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    doNothing().when(evaluator).evaluate(any(), any());
 
     @SuppressWarnings("unchecked")
     Instance<PlanningStrategy> strategyBeans = mock(Instance.class);
@@ -127,12 +127,12 @@ class ImplementationRoutingTest {
   @Test
   void selected_single_binding_only_that_binding_passes() {
     when(routingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(new ImplementationSelection.Selected(List.of("b1"))));
+        .thenReturn(new ImplementationSelection.Selected(List.of("b1")));
 
     Binding b1 = capabilityBinding("b1", "analyse");
     Binding b2 = capabilityBinding("b2", "analyse");
 
-    List<Binding> result = loopControl.select(ctx, List.of(b1, b2)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b1, b2));
 
     assertThat(result.stream().map(Binding::getName))
         .as("Only the selected binding should pass")
@@ -144,13 +144,12 @@ class ImplementationRoutingTest {
 
   @Test
   void runAll_all_bindings_pass() {
-    when(routingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(new ImplementationSelection.RunAll()));
+    when(routingStrategy.select(any(), any())).thenReturn(new ImplementationSelection.RunAll());
 
     Binding b1 = capabilityBinding("b1", "analyse");
     Binding b2 = capabilityBinding("b2", "analyse");
 
-    List<Binding> result = loopControl.select(ctx, List.of(b1, b2)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b1, b2));
 
     assertThat(result.stream().map(Binding::getName))
         .as("RunAll must pass all bindings")
@@ -159,13 +158,12 @@ class ImplementationRoutingTest {
 
   @Test
   void runNone_no_bindings_pass() {
-    when(routingStrategy.select(any(), any()))
-        .thenReturn(Uni.createFrom().item(new ImplementationSelection.RunNone()));
+    when(routingStrategy.select(any(), any())).thenReturn(new ImplementationSelection.RunNone());
 
     Binding b1 = capabilityBinding("b1", "analyse");
     Binding b2 = capabilityBinding("b2", "analyse");
 
-    List<Binding> result = loopControl.select(ctx, List.of(b1, b2)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b1, b2));
 
     assertThat(result.stream().map(Binding::getName))
         .as("RunNone must block all bindings in the group")
@@ -176,7 +174,7 @@ class ImplementationRoutingTest {
   void single_binding_per_capability_skips_routing() {
     Binding b1 = capabilityBinding("b1", "analyse");
 
-    List<Binding> result = loopControl.select(ctx, List.of(b1)).await().indefinitely();
+    List<Binding> result = loopControl.select(ctx, List.of(b1));
 
     assertThat(result.stream().map(Binding::getName)).contains("b1");
   }
