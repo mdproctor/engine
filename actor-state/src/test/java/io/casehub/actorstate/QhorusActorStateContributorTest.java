@@ -138,6 +138,11 @@ class QhorusActorStateContributorTest {
       public List<Commitment> findAllByCorrelationId(final String correlationId) {
         throw new UnsupportedOperationException();
       }
+
+      @Override
+      public List<Commitment> findOpenByChannelId(final UUID channelId) {
+        throw new UnsupportedOperationException();
+      }
     };
   }
 

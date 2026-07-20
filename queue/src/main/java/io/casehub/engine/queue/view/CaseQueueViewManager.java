@@ -42,6 +42,6 @@ public class CaseQueueViewManager {
   }
 
   public boolean deleteQueueView(UUID viewId) {
-    return views.deleteView(viewId);
+    return !views.deleteView(viewId).isEmpty();
   }
 }
