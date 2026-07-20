@@ -63,8 +63,8 @@ class InboundSignalBridgeTest {
   @BeforeEach
   void setUp() {
     bridge = new InboundSignalBridge();
-    bridge.registry = registry;
-    bridge.runtime = runtime;
+    bridge.registry = wrapInstance(registry);
+    bridge.runtime = wrapInstance(runtime);
     bridge.bridgeResolver = bridgeResolver;
     bridge.strategyResolver = strategyResolver;
     bridge.jqEvaluator = jqEvaluator;
@@ -179,5 +179,15 @@ class InboundSignalBridgeTest {
     bridge.onInboundMessage(message);
 
     verifyNoInteractions(runtime);
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T> jakarta.enterprise.inject.Instance<T> wrapInstance(T value) {
+    var instance =
+        mock(
+            jakarta.enterprise.inject.Instance.class, org.mockito.Mockito.withSettings().lenient());
+    when(instance.isUnsatisfied()).thenReturn(false);
+    when(instance.get()).thenReturn(value);
+    return instance;
   }
 }

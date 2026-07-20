@@ -35,6 +35,7 @@ import io.casehub.platform.api.routing.StrategyResolver;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,8 +64,8 @@ public class InboundSignalBridge {
   private static final Logger LOG = Logger.getLogger(InboundSignalBridge.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject CaseDefinitionRegistry registry;
-  @Inject CaseHubRuntime runtime;
+  @Inject Instance<CaseDefinitionRegistry> registry;
+  @Inject Instance<CaseHubRuntime> runtime;
   @Inject BridgeResolver bridgeResolver;
   @Inject StrategyResolver strategyResolver;
   @Inject JQEvaluator jqEvaluator;
@@ -76,7 +77,10 @@ public class InboundSignalBridge {
 
   @PostConstruct
   void init() {
-    for (CaseDefinition def : registry.allDefinitions()) {
+    if (registry.isUnsatisfied()) {
+      return;
+    }
+    for (CaseDefinition def : registry.get().allDefinitions()) {
       indexDefinition(def);
     }
   }
@@ -96,8 +100,14 @@ public class InboundSignalBridge {
   }
 
   void onInboundMessage(@ObservesAsync InboundMessage message) {
+    if (registry.isUnsatisfied() || runtime.isUnsatisfied()) {
+      return;
+    }
+
     List<MappingEntry> entries = index.get(message.connectorType());
-    if (entries == null || entries.isEmpty()) return;
+    if (entries == null || entries.isEmpty()) {
+      return;
+    }
 
     JsonNode composite = buildComposite(message);
 
@@ -132,7 +142,7 @@ public class InboundSignalBridge {
     ContextBridge<?> bridge = bridgeResolver.resolveByType(entry.signalType().payloadType());
     Object typedPayload = bridge.deserialise(payloadJson);
 
-    runtime.signal(caseId, (SignalType) entry.signalType(), typedPayload);
+    runtime.get().signal(caseId, (SignalType) entry.signalType(), typedPayload);
 
     LOG.debugf(
         "InboundSignalBridge: routed %s message to case %s as signal '%s'",
