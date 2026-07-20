@@ -616,6 +616,18 @@ class CbrRetrievalServiceTest {
     public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
       return 0;
     }
+
+    @Override
+    public java.util.List<io.casehub.neocortex.memory.cbr.SupersessionStatus> findSupersededCases(
+        String tenantId, io.casehub.neocortex.memory.MemoryDomain domain) {
+      return java.util.List.of();
+    }
+
+    @Override
+    public io.casehub.neocortex.memory.cbr.SupersessionStatus getSupersessionStatus(
+        String caseId, String tenantId) {
+      return null;
+    }
   }
 
   static class RecordingPlanAdapter implements PlanAdapter {

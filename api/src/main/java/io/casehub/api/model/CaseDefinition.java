@@ -18,6 +18,7 @@ package io.casehub.api.model;
 import io.casehub.api.model.cbr.CbrConfig;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.eidos.api.AgentDescriptor;
+import io.casehub.platform.api.label.LabelRule;
 import io.casehub.platform.api.path.Path;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -62,6 +63,7 @@ public class CaseDefinition {
   private io.casehub.api.context.ContextBridge<?> defaultWorkerBridge;
   private String contextStoreFactory;
   private List<SignalType<?>> signals = List.of();
+  private List<LabelRule> labelRules = List.of();
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -266,6 +268,14 @@ public class CaseDefinition {
     this.signals = signals != null ? List.copyOf(signals) : List.of();
   }
 
+  public List<LabelRule> getLabelRules() {
+    return labelRules;
+  }
+
+  public void setLabelRules(List<LabelRule> labelRules) {
+    this.labelRules = List.copyOf(labelRules);
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -299,6 +309,7 @@ public class CaseDefinition {
     private io.casehub.api.context.ContextBridge<?> defaultWorkerBridge;
     private String contextStoreFactory;
     private List<SignalType<?>> signals = new java.util.ArrayList<>();
+    private List<LabelRule> labelRules = new ArrayList<>();
 
     private Builder() {}
 
@@ -505,6 +516,16 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder labelRule(LabelRule rule) {
+      this.labelRules.add(Objects.requireNonNull(rule));
+      return this;
+    }
+
+    public Builder labelRules(List<LabelRule> rules) {
+      this.labelRules = new ArrayList<>(rules);
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -551,6 +572,7 @@ public class CaseDefinition {
         }
       }
       caseHubDefinition.setSignals(signals);
+      caseHubDefinition.setLabelRules(labelRules);
 
       return caseHubDefinition;
     }

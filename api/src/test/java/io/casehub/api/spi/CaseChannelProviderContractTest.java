@@ -94,7 +94,8 @@ class CaseChannelProviderContractTest {
                     "cmd",
                     MessageType.COMMAND,
                     "corr-1",
-                    "2026-06-01T00:00:00Z", null));
+                    "2026-06-01T00:00:00Z",
+                    null));
   }
 
   @Test
@@ -148,7 +149,13 @@ class CaseChannelProviderContractTest {
         .isThrownBy(
             () ->
                 provider.postToChannel(
-                    second, "casehub-engine:orchestrator", "cmd", MessageType.COMMAND, null, null, null));
+                    second,
+                    "casehub-engine:orchestrator",
+                    "cmd",
+                    MessageType.COMMAND,
+                    null,
+                    null,
+                    null));
   }
 
   static class NoOpStub implements CaseChannelProvider {
@@ -164,7 +171,8 @@ class CaseChannelProviderContractTest {
         String content,
         MessageType type,
         String correlationId,
-        String deadline, String target) {}
+        String deadline,
+        String target) {}
 
     @Override
     public void closeChannel(CaseChannel ch) {}

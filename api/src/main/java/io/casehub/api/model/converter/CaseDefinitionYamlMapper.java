@@ -44,9 +44,12 @@ import io.casehub.api.model.WorkerFunctions;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.WorkerFunctionProviderRegistry;
+import io.casehub.platform.api.expression.CompiledExpression;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
+import io.casehub.platform.api.label.LabelAction;
+import io.casehub.platform.api.label.LabelRule;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -54,11 +57,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import net.thisptr.jackson.jq.BuiltinFunctionLoader;
+import net.thisptr.jackson.jq.JsonQuery;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Versions;
+import net.thisptr.jackson.jq.exception.JsonQueryException;
 import org.jboss.logging.Logger;
 
 /**
@@ -611,6 +620,26 @@ public final class CaseDefinitionYamlMapper {
       def.setSignals(signalTypes);
     }
 
+    if (rawNode.has("labelRules")) {
+      List<LabelRule> labelRules = new ArrayList<>();
+      for (JsonNode ruleNode : rawNode.get("labelRules")) {
+        String ruleName = ruleNode.get("name").asText();
+        String when = ruleNode.get("when").asText();
+        validateJqSyntax(when, "labelRules[" + ruleName + "].when");
+        CompiledExpression<Map<String, Object>, Boolean> condition = compileJqBoolean(when);
+        List<LabelAction> actions = new ArrayList<>();
+        for (JsonNode actionNode : ruleNode.get("actions")) {
+          if (actionNode.has("add")) {
+            actions.add(new LabelAction.Add(actionNode.get("add").asText()));
+          } else if (actionNode.has("remove")) {
+            actions.add(new LabelAction.Remove(actionNode.get("remove").asText()));
+          }
+        }
+        labelRules.add(new LabelRule(ruleName, condition, actions));
+      }
+      def.setLabelRules(labelRules);
+    }
+
     return def;
   }
 
@@ -1036,6 +1065,52 @@ public final class CaseDefinitionYamlMapper {
     } catch (Exception e) {
       throw new IllegalArgumentException(
           "invalid " + fieldName + " '" + expression + "' — " + e.getMessage(), e);
+    }
+  }
+
+  private static CompiledExpression<Map<String, Object>, Boolean> compileJqBoolean(
+      String expression) {
+    try {
+      JsonQuery query = JsonQuery.compile(expression, Versions.JQ_1_6);
+      Scope rootScope = Scope.newEmptyScope();
+      BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, rootScope);
+      CompiledExpression<JsonNode, Boolean> jsonNodeExpr =
+          new CompiledExpression<>() {
+            @Override
+            public String type() {
+              return "jq";
+            }
+
+            @Override
+            public Boolean eval(JsonNode context) {
+              try {
+                Scope childScope = Scope.newChildScope(rootScope);
+                List<JsonNode> out = new ArrayList<>();
+                query.apply(childScope, context, out::add);
+                for (JsonNode node : out) {
+                  if (node.isBoolean() && node.asBoolean()) {
+                    return true;
+                  }
+                }
+                return false;
+              } catch (JsonQueryException e) {
+                return false;
+              }
+            }
+          };
+      return new CompiledExpression<>() {
+        @Override
+        public String type() {
+          return "jq";
+        }
+
+        @Override
+        public Boolean eval(Map<String, Object> context) {
+          return jsonNodeExpr.eval(MAPPER.valueToTree(context));
+        }
+      };
+    } catch (JsonQueryException e) {
+      throw new IllegalArgumentException("Invalid JQ expression: " + expression, e);
     }
   }
 }

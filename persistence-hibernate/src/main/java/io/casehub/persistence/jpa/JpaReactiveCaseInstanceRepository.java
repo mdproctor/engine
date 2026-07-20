@@ -23,6 +23,7 @@ import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,6 +46,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
                       entity.parentCaseId = instance.getParentCaseId();
                       entity.parentPlanItemId = instance.getParentPlanItemId();
                       entity.waitingForWorkId = instance.getWaitingForWorkId();
+                      entity.labels = new LinkedHashSet<>(instance.getLabels());
                       if (instance.getCaseMetaModel() != null) {
                         entity.caseMetaModel =
                             session.getReference(
@@ -75,6 +77,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
                       entity.parentCaseId = instance.getParentCaseId();
                       entity.parentPlanItemId = instance.getParentPlanItemId();
                       entity.waitingForWorkId = instance.getWaitingForWorkId();
+                      entity.labels = new LinkedHashSet<>(instance.getLabels());
                       // tenancyId is immutable — not updated
                     })
                 .replaceWith(instance));
@@ -185,6 +188,7 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
     if (entity.caseMetaModel != null) {
       instance.setCaseMetaModel(fromMetaEntity(entity.caseMetaModel));
     }
+    instance.setLabels(new LinkedHashSet<>(entity.labels));
     return instance;
   }
 

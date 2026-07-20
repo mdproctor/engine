@@ -17,7 +17,9 @@ package io.casehub.persistence.jpa;
 
 import io.casehub.api.model.CaseStatus;
 import io.quarkus.hibernate.reactive.panache.PanacheEntity;
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -26,6 +28,8 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 import org.hibernate.annotations.DynamicUpdate;
 
@@ -58,4 +62,11 @@ public class CaseInstanceEntity extends PanacheEntity {
 
   @Column(name = "tenancy_id", nullable = false, length = 64)
   public String tenancyId;
+
+  @ElementCollection(fetch = FetchType.EAGER)
+  @CollectionTable(
+      name = "case_instance_label",
+      joinColumns = @JoinColumn(name = "case_instance_id"))
+  @Column(name = "label")
+  public Set<String> labels = new LinkedHashSet<>();
 }

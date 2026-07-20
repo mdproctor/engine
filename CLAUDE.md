@@ -485,6 +485,35 @@ Optional module enabling `Worker(Workflow)` to dispatch casehub workers from wit
 
 `FlowWorkerFunction` (record, implements `WorkerFunction`) lives here — the serverlessworkflow SDK never leaves this module. `FlowWorkerFunctionProvider` (`@ApplicationScoped`, implements `WorkerFunctionProvider`) handles YAML `do:` block construction — receives raw `JsonNode`, deserializes to `Workflow` via `WorkflowReader`. `FlowWorkerFunctionHandler` (`@ApplicationScoped`, implements `WorkerFunctionHandler`) executes workflows using `WorkflowApplication` singleton and `FlowExecutionRegistry`, running on `@VirtualThreads ExecutorService`. `CasehubCallableTaskBuilder implements CallableTaskBuilder<CallFunction>` (registered via Java SPI) handles `call: casehub:dispatch` YAML steps. Note: `CallFunction` and `FunctionArguments` are in `io.serverlessworkflow.api.types` — not the `.func` experimental subpackage.
 
+## casehub-engine-queue Module
+
+Optional case queue operational layer. Activated via CDI when on the classpath — same pattern as `casehub-blackboard`.
+
+**Build and test:**
+```bash
+mvn install -DskipTests -q          # install deps to local repo first
+TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl queue
+```
+
+**Key components:**
+- `CaseLabelEvaluator` — `@ObservesAsync CaseLifecycleEvent`, evaluates `LabelRule` conditions against context snapshot, applies Add/Remove actions (clean-slate), delegates to `SubjectViewOrchestrator.evaluateAndTrack()`. Per-case `ReentrantLock` serializes concurrent evaluations.
+- `CaseQueueEntryManager` — `@Observes CaseQueueEvent`, manages `CaseQueueEntry` lifecycle: ADDED creates PENDING, REMOVED deletes PENDING or revokes CLAIMED (fires `CaseQueueEntryRevoked`), CHANGED is no-op in v1.
+- `CaseQueueService` — `@ApplicationScoped`, operational actions: `claim()`, `release()`, `escalate()`. All methods enforce tenancy. `claimIfPending()` is atomic CAS.
+- `CaseQueueViewManager` — wraps `SubjectViewOrchestrator.saveView()/deleteView()` with deterministic UUID via `UUID.nameUUIDFromBytes(tenancyId:name)`.
+- `CaseLabelReconciler` — startup crash recovery at `@Priority(200)`, re-evaluates all active cases per tenancy via `CrossTenantSubjectViewStore.findDistinctTenancyIds()`.
+- `CaseQueueEntryStore` — SPI interface; `InMemoryCaseQueueEntryStore` for tests.
+
+**Dependencies:** `casehub-engine-common`, `casehub-engine-api`, `casehub-platform-view`, `casehub-platform-api`. Test: `casehub-persistence-memory`, `casehub-platform-view-inmem`.
+
+**Data model:**
+- `CaseInstance` gains `Set<String> labels` (engine-common, mutable, empty default). JPA: `@ElementCollection` on `CaseInstanceEntity` (`case_instance_label` table).
+- `CaseDefinition` gains `List<LabelRule> labelRules` (engine-api, platform's `LabelRule` directly). Builder: `.labelRule(LabelRule)`. YAML: `labelRules:` block with `name`, `when` (JQ), `actions` (`add:`/`remove:`).
+- `CaseQueueEntry` — operational record: `id`, `caseId`, `tenancyId`, `viewId`, `viewName`, `status` (PENDING/CLAIMED/REVOKED), `assignedTo`, `claimedAt`, `escalatedAt`, `previousViewId`, `previousViewName`, `createdAt`.
+
+**CDI events:** `CaseQueueEvent` (ADDED/REMOVED/CHANGED), `CaseQueueEntryClaimed`, `CaseQueueEntryReleased`, `CaseQueueEntryEscalated`, `CaseQueueEntryRevoked`. All fired via `Event.fireAsync()`.
+
+Refs engine#730.
+
 ## Worker Execution Architecture
 
 `WorkerExecutor` (`common/internal/executor/`) abstracts how to run a worker function — independent of any scheduler. `DefaultWorkerExecutor` (`runtime/internal/executor/`) is a composite over `WorkerFunctionHandler` instances — it iterates `Instance<WorkerFunctionHandler>`, finds the first handler that `supports()` the function, delegates execution, and applies output schema evaluation as `.map()` post-processing. `SyncAgentWorkerFunctionHandler` (`runtime`) handles `Sync` and `AgentWorkerFunction` on `@VirtualThreads ExecutorService` with timeout enforcement. `FlowWorkerFunctionHandler` (`flow`) handles `FlowWorkerFunction` — see casehub-engine-flow Module. `WorkerFunctionHandler` (`common/internal/executor/`) is the engine-internal SPI; `outputProjection` is deliberately absent from the handler interface (cross-cutting concern owned by the composite executor). `WorkerFunctionProvider` and `WorkerFunctionProviderRegistry` (`api/spi/`) delegate YAML worker function construction to modules — the flow module registers `FlowWorkerFunctionProvider` for `do:` blocks; Agent and Sync construction stays inline in `CaseDefinitionYamlMapper`. Worker/Capability/WorkerFunction/WorkerResult/WorkerOutcome are from `io.casehub.worker.api` (foundation tier); `WorkerFunction` is a marker interface with no `execute()` method. `Worker` carries `Set<String> capabilityNames` (not `Capability` instances) — workers declare support by name; the engine resolves authoritative `Capability` instances from `CaseDefinition.getCapabilities()` via the binding's `CapabilityTarget`. Refs engine#591. `WorkerFunction.None` (engine#586) models external workers with no in-process function — `WorkerFunction.NONE` is the singleton constant. `Worker.Builder.noFunction()` is the convenience method. `CaseDefinitionYamlMapper` uses `NONE` for workers without an agent block or flow provider. `WorkerExecutionManager.canExecute(WorkerFunction)` is a `default true` method (engine#587) — Quartz overrides with positive handler delegation (iterates `WorkerFunctionHandler` instances, returns `true` only when a handler supports the function). `WorkerRecoveryCoordinator` (`runtime/internal/engine/recovery/`) initiates recovery at `@Priority(22)` via `WorkerExecutionRecoveryService.recoverPendingScheduledWorkers()` with a configurable timeout (`casehub.engine.recovery.timeout`, default 60s). Tracks `RecoveryStatus` (`PENDING`/`COMPLETED`/`FAILED`). `WorkerRecoveryHealthCheck` (`@Readiness`) reports the status at `/q/health/ready`. `QuartzWorkerExecutionManager.onStart(@Priority(20))` retains only Quartz job listener registration. Refs engine#593. ExecutionPolicy/RetryPolicy/BackoffStrategy are from `io.casehub.platform.api.governance`.

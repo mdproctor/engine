@@ -106,6 +106,7 @@
         <module>actor-state</module>
         <module>engine-ai</module>
         <module>flow</module>
+        <module>queue</module>
         <module>examples/typed-context</module>
     </modules>
 
@@ -276,6 +277,16 @@
             <dependency>
                 <groupId>io.casehub</groupId>
                 <artifactId>casehub-platform-api</artifactId>
+                <version>${version.io.casehub}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.casehub</groupId>
+                <artifactId>casehub-platform-view</artifactId>
+                <version>${version.io.casehub}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.casehub</groupId>
+                <artifactId>casehub-platform-view-inmem</artifactId>
                 <version>${version.io.casehub}</version>
             </dependency>
             <dependency>

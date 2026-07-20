@@ -38,30 +38,28 @@ public interface ReactiveCaseChannelProvider {
    */
   Uni<CaseChannel> openChannel(UUID caseId, String purpose);
 
-    /**
-     * Post a message to a channel.
-     *
-     * @param channel       the channel reference returned by {@link #openChannel}
-     * @param from          sender identity (worker ID or "human")
-     * @param content       message content
-     * @param type          the intent type of the message; {@code null} if unspecified
-     * @param correlationId correlation identifier; {@code null} if unspecified
-     * @param deadline      ISO-8601 deadline; {@code null} if no deadline
-     * @param target        the intended recipient (e.g. worker name / agent ID); {@code null} if untargeted
-     * @return a {@code Uni} completing with {@code null} on success
-     */
-    Uni<Void> postToChannel(
-            CaseChannel channel,
-            String from,
-            String content,
-            MessageType type,
-            String correlationId,
-            String deadline,
-            String target);
-
   /**
-   * Post a message to a channel. Delegates to the 7-param overload with nulls.
+   * Post a message to a channel.
+   *
+   * @param channel the channel reference returned by {@link #openChannel}
+   * @param from sender identity (worker ID or "human")
+   * @param content message content
+   * @param type the intent type of the message; {@code null} if unspecified
+   * @param correlationId correlation identifier; {@code null} if unspecified
+   * @param deadline ISO-8601 deadline; {@code null} if no deadline
+   * @param target the intended recipient (e.g. worker name / agent ID); {@code null} if untargeted
+   * @return a {@code Uni} completing with {@code null} on success
    */
+  Uni<Void> postToChannel(
+      CaseChannel channel,
+      String from,
+      String content,
+      MessageType type,
+      String correlationId,
+      String deadline,
+      String target);
+
+  /** Post a message to a channel. Delegates to the 7-param overload with nulls. */
   default Uni<Void> postToChannel(CaseChannel channel, String from, String content) {
     return postToChannel(channel, from, content, null, null, null, null);
   }

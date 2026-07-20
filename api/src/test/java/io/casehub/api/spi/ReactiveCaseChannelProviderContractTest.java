@@ -81,7 +81,8 @@ class ReactiveCaseChannelProviderContractTest {
                         "cmd",
                         MessageType.COMMAND,
                         "corr-1",
-                        "2026-06-01T00:00:00Z", null)
+                        "2026-06-01T00:00:00Z",
+                        null)
                     .await()
                     .indefinitely());
   }
@@ -129,7 +130,8 @@ class ReactiveCaseChannelProviderContractTest {
         String content,
         MessageType type,
         String correlationId,
-        String deadline, String target) {
+        String deadline,
+        String target) {
       return Uni.createFrom().voidItem();
     }
 

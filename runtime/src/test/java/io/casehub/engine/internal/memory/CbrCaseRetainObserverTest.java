@@ -601,5 +601,17 @@ class CbrCaseRetainObserverTest {
     public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
       return 0;
     }
+
+    @Override
+    public List<io.casehub.neocortex.memory.cbr.SupersessionStatus> findSupersededCases(
+        String tenantId, MemoryDomain domain) {
+      return List.of();
+    }
+
+    @Override
+    public io.casehub.neocortex.memory.cbr.SupersessionStatus getSupersessionStatus(
+        String caseId, String tenantId) {
+      return null;
+    }
   }
 }

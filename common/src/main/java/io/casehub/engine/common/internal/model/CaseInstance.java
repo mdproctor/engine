@@ -18,6 +18,8 @@ package io.casehub.engine.common.internal.model;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseStatus;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.UUID;
 
 /** Plain domain object representing one running case. Persistence is handled by the SPI. */
@@ -146,5 +148,15 @@ public class CaseInstance {
 
   public void setPendingActionGate(final PendingActionGate pendingActionGate) {
     this.pendingActionGate = pendingActionGate;
+  }
+
+  private Set<String> labels = new LinkedHashSet<>();
+
+  public Set<String> getLabels() {
+    return labels;
+  }
+
+  public void setLabels(Set<String> labels) {
+    this.labels = labels;
   }
 }
