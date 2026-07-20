@@ -27,10 +27,13 @@ import java.util.UUID;
 public class CaseQueueViewManager {
 
   private final SubjectViewOrchestrator views;
+  private final io.casehub.platform.api.view.SubjectViewStore viewStore;
 
   @Inject
-  public CaseQueueViewManager(SubjectViewOrchestrator views) {
+  public CaseQueueViewManager(
+      SubjectViewOrchestrator views, io.casehub.platform.api.view.SubjectViewStore viewStore) {
     this.views = views;
+    this.viewStore = viewStore;
   }
 
   public SubjectViewSpec ensureQueueView(String name, String tenancyId, String labelPattern) {
@@ -42,6 +45,10 @@ public class CaseQueueViewManager {
   }
 
   public boolean deleteQueueView(UUID viewId) {
-    return !views.deleteView(viewId).isEmpty();
+    if (viewStore.findById(viewId).isEmpty()) {
+      return false;
+    }
+    views.deleteView(viewId);
+    return true;
   }
 }

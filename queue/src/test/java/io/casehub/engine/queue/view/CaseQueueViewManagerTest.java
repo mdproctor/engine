@@ -39,7 +39,7 @@ class CaseQueueViewManagerTest {
     inject(orchestrator, "evaluator", new SubjectViewEvaluator());
     inject(orchestrator, "viewStore", viewStore);
     inject(orchestrator, "tracker", new InMemoryViewMembershipTracker());
-    manager = new CaseQueueViewManager(orchestrator);
+    manager = new CaseQueueViewManager(orchestrator, viewStore);
   }
 
   @Test

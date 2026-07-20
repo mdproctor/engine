@@ -80,7 +80,7 @@ class CaseQueueLifecycleTest {
     inject(orchestrator, "viewStore", viewStore);
     inject(orchestrator, "tracker", tracker);
 
-    viewManager = new CaseQueueViewManager(orchestrator);
+    viewManager = new CaseQueueViewManager(orchestrator, viewStore);
 
     definitionRegistry = mock(CaseDefinitionRegistry.class);
     caseInstanceRepo = mock(ReactiveCaseInstanceRepository.class);
