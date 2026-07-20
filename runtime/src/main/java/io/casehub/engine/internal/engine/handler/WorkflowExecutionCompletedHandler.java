@@ -274,6 +274,7 @@ public class WorkflowExecutionCompletedHandler {
                   true,
                   null,
                   null,
+                  null,
                   null);
             })
         .chain(
@@ -541,7 +542,8 @@ public class WorkflowExecutionCompletedHandler {
                             rawOutput,
                             plannedAction,
                             bindingName,
-                            capabilityName));
+                            capabilityName,
+                            gate.resolutionType()));
                     return reactiveCaseInstanceRepository.update(
                         caseInstance, caseInstance.tenancyId);
                   })
@@ -555,7 +557,10 @@ public class WorkflowExecutionCompletedHandler {
                               gateEventLog.id,
                               plannedAction,
                               gate,
-                              resolvedGroups)))
+                              resolvedGroups,
+                              gate.resolutionType() != null
+                                  ? gate.resolutionType().getName()
+                                  : null)))
               .invoke(
                   () ->
                       lifecycleEvents

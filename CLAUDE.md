@@ -284,7 +284,7 @@ Platform-level oversight gate for consequential worker actions. Workers declare 
 **SPI interfaces** in `api/src/main/java/io/casehub/api/spi/`:
 - `ActionRiskClassifier` — blocking; consumer implementations use this
 - `ReactiveActionRiskClassifier` — primary (called by engine); `ChainedReactiveActionRiskClassifier` bridges blocking → reactive
-- `RiskDecision` — sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope)`. `candidateGroups` is `CandidateSetStrategy` (not `List<String>`) — supports dynamic evaluation via `StaticSetStrategy.of(...)`, `ExpressionSetStrategy`, or named CDI strategies resolved via `StrategyResolver`. Refs engine#634.
+- `RiskDecision` — sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope, resolutionType)`. `candidateGroups` is `CandidateSetStrategy` (not `List<String>`) — supports dynamic evaluation via `StaticSetStrategy.of(...)`, `ExpressionSetStrategy`, or named CDI strategies resolved via `StrategyResolver`. `resolutionType` (`@Nullable Class<?>`) — declares the expected type for gate WorkItem resolution; threaded as `resolutionTypeName` (String) through `PendingActionGate` → `ActionGateScheduleEvent` → `ActionGateApprovedEvent`. `ActionGateApprovedHandler` validates via `BridgeResolver` and includes the typed resolution in the `actionGateApproved` context entry under `resolution`. Refs engine#634, engine#742.
 - `PlannedAction` — from `io.casehub.worker.api.PlannedAction` (foundation tier); carries `description`, `actionType`, `parameters` only — no identity fields
 - `ClassificationContext` — carries `workerId`, `caseId`, `tenancyId`, `caseDefinitionName`, `capabilityName`, `bindingName`; constructed by engine at classify() call site
 - `@RiskClassifier` — CDI qualifier; consumer implementations must use this to avoid CDI conflict with the chain
@@ -594,6 +594,30 @@ Agent exclusion: `CaseContextChangedEventHandler.publishWorkerSchedule()` filter
 **GoalBasedCompletion generalization (engine#582):** `GoalKind` is an interface (not an enum) with `value(): String` and `terminalStatus(): CaseStatus`. `StandardGoalKind` enum provides built-in SUCCESS (→ COMPLETED) and FAILURE (→ FAULTED). `GoalKind.of(String, CaseStatus)` creates custom kinds (e.g. ESCALATED → FAULTED). `DefaultGoalKind` (package-private record) backs the factory — rejects CANCELLED as terminal status. `GoalBasedCompletion<K extends GoalKind>` stores a `LinkedHashMap<K, GoalExpression>` — insertion order is evaluation priority, first satisfied expression wins. `Goal.kind` is `String` (audit metadata, decoupled from completion). `Goal.Builder` has `kind(String)` and `kind(GoalKind)` overloads. `CaseStatusChanged` carries `String satisfiedGoalKind` (denormalized for transport). `GoalReachedEventHandler.evaluateCompletion()` iterates the ordered map — no hardcoded success/failure branches. YAML completion block is open: built-in kinds (success, failure) have implicit terminal status; custom kinds require explicit `status: COMPLETED|FAULTED`. `doneWhen` and goal kind entries are mutually exclusive. `"doneWhen"` is reserved as a kind name. `GoalExpression` is a sealed interface (`permits AllOfGoalExpression, AnyOfGoalExpression, SingleGoalExpression`) with three methods: `isSatisfiedBy(Set<String> reachedGoalNames)`, `goalNames()` (all leaf names), and `satisfiedGoalName(Set<String>)` (combined satisfaction check + name extraction — returns the representative goal name or null). `SingleGoalExpression(String goalName)` is the leaf node. `AllOfGoalExpression` and `AnyOfGoalExpression` hold `List<GoalExpression>` children and evaluate recursively. Backward-compatible factories: `GoalExpression.allOf(Goal...)` extracts names into `SingleGoalExpression` children. Composition factories: `GoalExpression.allOf(GoalExpression...)`, `GoalExpression.anyOf(GoalExpression...)`, `GoalExpression.goal(String)`. YAML `completion:` block supports nested composition — array elements can be strings (goal name → `SingleGoalExpression`) or objects (`allOf:` / `anyOf:` → recursive). Parse-time validation rejects unknown goal references and empty arrays. Refs engine#548.
 
 Binding name threading: `WorkerScheduleEvent`, `WorkerScheduleEventHandler` (EventLog metadata), `QuartzWorkerExecutionJob`, `WorkflowExecutionCompleted`, `PlanItemCompletionHandler` all carry `bindingName` for precise PlanItem lookup. `findBindingByName()` replaces `findMatchingCapabilityBinding()` for direct binding resolution.
+
+## InboundSignalBridge (casehub-engine-inbound)
+
+Bridges inbound connector messages from `casehub-connectors` to typed case signals. Observes `@ObservesAsync InboundMessage`, evaluates JQ correlation and payload expressions, deserialises via `ContextBridge.deserialise()` (direct — no DataRef interception for external data), and delivers typed signals via `CaseHubRuntime.signal()`. Refs engine#692.
+
+**`InboundSignalMapping`** (`api/model/`) — declared on `CaseDefinition`. Record: `signalName`, `connectorType`, `correlation` (ExpressionEvaluator), `payload` (ExpressionEvaluator), `correlationResolver` (nullable String, strategy ID). Builder String convenience methods auto-wrap to `JQExpressionEvaluator`. Build-time validation: `signalName` must reference a declared `SignalType` on the same definition. YAML: `inboundMappings:` block with `signal`, `connectorType`, `correlation`, `payload`, `correlationResolver`.
+
+**`CaseCorrelationResolver`** (`api/spi/`) — `NamedStrategy`-based SPI for resolving correlation values to case UUIDs. `UuidCorrelationResolver` (id=`"uuid"`, `@DefaultBean`) parses direct UUIDs. Resolved via `EngineStrategyResolver`.
+
+**Signal auto-activation:** `CaseHubRuntimeImpl.signal(UUID, SignalType<T>, T)` auto-loads cases from `ReactiveCrossTenantCaseInstanceRepository` when not in `CaseInstanceCache`. Terminal cases throw `SignalRejectedException`. Non-existent cases throw `IllegalArgumentException`.
+
+**Dependency:** `casehub-engine-inbound/pom.xml` depends on `casehub-connectors-core` (compile scope, zero casehubio transitive deps).
+
+**DataRef interception scope:** `InboundSignalBridge` uses `bridge.deserialise()` directly, NOT `BridgeResolver.deserialise()` — connector data is external and must not trigger `$dataRef` interception. Engine pipeline (`QuartzWorkerExecutionJob`) and `ActionGateApprovedHandler` use `BridgeResolver.deserialise()` where DataRef interception IS active.
+
+## DataRef Linked Data Reference Protocol
+
+`DataRef<T>` (`api/context/`) — standard reference to externally-stored domain data. Record: `source` (resolver ID), `key` (opaque reference), `typeName` (String, not Class). JSON discriminator `$dataRef` — reserved top-level key in the ContextBridge protocol. `DataRef.isRef(JsonNode)` detects references. `DataRef.fromJson(JsonNode)` parses with structural validation. `DataRef.toJson(ObjectMapper)` serialises. Stores `typeName` as String — no `Class.forName()` on user-controlled data. Refs engine#740.
+
+**`DataRefResolver`** (`api/spi/`) — `NamedStrategy`-based SPI for resolving references. `<T> T resolve(DataRef<T> ref)`. Blocking. CDI-discovered by `source` field. No `@DefaultBean` — unknown source fails fast.
+
+**`DataRefRegistry`** (`common/internal/context/`) — CDI bean discovering resolvers and routing resolution by source ID.
+
+**BridgeResolver integration — deferred resolution:** `BridgeResolver.initialise()` passes DataRef through (stored as reference in EventLog). `BridgeResolver.serialise()` passes DataRef through as reference JSON. `BridgeResolver.deserialise()` intercepts `$dataRef` and resolves via `DataRefRegistry` — runs only on Quartz worker threads (safe for blocking I/O). Known limitation: no caching across repeated resolutions of the same DataRef.
 
 ## Writing Style Guide
 

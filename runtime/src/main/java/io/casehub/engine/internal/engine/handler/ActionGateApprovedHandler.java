@@ -53,11 +53,14 @@ import org.jboss.logging.Logger;
 public class ActionGateApprovedHandler {
 
   private static final Logger LOG = Logger.getLogger(ActionGateApprovedHandler.class);
+  private static final com.fasterxml.jackson.databind.ObjectMapper OBJECT_MAPPER =
+      new com.fasterxml.jackson.databind.ObjectMapper();
 
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject ReactiveEventLogRepository reactiveEventLogRepository;
   @Inject EventBus eventBus;
+  @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_APPROVED)
   public Uni<Void> onActionGateApproved(final ActionGateApprovedEvent event) {
@@ -86,6 +89,26 @@ public class ActionGateApprovedHandler {
       return Uni.createFrom().voidItem();
     }
 
+    // Validate and deserialise typed resolution if resolutionTypeName is declared
+    Object deserializedResolution = event.workItemResolution();
+    if (event.resolutionTypeName() != null && event.workItemResolution() != null) {
+      try {
+        var bridge = bridgeResolver.resolveByTypeNameStrict(event.resolutionTypeName());
+        com.fasterxml.jackson.databind.JsonNode resolutionJson =
+            OBJECT_MAPPER.readTree(event.workItemResolution());
+        deserializedResolution = bridgeResolver.deserialise(bridge, resolutionJson);
+      } catch (Exception e) {
+        LOG.errorf(
+            e,
+            "Gate resolution validation failed for caseId=%s gateId=%d type=%s — discarding gate",
+            event.caseId(),
+            event.gateId(),
+            event.resolutionTypeName());
+        instance.setPendingActionGate(null);
+        return Uni.createFrom().voidItem();
+      }
+    }
+
     // Write actionGateApproved signal so downstream bindings can observe the approval
     instance
         .getCaseContext()
@@ -95,7 +118,8 @@ public class ActionGateApprovedHandler {
                 "actionType", gate.plannedAction().actionType(),
                 "workerId", gate.workerId(),
                 "approvedBy", event.approvedBy() != null ? event.approvedBy() : "unknown",
-                "gateId", gate.gateId()));
+                "gateId", gate.gateId(),
+                "resolution", deserializedResolution != null ? deserializedResolution : ""));
 
     instance.setPendingActionGate(null);
 

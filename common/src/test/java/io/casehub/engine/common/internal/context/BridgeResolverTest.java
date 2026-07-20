@@ -36,21 +36,21 @@ class BridgeResolverTest {
 
   @Test
   void resolveByType_mapClass_returnsMapBridge() {
-    var resolver = new BridgeResolver(stubBridges(List.of()));
+    var resolver = new BridgeResolver(stubBridges(List.of()), noOpRegistry());
     var bridge = resolver.resolveByType(Map.class);
     assertThat(bridge).isInstanceOf(MapBridge.class);
   }
 
   @Test
   void resolveByType_unknownPojo_returnsJacksonBridge() {
-    var resolver = new BridgeResolver(stubBridges(List.of()));
+    var resolver = new BridgeResolver(stubBridges(List.of()), noOpRegistry());
     var bridge = resolver.resolveByType(TestPojo.class);
     assertThat(bridge).isInstanceOf(JacksonPojoBridge.class);
   }
 
   @Test
   void resolveByTypeName_delegatesToResolveByType() {
-    var resolver = new BridgeResolver(stubBridges(List.of()));
+    var resolver = new BridgeResolver(stubBridges(List.of()), noOpRegistry());
     var byType = resolver.resolveByType(Map.class);
     var byName = resolver.resolveByTypeName(Map.class.getName());
     assertThat(byType.getClass()).isEqualTo(byName.getClass());
@@ -58,19 +58,19 @@ class BridgeResolverTest {
 
   @Test
   void resolveByTypeName_null_returnsMapBridge() {
-    var resolver = new BridgeResolver(stubBridges(List.of()));
+    var resolver = new BridgeResolver(stubBridges(List.of()), noOpRegistry());
     assertThat(resolver.resolveByTypeName(null)).isInstanceOf(MapBridge.class);
   }
 
   @Test
   void resolveByTypeName_unknownClassName_returnsMapBridge() {
-    var resolver = new BridgeResolver(stubBridges(List.of()));
+    var resolver = new BridgeResolver(stubBridges(List.of()), noOpRegistry());
     assertThat(resolver.resolveByTypeName("com.nonexistent.Foo")).isInstanceOf(MapBridge.class);
   }
 
   @Test
   void resolveByTypeNameStrict_throwsOnUnknownClass() {
-    var resolver = new BridgeResolver(stubBridges(List.of()));
+    var resolver = new BridgeResolver(stubBridges(List.of()), noOpRegistry());
     assertThatThrownBy(() -> resolver.resolveByTypeNameStrict("com.nonexistent.FooBar"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("com.nonexistent.FooBar");
@@ -78,13 +78,13 @@ class BridgeResolverTest {
 
   @Test
   void resolveByTypeNameStrict_returnsMapBridgeForMapClass() {
-    var resolver = new BridgeResolver(stubBridges(List.of()));
+    var resolver = new BridgeResolver(stubBridges(List.of()), noOpRegistry());
     assertThat(resolver.resolveByTypeNameStrict(Map.class.getName())).isInstanceOf(MapBridge.class);
   }
 
   @Test
   void resolveByTypeNameStrict_throwsOnNull() {
-    var resolver = new BridgeResolver(stubBridges(List.of()));
+    var resolver = new BridgeResolver(stubBridges(List.of()), noOpRegistry());
     assertThatThrownBy(() -> resolver.resolveByTypeNameStrict(null))
         .isInstanceOf(IllegalArgumentException.class);
   }
@@ -92,7 +92,7 @@ class BridgeResolverTest {
   @Test
   void resolveByType_cdiDiscoveredBridge_takesPriority() {
     var customBridge = new MapBridge();
-    var resolver = new BridgeResolver(stubBridges(List.of(customBridge)));
+    var resolver = new BridgeResolver(stubBridges(List.of(customBridge)), noOpRegistry());
     var result = resolver.resolveByType(Map.class);
     assertThat(result).isSameAs(customBridge);
   }
@@ -160,5 +160,9 @@ class BridgeResolverTest {
         return list.iterator();
       }
     };
+  }
+
+  private static DataRefRegistry noOpRegistry() {
+    return new DataRefRegistry(new DataRefRegistryTest.StubInstance<>());
   }
 }

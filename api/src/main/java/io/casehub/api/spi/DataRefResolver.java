@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.model;
+package io.casehub.api.spi;
 
-import io.casehub.worker.api.PlannedAction;
-import java.util.Map;
-import org.jspecify.annotations.Nullable;
+import io.casehub.api.context.DataRef;
+import io.casehub.platform.api.routing.NamedStrategy;
 
-public record PendingActionGate(
-    long gateId,
-    String workerId,
-    String idempotency,
-    Map<String, Object> deferredOutput,
-    PlannedAction plannedAction,
-    @Nullable String bindingName,
-    @Nullable String capabilityName,
-    @Nullable Class<?> resolutionType) {}
+/**
+ * Resolves {@link DataRef} references to domain objects.
+ *
+ * <p>CDI-discovered. Each resolver declares {@link #id()} matching the {@code source} field on
+ * DataRef values it handles. No {@code @DefaultBean} — if no resolver exists for a source,
+ * resolution fails fast.
+ */
+public interface DataRefResolver extends NamedStrategy {
+  <T> T resolve(DataRef<T> ref);
+}

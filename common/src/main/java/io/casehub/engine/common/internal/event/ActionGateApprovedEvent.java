@@ -16,24 +16,12 @@
 package io.casehub.engine.common.internal.event;
 
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
-/**
- * Published on {@link EventBusAddresses#ACTION_GATE_APPROVED} by {@code
- * ActionGateCompletionApplier} (work-adapter) when a gate WorkItem is COMPLETED.
- *
- * <p>Consumed by {@code ActionGateApprovedHandler} in the engine runtime, which re-fires {@link
- * WorkflowExecutionCompleted} with {@code plannedAction=null} so the normal completion machinery
- * applies the deferred output, marks the PlanItem COMPLETED, and fires CONTEXT_CHANGED.
- *
- * <p>{@code workItemResolution} is the raw resolution JSON from the WorkItem — typically contains
- * approver notes. {@code approvedBy} is sourced from {@code WorkItem.assignee}; may be null if the
- * WorkItem was completed without an explicit claim.
- *
- * @param caseId the case this gate belongs to
- * @param tenancyId the tenant owning the case
- * @param gateId the gate identifier
- * @param workItemResolution raw resolution JSON from the WorkItem
- * @param approvedBy the user who approved the gate, or null
- */
 public record ActionGateApprovedEvent(
-    UUID caseId, String tenancyId, long gateId, String workItemResolution, String approvedBy) {}
+    UUID caseId,
+    String tenancyId,
+    long gateId,
+    String workItemResolution,
+    String approvedBy,
+    @Nullable String resolutionTypeName) {}

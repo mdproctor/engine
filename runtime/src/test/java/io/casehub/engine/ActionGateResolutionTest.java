@@ -84,7 +84,7 @@ class ActionGateResolutionTest {
   @Test
   void gateApproved_caseCompletes_deferredOutputApplied() {
     ResolutionClassifier.nextDecision =
-        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null);
+        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null, null);
 
     final UUID caseId = startCase();
 
@@ -103,7 +103,7 @@ class ActionGateResolutionTest {
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_APPROVED,
         new ActionGateApprovedEvent(
-            caseId, "test-tenant", gateId, "{\"approverNote\": \"approved\"}", "mlro-user"));
+            caseId, "test-tenant", gateId, "{\"approverNote\": \"approved\"}", "mlro-user", null));
 
     // Case should now complete — approved handler re-fires WorkflowExecutionCompleted
     await()
@@ -125,7 +125,7 @@ class ActionGateResolutionTest {
   @Test
   void gateRejected_caseRemainsRunning_rejectionSignalInContext() {
     ResolutionClassifier.nextDecision =
-        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null);
+        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null, null);
 
     final UUID caseId = startCase();
 
@@ -180,7 +180,7 @@ class ActionGateResolutionTest {
     // Publishing ActionGateApprovedEvent for a completed case — should be a no-op
     eventBus.publish(
         EventBusAddresses.ACTION_GATE_APPROVED,
-        new ActionGateApprovedEvent(caseId, "test-tenant", 999L, null, null));
+        new ActionGateApprovedEvent(caseId, "test-tenant", 999L, null, null, null));
 
     // Case should remain COMPLETED without errors
     await()

@@ -18,6 +18,7 @@ package io.casehub.engine.common.internal.context;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextBridge;
+import io.casehub.api.context.DataRef;
 import io.casehub.api.context.JacksonPojoBridge;
 import io.casehub.api.context.MapBridge;
 import io.casehub.api.model.CaseDefinition;
@@ -31,11 +32,15 @@ import java.util.Map;
 public class BridgeResolver {
 
   private static final MapBridge MAP_BRIDGE = new MapBridge();
+  private static final com.fasterxml.jackson.databind.ObjectMapper DATA_REF_MAPPER =
+      new com.fasterxml.jackson.databind.ObjectMapper();
   private final Instance<ContextBridge<?>> bridges;
+  private final DataRefRegistry dataRefRegistry;
 
   @Inject
-  public BridgeResolver(Instance<ContextBridge<?>> bridges) {
+  public BridgeResolver(Instance<ContextBridge<?>> bridges, DataRefRegistry dataRefRegistry) {
     this.bridges = bridges;
+    this.dataRefRegistry = dataRefRegistry;
   }
 
   public ContextBridge<?> resolve(Worker worker, CaseDefinition definition) {
@@ -97,16 +102,25 @@ public class BridgeResolver {
 
   @SuppressWarnings("unchecked")
   public <T> T initialise(ContextBridge<T> bridge, CaseContext context, JsonNode narrowedInput) {
+    if (DataRef.isRef(narrowedInput)) {
+      return (T) DataRef.fromJson(narrowedInput);
+    }
     return bridge.initialise(context, narrowedInput);
   }
 
   @SuppressWarnings("unchecked")
   public <T> JsonNode serialise(ContextBridge<T> bridge, Object input) {
+    if (input instanceof DataRef<?> ref) {
+      return ref.toJson(DATA_REF_MAPPER);
+    }
     return bridge.serialise((T) input);
   }
 
   @SuppressWarnings("unchecked")
   public <T> T deserialise(ContextBridge<T> bridge, JsonNode payload) {
+    if (DataRef.isRef(payload)) {
+      return (T) dataRefRegistry.resolve(DataRef.fromJson(payload));
+    }
     return bridge.deserialise(payload);
   }
 

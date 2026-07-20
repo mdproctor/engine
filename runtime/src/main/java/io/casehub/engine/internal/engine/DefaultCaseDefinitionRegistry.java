@@ -282,6 +282,11 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
         .toList();
   }
 
+  @Override
+  public java.util.Collection<io.casehub.api.model.CaseDefinition> allDefinitions() {
+    return registry.values().stream().map(RegistryEntry::definition).toList();
+  }
+
   private void validateExpressions(CaseDefinition definition) {
     // Validate use.secrets and use.configMaps (fail-fast)
     validateDependencies(definition);

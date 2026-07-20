@@ -13,18 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.model;
+package io.casehub.api.spi;
 
-import io.casehub.worker.api.PlannedAction;
-import java.util.Map;
-import org.jspecify.annotations.Nullable;
+import io.casehub.platform.api.routing.NamedStrategy;
+import io.smallrye.mutiny.Uni;
+import java.util.UUID;
 
-public record PendingActionGate(
-    long gateId,
-    String workerId,
-    String idempotency,
-    Map<String, Object> deferredOutput,
-    PlannedAction plannedAction,
-    @Nullable String bindingName,
-    @Nullable String capabilityName,
-    @Nullable Class<?> resolutionType) {}
+/**
+ * Resolves a correlation value extracted from an inbound connector message to a case UUID.
+ *
+ * <p>Follows the {@link NamedStrategy} convention — resolved via {@code EngineStrategyResolver}
+ * from the {@code correlationResolver} field on {@link io.casehub.api.model.InboundSignalMapping}.
+ */
+public interface CaseCorrelationResolver extends NamedStrategy {
+  Uni<UUID> resolve(String correlationValue, String tenancyId);
+}

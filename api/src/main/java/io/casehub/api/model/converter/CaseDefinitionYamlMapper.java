@@ -32,6 +32,7 @@ import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.InboundSignalMapping;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
@@ -638,6 +639,23 @@ public final class CaseDefinitionYamlMapper {
         labelRules.add(new LabelRule(ruleName, condition, actions));
       }
       def.setLabelRules(labelRules);
+    }
+
+    if (rawNode.has("inboundMappings")) {
+      List<InboundSignalMapping> mappings = new ArrayList<>();
+      for (JsonNode entry : rawNode.get("inboundMappings")) {
+        var mb =
+            InboundSignalMapping.builder()
+                .signalName(entry.get("signal").asText())
+                .connectorType(entry.get("connectorType").asText())
+                .correlation(entry.get("correlation").asText())
+                .payload(entry.get("payload").asText());
+        if (entry.has("correlationResolver")) {
+          mb.correlationResolver(entry.get("correlationResolver").asText());
+        }
+        mappings.add(mb.build());
+      }
+      def.setInboundMappings(List.copyOf(mappings));
     }
 
     return def;

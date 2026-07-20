@@ -21,6 +21,7 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.SignalRejectedException;
 import io.casehub.api.model.SignalType;
 import io.casehub.api.model.event.CaseEventLogRecord;
@@ -51,6 +52,10 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
+
+  @Inject @io.casehub.engine.common.qualifier.CrossTenant
+  io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository
+      crossTenantCaseInstanceRepository;
 
   @Override
   public CompletionStage<UUID> startCase(CaseDefinition definition) {
@@ -182,7 +187,21 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
     Objects.requireNonNull(payload, "Typed signal payload must not be null");
     CaseInstance instance = caseInstanceCache.get(caseId);
     if (instance == null) {
-      throw new IllegalArgumentException("CaseInstance not found: " + caseId);
+      instance =
+          crossTenantCaseInstanceRepository
+              .findByUuid(caseId)
+              .await()
+              .atMost(java.time.Duration.ofSeconds(10));
+      if (instance == null) {
+        throw new IllegalArgumentException("CaseInstance not found: " + caseId);
+      }
+      caseInstanceCache.put(instance);
+    }
+    CaseStatus state = instance.getState();
+    if (state == CaseStatus.COMPLETED
+        || state == CaseStatus.FAULTED
+        || state == CaseStatus.CANCELLED) {
+      throw new SignalRejectedException("Case " + caseId + " is in terminal state: " + state);
     }
     CaseMetaModel meta = instance.getCaseMetaModel();
     if (meta != null) {

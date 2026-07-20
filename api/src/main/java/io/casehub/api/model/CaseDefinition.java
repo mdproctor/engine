@@ -64,6 +64,7 @@ public class CaseDefinition {
   private String contextStoreFactory;
   private List<SignalType<?>> signals = List.of();
   private List<LabelRule> labelRules = List.of();
+  private List<InboundSignalMapping> inboundMappings = List.of();
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -276,6 +277,14 @@ public class CaseDefinition {
     this.labelRules = List.copyOf(labelRules);
   }
 
+  public List<InboundSignalMapping> getInboundMappings() {
+    return inboundMappings;
+  }
+
+  public void setInboundMappings(List<InboundSignalMapping> inboundMappings) {
+    this.inboundMappings = inboundMappings;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -310,6 +319,7 @@ public class CaseDefinition {
     private String contextStoreFactory;
     private List<SignalType<?>> signals = new java.util.ArrayList<>();
     private List<LabelRule> labelRules = new ArrayList<>();
+    private List<InboundSignalMapping> inboundMappings;
 
     private Builder() {}
 
@@ -526,6 +536,14 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder inboundMapping(InboundSignalMapping mapping) {
+      if (this.inboundMappings == null) {
+        this.inboundMappings = new java.util.ArrayList<>();
+      }
+      this.inboundMappings.add(mapping);
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -573,6 +591,21 @@ public class CaseDefinition {
       }
       caseHubDefinition.setSignals(signals);
       caseHubDefinition.setLabelRules(labelRules);
+
+      if (inboundMappings != null && !inboundMappings.isEmpty()) {
+        Set<String> declaredSignalNames =
+            signals.stream().map(SignalType::name).collect(java.util.stream.Collectors.toSet());
+        for (InboundSignalMapping m : inboundMappings) {
+          if (!declaredSignalNames.contains(m.signalName())) {
+            throw new IllegalStateException(
+                "InboundSignalMapping references undeclared signal '"
+                    + m.signalName()
+                    + "'. Declared signals: "
+                    + declaredSignalNames);
+          }
+        }
+        caseHubDefinition.setInboundMappings(List.copyOf(inboundMappings));
+      }
 
       return caseHubDefinition;
     }

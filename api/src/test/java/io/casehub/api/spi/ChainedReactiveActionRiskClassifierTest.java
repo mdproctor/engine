@@ -78,7 +78,7 @@ class ChainedReactiveActionRiskClassifierTest {
   void singleClassifier_returnsGateRequired_propagatesGateRequired() {
     final GateRequired gate =
         new GateRequired(
-            "SAR filing", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null);
+            "SAR filing", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null, null);
     chain.classifiers = instanceOf((action, context) -> gate);
 
     RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
@@ -109,7 +109,7 @@ class ChainedReactiveActionRiskClassifierTest {
             (action, context) -> new Autonomous(),
             (action, context) ->
                 new GateRequired(
-                    "SUSAR filing", false, StaticSetStrategy.of("physician"), null, null));
+                    "SUSAR filing", false, StaticSetStrategy.of("physician"), null, null, null));
 
     RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
@@ -125,12 +125,13 @@ class ChainedReactiveActionRiskClassifierTest {
         instanceOf(
             (action, context) ->
                 new GateRequired(
-                    "AML", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null),
+                    "AML", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null, null),
             (action, context) ->
                 new GateRequired(
                     "clinical",
                     false,
                     StaticSetStrategy.of("physician", "pharmacist"),
+                    null,
                     null,
                     null));
 
@@ -148,10 +149,15 @@ class ChainedReactiveActionRiskClassifierTest {
         instanceOf(
             (action, context) ->
                 new GateRequired(
-                    "slow", false, StaticSetStrategy.of("mlro"), Duration.ofHours(48), null),
+                    "slow", false, StaticSetStrategy.of("mlro"), Duration.ofHours(48), null, null),
             (action, context) ->
                 new GateRequired(
-                    "fast", false, StaticSetStrategy.of("analyst"), Duration.ofHours(24), null));
+                    "fast",
+                    false,
+                    StaticSetStrategy.of("analyst"),
+                    Duration.ofHours(24),
+                    null,
+                    null));
 
     GateRequired result =
         (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
@@ -165,13 +171,15 @@ class ChainedReactiveActionRiskClassifierTest {
     chain.classifiers =
         instanceOf(
             (action, context) ->
-                new GateRequired("no-deadline", false, StaticSetStrategy.of("mlro"), null, null),
+                new GateRequired(
+                    "no-deadline", false, StaticSetStrategy.of("mlro"), null, null, null),
             (action, context) ->
                 new GateRequired(
                     "with-deadline",
                     false,
                     StaticSetStrategy.of("analyst"),
                     Duration.ofHours(24),
+                    null,
                     null));
 
     GateRequired result =
@@ -185,9 +193,10 @@ class ChainedReactiveActionRiskClassifierTest {
   void twoClassifiers_nullCandidateGroupsVsRestricted_restrictedGroupsWins() {
     chain.classifiers =
         instanceOf(
-            (action, context) -> new GateRequired("unrestricted", false, null, null, null),
+            (action, context) -> new GateRequired("unrestricted", false, null, null, null, null),
             (action, context) ->
-                new GateRequired("restricted", false, StaticSetStrategy.of("mlro"), null, null));
+                new GateRequired(
+                    "restricted", false, StaticSetStrategy.of("mlro"), null, null, null));
 
     GateRequired result =
         (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
@@ -263,7 +272,12 @@ class ChainedReactiveActionRiskClassifierTest {
                 Uni.createFrom()
                     .item(
                         new GateRequired(
-                            "async-check", false, StaticSetStrategy.of("compliance"), null, null)));
+                            "async-check",
+                            false,
+                            StaticSetStrategy.of("compliance"),
+                            null,
+                            null,
+                            null)));
 
     RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
 
@@ -279,14 +293,14 @@ class ChainedReactiveActionRiskClassifierTest {
         instanceOf(
             (action, context) ->
                 new GateRequired(
-                    "blocking", false, StaticSetStrategy.of("mlro", "analyst"), null, null));
+                    "blocking", false, StaticSetStrategy.of("mlro", "analyst"), null, null, null));
     chain.reactiveClassifiers =
         reactiveInstanceOf(
             (action, context) ->
                 Uni.createFrom()
                     .item(
                         new GateRequired(
-                            "reactive", false, StaticSetStrategy.of("mlro"), null, null)));
+                            "reactive", false, StaticSetStrategy.of("mlro"), null, null, null)));
 
     GateRequired result =
         (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();

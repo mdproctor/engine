@@ -53,7 +53,12 @@ public class ChainedReactiveActionRiskClassifier implements ReactiveActionRiskCl
 
   static final GateRequired FAIL_SAFE =
       new GateRequired(
-          "Classifier error — manual review required before proceeding", true, null, null, null);
+          "Classifier error — manual review required before proceeding",
+          true,
+          null,
+          null,
+          null,
+          null);
 
   @Inject @RiskClassifier Instance<ActionRiskClassifier> classifiers;
 

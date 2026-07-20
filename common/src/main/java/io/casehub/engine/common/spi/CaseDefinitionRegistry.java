@@ -122,4 +122,8 @@ public interface CaseDefinitionRegistry {
   default List<CaseDefinition> findByLabel(Path label) {
     return List.of();
   }
+
+  default java.util.Collection<CaseDefinition> allDefinitions() {
+    return List.of();
+  }
 }

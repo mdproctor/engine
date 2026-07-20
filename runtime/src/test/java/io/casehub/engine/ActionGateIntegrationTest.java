@@ -101,7 +101,12 @@ class ActionGateIntegrationTest {
   void gateRequiredDecision_caseRemainsRunning_gateIsPending() {
     CapturingClassifier.nextDecision =
         new GateRequired(
-            "SAR filing requires MLRO sign-off", false, StaticSetStrategy.of("mlro"), null, null);
+            "SAR filing requires MLRO sign-off",
+            false,
+            StaticSetStrategy.of("mlro"),
+            null,
+            null,
+            null);
     GateCaseHub.declareAction.set(true);
 
     final UUID caseId = startCase();
@@ -137,7 +142,12 @@ class ActionGateIntegrationTest {
     // This test verifies the constraint is enforced and the first gate is not corrupted.
     CapturingClassifier.nextDecision =
         new GateRequired(
-            "SAR filing requires MLRO sign-off", false, StaticSetStrategy.of("mlro"), null, null);
+            "SAR filing requires MLRO sign-off",
+            false,
+            StaticSetStrategy.of("mlro"),
+            null,
+            null,
+            null);
     GateCaseHub.declareAction.set(true);
 
     final UUID caseId = startCase();

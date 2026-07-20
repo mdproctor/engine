@@ -19,23 +19,13 @@ import io.casehub.api.spi.RiskDecision;
 import io.casehub.worker.api.PlannedAction;
 import java.util.Set;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
-/**
- * Published on {@link EventBusAddresses#ACTION_GATE_SCHEDULE} when the engine determines a worker's
- * action must be gated for human approval.
- *
- * <p>{@code gateId} is the EventLog entry id of the {@code ACTION_GATE_PENDING} entry — it becomes
- * the stable key linking the gate to its WorkItem via callerRef {@code
- * "case:{caseId}/gate:{gateId}"}.
- *
- * <p>Consumed by {@code ActionGateWorkItemHandler} in {@code casehub-work-engine-adapter}, which
- * creates the WorkItem. If the engine-adapter is absent, this event fires with no handler and the
- * case stalls.
- */
 public record ActionGateScheduleEvent(
     UUID caseId,
     String tenancyId,
     long gateId,
     PlannedAction plannedAction,
     RiskDecision.GateRequired gateRequired,
-    Set<String> resolvedCandidateGroups) {}
+    Set<String> resolvedCandidateGroups,
+    @Nullable String resolutionTypeName) {}
