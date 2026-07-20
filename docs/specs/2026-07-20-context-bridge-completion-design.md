@@ -36,7 +36,7 @@ Thread `resolutionType` from the classifier's `GateRequired` decision through th
 ### Validation and Consumption at Approval
 
 `ActionGateApprovedHandler.onActionGateApproved()`:
-- When `resolutionTypeName` is non-null: resolve via `BridgeResolver.resolveByTypeNameStrict(resolutionTypeName)`, then call `bridge.deserialise()` to validate and deserialize the `workItemResolution` payload. The deserialized resolution value is included in the `actionGateApproved` context entry under the `resolution` key, making it accessible to downstream workers via bindings.
+- When `resolutionTypeName` is non-null: resolve via `BridgeResolver.resolveByTypeNameStrict(resolutionTypeName)`, then call `BridgeResolver.deserialise(bridge, payload)` to validate and deserialize the `workItemResolution` payload (uses `BridgeResolver.deserialise()`, not `bridge.deserialise()` directly, so DataRef interception is active — gate resolution is internal engine data). The deserialized resolution value is included in the `actionGateApproved` context entry under the `resolution` key, making it accessible to downstream workers via bindings.
 - Validation failure: log error and discard the gate (deferred output not applied, case stalls — same failure semantics as a corrupted WorkItem resolution).
 - When `resolutionTypeName` is null: no validation, raw `workItemResolution` passed through as-is (current behavior). The `resolution` key is set to the raw string value.
 
@@ -164,11 +164,10 @@ Resolved via `EngineStrategyResolver` — adding this SPI requires updating `Eng
    a. Evaluate `correlation` JQ against the composite → correlation value (String)
    b. Extract `tenancyId` directly from the `InboundMessage` (not from JQ output). Pass both to `CaseCorrelationResolver.resolve(correlationValue, tenancyId)` via `EngineStrategyResolver`.
    c. Resolve case UUID from the correlation result.
-   d. **Case activation:** if the case is not in `CaseInstanceCache` (external signals may target persisted but inactive cases), activate it via `CaseHubReactor.activateCase(caseId)` to load from the event store. If the case does not exist or is in a terminal state (COMPLETED, CANCELLED, FAULTED), log a warning and skip this mapping.
-   e. Evaluate `payload` JQ against the composite → payload JsonNode
-   f. Look up `SignalType` from the definition's signals list by `signalName`
-   g. `BridgeResolver.resolveByType(signalType.payloadType())` → `bridge.deserialise(payloadJson)` → typed T
-   h. `CaseHubRuntime.signal(caseId, signalType, typedPayload)`
+   d. Evaluate `payload` JQ against the composite → payload JsonNode
+   e. Look up `SignalType` from the definition's signals list by `signalName`
+   f. `BridgeResolver.resolveByType(signalType.payloadType())` → `bridge.deserialise(payloadJson)` → typed T. Note: uses `bridge.deserialise()` directly, NOT `BridgeResolver.deserialise()` — connector data is external and must not trigger DataRef interception (`$dataRef` is an internal engine convention that external systems don't produce).
+   g. `CaseHubRuntime.signal(caseId, signalType, typedPayload)` — signal() auto-activates the case if not in cache (see §Cross-Cutting: Signal auto-activation).
 4. Exceptions caught per-mapping — one failed mapping does not block others. Logged with connector context.
 
 Inert when no `InboundSignalMapping`s are registered.
@@ -184,9 +183,14 @@ Builds an in-memory index `Map<String, List<MappingEntry>>` keyed by `connectorT
 - `Collection<CaseDefinition> allDefinitions()` — returns all registered definitions. Used for initial index build at `@PostConstruct` time (definitions registered before the bridge starts).
 - `CaseDefinitionRegisteredEvent` — CDI event fired by `DefaultCaseDefinitionRegistry` after `registerCaseDefinition()` completes. Carries the registered `CaseDefinition`. Enables incremental index updates without polling.
 
-#### Case activation for external signals
+#### Deserialization path — DataRef interception scope
 
-`CaseHubRuntimeImpl.signal(UUID, SignalType, T)` requires the case to be in `CaseInstanceCache`. For externally-triggered signals, the case may exist in the event store but not be loaded. `InboundSignalBridge` handles this explicitly: it checks the cache, and if absent, activates the case via `CaseHubReactor` before calling `signal()`. This avoids changing the general `signal()` contract — internal callers can still assume cases are active. A follow-on issue (engine#TBD) tracks making `signal()` auto-activate, which would simplify all external signal paths.
+`InboundSignalBridge` calls `bridge.deserialise(payloadJson)` directly, NOT `BridgeResolver.deserialise(bridge, payload)`. The distinction matters: `BridgeResolver.deserialise()` intercepts `$dataRef` discriminators for DataRef resolution, but `$dataRef` is an internal engine convention. External connector data should never trigger DataRef interception — a coincidental `$dataRef` key in an external message would be misinterpreted as a linked data reference.
+
+Callers by path:
+- **Engine pipeline** (`QuartzWorkerExecutionJob`): uses `BridgeResolver.deserialise()` — DataRef interception active. Internal engine data may contain DataRef references.
+- **ActionGateApprovedHandler**: uses `BridgeResolver.deserialise()` — gate resolution is internal engine data.
+- **InboundSignalBridge**: uses `bridge.deserialise()` directly — external data, no DataRef interception.
 
 ### CaseDefinition Additions
 
@@ -207,7 +211,7 @@ Builds an in-memory index `Map<String, List<MappingEntry>>` keyed by `connectorT
 - No HTTP endpoint creation in the engine (connectors own reception)
 - No changes to `casehub-connectors`
 - No `ConnectorTarget` binding type
-- The architecture spec's YAML projection (`connectors: webhooks: - path: ...` in `2026-07-09-context-bridge-architecture.md` §5 Connectors) is superseded — the engine does not create HTTP endpoints. `inboundMappings` replaces this. Follow-on: update the architecture spec to reflect this change (tracked as engine#TBD).
+- The architecture spec's YAML projection (`connectors: webhooks: - path: ...` in `2026-07-09-context-bridge-architecture.md` §5 Connectors) is superseded — the engine does not create HTTP endpoints. `inboundMappings` replaces this. Follow-on: update the architecture spec to reflect this change (tracked as engine#764).
 
 ---
 
@@ -244,6 +248,10 @@ public record DataRef<T>(String source, String key, String typeName) {
 
     public static DataRef<?> fromJson(JsonNode node) {
         JsonNode ref = node.get(DISCRIMINATOR);
+        if (ref == null || !ref.has("source") || !ref.has("key") || !ref.has("type")) {
+            throw new IllegalArgumentException(
+                "Malformed $dataRef: requires source, key, and type fields");
+        }
         return new DataRef<>(
             ref.get("source").asText(),
             ref.get("key").asText(),
@@ -372,7 +380,7 @@ Deferred to execution — resolve at `deserialise()` time in `QuartzWorkerExecut
 - `DataRef<T>` record in engine-api
 - `DataRefResolver` SPI in engine-api
 - `DataRefRegistry` in engine-common
-- BridgeResolver DataRef awareness (transparent eager resolution)
+- BridgeResolver DataRef awareness (deferred resolution at execution time)
 - Tests with a test resolver
 
 ### What This Branch Does NOT Deliver
@@ -384,6 +392,14 @@ Deferred to execution — resolve at `deserialise()` time in `QuartzWorkerExecut
 ---
 
 ## Cross-Cutting Concerns
+
+### Signal Auto-Activation (#692)
+
+`CaseHubRuntimeImpl.signal(UUID, SignalType<T>, T)` currently throws `IllegalArgumentException` if the case is not in `CaseInstanceCache`. This is overly restrictive — for external signal paths (InboundSignalBridge, future API-driven signals), the case may exist in the event store but not be loaded.
+
+Change: `signal()` auto-activates cases not in cache. If `caseInstanceCache.get(caseId)` returns null, load the case from the event store (via `ReactiveCaseInstanceRepository`), reconstruct the `CaseInstance`, place it in cache, and proceed. If the case does not exist in the event store, throw `IllegalArgumentException` (same as today). If the case is in a terminal state (COMPLETED, CANCELLED, FAULTED), throw `SignalRejectedException`.
+
+This is a general improvement to the `CaseHubRuntime` API — all callers benefit, not just InboundSignalBridge. InboundSignalBridge calls `CaseHubRuntime.signal()` directly with no cache check or activation logic of its own.
 
 ### EngineStrategyResolver Updates
 
