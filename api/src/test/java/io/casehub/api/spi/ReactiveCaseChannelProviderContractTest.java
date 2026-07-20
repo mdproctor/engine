@@ -46,6 +46,7 @@ class ReactiveCaseChannelProviderContractTest {
                 String.class,
                 MessageType.class,
                 String.class,
+                String.class,
                 String.class))
         .isNotNull();
   }

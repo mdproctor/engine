@@ -51,6 +51,7 @@ class CaseChannelProviderContractTest {
                 String.class,
                 MessageType.class,
                 String.class,
+                String.class,
                 String.class))
         .isNotNull();
   }
