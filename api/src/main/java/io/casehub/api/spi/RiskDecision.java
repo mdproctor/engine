@@ -34,30 +34,6 @@ public sealed interface RiskDecision permits RiskDecision.Autonomous, RiskDecisi
 
   record Autonomous() implements RiskDecision {}
 
-  /**
-   * Gate the action pending human approval.
-   *
-   * <p>{@code candidateGroups} — null means no group restriction on the WorkItem. When multiple
-   * classifiers both return {@code GateRequired}, the one with the fewest groups wins entirely —
-   * union semantics are wrong for compliance (an MLRO and a physician are not interchangeable
-   * approvers).
-   *
-   * <p>{@code reversible} — purely presentational. Shown to the approver as "This action cannot be
-   * undone" when false. Does not affect engine routing or WorkItem creation.
-   *
-   * <p>{@code scope} — hierarchical path for SLA preference resolution on the gate WorkItem,
-   * following the {@code Path.of("org", "app", "case-type")} convention (e.g. {@code
-   * "casehubio/life/oversight"}). Passed directly to {@code WorkItemCreateRequest.scope}.
-   *
-   * <p>{@code resolutionType} — declares the expected type for the gate WorkItem's resolution. Null
-   * means untyped (approver notes). Threaded as {@code resolutionTypeName} (String) through {@code
-   * PendingActionGate}, {@code ActionGateScheduleEvent}, and {@code ActionGateApprovedEvent}.
-   * {@code ActionGateApprovedHandler} validates via {@code BridgeResolver} and includes the typed
-   * resolution in the {@code actionGateApproved} context entry.
-   *
-   * <p>If {@link ActionRiskClassifier#classify(PlannedAction)} throws, the engine uses a fail-safe
-   * {@code GateRequired} with all nullable fields set to null.
-   */
   record GateRequired(
       String reason,
       boolean reversible,
