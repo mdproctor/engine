@@ -214,6 +214,12 @@
                 <scope>test</scope>
             </dependency>
 
+            <dependency>
+                <groupId>io.casehub</groupId>
+                <artifactId>casehub-connectors-core</artifactId>
+                <version>${version.io.casehub}</version>
+            </dependency>
+
             <!-- test dependencies -->
             <dependency>
                 <groupId>io.quarkiverse.langchain4j</groupId>
@@ -273,11 +279,6 @@
                 <artifactId>casehub-platform</artifactId>
                 <version>${version.io.casehub}</version>
                 <scope>test</scope>
-            </dependency>
-            <dependency>
-                <groupId>io.casehub</groupId>
-                <artifactId>casehub-platform-api</artifactId>
-                <version>${version.io.casehub}</version>
             </dependency>
             <dependency>
                 <groupId>io.casehub</groupId>
