@@ -105,7 +105,7 @@ public class TestCaseHubRuntime implements CaseHubRuntime {
   public CompletionStage<Object> query(UUID caseId, String path) {
     requireCase(caseId);
     Map<String, Object> ctx = caseContexts.getOrDefault(caseId, Map.of());
-    return CompletableFuture.completedFuture(ctx);
+    return CompletableFuture.completedFuture(new MapCaseContext(ctx));
   }
 
   @Override
@@ -136,5 +136,9 @@ public class TestCaseHubRuntime implements CaseHubRuntime {
     if (!startedCases.containsKey(caseId) && !caseContexts.containsKey(caseId)) {
       throw new IllegalArgumentException("Case instance not found for caseId: " + caseId);
     }
+  }
+
+  public void setContext(UUID caseId, Map<String, Object> context) {
+    caseContexts.put(caseId, context);
   }
 }

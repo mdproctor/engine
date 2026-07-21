@@ -82,6 +82,7 @@ need the Java SPI do not pay JAX-RS coupling cost.</description>
       <version>${project.version}</version>
       <scope>test</scope>
     </dependency>
+
   </dependencies>
 
   <build>
