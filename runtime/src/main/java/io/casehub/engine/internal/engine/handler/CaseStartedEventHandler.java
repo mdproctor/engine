@@ -153,9 +153,30 @@ public class CaseStartedEventHandler {
           OBJECT_MAPPER.convertValue(
               experiences, new TypeReference<List<Map<String, Object>>>() {});
       MutableCaseContext mutableContext = (MutableCaseContext) instance.getCaseContext();
-      ((WritableLayerImpl) mutableContext.writableLayer(ContextLayer.WORKING))
-          .engineSet("cbrExperiences", serialised);
+      WritableLayerImpl layer =
+          (WritableLayerImpl) mutableContext.writableLayer(ContextLayer.WORKING);
+      layer.engineSet("cbrExperiences", serialised);
+      layer.engineSet(
+          "cbrBestSimilarity",
+          experiences.stream().mapToDouble(RetrievedExperience::similarityScore).max().orElse(0.0));
+      layer.engineSet("cbrMatchCount", experiences.size());
+      layer.engineSet("cbrOutcomeConsistency", computeOutcomeConsistency(experiences));
     }
     return Uni.createFrom().voidItem();
+  }
+
+  private static double computeOutcomeConsistency(List<RetrievedExperience> experiences) {
+    Map<String, Long> freq =
+        experiences.stream()
+            .map(RetrievedExperience::outcome)
+            .filter(java.util.Objects::nonNull)
+            .collect(
+                java.util.stream.Collectors.groupingBy(
+                    java.util.function.Function.identity(),
+                    java.util.stream.Collectors.counting()));
+    if (freq.isEmpty()) {
+      return 0.0;
+    }
+    return (double) java.util.Collections.max(freq.values()) / experiences.size();
   }
 }

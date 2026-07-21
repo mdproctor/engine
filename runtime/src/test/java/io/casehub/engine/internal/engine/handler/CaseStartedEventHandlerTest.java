@@ -192,6 +192,113 @@ class CaseStartedEventHandlerTest {
     assertThat(cbrExperiences).isNull();
   }
 
+  @Test
+  void cbrSummaryStats_written_when_experiences_present() {
+    CaseDefinition definition =
+        CaseDefinition.builder().namespace("test").name("stats-case").version("1.0").build();
+    CbrConfig config =
+        CbrConfig.builder()
+            .feature("severity", ".severity")
+            .domain("test-domain")
+            .topK(5)
+            .minSimilarity(0.5)
+            .build();
+    definition.setCbrConfig(config);
+
+    CaseMetaModel metaModel = new CaseMetaModel();
+    metaModel.setNamespace("test");
+    metaModel.setName("stats-case");
+    metaModel.setVersion("1.0");
+    CaseInstance instance = createCaseInstance(metaModel);
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
+
+    RetrievedExperience exp1 =
+        new RetrievedExperience(
+            "problem1", "solution1", "COMPLETED", 0.9, 0.85, Map.of(), List.of(), Map.of());
+    RetrievedExperience exp2 =
+        new RetrievedExperience(
+            "problem2", "solution2", "COMPLETED", 0.8, 0.72, Map.of(), List.of(), Map.of());
+    RetrievedExperience exp3 =
+        new RetrievedExperience(
+            "problem3", "solution3", "FAULTED", 0.7, 0.65, Map.of(), List.of(), Map.of());
+    when(cbrRetrievalService.retrieve(eq(definition), eq(instance)))
+        .thenReturn(List.of(exp1, exp2, exp3));
+
+    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+
+    var ctx = instance.getCaseContext().layer(ContextLayer.WORKING);
+    assertThat(ctx.get("cbrBestSimilarity")).isEqualTo(0.85);
+    assertThat(ctx.get("cbrMatchCount")).isEqualTo(3);
+    assertThat((double) ctx.get("cbrOutcomeConsistency"))
+        .isCloseTo(0.6667, org.assertj.core.data.Offset.offset(0.001));
+  }
+
+  @Test
+  void cbrSummaryStats_not_written_when_experiences_empty() {
+    CaseDefinition definition =
+        CaseDefinition.builder().namespace("test").name("empty-stats-case").version("1.0").build();
+    CbrConfig config =
+        CbrConfig.builder()
+            .feature("severity", ".severity")
+            .domain("test-domain")
+            .topK(5)
+            .minSimilarity(0.5)
+            .build();
+    definition.setCbrConfig(config);
+
+    CaseMetaModel metaModel = new CaseMetaModel();
+    metaModel.setNamespace("test");
+    metaModel.setName("empty-stats-case");
+    metaModel.setVersion("1.0");
+    CaseInstance instance = createCaseInstance(metaModel);
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
+    when(cbrRetrievalService.retrieve(definition, instance)).thenReturn(List.of());
+
+    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+
+    var ctx = instance.getCaseContext().layer(ContextLayer.WORKING);
+    assertThat(ctx.get("cbrBestSimilarity")).isNull();
+    assertThat(ctx.get("cbrMatchCount")).isNull();
+    assertThat(ctx.get("cbrOutcomeConsistency")).isNull();
+  }
+
+  @Test
+  void cbrOutcomeConsistency_zero_when_all_outcomes_null() {
+    CaseDefinition definition =
+        CaseDefinition.builder().namespace("test").name("null-outcome-case").version("1.0").build();
+    CbrConfig config =
+        CbrConfig.builder()
+            .feature("severity", ".severity")
+            .domain("test-domain")
+            .topK(5)
+            .minSimilarity(0.5)
+            .build();
+    definition.setCbrConfig(config);
+
+    CaseMetaModel metaModel = new CaseMetaModel();
+    metaModel.setNamespace("test");
+    metaModel.setName("null-outcome-case");
+    metaModel.setVersion("1.0");
+    CaseInstance instance = createCaseInstance(metaModel);
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
+
+    RetrievedExperience exp1 =
+        new RetrievedExperience(
+            "problem1", "solution1", null, null, 0.90, Map.of(), List.of(), Map.of());
+    RetrievedExperience exp2 =
+        new RetrievedExperience(
+            "problem2", "solution2", null, null, 0.80, Map.of(), List.of(), Map.of());
+    when(cbrRetrievalService.retrieve(eq(definition), eq(instance)))
+        .thenReturn(List.of(exp1, exp2));
+
+    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+
+    var ctx = instance.getCaseContext().layer(ContextLayer.WORKING);
+    assertThat(ctx.get("cbrBestSimilarity")).isEqualTo(0.90);
+    assertThat(ctx.get("cbrMatchCount")).isEqualTo(2);
+    assertThat(ctx.get("cbrOutcomeConsistency")).isEqualTo(0.0);
+  }
+
   private CaseInstance createCaseInstance(CaseMetaModel metaModel) {
     CaseInstance ci = new CaseInstance();
     ci.setUuid(UUID.randomUUID());
