@@ -18,6 +18,7 @@ package io.casehub.engine.common.spi;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.query.CaseInstanceQuery;
 import java.util.List;
 import java.util.UUID;
 
@@ -58,5 +59,13 @@ public interface CaseInstanceRepository {
   default List<CaseInstance> findByNamespaceAndName(
       String namespace, String name, String tenancyId) {
     return List.of();
+  }
+
+  default List<CaseInstance> query(CaseInstanceQuery query, String tenancyId) {
+    return List.of();
+  }
+
+  default long count(CaseInstanceQuery query, String tenancyId) {
+    return 0;
   }
 }

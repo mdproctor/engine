@@ -19,6 +19,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.query.CaseInstanceQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.List;
@@ -68,5 +69,15 @@ public class JpaCaseInstanceRepository implements CaseInstanceRepository {
   public List<CaseInstance> findByNamespaceAndName(
       String namespace, String name, String tenancyId) {
     return delegate.findByNamespaceAndName(namespace, name, tenancyId).await().indefinitely();
+  }
+
+  @Override
+  public List<CaseInstance> query(CaseInstanceQuery query, String tenancyId) {
+    return delegate.query(query, tenancyId).await().indefinitely();
+  }
+
+  @Override
+  public long count(CaseInstanceQuery query, String tenancyId) {
+    return delegate.count(query, tenancyId).await().indefinitely();
   }
 }

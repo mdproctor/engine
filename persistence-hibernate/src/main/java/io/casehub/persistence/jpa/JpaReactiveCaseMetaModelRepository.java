@@ -17,10 +17,12 @@ package io.casehub.persistence.jpa;
 
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
+import io.casehub.engine.common.spi.query.CaseDefinitionQuery;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 
 @ApplicationScoped
 public class JpaReactiveCaseMetaModelRepository extends TenantAwareRepository
@@ -58,6 +60,49 @@ public class JpaReactiveCaseMetaModelRepository extends TenantAwareRepository
                       metaModel.setCreatedAt(entity.createdAt);
                       return metaModel;
                     }));
+  }
+
+  Uni<List<CaseMetaModel>> query(CaseDefinitionQuery query, String tenancyId) {
+    return withTenantTransaction(
+        tenancyId,
+        () -> {
+          StringBuilder hql = new StringBuilder("tenancyId = ?1");
+          java.util.ArrayList<Object> params = new java.util.ArrayList<>();
+          params.add(tenancyId);
+          int idx = 2;
+          if (query.namespace() != null) {
+            hql.append(" and namespace = ?").append(idx++);
+            params.add(query.namespace());
+          }
+          if (query.name() != null) {
+            hql.append(" and name = ?").append(idx);
+            params.add(query.name());
+          }
+          return CaseMetaModelEntity.<CaseMetaModelEntity>find(hql.toString(), params.toArray())
+              .page(io.quarkus.panache.common.Page.of(query.page(), query.size()))
+              .list()
+              .map(entities -> entities.stream().map(this::fromEntity).toList());
+        });
+  }
+
+  Uni<Long> count(CaseDefinitionQuery query, String tenancyId) {
+    return withTenantTransaction(
+        tenancyId,
+        () -> {
+          StringBuilder hql = new StringBuilder("tenancyId = ?1");
+          java.util.ArrayList<Object> params = new java.util.ArrayList<>();
+          params.add(tenancyId);
+          int idx = 2;
+          if (query.namespace() != null) {
+            hql.append(" and namespace = ?").append(idx++);
+            params.add(query.namespace());
+          }
+          if (query.name() != null) {
+            hql.append(" and name = ?").append(idx);
+            params.add(query.name());
+          }
+          return CaseMetaModelEntity.count(hql.toString(), params.toArray());
+        });
   }
 
   private CaseMetaModel fromEntity(CaseMetaModelEntity entity) {

@@ -21,6 +21,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.query.CaseInstanceQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import jakarta.inject.Inject;
@@ -153,6 +154,66 @@ public class InMemoryCaseInstanceRepository
                       && namespace.equals(ci.getCaseMetaModel().getNamespace())
                       && name.equals(ci.getCaseMetaModel().getName()))
           .toList();
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public List<CaseInstance> query(CaseInstanceQuery query, String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      return store.values().stream()
+          .filter(i -> i.tenancyId != null && i.tenancyId.equals(tenancyId))
+          .filter(i -> query.status() == null || query.status().equals(i.getState()))
+          .filter(
+              i -> {
+                if (query.namespace() == null) {
+                  return true;
+                }
+                var meta = i.getCaseMetaModel();
+                return meta != null && query.namespace().equals(meta.getNamespace());
+              })
+          .filter(
+              i -> {
+                if (query.name() == null) {
+                  return true;
+                }
+                var meta = i.getCaseMetaModel();
+                return meta != null && query.name().equals(meta.getName());
+              })
+          .skip((long) query.page() * query.size())
+          .limit(query.size())
+          .toList();
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public long count(CaseInstanceQuery query, String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      return store.values().stream()
+          .filter(i -> i.tenancyId != null && i.tenancyId.equals(tenancyId))
+          .filter(i -> query.status() == null || query.status().equals(i.getState()))
+          .filter(
+              i -> {
+                if (query.namespace() == null) {
+                  return true;
+                }
+                var meta = i.getCaseMetaModel();
+                return meta != null && query.namespace().equals(meta.getNamespace());
+              })
+          .filter(
+              i -> {
+                if (query.name() == null) {
+                  return true;
+                }
+                var meta = i.getCaseMetaModel();
+                return meta != null && query.name().equals(meta.getName());
+              })
+          .count();
     } finally {
       rwLock.readLock().unlock();
     }

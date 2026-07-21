@@ -17,9 +17,11 @@ package io.casehub.persistence.memory;
 
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.spi.query.CaseDefinitionQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import java.time.Instant;
+import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -63,6 +65,36 @@ public class InMemoryCaseMetaModelRepository implements CaseMetaModelRepository 
       return metaModel;
     } finally {
       rwLock.writeLock().unlock();
+    }
+  }
+
+  @Override
+  public List<CaseMetaModel> query(CaseDefinitionQuery query, String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      return store.values().stream()
+          .filter(m -> m.tenancyId != null && m.tenancyId.equals(tenancyId))
+          .filter(m -> query.namespace() == null || query.namespace().equals(m.getNamespace()))
+          .filter(m -> query.name() == null || query.name().equals(m.getName()))
+          .skip((long) query.page() * query.size())
+          .limit(query.size())
+          .toList();
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public long count(CaseDefinitionQuery query, String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      return store.values().stream()
+          .filter(m -> m.tenancyId != null && m.tenancyId.equals(tenancyId))
+          .filter(m -> query.namespace() == null || query.namespace().equals(m.getNamespace()))
+          .filter(m -> query.name() == null || query.name().equals(m.getName()))
+          .count();
+    } finally {
+      rwLock.readLock().unlock();
     }
   }
 

@@ -20,6 +20,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.query.CaseInstanceQuery;
 import io.quarkus.hibernate.reactive.panache.Panache;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -174,6 +175,57 @@ public class JpaReactiveCaseInstanceRepository extends TenantAwareRepository
                     tenancyId)
                 .list()
                 .map(entities -> entities.stream().map(this::fromEntity).toList()));
+  }
+
+  Uni<List<CaseInstance>> query(CaseInstanceQuery query, String tenancyId) {
+    return withTenantTransaction(
+        tenancyId,
+        () -> {
+          StringBuilder hql = new StringBuilder("tenancyId = ?1");
+          java.util.ArrayList<Object> params = new java.util.ArrayList<>();
+          params.add(tenancyId);
+          int idx = 2;
+          if (query.status() != null) {
+            hql.append(" and state = ?").append(idx++);
+            params.add(query.status());
+          }
+          if (query.namespace() != null) {
+            hql.append(" and caseMetaModel.namespace = ?").append(idx++);
+            params.add(query.namespace());
+          }
+          if (query.name() != null) {
+            hql.append(" and caseMetaModel.name = ?").append(idx);
+            params.add(query.name());
+          }
+          return CaseInstanceEntity.<CaseInstanceEntity>find(hql.toString(), params.toArray())
+              .page(io.quarkus.panache.common.Page.of(query.page(), query.size()))
+              .list()
+              .map(entities -> entities.stream().map(this::fromEntity).toList());
+        });
+  }
+
+  Uni<Long> count(CaseInstanceQuery query, String tenancyId) {
+    return withTenantTransaction(
+        tenancyId,
+        () -> {
+          StringBuilder hql = new StringBuilder("tenancyId = ?1");
+          java.util.ArrayList<Object> params = new java.util.ArrayList<>();
+          params.add(tenancyId);
+          int idx = 2;
+          if (query.status() != null) {
+            hql.append(" and state = ?").append(idx++);
+            params.add(query.status());
+          }
+          if (query.namespace() != null) {
+            hql.append(" and caseMetaModel.namespace = ?").append(idx++);
+            params.add(query.namespace());
+          }
+          if (query.name() != null) {
+            hql.append(" and caseMetaModel.name = ?").append(idx);
+            params.add(query.name());
+          }
+          return CaseInstanceEntity.count(hql.toString(), params.toArray());
+        });
   }
 
   private CaseInstance fromEntity(CaseInstanceEntity entity) {

@@ -16,6 +16,8 @@
 package io.casehub.engine.common.spi;
 
 import io.casehub.engine.common.internal.model.CaseMetaModel;
+import io.casehub.engine.common.spi.query.CaseDefinitionQuery;
+import java.util.List;
 
 /**
  * Blocking SPI for {@link CaseMetaModel} definition persistence.
@@ -37,4 +39,12 @@ public interface CaseMetaModelRepository {
    * metaModel.createdAt} on completion.
    */
   CaseMetaModel save(CaseMetaModel metaModel, String tenancyId);
+
+  default List<CaseMetaModel> query(CaseDefinitionQuery query, String tenancyId) {
+    return List.of();
+  }
+
+  default long count(CaseDefinitionQuery query, String tenancyId) {
+    return 0;
+  }
 }

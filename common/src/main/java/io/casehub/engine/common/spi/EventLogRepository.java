@@ -18,6 +18,7 @@ package io.casehub.engine.common.spi;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.spi.query.EventLogQuery;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -69,4 +70,12 @@ public interface EventLogRepository {
       Collection<CaseHubEventType> eventTypes,
       Collection<EventStreamType> streamTypes,
       String tenancyId);
+
+  default List<EventLog> query(EventLogQuery query, String tenancyId) {
+    return List.of();
+  }
+
+  default long count(EventLogQuery query, String tenancyId) {
+    return 0;
+  }
 }

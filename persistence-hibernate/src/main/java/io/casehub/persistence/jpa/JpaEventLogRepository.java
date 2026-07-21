@@ -19,6 +19,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.query.EventLogQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
@@ -87,5 +88,15 @@ public class JpaEventLogRepository implements EventLogRepository {
         .findByCaseWithFilters(caseId, eventTypes, streamTypes, tenancyId)
         .await()
         .indefinitely();
+  }
+
+  @Override
+  public List<EventLog> query(EventLogQuery query, String tenancyId) {
+    return delegate.query(query, tenancyId).await().indefinitely();
+  }
+
+  @Override
+  public long count(EventLogQuery query, String tenancyId) {
+    return delegate.count(query, tenancyId).await().indefinitely();
   }
 }

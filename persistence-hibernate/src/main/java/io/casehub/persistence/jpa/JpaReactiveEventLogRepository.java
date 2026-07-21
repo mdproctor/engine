@@ -19,6 +19,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.query.EventLogQuery;
 import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
@@ -183,6 +184,52 @@ public class JpaReactiveEventLogRepository extends TenantAwareRepository
           return EventLogEntity.<EventLogEntity>find(query.toString(), params.toArray())
               .list()
               .map(list -> list.stream().map(this::fromEntity).toList());
+        });
+  }
+
+  Uni<List<EventLog>> query(EventLogQuery query, String tenancyId) {
+    return withTenantTransaction(
+        tenancyId,
+        () -> {
+          StringBuilder hql = new StringBuilder("tenancyId = ?1 and caseId = ?2");
+          java.util.ArrayList<Object> params = new java.util.ArrayList<>();
+          params.add(tenancyId);
+          params.add(query.caseId());
+          int idx = 3;
+          if (query.eventTypes() != null && !query.eventTypes().isEmpty()) {
+            hql.append(" and eventType in ?").append(idx++);
+            params.add(query.eventTypes());
+          }
+          if (query.streamTypes() != null && !query.streamTypes().isEmpty()) {
+            hql.append(" and streamType in ?").append(idx);
+            params.add(query.streamTypes());
+          }
+          hql.append(" order by timestamp asc");
+          return EventLogEntity.<EventLogEntity>find(hql.toString(), params.toArray())
+              .page(io.quarkus.panache.common.Page.of(query.page(), query.size()))
+              .list()
+              .map(entities -> entities.stream().map(this::fromEntity).toList());
+        });
+  }
+
+  Uni<Long> count(EventLogQuery query, String tenancyId) {
+    return withTenantTransaction(
+        tenancyId,
+        () -> {
+          StringBuilder hql = new StringBuilder("tenancyId = ?1 and caseId = ?2");
+          java.util.ArrayList<Object> params = new java.util.ArrayList<>();
+          params.add(tenancyId);
+          params.add(query.caseId());
+          int idx = 3;
+          if (query.eventTypes() != null && !query.eventTypes().isEmpty()) {
+            hql.append(" and eventType in ?").append(idx++);
+            params.add(query.eventTypes());
+          }
+          if (query.streamTypes() != null && !query.streamTypes().isEmpty()) {
+            hql.append(" and streamType in ?").append(idx);
+            params.add(query.streamTypes());
+          }
+          return EventLogEntity.count(hql.toString(), params.toArray());
         });
   }
 

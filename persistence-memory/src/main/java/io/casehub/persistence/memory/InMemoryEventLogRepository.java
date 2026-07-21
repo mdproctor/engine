@@ -20,6 +20,7 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.query.EventLogQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import java.time.Instant;
@@ -180,6 +181,54 @@ public class InMemoryEventLogRepository
                       || streamTypes.contains(e.getStreamType()))
           .sorted(Comparator.comparingLong(EventLog::getSeq))
           .toList();
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public List<EventLog> query(EventLogQuery query, String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      return store.values().stream()
+          .filter(e -> e.tenancyId != null && e.tenancyId.equals(tenancyId))
+          .filter(e -> e.getCaseId().equals(query.caseId()))
+          .filter(
+              e ->
+                  query.eventTypes() == null
+                      || query.eventTypes().isEmpty()
+                      || query.eventTypes().contains(e.getEventType()))
+          .filter(
+              e ->
+                  query.streamTypes() == null
+                      || query.streamTypes().isEmpty()
+                      || query.streamTypes().contains(e.getStreamType()))
+          .skip((long) query.page() * query.size())
+          .limit(query.size())
+          .toList();
+    } finally {
+      rwLock.readLock().unlock();
+    }
+  }
+
+  @Override
+  public long count(EventLogQuery query, String tenancyId) {
+    rwLock.readLock().lock();
+    try {
+      return store.values().stream()
+          .filter(e -> e.tenancyId != null && e.tenancyId.equals(tenancyId))
+          .filter(e -> e.getCaseId().equals(query.caseId()))
+          .filter(
+              e ->
+                  query.eventTypes() == null
+                      || query.eventTypes().isEmpty()
+                      || query.eventTypes().contains(e.getEventType()))
+          .filter(
+              e ->
+                  query.streamTypes() == null
+                      || query.streamTypes().isEmpty()
+                      || query.streamTypes().contains(e.getStreamType()))
+          .count();
     } finally {
       rwLock.readLock().unlock();
     }

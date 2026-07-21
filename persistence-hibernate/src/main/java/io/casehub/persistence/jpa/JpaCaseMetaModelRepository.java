@@ -17,8 +17,10 @@ package io.casehub.persistence.jpa;
 
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.spi.query.CaseDefinitionQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.util.List;
 
 /**
  * Blocking JPA {@link CaseMetaModelRepository}. Delegates to {@link
@@ -37,5 +39,15 @@ public class JpaCaseMetaModelRepository implements CaseMetaModelRepository {
   @Override
   public CaseMetaModel save(CaseMetaModel metaModel, String tenancyId) {
     return delegate.save(metaModel, tenancyId).await().indefinitely();
+  }
+
+  @Override
+  public List<CaseMetaModel> query(CaseDefinitionQuery query, String tenancyId) {
+    return delegate.query(query, tenancyId).await().indefinitely();
+  }
+
+  @Override
+  public long count(CaseDefinitionQuery query, String tenancyId) {
+    return delegate.count(query, tenancyId).await().indefinitely();
   }
 }
