@@ -17,7 +17,6 @@ package io.casehub.engine.internal.executor;
 
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
@@ -80,6 +79,9 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
     }
 
     final Object resolvedInput = inputData;
+    final io.casehub.api.engine.WorkerRuntime runtime =
+        workerRuntimeFactory.create(context.caseId(), metadata.workerName(), context);
+
     java.util.function.Function<Object, WorkerResult<?>> fn =
         switch (function) {
           case WorkerFunction.Sync<?, ?> sync -> {
@@ -87,7 +89,7 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
                 (java.util.function.BiFunction<
                         Object, io.casehub.worker.api.WorkerScope, WorkerResult<?>>)
                     (java.util.function.BiFunction) sync.fn();
-            yield input -> biFn.apply(input, null);
+            yield input -> biFn.apply(input, runtime);
           }
           case AgentWorkerFunction agent ->
               input -> agent.agent().execute((java.util.Map<String, Object>) input);
@@ -97,16 +99,7 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
         };
 
     return Uni.createFrom()
-        .<WorkerResult<?>>item(
-            () -> {
-              WorkerExecutionContext.set(context);
-              WorkerExecutionContext.setRuntime(workerRuntimeFactory.create(context.caseId()));
-              try {
-                return fn.apply(resolvedInput);
-              } finally {
-                WorkerExecutionContext.clear();
-              }
-            })
+        .<WorkerResult<?>>item(() -> fn.apply(resolvedInput))
         .runSubscriptionOn(virtualThreads)
         .ifNoItem()
         .after(java.time.Duration.ofMillis(timeoutMs))

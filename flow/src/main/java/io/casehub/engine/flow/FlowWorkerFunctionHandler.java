@@ -16,7 +16,6 @@
 package io.casehub.engine.flow;
 
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
@@ -80,19 +79,13 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
 
     return Uni.createFrom()
         .completionStage(
-            () -> {
-              WorkerExecutionContext.set(context);
-              try {
-                return executeWorkflow(
+            () ->
+                executeWorkflow(
                     flow.workflow(),
                     mapInput,
                     context.caseId(),
                     metadata.workerName(),
-                    metadata.inputDataHash());
-              } finally {
-                WorkerExecutionContext.clear();
-              }
-            })
+                    metadata.inputDataHash()))
         .runSubscriptionOn(virtualThreads)
         .map(
             model ->

@@ -44,8 +44,15 @@ public class WorkerRuntimeFactory {
     this.caseCompletionTracker = caseCompletionTracker;
   }
 
-  public WorkerRuntime create(UUID caseId) {
+  public WorkerRuntime create(
+      UUID caseId, String taskId, io.casehub.api.model.WorkerContext context) {
     return new DefaultWorkerRuntime(
-        caseId, caseHubRuntime, definitionRegistry, caseInstanceCache, caseCompletionTracker);
+        caseId,
+        taskId,
+        context,
+        caseHubRuntime,
+        definitionRegistry,
+        caseInstanceCache,
+        caseCompletionTracker);
   }
 }

@@ -32,9 +32,7 @@ import org.junit.jupiter.api.Test;
 class WorkerFunctionsTest {
 
   @AfterEach
-  void cleanup() {
-    WorkerExecutionContext.clear();
-  }
+  void cleanup() {}
 
   @Test
   void sequence_executesInOrder_accumulatesResults() {
@@ -58,10 +56,9 @@ class WorkerFunctionsTest {
             });
 
     var stubRuntime = new StubWorkerRuntime();
-    WorkerExecutionContext.setRuntime(stubRuntime);
 
     var seq = WorkerFunctions.sequence(fnA, fnB);
-    WorkerResult<?> result = seq.fn().apply(Map.of("initial", "data"), null);
+    WorkerResult<?> result = seq.fn().apply(Map.of("initial", "data"), stubRuntime);
 
     assertEquals(List.of("A", "B"), order);
     @SuppressWarnings("unchecked")
@@ -92,8 +89,8 @@ class WorkerFunctionsTest {
               return WorkerResult.of(Map.of());
             });
 
-    WorkerExecutionContext.setRuntime(new StubWorkerRuntime());
-    WorkerResult<?> result = WorkerFunctions.sequence(fnA, fnB).fn().apply(Map.of(), null);
+    var stubRuntime = new StubWorkerRuntime();
+    WorkerResult<?> result = WorkerFunctions.sequence(fnA, fnB).fn().apply(Map.of(), stubRuntime);
 
     assertEquals(List.of("A"), order);
     assertInstanceOf(WorkerOutcome.Declined.class, result.outcome());
@@ -124,6 +121,7 @@ class WorkerFunctionsTest {
   }
 
   /** Minimal stub that delegates execute() directly to the function. */
+  @SuppressWarnings("unchecked")
   private static class StubWorkerRuntime implements WorkerRuntime {
     @Override
     public java.util.UUID caseId() {
@@ -131,20 +129,25 @@ class WorkerFunctionsTest {
     }
 
     @Override
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    public WorkerResult<?> execute(WorkerFunction<?, ?> function, Map<String, Object> input) {
-      if (function instanceof WorkerFunction.Sync<?, ?> sync) {
+    public String taskId() {
+      return "stub-task";
+    }
+
+    @Override
+    public io.casehub.api.model.WorkerContext context() {
+      return null;
+    }
+
+    @Override
+    public <T, R> WorkerResult<R> execute(WorkerFunction<T, R> function, T input) {
+      if (function instanceof WorkerFunction.Sync<T, R> sync) {
         try {
-          var fn =
-              (java.util.function.BiFunction<
-                      Object, io.casehub.worker.api.WorkerScope, WorkerResult<?>>)
-                  (java.util.function.BiFunction) sync.fn();
-          return fn.apply(input, null);
+          return sync.fn().apply(input, this);
         } catch (Exception e) {
-          return WorkerResult.failed(e.getMessage());
+          return (WorkerResult<R>) WorkerResult.failed(e.getMessage());
         }
       }
-      return WorkerResult.failed("unsupported function type");
+      return (WorkerResult<R>) WorkerResult.failed("unsupported function type");
     }
 
     @Override

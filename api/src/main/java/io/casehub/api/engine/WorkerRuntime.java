@@ -16,45 +16,18 @@
 package io.casehub.api.engine;
 
 import io.casehub.api.context.CaseContext;
-import io.casehub.worker.api.WorkerFunction;
-import io.casehub.worker.api.WorkerResult;
+import io.casehub.api.model.WorkerContext;
 import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Runtime environment for worker functions, enabling in-process choreography: spawning child
- * workers, awaiting their completion, and sequencing multi-step flows.
- */
-public interface WorkerRuntime {
+public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
 
-  /** Returns the case ID that this worker execution belongs to. */
-  UUID caseId();
+  WorkerContext context();
 
-  /**
-   * Execute a worker function in-process with the given input. Supports both Sync and Flow
-   * variants. Returns immediately with the result — no external scheduling, no ledger trace.
-   */
-  WorkerResult<?> execute(WorkerFunction<?, ?> function, Map<String, Object> input);
-
-  /**
-   * Execute a worker by name. Looks up the worker from the case definition and delegates to {@link
-   * #execute(WorkerFunction, Map)}.
-   */
-  WorkerResult<?> execute(String workerName, Map<String, Object> input);
-
-  /** Spawn a new child case (detached) and return its ID. Non-blocking. */
   UUID spawnCase(String caseType, Map<String, Object> input);
 
-  /**
-   * Block until a child case reaches a terminal state (COMPLETED/FAULTED/CANCELLED). Throws {@link
-   * SettlementTimeoutException} if the timeout expires.
-   */
   CaseContext awaitCase(UUID childCaseId, Duration timeout);
 
-  /**
-   * Convenience: spawn then await. Equivalent to {@code awaitCase(spawnCase(caseType, input),
-   * timeout)}.
-   */
   CaseContext spawnAndAwaitCase(String caseType, Map<String, Object> input, Duration timeout);
 }

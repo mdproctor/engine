@@ -30,7 +30,6 @@ import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.ProvisionResult;
 import io.casehub.api.spi.ProvisioningException;
@@ -626,7 +625,10 @@ class SpiWiringIntegrationTest {
                       Map.class,
                       Map.class,
                       (input, scope) -> {
-                        WorkerContext ctx = WorkerExecutionContext.current();
+                        WorkerContext ctx =
+                            scope instanceof io.casehub.api.engine.WorkerRuntime wr
+                                ? wr.context()
+                                : null;
                         if (ctx != null) {
                           RecordingExecutionContextWorker.capturedChannels.add(ctx.channels());
                         }

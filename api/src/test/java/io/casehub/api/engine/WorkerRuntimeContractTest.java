@@ -36,8 +36,18 @@ class WorkerRuntimeContractTest {
           }
 
           @Override
-          public WorkerResult<?> execute(WorkerFunction<?, ?> function, Map<String, Object> input) {
-            return WorkerResult.of(Map.of());
+          public String taskId() {
+            return "test-task";
+          }
+
+          @Override
+          public io.casehub.api.model.WorkerContext context() {
+            return null;
+          }
+
+          @Override
+          public <T, R> WorkerResult<R> execute(WorkerFunction<T, R> function, T input) {
+            return null;
           }
 
           @Override

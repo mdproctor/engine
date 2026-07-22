@@ -28,7 +28,6 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Capability;
@@ -184,7 +183,7 @@ class HybridOrchestrationIntegrationTest {
                       Map.class,
                       Map.class,
                       (input, scope) -> {
-                        WorkerRuntime rt = WorkerExecutionContext.currentRuntime();
+                        WorkerRuntime rt = (WorkerRuntime) scope;
                         var childCtx =
                             rt.spawnAndAwaitCase(
                                 "SpawnChild", Map.of("trigger", true), Duration.ofSeconds(10));

@@ -18,7 +18,6 @@ package io.casehub.engine.internal.executor;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,7 +26,6 @@ import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -61,13 +59,11 @@ class DefaultWorkerRuntimeTest {
 
   @BeforeEach
   void setUp() {
-    runtime = new DefaultWorkerRuntime(CASE_ID, null, null, null, null);
+    runtime = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, null, null, null);
   }
 
   @AfterEach
-  void cleanup() {
-    WorkerExecutionContext.clear();
-  }
+  void cleanup() {}
 
   @Test
   void caseId_returnsConstructorValue() {
@@ -76,7 +72,7 @@ class DefaultWorkerRuntimeTest {
 
   @Test
   void execute_syncFunction_returnsResult() {
-    WorkerFunction<?, ?> fn =
+    var fn =
         new WorkerFunction.Sync<>(
             Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of("result", "hello")));
 
@@ -88,7 +84,7 @@ class DefaultWorkerRuntimeTest {
 
   @Test
   void execute_throwingFunction_wrapsInFailed() {
-    WorkerFunction<?, ?> fn =
+    var fn =
         new WorkerFunction.Sync<>(
             Map.class,
             Map.class,
@@ -103,31 +99,25 @@ class DefaultWorkerRuntimeTest {
   }
 
   @Test
-  void execute_preservesParentContext() {
-    var parentContext =
-        new io.casehub.api.model.WorkerContext("parent-task", CASE_ID, null, null, null, null);
-    WorkerExecutionContext.set(parentContext);
-
-    WorkerFunction<?, ?> fn =
+  void execute_passesRuntimeAsScope() {
+    var fn =
         new WorkerFunction.Sync<>(
             Map.class,
             Map.class,
             (input, scope) -> {
-              var innerCtx = WorkerExecutionContext.current();
-              assertNotNull(innerCtx);
-              assertEquals(CASE_ID, innerCtx.caseId());
+              assertNotNull(scope);
+              assertEquals(CASE_ID, scope.caseId());
+              assertEquals("test-task", scope.taskId());
               return WorkerResult.of(Map.of());
             });
 
     runtime.execute(fn, Map.of());
-
-    assertSame(parentContext, WorkerExecutionContext.current());
   }
 
   @Test
   void execute_nestedOrchestration_stackSemantics() {
     List<String> order = new ArrayList<>();
-    WorkerFunction inner =
+    var inner =
         new WorkerFunction.Sync<>(
             Map.class,
             Map.class,
@@ -135,19 +125,17 @@ class DefaultWorkerRuntimeTest {
               order.add("inner");
               return WorkerResult.of(Map.of("inner", true));
             });
-    WorkerFunction outer =
+    var outer =
         new WorkerFunction.Sync<>(
             Map.class,
             Map.class,
             (input, scope) -> {
               order.add("outer-start");
-              var rt = WorkerExecutionContext.currentRuntime();
-              var result = rt.execute(inner, input);
+              var result = scope.execute(inner, input);
               order.add("outer-end");
               return result;
             });
 
-    WorkerExecutionContext.setRuntime(runtime);
     WorkerResult<?> result = runtime.execute(outer, Map.of());
 
     assertEquals(List.of("outer-start", "inner", "outer-end"), order);
@@ -156,7 +144,8 @@ class DefaultWorkerRuntimeTest {
 
   @Test
   void execute_unsupportedFunctionType_returnsFailed() {
-    WorkerResult<?> result = runtime.execute(WorkerFunction.NONE, Map.of());
+    @SuppressWarnings("unchecked")
+    WorkerResult<?> result = runtime.execute((WorkerFunction) WorkerFunction.NONE, Map.of());
     assertInstanceOf(WorkerOutcome.Failed.class, result.outcome());
   }
 
@@ -170,7 +159,9 @@ class DefaultWorkerRuntimeTest {
     CaseHubRuntime caseHubRuntime = new StubCaseHubRuntime(childId);
     CaseInstanceCache emptyCache = new StubCaseInstanceCache(null, null);
 
-    var rt = new DefaultWorkerRuntime(CASE_ID, caseHubRuntime, registry, emptyCache, null);
+    var rt =
+        new DefaultWorkerRuntime(
+            CASE_ID, "test-task", null, caseHubRuntime, registry, emptyCache, null);
     UUID result = rt.spawnCase("child", Map.of("key", "value"));
     assertEquals(childId, result);
   }
@@ -179,7 +170,7 @@ class DefaultWorkerRuntimeTest {
   void spawnCase_unknownDefinition_throws() {
     CaseDefinitionRegistry registry = new StubCaseDefinitionRegistry(null);
 
-    var rt = new DefaultWorkerRuntime(CASE_ID, null, registry, null, null);
+    var rt = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, registry, null, null);
     assertThrows(IllegalArgumentException.class, () -> rt.spawnCase("unknown", Map.of()));
   }
 
@@ -196,7 +187,7 @@ class DefaultWorkerRuntimeTest {
 
     CaseInstanceCache cache = new StubCaseInstanceCache(childId, childInstance);
 
-    var rt = new DefaultWorkerRuntime(CASE_ID, null, null, cache, tracker);
+    var rt = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, null, cache, tracker);
     CaseContext result = rt.awaitCase(childId, Duration.ofSeconds(5));
     assertNotNull(result);
   }
@@ -213,7 +204,7 @@ class DefaultWorkerRuntimeTest {
 
     CaseInstanceCache cache = new StubCaseInstanceCache(childId, childInstance);
 
-    var rt = new DefaultWorkerRuntime(CASE_ID, null, null, cache, tracker);
+    var rt = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, null, cache, tracker);
     CaseTerminatedException ex =
         assertThrows(
             CaseTerminatedException.class, () -> rt.awaitCase(childId, Duration.ofSeconds(5)));

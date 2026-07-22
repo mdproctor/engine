@@ -24,7 +24,6 @@ import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.WorkerExecutionContext;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseTerminatedException;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
@@ -44,6 +43,8 @@ import java.util.concurrent.TimeoutException;
 class DefaultWorkerRuntime implements WorkerRuntime {
 
   private final UUID caseId;
+  private final String taskId;
+  private final WorkerContext context;
   private final CaseHubRuntime caseHubRuntime;
   private final CaseDefinitionRegistry definitionRegistry;
   private final CaseInstanceCache caseInstanceCache;
@@ -51,11 +52,15 @@ class DefaultWorkerRuntime implements WorkerRuntime {
 
   DefaultWorkerRuntime(
       UUID caseId,
+      String taskId,
+      WorkerContext context,
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry definitionRegistry,
       CaseInstanceCache caseInstanceCache,
       CaseCompletionTracker tracker) {
     this.caseId = caseId;
+    this.taskId = taskId;
+    this.context = context;
     this.caseHubRuntime = caseHubRuntime;
     this.definitionRegistry = definitionRegistry;
     this.caseInstanceCache = caseInstanceCache;
@@ -68,25 +73,35 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   }
 
   @Override
-  @SuppressWarnings("unchecked")
-  public WorkerResult<?> execute(WorkerFunction<?, ?> function, Map<String, Object> input) {
-    if (function instanceof WorkerFunction.Sync<?, ?> sync) {
-      var fn =
-          (java.util.function.BiFunction<
-                  Object, io.casehub.worker.api.WorkerScope, WorkerResult<?>>)
-              (java.util.function.BiFunction) sync.fn();
-      return executeSync(i -> fn.apply(i, null), input);
-    }
-    if (function instanceof AgentWorkerFunction agent) {
-      return executeSync(agent.agent()::execute, input);
-    }
-    return WorkerResult.failed(
-        "Unsupported function type for Tier 1 execution: "
-            + function.getClass().getName()
-            + ". FlowWorkerFunction belongs at Tier 3.");
+  public String taskId() {
+    return taskId;
   }
 
   @Override
+  public WorkerContext context() {
+    return context;
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
+  public <T, R> WorkerResult<R> execute(WorkerFunction<T, R> function, T input) {
+    if (function instanceof WorkerFunction.Sync<T, R> sync) {
+      try {
+        return sync.fn().apply(input, this);
+      } catch (Exception e) {
+        return (WorkerResult<R>) WorkerResult.failed(e.getMessage());
+      }
+    }
+    if (function instanceof AgentWorkerFunction agent) {
+      return (WorkerResult<R>) agent.agent().execute((java.util.Map<String, Object>) input);
+    }
+    return (WorkerResult<R>)
+        WorkerResult.failed(
+            "Unsupported function type for Tier 1 execution: " + function.getClass().getName());
+  }
+
+  @Override
+  @SuppressWarnings("unchecked")
   public WorkerResult<?> execute(String workerName, Map<String, Object> input) {
     CaseInstance instance = caseInstanceCache.get(caseId);
     if (instance == null) {
@@ -109,7 +124,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
               + definition.getName()
               + "'");
     }
-    return execute(worker.function(), input);
+    return execute((WorkerFunction) worker.function(), input);
   }
 
   @Override
@@ -140,7 +155,6 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   public CaseContext awaitCase(UUID childCaseId, Duration timeout) {
     CompletableFuture<CaseContext> future = tracker.register(childCaseId);
 
-    // Race guard: check if the child case already completed before we registered.
     CaseInstance child = caseInstanceCache.get(childCaseId);
     if (child != null && isTerminal(child.getState())) {
       CaseContext snapshot = child.getCaseContext().snapshot();
@@ -179,23 +193,5 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       String caseType, Map<String, Object> input, Duration timeout) {
     UUID childId = spawnCase(caseType, input);
     return awaitCase(childId, timeout);
-  }
-
-  private WorkerResult<?> executeSync(
-      java.util.function.Function<Map<String, Object>, WorkerResult<?>> fn,
-      Map<String, Object> input) {
-    WorkerContext parentCtx = WorkerExecutionContext.current();
-    WorkerRuntime parentRuntime = WorkerExecutionContext.currentRuntime();
-    try {
-      WorkerContext childCtx = new WorkerContext(null, caseId, null, null, null, null);
-      WorkerExecutionContext.set(childCtx);
-      WorkerExecutionContext.setRuntime(this);
-      return fn.apply(input);
-    } catch (Exception e) {
-      return WorkerResult.failed(e.getMessage());
-    } finally {
-      WorkerExecutionContext.set(parentCtx);
-      WorkerExecutionContext.setRuntime(parentRuntime);
-    }
   }
 }

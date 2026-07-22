@@ -36,16 +36,16 @@ public final class WorkerFunctions {
     return new WorkerFunction.Sync(
         Map.class,
         Map.class,
-        (input, scope) -> {
-          var rt = WorkerExecutionContext.currentRuntime();
-          if (rt == null) {
+        (input, rawScope) -> {
+          if (rawScope == null) {
             return WorkerResult.failed(
-                "WorkerRuntime not available — "
+                "WorkerScope not available — "
                     + "sequence must run inside engine execution context");
           }
+          var scope = (io.casehub.worker.api.WorkerScope) rawScope;
           var acc = (Map<String, Object>) input;
           for (var step : copy) {
-            var result = rt.execute(step, acc);
+            var result = scope.execute((WorkerFunction) step, acc);
             if (!(result.outcome() instanceof WorkerOutcome.Success)) {
               return result;
             }
