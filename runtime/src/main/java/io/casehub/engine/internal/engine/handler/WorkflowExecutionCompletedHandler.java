@@ -339,10 +339,10 @@ public class WorkflowExecutionCompletedHandler {
         io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
         caseInstance.getCaseContext().snapshot().asJsonNode());
 
-    // Read or create _outcomes.<bindingName> in working layer
+    // Read or create _diagnostics.<bindingName> in working layer
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> existingOutcomes =
-        (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
+        (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
     final ObjectNode outcomesRoot =
         existingOutcomes != null
             ? OBJECT_MAPPER.valueToTree(existingOutcomes).deepCopy()
@@ -391,7 +391,7 @@ public class WorkflowExecutionCompletedHandler {
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> outcomesMap =
         OBJECT_MAPPER.convertValue(outcomesRoot, java.util.Map.class);
-    caseInstance.getCaseContext().set("_outcomes", outcomesMap);
+    caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
 
     // Episodic
     if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
@@ -663,7 +663,7 @@ public class WorkflowExecutionCompletedHandler {
       return;
     }
     final java.util.Map<String, Object> existingOutcomes =
-        (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
+        (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
     if (existingOutcomes == null) {
       return;
     }
@@ -686,7 +686,7 @@ public class WorkflowExecutionCompletedHandler {
     bindingOutcome.set("history", history);
     final java.util.Map<String, Object> outcomesMap =
         OBJECT_MAPPER.convertValue(outcomesRoot, java.util.Map.class);
-    caseInstance.getCaseContext().set("_outcomes", outcomesMap);
+    caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
   }
 
   /**

@@ -137,7 +137,7 @@ class FailureCascadeIntegrationTest {
 
   @Test
   @SuppressWarnings("unchecked")
-  void success_after_reroute_records_completed_in_outcomes() {
+  void success_after_reroute_records_completed_in_diagnostics() {
     Map<String, Object> priorOutcomes =
         Map.of(
             "on-task",
@@ -153,7 +153,7 @@ class FailureCascadeIntegrationTest {
 
     UUID caseId =
         successAfterRerouteBean
-            .startCase(Map.of("task", "go", "_outcomes", priorOutcomes))
+            .startCase(Map.of("task", "go", "_diagnostics", priorOutcomes))
             .toCompletableFuture()
             .join();
 
@@ -163,10 +163,10 @@ class FailureCascadeIntegrationTest {
             () -> {
               CaseInstance instance = caseInstanceCache.get(caseId);
               Map<String, Object> outcomes =
-                  (Map<String, Object>) instance.getCaseContext().get("_outcomes");
-              assertNotNull(outcomes, "_outcomes must exist");
+                  (Map<String, Object>) instance.getCaseContext().get("_diagnostics");
+              assertNotNull(outcomes, "_diagnostics must exist");
               Map<String, Object> binding = (Map<String, Object>) outcomes.get("on-task");
-              assertNotNull(binding, "_outcomes.on-task must exist");
+              assertNotNull(binding, "_diagnostics.on-task must exist");
               assertEquals("COMPLETED", binding.get("status"));
               List<Map<String, Object>> history =
                   (List<Map<String, Object>>) binding.get("history");

@@ -370,7 +370,7 @@ public class CaseContextChangedEventHandler {
             .getCaseContext()
             .layer(ContextLayer.WORKING)
             .asJsonNode()
-            .path("_outcomes")
+            .path("_diagnostics")
             .path(binding.getName());
     if (outcomeNode.has("excludedAgents")) {
       final java.util.Set<String> excluded =
@@ -434,13 +434,13 @@ public class CaseContextChangedEventHandler {
   private void handleAllCandidatesExhausted(
       final CaseInstance caseInstance, final String bindingName, final String capabilityName) {
     final Map<String, Object> existingOutcomes =
-        (Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
+        (Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
     if (existingOutcomes != null) {
       final ObjectNode outcomesRoot = MAPPER.valueToTree(existingOutcomes).deepCopy();
       if (outcomesRoot.has(bindingName)) {
         ((ObjectNode) outcomesRoot.get(bindingName)).put("status", "REROUTES_EXHAUSTED");
         final Map<String, Object> outcomesMap = MAPPER.convertValue(outcomesRoot, MAP_TYPE);
-        caseInstance.getCaseContext().set("_outcomes", outcomesMap);
+        caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
       }
     }
     eventBus.publish(

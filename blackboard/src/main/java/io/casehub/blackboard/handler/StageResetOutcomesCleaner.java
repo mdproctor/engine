@@ -30,9 +30,9 @@ import java.util.Set;
 import org.jboss.logging.Logger;
 
 /**
- * Clears {@code _outcomes} entries for a stage's bindings when a repeatable stage resets. Without
- * this, excluded agents from iteration N carry over to iteration N+1, incorrectly preventing agents
- * from being dispatched for new work. Refs casehubio/engine#517.
+ * Clears {@code _diagnostics} entries for a stage's bindings when a repeatable stage resets.
+ * Without this, excluded agents from iteration N carry over to iteration N+1, incorrectly
+ * preventing agents from being dispatched for new work. Refs casehubio/engine#517.
  */
 @ApplicationScoped
 public class StageResetOutcomesCleaner {
@@ -64,7 +64,7 @@ public class StageResetOutcomesCleaner {
     }
 
     final Map<String, Object> existingOutcomes =
-        (Map<String, Object>) instance.getCaseContext().get("_outcomes");
+        (Map<String, Object>) instance.getCaseContext().get("_diagnostics");
     if (existingOutcomes == null) {
       return;
     }
@@ -80,9 +80,9 @@ public class StageResetOutcomesCleaner {
 
     if (modified) {
       final Map<String, Object> outcomesMap = MAPPER.convertValue(outcomesRoot, MAP_TYPE);
-      instance.getCaseContext().set("_outcomes", outcomesMap);
+      instance.getCaseContext().set("_diagnostics", outcomesMap);
       LOG.infof(
-          "Cleared _outcomes for bindings %s on stage '%s' reset (instance %d), caseId=%s",
+          "Cleared _diagnostics for bindings %s on stage '%s' reset (instance %d), caseId=%s",
           bindingNames, event.stage().getName(), event.instanceIndex(), event.caseId());
     }
   }

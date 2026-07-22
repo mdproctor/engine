@@ -397,7 +397,7 @@ class CaseContextChangedEventHandlerRoutingTest {
     excludedAgents.add("analyst-worker");
     bindingOutcome.set("excludedAgents", excludedAgents);
     outcomesNode.set("research-binding", bindingOutcome);
-    workingNode.set("_outcomes", outcomesNode);
+    workingNode.set("_diagnostics", outcomesNode);
 
     CaseContext ctx = mock(CaseContext.class);
     ReadableLayer workingLayer = mock(ReadableLayer.class);

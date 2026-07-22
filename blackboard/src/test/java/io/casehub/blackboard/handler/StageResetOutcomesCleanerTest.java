@@ -57,7 +57,7 @@ class StageResetOutcomesCleanerTest {
     caseInstance
         .getCaseContext()
         .set(
-            "_outcomes",
+            "_diagnostics",
             Map.of(
                 "binding-a",
                 Map.of("status", "DECLINED", "attempts", 1, "excludedAgents", List.of("worker-1")),
@@ -77,8 +77,8 @@ class StageResetOutcomesCleanerTest {
     cleaner.onStageActivated(new StageActivatedEvent(caseId, "test-tenant", stage, 1));
 
     Map<String, Object> outcomes =
-        (Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
-    assertNotNull(outcomes, "_outcomes should still exist");
+        (Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
+    assertNotNull(outcomes, "_diagnostics should still exist");
     assertNull(outcomes.get("binding-a"), "binding-a should be cleared");
     assertNull(outcomes.get("binding-b"), "binding-b should be cleared");
   }
@@ -89,7 +89,7 @@ class StageResetOutcomesCleanerTest {
     caseInstance
         .getCaseContext()
         .set(
-            "_outcomes",
+            "_diagnostics",
             Map.of(
                 "stage-binding", Map.of("status", "DECLINED"),
                 "other-binding", Map.of("status", "FAILED")));
@@ -106,7 +106,7 @@ class StageResetOutcomesCleanerTest {
     cleaner.onStageActivated(new StageActivatedEvent(caseId, "test-tenant", stage, 2));
 
     Map<String, Object> outcomes =
-        (Map<String, Object>) caseInstance.getCaseContext().get("_outcomes");
+        (Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
     assertNotNull(outcomes);
     assertNull(outcomes.get("stage-binding"), "stage-binding should be cleared");
     assertNotNull(outcomes.get("other-binding"), "other-binding should be preserved");
@@ -117,7 +117,7 @@ class StageResetOutcomesCleanerTest {
   void skipsFirstActivation() {
     caseInstance
         .getCaseContext()
-        .set("_outcomes", Map.of("binding-a", Map.of("status", "DECLINED")));
+        .set("_diagnostics", Map.of("binding-a", Map.of("status", "DECLINED")));
 
     Stage stage =
         Stage.builder("test-stage")
@@ -129,7 +129,7 @@ class StageResetOutcomesCleanerTest {
     cleaner.onStageActivated(new StageActivatedEvent(caseId, "test-tenant", stage, 0));
 
     assertNotNull(
-        caseInstance.getCaseContext().get("_outcomes"), "_outcomes should not be modified");
+        caseInstance.getCaseContext().get("_diagnostics"), "_diagnostics should not be modified");
   }
 
   @Test
@@ -145,6 +145,7 @@ class StageResetOutcomesCleanerTest {
 
     cleaner.onStageActivated(new StageActivatedEvent(caseId, "test-tenant", stage, 1));
 
-    assertNull(caseInstance.getCaseContext().get("_outcomes"), "_outcomes should remain null");
+    assertNull(
+        caseInstance.getCaseContext().get("_diagnostics"), "_diagnostics should remain null");
   }
 }
