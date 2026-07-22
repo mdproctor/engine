@@ -20,7 +20,6 @@ import io.serverlessworkflow.api.types.CallFunction;
 import io.serverlessworkflow.api.types.TaskBase;
 import io.serverlessworkflow.impl.WorkflowDefinition;
 import io.serverlessworkflow.impl.WorkflowMutablePosition;
-import io.serverlessworkflow.impl.executors.CallableTask;
 import io.serverlessworkflow.impl.executors.CallableTaskBuilder;
 import java.util.Map;
 
@@ -36,44 +35,29 @@ import java.util.Map;
  */
 public class CasehubCallableTaskBuilder implements CallableTaskBuilder<CallFunction> {
 
-  // ServiceLoader caches a single instance of this builder. init() and build() are always called
-  // sequentially on the same thread (per DefaultTaskExecutorFactory), but may be called
-  // concurrently from different threads loading different workflow definitions. ThreadLocal
-  // passes state between init() and build() without shared mutable state.
-  private final ThreadLocal<String> callNameHolder = new ThreadLocal<>();
-  private final ThreadLocal<Map<String, Object>> argsHolder = new ThreadLocal<>();
-
   @Override
   public boolean accept(final Class<? extends TaskBase> clazz) {
     return CallFunction.class.isAssignableFrom(clazz);
   }
 
   @Override
-  public void init(
+  public io.serverlessworkflow.impl.executors.CallableTaskFactory init(
       final CallFunction task,
       final WorkflowDefinition definition,
       final WorkflowMutablePosition position) {
-    callNameHolder.set(task.getCall());
+    final String callName = task.getCall();
     final Map<String, Object> args =
         task.getWith() != null ? task.getWith().getAdditionalProperties() : Map.of();
-    argsHolder.set(args);
-  }
-
-  @Override
-  public CallableTask build() {
-    final String callName = callNameHolder.get();
-    final Map<String, Object> args = argsHolder.get();
-    callNameHolder.remove();
-    argsHolder.remove();
-    return (workflowContext, taskContext, input) -> {
-      final String instanceId = workflowContext.instanceData().id();
-      return Arc.container()
-          .instance(CallableDispatchRegistry.class)
-          .get()
-          .get(callName)
-          .dispatch(instanceId, args)
-          .thenApply(
-              output -> workflowContext.definition().application().modelFactory().from(output));
-    };
+    return () ->
+        (workflowContext, taskContext, input) -> {
+          final String instanceId = workflowContext.instanceData().id();
+          return Arc.container()
+              .instance(CallableDispatchRegistry.class)
+              .get()
+              .get(callName)
+              .dispatch(instanceId, args)
+              .thenApply(
+                  output -> workflowContext.definition().application().modelFactory().from(output));
+        };
   }
 }

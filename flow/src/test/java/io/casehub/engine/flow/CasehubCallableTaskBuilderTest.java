@@ -79,40 +79,42 @@ class CasehubCallableTaskBuilderTest {
     final CallFunction task = new CallFunction();
     task.setCall("casehub:dispatch");
 
-    builder.init(task, mock(WorkflowDefinition.class), mock(WorkflowMutablePosition.class));
+    var factory =
+        builder.init(task, mock(WorkflowDefinition.class), mock(WorkflowMutablePosition.class));
 
-    final CallableTask callable = builder.build();
+    final CallableTask callable = factory.get();
     assertThat(callable).isNotNull();
   }
 
   // ---- build() --------------------------------------------------------
 
   @Test
-  void build_after_valid_init_returns_non_null_callable() {
-    builder.init(
-        dispatchTask("casehub:dispatch", "generate-report"),
-        mock(WorkflowDefinition.class),
-        mock(WorkflowMutablePosition.class));
+  void init_returns_factory_that_produces_callable() {
+    var factory =
+        builder.init(
+            dispatchTask("casehub:dispatch", "generate-report"),
+            mock(WorkflowDefinition.class),
+            mock(WorkflowMutablePosition.class));
 
-    final CallableTask callable = builder.build();
-
+    final CallableTask callable = factory.get();
     assertThat(callable).isNotNull();
   }
 
   @Test
-  void build_clears_thread_local_state() {
-    builder.init(
-        dispatchTask("casehub:dispatch", "cap-1"),
-        mock(WorkflowDefinition.class),
-        mock(WorkflowMutablePosition.class));
-    builder.build();
+  void successive_init_calls_produce_independent_factories() {
+    var factory1 =
+        builder.init(
+            dispatchTask("casehub:dispatch", "cap-1"),
+            mock(WorkflowDefinition.class),
+            mock(WorkflowMutablePosition.class));
+    assertThat(factory1.get()).isNotNull();
 
-    builder.init(
-        dispatchTask("casehub:dispatch", "cap-2"),
-        mock(WorkflowDefinition.class),
-        mock(WorkflowMutablePosition.class));
-    final CallableTask callable = builder.build();
-    assertThat(callable).isNotNull();
+    var factory2 =
+        builder.init(
+            dispatchTask("casehub:dispatch", "cap-2"),
+            mock(WorkflowDefinition.class),
+            mock(WorkflowMutablePosition.class));
+    assertThat(factory2.get()).isNotNull();
   }
 
   // ---- helpers --------------------------------------------------------
