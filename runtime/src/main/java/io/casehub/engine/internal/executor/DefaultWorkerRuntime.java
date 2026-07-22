@@ -42,6 +42,9 @@ import java.util.concurrent.TimeoutException;
 
 class DefaultWorkerRuntime implements WorkerRuntime {
 
+  private static final com.fasterxml.jackson.databind.ObjectMapper MAPPER =
+      new com.fasterxml.jackson.databind.ObjectMapper();
+
   private final UUID caseId;
   private final String taskId;
   private final WorkerContext context;
@@ -124,7 +127,12 @@ class DefaultWorkerRuntime implements WorkerRuntime {
               + definition.getName()
               + "'");
     }
-    return execute((WorkerFunction) worker.function(), input);
+    WorkerFunction<?, ?> function = worker.function();
+    if (function.inputType() != Map.class && function.inputType() != Object.class) {
+      Object converted = MAPPER.convertValue(input, function.inputType());
+      return execute((WorkerFunction) function, converted);
+    }
+    return execute((WorkerFunction) function, input);
   }
 
   @Override

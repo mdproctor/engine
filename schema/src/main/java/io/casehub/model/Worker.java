@@ -48,6 +48,7 @@ public class Worker {
   private List<String> sequence;
 
   private String contextType;
+  private String outputType;
 
   public String getName() {
     return name;
@@ -143,5 +144,13 @@ public class Worker {
 
   public void setContextType(String contextType) {
     this.contextType = contextType;
+  }
+
+  public String getOutputType() {
+    return outputType;
+  }
+
+  public void setOutputType(String outputType) {
+    this.outputType = outputType;
   }
 }

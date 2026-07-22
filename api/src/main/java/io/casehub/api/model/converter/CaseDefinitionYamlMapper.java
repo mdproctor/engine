@@ -356,10 +356,14 @@ public final class CaseDefinitionYamlMapper {
             } else if (sw.getContextType() != null) {
               try {
                 Class<?> contextType = Class.forName(sw.getContextType());
+                Class<?> outType =
+                    sw.getOutputType() != null
+                        ? Class.forName(sw.getOutputType())
+                        : java.util.Map.class;
                 function =
                     new WorkerFunction.Sync<>(
                         contextType,
-                        java.util.Map.class,
+                        outType,
                         (input, scope) -> {
                           throw new UnsupportedOperationException(
                               "YAML-declared contextType worker '"
@@ -368,10 +372,7 @@ public final class CaseDefinitionYamlMapper {
                         });
               } catch (ClassNotFoundException e) {
                 throw new IllegalArgumentException(
-                    "Worker '"
-                        + sw.getName()
-                        + "' contextType class not found: "
-                        + sw.getContextType(),
+                    "Worker '" + sw.getName() + "' type class not found: " + sw.getContextType(),
                     e);
               }
             } else {

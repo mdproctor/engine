@@ -205,8 +205,7 @@ class QuartzWorkerExecutionJob implements Job {
           .subscribe()
           .with(
               workerResult -> {
-                @SuppressWarnings("unchecked")
-                Map<String, Object> output = (Map<String, Object>) workerResult.output();
+                Map<String, Object> output = toMap(workerResult.output());
                 if ((output == null || output.isEmpty()) && bridge.isLiveView()) {
                   output = bridgeResolver.extractOutput(bridge, typedInput);
                 }
@@ -231,8 +230,7 @@ class QuartzWorkerExecutionJob implements Job {
       io.casehub.worker.api.WorkerResult<?> workerResult,
       String bindingName,
       java.util.UUID signalId) {
-    @SuppressWarnings("unchecked")
-    Map<String, Object> output = (Map<String, Object>) workerResult.output();
+    Map<String, Object> output = toMap(workerResult.output());
     eventBus.publish(
         WORKER_EXECUTION_FINISHED,
         new WorkflowExecutionCompleted(
@@ -279,5 +277,17 @@ class QuartzWorkerExecutionJob implements Job {
           e, "Failed to deserialize CBR experiences from EventLog metadata — proceeding without");
       return List.of();
     }
+  }
+
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> toMap(Object output) {
+    if (output == null) {
+      return null;
+    }
+    if (output instanceof Map) {
+      return (Map<String, Object>) output;
+    }
+    return OBJECT_MAPPER.convertValue(
+        output, new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
   }
 }
