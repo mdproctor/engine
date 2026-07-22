@@ -427,7 +427,9 @@ class StageBlackboardTest {
                   .capabilityName("signal-cap")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("probe", "done"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("probe", "done"))))
                   .build())
           .bindings(
               Binding.builder()
@@ -469,7 +471,8 @@ class StageBlackboardTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input ->
+                          Map.class,
+                          (input, scope) ->
                               WorkerResult.of(
                                   Map.of("go", false)))) // falsifies trigger, no re-fire
                   .build())

@@ -234,7 +234,8 @@ class CaseFaultedStateTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             runCount.incrementAndGet();
                             throw new RuntimeException("Simulated permanent failure");
                           }))
@@ -292,7 +293,9 @@ class CaseFaultedStateTest {
                   .capabilityName("failureGoalCapability")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("status", "error"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("status", "error"))))
                   .build())
           .bindings(
               Binding.builder()

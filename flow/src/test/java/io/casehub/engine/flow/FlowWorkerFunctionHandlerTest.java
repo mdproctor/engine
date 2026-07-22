@@ -90,7 +90,7 @@ class FlowWorkerFunctionHandlerTest {
             .await()
             .atMost(Duration.ofSeconds(10));
 
-    assertThat(result.output()).containsEntry("result", "done");
+    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
     verify(registry).register(eq(instanceId), eq(caseId), eq("worker-A"), eq("hash-1"));
     verify(registry).remove(instanceId);
   }
@@ -183,7 +183,7 @@ class FlowWorkerFunctionHandlerTest {
     future.complete(model);
 
     final WorkerResult result = uni.await().atMost(Duration.ofSeconds(10));
-    assertThat(result.output()).containsEntry("data", "value");
+    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("data", "value");
     verify(registry).remove(instanceId);
   }
 

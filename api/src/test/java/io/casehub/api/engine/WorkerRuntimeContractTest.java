@@ -36,12 +36,12 @@ class WorkerRuntimeContractTest {
           }
 
           @Override
-          public WorkerResult execute(WorkerFunction function, Map<String, Object> input) {
+          public WorkerResult<?> execute(WorkerFunction<?, ?> function, Map<String, Object> input) {
             return WorkerResult.of(Map.of());
           }
 
           @Override
-          public WorkerResult execute(String workerName, Map<String, Object> input) {
+          public WorkerResult<?> execute(String workerName, Map<String, Object> input) {
             return WorkerResult.of(Map.of());
           }
 

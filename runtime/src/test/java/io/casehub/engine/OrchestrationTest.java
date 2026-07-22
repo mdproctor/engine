@@ -153,7 +153,9 @@ class OrchestrationTest {
                   .capabilityName("analyse")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("analysis", "complete"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("analysis", "complete"))))
                   .build())
           .bindings(
               Binding.builder()

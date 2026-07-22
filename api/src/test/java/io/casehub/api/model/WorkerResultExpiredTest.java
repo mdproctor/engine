@@ -27,17 +27,17 @@ class WorkerResultExpiredTest {
 
   @Test
   void expired_factory_creates_expired_outcome_with_empty_output() {
-    WorkerResult result = WorkerResult.expired("timed out");
+    WorkerResult<?> result = WorkerResult.expired("timed out");
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
-    assertThat(((WorkerOutcome.Expired) result.outcome()).reason()).isEqualTo("timed out");
-    assertThat(result.output()).isEmpty();
+    assertThat(((WorkerOutcome.Expired<?>) result.outcome()).reason()).isEqualTo("timed out");
+    assertThat(result.output()).isNull();
     assertThat(result.outcome()).isNotInstanceOf(WorkerOutcome.Success.class);
   }
 
   @Test
   void expired_factory_with_partial_output() {
     Map<String, Object> partial = Map.of("progress", "50%");
-    WorkerResult result = WorkerResult.expired("deadline passed", partial);
+    WorkerResult<?> result = WorkerResult.expired("deadline passed", partial);
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
     assertThat(result.output()).isEqualTo(partial);
   }

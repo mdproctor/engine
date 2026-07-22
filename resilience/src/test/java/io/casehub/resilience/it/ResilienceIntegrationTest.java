@@ -244,7 +244,8 @@ class ResilienceIntegrationTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             throw new RuntimeException("Resilience IT — intentional failure");
                           }))
                   .executionPolicy(

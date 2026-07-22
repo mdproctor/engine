@@ -158,14 +158,18 @@ class MixedWorkersBlackboardTest {
                   .capabilityName("cap-a")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("phaseA", "done"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("phaseA", "done"))))
                   .build(),
               Worker.builder()
                   .name("worker-b")
                   .capabilityName("cap-b")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("phaseB", "done"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("phaseB", "done"))))
                   .build())
           .bindings(
               Binding.builder()

@@ -290,7 +290,8 @@ public class SignalPersistenceAndDedupTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             runCount.incrementAndGet();
                             Map<String, Object> payment =
                                 (Map<String, Object>) input.get("payment");

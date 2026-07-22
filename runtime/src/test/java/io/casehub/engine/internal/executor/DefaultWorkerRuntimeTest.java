@@ -76,28 +76,30 @@ class DefaultWorkerRuntimeTest {
 
   @Test
   void execute_syncFunction_returnsResult() {
-    WorkerFunction fn =
-        new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of("result", "hello")));
+    WorkerFunction<?, ?> fn =
+        new WorkerFunction.Sync<>(
+            Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of("result", "hello")));
 
-    WorkerResult result = runtime.execute(fn, Map.of("key", "value"));
+    WorkerResult<?> result = runtime.execute(fn, Map.of("key", "value"));
 
     assertInstanceOf(WorkerOutcome.Success.class, result.outcome());
-    assertEquals("hello", result.output().get("result"));
+    assertEquals("hello", ((Map<String, Object>) result.output()).get("result"));
   }
 
   @Test
   void execute_throwingFunction_wrapsInFailed() {
-    WorkerFunction fn =
+    WorkerFunction<?, ?> fn =
         new WorkerFunction.Sync<>(
             Map.class,
-            input -> {
+            Map.class,
+            (input, scope) -> {
               throw new RuntimeException("boom");
             });
 
-    WorkerResult result = runtime.execute(fn, Map.of());
+    WorkerResult<?> result = runtime.execute(fn, Map.of());
 
     assertInstanceOf(WorkerOutcome.Failed.class, result.outcome());
-    assertEquals("boom", ((WorkerOutcome.Failed) result.outcome()).reason());
+    assertEquals("boom", ((WorkerOutcome.Failed<?>) result.outcome()).reason());
   }
 
   @Test
@@ -106,10 +108,11 @@ class DefaultWorkerRuntimeTest {
         new io.casehub.api.model.WorkerContext("parent-task", CASE_ID, null, null, null, null);
     WorkerExecutionContext.set(parentContext);
 
-    WorkerFunction fn =
+    WorkerFunction<?, ?> fn =
         new WorkerFunction.Sync<>(
             Map.class,
-            input -> {
+            Map.class,
+            (input, scope) -> {
               var innerCtx = WorkerExecutionContext.current();
               assertNotNull(innerCtx);
               assertEquals(CASE_ID, innerCtx.caseId());
@@ -127,14 +130,16 @@ class DefaultWorkerRuntimeTest {
     WorkerFunction inner =
         new WorkerFunction.Sync<>(
             Map.class,
-            input -> {
+            Map.class,
+            (input, scope) -> {
               order.add("inner");
               return WorkerResult.of(Map.of("inner", true));
             });
     WorkerFunction outer =
         new WorkerFunction.Sync<>(
             Map.class,
-            input -> {
+            Map.class,
+            (input, scope) -> {
               order.add("outer-start");
               var rt = WorkerExecutionContext.currentRuntime();
               var result = rt.execute(inner, input);
@@ -143,15 +148,15 @@ class DefaultWorkerRuntimeTest {
             });
 
     WorkerExecutionContext.setRuntime(runtime);
-    WorkerResult result = runtime.execute(outer, Map.of());
+    WorkerResult<?> result = runtime.execute(outer, Map.of());
 
     assertEquals(List.of("outer-start", "inner", "outer-end"), order);
-    assertTrue((Boolean) result.output().get("inner"));
+    assertTrue((Boolean) ((Map<String, Object>) result.output()).get("inner"));
   }
 
   @Test
   void execute_unsupportedFunctionType_returnsFailed() {
-    WorkerResult result = runtime.execute(WorkerFunction.NONE, Map.of());
+    WorkerResult<?> result = runtime.execute(WorkerFunction.NONE, Map.of());
     assertInstanceOf(WorkerOutcome.Failed.class, result.outcome());
   }
 

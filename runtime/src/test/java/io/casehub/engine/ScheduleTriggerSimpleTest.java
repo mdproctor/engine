@@ -256,7 +256,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         return WorkerResult.of(Map.of("workDone", true));
                       }))
@@ -300,7 +301,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         return WorkerResult.of(Map.of("workDone", true));
                       }))
@@ -344,7 +346,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         return WorkerResult.of(Map.of("workDone", true));
                       }))
@@ -389,7 +392,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         return WorkerResult.of(Map.of("workDone", true));
                       }))
@@ -434,7 +438,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         return WorkerResult.of(Map.of("workDone", true));
                       }))
@@ -479,7 +484,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         return WorkerResult.of(Map.of("workDone", true));
                       }))
@@ -532,7 +538,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         worker1Count.incrementAndGet();
                         return WorkerResult.of(Map.of("work1Done", true));
                       }))
@@ -545,7 +552,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         worker2Count.incrementAndGet();
                         return WorkerResult.of(Map.of("work2Done", true));
                       }))
@@ -596,7 +604,8 @@ class ScheduleTriggerSimpleTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         return WorkerResult.of(Map.of("workDone", true));
                       }))

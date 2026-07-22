@@ -209,7 +209,9 @@ class FailureCascadeIntegrationTest {
                   .capabilityName("success-cap")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("result", "done"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("result", "done"))))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(1, 100)))
                   .build())
           .bindings(
@@ -248,7 +250,9 @@ class FailureCascadeIntegrationTest {
                   .capabilityName("fault-cap")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.declined("cannot handle")))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.declined("cannot handle")))
                   .executionPolicy(new ExecutionPolicy(60000, new RetryPolicy(1, 100)))
                   .build())
           .bindings(
@@ -288,7 +292,8 @@ class FailureCascadeIntegrationTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             try {
                               Thread.sleep(5000);
                             } catch (InterruptedException e) {

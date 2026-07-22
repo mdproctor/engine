@@ -107,13 +107,13 @@ class WorkerExecutionContextTest {
           }
 
           @Override
-          public io.casehub.worker.api.WorkerResult execute(
-              io.casehub.worker.api.WorkerFunction f, Map<String, Object> i) {
+          public io.casehub.worker.api.WorkerResult<?> execute(
+              io.casehub.worker.api.WorkerFunction<?, ?> f, Map<String, Object> i) {
             return null;
           }
 
           @Override
-          public io.casehub.worker.api.WorkerResult execute(String n, Map<String, Object> i) {
+          public io.casehub.worker.api.WorkerResult<?> execute(String n, Map<String, Object> i) {
             return null;
           }
 

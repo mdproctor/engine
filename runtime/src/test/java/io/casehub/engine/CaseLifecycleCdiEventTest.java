@@ -183,7 +183,9 @@ class CaseLifecycleCdiEventTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> WorkerResult.of(Map.of("done", true, "trigger", false))))
+                          Map.class,
+                          (input, scope) ->
+                              WorkerResult.of(Map.of("done", true, "trigger", false))))
                   .build())
           .bindings(
               Binding.builder()

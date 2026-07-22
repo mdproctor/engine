@@ -256,7 +256,9 @@ class BasicBlackboardTest {
                   // Write phase=done — trigger (.phase == "start") won't match again
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("phase", "done"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("phase", "done"))))
                   .build())
           .bindings(
               Binding.builder()
@@ -295,7 +297,8 @@ class BasicBlackboardTest {
                   .name("never-worker")
                   .capabilityName("never-cap")
                   .function(
-                      new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of())))
+                      new WorkerFunction.Sync<>(
+                          Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of())))
                   .build())
           .bindings(
               Binding.builder()
@@ -343,7 +346,9 @@ class BasicBlackboardTest {
                   .capabilityName("completing-cap")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("phase", "done"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("phase", "done"))))
                   .build())
           .bindings(
               Binding.builder()
@@ -392,7 +397,9 @@ class BasicBlackboardTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> WorkerResult.of(Map.of("go", false, "docsUploaded", true))))
+                          Map.class,
+                          (input, scope) ->
+                              WorkerResult.of(Map.of("go", false, "docsUploaded", true))))
                   .build())
           .bindings(
               Binding.builder()

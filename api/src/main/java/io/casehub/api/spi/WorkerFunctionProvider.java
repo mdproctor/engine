@@ -41,13 +41,5 @@ public interface WorkerFunctionProvider {
    */
   boolean handles(JsonNode rawWorkerNode);
 
-  /**
-   * Constructs a {@link WorkerFunction} from the given YAML worker node.
-   *
-   * <p>Called only when {@link #handles(JsonNode)} returns {@code true}.
-   *
-   * @param rawWorkerNode the YAML worker node
-   * @return a new {@link WorkerFunction} instance
-   */
-  WorkerFunction create(JsonNode rawWorkerNode);
+  WorkerFunction<?, ?> create(JsonNode rawWorkerNode);
 }

@@ -78,7 +78,7 @@ class FlowWorkerExecutorTest {
             .await()
             .indefinitely();
 
-    assertThat(result.output()).containsEntry("result", "done");
+    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
     verify(registry).register(eq(instanceId), eq(caseId), eq("worker-A"), eq("hash-1"));
     verify(registry).remove(instanceId);
   }

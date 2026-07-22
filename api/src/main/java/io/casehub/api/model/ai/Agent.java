@@ -71,7 +71,7 @@ public final class Agent {
    * io.casehub.api.spi.PlannedAction)} — agents that don't declare actions use {@link
    * WorkerResult#of(Map)}.
    */
-  public WorkerResult execute(Map<String, Object> input) {
+  public WorkerResult<Map<String, Object>> execute(Map<String, Object> input) {
     JsonNode inputNode = MAPPER.convertValue(input, JsonNode.class);
     JsonNode transformed = inputTransformer.apply(inputNode);
 

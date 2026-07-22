@@ -481,7 +481,8 @@ public class WorkerRetryExtendedTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             String taskId = (String) input.get("taskId");
                             int attempt =
                                 attempts
@@ -540,7 +541,8 @@ public class WorkerRetryExtendedTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             String taskId = (String) input.get("taskId");
                             int attempt =
                                 attempts
@@ -605,7 +607,8 @@ public class WorkerRetryExtendedTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             alphaAttempts.incrementAndGet();
                             return WorkerResult.of(Map.of("alphaResult", "alpha-done"));
                           }))
@@ -617,7 +620,8 @@ public class WorkerRetryExtendedTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             int attempt = betaAttempts.incrementAndGet();
                             if (attempt <= betaFailUntil.get()) {
                               throw new RuntimeException("Beta failure on attempt " + attempt);

@@ -144,7 +144,8 @@ class ContextChangeWhenFilterTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             guardedWorkerCount.incrementAndGet();
                             return WorkerResult.of(Map.of("guardedRan", true));
                           }))
@@ -155,7 +156,8 @@ class ContextChangeWhenFilterTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             ungardedWorkerCount.incrementAndGet();
                             return WorkerResult.of(Map.of("done", true));
                           }))

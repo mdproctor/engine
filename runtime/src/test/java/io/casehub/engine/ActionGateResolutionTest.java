@@ -245,7 +245,8 @@ class ActionGateResolutionTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             final Map<String, Object> output =
                                 Map.of("gateWorkerOutput", "produced");
                             if (declareAction.get()) {

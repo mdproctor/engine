@@ -31,8 +31,8 @@ import io.smallrye.mutiny.Uni;
  */
 public interface WorkerExecutor {
 
-  Uni<WorkerResult> execute(
-      WorkerFunction function,
+  Uni<WorkerResult<?>> execute(
+      WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
       int timeoutMs,

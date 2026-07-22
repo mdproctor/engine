@@ -126,7 +126,8 @@ class WorkBrokerEndToEndTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             stage1BeforeStage2 = stage2Count.get() == 0;
                             stage1Count.incrementAndGet();
                             return WorkerResult.of(Map.of("stage", "processed"));
@@ -138,7 +139,8 @@ class WorkBrokerEndToEndTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             stage2Count.incrementAndGet();
                             return WorkerResult.of(Map.of("stage", "final"));
                           }))

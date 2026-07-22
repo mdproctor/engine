@@ -325,7 +325,8 @@ class ActionGateIntegrationTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             final Map<String, Object> output = Map.of("filingResult", "pending");
                             if (declareAction.get()) {
                               return WorkerResult.of(

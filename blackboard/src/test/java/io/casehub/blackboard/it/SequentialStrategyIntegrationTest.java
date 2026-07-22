@@ -91,7 +91,8 @@ class SequentialStrategyIntegrationTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      input -> {
+                      Map.class,
+                      (input, scope) -> {
                         executionOrder.add("step1");
                         return WorkerResult.of(Map.of("step1", true));
                       }))
@@ -104,7 +105,8 @@ class SequentialStrategyIntegrationTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      input -> {
+                      Map.class,
+                      (input, scope) -> {
                         executionOrder.add("step2");
                         return WorkerResult.of(Map.of("step2", true));
                       }))
@@ -117,7 +119,8 @@ class SequentialStrategyIntegrationTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      input -> {
+                      Map.class,
+                      (input, scope) -> {
                         executionOrder.add("step3");
                         return WorkerResult.of(Map.of("step3", true));
                       }))

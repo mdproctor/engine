@@ -351,7 +351,8 @@ public class SignalDedupExtendedTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             runCount.incrementAndGet();
                             String id = (String) input.get("id");
                             if (id != null) {
@@ -407,7 +408,8 @@ public class SignalDedupExtendedTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             runCount.incrementAndGet();
                             String id = (String) input.get("id");
                             if (id != null) {

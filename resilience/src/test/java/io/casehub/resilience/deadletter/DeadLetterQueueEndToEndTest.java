@@ -192,7 +192,8 @@ class DeadLetterQueueEndToEndTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             throw new RuntimeException("Intentional failure for DLQ E2E test");
                           }))
                   .executionPolicy(
@@ -241,7 +242,8 @@ class DeadLetterQueueEndToEndTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             throw new RuntimeException("Fast failure");
                           }))
                   .executionPolicy(

@@ -404,7 +404,9 @@ class QhorusMessageSignalBridgeTest {
         Worker.builder()
             .name(workerName)
             .capabilityNames(java.util.Set.of())
-            .function(new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of())))
+            .function(
+                new WorkerFunction.Sync<>(
+                    Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of())))
             .build();
     CaseDefinition def = mock(CaseDefinition.class);
     when(def.getWorkers()).thenReturn(List.of(worker));

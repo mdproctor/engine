@@ -624,7 +624,8 @@ class SpiWiringIntegrationTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      input -> {
+                      Map.class,
+                      (input, scope) -> {
                         WorkerContext ctx = WorkerExecutionContext.current();
                         if (ctx != null) {
                           RecordingExecutionContextWorker.capturedChannels.add(ctx.channels());

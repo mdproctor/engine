@@ -75,7 +75,9 @@ class PlanItemCompletionHandlerTest {
         Worker.builder()
             .name(workerName)
             .capabilityName("cap")
-            .function(new WorkerFunction.Sync<>(Map.class, i -> WorkerResult.of(Map.of())))
+            .function(
+                new WorkerFunction.Sync<>(
+                    Map.class, Map.class, (i, scope) -> WorkerResult.of(Map.of())))
             .build();
     return WorkflowExecutionCompleted.approved(instance, worker, "idempotency-key", Map.of(), null);
   }
@@ -261,7 +263,9 @@ class PlanItemCompletionHandlerTest {
         Worker.builder()
             .name("worker-x")
             .capabilityName("cap")
-            .function(new WorkerFunction.Sync<>(Map.class, i -> WorkerResult.of(Map.of())))
+            .function(
+                new WorkerFunction.Sync<>(
+                    Map.class, Map.class, (i, scope) -> WorkerResult.of(Map.of())))
             .build();
     WorkflowExecutionCompleted event =
         WorkflowExecutionCompleted.approved(

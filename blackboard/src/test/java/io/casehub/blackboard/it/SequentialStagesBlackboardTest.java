@@ -122,7 +122,9 @@ class SequentialStagesBlackboardTest {
                   .capabilityName("phase-writer")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("phase", "two"))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("phase", "two"))))
                   .build())
           .bindings(
               Binding.builder()

@@ -129,7 +129,9 @@ class LambdaEntryConditionBlackboardTest {
                   .capabilityName("lambda-cap")
                   .function(
                       new WorkerFunction.Sync<>(
-                          Map.class, input -> WorkerResult.of(Map.of("done", true))))
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("done", true))))
                   .build())
           .bindings(
               Binding.builder()

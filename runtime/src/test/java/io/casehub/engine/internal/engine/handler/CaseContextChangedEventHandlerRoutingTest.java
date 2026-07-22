@@ -126,7 +126,9 @@ class CaseContextChangedEventHandlerRoutingTest {
             .capabilityName("research")
             .function(
                 new WorkerFunction.Sync<>(
-                    java.util.Map.class, input -> WorkerResult.of(java.util.Map.of())))
+                    java.util.Map.class,
+                    java.util.Map.class,
+                    (input, scope) -> WorkerResult.of(java.util.Map.of())))
             .build();
 
     final CaseMetaModel metaModel = mock(CaseMetaModel.class);
@@ -240,7 +242,9 @@ class CaseContextChangedEventHandlerRoutingTest {
             .capabilityName("research")
             .function(
                 new WorkerFunction.Sync<>(
-                    java.util.Map.class, input -> WorkerResult.of(java.util.Map.of())))
+                    java.util.Map.class,
+                    java.util.Map.class,
+                    (input, scope) -> WorkerResult.of(java.util.Map.of())))
             .build();
 
     final io.casehub.engine.common.internal.model.CaseMetaModel metaModel =
@@ -304,7 +308,9 @@ class CaseContextChangedEventHandlerRoutingTest {
             .capabilityName("research")
             .function(
                 new WorkerFunction.Sync<>(
-                    java.util.Map.class, input -> WorkerResult.of(java.util.Map.of())))
+                    java.util.Map.class,
+                    java.util.Map.class,
+                    (input, scope) -> WorkerResult.of(java.util.Map.of())))
             .build();
 
     final io.casehub.engine.common.internal.model.CaseMetaModel metaModel =

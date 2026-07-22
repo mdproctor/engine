@@ -52,21 +52,19 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
   }
 
   @Override
-  public boolean supports(WorkerFunction function) {
+  public boolean supports(WorkerFunction<?, ?> function) {
     return function instanceof WorkerFunction.Sync || function instanceof AgentWorkerFunction;
   }
 
   @SuppressWarnings("unchecked")
   @Override
-  public Uni<WorkerResult> execute(
-      WorkerFunction function,
+  public Uni<WorkerResult<?>> execute(
+      WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
       int timeoutMs,
       ExecutionMetadata metadata) {
 
-    // Null inputData from JQ projection against empty/missing context keys — coerce to
-    // empty Map for Map-typed functions (the common case), fail clearly otherwise.
     if (inputData == null) {
       if (function.inputType() == java.util.Map.class) {
         inputData = java.util.Map.of();
@@ -82,10 +80,15 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
     }
 
     final Object resolvedInput = inputData;
-    java.util.function.Function<Object, WorkerResult> fn =
+    java.util.function.Function<Object, WorkerResult<?>> fn =
         switch (function) {
-          case WorkerFunction.Sync<?> sync ->
-              input -> (WorkerResult) ((java.util.function.Function) sync.fn()).apply(input);
+          case WorkerFunction.Sync<?, ?> sync -> {
+            var biFn =
+                (java.util.function.BiFunction<
+                        Object, io.casehub.worker.api.WorkerScope, WorkerResult<?>>)
+                    (java.util.function.BiFunction) sync.fn();
+            yield input -> biFn.apply(input, null);
+          }
           case AgentWorkerFunction agent ->
               input -> agent.agent().execute((java.util.Map<String, Object>) input);
           default ->
@@ -94,7 +97,7 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
         };
 
     return Uni.createFrom()
-        .item(
+        .<WorkerResult<?>>item(
             () -> {
               WorkerExecutionContext.set(context);
               WorkerExecutionContext.setRuntime(workerRuntimeFactory.create(context.caseId()));

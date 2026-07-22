@@ -26,7 +26,9 @@ class WorkerFunctionTest {
 
   @Test
   void sync_holds_function() {
-    var fn = new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of()));
+    var fn =
+        new WorkerFunction.Sync<>(
+            Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of()));
     assertThat(fn.fn()).isNotNull();
     assertThat(fn).isInstanceOf(WorkerFunction.class);
   }

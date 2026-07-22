@@ -138,7 +138,8 @@ class ChoreographySelectionTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             record(input);
                             return WorkerResult.of(Map.of("result", "done"));
                           }))
@@ -149,7 +150,8 @@ class ChoreographySelectionTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             record(input);
                             return WorkerResult.of(Map.of("result", "done"));
                           }))

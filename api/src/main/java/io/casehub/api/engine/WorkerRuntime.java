@@ -35,13 +35,13 @@ public interface WorkerRuntime {
    * Execute a worker function in-process with the given input. Supports both Sync and Flow
    * variants. Returns immediately with the result — no external scheduling, no ledger trace.
    */
-  WorkerResult execute(WorkerFunction function, Map<String, Object> input);
+  WorkerResult<?> execute(WorkerFunction<?, ?> function, Map<String, Object> input);
 
   /**
    * Execute a worker by name. Looks up the worker from the case definition and delegates to {@link
    * #execute(WorkerFunction, Map)}.
    */
-  WorkerResult execute(String workerName, Map<String, Object> input);
+  WorkerResult<?> execute(String workerName, Map<String, Object> input);
 
   /** Spawn a new child case (detached) and return its ID. Non-blocking. */
   UUID spawnCase(String caseType, Map<String, Object> input);

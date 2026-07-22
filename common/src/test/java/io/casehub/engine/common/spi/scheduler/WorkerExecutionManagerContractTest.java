@@ -63,17 +63,21 @@ public abstract class WorkerExecutionManagerContractTest {
         };
 
     assertThat(manager.canExecute(WorkerFunction.NONE)).isTrue();
-    assertThat(manager.canExecute(new WorkerFunction.Sync<>(java.util.Map.class, input -> null)))
+    assertThat(
+            manager.canExecute(
+                new WorkerFunction.Sync<>(
+                    java.util.Map.class, java.util.Map.class, (input, scope) -> null)))
         .isTrue();
   }
 
   @Test
   void canExecute_syncFunction() {
     final WorkerExecutionManager manager = createManager();
-    final WorkerFunction sync =
+    final WorkerFunction<?, ?> sync =
         new WorkerFunction.Sync<>(
             java.util.Map.class,
-            input -> io.casehub.worker.api.WorkerResult.of(java.util.Map.of()));
+            java.util.Map.class,
+            (input, scope) -> io.casehub.worker.api.WorkerResult.of(java.util.Map.of()));
     assertThat(manager.canExecute(sync)).as("canExecute(Sync) should be consistent").isNotNull();
   }
 

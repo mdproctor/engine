@@ -62,14 +62,14 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
   }
 
   @Override
-  public boolean supports(final WorkerFunction function) {
+  public boolean supports(final WorkerFunction<?, ?> function) {
     return function instanceof FlowWorkerFunction;
   }
 
   @SuppressWarnings("unchecked")
   @Override
-  public Uni<WorkerResult> execute(
-      final WorkerFunction function,
+  public Uni<WorkerResult<?>> execute(
+      final WorkerFunction<?, ?> function,
       final Object inputData,
       final WorkerContext context,
       final int timeoutMs,

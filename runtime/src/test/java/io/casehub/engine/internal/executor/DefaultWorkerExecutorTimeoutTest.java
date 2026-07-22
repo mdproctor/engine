@@ -37,10 +37,11 @@ class DefaultWorkerExecutorTimeoutTest {
 
   @Test
   void timeout_produces_expired_outcome_not_exception() {
-    WorkerFunction.Sync slowWorker =
+    WorkerFunction.Sync<?, ?> slowWorker =
         new WorkerFunction.Sync<>(
             Map.class,
-            input -> {
+            Map.class,
+            (input, scope) -> {
               try {
                 Thread.sleep(5000);
               } catch (InterruptedException e) {
@@ -58,7 +59,7 @@ class DefaultWorkerExecutorTimeoutTest {
             io.casehub.api.context.PropagationContext.createRoot(),
             null);
 
-    WorkerResult result =
+    WorkerResult<?> result =
         workerExecutor
             .execute(
                 slowWorker,
@@ -71,7 +72,7 @@ class DefaultWorkerExecutorTimeoutTest {
             .atMost(Duration.ofSeconds(10));
 
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
-    assertThat(((WorkerOutcome.Expired) result.outcome()).reason()).contains("200ms");
-    assertThat(result.output()).isEmpty();
+    assertThat(((WorkerOutcome.Expired<?>) result.outcome()).reason()).contains("200ms");
+    assertThat(result.output()).isNull();
   }
 }

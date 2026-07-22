@@ -29,12 +29,5 @@ import io.casehub.worker.api.WorkerFunction;
  */
 public interface WorkerFunctionProviderRegistry {
 
-  /**
-   * Creates a {@link WorkerFunction} from the given YAML worker node by delegating to the first
-   * {@link WorkerFunctionProvider} that handles it.
-   *
-   * @param rawWorkerNode the YAML worker node
-   * @return a new {@link WorkerFunction} instance, or {@code null} if no provider handles the node
-   */
-  WorkerFunction createFunction(JsonNode rawWorkerNode);
+  WorkerFunction<?, ?> createFunction(JsonNode rawWorkerNode);
 }

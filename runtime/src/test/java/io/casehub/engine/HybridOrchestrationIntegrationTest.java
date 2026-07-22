@@ -83,7 +83,9 @@ class HybridOrchestrationIntegrationTest {
               .capabilityName("doWork")
               .function(
                   new WorkerFunction.Sync<>(
-                      Map.class, input -> WorkerResult.of(Map.of("result", "done"))))
+                      Map.class,
+                      Map.class,
+                      (input, scope) -> WorkerResult.of(Map.of("result", "done"))))
               .build();
 
       return CaseDefinition.builder()
@@ -132,7 +134,9 @@ class HybridOrchestrationIntegrationTest {
               .capabilityName("childWork")
               .function(
                   new WorkerFunction.Sync<>(
-                      Map.class, input -> WorkerResult.of(Map.of("result", "done"))))
+                      Map.class,
+                      Map.class,
+                      (input, scope) -> WorkerResult.of(Map.of("result", "done"))))
               .build();
 
       return CaseDefinition.builder()
@@ -178,7 +182,8 @@ class HybridOrchestrationIntegrationTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      input -> {
+                      Map.class,
+                      (input, scope) -> {
                         WorkerRuntime rt = WorkerExecutionContext.currentRuntime();
                         var childCtx =
                             rt.spawnAndAwaitCase(

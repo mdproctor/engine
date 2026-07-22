@@ -61,8 +61,8 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
   }
 
   @Override
-  public Uni<WorkerResult> execute(
-      WorkerFunction function,
+  public Uni<WorkerResult<?>> execute(
+      WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
       int timeoutMs,
@@ -79,7 +79,8 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
     throw new UnsupportedOperationException("No handler for: " + function.getClass().getName());
   }
 
-  private WorkerResult applyOutputSchema(WorkerResult result, String outputSchema) {
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  private WorkerResult<?> applyOutputSchema(WorkerResult<?> result, String outputSchema) {
     if (outputSchema == null || outputSchema.isBlank() || result.output() == null) {
       return result;
     }

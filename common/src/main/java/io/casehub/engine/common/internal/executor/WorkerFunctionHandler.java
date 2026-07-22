@@ -35,16 +35,10 @@ import io.smallrye.mutiny.Uni;
  */
 public interface WorkerFunctionHandler {
 
-  /**
-   * Returns true if this handler can execute the given function type.
-   *
-   * @param function the worker function to test
-   * @return true if this handler supports the function type
-   */
-  boolean supports(WorkerFunction function);
+  boolean supports(WorkerFunction<?, ?> function);
 
-  Uni<WorkerResult> execute(
-      WorkerFunction function,
+  Uni<WorkerResult<?>> execute(
+      WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
       int timeoutMs,

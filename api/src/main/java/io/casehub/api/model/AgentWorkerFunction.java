@@ -20,13 +20,18 @@ import io.casehub.worker.api.WorkerFunction;
 
 @SuppressWarnings("unchecked")
 public record AgentWorkerFunction(Agent agent)
-    implements WorkerFunction<java.util.Map<String, Object>> {
+    implements WorkerFunction<java.util.Map<String, Object>, java.util.Map<String, Object>> {
   public AgentWorkerFunction {
     java.util.Objects.requireNonNull(agent);
   }
 
   @Override
   public Class<java.util.Map<String, Object>> inputType() {
+    return (Class) java.util.Map.class;
+  }
+
+  @Override
+  public Class<java.util.Map<String, Object>> outputType() {
     return (Class) java.util.Map.class;
   }
 }

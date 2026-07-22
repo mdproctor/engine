@@ -205,13 +205,16 @@ class QuartzWorkerExecutionJob implements Job {
           .subscribe()
           .with(
               workerResult -> {
-                Map<String, Object> output = workerResult.output();
+                @SuppressWarnings("unchecked")
+                Map<String, Object> output = (Map<String, Object>) workerResult.output();
                 if ((output == null || output.isEmpty()) && bridge.isLiveView()) {
                   output = bridgeResolver.extractOutput(bridge, typedInput);
                 }
                 if (output != null && !output.equals(workerResult.output())) {
-                  workerResult =
+                  @SuppressWarnings({"unchecked", "rawtypes"})
+                  var replaced =
                       new io.casehub.worker.api.WorkerResult(output, workerResult.outcome());
+                  workerResult = replaced;
                 }
                 onSuccess(instance, worker, inputDataHash, workerResult, bindingName, signalId);
               },
@@ -225,16 +228,18 @@ class QuartzWorkerExecutionJob implements Job {
       CaseInstance instance,
       Worker worker,
       String inputDataHash,
-      io.casehub.worker.api.WorkerResult workerResult,
+      io.casehub.worker.api.WorkerResult<?> workerResult,
       String bindingName,
       java.util.UUID signalId) {
+    @SuppressWarnings("unchecked")
+    Map<String, Object> output = (Map<String, Object>) workerResult.output();
     eventBus.publish(
         WORKER_EXECUTION_FINISHED,
         new WorkflowExecutionCompleted(
             instance,
             worker,
             inputDataHash,
-            workerResult.output(),
+            output,
             bindingName,
             workerResult.outcome(),
             signalId));

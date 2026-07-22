@@ -46,7 +46,7 @@ public class DefaultWorkerFunctionProviderRegistry implements WorkerFunctionProv
   }
 
   @Override
-  public WorkerFunction createFunction(JsonNode rawWorkerNode) {
+  public WorkerFunction<?, ?> createFunction(JsonNode rawWorkerNode) {
     for (WorkerFunctionProvider provider : providers) {
       if (provider.handles(rawWorkerNode)) {
         return provider.create(rawWorkerNode);

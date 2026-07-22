@@ -346,7 +346,7 @@ public final class CaseDefinitionYamlMapper {
         if (sw.getSequence() == null || sw.getSequence().isEmpty()) {
           // Try providers first (for SDK-dependent types like flow)
           final JsonNode rawWorkerNode = rawWorkers.get(workerIndex);
-          WorkerFunction function = providerRegistry.createFunction(rawWorkerNode);
+          WorkerFunction<?, ?> function = providerRegistry.createFunction(rawWorkerNode);
           if (function == null) {
             // API-local construction (no external SDK dependency)
             if (sw.getAgent() != null) {
@@ -359,7 +359,8 @@ public final class CaseDefinitionYamlMapper {
                 function =
                     new WorkerFunction.Sync<>(
                         contextType,
-                        input -> {
+                        java.util.Map.class,
+                        (input, scope) -> {
                           throw new UnsupportedOperationException(
                               "YAML-declared contextType worker '"
                                   + sw.getName()

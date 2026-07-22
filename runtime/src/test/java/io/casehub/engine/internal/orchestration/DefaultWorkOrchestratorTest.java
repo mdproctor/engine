@@ -339,7 +339,9 @@ class DefaultWorkOrchestratorTest {
             .capabilityName(capabilityName)
             .function(
                 new WorkerFunction.Sync<>(
-                    Map.class, input -> WorkerResult.of(Map.of("result", "done"))))
+                    Map.class,
+                    Map.class,
+                    (input, scope) -> WorkerResult.of(Map.of("result", "done"))))
             .build();
 
     return buildInstance(capabilityName, worker, AGENT_DESCRIPTOR);
@@ -359,7 +361,9 @@ class DefaultWorkOrchestratorTest {
             .capabilityName(capabilityName)
             .function(
                 new WorkerFunction.Sync<>(
-                    Map.class, input -> WorkerResult.of(Map.of("result", "done"))))
+                    Map.class,
+                    Map.class,
+                    (input, scope) -> WorkerResult.of(Map.of("result", "done"))))
             .build();
 
     return buildInstance(capabilityName, worker);

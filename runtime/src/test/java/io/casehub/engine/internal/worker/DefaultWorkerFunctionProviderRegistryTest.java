@@ -51,7 +51,7 @@ class DefaultWorkerFunctionProviderRegistryTest {
           @Override
           public WorkerFunction create(JsonNode raw) {
             return new WorkerFunction.Sync<>(
-                Map.class, input -> WorkerResult.of(Map.of("flow", true)));
+                Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of("flow", true)));
           }
         };
 
@@ -81,7 +81,7 @@ class DefaultWorkerFunctionProviderRegistryTest {
           public WorkerFunction create(JsonNode raw) {
             firstCalled[0] = true;
             return new WorkerFunction.Sync<>(
-                Map.class, input -> WorkerResult.of(Map.of("first", true)));
+                Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of("first", true)));
           }
         };
 
@@ -96,7 +96,7 @@ class DefaultWorkerFunctionProviderRegistryTest {
           public WorkerFunction create(JsonNode raw) {
             secondCalled[0] = true;
             return new WorkerFunction.Sync<>(
-                Map.class, input -> WorkerResult.of(Map.of("second", true)));
+                Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of("second", true)));
           }
         };
 

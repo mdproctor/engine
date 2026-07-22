@@ -40,7 +40,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 
 class DefaultWorkerRuntime implements WorkerRuntime {
 
@@ -69,11 +68,14 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   }
 
   @Override
-  public WorkerResult execute(WorkerFunction function, Map<String, Object> input) {
-    if (function instanceof WorkerFunction.Sync<?> sync) {
-      @SuppressWarnings("unchecked")
-      var fn = (Function<Map<String, Object>, WorkerResult>) sync.fn();
-      return executeSync(fn::apply, input);
+  @SuppressWarnings("unchecked")
+  public WorkerResult<?> execute(WorkerFunction<?, ?> function, Map<String, Object> input) {
+    if (function instanceof WorkerFunction.Sync<?, ?> sync) {
+      var fn =
+          (java.util.function.BiFunction<
+                  Object, io.casehub.worker.api.WorkerScope, WorkerResult<?>>)
+              (java.util.function.BiFunction) sync.fn();
+      return executeSync(i -> fn.apply(i, null), input);
     }
     if (function instanceof AgentWorkerFunction agent) {
       return executeSync(agent.agent()::execute, input);
@@ -85,7 +87,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   }
 
   @Override
-  public WorkerResult execute(String workerName, Map<String, Object> input) {
+  public WorkerResult<?> execute(String workerName, Map<String, Object> input) {
     CaseInstance instance = caseInstanceCache.get(caseId);
     if (instance == null) {
       return WorkerResult.failed("Case instance not found: " + caseId);
@@ -179,8 +181,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     return awaitCase(childId, timeout);
   }
 
-  private WorkerResult executeSync(
-      java.util.function.Function<Map<String, Object>, WorkerResult> fn,
+  private WorkerResult<?> executeSync(
+      java.util.function.Function<Map<String, Object>, WorkerResult<?>> fn,
       Map<String, Object> input) {
     WorkerContext parentCtx = WorkerExecutionContext.current();
     WorkerRuntime parentRuntime = WorkerExecutionContext.currentRuntime();

@@ -27,14 +27,16 @@ public final class WorkerFunctions {
   private WorkerFunctions() {}
 
   @SuppressWarnings({"unchecked", "rawtypes"})
-  public static WorkerFunction.Sync<Map<String, Object>> sequence(WorkerFunction... steps) {
+  public static WorkerFunction.Sync<Map<String, Object>, Map<String, Object>> sequence(
+      WorkerFunction<?, ?>... steps) {
     if (steps.length == 0) {
       throw new IllegalArgumentException("sequence requires at least one step");
     }
-    WorkerFunction[] copy = steps.clone();
+    WorkerFunction<?, ?>[] copy = steps.clone();
     return new WorkerFunction.Sync(
         Map.class,
-        input -> {
+        Map.class,
+        (input, scope) -> {
           var rt = WorkerExecutionContext.currentRuntime();
           if (rt == null) {
             return WorkerResult.failed(
@@ -47,7 +49,7 @@ public final class WorkerFunctions {
             if (!(result.outcome() instanceof WorkerOutcome.Success)) {
               return result;
             }
-            acc = merge(acc, result.output());
+            acc = merge(acc, (Map<String, Object>) result.output());
           }
           return WorkerResult.of(acc);
         });

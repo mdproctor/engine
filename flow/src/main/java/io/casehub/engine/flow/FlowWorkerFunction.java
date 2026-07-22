@@ -20,13 +20,18 @@ import io.serverlessworkflow.api.types.Workflow;
 
 @SuppressWarnings("unchecked")
 public record FlowWorkerFunction(Workflow workflow)
-    implements WorkerFunction<java.util.Map<String, Object>> {
+    implements WorkerFunction<java.util.Map<String, Object>, java.util.Map<String, Object>> {
   public FlowWorkerFunction {
     java.util.Objects.requireNonNull(workflow, "workflow must not be null");
   }
 
   @Override
   public Class<java.util.Map<String, Object>> inputType() {
+    return (Class) java.util.Map.class;
+  }
+
+  @Override
+  public Class<java.util.Map<String, Object>> outputType() {
     return (Class) java.util.Map.class;
   }
 }

@@ -164,7 +164,8 @@ class CaseTimeoutEnforcerIntegrationTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             try {
                               Thread.sleep(60_000); // 60s — far exceeds the 1s budget
                             } catch (InterruptedException e) {

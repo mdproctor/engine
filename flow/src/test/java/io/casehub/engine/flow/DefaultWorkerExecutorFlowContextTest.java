@@ -85,7 +85,7 @@ class DefaultWorkerExecutorFlowContextTest {
         .as("WorkerExecutionContext.current() must be non-null inside flow execution")
         .isNotNull();
     assertThat(captured.get().caseId()).isEqualTo(context.caseId());
-    assertThat(result.output()).containsEntry("result", "done");
+    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
   }
 
   @Test

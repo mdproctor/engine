@@ -60,7 +60,9 @@ class ConditionalTriggerConditionParameterTest {
             .capabilityName("doWork")
             .function(
                 new WorkerFunction.Sync<>(
-                    Map.class, ctx -> WorkerResult.of(Map.of("workDone", true))))
+                    Map.class,
+                    Map.class,
+                    (ctx, scope) -> WorkerResult.of(Map.of("workDone", true))))
             .build();
 
     ExpressionEvaluator condition = new JQExpressionEvaluator(".status == \"ready\"");

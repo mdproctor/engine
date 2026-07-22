@@ -43,7 +43,7 @@ public class FlowWorkerFunctionProvider implements WorkerFunctionProvider {
   }
 
   @Override
-  public WorkerFunction create(final JsonNode rawWorkerNode) {
+  public WorkerFunction<?, ?> create(final JsonNode rawWorkerNode) {
     try {
       ObjectNode workflowFields = MAPPER.createObjectNode();
       copyIfPresent(rawWorkerNode, workflowFields, "document");

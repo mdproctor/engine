@@ -631,7 +631,8 @@ public class WorkerIdempotencyTest {
             .function(
                 new WorkerFunction.Sync<>(
                     Map.class,
-                    input -> {
+                    Map.class,
+                    (input, scope) -> {
                       runCount.incrementAndGet();
                       String taskId = (String) input.get("taskId");
                       if (taskId != null) {
@@ -703,7 +704,8 @@ public class WorkerIdempotencyTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             alphaRunCount.incrementAndGet();
                             return WorkerResult.of(Map.of("alphaResult", "done"));
                           }))
@@ -714,7 +716,8 @@ public class WorkerIdempotencyTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             betaRunCount.incrementAndGet();
                             return WorkerResult.of(Map.of("betaResult", "done"));
                           }))

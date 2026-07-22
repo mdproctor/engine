@@ -58,7 +58,9 @@ class SyncAgentWorkerFunctionHandlerTest {
 
   @Test
   void supports_sync() {
-    var sync = new WorkerFunction.Sync<>(Map.class, input -> WorkerResult.of(Map.of()));
+    var sync =
+        new WorkerFunction.Sync<>(
+            Map.class, Map.class, (input, scope) -> WorkerResult.of(Map.of()));
     assertThat(handler.supports(sync)).isTrue();
   }
 
@@ -69,10 +71,15 @@ class SyncAgentWorkerFunctionHandlerTest {
 
   @Test
   void does_not_support_unknown() {
-    WorkerFunction unknown =
-        new WorkerFunction() {
+    WorkerFunction<?, ?> unknown =
+        new WorkerFunction<Void, Void>() {
           @Override
-          public Class inputType() {
+          public Class<Void> inputType() {
+            return Void.class;
+          }
+
+          @Override
+          public Class<Void> outputType() {
             return Void.class;
           }
         };
@@ -83,8 +90,10 @@ class SyncAgentWorkerFunctionHandlerTest {
   void executes_sync_function() {
     var sync =
         new WorkerFunction.Sync<>(
-            Map.class, input -> WorkerResult.of(Map.of("result", input.get("key"))));
-    WorkerResult result =
+            Map.class,
+            Map.class,
+            (input, scope) -> WorkerResult.of(Map.of("result", input.get("key"))));
+    WorkerResult<?> result =
         handler
             .execute(
                 sync,
@@ -94,7 +103,7 @@ class SyncAgentWorkerFunctionHandlerTest {
                 new ExecutionMetadata("w1", "hash1"))
             .await()
             .indefinitely();
-    assertThat(result.output()).containsEntry("result", "value");
+    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "value");
   }
 
   @Test
@@ -122,7 +131,7 @@ class SyncAgentWorkerFunctionHandlerTest {
     Agent agent = Agent.builder().systemPrompt("You are a test agent.").model(mockProvider).build();
     AgentWorkerFunction agentFunction = new AgentWorkerFunction(agent);
 
-    WorkerResult result =
+    WorkerResult<?> result =
         handler
             .execute(
                 agentFunction,
@@ -133,15 +142,17 @@ class SyncAgentWorkerFunctionHandlerTest {
             .await()
             .indefinitely();
 
-    assertThat(result.output()).containsEntry("agentResult", "done");
+    assertThat((java.util.Map<String, Object>) result.output())
+        .containsEntry("agentResult", "done");
   }
 
   @Test
   void timeout_produces_expired_outcome() {
-    WorkerFunction.Sync slowWorker =
+    WorkerFunction.Sync<?, ?> slowWorker =
         new WorkerFunction.Sync<>(
             Map.class,
-            input -> {
+            Map.class,
+            (input, scope) -> {
               try {
                 Thread.sleep(5000);
               } catch (InterruptedException e) {
@@ -150,7 +161,7 @@ class SyncAgentWorkerFunctionHandlerTest {
               return WorkerResult.of(Map.of("result", "late"));
             });
 
-    WorkerResult result =
+    WorkerResult<?> result =
         handler
             .execute(
                 slowWorker,
@@ -163,7 +174,7 @@ class SyncAgentWorkerFunctionHandlerTest {
 
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
     assertThat(((WorkerOutcome.Expired) result.outcome()).reason()).contains("200ms");
-    assertThat(result.output()).isEmpty();
+    assertThat(result.output()).isNull();
   }
 
   private WorkerContext testContext() {

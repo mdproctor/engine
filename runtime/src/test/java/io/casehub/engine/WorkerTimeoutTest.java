@@ -180,7 +180,8 @@ class WorkerTimeoutTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         // Completes immediately
                         return WorkerResult.of(Map.of("result", "fast-completed"));
@@ -227,7 +228,8 @@ class WorkerTimeoutTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         try {
                           // Sleep longer than default timeout (2000ms in tests)
@@ -282,7 +284,8 @@ class WorkerTimeoutTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         try {
                           // Sleep 3 seconds - within custom timeout
@@ -337,7 +340,8 @@ class WorkerTimeoutTest {
               .function(
                   new WorkerFunction.Sync<>(
                       Map.class,
-                      ctx -> {
+                      Map.class,
+                      (ctx, scope) -> {
                         executionCount.incrementAndGet();
                         try {
                           // Sleep 500ms - exceeds short timeout

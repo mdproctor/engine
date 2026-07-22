@@ -295,7 +295,8 @@ public class WorkerScheduleDedupTest {
             .function(
                 new WorkerFunction.Sync<>(
                     Map.class,
-                    input -> {
+                    Map.class,
+                    (input, scope) -> {
                       runCount.incrementAndGet();
                       return WorkerResult.of(
                           Map.of(

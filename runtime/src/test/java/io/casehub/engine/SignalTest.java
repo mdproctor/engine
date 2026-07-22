@@ -258,7 +258,8 @@ public class SignalTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             LOG.warnf("WORKER INPUT: %s %s", input, runCount.incrementAndGet());
 
                             String orderId = (String) input.get("orderId");
@@ -327,7 +328,8 @@ public class SignalTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             paymentRunCount.incrementAndGet();
                             return WorkerResult.of(Map.of("paymentProcessed", true));
                           }))
@@ -338,7 +340,8 @@ public class SignalTest {
                   .function(
                       new WorkerFunction.Sync<>(
                           Map.class,
-                          input -> {
+                          Map.class,
+                          (input, scope) -> {
                             documentRunCount.incrementAndGet();
                             return WorkerResult.of(Map.of("documentProcessed", true));
                           }))
