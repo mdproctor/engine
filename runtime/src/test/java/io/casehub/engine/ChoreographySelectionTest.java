@@ -39,7 +39,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -68,15 +67,12 @@ class ChoreographySelectionTest {
   @Test
   void twoWorkersSharedCapability_onlyOneIsSelected() throws Exception {
     String runId = UUID.randomUUID().toString();
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-    twoWorkerCase.startCase(Map.of("trigger", "go", "runId", runId)).thenAccept(caseIdRef::set);
+    UUID caseId = twoWorkerCase.startCase(Map.of("trigger", "go", "runId", runId));
 
-    await().atMost(5, TimeUnit.SECONDS).until(() -> caseIdRef.get() != null);
     await()
         .atMost(15, TimeUnit.SECONDS)
         .untilAsserted(
-            () ->
-                assertThat(cache.get(caseIdRef.get()).getState()).isEqualTo(CaseStatus.COMPLETED));
+            () -> assertThat(cache.get(caseId).getState()).isEqualTo(CaseStatus.COMPLETED));
 
     int calls =
         TwoWorkerSameCapabilityCase.runCounts.getOrDefault(runId, new AtomicInteger()).get();
@@ -90,16 +86,12 @@ class ChoreographySelectionTest {
       // Each iteration has its own runId — stale jobs from the previous iteration can
       // only increment that iteration's counter, not this one.
       String runId = UUID.randomUUID().toString();
-      AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-      twoWorkerCase.startCase(Map.of("trigger", "go", "runId", runId)).thenAccept(caseIdRef::set);
+      UUID caseId = twoWorkerCase.startCase(Map.of("trigger", "go", "runId", runId));
 
-      await().atMost(5, TimeUnit.SECONDS).until(() -> caseIdRef.get() != null);
       await()
           .atMost(15, TimeUnit.SECONDS)
           .untilAsserted(
-              () ->
-                  assertThat(cache.get(caseIdRef.get()).getState())
-                      .isEqualTo(CaseStatus.COMPLETED));
+              () -> assertThat(cache.get(caseId).getState()).isEqualTo(CaseStatus.COMPLETED));
 
       int calls =
           TwoWorkerSameCapabilityCase.runCounts.getOrDefault(runId, new AtomicInteger()).get();

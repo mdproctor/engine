@@ -32,8 +32,8 @@ import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.ActionRiskClassifier;
 import io.casehub.api.spi.ContextDiffStrategy;
-import io.casehub.api.spi.ReactiveActionRiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.api.spi.routing.CandidateSetContext;
@@ -48,8 +48,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
@@ -59,7 +59,7 @@ import io.casehub.worker.api.PlannedAction;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerOutcome;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -81,13 +81,13 @@ public class WorkflowExecutionCompletedHandler {
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
   @Inject Event<WorkerDecisionEvent> workerDecisionEvents;
   @Inject ContextDiffStrategy contextDiffStrategy;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject CaseResumptionService caseResumptionService;
   @Inject WorkerStatusListener workerStatusListener;
   @Inject LedgerTraceIdProvider traceIdProvider;
-  @Inject ReactiveActionRiskClassifier actionRiskClassifier;
-  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  @Inject ActionRiskClassifier actionRiskClassifier;
+  @Inject CaseInstanceRepository caseInstanceRepository;
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
   @Inject
@@ -98,135 +98,125 @@ public class WorkflowExecutionCompletedHandler {
   private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED)
-  public Uni<Void> onWorkflowExecutionCompletedHandler(WorkflowExecutionCompleted event) {
-    final String traceId = traceIdProvider.currentTraceId().orElse(null);
-    final CaseInstance caseInstance = event.caseInstance();
-    final Worker worker = event.worker();
+  @RunOnVirtualThread
+  void onWorkflowExecutionCompletedHandler(WorkflowExecutionCompleted event) {
+    try {
+      final String traceId = traceIdProvider.currentTraceId().orElse(null);
+      final CaseInstance caseInstance = event.caseInstance();
+      final Worker worker = event.worker();
 
-    // Outcome fork: non-success outcomes route to the semantic failure path.
-    // Settlement recorded early here — no output to apply.
-    if (!(event.outcome() instanceof WorkerOutcome.Success)) {
+      // Outcome fork: non-success outcomes route to the semantic failure path.
+      if (!(event.outcome() instanceof WorkerOutcome.Success)) {
+        if (event.signalId() != null) {
+          settlementTracker.recordCompletion(event.signalId());
+        }
+        handleSemanticFailure(event, traceId);
+        return;
+      }
+
+      // Gate fork: if the worker declared a PlannedAction, classify before applying output.
+      final PlannedAction topLevelAction =
+          event.outcome() instanceof WorkerOutcome.Success s ? s.plannedAction() : null;
+      if (topLevelAction != null) {
+        if (event.signalId() != null) {
+          settlementTracker.recordCompletion(event.signalId());
+        }
+        handleWithPlannedAction(event, topLevelAction, traceId);
+        return;
+      }
+
+      final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
+      final String bindingName = event.bindingName();
+      final Instant now = Instant.now();
+
+      JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
+      applyOutputWithConflictResolution(caseInstance, worker, rawOutput, bindingName);
+      if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
+        EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), "COMPLETED");
+      }
+      recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
+      fireOutcomeRecorder(
+          caseInstance,
+          worker,
+          bindingName,
+          io.casehub.api.spi.routing.RoutingOutcome.SUCCESS,
+          contextBefore);
+
+      // Settlement recorded AFTER output application
       if (event.signalId() != null) {
         settlementTracker.recordCompletion(event.signalId());
       }
-      return handleSemanticFailure(event, traceId);
+      JsonNode contextAfter = caseInstance.getCaseContext().asJsonNode();
+      JsonNode diff = contextDiffStrategy.compute(contextBefore, contextAfter);
+
+      EventLog eventLog =
+          buildEventLog(caseInstance, worker, rawOutput, event.idempotency(), now, diff);
+
+      eventLogRepository.append(eventLog, caseInstance.tenancyId);
+
+      caseResumptionService.resumeIfWaiting(
+          caseInstance,
+          event.idempotency(),
+          worker.name(),
+          rawOutput,
+          CaseHubEventType.WORK_COMPLETED);
+
+      workerStatusListener.onWorkerCompleted(
+          worker.name(),
+          WorkResult.completed(
+              event.idempotency(), rawOutput, worker.name(), caseInstance.getUuid()));
+
+      // Fire CDI audit events as true fire-and-forget
+      lifecycleEvents
+          .fireAsync(
+              CaseLifecycleEvent.of(
+                  caseInstance,
+                  "ExecuteWorker",
+                  "WorkerExecutionCompleted",
+                  "system",
+                  "SYSTEM",
+                  traceId))
+          .whenComplete(
+              (v, t) -> {
+                if (t != null) {
+                  LOG.warnf(
+                      t,
+                      "CaseLifecycleEvent observer failed for caseId=%s event=WorkerExecutionCompleted",
+                      caseInstance.getUuid());
+                }
+              });
+      workerDecisionEvents
+          .fireAsync(
+              new WorkerDecisionEvent(
+                  caseInstance.getUuid(),
+                  caseInstance.tenancyId,
+                  worker.name(),
+                  extractCapabilityTag(caseInstance, worker, bindingName),
+                  traceId))
+          .whenComplete(
+              (v, t) -> {
+                if (t != null) {
+                  LOG.warnf(
+                      t,
+                      "WorkerDecisionEvent observer failed for caseId=%s worker=%s",
+                      caseInstance.getUuid(),
+                      worker.name());
+                }
+              });
+
+      eventBus.publish(
+          EventBusAddresses.CONTEXT_CHANGED,
+          new CaseContextChangedEvent(
+              caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
+    } catch (Exception e) {
+      LOG.errorf(
+          e,
+          "Failed to handle WorkflowExecutionCompleted for caseId=%s",
+          event.caseInstance().getUuid());
     }
-
-    // Gate fork: if the worker declared a PlannedAction, classify before applying output.
-    // Settlement recorded early here — output is deferred behind the gate.
-    final PlannedAction topLevelAction =
-        event.outcome() instanceof WorkerOutcome.Success s ? s.plannedAction() : null;
-    if (topLevelAction != null) {
-      if (event.signalId() != null) {
-        settlementTracker.recordCompletion(event.signalId());
-      }
-      return handleWithPlannedAction(event, topLevelAction, traceId);
-    }
-
-    final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
-    final String bindingName = event.bindingName();
-    final Instant now = Instant.now();
-
-    JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
-    applyOutputWithConflictResolution(caseInstance, worker, rawOutput, bindingName);
-    if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
-      EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), "COMPLETED");
-    }
-    recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
-    fireOutcomeRecorder(
-        caseInstance,
-        worker,
-        bindingName,
-        io.casehub.api.spi.routing.RoutingOutcome.SUCCESS,
-        contextBefore);
-
-    // Settlement recorded AFTER output application — signalAndAwait callers see the output.
-    // Refs casehubio/engine#659.
-    if (event.signalId() != null) {
-      settlementTracker.recordCompletion(event.signalId());
-    }
-    JsonNode contextAfter = caseInstance.getCaseContext().asJsonNode();
-    JsonNode diff = contextDiffStrategy.compute(contextBefore, contextAfter);
-
-    EventLog eventLog =
-        buildEventLog(caseInstance, worker, rawOutput, event.idempotency(), now, diff);
-
-    return reactiveEventLogRepository
-        .append(eventLog, caseInstance.tenancyId)
-        .chain(
-            () ->
-                caseResumptionService.resumeIfWaiting(
-                    caseInstance,
-                    event.idempotency(),
-                    worker.name(),
-                    rawOutput,
-                    CaseHubEventType.WORK_COMPLETED))
-        .invoke(
-            () ->
-                workerStatusListener.onWorkerCompleted(
-                    worker.name(),
-                    WorkResult.completed(
-                        event.idempotency(), rawOutput, worker.name(), caseInstance.getUuid())))
-        .invoke(
-            () -> {
-              // Fire CDI audit events as true fire-and-forget — case state must not be gated
-              // on optional audit observer completion. Blocking observers (e.g. due to H2
-              // lock contention in consumer apps) must not prevent CONTEXT_CHANGED from
-              // being published. Refs casehubio/engine#491.
-              lifecycleEvents
-                  .fireAsync(
-                      CaseLifecycleEvent.of(
-                          caseInstance,
-                          "ExecuteWorker",
-                          "WorkerExecutionCompleted",
-                          "system",
-                          "SYSTEM",
-                          traceId))
-                  .whenComplete(
-                      (v, t) -> {
-                        if (t != null)
-                          LOG.warnf(
-                              t,
-                              "CaseLifecycleEvent observer failed for caseId=%s event=WorkerExecutionCompleted",
-                              caseInstance.getUuid());
-                      });
-              workerDecisionEvents
-                  .fireAsync(
-                      new WorkerDecisionEvent(
-                          caseInstance.getUuid(),
-                          caseInstance.tenancyId,
-                          worker.name(),
-                          extractCapabilityTag(caseInstance, worker, bindingName),
-                          traceId))
-                  .whenComplete(
-                      (v, t) -> {
-                        if (t != null)
-                          LOG.warnf(
-                              t,
-                              "WorkerDecisionEvent observer failed for caseId=%s worker=%s",
-                              caseInstance.getUuid(),
-                              worker.name());
-                      });
-            })
-        .invoke(
-            () ->
-                eventBus.publish(
-                    EventBusAddresses.CONTEXT_CHANGED,
-                    new CaseContextChangedEvent(
-                        caseInstance,
-                        caseInstance.getCaseContext().snapshot(),
-                        ContextLayer.WORKING)))
-        .replaceWithVoid()
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.error(
-                    "Failed to handle WorkflowExecutionCompleted for caseId: "
-                        + caseInstance.getUuid(),
-                    t));
   }
 
-  private Uni<Void> handleWithPlannedAction(
+  private void handleWithPlannedAction(
       final WorkflowExecutionCompleted event,
       final PlannedAction plannedAction,
       final String traceId) {
@@ -240,11 +230,11 @@ public class WorkflowExecutionCompletedHandler {
           "Concurrent gate not supported in v1: caseId=%s worker=%s already has a pending gate"
               + " — proceeding as Autonomous for second action",
           caseInstance.getUuid(), worker.name());
-      // Re-dispatch as if plannedAction was null so the normal completion path runs.
       final WorkflowExecutionCompleted withoutAction =
           WorkflowExecutionCompleted.approved(
               caseInstance, worker, event.idempotency(), event.output(), bindingName);
-      return onWorkflowExecutionCompletedHandler(withoutAction);
+      onWorkflowExecutionCompletedHandler(withoutAction);
+      return;
     }
 
     final CaseDefinition definition =
@@ -258,41 +248,36 @@ public class WorkflowExecutionCompletedHandler {
             extractCapabilityTag(caseInstance, worker, bindingName),
             bindingName);
 
-    return actionRiskClassifier
-        .classify(plannedAction, classificationContext)
-        .onFailure()
-        .recoverWithItem(
-            t -> {
-              LOG.errorf(
-                  t,
-                  "ActionRiskClassifier threw for action type='%s' caseId=%s — applying fail-safe"
-                      + " GateRequired",
-                  plannedAction.actionType(),
-                  caseInstance.getUuid());
-              return new RiskDecision.GateRequired(
-                  "Classifier error — manual review required before proceeding",
-                  true,
-                  null,
-                  null,
-                  null,
-                  null);
-            })
-        .chain(
-            decision -> {
-              if (decision instanceof RiskDecision.Autonomous) {
-                // Autonomous — proceed as if there was no PlannedAction.
-                final WorkflowExecutionCompleted withoutAction =
-                    WorkflowExecutionCompleted.approved(
-                        caseInstance, worker, event.idempotency(), event.output(), bindingName);
-                return onWorkflowExecutionCompletedHandler(withoutAction);
-              }
-              return handleGate(
-                  event, plannedAction, (RiskDecision.GateRequired) decision, traceId);
-            });
+    RiskDecision decision;
+    try {
+      decision = actionRiskClassifier.classify(plannedAction, classificationContext);
+    } catch (Exception t) {
+      LOG.errorf(
+          t,
+          "ActionRiskClassifier threw for action type='%s' caseId=%s — applying fail-safe GateRequired",
+          plannedAction.actionType(),
+          caseInstance.getUuid());
+      decision =
+          new RiskDecision.GateRequired(
+              "Classifier error — manual review required before proceeding",
+              true,
+              null,
+              null,
+              null,
+              null);
+    }
+
+    if (decision instanceof RiskDecision.Autonomous) {
+      final WorkflowExecutionCompleted withoutAction =
+          WorkflowExecutionCompleted.approved(
+              caseInstance, worker, event.idempotency(), event.output(), bindingName);
+      onWorkflowExecutionCompletedHandler(withoutAction);
+    } else {
+      handleGate(event, plannedAction, (RiskDecision.GateRequired) decision, traceId);
+    }
   }
 
-  private Uni<Void> handleSemanticFailure(
-      final WorkflowExecutionCompleted event, final String traceId) {
+  private void handleSemanticFailure(final WorkflowExecutionCompleted event, final String traceId) {
     final CaseInstance caseInstance = event.caseInstance();
     final Worker worker = event.worker();
     final String bindingName = event.bindingName();
@@ -339,7 +324,6 @@ public class WorkflowExecutionCompletedHandler {
         io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
         caseInstance.getCaseContext().snapshot().asJsonNode());
 
-    // Read or create _diagnostics.<bindingName> in working layer
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> existingOutcomes =
         (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
@@ -361,7 +345,6 @@ public class WorkflowExecutionCompletedHandler {
     bindingOutcome.put("status", exhausted ? "REROUTES_EXHAUSTED" : outcomeStatus);
     bindingOutcome.put("attempts", attempts);
 
-    // Append history
     ArrayNode history =
         bindingOutcome.has("history")
             ? (ArrayNode) bindingOutcome.get("history")
@@ -379,7 +362,6 @@ public class WorkflowExecutionCompletedHandler {
     history.add(historyEntry);
     bindingOutcome.set("history", history);
 
-    // Accumulate excludedAgents
     ArrayNode excluded =
         bindingOutcome.has("excludedAgents")
             ? (ArrayNode) bindingOutcome.get("excludedAgents")
@@ -387,18 +369,15 @@ public class WorkflowExecutionCompletedHandler {
     excluded.add(worker.name());
     bindingOutcome.set("excludedAgents", excluded);
 
-    // Write to context
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> outcomesMap =
         OBJECT_MAPPER.convertValue(outcomesRoot, java.util.Map.class);
     caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
 
-    // Episodic
     if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
       EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), outcomeStatus);
     }
 
-    // Event log
     final EventLog eventLog = new EventLog();
     eventLog.setCaseId(caseInstance.getUuid());
     eventLog.setWorkerId(worker.name());
@@ -415,7 +394,6 @@ public class WorkflowExecutionCompletedHandler {
                 "disposition",
                 action == OutcomeAction.FAULT ? "FAULT" : exhausted ? "EXHAUSTED" : "REROUTE"));
 
-    // Determine disposition
     final OutcomeDisposition disposition =
         action == OutcomeAction.FAULT
             ? OutcomeDisposition.FAULT
@@ -423,76 +401,54 @@ public class WorkflowExecutionCompletedHandler {
 
     final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
-    return reactiveEventLogRepository
-        .append(eventLog, caseInstance.tenancyId)
-        .invoke(
-            () -> {
-              // Report to listener
-              final WorkResult workResult =
-                  switch (event.outcome()) {
-                    case WorkerOutcome.Declined d ->
-                        WorkResult.declined(
-                            event.idempotency(), worker.name(), caseInstance.getUuid());
-                    case WorkerOutcome.Failed f ->
-                        WorkResult.failed(
-                            event.idempotency(), worker.name(), caseInstance.getUuid());
-                    case WorkerOutcome.Expired e ->
-                        WorkResult.expired(
-                            event.idempotency(), worker.name(), caseInstance.getUuid());
-                    case WorkerOutcome.Success s ->
-                        throw new IllegalStateException(
-                            "Success should not reach handleSemanticFailure");
-                  };
-              workerStatusListener.onWorkerCompleted(worker.name(), workResult);
+    eventLogRepository.append(eventLog, caseInstance.tenancyId);
 
-              // CDI lifecycle events (fire-and-forget)
-              lifecycleEvents
-                  .fireAsync(
-                      CaseLifecycleEvent.of(
-                          caseInstance,
-                          "WorkerOutcome",
-                          outcomeStatus + "Outcome",
-                          worker.name(),
-                          "WORKER",
-                          traceId))
-                  .whenComplete(
-                      (v, t) -> {
-                        if (t != null)
-                          LOG.warnf(
-                              t,
-                              "CaseLifecycleEvent observer failed for caseId=%s event=%sOutcome",
-                              caseInstance.getUuid(),
-                              outcomeStatus);
-                      });
-            })
-        .invoke(
-            () -> {
-              // For FAULT: also publish CASE_STATUS_CHANGED
-              if (disposition == OutcomeDisposition.FAULT) {
-                eventBus.publish(
-                    EventBusAddresses.CASE_STATUS_CHANGED,
-                    new CaseStatusChanged(
-                        caseInstance, caseInstance.getState().name(), CaseStatus.FAULTED.name()));
-              }
-              // Publish for blackboard PlanItem lifecycle
-              eventBus.publish(
-                  EventBusAddresses.WORKER_OUTCOME_RESOLVED,
-                  new WorkerOutcomeResolvedEvent(
-                      caseInstance, worker.name(), bindingName, capabilityName, disposition));
-            })
-        .replaceWithVoid()
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.errorf(
+    final WorkResult workResult =
+        switch (event.outcome()) {
+          case WorkerOutcome.Declined d ->
+              WorkResult.declined(event.idempotency(), worker.name(), caseInstance.getUuid());
+          case WorkerOutcome.Failed f ->
+              WorkResult.failed(event.idempotency(), worker.name(), caseInstance.getUuid());
+          case WorkerOutcome.Expired e ->
+              WorkResult.expired(event.idempotency(), worker.name(), caseInstance.getUuid());
+          case WorkerOutcome.Success s ->
+              throw new IllegalStateException("Success should not reach handleSemanticFailure");
+        };
+    workerStatusListener.onWorkerCompleted(worker.name(), workResult);
+
+    lifecycleEvents
+        .fireAsync(
+            CaseLifecycleEvent.of(
+                caseInstance,
+                "WorkerOutcome",
+                outcomeStatus + "Outcome",
+                worker.name(),
+                "WORKER",
+                traceId))
+        .whenComplete(
+            (v, t) -> {
+              if (t != null) {
+                LOG.warnf(
                     t,
-                    "Failed to handle semantic failure for caseId=%s worker=%s binding=%s",
+                    "CaseLifecycleEvent observer failed for caseId=%s event=%sOutcome",
                     caseInstance.getUuid(),
-                    worker.name(),
-                    bindingName));
+                    outcomeStatus);
+              }
+            });
+
+    if (disposition == OutcomeDisposition.FAULT) {
+      eventBus.publish(
+          EventBusAddresses.CASE_STATUS_CHANGED,
+          new CaseStatusChanged(
+              caseInstance, caseInstance.getState().name(), CaseStatus.FAULTED.name()));
+    }
+    eventBus.publish(
+        EventBusAddresses.WORKER_OUTCOME_RESOLVED,
+        new WorkerOutcomeResolvedEvent(
+            caseInstance, worker.name(), bindingName, capabilityName, disposition));
   }
 
-  private Uni<Void> handleGate(
+  private void handleGate(
       final WorkflowExecutionCompleted event,
       final PlannedAction plannedAction,
       final RiskDecision.GateRequired gate,
@@ -504,86 +460,64 @@ public class WorkflowExecutionCompletedHandler {
     final String bindingName = event.bindingName();
     final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
-    Set<String> resolvedGroupsEager;
+    Set<String> resolvedGroups;
     if (gate.candidateGroups() != null) {
       JsonNode contextNode = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
       try {
-        resolvedGroupsEager = gate.candidateGroups().evaluate(new CandidateSetContext(contextNode));
+        resolvedGroups = gate.candidateGroups().evaluate(new CandidateSetContext(contextNode));
       } catch (Exception t) {
         LOG.warnf(
             t,
             "CandidateSetStrategy evaluation failed for caseId=%s — proceeding with empty candidate groups",
             caseInstance.getUuid());
-        resolvedGroupsEager = Set.of();
+        resolvedGroups = Set.of();
       }
     } else {
-      resolvedGroupsEager = Set.of();
+      resolvedGroups = Set.of();
     }
-    Uni<Set<String>> groupsUni = Uni.createFrom().item(resolvedGroupsEager);
 
-    return groupsUni.chain(
-        resolvedGroups -> {
-          final EventLog gateEventLog =
-              buildGateEventLog(
-                  caseInstance, worker, rawOutput, plannedAction, gate, event.idempotency(), now);
+    final EventLog gateEventLog =
+        buildGateEventLog(
+            caseInstance, worker, rawOutput, plannedAction, gate, event.idempotency(), now);
 
-          return reactiveEventLogRepository
-              .append(gateEventLog, caseInstance.tenancyId)
-              .chain(
-                  () -> {
-                    caseInstance.setPendingActionGate(
-                        new PendingActionGate(
-                            gateEventLog.id,
-                            worker.name(),
-                            event.idempotency(),
-                            rawOutput,
-                            plannedAction,
-                            bindingName,
-                            capabilityName,
-                            gate.resolutionType()));
-                    return reactiveCaseInstanceRepository.update(
-                        caseInstance, caseInstance.tenancyId);
-                  })
-              .invoke(
-                  () ->
-                      eventBus.publish(
-                          EventBusAddresses.ACTION_GATE_SCHEDULE,
-                          new ActionGateScheduleEvent(
-                              caseInstance.getUuid(),
-                              caseInstance.tenancyId,
-                              gateEventLog.id,
-                              plannedAction,
-                              gate,
-                              resolvedGroups,
-                              gate.resolutionType() != null
-                                  ? gate.resolutionType().getName()
-                                  : null)))
-              .invoke(
-                  () ->
-                      lifecycleEvents
-                          .fireAsync(
-                              CaseLifecycleEvent.of(
-                                  caseInstance,
-                                  "ActionGate",
-                                  "ActionGatePending",
-                                  worker.name(),
-                                  "WORKER",
-                                  traceId))
-                          .whenComplete(
-                              (v, t) -> {
-                                if (t != null)
-                                  LOG.warnf(
-                                      t,
-                                      "CaseLifecycleEvent observer failed for caseId=%s event=ActionGatePending",
-                                      caseInstance.getUuid());
-                              }))
-              .replaceWithVoid()
-              .onFailure()
-              .invoke(
-                  t ->
-                      LOG.error(
-                          "Failed to handle action gate for caseId: " + caseInstance.getUuid(), t));
-        });
+    eventLogRepository.append(gateEventLog, caseInstance.tenancyId);
+
+    caseInstance.setPendingActionGate(
+        new PendingActionGate(
+            gateEventLog.id,
+            worker.name(),
+            event.idempotency(),
+            rawOutput,
+            plannedAction,
+            bindingName,
+            capabilityName,
+            gate.resolutionType()));
+    caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
+
+    eventBus.publish(
+        EventBusAddresses.ACTION_GATE_SCHEDULE,
+        new ActionGateScheduleEvent(
+            caseInstance.getUuid(),
+            caseInstance.tenancyId,
+            gateEventLog.id,
+            plannedAction,
+            gate,
+            resolvedGroups,
+            gate.resolutionType() != null ? gate.resolutionType().getName() : null));
+
+    lifecycleEvents
+        .fireAsync(
+            CaseLifecycleEvent.of(
+                caseInstance, "ActionGate", "ActionGatePending", worker.name(), "WORKER", traceId))
+        .whenComplete(
+            (v, t) -> {
+              if (t != null) {
+                LOG.warnf(
+                    t,
+                    "CaseLifecycleEvent observer failed for caseId=%s event=ActionGatePending",
+                    caseInstance.getUuid());
+              }
+            });
   }
 
   private EventLog buildGateEventLog(

@@ -28,7 +28,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -59,7 +58,7 @@ class ContextDiffEndToEndTest {
   @Inject DiffCaseHub diffCase;
   @Inject UpdateCaseHub updateCase;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   /**
    * Happy path: initial context has "status"="start". Worker writes "status"="done" and adds
@@ -67,15 +66,7 @@ class ContextDiffEndToEndTest {
    */
   @Test
   void workerOutput_isReflectedInContextChanges() {
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-
-    diffCase
-        .startCase(Map.of("status", "start"))
-        .thenAccept(caseIdRef::set)
-        .toCompletableFuture()
-        .join();
-
-    UUID caseId = caseIdRef.get();
+    UUID caseId = diffCase.startCase(Map.of("status", "start"));
 
     // Wait for COMPLETED
     await()
@@ -116,16 +107,8 @@ class ContextDiffEndToEndTest {
    */
   @Test
   void unchangedKeys_areAbsentFromContextChanges() {
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-
     // Start with two keys; worker only touches "status"
-    updateCase
-        .startCase(Map.of("status", "start", "unchanged", "keep-me"))
-        .thenAccept(caseIdRef::set)
-        .toCompletableFuture()
-        .join();
-
-    UUID caseId = caseIdRef.get();
+    UUID caseId = updateCase.startCase(Map.of("status", "start", "unchanged", "keep-me"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -147,23 +130,18 @@ class ContextDiffEndToEndTest {
   /** The inputDataHash must still be present alongside contextChanges. */
   @Test
   void inputDataHash_remainsPresentAlongsideContextChanges() {
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-    diffCase
-        .startCase(Map.of("status", "start"))
-        .thenAccept(caseIdRef::set)
-        .toCompletableFuture()
-        .join();
+    UUID caseId = diffCase.startCase(Map.of("status", "start"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              var instance = caseInstanceCache.get(caseIdRef.get());
+              var instance = caseInstanceCache.get(caseId);
               assertThat(instance).isNotNull();
               assertThat(instance.getState()).isEqualTo(CaseStatus.COMPLETED);
             });
 
-    EventLog completedEvent = fetchCompletedEvent(caseIdRef.get());
+    EventLog completedEvent = fetchCompletedEvent(caseId);
     var metadata = completedEvent.getMetadata();
 
     assertThat(metadata.has("inputDataHash")).isTrue();
@@ -175,13 +153,10 @@ class ContextDiffEndToEndTest {
 
   private EventLog fetchCompletedEvent(UUID caseId) {
     List<EventLog> events =
-        reactiveEventLogRepository
-            .findByCaseAndTypes(
-                caseId,
-                List.of(CaseHubEventType.WORKER_EXECUTION_COMPLETED),
-                TenancyConstants.DEFAULT_TENANT_ID)
-            .await()
-            .atMost(SPI_TIMEOUT);
+        eventLogRepository.findByCaseAndTypes(
+            caseId,
+            List.of(CaseHubEventType.WORKER_EXECUTION_COMPLETED),
+            TenancyConstants.DEFAULT_TENANT_ID);
     return events.isEmpty() ? null : events.get(0);
   }
 

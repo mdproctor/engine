@@ -22,7 +22,6 @@ import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import io.quarkus.virtual.threads.VirtualThreads;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.concurrent.ExecutorService;
@@ -57,7 +56,7 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
 
   @SuppressWarnings("unchecked")
   @Override
-  public Uni<WorkerResult<?>> execute(
+  public WorkerResult<?> execute(
       WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
@@ -98,13 +97,21 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
                   "Unsupported: " + function.getClass().getName());
         };
 
-    return Uni.createFrom()
-        .<WorkerResult<?>>item(() -> fn.apply(resolvedInput))
-        .runSubscriptionOn(virtualThreads)
-        .ifNoItem()
-        .after(java.time.Duration.ofMillis(timeoutMs))
-        .fail()
-        .onFailure(io.smallrye.mutiny.TimeoutException.class)
-        .recoverWithItem(t -> WorkerResult.expired("Worker timed out after " + timeoutMs + "ms"));
+    try {
+      java.util.concurrent.Future<WorkerResult<?>> future =
+          virtualThreads.submit(() -> fn.apply(resolvedInput));
+      return future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+    } catch (java.util.concurrent.TimeoutException e) {
+      return WorkerResult.expired("Worker timed out after " + timeoutMs + "ms");
+    } catch (java.util.concurrent.ExecutionException e) {
+      Throwable cause = e.getCause();
+      if (cause instanceof RuntimeException re) {
+        throw re;
+      }
+      throw new RuntimeException(cause);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new RuntimeException("Worker execution interrupted", e);
+    }
   }
 }

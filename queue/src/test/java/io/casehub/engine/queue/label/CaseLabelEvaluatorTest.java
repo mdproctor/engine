@@ -31,7 +31,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.queue.event.CaseQueueEvent;
@@ -60,7 +60,7 @@ class CaseLabelEvaluatorTest {
 
   private CaseLabelEvaluator evaluator;
   private CaseDefinitionRegistry definitionRegistry;
-  private ReactiveCaseInstanceRepository caseInstanceRepo;
+  private CaseInstanceRepository caseInstanceRepo;
   private SubjectViewOrchestrator views;
   private Event<CaseQueueEvent> queueEvents;
   private final List<CaseQueueEvent> firedEvents = new ArrayList<>();
@@ -70,7 +70,7 @@ class CaseLabelEvaluatorTest {
   void setUp() throws Exception {
     evaluator = new CaseLabelEvaluator();
     definitionRegistry = mock(CaseDefinitionRegistry.class);
-    caseInstanceRepo = mock(ReactiveCaseInstanceRepository.class);
+    caseInstanceRepo = mock(CaseInstanceRepository.class);
     views = mock(SubjectViewOrchestrator.class);
     queueEvents = mock(Event.class);
 

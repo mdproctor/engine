@@ -18,7 +18,6 @@ package io.casehub.engine.common.internal.executor;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 
 /**
  * Abstracts <em>how</em> to run a worker function — independent of any scheduler. Called by
@@ -31,7 +30,7 @@ import io.smallrye.mutiny.Uni;
  */
 public interface WorkerExecutor {
 
-  Uni<WorkerResult<?>> execute(
+  WorkerResult<?> execute(
       WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,

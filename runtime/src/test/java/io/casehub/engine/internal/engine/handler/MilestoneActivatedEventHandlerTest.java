@@ -31,7 +31,7 @@ import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.scheduler.ScheduledJobRequest;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.engine.internal.context.CaseContextImpl;
@@ -51,7 +51,7 @@ class MilestoneActivatedEventHandlerTest {
 
   private MilestoneActivatedEventHandler handler;
   private EventBus eventBus;
-  private ReactiveEventLogRepository eventLogRepo;
+  private EventLogRepository eventLogRepo;
   private JobScheduler scheduler;
   private Event<CaseLifecycleEvent> lifecycleEvents;
   private LedgerTraceIdProvider traceIdProvider;
@@ -61,18 +61,18 @@ class MilestoneActivatedEventHandlerTest {
   void setUp() throws Exception {
     handler = new MilestoneActivatedEventHandler();
     eventBus = mock(EventBus.class);
-    eventLogRepo = mock(ReactiveEventLogRepository.class);
+    eventLogRepo = mock(EventLogRepository.class);
     scheduler = mock(JobScheduler.class);
     lifecycleEvents = mock(Event.class);
     traceIdProvider = mock(LedgerTraceIdProvider.class);
 
     inject(handler, "eventBus", eventBus);
-    inject(handler, "reactiveEventLogRepository", eventLogRepo);
+    inject(handler, "eventLogRepository", eventLogRepo);
     inject(handler, "scheduler", scheduler);
     inject(handler, "lifecycleEvents", lifecycleEvents);
     inject(handler, "traceIdProvider", traceIdProvider);
 
-    when(eventLogRepo.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    // eventLogRepo.append is void — no stub needed
     when(traceIdProvider.currentTraceId()).thenReturn(Optional.empty());
     when(lifecycleEvents.fireAsync(any()))
         .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(null));
@@ -95,7 +95,7 @@ class MilestoneActivatedEventHandlerTest {
     MilestoneActivatedEvent event =
         new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, pastDeadline);
 
-    handler.onMilestoneActivated(event).await().indefinitely();
+    handler.onMilestoneActivated(event);
 
     verify(eventBus)
         .publish(
@@ -128,7 +128,7 @@ class MilestoneActivatedEventHandlerTest {
     MilestoneActivatedEvent event =
         new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, futureDeadline);
 
-    handler.onMilestoneActivated(event).await().indefinitely();
+    handler.onMilestoneActivated(event);
 
     verify(scheduler).schedule(any(ScheduledJobRequest.Builder.class));
     verify(eventBus, never()).publish(eq(EventBusAddresses.MILESTONE_SLA_VIOLATED), any());
@@ -146,7 +146,7 @@ class MilestoneActivatedEventHandlerTest {
     MilestoneActivatedEvent event =
         new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, null);
 
-    handler.onMilestoneActivated(event).await().indefinitely();
+    handler.onMilestoneActivated(event);
 
     verify(scheduler, never()).schedule(any(ScheduledJobRequest.Builder.class));
     verify(eventBus, never()).publish(eq(EventBusAddresses.MILESTONE_SLA_VIOLATED), any());

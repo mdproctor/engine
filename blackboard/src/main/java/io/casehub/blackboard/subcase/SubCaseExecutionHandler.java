@@ -31,18 +31,17 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.CompletionStage;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -53,10 +52,10 @@ public class SubCaseExecutionHandler {
 
   private final CaseHubRuntime caseHubRuntime;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
-  private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
-  private final ReactiveEventLogRepository reactiveEventLogRepository;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final EventLogRepository eventLogRepository;
   private final PendingWorkRegistry pendingWorkRegistry;
-  private final ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository;
+  private final SubCaseGroupRepository subCaseGroupRepository;
   private final BlackboardRegistry registry;
   private final CaseInstanceCache caseInstanceCache;
 
@@ -64,24 +63,25 @@ public class SubCaseExecutionHandler {
   public SubCaseExecutionHandler(
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      ReactiveCaseInstanceRepository reactiveCaseInstanceRepository,
-      ReactiveEventLogRepository reactiveEventLogRepository,
+      CaseInstanceRepository caseInstanceRepository,
+      EventLogRepository eventLogRepository,
       PendingWorkRegistry pendingWorkRegistry,
-      ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository,
+      SubCaseGroupRepository subCaseGroupRepository,
       BlackboardRegistry registry,
       CaseInstanceCache caseInstanceCache) {
     this.caseHubRuntime = caseHubRuntime;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
-    this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
-    this.reactiveEventLogRepository = reactiveEventLogRepository;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.eventLogRepository = eventLogRepository;
     this.pendingWorkRegistry = pendingWorkRegistry;
-    this.reactiveSubCaseGroupRepository = reactiveSubCaseGroupRepository;
+    this.subCaseGroupRepository = subCaseGroupRepository;
     this.registry = registry;
     this.caseInstanceCache = caseInstanceCache;
   }
 
-  @ConsumeEvent(value = EventBusAddresses.SUBCASE_SCHEDULE, blocking = true)
-  public Uni<Void> onSubCaseSchedule(SubCaseScheduleEvent event) {
+  @ConsumeEvent(EventBusAddresses.SUBCASE_SCHEDULE)
+  @RunOnVirtualThread
+  public void onSubCaseSchedule(SubCaseScheduleEvent event) {
     CaseInstance parent = event.parentInstance();
     SubCase subCase = event.subCase();
     String bindingName = event.bindingName();
@@ -106,7 +106,7 @@ public class SubCaseExecutionHandler {
             subCase.name(),
             subCase.version());
         faultPlanItem(parent.getUuid(), bindingName);
-        return Uni.createFrom().voidItem();
+        return;
       }
     }
 
@@ -121,18 +121,17 @@ public class SubCaseExecutionHandler {
           "SubCaseExecutionHandler: no CaseDefinition for %s/%s/%s",
           subCase.namespace(), subCase.name(), subCase.version());
       faultPlanItem(parent.getUuid(), bindingName);
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     UUID childCaseId;
     try {
-      CompletionStage<UUID> childFuture =
+      childCaseId =
           caseHubRuntime.startCase(
               childDefinition,
               event.childInitialContext(),
               parent.getUuid(),
               parent.getPropagationContext());
-      childCaseId = childFuture.toCompletableFuture().join();
     } catch (Exception e) {
       LOG.errorf(
           e,
@@ -140,7 +139,7 @@ public class SubCaseExecutionHandler {
           bindingName,
           parent.getUuid());
       faultPlanItem(parent.getUuid(), bindingName);
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     LOG.infof(
@@ -153,9 +152,9 @@ public class SubCaseExecutionHandler {
     delegatePlanItem(parent.getUuid(), bindingName, childCaseId, subCase.waitForCompletion());
 
     if (subCase.groupId() != null) {
-      return handleGrouped(parent, subCase, childCaseId, bindingName);
+      handleGrouped(parent, subCase, childCaseId, bindingName);
     } else {
-      return handleUngrouped(parent, subCase, childCaseId, bindingName);
+      handleUngrouped(parent, subCase, childCaseId, bindingName);
     }
   }
 
@@ -207,7 +206,7 @@ public class SubCaseExecutionHandler {
     return depth;
   }
 
-  private Uni<Void> handleGrouped(
+  private void handleGrouped(
       CaseInstance parent, SubCase subCase, UUID childCaseId, String bindingName) {
     String groupId = subCase.groupId();
 
@@ -216,56 +215,46 @@ public class SubCaseExecutionHandler {
           "SubCaseExecutionHandler: grouped SubCase binding '%s' has invalid totalInGroup=%d",
           bindingName, subCase.totalInGroup());
       faultPlanItem(parent.getUuid(), bindingName);
-      return Uni.createFrom().voidItem();
+      return;
     }
 
-    return reactiveSubCaseGroupRepository
-        .getOrCreate(
-            parent.getUuid(),
-            groupId,
-            subCase.totalInGroup(),
-            subCase.requiredCount(),
-            subCase.onThresholdReached(),
-            parent.tenancyId)
-        .flatMap(
-            group ->
-                reactiveSubCaseGroupRepository.registerChild(
-                    parent.getUuid(), groupId, childCaseId, parent.tenancyId))
-        .flatMap(
-            group -> {
-              EventLog log = new EventLog();
-              log.setCaseId(parent.getUuid());
-              log.setWorkerId(childCaseId.toString());
-              log.setEventType(CaseHubEventType.SUBCASE_STARTED);
-              log.setStreamType(EventStreamType.CASE);
-              log.setTimestamp(Instant.now());
-              ObjectNode meta = OBJECT_MAPPER.createObjectNode();
-              meta.put("childCaseId", childCaseId.toString());
-              meta.put("groupId", groupId);
-              meta.put("waitForCompletion", true);
-              meta.put("bindingName", bindingName);
-              if (subCase.outputMapping()
-                  instanceof io.casehub.api.model.SubCaseMapping.Expression expr) {
-                meta.put("outputMapping", expr.expression());
-              }
-              log.setMetadata(meta);
+    subCaseGroupRepository.getOrCreate(
+        parent.getUuid(),
+        groupId,
+        subCase.totalInGroup(),
+        subCase.requiredCount(),
+        subCase.onThresholdReached(),
+        parent.tenancyId);
+    subCaseGroupRepository.registerChild(parent.getUuid(), groupId, childCaseId, parent.tenancyId);
 
-              boolean alreadyWaiting =
-                  parent.getState() == CaseStatus.WAITING
-                      && groupId.equals(parent.getWaitingForWorkId());
-              if (!alreadyWaiting) {
-                parent.setState(CaseStatus.WAITING);
-                parent.setWaitingForWorkId(groupId);
-                return reactiveCaseInstanceRepository
-                    .updateStateAndAppendEvent(parent, log, parent.tenancyId)
-                    .replaceWithVoid();
-              } else {
-                return reactiveEventLogRepository.append(log, parent.tenancyId).replaceWithVoid();
-              }
-            });
+    EventLog log = new EventLog();
+    log.setCaseId(parent.getUuid());
+    log.setWorkerId(childCaseId.toString());
+    log.setEventType(CaseHubEventType.SUBCASE_STARTED);
+    log.setStreamType(EventStreamType.CASE);
+    log.setTimestamp(Instant.now());
+    ObjectNode meta = OBJECT_MAPPER.createObjectNode();
+    meta.put("childCaseId", childCaseId.toString());
+    meta.put("groupId", groupId);
+    meta.put("waitForCompletion", true);
+    meta.put("bindingName", bindingName);
+    if (subCase.outputMapping() instanceof io.casehub.api.model.SubCaseMapping.Expression expr) {
+      meta.put("outputMapping", expr.expression());
+    }
+    log.setMetadata(meta);
+
+    boolean alreadyWaiting =
+        parent.getState() == CaseStatus.WAITING && groupId.equals(parent.getWaitingForWorkId());
+    if (!alreadyWaiting) {
+      parent.setState(CaseStatus.WAITING);
+      parent.setWaitingForWorkId(groupId);
+      caseInstanceRepository.updateStateAndAppendEvent(parent, log, parent.tenancyId);
+    } else {
+      eventLogRepository.append(log, parent.tenancyId);
+    }
   }
 
-  private Uni<Void> handleUngrouped(
+  private void handleUngrouped(
       CaseInstance parent, SubCase subCase, UUID childCaseId, String bindingName) {
     EventLog log = new EventLog();
     log.setCaseId(parent.getUuid());
@@ -286,11 +275,9 @@ public class SubCaseExecutionHandler {
       pendingWorkRegistry.register(childCaseId.toString());
       parent.setState(CaseStatus.WAITING);
       parent.setWaitingForWorkId(childCaseId.toString());
-      return reactiveCaseInstanceRepository
-          .updateStateAndAppendEvent(parent, log, parent.tenancyId)
-          .replaceWithVoid();
+      caseInstanceRepository.updateStateAndAppendEvent(parent, log, parent.tenancyId);
     } else {
-      return reactiveEventLogRepository.append(log, parent.tenancyId).replaceWithVoid();
+      eventLogRepository.append(log, parent.tenancyId);
     }
   }
 }

@@ -73,7 +73,7 @@ class BasicBlackboardTest {
 
   @Test
   void blackboard_registry_has_plan_model_after_case_starts_and_binding_fires() {
-    UUID caseId = onceCase.startCase(Map.of("phase", "start")).toCompletableFuture().join();
+    UUID caseId = onceCase.startCase(Map.of("phase", "start"));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -82,7 +82,7 @@ class BasicBlackboardTest {
 
   @Test
   void registry_indexes_worker_name_to_plan_item_id_after_selection() {
-    UUID caseId = onceCase.startCase(Map.of("phase", "start")).toCompletableFuture().join();
+    UUID caseId = onceCase.startCase(Map.of("phase", "start"));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -99,7 +99,7 @@ class BasicBlackboardTest {
 
   @Test
   void plan_item_is_no_longer_pending_after_worker_runs() {
-    UUID caseId = onceCase.startCase(Map.of("phase", "start")).toCompletableFuture().join();
+    UUID caseId = onceCase.startCase(Map.of("phase", "start"));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -119,7 +119,7 @@ class BasicBlackboardTest {
   void plan_item_status_transitions_to_completed_after_worker_finishes() {
     // Worker writes phase=done → trigger (.phase == "start") no longer matches → no re-fire.
     // This gives a stable COMPLETED state to assert on.
-    UUID caseId = onceCase.startCase(Map.of("phase", "start")).toCompletableFuture().join();
+    UUID caseId = onceCase.startCase(Map.of("phase", "start"));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -147,7 +147,7 @@ class BasicBlackboardTest {
     // The trigger never fires because "idle" doesn't match ".phase == \"start\"".
     // The registry plan model may still be created (select() is called with empty eligible),
     // but the agenda must remain empty.
-    UUID caseId = neverTriggerCase.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = neverTriggerCase.startCase(Map.of("status", "idle"));
 
     // Give the engine a moment to settle in RUNNING state
     await()
@@ -175,7 +175,7 @@ class BasicBlackboardTest {
 
   @Test
   void case_completes_after_worker_satisfies_success_goal() {
-    UUID caseId = completingCase.startCase(Map.of("phase", "active")).toCompletableFuture().join();
+    UUID caseId = completingCase.startCase(Map.of("phase", "active"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -201,7 +201,7 @@ class BasicBlackboardTest {
    */
   @Test
   void milestone_is_achieved_in_plan_model_after_condition_met() {
-    UUID caseId = milestoneCase.startCase(Map.of("phase", "start")).toCompletableFuture().join();
+    UUID caseId = milestoneCase.startCase(Map.of("phase", "start"));
 
     // Wait for plan model to be created on first select()
     await()

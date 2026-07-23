@@ -29,9 +29,8 @@ import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -45,7 +44,7 @@ class CasehubDispatchTest {
 
   private FlowExecutionRegistry registry;
   private WorkOrchestrator orchestrator;
-  private ReactiveEventLogRepository reactiveEventLogRepository;
+  private EventLogRepository eventLogRepository;
   private io.casehub.engine.common.spi.cache.CaseInstanceCache caseInstanceCache;
   private CallableDispatchRegistry dispatchRegistry;
   private CasehubDispatch dispatch;
@@ -54,21 +53,16 @@ class CasehubDispatchTest {
   void setUp() {
     registry = mock(FlowExecutionRegistry.class);
     orchestrator = mock(WorkOrchestrator.class);
-    reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
+    eventLogRepository = mock(EventLogRepository.class);
 
     // Default: fire-and-forget subscribe returns immediately
-    when(reactiveEventLogRepository.appendAndReturnId(any(), any()))
-        .thenReturn(Uni.createFrom().item(1L));
+    when(eventLogRepository.appendAndReturnId(any(), any())).thenReturn(1L);
 
     caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
     dispatchRegistry = new CallableDispatchRegistry();
     dispatch =
         new CasehubDispatch(
-            registry,
-            orchestrator,
-            reactiveEventLogRepository,
-            caseInstanceCache,
-            dispatchRegistry);
+            registry, orchestrator, eventLogRepository, caseInstanceCache, dispatchRegistry);
     dispatch.register();
   }
 
@@ -124,7 +118,7 @@ class CasehubDispatchTest {
 
     // Verify both step events were appended
     final ArgumentCaptor<EventLog> logCaptor = ArgumentCaptor.forClass(EventLog.class);
-    verify(reactiveEventLogRepository, org.mockito.Mockito.times(2))
+    verify(eventLogRepository, org.mockito.Mockito.times(2))
         .appendAndReturnId(logCaptor.capture(), any());
 
     final List<EventLog> logs = logCaptor.getAllValues();
@@ -143,8 +137,8 @@ class CasehubDispatchTest {
 
     dispatch.dispatch(instanceId, "cap").get();
 
-    final InOrder order = inOrder(reactiveEventLogRepository, orchestrator);
-    order.verify(reactiveEventLogRepository).appendAndReturnId(any(), any()); // DISPATCHED
+    final InOrder order = inOrder(eventLogRepository, orchestrator);
+    order.verify(eventLogRepository).appendAndReturnId(any(), any()); // DISPATCHED
     order.verify(orchestrator).submit(any(), any());
   }
 
@@ -165,7 +159,7 @@ class CasehubDispatchTest {
     assertThat(future).isCompletedExceptionally();
 
     final ArgumentCaptor<EventLog> logCaptor = ArgumentCaptor.forClass(EventLog.class);
-    verify(reactiveEventLogRepository, org.mockito.Mockito.times(2))
+    verify(eventLogRepository, org.mockito.Mockito.times(2))
         .appendAndReturnId(logCaptor.capture(), any());
 
     final List<EventLog> logs = logCaptor.getAllValues();
@@ -186,7 +180,7 @@ class CasehubDispatchTest {
     dispatch.dispatch(instanceId, "cap").exceptionally(e -> null).get();
 
     final ArgumentCaptor<EventLog> logCaptor = ArgumentCaptor.forClass(EventLog.class);
-    verify(reactiveEventLogRepository, org.mockito.Mockito.times(2))
+    verify(eventLogRepository, org.mockito.Mockito.times(2))
         .appendAndReturnId(logCaptor.capture(), any());
 
     // The second event must be FAILED, not COMPLETED

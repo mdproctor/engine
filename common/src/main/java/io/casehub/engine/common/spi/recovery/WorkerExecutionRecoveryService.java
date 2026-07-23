@@ -16,9 +16,6 @@
 package io.casehub.engine.common.spi.recovery;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 
 /**
@@ -33,30 +30,12 @@ import java.util.UUID;
  *
  * <p>Uses the repository SPI to access persisted data.
  *
- * @see ReactiveCaseInstanceRepository
- * @see ReactiveEventLogRepository
+ * @see CaseInstanceRepository
+ * @see EventLogRepository
  */
 public interface WorkerExecutionRecoveryService {
 
-  /**
-   * Load a case instance and restore its state from the event log.
-   *
-   * <p>If the case instance is cached, returns it immediately. Otherwise, loads from repository and
-   * rebuilds the case context by replaying relevant events.
-   *
-   * @param caseId the case UUID
-   * @return Uni containing the restored CaseInstance
-   * @throws IllegalStateException if the case instance is not found (wrapped in Uni.failure)
-   */
-  Uni<CaseInstance> loadOrRestoreCaseInstance(UUID caseId);
+  CaseInstance loadOrRestoreCaseInstance(UUID caseId);
 
-  /**
-   * Recover pending scheduled workers after a restart.
-   *
-   * <p>Scans the event log for workers that were scheduled but not yet started or completed, and
-   * reschedules them for execution.
-   *
-   * @return Uni that completes when all pending workers are rescheduled
-   */
-  Uni<Void> recoverPendingScheduledWorkers();
+  void recoverPendingScheduledWorkers();
 }

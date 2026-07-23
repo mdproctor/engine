@@ -142,11 +142,7 @@ class ScheduleTriggerSimpleTest {
 
   @Test
   void conditionalTriggerEvaluatesLatestContextWhenConditionBecomesMetBeforeFire() {
-    java.util.UUID caseId =
-        conditionalBecomesReadyBean
-            .startCase(Map.of("status", "not-ready"))
-            .toCompletableFuture()
-            .join();
+    java.util.UUID caseId = conditionalBecomesReadyBean.startCase(Map.of("status", "not-ready"));
 
     assertThat(ConditionalTriggerBecomesReadyTestBean.executionCount.get()).isEqualTo(0);
 
@@ -163,11 +159,7 @@ class ScheduleTriggerSimpleTest {
 
   @Test
   void conditionalTriggerEvaluatesLatestContextWhenConditionBecomesFalseBeforeFire() {
-    java.util.UUID caseId =
-        conditionalBecomesBlockedBean
-            .startCase(Map.of("status", "ready"))
-            .toCompletableFuture()
-            .join();
+    java.util.UUID caseId = conditionalBecomesBlockedBean.startCase(Map.of("status", "ready"));
 
     assertThat(ConditionalTriggerBecomesBlockedTestBean.executionCount.get()).isEqualTo(0);
 
@@ -210,8 +202,7 @@ class ScheduleTriggerSimpleTest {
 
   @Test
   void triggersAreCancelledWhenCaseCompletes() {
-    java.util.UUID caseId =
-        cancellationBean.startCase(Map.of("started", true)).toCompletableFuture().join();
+    java.util.UUID caseId = cancellationBean.startCase(Map.of("started", true));
 
     // Should NOT execute immediately
     assertThat(CancellationTestBean.executionCount.get()).isEqualTo(0);

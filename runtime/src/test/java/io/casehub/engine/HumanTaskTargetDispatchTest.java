@@ -32,7 +32,6 @@ import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,18 +52,13 @@ class HumanTaskTargetDispatchTest {
 
   @Test
   void humanTaskBinding_dynamicTitle_resolvesFromContext() {
-    CompletionStage<UUID> future =
-        dynamicFieldsCaseBean.startCase(
-            Map.of(
-                "stage", "review",
-                "protocol", Map.of("id", "PROTO-42"),
-                "trial",
-                    Map.of(
-                        "site",
-                        Map.of("code", "site-london"),
-                        "regulatoryDeadlineDuration",
-                        "PT72H")));
-    future.toCompletableFuture().join();
+    dynamicFieldsCaseBean.startCase(
+        Map.of(
+            "stage", "review",
+            "protocol", Map.of("id", "PROTO-42"),
+            "trial",
+                Map.of(
+                    "site", Map.of("code", "site-london"), "regulatoryDeadlineDuration", "PT72H")));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -83,9 +77,7 @@ class HumanTaskTargetDispatchTest {
 
   @Test
   void humanTaskBinding_publishesScheduleEvent_withPreEvaluatedInputData() {
-    CompletionStage<UUID> future =
-        humanTaskCaseBean.startCase(Map.of("stage", "review", "applicantId", "A-42"));
-    UUID caseId = future.toCompletableFuture().join();
+    UUID caseId = humanTaskCaseBean.startCase(Map.of("stage", "review", "applicantId", "A-42"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -104,10 +96,8 @@ class HumanTaskTargetDispatchTest {
 
   @Test
   void humanTaskBinding_dynamicCandidateGroups_resolvesFromContext() {
-    CompletionStage<UUID> future =
-        dynamicGroupsCaseBean.startCase(
-            Map.of("stage", "review", "irb", Map.of("candidateGroups", List.of("irb-committee"))));
-    future.toCompletableFuture().join();
+    dynamicGroupsCaseBean.startCase(
+        Map.of("stage", "review", "irb", Map.of("candidateGroups", List.of("irb-committee"))));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -123,9 +113,7 @@ class HumanTaskTargetDispatchTest {
     // With CandidateSetStrategy, JQ expressions that return a single string are valid —
     // the strategy treats them as a single-element set. This is more permissive than the old
     // ListExpressionResolver which required array results.
-    CompletionStage<UUID> future =
-        badGroupsCaseBean.startCase(Map.of("stage", "review", "routing", "not-an-array"));
-    future.toCompletableFuture().join();
+    badGroupsCaseBean.startCase(Map.of("stage", "review", "routing", "not-an-array"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -139,13 +127,11 @@ class HumanTaskTargetDispatchTest {
   void humanTaskBinding_dynamicCandidateGroups_conjunctionBothResolve_eventPublished() {
     // With CandidateSetStrategy, JQ expressions that return strings are valid —
     // both groups and users resolve successfully.
-    CompletionStage<UUID> future =
-        conjunctionFailCaseBean.startCase(
-            Map.of(
-                "stage", "review",
-                "groups", "wrong",
-                "users", List.of("user-1")));
-    future.toCompletableFuture().join();
+    conjunctionFailCaseBean.startCase(
+        Map.of(
+            "stage", "review",
+            "groups", "wrong",
+            "users", List.of("user-1")));
 
     await()
         .atMost(5, TimeUnit.SECONDS)

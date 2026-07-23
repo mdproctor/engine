@@ -30,7 +30,7 @@ import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
@@ -61,11 +61,11 @@ class FailureCascadeIntegrationTest {
   @Inject FaultPolicyBean faultPolicyBean;
   @Inject ExpiredFaultPolicyBean expiredFaultPolicyBean;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @Test
   void fault_policy_faults_case_immediately_on_decline() {
-    UUID caseId = faultPolicyBean.startCase(Map.of("task", "pending")).toCompletableFuture().join();
+    UUID caseId = faultPolicyBean.startCase(Map.of("task", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -79,7 +79,7 @@ class FailureCascadeIntegrationTest {
 
   @Test
   void fault_policy_produces_worker_outcome_declined_event_log() {
-    UUID caseId = faultPolicyBean.startCase(Map.of("task", "pending")).toCompletableFuture().join();
+    UUID caseId = faultPolicyBean.startCase(Map.of("task", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -100,8 +100,7 @@ class FailureCascadeIntegrationTest {
 
   @Test
   void expired_with_fault_policy_faults_case() {
-    UUID caseId =
-        expiredFaultPolicyBean.startCase(Map.of("task", "pending")).toCompletableFuture().join();
+    UUID caseId = expiredFaultPolicyBean.startCase(Map.of("task", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -115,8 +114,7 @@ class FailureCascadeIntegrationTest {
 
   @Test
   void expired_produces_worker_outcome_expired_event_log() {
-    UUID caseId =
-        expiredFaultPolicyBean.startCase(Map.of("task", "pending")).toCompletableFuture().join();
+    UUID caseId = expiredFaultPolicyBean.startCase(Map.of("task", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -152,10 +150,7 @@ class FailureCascadeIntegrationTest {
                 List.of("first-worker")));
 
     UUID caseId =
-        successAfterRerouteBean
-            .startCase(Map.of("task", "go", "_diagnostics", priorOutcomes))
-            .toCompletableFuture()
-            .join();
+        successAfterRerouteBean.startCase(Map.of("task", "go", "_diagnostics", priorOutcomes));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -178,12 +173,8 @@ class FailureCascadeIntegrationTest {
   }
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    return eventLogRepository.findByCaseAndTypes(
+        caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   @ApplicationScoped

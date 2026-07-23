@@ -34,7 +34,6 @@ import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -94,36 +93,18 @@ public class YamlSimpleCaseHubBeanTest {
 
   @Test
   public void testExecution() {
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    AtomicReference<Throwable> err = new AtomicReference<>();
-
     Map<String, Object> initialContext =
         Map.of(
             "documentId", "doc-456",
             "status", "processing");
 
-    yamlSimpleCaseHubBean
-        .startCase(initialContext)
-        .thenAccept(ref::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
+    UUID caseId = yamlSimpleCaseHubBean.startCase(initialContext);
 
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              if (err.get() != null) throw new AssertionError(err.get());
-              assertNotNull(ref.get());
-            });
-
-    await()
-        .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              var instance = caseInstanceCache.get(ref.get());
+              var instance = caseInstanceCache.get(caseId);
               assertNotNull(instance);
               assertEquals(CaseStatus.COMPLETED, instance.getState());
             });

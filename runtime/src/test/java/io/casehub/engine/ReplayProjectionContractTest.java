@@ -25,7 +25,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -46,7 +46,7 @@ class ReplayProjectionContractTest {
 
   @Inject ReplayProjectionCaseHubBean bean;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @Inject WorkerExecutionRecoveryService recoveryService;
 
@@ -55,10 +55,7 @@ class ReplayProjectionContractTest {
   @Test
   void replayAppliesRecordedContextChangesWithoutReplacingContextWithWorkerPayload()
       throws Exception {
-    UUID caseId =
-        bean.startCase(Map.of("documentId", "doc-replay", "status", "submitted"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = bean.startCase(Map.of("documentId", "doc-replay", "status", "submitted"));
 
     EventLog workerCompleted = new EventLog();
     workerCompleted.setCaseId(caseId);
@@ -80,15 +77,11 @@ class ReplayProjectionContractTest {
             ]
             """));
     workerCompleted.setMetadata(metadata);
-    reactiveEventLogRepository
-        .append(workerCompleted, TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(TIMEOUT);
+    eventLogRepository.append(workerCompleted, TenancyConstants.DEFAULT_TENANT_ID);
 
     caseInstanceCache.clear();
 
-    CaseInstance restored =
-        recoveryService.loadOrRestoreCaseInstance(caseId).await().atMost(TIMEOUT);
+    CaseInstance restored = recoveryService.loadOrRestoreCaseInstance(caseId);
 
     assertThat(restored.getCaseContext().get("documentId")).isEqualTo("doc-replay");
     assertThat(restored.getCaseContext().get("status")).isEqualTo("processed");

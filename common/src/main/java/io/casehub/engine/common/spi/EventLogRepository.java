@@ -31,7 +31,7 @@ import java.util.UUID;
  * findSubmittedWorkWithoutCompletion, findByWorkerAndTypeAcrossTenants) are in {@link
  * CrossTenantEventLogRepository}.
  *
- * @see ReactiveEventLogRepository
+ * @see EventLogRepository
  */
 public interface EventLogRepository {
 

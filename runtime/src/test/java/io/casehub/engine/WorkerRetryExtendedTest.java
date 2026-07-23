@@ -29,7 +29,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
@@ -66,7 +66,7 @@ public class WorkerRetryExtendedTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @BeforeEach
   void reset() {
@@ -90,8 +90,7 @@ public class WorkerRetryExtendedTest {
     String taskId = "one-fail-" + UUID.randomUUID();
     FlexibleRetryBean.failUntil.put(taskId, 1); // fail attempt 1, succeed on attempt 2
 
-    UUID caseId =
-        bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -101,9 +100,7 @@ public class WorkerRetryExtendedTest {
                   2,
                   FlexibleRetryBean.attempts.getOrDefault(taskId, new AtomicInteger()).get(),
                   "Worker must be called exactly twice: one failure + one success");
-              assertEquals(
-                  "processed",
-                  bean.query(caseId, "status", String.class).toCompletableFuture().join());
+              assertEquals("processed", bean.query(caseId, "status", String.class));
             });
   }
 
@@ -115,8 +112,7 @@ public class WorkerRetryExtendedTest {
     String taskId = "two-fail-" + UUID.randomUUID();
     FlexibleRetryBean.failUntil.put(taskId, 2); // fail attempts 1–2, succeed on attempt 3
 
-    UUID caseId =
-        bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -126,9 +122,7 @@ public class WorkerRetryExtendedTest {
                   3,
                   FlexibleRetryBean.attempts.getOrDefault(taskId, new AtomicInteger()).get(),
                   "Worker must be called three times: two failures + one success");
-              assertEquals(
-                  "processed",
-                  bean.query(caseId, "status", String.class).toCompletableFuture().join());
+              assertEquals("processed", bean.query(caseId, "status", String.class));
             });
   }
 
@@ -142,7 +136,7 @@ public class WorkerRetryExtendedTest {
     int expectedFailures = 3;
     FlexibleRetryBean.failUntil.put(taskId, expectedFailures);
 
-    bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -163,8 +157,7 @@ public class WorkerRetryExtendedTest {
     String taskId = "output-check-" + UUID.randomUUID();
     FlexibleRetryBean.failUntil.put(taskId, 2);
 
-    UUID caseId =
-        bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -172,10 +165,10 @@ public class WorkerRetryExtendedTest {
             () -> {
               assertEquals(
                   "processed",
-                  bean.query(caseId, "status", String.class).toCompletableFuture().join(),
+                  bean.query(caseId, "status", String.class),
                   "Output field 'status' must be 'processed' after retry success");
               assertNotNull(
-                  bean.query(caseId, "taskId", String.class).toCompletableFuture().join(),
+                  bean.query(caseId, "taskId", String.class),
                   "Output field 'taskId' must survive through retries");
             });
   }
@@ -189,8 +182,7 @@ public class WorkerRetryExtendedTest {
     String taskId = "complete-" + UUID.randomUUID();
     FlexibleRetryBean.failUntil.put(taskId, 1);
 
-    UUID caseId =
-        bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -212,8 +204,7 @@ public class WorkerRetryExtendedTest {
     int failCount = 2;
     FlexibleRetryBean.failUntil.put(taskId, failCount);
 
-    UUID caseId =
-        bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     // Wait until all attempts complete (failures + success)
     await()
@@ -247,8 +238,7 @@ public class WorkerRetryExtendedTest {
     String taskId = "last-attempt-" + UUID.randomUUID();
     FlexibleRetryBean.failUntil.put(taskId, maxAttempts - 1); // succeed on attempt 5
 
-    UUID caseId =
-        bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -274,8 +264,7 @@ public class WorkerRetryExtendedTest {
     String taskId = "no-dup-sched-" + UUID.randomUUID();
     FlexibleRetryBean.failUntil.put(taskId, 2);
 
-    UUID caseId =
-        bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     // Wait for all retries to complete
     await()
@@ -303,8 +292,7 @@ public class WorkerRetryExtendedTest {
     String taskId = "one-completed-" + UUID.randomUUID();
     FlexibleRetryBean.failUntil.put(taskId, 2);
 
-    UUID caseId =
-        bean.startCase(Map.of("taskId", taskId, "status", "pending")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId, "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -334,7 +322,7 @@ public class WorkerRetryExtendedTest {
     String taskId = "signal-retry-" + UUID.randomUUID();
     SignalTriggerRetryBean.failUntil.put(taskId, 1); // fail once, then succeed
 
-    UUID caseId = signalBean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = signalBean.startCase(Map.of("taskId", taskId));
 
     // Worker must NOT run before the signal
     Awaitility.await()
@@ -359,9 +347,7 @@ public class WorkerRetryExtendedTest {
                   2,
                   SignalTriggerRetryBean.attempts.getOrDefault(taskId, new AtomicInteger()).get(),
                   "Worker must have been called twice: one failure + one success");
-              assertEquals(
-                  "processed",
-                  signalBean.query(caseId, "status", String.class).toCompletableFuture().join());
+              assertEquals("processed", signalBean.query(caseId, "status", String.class));
             });
   }
 
@@ -374,11 +360,7 @@ public class WorkerRetryExtendedTest {
     // Alpha succeeds immediately; Beta fails once then succeeds
     TwoWorkerRetryBean.betaFailUntil.set(1);
 
-    UUID caseId =
-        twoWorkerBean
-            .startCase(Map.of("alpha", "ready", "beta", "ready"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = twoWorkerBean.startCase(Map.of("alpha", "ready", "beta", "ready"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -392,18 +374,9 @@ public class WorkerRetryExtendedTest {
                   2,
                   TwoWorkerRetryBean.betaAttempts.get(),
                   "Beta worker must have two attempts: one failure + one success");
-              assertEquals(
-                  "alpha-done",
-                  twoWorkerBean
-                      .query(caseId, "alphaResult", String.class)
-                      .toCompletableFuture()
-                      .join());
-              assertEquals(
-                  "beta-done",
-                  twoWorkerBean
-                      .query(caseId, "betaResult", String.class)
-                      .toCompletableFuture()
-                      .join());
+              assertEquals("alpha-done", twoWorkerBean.query(caseId, "alphaResult", String.class));
+
+              assertEquals("beta-done", twoWorkerBean.query(caseId, "betaResult", String.class));
             });
   }
 
@@ -412,21 +385,13 @@ public class WorkerRetryExtendedTest {
   // ================================================================== //
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    return eventLogRepository.findByCaseAndTypes(
+        caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   private List<EventLog> findWorkerEvents(UUID caseId, CaseHubEventType eventType) {
-    return reactiveEventLogRepository
+    return eventLogRepository
         .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join()
         .stream()
         .filter(e -> e.getWorkerId() != null)
         .toList();

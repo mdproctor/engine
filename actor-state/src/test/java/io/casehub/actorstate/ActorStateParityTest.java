@@ -16,9 +16,7 @@
 package io.casehub.actorstate;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.fail;
 
-import io.smallrye.mutiny.Uni;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Set;
@@ -26,17 +24,17 @@ import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 
 /**
- * Verifies that {@link ReactiveActorStateAggregator} has a {@code Uni<ActorStateResponse>}
- * equivalent for every {@code ActorStateResponse}-returning method on {@link ActorStateAggregator}.
+ * Verifies that {@link ActorStateAggregator} has at least one {@code ActorStateResponse}-returning
+ * method -- a structural sanity check.
  *
- * <p>Local test — avoids inverting the ledger→engine dependency direction that would result from
- * expanding casehub-ledger's BlockingReactiveParityTest.
+ * <p>The reactive parity test was removed when the blocking-first migration eliminated
+ * ReactiveActorStateAggregator.
  */
 class ActorStateParityTest {
 
   @Test
-  void reactiveAggregatorHasUniEquivalentForEveryBlockingMethod() {
-    final Set<String> blockingMethodNames =
+  void aggregatorHasAtLeastOneActorStateResponseMethod() {
+    final Set<String> methodNames =
         Arrays.stream(ActorStateAggregator.class.getMethods())
             .filter(m -> m.getReturnType().equals(ActorStateResponse.class))
             .filter(m -> m.getDeclaringClass().equals(ActorStateAggregator.class))
@@ -44,22 +42,7 @@ class ActorStateParityTest {
             .collect(Collectors.toSet());
 
     assertFalse(
-        blockingMethodNames.isEmpty(),
+        methodNames.isEmpty(),
         "ActorStateAggregator must have at least one ActorStateResponse-returning method");
-
-    for (final String name : blockingMethodNames) {
-      final Method reactiveMethod =
-          Arrays.stream(ReactiveActorStateAggregator.class.getMethods())
-              .filter(m -> m.getName().equals(name))
-              .findFirst()
-              .orElseGet(() -> fail("ReactiveActorStateAggregator missing method: " + name));
-      if (!Uni.class.equals(reactiveMethod.getReturnType())) {
-        fail(
-            "Method "
-                + name
-                + " in ReactiveActorStateAggregator must return Uni<ActorStateResponse> but returns "
-                + reactiveMethod.getReturnType());
-      }
-    }
   }
 }

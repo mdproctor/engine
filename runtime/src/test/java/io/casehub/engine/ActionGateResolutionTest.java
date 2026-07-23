@@ -56,7 +56,6 @@ import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -311,9 +310,6 @@ class ActionGateResolutionTest {
   // --- Helpers ---
 
   private UUID startCase() {
-    final AtomicReference<UUID> ref = new AtomicReference<>();
-    resolutionCaseHub.startCase(Map.of()).thenAccept(ref::set);
-    await().atMost(5, TimeUnit.SECONDS).until(() -> ref.get() != null);
-    return ref.get();
+    return resolutionCaseHub.startCase(Map.of());
   }
 }

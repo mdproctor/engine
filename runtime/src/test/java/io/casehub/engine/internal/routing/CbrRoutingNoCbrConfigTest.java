@@ -55,10 +55,7 @@ class CbrRoutingNoCbrConfigTest {
 
   @Test
   void noCbrConfig_experiencesListIsEmpty() {
-    caseHub
-        .startCase(Map.of("documentId", "doc-no-cbr", "status", "ready"))
-        .toCompletableFuture()
-        .join();
+    caseHub.startCase(Map.of("documentId", "doc-no-cbr", "status", "ready"));
 
     // Wait for the recording strategy to be invoked with a processDoc context
     await()

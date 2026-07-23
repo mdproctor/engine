@@ -66,11 +66,7 @@ class MixedWorkersBlackboardTest {
 
   @Test
   void two_workers_with_different_capabilities_both_complete() throws Exception {
-    UUID caseId =
-        mixedCase
-            .startCase(Map.of("phaseA", "start", "phaseB", "start"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = mixedCase.startCase(Map.of("phaseA", "start", "phaseB", "start"));
 
     CompletableFuture<String> aFuture = observer.awaitWorker(caseId, "trigger-a");
     CompletableFuture<String> bFuture = observer.awaitWorker(caseId, "trigger-b");

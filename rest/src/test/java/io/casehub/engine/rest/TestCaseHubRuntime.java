@@ -28,8 +28,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Alternative
@@ -41,22 +39,22 @@ public class TestCaseHubRuntime implements CaseHubRuntime {
   final Map<UUID, UUID> startedCases = new ConcurrentHashMap<>();
 
   @Override
-  public CompletionStage<UUID> startCase(CaseDefinition definition) {
+  public UUID startCase(CaseDefinition definition) {
     return startCase(definition, Map.of());
   }
 
   @Override
-  public CompletionStage<UUID> startCase(CaseDefinition definition, Object inputData) {
+  public UUID startCase(CaseDefinition definition, Object inputData) {
     UUID caseId = UUID.randomUUID();
     @SuppressWarnings("unchecked")
     Map<String, Object> ctx = inputData instanceof Map ? (Map<String, Object>) inputData : Map.of();
     caseContexts.put(caseId, ctx);
     startedCases.put(caseId, caseId);
-    return CompletableFuture.completedFuture(caseId);
+    return caseId;
   }
 
   @Override
-  public CompletionStage<UUID> startCase(
+  public UUID startCase(
       CaseDefinition definition,
       Object inputData,
       UUID parentCaseId,
@@ -65,13 +63,13 @@ public class TestCaseHubRuntime implements CaseHubRuntime {
   }
 
   @Override
-  public CompletionStage<UUID> startCase(
+  public UUID startCase(
       CaseDefinition definition, Object inputData, Map<String, Object> semanticData) {
     return startCase(definition, inputData);
   }
 
   @Override
-  public CompletionStage<UUID> startCase(
+  public UUID startCase(
       CaseDefinition definition,
       Object inputData,
       Map<String, Object> semanticData,
@@ -81,9 +79,8 @@ public class TestCaseHubRuntime implements CaseHubRuntime {
   }
 
   @Override
-  public CompletionStage<Void> signal(UUID caseId, String path, Object value) {
+  public void signal(UUID caseId, String path, Object value) {
     requireCase(caseId);
-    return CompletableFuture.completedFuture(null);
   }
 
   @Override
@@ -102,34 +99,33 @@ public class TestCaseHubRuntime implements CaseHubRuntime {
   }
 
   @Override
-  public CompletionStage<Object> query(UUID caseId, String path) {
+  public Object query(UUID caseId, String path) {
     requireCase(caseId);
     Map<String, Object> ctx = caseContexts.getOrDefault(caseId, Map.of());
-    return CompletableFuture.completedFuture(new MapCaseContext(ctx));
+    return new MapCaseContext(ctx);
   }
 
   @Override
-  public <T> CompletionStage<T> query(UUID caseId, String path, Class<T> clazz) {
+  public <T> T query(UUID caseId, String path, Class<T> clazz) {
     requireCase(caseId);
     Map<String, Object> ctx = caseContexts.getOrDefault(caseId, Map.of());
-    return CompletableFuture.completedFuture(clazz.cast(ctx));
+    return clazz.cast(ctx);
   }
 
   @Override
-  public CompletionStage<List<CaseEventLogRecord>> eventLog(UUID caseId) {
-    return CompletableFuture.completedFuture(List.of());
+  public List<CaseEventLogRecord> eventLog(UUID caseId) {
+    return List.of();
   }
 
   @Override
-  public CompletionStage<List<CaseEventLogRecord>> eventLog(
-      UUID caseId, Set<CaseHubEventType> eventTypes) {
-    return CompletableFuture.completedFuture(List.of());
+  public List<CaseEventLogRecord> eventLog(UUID caseId, Set<CaseHubEventType> eventTypes) {
+    return List.of();
   }
 
   @Override
-  public CompletionStage<List<CaseEventLogRecord>> eventLog(
+  public List<CaseEventLogRecord> eventLog(
       UUID caseId, Set<CaseHubEventType> eventTypes, Set<EventStreamType> streamTypes) {
-    return CompletableFuture.completedFuture(List.of());
+    return List.of();
   }
 
   private void requireCase(UUID caseId) {

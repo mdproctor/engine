@@ -25,8 +25,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Worker;
@@ -73,8 +73,8 @@ public class QhorusMessageSignalBridge {
 
   private final CaseHubRuntime runtime;
 
-  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
-  @Inject @CrossTenant ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject EventBus eventBus;
 
@@ -128,7 +128,7 @@ public class QhorusMessageSignalBridge {
     Long eventLogId = parseEventLogId(event.correlationId());
     if (eventLogId == null) return false;
 
-    EventLog eventLog = eventLogRepository.findById(eventLogId).await().atMost(TIMEOUT);
+    EventLog eventLog = eventLogRepository.findById(eventLogId);
     if (eventLog == null) return false;
 
     JsonNode metadata = eventLog.getMetadata();
@@ -139,7 +139,7 @@ public class QhorusMessageSignalBridge {
       return false;
     }
 
-    CaseInstance caseInstance = caseInstanceRepository.findByUuid(caseId).await().atMost(TIMEOUT);
+    CaseInstance caseInstance = caseInstanceRepository.findByUuid(caseId);
     if (caseInstance == null) {
       LOG.infof(
           "CaseInstance %s not found — case already terminal, skipping failure cascade", caseId);

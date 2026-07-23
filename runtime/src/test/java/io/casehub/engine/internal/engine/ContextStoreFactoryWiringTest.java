@@ -59,8 +59,7 @@ class ContextStoreFactoryWiringTest {
   @Test
   void startCase_withRecordingFactory_usesCorrectFactory() throws Exception {
     RecordingFactoryCaseHub hub = new RecordingFactoryCaseHub();
-    UUID caseId =
-        runtime.startCase(hub.getDefinition(), Map.of("started", true)).toCompletableFuture().get();
+    UUID caseId = runtime.startCase(hub.getDefinition(), Map.of("started", true));
 
     assertThat(caseId).isNotNull();
     assertThat(RecordingCaseContextStoreFactory.layers)
@@ -81,11 +80,7 @@ class ContextStoreFactoryWiringTest {
   @Test
   void startCase_noFactory_completesSuccessfully() throws Exception {
     DefaultFactoryCaseHub hub = new DefaultFactoryCaseHub();
-    UUID caseId =
-        runtime
-            .startCase(hub.getDefinition(), Map.of("started2", true))
-            .toCompletableFuture()
-            .get();
+    UUID caseId = runtime.startCase(hub.getDefinition(), Map.of("started2", true));
 
     assertThat(caseId).isNotNull();
 

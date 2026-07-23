@@ -102,8 +102,7 @@ class WorkerDecisionObserverNonBlockingTest {
   void caseCompletes_even_when_workerDecisionObserver_blocks_indefinitely() {
     blockObserver = true;
 
-    UUID caseId =
-        blockingCaseHubBean.startCase(Map.of("trigger", "go")).toCompletableFuture().join();
+    UUID caseId = blockingCaseHubBean.startCase(Map.of("trigger", "go"));
 
     await()
         .atMost(10, TimeUnit.SECONDS)

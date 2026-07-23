@@ -20,7 +20,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
 import io.casehub.engine.common.internal.event.MilestoneCompletedEvent;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -50,18 +50,18 @@ public class MilestoneAchievementHandler {
   }
 
   @ConsumeEvent(EventBusAddresses.MILESTONE_ACTIVATED)
-  public Uni<Void> onMilestoneActivated(MilestoneActivatedEvent event) {
+  @RunOnVirtualThread
+  public void onMilestoneActivated(MilestoneActivatedEvent event) {
     registry
         .get(event.caseInstance().getUuid())
         .ifPresent(plan -> plan.activateMilestone(event.milestone().getName()));
-    return Uni.createFrom().voidItem();
   }
 
   @ConsumeEvent(EventBusAddresses.MILESTONE_COMPLETED)
-  public Uni<Void> onMilestoneCompleted(MilestoneCompletedEvent event) {
+  @RunOnVirtualThread
+  public void onMilestoneCompleted(MilestoneCompletedEvent event) {
     registry
         .get(event.caseInstance().getUuid())
         .ifPresent(plan -> plan.completeMilestone(event.milestone().getName()));
-    return Uni.createFrom().voidItem();
   }
 }

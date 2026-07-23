@@ -54,14 +54,9 @@ class HybridOrchestrationIntegrationTest {
   // signalAndAwait test
   @Test
   void signalAndAwait_resolvesAfterWorkerCompletes() throws Exception {
-    UUID caseId = signalAwaitBean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = signalAwaitBean.startCase(Map.of());
 
-    var settled =
-        runtime
-            .signalAndAwait(caseId, Map.of("trigger", "go"), Duration.ofSeconds(10))
-            .toCompletableFuture();
-
-    var result = settled.get(15, TimeUnit.SECONDS);
+    var result = runtime.signalAndAwait(caseId, Map.of("trigger", "go"), Duration.ofSeconds(10));
     assertThat(result.get("result")).isEqualTo("done");
   }
 
@@ -107,8 +102,7 @@ class HybridOrchestrationIntegrationTest {
 
   @Test
   void spawnAndAwait_childCaseCompletesAndReturnsContext() {
-    UUID parentCaseId =
-        spawnParentBean.startCase(Map.of("trigger", true)).toCompletableFuture().join();
+    UUID parentCaseId = spawnParentBean.startCase(Map.of("trigger", true));
 
     await()
         .atMost(20, TimeUnit.SECONDS)

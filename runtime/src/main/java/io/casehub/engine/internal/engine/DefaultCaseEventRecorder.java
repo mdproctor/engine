@@ -17,30 +17,45 @@ package io.casehub.engine.internal.engine;
 
 import io.casehub.api.spi.CaseEventRecorder;
 import io.casehub.api.spi.CaseEventRequest;
+import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.spi.EventLogRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.time.Instant;
 
 /**
- * Blocking {@link CaseEventRecorder}. Delegates to {@link DefaultReactiveCaseEventRecorder} and
- * awaits.
+ * Blocking {@link CaseEventRecorder}. Constructs {@link EventLog} domain objects internally —
+ * consumers never import {@code EventLog}.
  */
 @ApplicationScoped
 public class DefaultCaseEventRecorder implements CaseEventRecorder {
 
-  private final DefaultReactiveCaseEventRecorder delegate;
+  private final EventLogRepository eventLogRepository;
 
   @Inject
-  public DefaultCaseEventRecorder(DefaultReactiveCaseEventRecorder delegate) {
-    this.delegate = delegate;
+  public DefaultCaseEventRecorder(EventLogRepository eventLogRepository) {
+    this.eventLogRepository = eventLogRepository;
   }
 
   @Override
   public void record(CaseEventRequest request) {
-    delegate.record(request).await().indefinitely();
+    eventLogRepository.append(toEventLog(request), request.tenancyId());
   }
 
   @Override
   public Long recordAndReturnId(CaseEventRequest request) {
-    return delegate.recordAndReturnId(request).await().indefinitely();
+    return eventLogRepository.appendAndReturnId(toEventLog(request), request.tenancyId());
+  }
+
+  private EventLog toEventLog(CaseEventRequest request) {
+    EventLog log = new EventLog();
+    log.setCaseId(request.caseId());
+    log.setEventType(request.type());
+    log.setStreamType(request.stream());
+    log.setWorkerId(request.workerId());
+    log.setTimestamp(Instant.now());
+    log.setPayload(request.payload());
+    log.setMetadata(request.metadata());
+    return log;
   }
 }

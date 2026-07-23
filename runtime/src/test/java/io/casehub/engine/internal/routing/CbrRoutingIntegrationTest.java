@@ -84,10 +84,7 @@ class CbrRoutingIntegrationTest {
         io.casehub.platform.api.path.Path.root());
 
     // Start the case with context that triggers the binding
-    caseHub
-        .startCase(Map.of("enemy", Map.of("posture", "aggressive", "army_size", 80)))
-        .toCompletableFuture()
-        .join();
+    caseHub.startCase(Map.of("enemy", Map.of("posture", "aggressive", "army_size", 80)));
 
     // Wait for the recording strategy to be invoked with a planBattle context
     await()

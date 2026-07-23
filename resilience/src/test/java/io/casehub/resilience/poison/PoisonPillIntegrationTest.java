@@ -40,7 +40,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -77,27 +76,7 @@ class PoisonPillIntegrationTest {
     detector.recordFailure("quarantine-checked-worker");
     assertThat(detector.isQuarantined("quarantine-checked-worker")).isTrue();
 
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-    AtomicReference<Throwable> err = new AtomicReference<>();
-
-    quarantineSkipCase
-        .startCase(Map.of("status", "run"))
-        .thenAccept(caseIdRef::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
-
-    await()
-        .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              if (err.get() != null) throw new AssertionError(err.get());
-              assertThat(caseIdRef.get()).isNotNull();
-            });
-
-    UUID caseId = caseIdRef.get();
+    UUID caseId = quarantineSkipCase.startCase(Map.of("status", "run"));
 
     // Case must reach FAULTED — quarantined worker cannot execute
     await()
@@ -127,18 +106,13 @@ class PoisonPillIntegrationTest {
     detector.release("quarantine-checked-worker");
     assertThat(detector.isQuarantined("quarantine-checked-worker")).isFalse();
 
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-    quarantineSkipCase
-        .startCase(Map.of("status", "run"))
-        .thenAccept(caseIdRef::set)
-        .toCompletableFuture()
-        .join();
+    UUID caseId2 = quarantineSkipCase.startCase(Map.of("status", "run"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              var instance = caseInstanceCache.get(caseIdRef.get());
+              var instance = caseInstanceCache.get(caseId2);
               assertThat(instance).isNotNull();
               assertThat(instance.getState()).isEqualTo(CaseStatus.COMPLETED);
             });

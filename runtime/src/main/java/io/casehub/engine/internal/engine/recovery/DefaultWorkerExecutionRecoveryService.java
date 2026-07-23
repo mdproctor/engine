@@ -23,17 +23,14 @@ import io.casehub.api.context.MutableCaseContext;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
-import io.smallrye.mutiny.Uni;
-import io.vertx.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.EnumSet;
@@ -66,45 +63,38 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
           CaseHubEventType.MILESTONE_COMPLETED,
           CaseHubEventType.MILESTONE_SLA_VIOLATED);
 
-  @Inject @CrossTenant ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository;
 
-  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
-
-  @Inject Vertx vertx;
+  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
 
   @Inject CaseInstanceCache caseInstanceCache;
 
   @Inject WorkerExecutionManager workflowExecutionManager;
 
   @Override
-  public Uni<CaseInstance> loadOrRestoreCaseInstance(UUID caseId) {
+  public CaseInstance loadOrRestoreCaseInstance(UUID caseId) {
     CaseInstance cached = caseInstanceCache.get(caseId);
     if (cached != null) {
-      return Uni.createFrom().item(cached);
+      return cached;
     }
 
-    return runOnSafeContext(() -> caseInstanceRepository.findByUuid(caseId))
-        .onItem()
-        .ifNull()
-        .failWith(() -> new IllegalStateException("CaseInstance not found for caseId=" + caseId))
-        .chain(
-            instance ->
-                rebuildStateContext(caseId)
-                    .map(
-                        stateContext -> {
-                          instance.setCaseContext(stateContext);
-                          caseInstanceCache.put(instance);
-                          return instance;
-                        }));
+    CaseInstance instance = caseInstanceRepository.findByUuid(caseId);
+    if (instance == null) {
+      throw new IllegalStateException("CaseInstance not found for caseId=" + caseId);
+    }
+    CaseContext stateContext = rebuildStateContext(caseId);
+    instance.setCaseContext(stateContext);
+    caseInstanceCache.put(instance);
+    return instance;
   }
 
   @Override
-  public Uni<Void> recoverPendingScheduledWorkers() {
-    return runOnSafeContext(() -> eventLogRepository.findByTypes(RELEVANT_RECOVERY_EVENTS))
-        .chain(this::reschedulePendingEvents);
+  public void recoverPendingScheduledWorkers() {
+    List<EventLog> eventLogs = eventLogRepository.findByTypes(RELEVANT_RECOVERY_EVENTS);
+    reschedulePendingEvents(eventLogs);
   }
 
-  private Uni<Void> reschedulePendingEvents(List<EventLog> eventLogs) {
+  private void reschedulePendingEvents(List<EventLog> eventLogs) {
     Set<String> alreadyProgressed = new HashSet<>();
     for (EventLog eventLog : eventLogs) {
       if (eventLog.getEventType() != CaseHubEventType.WORKER_SCHEDULED) {
@@ -115,112 +105,93 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
       }
     }
 
-    List<Uni<Void>> recoveries =
-        eventLogs.stream()
-            .filter(
-                eventLog -> {
-                  if (eventLog.getEventType() != CaseHubEventType.WORKER_SCHEDULED) {
-                    return false;
-                  }
-                  String key = executionKey(eventLog);
-                  return key != null && !alreadyProgressed.contains(key);
-                })
-            .map(workflowExecutionManager::schedulePersistedEvent)
-            .toList();
-
-    if (recoveries.isEmpty()) {
-      return Uni.createFrom().voidItem();
-    }
-
-    return Uni.combine().all().unis(recoveries).discardItems();
+    eventLogs.stream()
+        .filter(
+            eventLog -> {
+              if (eventLog.getEventType() != CaseHubEventType.WORKER_SCHEDULED) {
+                return false;
+              }
+              String key = executionKey(eventLog);
+              return key != null && !alreadyProgressed.contains(key);
+            })
+        .forEach(workflowExecutionManager::schedulePersistedEvent);
   }
 
   @SuppressWarnings("unchecked")
-  private Uni<CaseContext> rebuildStateContext(UUID caseId) {
-    return runOnSafeContext(
-            () ->
-                eventLogRepository.findByCaseAndTypes(
-                    caseId,
-                    EnumSet.of(
-                        CaseHubEventType.CASE_STARTED,
-                        CaseHubEventType.WORKER_EXECUTION_COMPLETED,
-                        CaseHubEventType.SUBCASE_COMPLETED,
-                        CaseHubEventType.SIGNAL_RECEIVED,
-                        CaseHubEventType.MILESTONE_ACTIVATED,
-                        CaseHubEventType.MILESTONE_COMPLETED,
-                        CaseHubEventType.MILESTONE_SLA_VIOLATED)))
-        .map(
-            eventLogs -> {
-              CaseContextImpl caseContext = new CaseContextImpl();
-              EventLog caseStartedEvent =
-                  eventLogs.stream()
-                      .filter(e -> e.getEventType() == CaseHubEventType.CASE_STARTED)
-                      .findFirst()
-                      .orElse(null);
+  private CaseContext rebuildStateContext(UUID caseId) {
+    List<EventLog> eventLogs =
+        eventLogRepository.findByCaseAndTypes(
+            caseId,
+            EnumSet.of(
+                CaseHubEventType.CASE_STARTED,
+                CaseHubEventType.WORKER_EXECUTION_COMPLETED,
+                CaseHubEventType.SUBCASE_COMPLETED,
+                CaseHubEventType.SIGNAL_RECEIVED,
+                CaseHubEventType.MILESTONE_ACTIVATED,
+                CaseHubEventType.MILESTONE_COMPLETED,
+                CaseHubEventType.MILESTONE_SLA_VIOLATED));
 
-              if (caseStartedEvent != null) {
-                // CASE_STARTED payload is now a layer document
-                // {"working":{...},"semantic":{...},...}
-                caseContext = CaseContextImpl.fromLayerDocument(caseStartedEvent.getPayload());
-              }
+    CaseContextImpl caseContext = new CaseContextImpl();
+    EventLog caseStartedEvent =
+        eventLogs.stream()
+            .filter(e -> e.getEventType() == CaseHubEventType.CASE_STARTED)
+            .findFirst()
+            .orElse(null);
 
-              for (EventLog eventLog : eventLogs) {
-                if (eventLog.getEventType() == CaseHubEventType.CASE_STARTED) {
-                  continue;
-                }
-                if (eventLog.getEventType() == CaseHubEventType.SIGNAL_RECEIVED) {
-                  JsonNode patch = payloadAsPatch(eventLog.getPayload());
-                  if (patch != null) {
-                    caseContext.applyDiff(patch);
-                  }
-                } else if (eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED) {
-                  JsonNode contextChanges = getContextChanges(eventLog.getMetadata());
-                  if (contextChanges != null) {
-                    if (contextChanges.isArray()) {
-                      // JSON Patch format (JsonPatchContextDiffStrategy)
-                      caseContext.applyDiff(contextChanges);
-                    } else if (contextChanges.isObject()) {
-                      // TopLevel format (TopLevelContextDiffStrategy)
-                      applyTopLevelChanges(caseContext, contextChanges);
-                    }
-                  } else {
-                    LOG.warnf(
-                        "WORKER_EXECUTION_COMPLETED has no contextChanges metadata — "
-                            + "falling back to payload merge for caseId=%s seq=%s",
-                        caseId, eventLog.getSeq());
-                    caseContext.setAll(payloadAsMap(eventLog.getPayload()));
-                  }
-                  // Update episodic layer
-                  String workerId = eventLog.getWorkerId();
-                  if (workerId != null) {
-                    EpisodicLayerUpdater.recordWorkerCompletion(caseContext, workerId, "COMPLETED");
-                  }
-                } else if (eventLog.getEventType() == CaseHubEventType.SUBCASE_COMPLETED) {
-                  caseContext.setAll(payloadAsMap(eventLog.getPayload()));
-                } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_ACTIVATED) {
-                  applyMilestoneActivatedEvent(caseContext, eventLog);
-                } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_COMPLETED) {
-                  applyMilestoneCompletedEvent(caseContext, eventLog);
-                  // Update episodic layer
-                  JsonNode payload = eventLog.getPayload();
-                  if (payload != null) {
-                    String milestoneName = payload.path("milestoneName").asText(null);
-                    if (milestoneName != null) {
-                      EpisodicLayerUpdater.recordMilestoneReached(caseContext, milestoneName);
-                    }
-                  }
-                } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_SLA_VIOLATED) {
-                  applyMilestoneSLAViolatedEvent(caseContext, eventLog);
-                } else {
-                  LOG.warnf(
-                      "Unexpected event type in rebuildStateContext: %s", eventLog.getEventType());
-                }
-              }
-              // Re-freeze semantic and episodic layers (they were frozen at case start)
-              caseContext.freezeLayer(ContextLayer.SEMANTIC);
-              caseContext.freezeLayer(ContextLayer.EPISODIC);
-              return caseContext;
-            });
+    if (caseStartedEvent != null) {
+      caseContext = CaseContextImpl.fromLayerDocument(caseStartedEvent.getPayload());
+    }
+
+    for (EventLog eventLog : eventLogs) {
+      if (eventLog.getEventType() == CaseHubEventType.CASE_STARTED) {
+        continue;
+      }
+      if (eventLog.getEventType() == CaseHubEventType.SIGNAL_RECEIVED) {
+        JsonNode patch = payloadAsPatch(eventLog.getPayload());
+        if (patch != null) {
+          caseContext.applyDiff(patch);
+        }
+      } else if (eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED) {
+        JsonNode contextChanges = getContextChanges(eventLog.getMetadata());
+        if (contextChanges != null) {
+          if (contextChanges.isArray()) {
+            caseContext.applyDiff(contextChanges);
+          } else if (contextChanges.isObject()) {
+            applyTopLevelChanges(caseContext, contextChanges);
+          }
+        } else {
+          LOG.warnf(
+              "WORKER_EXECUTION_COMPLETED has no contextChanges metadata — "
+                  + "falling back to payload merge for caseId=%s seq=%s",
+              caseId, eventLog.getSeq());
+          caseContext.setAll(payloadAsMap(eventLog.getPayload()));
+        }
+        String workerId = eventLog.getWorkerId();
+        if (workerId != null) {
+          EpisodicLayerUpdater.recordWorkerCompletion(caseContext, workerId, "COMPLETED");
+        }
+      } else if (eventLog.getEventType() == CaseHubEventType.SUBCASE_COMPLETED) {
+        caseContext.setAll(payloadAsMap(eventLog.getPayload()));
+      } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_ACTIVATED) {
+        applyMilestoneActivatedEvent(caseContext, eventLog);
+      } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_COMPLETED) {
+        applyMilestoneCompletedEvent(caseContext, eventLog);
+        JsonNode payload = eventLog.getPayload();
+        if (payload != null) {
+          String milestoneName = payload.path("milestoneName").asText(null);
+          if (milestoneName != null) {
+            EpisodicLayerUpdater.recordMilestoneReached(caseContext, milestoneName);
+          }
+        }
+      } else if (eventLog.getEventType() == CaseHubEventType.MILESTONE_SLA_VIOLATED) {
+        applyMilestoneSLAViolatedEvent(caseContext, eventLog);
+      } else {
+        LOG.warnf("Unexpected event type in rebuildStateContext: %s", eventLog.getEventType());
+      }
+    }
+    caseContext.freezeLayer(ContextLayer.SEMANTIC);
+    caseContext.freezeLayer(ContextLayer.EPISODIC);
+    return caseContext;
   }
 
   @SuppressWarnings("unchecked")
@@ -253,10 +224,6 @@ public class DefaultWorkerExecutionRecoveryService implements WorkerExecutionRec
     JsonNode inputDataHash = metadata.get("inputDataHash");
     if (inputDataHash == null || inputDataHash.isNull()) return null;
     return eventLog.getCaseId() + "|" + eventLog.getWorkerId() + "|" + inputDataHash.asText();
-  }
-
-  private <T> Uni<T> runOnSafeContext(java.util.function.Supplier<Uni<? extends T>> supplier) {
-    return ReactiveUtils.runOnSafeVertxContext(vertx, supplier);
   }
 
   private void applyMilestoneActivatedEvent(CaseContext caseContext, EventLog eventLog) {

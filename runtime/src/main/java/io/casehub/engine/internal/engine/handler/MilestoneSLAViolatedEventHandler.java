@@ -28,9 +28,9 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -47,28 +47,29 @@ public class MilestoneSLAViolatedEventHandler {
   private static final Logger LOG = Logger.getLogger(MilestoneSLAViolatedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
 
   @ConsumeEvent(value = EventBusAddresses.MILESTONE_SLA_VIOLATED)
-  public Uni<Void> onMilestoneSLAViolated(MilestoneSLAViolatedEvent event) {
-    CaseInstance caseInstance = event.caseInstance();
-    String milestoneName = event.milestoneName();
-    Instant violatedAt = event.violatedAt();
+  @RunOnVirtualThread
+  void onMilestoneSLAViolated(MilestoneSLAViolatedEvent event) {
+    try {
+      CaseInstance caseInstance = event.caseInstance();
+      String milestoneName = event.milestoneName();
+      Instant violatedAt = event.violatedAt();
 
-    return recordEventLog(event)
-        .chain(() -> updateCaseContext(caseInstance, milestoneName, violatedAt))
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.errorf(
-                    t,
-                    "Failed to process MILESTONE_SLA_VIOLATED for caseId=%s milestone=%s",
-                    caseInstance.getUuid(),
-                    milestoneName));
+      recordEventLog(event);
+      updateCaseContext(caseInstance, milestoneName, violatedAt);
+    } catch (Exception e) {
+      LOG.errorf(
+          e,
+          "Failed to process MILESTONE_SLA_VIOLATED for caseId=%s milestone=%s",
+          event.caseInstance().getUuid(),
+          event.milestoneName());
+    }
   }
 
-  private Uni<Void> recordEventLog(MilestoneSLAViolatedEvent event) {
+  private void recordEventLog(MilestoneSLAViolatedEvent event) {
     CaseInstance caseInstance = event.caseInstance();
     String milestoneName = event.milestoneName();
 
@@ -91,10 +92,10 @@ public class MilestoneSLAViolatedEventHandler {
         "Recording MILESTONE_SLA_VIOLATED for case=%s milestone=%s violatedAt=%s",
         caseInstance.getUuid(), milestoneName, event.violatedAt());
 
-    return reactiveEventLogRepository.append(eventLog, caseInstance.tenancyId);
+    eventLogRepository.append(eventLog, caseInstance.tenancyId);
   }
 
-  private Uni<Void> updateCaseContext(
+  private void updateCaseContext(
       CaseInstance caseInstance, String milestoneName, Instant violatedAt) {
     CaseContext context = caseInstance.getCaseContext();
 
@@ -111,7 +112,5 @@ public class MilestoneSLAViolatedEventHandler {
         CONTEXT_CHANGED,
         new CaseContextChangedEvent(
             caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
-
-    return Uni.createFrom().voidItem();
   }
 }

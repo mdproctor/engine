@@ -32,7 +32,6 @@ import io.serverlessworkflow.impl.WorkflowApplication;
 import io.serverlessworkflow.impl.WorkflowDefinition;
 import io.serverlessworkflow.impl.WorkflowInstance;
 import io.serverlessworkflow.impl.WorkflowModel;
-import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -84,11 +83,8 @@ class FlowWorkerFunctionHandlerTest {
     final ExecutionMetadata metadata = new ExecutionMetadata("worker-A", "hash-1");
 
     final WorkerResult result =
-        handler
-            .execute(
-                new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata)
-            .await()
-            .atMost(Duration.ofSeconds(10));
+        handler.execute(
+            new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata);
 
     assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
     verify(registry).register(eq(instanceId), eq(caseId), eq("worker-A"), eq("hash-1"));
@@ -111,17 +107,13 @@ class FlowWorkerFunctionHandlerTest {
         new WorkerContext("worker-B", caseId, null, null, PropagationContext.createRoot(), null);
     final ExecutionMetadata metadata = new ExecutionMetadata("worker-B", "hash-2");
 
-    handler
-        .execute(new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata)
-        .subscribe()
-        .with(
-            result -> {
-              throw new AssertionError("Should have failed");
-            },
-            throwable -> {
-              assertThat(throwable).isInstanceOf(RuntimeException.class);
-              verify(registry).remove(instanceId);
-            });
+    try {
+      handler.execute(
+          new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata);
+    } catch (Exception ignored) {
+    }
+
+    verify(registry).remove(instanceId);
   }
 
   @Test
@@ -138,31 +130,25 @@ class FlowWorkerFunctionHandlerTest {
         new WorkerContext("worker-C", caseId, null, null, PropagationContext.createRoot(), null);
     final ExecutionMetadata metadata = new ExecutionMetadata("worker-C", "h");
 
-    handler
-        .execute(new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata)
-        .subscribe()
-        .with(
-            result -> {
-              throw new AssertionError("Should have failed");
-            },
-            throwable -> {
-              assertThat(throwable)
-                  .isInstanceOf(RuntimeException.class)
-                  .hasMessageContaining("sync exception from start()");
-              // Registry must be cleaned up — no leak
-              verify(registry).register(eq(instanceId), any(), any(), any());
-              verify(registry).remove(instanceId);
-            });
+    try {
+      handler.execute(
+          new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata);
+      throw new AssertionError("Should have thrown");
+    } catch (RuntimeException e) {
+      assertThat(e).hasMessageContaining("sync exception from start()");
+      verify(registry).register(eq(instanceId), any(), any(), any());
+      verify(registry).remove(instanceId);
+    }
   }
 
   @Test
-  void execute_returns_future_from_start() {
+  void execute_returns_result_after_future_completes() {
     final String instanceId = "wf-future";
     final WorkflowModel model = mock(WorkflowModel.class);
     when(model.asMap()).thenReturn(Optional.of(Map.of("data", "value")));
 
     final WorkflowInstance wfInstance = mockWorkflowInstance(instanceId);
-    final CompletableFuture<WorkflowModel> future = new CompletableFuture<>();
+    final CompletableFuture<WorkflowModel> future = CompletableFuture.completedFuture(model);
     when(wfInstance.start()).thenReturn(future);
 
     stubApp(wfInstance);
@@ -172,17 +158,10 @@ class FlowWorkerFunctionHandlerTest {
         new WorkerContext("w", caseId, null, null, PropagationContext.createRoot(), null);
     final ExecutionMetadata metadata = new ExecutionMetadata("w", "h");
 
-    final var uni =
+    final WorkerResult result =
         handler.execute(
             new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata);
 
-    // Future not yet complete
-    assertThat(future.isDone()).isFalse();
-
-    // Complete the future
-    future.complete(model);
-
-    final WorkerResult result = uni.await().atMost(Duration.ofSeconds(10));
     assertThat((java.util.Map<String, Object>) result.output()).containsEntry("data", "value");
     verify(registry).remove(instanceId);
   }

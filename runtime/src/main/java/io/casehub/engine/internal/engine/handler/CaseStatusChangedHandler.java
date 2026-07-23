@@ -33,7 +33,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseTerminatedException;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.engine.CaseCompletionTracker;
 import io.casehub.engine.internal.scheduler.SchedulerService;
@@ -62,7 +62,7 @@ public class CaseStatusChangedHandler {
 
   @Inject EventBus eventBus;
 
-  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
   @Inject SchedulerService schedulerService;
 
@@ -114,42 +114,35 @@ public class CaseStatusChangedHandler {
     }
     eventLog.setMetadata(metadataNode);
 
-    return reactiveCaseInstanceRepository
-        .updateStateAndAppendEvent(caseInstance, eventLog, caseInstance.tenancyId)
-        .chain(
-            () -> {
-              if (isTerminalState(newState)) {
-                CaseContext contextSnapshot = caseInstance.getCaseContext().snapshot();
-                if (newState == CaseStatus.COMPLETED) {
-                  caseCompletionTracker.complete(caseInstance.getUuid(), contextSnapshot);
-                } else {
-                  caseCompletionTracker.completeExceptionally(
-                      caseInstance.getUuid(),
-                      new CaseTerminatedException(caseInstance.getUuid(), newState));
-                }
-                caseChannelProvider
-                    .listChannels(caseInstance.getUuid())
-                    .forEach(caseChannelProvider::closeChannel);
-                // Cancel pending gate WorkItem if case terminates while gate is pending
-                if (caseInstance.getPendingActionGate() != null) {
-                  eventBus.publish(
-                      EventBusAddresses.ACTION_GATE_CANCELLED,
-                      new io.casehub.engine.common.internal.event.ActionGateCancelledEvent(
-                          caseInstance.getUuid(),
-                          caseInstance.tenancyId,
-                          caseInstance.getPendingActionGate().gateId()));
-                }
-                return schedulerService
-                    .cancelAllTriggers(caseInstance.getUuid())
-                    .invoke(
-                        () -> {
-                          if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
-                            mctx.close();
-                          }
-                        });
-              }
-              return Uni.createFrom().voidItem();
-            })
+    caseInstanceRepository.updateStateAndAppendEvent(
+        caseInstance, eventLog, caseInstance.tenancyId);
+
+    if (isTerminalState(newState)) {
+      CaseContext contextSnapshot = caseInstance.getCaseContext().snapshot();
+      if (newState == CaseStatus.COMPLETED) {
+        caseCompletionTracker.complete(caseInstance.getUuid(), contextSnapshot);
+      } else {
+        caseCompletionTracker.completeExceptionally(
+            caseInstance.getUuid(), new CaseTerminatedException(caseInstance.getUuid(), newState));
+      }
+      caseChannelProvider
+          .listChannels(caseInstance.getUuid())
+          .forEach(caseChannelProvider::closeChannel);
+      if (caseInstance.getPendingActionGate() != null) {
+        eventBus.publish(
+            EventBusAddresses.ACTION_GATE_CANCELLED,
+            new io.casehub.engine.common.internal.event.ActionGateCancelledEvent(
+                caseInstance.getUuid(),
+                caseInstance.tenancyId,
+                caseInstance.getPendingActionGate().gateId()));
+      }
+      schedulerService.cancelAllTriggers(caseInstance.getUuid());
+      if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
+        mctx.close();
+      }
+    }
+    return Uni.createFrom()
+        .voidItem()
         .invoke(
             () -> {
               // Notify outcome observers on terminal state — CBR Retain step. Refs engine#477.

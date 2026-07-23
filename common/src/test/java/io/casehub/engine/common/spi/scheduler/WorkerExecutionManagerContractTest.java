@@ -47,14 +47,12 @@ public abstract class WorkerExecutionManagerContractTest {
           }
 
           @Override
-          public io.smallrye.mutiny.Uni<Void> submit(
+          public void submit(
               Long eventLogId,
               io.casehub.engine.common.internal.model.CaseInstance instance,
               io.casehub.worker.api.Worker worker,
               io.casehub.worker.api.Capability capability,
-              java.util.Map<String, Object> inputData) {
-            return io.smallrye.mutiny.Uni.createFrom().voidItem();
-          }
+              java.util.Map<String, Object> inputData) {}
 
           @Override
           public int getActiveWorkCount(String workerId) {

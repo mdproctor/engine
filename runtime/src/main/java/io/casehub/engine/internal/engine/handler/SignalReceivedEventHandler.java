@@ -26,25 +26,22 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.BulkSignalReceivedEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.SignalReceivedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import io.vertx.mutiny.core.shareddata.Lock;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import org.jboss.logging.Logger;
 
 /**
@@ -56,159 +53,174 @@ public class SignalReceivedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(SignalReceivedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-
-  private final Vertx vertx;
+  private static final int MAX_STARTING_RETRIES = 30;
+  private static final long STARTING_RETRY_DELAY_MS = 100L;
+  private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
   private final EventBus eventBus;
   private final CaseInstanceCache caseInstanceCache;
   private final WorkerExecutionRecoveryService recoveryService;
-  private final ReactiveEventLogRepository reactiveEventLogRepository;
+  private final EventLogRepository eventLogRepository;
   private final Event<CaseLifecycleEvent> lifecycleEvents;
   private final LedgerTraceIdProvider traceIdProvider;
   private final io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
   @Inject
   SignalReceivedEventHandler(
-      Vertx vertx,
       EventBus eventBus,
       CaseInstanceCache caseInstanceCache,
       WorkerExecutionRecoveryService recoveryService,
-      ReactiveEventLogRepository reactiveEventLogRepository,
+      EventLogRepository eventLogRepository,
       Event<CaseLifecycleEvent> lifecycleEvents,
       LedgerTraceIdProvider traceIdProvider,
       io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver) {
-    this.vertx = vertx;
     this.eventBus = eventBus;
     this.caseInstanceCache = caseInstanceCache;
     this.recoveryService = recoveryService;
-    this.reactiveEventLogRepository = reactiveEventLogRepository;
+    this.eventLogRepository = eventLogRepository;
     this.lifecycleEvents = lifecycleEvents;
     this.traceIdProvider = traceIdProvider;
     this.bridgeResolver = bridgeResolver;
   }
 
-  private static final int MAX_STARTING_RETRIES = 30;
-  private static final long STARTING_RETRY_DELAY_MS = 100L;
-
-  @ConsumeEvent(value = EventBusAddresses.SIGNAL_RECEIVED)
-  public Uni<Void> onSignalReceived(SignalReceivedEvent event) {
-    return onSignalReceivedWithRetry(event, 0);
+  public void onSignalReceived(SignalReceivedEvent event) {
+    try {
+      CaseInstance instance = resolveInstanceWithRetry(event.caseId(), event.path());
+      if (instance == null) {
+        return;
+      }
+      applySignal(instance, event);
+    } catch (Exception e) {
+      LOG.errorf(
+          e, "Failed to process signal path='%s' for caseId=%s", event.path(), event.caseId());
+    }
   }
 
-  @ConsumeEvent(value = EventBusAddresses.BULK_SIGNAL_RECEIVED)
-  public Uni<Void> onBulkSignalReceived(BulkSignalReceivedEvent event) {
-    return onBulkSignalReceivedWithRetry(event, 0);
+  public void onBulkSignalReceived(BulkSignalReceivedEvent event) {
+    try {
+      CaseInstance instance = resolveInstanceWithRetry(event.caseId(), "bulk");
+      if (instance == null) {
+        return;
+      }
+      applyBulkSignal(instance, event);
+    } catch (Exception e) {
+      LOG.errorf(e, "Failed to process bulk signal for caseId=%s", event.caseId());
+    }
   }
 
-  @ConsumeEvent(value = EventBusAddresses.TYPED_SIGNAL_RECEIVED)
-  public Uni<Void> onTypedSignalReceived(
+  public void onTypedSignalReceived(
       io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event) {
-    return onTypedSignalReceivedWithRetry(event, 0);
+    try {
+      CaseInstance instance =
+          resolveInstanceWithRetry(event.caseId(), "typed:" + event.signalName());
+      if (instance == null) {
+        return;
+      }
+      applyTypedSignal(instance, event);
+    } catch (Exception e) {
+      LOG.errorf(
+          e,
+          "Failed to process typed signal '%s' for caseId=%s",
+          event.signalName(),
+          event.caseId());
+    }
   }
 
-  private Uni<Void> onTypedSignalReceivedWithRetry(
-      io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event, int attempt) {
-    CaseInstance cached = caseInstanceCache.get(event.caseId());
+  private CaseInstance resolveInstanceWithRetry(java.util.UUID caseId, String label) {
+    CaseInstance cached = caseInstanceCache.get(caseId);
     if (cached == null) {
-      LOG.warnf("CaseInstance not found in cache for caseId=%s, trying recovery", event.caseId());
-      return recoveryService
-          .loadOrRestoreCaseInstance(event.caseId())
-          .chain(instance -> applyTypedSignal(instance, event));
+      LOG.warnf("CaseInstance not found in cache for caseId=%s, trying recovery", caseId);
+      return recoveryService.loadOrRestoreCaseInstance(caseId);
     }
     CaseStatus state = cached.getState();
     if (state == CaseStatus.RUNNING || state == CaseStatus.WAITING) {
-      return applyTypedSignal(cached, event);
+      return cached;
     }
     if (state != CaseStatus.STARTING) {
-      LOG.warnf(
-          "Ignoring typed signal '%s' for caseId=%s — case is %s",
-          event.signalName(), event.caseId(), state);
-      return Uni.createFrom().voidItem();
+      LOG.warnf("Ignoring signal '%s' for caseId=%s — case is %s", label, caseId, state);
+      return null;
     }
-    if (attempt >= MAX_STARTING_RETRIES) {
-      LOG.warnf(
-          "CaseInstance caseId=%s still STARTING after %d retries, proceeding anyway",
-          event.caseId(), MAX_STARTING_RETRIES);
-      return applyTypedSignal(cached, event);
+    // Retry loop for STARTING state
+    for (int attempt = 0; attempt < MAX_STARTING_RETRIES; attempt++) {
+      LOG.debugf(
+          "CaseInstance caseId=%s is still STARTING (attempt %d/%d), retrying in %dms",
+          caseId, attempt + 1, MAX_STARTING_RETRIES, STARTING_RETRY_DELAY_MS);
+      try {
+        Thread.sleep(STARTING_RETRY_DELAY_MS);
+      } catch (InterruptedException ie) {
+        Thread.currentThread().interrupt();
+        return cached;
+      }
+      cached = caseInstanceCache.get(caseId);
+      if (cached == null) {
+        return recoveryService.loadOrRestoreCaseInstance(caseId);
+      }
+      state = cached.getState();
+      if (state == CaseStatus.RUNNING || state == CaseStatus.WAITING) {
+        return cached;
+      }
+      if (state != CaseStatus.STARTING) {
+        LOG.warnf("Ignoring signal '%s' for caseId=%s — case is %s", label, caseId, state);
+        return null;
+      }
     }
-    LOG.debugf(
-        "CaseInstance caseId=%s is still STARTING (attempt %d/%d), retrying in %dms",
-        event.caseId(), attempt + 1, MAX_STARTING_RETRIES, STARTING_RETRY_DELAY_MS);
-    return Uni.createFrom()
-        .emitter(em -> vertx.setTimer(STARTING_RETRY_DELAY_MS, id -> em.complete(null)))
-        .chain(() -> onTypedSignalReceivedWithRetry(event, attempt + 1));
+    LOG.warnf(
+        "CaseInstance caseId=%s still STARTING after %d retries, proceeding anyway",
+        caseId, MAX_STARTING_RETRIES);
+    return cached;
   }
 
-  private Uni<Void> applyTypedSignal(
+  private void applyTypedSignal(
       CaseInstance instance,
       io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     String lockKey = "signal:" + instance.getUuid() + ":signals." + event.signalName();
-    return vertx
-        .sharedData()
-        .getLocalLock(lockKey)
-        .chain(lock -> applyTypedSignalUnderLock(instance, event, lock, traceId));
+    ReentrantLock lock = locks.computeIfAbsent(lockKey, k -> new ReentrantLock());
+    lock.lock();
+    try {
+      applyTypedSignalUnderLock(instance, event, traceId);
+    } finally {
+      lock.unlock();
+    }
   }
 
-  private Uni<Void> applyTypedSignalUnderLock(
+  private void applyTypedSignalUnderLock(
       CaseInstance instance,
       io.casehub.engine.common.internal.event.TypedSignalReceivedEvent event,
-      Lock lock,
       String traceId) {
     String signalPath = "signals." + event.signalName();
-    Optional<JsonNode> maybeDiff;
-    try {
-      maybeDiff = instance.getCaseContext().applyAndDiff(signalPath, event.payload());
-    } finally {
-      lock.release();
-    }
+    Optional<JsonNode> maybeDiff =
+        instance.getCaseContext().applyAndDiff(signalPath, event.payload());
 
     if (maybeDiff.isEmpty()) {
       LOG.debugf(
           "Typed signal '%s' produced no state change for caseId=%s — skipping",
           event.signalName(), event.caseId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     JsonNode diff = maybeDiff.get();
     EventLog eventLog = buildTypedSignalEventLog(instance, diff, event);
 
-    return reactiveEventLogRepository
-        .append(eventLog, instance.tenancyId)
-        .invoke(
-            () -> {
-              lifecycleEvents
-                  .fireAsync(
-                      CaseLifecycleEvent.of(
-                          instance, "SignalCase", "TypedSignalReceived", null, "System", traceId))
-                  .whenComplete(
-                      (v, t) -> {
-                        if (t != null) {
-                          LOG.warnf(
-                              t,
-                              "CaseLifecycleEvent observer failed for caseId=%s event=TypedSignalReceived",
-                              instance.getUuid());
-                        }
-                      });
-            })
-        .invoke(
-            () ->
-                eventBus.publish(
-                    CONTEXT_CHANGED,
-                    new CaseContextChangedEvent(
-                        instance,
-                        instance.getCaseContext().snapshot(),
-                        ContextLayer.WORKING,
-                        null,
-                        null)))
-        .replaceWithVoid()
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.errorf(
+    eventLogRepository.append(eventLog, instance.tenancyId);
+
+    lifecycleEvents
+        .fireAsync(
+            CaseLifecycleEvent.of(
+                instance, "SignalCase", "TypedSignalReceived", null, "System", traceId))
+        .whenComplete(
+            (v, t) -> {
+              if (t != null) {
+                LOG.warnf(
                     t,
-                    "Failed to process typed signal '%s' for caseId=%s",
-                    event.signalName(),
-                    event.caseId()));
+                    "CaseLifecycleEvent observer failed for caseId=%s event=TypedSignalReceived",
+                    instance.getUuid());
+              }
+            });
+
+    eventBus.publish(
+        CONTEXT_CHANGED,
+        new CaseContextChangedEvent(
+            instance, instance.getCaseContext().snapshot(), ContextLayer.WORKING, null, null));
   }
 
   private EventLog buildTypedSignalEventLog(
@@ -241,105 +253,57 @@ public class SignalReceivedEventHandler {
     return eventLog;
   }
 
-  private Uni<Void> onSignalReceivedWithRetry(SignalReceivedEvent event, int attempt) {
-    CaseInstance cached = caseInstanceCache.get(event.caseId());
-    if (cached == null) {
-      LOG.warnf("CaseInstance not found in cache for caseId=%s, trying recovery", event.caseId());
-      return recoveryService
-          .loadOrRestoreCaseInstance(event.caseId())
-          .chain(instance -> applySignal(instance, event));
-    }
-    CaseStatus state = cached.getState();
-    if (state == CaseStatus.RUNNING || state == CaseStatus.WAITING) {
-      return applySignal(cached, event);
-    }
-    if (state != CaseStatus.STARTING) {
-      LOG.warnf(
-          "Ignoring signal path='%s' for caseId=%s — case is %s",
-          event.path(), event.caseId(), state);
-      return Uni.createFrom().voidItem();
-    }
-    if (attempt >= MAX_STARTING_RETRIES) {
-      LOG.warnf(
-          "CaseInstance caseId=%s still STARTING after %d retries, proceeding anyway",
-          event.caseId(), MAX_STARTING_RETRIES);
-      return applySignal(cached, event);
-    }
-    LOG.debugf(
-        "CaseInstance caseId=%s is still STARTING (attempt %d/%d), retrying in %dms",
-        event.caseId(), attempt + 1, MAX_STARTING_RETRIES, STARTING_RETRY_DELAY_MS);
-    return Uni.createFrom()
-        .emitter(em -> vertx.setTimer(STARTING_RETRY_DELAY_MS, id -> em.complete(null)))
-        .chain(() -> onSignalReceivedWithRetry(event, attempt + 1));
-  }
-
-  private Uni<Void> applySignal(CaseInstance instance, SignalReceivedEvent event) {
-    // Capture traceId synchronously before the async chain — the OTel ThreadLocal is intact here.
+  private void applySignal(CaseInstance instance, SignalReceivedEvent event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     String lockKey = "signal:" + instance.getUuid() + ":" + event.path();
-    return vertx
-        .sharedData()
-        .getLocalLock(lockKey)
-        .chain(lock -> applySignalUnderLock(instance, event, lock, traceId));
+    ReentrantLock lock = locks.computeIfAbsent(lockKey, k -> new ReentrantLock());
+    lock.lock();
+    try {
+      applySignalUnderLock(instance, event, traceId);
+    } finally {
+      lock.unlock();
+    }
   }
 
-  private Uni<Void> applySignalUnderLock(
-      CaseInstance instance, SignalReceivedEvent event, Lock lock, String traceId) {
-    Optional<JsonNode> maybeDiff;
-    try {
-      maybeDiff = instance.getCaseContext().applyAndDiff(event.path(), event.value());
-    } finally {
-      // Release immediately: the lock only needs to protect the in-memory context update.
-      // The subsequent DB transaction does not need to be serialized here.
-      lock.release();
-    }
+  private void applySignalUnderLock(
+      CaseInstance instance, SignalReceivedEvent event, String traceId) {
+    Optional<JsonNode> maybeDiff =
+        instance.getCaseContext().applyAndDiff(event.path(), event.value());
 
     if (maybeDiff.isEmpty()) {
       LOG.debugf(
           "Signal path='%s' produced no state change for caseId=%s — skipping",
           event.path(), event.caseId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     JsonNode diff = maybeDiff.get();
     EventLog eventLog = buildSignalEventLog(instance, diff, event.signalMetadata());
 
-    return reactiveEventLogRepository
-        .append(eventLog, instance.tenancyId)
-        .invoke(
-            () -> {
-              lifecycleEvents
-                  .fireAsync(
-                      CaseLifecycleEvent.of(
-                          instance, "SignalCase", "SignalReceived", null, "System", traceId))
-                  .whenComplete(
-                      (v, t) -> {
-                        if (t != null)
-                          LOG.warnf(
-                              t,
-                              "CaseLifecycleEvent observer failed for caseId=%s event=SignalReceived",
-                              instance.getUuid());
-                      });
-            })
-        .invoke(
-            () ->
-                eventBus.publish(
-                    CONTEXT_CHANGED,
-                    new CaseContextChangedEvent(
-                        instance,
-                        instance.getCaseContext().snapshot(),
-                        ContextLayer.WORKING,
-                        event.triggerChannelId(),
-                        event.triggerCorrelationId())))
-        .replaceWithVoid()
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.errorf(
+    eventLogRepository.append(eventLog, instance.tenancyId);
+
+    lifecycleEvents
+        .fireAsync(
+            CaseLifecycleEvent.of(
+                instance, "SignalCase", "SignalReceived", null, "System", traceId))
+        .whenComplete(
+            (v, t) -> {
+              if (t != null) {
+                LOG.warnf(
                     t,
-                    "Failed to process signal path='%s' for caseId=%s",
-                    event.path(),
-                    event.caseId()));
+                    "CaseLifecycleEvent observer failed for caseId=%s event=SignalReceived",
+                    instance.getUuid());
+              }
+            });
+
+    eventBus.publish(
+        CONTEXT_CHANGED,
+        new CaseContextChangedEvent(
+            instance,
+            instance.getCaseContext().snapshot(),
+            ContextLayer.WORKING,
+            event.triggerChannelId(),
+            event.triggerCorrelationId()));
   }
 
   private EventLog buildSignalEventLog(
@@ -362,86 +326,49 @@ public class SignalReceivedEventHandler {
     return eventLog;
   }
 
-  private Uni<Void> onBulkSignalReceivedWithRetry(BulkSignalReceivedEvent event, int attempt) {
-    CaseInstance cached = caseInstanceCache.get(event.caseId());
-    if (cached == null) {
-      LOG.warnf("CaseInstance not found in cache for caseId=%s, trying recovery", event.caseId());
-      return recoveryService
-          .loadOrRestoreCaseInstance(event.caseId())
-          .chain(instance -> applyBulkSignal(instance, event));
-    }
-    CaseStatus state = cached.getState();
-    if (state == CaseStatus.RUNNING || state == CaseStatus.WAITING) {
-      return applyBulkSignal(cached, event);
-    }
-    if (state != CaseStatus.STARTING) {
-      LOG.warnf("Ignoring bulk signal for caseId=%s — case is %s", event.caseId(), state);
-      return Uni.createFrom().voidItem();
-    }
-    if (attempt >= MAX_STARTING_RETRIES) {
-      LOG.warnf(
-          "CaseInstance caseId=%s still STARTING after %d retries, proceeding anyway",
-          event.caseId(), MAX_STARTING_RETRIES);
-      return applyBulkSignal(cached, event);
-    }
-    LOG.debugf(
-        "CaseInstance caseId=%s is still STARTING (attempt %d/%d), retrying in %dms",
-        event.caseId(), attempt + 1, MAX_STARTING_RETRIES, STARTING_RETRY_DELAY_MS);
-    return Uni.createFrom()
-        .emitter(em -> vertx.setTimer(STARTING_RETRY_DELAY_MS, id -> em.complete(null)))
-        .chain(() -> onBulkSignalReceivedWithRetry(event, attempt + 1));
-  }
-
-  private Uni<Void> applyBulkSignal(CaseInstance instance, BulkSignalReceivedEvent event) {
+  private void applyBulkSignal(CaseInstance instance, BulkSignalReceivedEvent event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     String lockKey = "signal:bulk:" + instance.getUuid();
-    return vertx
-        .sharedData()
-        .getLocalLock(lockKey)
-        .chain(lock -> applyBulkSignalUnderLock(instance, event, lock, traceId));
+    ReentrantLock lock = locks.computeIfAbsent(lockKey, k -> new ReentrantLock());
+    lock.lock();
+    try {
+      applyBulkSignalUnderLock(instance, event, traceId);
+    } finally {
+      lock.unlock();
+    }
   }
 
-  private Uni<Void> applyBulkSignalUnderLock(
-      CaseInstance instance, BulkSignalReceivedEvent event, Lock lock, String traceId) {
-    try {
-      instance.getCaseContext().setAll(event.updates());
-    } finally {
-      lock.release();
-    }
+  private void applyBulkSignalUnderLock(
+      CaseInstance instance, BulkSignalReceivedEvent event, String traceId) {
+    instance.getCaseContext().setAll(event.updates());
 
     EventLog eventLog = buildBulkSignalEventLog(instance, event.updates());
 
-    return reactiveEventLogRepository
-        .append(eventLog, instance.tenancyId)
-        .invoke(
-            () -> {
-              lifecycleEvents
-                  .fireAsync(
-                      CaseLifecycleEvent.of(
-                          instance, "SignalCase", "BulkSignalReceived", null, "System", traceId))
-                  .whenComplete(
-                      (v, t) -> {
-                        if (t != null)
-                          LOG.warnf(
-                              t,
-                              "CaseLifecycleEvent observer failed for caseId=%s event=BulkSignalReceived",
-                              instance.getUuid());
-                      });
-            })
-        .invoke(
-            () ->
-                eventBus.publish(
-                    CONTEXT_CHANGED,
-                    new CaseContextChangedEvent(
-                        instance,
-                        instance.getCaseContext().snapshot(),
-                        ContextLayer.WORKING,
-                        event.triggerChannelId(),
-                        event.triggerCorrelationId(),
-                        event.signalId())))
-        .replaceWithVoid()
-        .onFailure()
-        .invoke(t -> LOG.errorf(t, "Failed to process bulk signal for caseId=%s", event.caseId()));
+    eventLogRepository.append(eventLog, instance.tenancyId);
+
+    lifecycleEvents
+        .fireAsync(
+            CaseLifecycleEvent.of(
+                instance, "SignalCase", "BulkSignalReceived", null, "System", traceId))
+        .whenComplete(
+            (v, t) -> {
+              if (t != null) {
+                LOG.warnf(
+                    t,
+                    "CaseLifecycleEvent observer failed for caseId=%s event=BulkSignalReceived",
+                    instance.getUuid());
+              }
+            });
+
+    eventBus.publish(
+        CONTEXT_CHANGED,
+        new CaseContextChangedEvent(
+            instance,
+            instance.getCaseContext().snapshot(),
+            ContextLayer.WORKING,
+            event.triggerChannelId(),
+            event.triggerCorrelationId(),
+            event.signalId()));
   }
 
   private EventLog buildBulkSignalEventLog(

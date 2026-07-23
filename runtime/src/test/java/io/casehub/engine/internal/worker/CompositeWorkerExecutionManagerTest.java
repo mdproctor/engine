@@ -33,8 +33,6 @@ import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -76,14 +74,8 @@ class CompositeWorkerExecutionManagerTest {
   @Test
   void submit_routesToSelectedBackend() {
     when(strategy.select(any(), any(), any(), anyString())).thenReturn(Optional.of(backend2));
-    when(backend2.submit(any(), any(), any(), any(), any()))
-        .thenReturn(Uni.createFrom().voidItem());
 
-    composite
-        .submit(1L, instance, worker, capability, Map.of())
-        .subscribe()
-        .withSubscriber(UniAssertSubscriber.create())
-        .assertCompleted();
+    composite.submit(1L, instance, worker, capability, Map.of());
 
     verify(backend2).submit(1L, instance, worker, capability, Map.of());
   }
@@ -92,9 +84,7 @@ class CompositeWorkerExecutionManagerTest {
   void submit_throwsProvisioningExceptionWhenNoBackendSelected() {
     when(strategy.select(any(), any(), any(), anyString())).thenReturn(Optional.empty());
 
-    assertThatThrownBy(
-            () ->
-                composite.submit(1L, instance, worker, capability, Map.of()).await().indefinitely())
+    assertThatThrownBy(() -> composite.submit(1L, instance, worker, capability, Map.of()))
         .isInstanceOf(io.casehub.api.spi.ProvisioningException.class);
   }
 
@@ -103,8 +93,7 @@ class CompositeWorkerExecutionManagerTest {
     CompositeWorkerExecutionManager empty =
         new CompositeWorkerExecutionManager(strategy, List.of());
 
-    assertThatThrownBy(
-            () -> empty.submit(1L, instance, worker, capability, Map.of()).await().indefinitely())
+    assertThatThrownBy(() -> empty.submit(1L, instance, worker, capability, Map.of()))
         .isInstanceOf(io.casehub.api.spi.ProvisioningException.class);
   }
 
@@ -169,13 +158,8 @@ class CompositeWorkerExecutionManagerTest {
 
     when(backend1.supports("test-cap", "t1")).thenReturn(false);
     when(backend2.supports("test-cap", "t1")).thenReturn(true);
-    when(backend2.schedulePersistedEvent(eventLog)).thenReturn(Uni.createFrom().voidItem());
 
-    composite
-        .schedulePersistedEvent(eventLog)
-        .subscribe()
-        .withSubscriber(UniAssertSubscriber.create())
-        .assertCompleted();
+    composite.schedulePersistedEvent(eventLog);
 
     verify(backend2).schedulePersistedEvent(eventLog);
   }

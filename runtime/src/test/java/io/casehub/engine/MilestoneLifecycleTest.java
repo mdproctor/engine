@@ -29,7 +29,7 @@ import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -52,16 +52,12 @@ class MilestoneLifecycleTest {
   @Inject SlaIdempotencyTestBean slaIdempotencyBean;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject WorkerExecutionRecoveryService recoveryService;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject io.vertx.mutiny.core.eventbus.EventBus eventBus;
 
   @Test
   void milestoneLifecycle_pendingToActiveToCompleted() {
-    UUID caseId =
-        basicLifecycleBean
-            .startCase(Map.of("requestSubmitted", false))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = basicLifecycleBean.startCase(Map.of("requestSubmitted", false));
 
     // Milestone starts PENDING (entryCriteria not met)
     assertMilestoneStatus(
@@ -92,7 +88,7 @@ class MilestoneLifecycleTest {
 
   @Test
   void milestoneSLA_firesWhenDeadlinePassed() {
-    UUID caseId = slaHappyPathBean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = slaHappyPathBean.startCase(Map.of());
 
     // Milestone activates immediately (entryCriteria defaults to true)
     await()
@@ -117,7 +113,7 @@ class MilestoneLifecycleTest {
 
   @Test
   void milestoneSLA_completedAfterBreach() {
-    UUID caseId = lateCompletionBean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = lateCompletionBean.startCase(Map.of());
 
     // Wait for SLA violation
     await()
@@ -142,7 +138,7 @@ class MilestoneLifecycleTest {
 
   @Test
   void milestoneState_reconstructedFromEventLog() {
-    UUID caseId = replayBean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = replayBean.startCase(Map.of());
 
     // Activate and complete milestone
     updateContext(caseId, "approved", true);
@@ -158,8 +154,7 @@ class MilestoneLifecycleTest {
     caseInstanceCache.clear();
 
     // Reload from repository (triggers rebuildStateContext)
-    CaseInstance reloaded =
-        recoveryService.loadOrRestoreCaseInstance(caseId).await().indefinitely();
+    CaseInstance reloaded = recoveryService.loadOrRestoreCaseInstance(caseId);
 
     // Verify milestone state reconstructed in CaseContext
     @SuppressWarnings("unchecked")
@@ -176,8 +171,7 @@ class MilestoneLifecycleTest {
 
   @Test
   void milestoneEntryCriteria_blocksActivation() {
-    UUID caseId =
-        conditionalActivationBean.startCase(Map.of("stage", "draft")).toCompletableFuture().join();
+    UUID caseId = conditionalActivationBean.startCase(Map.of("stage", "draft"));
 
     // Milestone remains PENDING (entryCriteria not met)
     assertMilestoneStatus(
@@ -197,7 +191,7 @@ class MilestoneLifecycleTest {
 
   @Test
   void slaJob_doesNotFireAfterCompletion() throws Exception {
-    UUID caseId = slaIdempotencyBean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = slaIdempotencyBean.startCase(Map.of());
 
     // Milestone activates immediately
     await()
@@ -223,13 +217,10 @@ class MilestoneLifecycleTest {
 
     // Verify no SLA_VIOLATED event
     java.util.List<EventLog> slaEvents =
-        reactiveEventLogRepository
-            .findByCaseAndTypes(
-                caseId,
-                java.util.EnumSet.of(CaseHubEventType.MILESTONE_SLA_VIOLATED),
-                TenancyConstants.DEFAULT_TENANT_ID)
-            .await()
-            .indefinitely();
+        eventLogRepository.findByCaseAndTypes(
+            caseId,
+            java.util.EnumSet.of(CaseHubEventType.MILESTONE_SLA_VIOLATED),
+            TenancyConstants.DEFAULT_TENANT_ID);
 
     assertThat(slaEvents).isEmpty();
   }

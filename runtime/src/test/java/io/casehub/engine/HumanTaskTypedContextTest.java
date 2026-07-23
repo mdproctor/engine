@@ -30,8 +30,6 @@ import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,9 +48,7 @@ class HumanTaskTypedContextTest {
 
   @Test
   void typedPayload_typeNamesFlowThroughEvent() {
-    CompletionStage<UUID> future =
-        typedPayloadCaseBean.startCase(Map.of("stage", "review", "amount", 100, "currency", "USD"));
-    future.toCompletableFuture().join();
+    typedPayloadCaseBean.startCase(Map.of("stage", "review", "amount", 100, "currency", "USD"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -67,9 +63,7 @@ class HumanTaskTypedContextTest {
 
   @Test
   void typedPayload_nullTypesWhenNotDeclared() {
-    CompletionStage<UUID> future =
-        typedPayloadCaseBean.startCase(Map.of("stage", "review", "amount", 100, "currency", "USD"));
-    future.toCompletableFuture().join();
+    typedPayloadCaseBean.startCase(Map.of("stage", "review", "amount", 100, "currency", "USD"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -82,10 +76,8 @@ class HumanTaskTypedContextTest {
 
   @Test
   void mismatchedPayload_bridgeValidationPreventsDispatch() {
-    CompletionStage<UUID> future =
-        mismatchedPayloadCaseBean.startCase(
-            Map.of("stage", "review", "amount", "not-a-number", "currency", 12345));
-    future.toCompletableFuture().join();
+    mismatchedPayloadCaseBean.startCase(
+        Map.of("stage", "review", "amount", "not-a-number", "currency", 12345));
 
     try {
       Thread.sleep(2000);

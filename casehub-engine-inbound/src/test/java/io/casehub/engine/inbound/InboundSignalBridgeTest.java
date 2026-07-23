@@ -40,7 +40,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -117,9 +116,6 @@ class InboundSignalBridgeTest {
     when(bridgeResolver.resolveByType(TestAlert.class)).thenReturn(contextBridge);
     var alert = new TestAlert("A-1", "HIGH");
     when(contextBridge.deserialise(alertJson)).thenReturn(alert);
-
-    when(runtime.signal(eq(caseId), eq(signalType), eq(alert)))
-        .thenReturn(CompletableFuture.completedFuture(null));
 
     var message =
         new InboundMessage(

@@ -23,7 +23,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.queue.event.CaseQueueEvent;
 import io.casehub.engine.queue.event.CaseQueueEventType;
 import io.casehub.platform.api.label.LabelAction;
@@ -55,7 +55,7 @@ public class CaseLabelReconciler {
 
   @Inject CaseDefinitionRegistry definitionRegistry;
 
-  @Inject ReactiveCaseInstanceRepository caseInstanceRepository;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
   @Inject SubjectViewOrchestrator views;
 
@@ -74,7 +74,7 @@ public class CaseLabelReconciler {
     for (String tenancyId : tenancyIds) {
       for (CaseStatus status : ACTIVE_STATUSES) {
         List<CaseInstance> cases =
-            caseInstanceRepository.findByStatus(status, tenancyId).await().indefinitely();
+            caseInstanceRepository.findByStatus(status, tenancyId);
         for (CaseInstance instance : cases) {
           if (reconcileCase(instance, tenancyId)) {
             reconciledCount++;
@@ -133,7 +133,7 @@ public class CaseLabelReconciler {
     instance.setLabels(newLabels);
 
     if (!beforeLabels.equals(newLabels)) {
-      caseInstanceRepository.update(instance, tenancyId).await().indefinitely();
+      caseInstanceRepository.update(instance, tenancyId);
 
       List<SubjectViewEvent> viewEvents =
           views.evaluateAndTrack(instance.getUuid(), tenancyId, newLabels);

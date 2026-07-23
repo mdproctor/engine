@@ -32,7 +32,7 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.mutiny.Uni;
@@ -59,7 +59,7 @@ public class ActionGateExpiredHandler {
   private static final Logger LOG = Logger.getLogger(ActionGateExpiredHandler.class);
 
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
 
@@ -173,7 +173,8 @@ public class ActionGateExpiredHandler {
     log.setStreamType(EventStreamType.CASE);
     log.setTimestamp(Instant.now());
     log.setEventType(CaseHubEventType.ACTION_GATE_EXPIRED);
-    return reactiveEventLogRepository.append(log, instance.tenancyId);
+    eventLogRepository.append(log, instance.tenancyId);
+    return Uni.createFrom().voidItem();
   }
 
   private static boolean isTerminal(final CaseStatus state) {

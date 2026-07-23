@@ -25,7 +25,6 @@ import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
 import io.serverlessworkflow.impl.WorkflowInstance;
 import io.serverlessworkflow.impl.WorkflowModel;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
@@ -67,7 +66,7 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
 
   @SuppressWarnings("unchecked")
   @Override
-  public Uni<WorkerResult<?>> execute(
+  public WorkerResult<?> execute(
       final WorkerFunction<?, ?> function,
       final Object inputData,
       final WorkerContext context,
@@ -77,26 +76,23 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
     final FlowWorkerFunction flow = (FlowWorkerFunction) function;
     final Map<String, Object> mapInput = (Map<String, Object>) inputData;
 
-    return Uni.createFrom()
-        .completionStage(
-            () ->
-                executeWorkflow(
-                    flow.workflow(),
-                    mapInput,
-                    context.caseId(),
-                    metadata.workerName(),
-                    metadata.inputDataHash()))
-        .runSubscriptionOn(virtualThreads)
-        .map(
-            model ->
-                WorkerResult.of(
-                    model
-                        .asMap()
-                        .orElseThrow(
-                            () ->
-                                new RuntimeException(
-                                    "Workflow produced non-serializable model for worker: "
-                                        + metadata.workerName()))));
+    WorkflowModel model =
+        executeWorkflow(
+                flow.workflow(),
+                mapInput,
+                context.caseId(),
+                metadata.workerName(),
+                metadata.inputDataHash())
+            .join();
+
+    return WorkerResult.of(
+        model
+            .asMap()
+            .orElseThrow(
+                () ->
+                    new RuntimeException(
+                        "Workflow produced non-serializable model for worker: "
+                            + metadata.workerName())));
   }
 
   private CompletableFuture<WorkflowModel> executeWorkflow(

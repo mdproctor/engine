@@ -18,6 +18,7 @@ package io.casehub.engine.scheduler.quartz;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -31,7 +32,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
@@ -39,7 +40,6 @@ import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
@@ -64,7 +64,7 @@ class QuartzRetryServiceTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static Vertx vertx;
 
-  @Mock ReactiveEventLogRepository reactiveEventLogRepository;
+  @Mock EventLogRepository eventLogRepository;
   @Mock WorkerExecutionRecoveryService recoveryService;
   @Mock CaseDefinitionRegistry caseDefinitionRegistry;
   @Mock QuartzWorkerSchedulerService schedulerService;
@@ -95,12 +95,11 @@ class QuartzRetryServiceTest {
   void setUp() {
     retryService =
         new QuartzRetryService(
-            reactiveEventLogRepository,
+            eventLogRepository,
             recoveryService,
             caseDefinitionRegistry,
             schedulerService,
-            eventBus,
-            vertx);
+            eventBus);
   }
 
   @Test
@@ -111,15 +110,12 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
     stubPersistAndRecovery(instance);
-    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
+    when(eventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().item(List.of()));
-    when(schedulerService.scheduleRetryAsync(any(JobDetail.class), any(Trigger.class)))
-        .thenReturn(Uni.createFrom().voidItem());
+        .thenReturn(List.of());
+    retryService.handleFailure(ctx, "test error");
 
-    retryService.handleFailure(ctx, "test error").await().indefinitely();
-
-    verify(schedulerService).scheduleRetryAsync(any(JobDetail.class), any(Trigger.class));
+    verify(schedulerService).scheduleRetry(any(JobDetail.class), any(Trigger.class));
     verify(eventBus, never()).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), any());
   }
 
@@ -131,18 +127,18 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(2, 1000, BackoffStrategy.FIXED);
 
     stubPersistAndRecovery(instance);
-    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
+    when(eventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().item(List.of(failureLog(), failureLog())));
+        .thenReturn(List.of(failureLog(), failureLog()));
 
-    retryService.handleFailure(ctx, "test error").await().indefinitely();
+    retryService.handleFailure(ctx, "test error");
 
     ArgumentCaptor<WorkerRetriesExhaustedEvent> captor =
         ArgumentCaptor.forClass(WorkerRetriesExhaustedEvent.class);
     verify(eventBus).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), captor.capture());
     assertThat(captor.getValue().caseId()).isEqualTo(caseId);
     assertThat(captor.getValue().workerId()).isEqualTo(workerId);
-    verify(schedulerService, never()).scheduleRetryAsync(any(JobDetail.class), any(Trigger.class));
+    verify(schedulerService, never()).scheduleRetry(any(JobDetail.class), any(Trigger.class));
   }
 
   @Test
@@ -153,15 +149,12 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithDefaultPolicy();
 
     stubPersistAndRecovery(instance);
-    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
+    when(eventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().item(List.of()));
-    when(schedulerService.scheduleRetryAsync(any(JobDetail.class), any(Trigger.class)))
-        .thenReturn(Uni.createFrom().voidItem());
+        .thenReturn(List.of());
+    retryService.handleFailure(ctx, "test error");
 
-    retryService.handleFailure(ctx, "test error").await().indefinitely();
-
-    verify(schedulerService).scheduleRetryAsync(any(JobDetail.class), any(Trigger.class));
+    verify(schedulerService).scheduleRetry(any(JobDetail.class), any(Trigger.class));
   }
 
   @Test
@@ -180,9 +173,9 @@ class QuartzRetryServiceTest {
     stubPersistAndRecovery(instance);
     when(caseDefinitionRegistry.getCaseDefinition(any(CaseMetaModel.class))).thenReturn(null);
 
-    retryService.handleFailure(ctx, "test error").await().indefinitely();
+    retryService.handleFailure(ctx, "test error");
 
-    verify(schedulerService, never()).scheduleRetryAsync(any(JobDetail.class), any(Trigger.class));
+    verify(schedulerService, never()).scheduleRetry(any(JobDetail.class), any(Trigger.class));
     verify(eventBus, never()).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), any());
   }
 
@@ -194,17 +187,13 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
     ArgumentCaptor<EventLog> logCaptor = ArgumentCaptor.forClass(EventLog.class);
-    when(reactiveEventLogRepository.append(logCaptor.capture(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().voidItem());
-    when(recoveryService.loadOrRestoreCaseInstance(caseId))
-        .thenReturn(Uni.createFrom().item(instance));
-    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
+    // eventLogRepository.append is void — no stub needed (logCaptor still captures via doNothing)
+    doNothing().when(eventLogRepository).append(logCaptor.capture(), eq(tenancyId));
+    when(recoveryService.loadOrRestoreCaseInstance(caseId)).thenReturn(instance);
+    when(eventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().item(List.of()));
-    when(schedulerService.scheduleRetryAsync(any(JobDetail.class), any(Trigger.class)))
-        .thenReturn(Uni.createFrom().voidItem());
-
-    retryService.handleFailure(ctx, "something broke").await().indefinitely();
+        .thenReturn(List.of());
+    retryService.handleFailure(ctx, "something broke");
 
     EventLog captured = logCaptor.getValue();
     assertThat(captured.getCaseId()).isEqualTo(caseId);
@@ -227,15 +216,12 @@ class QuartzRetryServiceTest {
     ObjectNode otherMeta = MAPPER.createObjectNode().put("inputDataHash", "other-hash");
     nonMatching.setMetadata(otherMeta);
 
-    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
+    when(eventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().item(List.of(matching, nonMatching)));
-    when(schedulerService.scheduleRetryAsync(any(JobDetail.class), any(Trigger.class)))
-        .thenReturn(Uni.createFrom().voidItem());
+        .thenReturn(List.of(matching, nonMatching));
+    retryService.handleFailure(ctx, "test error");
 
-    retryService.handleFailure(ctx, "test error").await().indefinitely();
-
-    verify(schedulerService).scheduleRetryAsync(any(JobDetail.class), any(Trigger.class));
+    verify(schedulerService).scheduleRetry(any(JobDetail.class), any(Trigger.class));
   }
 
   @Test
@@ -248,11 +234,11 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(2, 1000, BackoffStrategy.FIXED);
 
     stubPersistAndRecovery(instance);
-    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
+    when(eventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().item(List.of(failureLog(), failureLog())));
+        .thenReturn(List.of(failureLog(), failureLog()));
 
-    retryService.handleFailure(ctx, "test error").await().indefinitely();
+    retryService.handleFailure(ctx, "test error");
 
     ArgumentCaptor<WorkerRetriesExhaustedEvent> captor =
         ArgumentCaptor.forClass(WorkerRetriesExhaustedEvent.class);
@@ -270,25 +256,22 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
     stubPersistAndRecovery(instance);
-    when(reactiveEventLogRepository.findByCaseAndWorkerAndType(
+    when(eventLogRepository.findByCaseAndWorkerAndType(
             eq(caseId), eq(workerId), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().item(List.of()));
+        .thenReturn(List.of());
 
     ArgumentCaptor<JobDetail> jobCaptor = ArgumentCaptor.forClass(JobDetail.class);
-    when(schedulerService.scheduleRetryAsync(jobCaptor.capture(), any(Trigger.class)))
-        .thenReturn(Uni.createFrom().voidItem());
+    doNothing().when(schedulerService).scheduleRetry(jobCaptor.capture(), any(Trigger.class));
 
-    retryService.handleFailure(ctx, "test error").await().indefinitely();
+    retryService.handleFailure(ctx, "test error");
 
     assertThat(jobCaptor.getValue().getJobDataMap().getString("signalId"))
         .isEqualTo(signalId.toString());
   }
 
   private void stubPersistAndRecovery(CaseInstance instance) {
-    when(reactiveEventLogRepository.append(any(EventLog.class), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().voidItem());
-    when(recoveryService.loadOrRestoreCaseInstance(caseId))
-        .thenReturn(Uni.createFrom().item(instance));
+    // eventLogRepository.append is void — no stub needed
+    when(recoveryService.loadOrRestoreCaseInstance(caseId)).thenReturn(instance);
   }
 
   private EventLog failureLog() {

@@ -61,7 +61,7 @@ class SubCaseParallelIntegrationTest {
 
   @Test
   void allOf3_allComplete_parentResumes() {
-    UUID parentId = parentCase.startCase(Map.of("trigger", "go")).toCompletableFuture().join();
+    UUID parentId = parentCase.startCase(Map.of("trigger", "go"));
 
     // Wait for parent to go WAITING — all 3 children spawned and group registered
     await()
@@ -74,11 +74,7 @@ class SubCaseParallelIntegrationTest {
 
     // Discover child IDs from the EventLog
     List<UUID> childIds =
-        caseHubRuntime
-            .eventLog(parentId, Set.of(CaseHubEventType.SUBCASE_STARTED))
-            .toCompletableFuture()
-            .join()
-            .stream()
+        caseHubRuntime.eventLog(parentId, Set.of(CaseHubEventType.SUBCASE_STARTED)).stream()
             .map(r -> UUID.fromString(r.metadata().get("childCaseId").asText()))
             .toList();
 

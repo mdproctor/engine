@@ -18,8 +18,8 @@ package io.casehub.engine.internal.identity;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.Test;
@@ -27,8 +27,8 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class CrossTenantProducerTest {
 
-  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository crossTenantEventLog;
-  @Inject @CrossTenant ReactiveCrossTenantCaseInstanceRepository crossTenantCaseInstance;
+  @Inject @CrossTenant CrossTenantEventLogRepository crossTenantEventLog;
+  @Inject @CrossTenant CrossTenantCaseInstanceRepository crossTenantCaseInstance;
 
   @Test
   void crossTenantEventLog_isProduced() {

@@ -31,7 +31,6 @@ import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerOutcome;
 import io.casehub.worker.api.WorkerResult;
-import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Executors;
@@ -95,15 +94,12 @@ class SyncAgentWorkerFunctionHandlerTest {
             Map.class,
             (input, scope) -> WorkerResult.of(Map.of("result", input.get("key"))));
     WorkerResult<?> result =
-        handler
-            .execute(
-                sync,
-                Map.of("key", "value"),
-                testContext(),
-                5000,
-                new ExecutionMetadata("w1", "hash1"))
-            .await()
-            .indefinitely();
+        handler.execute(
+            sync,
+            Map.of("key", "value"),
+            testContext(),
+            5000,
+            new ExecutionMetadata("w1", "hash1"));
     assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "value");
   }
 
@@ -133,15 +129,12 @@ class SyncAgentWorkerFunctionHandlerTest {
     AgentWorkerFunction agentFunction = new AgentWorkerFunction(agent);
 
     WorkerResult<?> result =
-        handler
-            .execute(
-                agentFunction,
-                Map.of("input", "data"),
-                testContext(),
-                5000,
-                new ExecutionMetadata("agent-w", "hash2"))
-            .await()
-            .indefinitely();
+        handler.execute(
+            agentFunction,
+            Map.of("input", "data"),
+            testContext(),
+            5000,
+            new ExecutionMetadata("agent-w", "hash2"));
 
     assertThat((java.util.Map<String, Object>) result.output())
         .containsEntry("agentResult", "done");
@@ -163,15 +156,12 @@ class SyncAgentWorkerFunctionHandlerTest {
             });
 
     WorkerResult<?> result =
-        handler
-            .execute(
-                slowWorker,
-                Map.of(),
-                testContext(),
-                200, // 200ms timeout — worker sleeps 5s
-                new ExecutionMetadata("test-worker", "hash-1"))
-            .await()
-            .atMost(Duration.ofSeconds(10));
+        handler.execute(
+            slowWorker,
+            Map.of(),
+            testContext(),
+            200, // 200ms timeout — worker sleeps 5s
+            new ExecutionMetadata("test-worker", "hash-1"));
 
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
     assertThat(((WorkerOutcome.Expired) result.outcome()).reason()).contains("200ms");

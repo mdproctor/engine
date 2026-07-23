@@ -29,9 +29,8 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
@@ -72,7 +71,7 @@ public class WorkerIdempotencyTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @Inject Vertx vertx;
 
@@ -93,7 +92,7 @@ public class WorkerIdempotencyTest {
   @Test
   void multipleScheduleEventsWithSameHashProduceSingleExecution() {
     String taskId = "multi-sched-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     CaseInstance instance = caseInstanceCache.get(caseId);
     assertNotNull(instance);
@@ -108,13 +107,8 @@ public class WorkerIdempotencyTest {
 
     // Send the same WorkerScheduleEvent three times in rapid succession
     for (int i = 0; i < 3; i++) {
-      ReactiveUtils.runOnSafeVertxContext(
-              vertx,
-              () ->
-                  handler.onWorkerScheduleEventHandler(
-                      new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-          .await()
-          .atMost(TIMEOUT);
+      handler.onWorkerScheduleEventHandler(
+          new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
     }
 
     await()
@@ -143,7 +137,7 @@ public class WorkerIdempotencyTest {
   @Test
   void workerRunsAgainWhenInputChanges() {
     String taskId = "input-change-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     // First signal → worker runs with op=INIT
     bean.signal(caseId, "task", Map.of("op", "INIT"));
@@ -175,8 +169,7 @@ public class WorkerIdempotencyTest {
    */
   @Test
   void twoIndependentWorkersInSameCaseRunOnce() {
-    UUID caseId =
-        twoWorkerBean.startCase(Map.of("orderId", "two-workers")).toCompletableFuture().join();
+    UUID caseId = twoWorkerBean.startCase(Map.of("orderId", "two-workers"));
 
     twoWorkerBean.signal(caseId, "alpha", Map.of("code", "A1"));
 
@@ -204,7 +197,7 @@ public class WorkerIdempotencyTest {
   @Test
   void workerNotRetriggeredAfterCompletionOnSameSignalValue() {
     String taskId = "no-retrigger-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     Map<String, Object> taskValue = Map.of("op", "PROCESS", "priority", "HIGH");
     bean.signal(caseId, "task", taskValue);
@@ -239,7 +232,7 @@ public class WorkerIdempotencyTest {
   @Test
   void cachedContextMutationAfterStartDoesNotRetroactivelyTriggerStartBindings() {
     String taskId = "start-snapshot-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     CaseInstance instance = caseInstanceCache.get(caseId);
     assertNotNull(instance);
@@ -279,7 +272,7 @@ public class WorkerIdempotencyTest {
   @Test
   void singleWorkerScheduledLogAfterMultipleScheduleAttempts() {
     String taskId = "single-log-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     CaseInstance instance = caseInstanceCache.get(caseId);
     assertNotNull(instance);
@@ -294,13 +287,8 @@ public class WorkerIdempotencyTest {
 
     // Five handler invocations for the same input hash
     for (int i = 0; i < 5; i++) {
-      ReactiveUtils.runOnSafeVertxContext(
-              vertx,
-              () ->
-                  handler.onWorkerScheduleEventHandler(
-                      new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-          .await()
-          .atMost(TIMEOUT);
+      handler.onWorkerScheduleEventHandler(
+          new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
     }
 
     await()
@@ -324,7 +312,7 @@ public class WorkerIdempotencyTest {
   @Test
   void workerSkipsWhenExecutionStartedEventExists() {
     String taskId = "skip-started-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     CaseInstance instance = caseInstanceCache.get(caseId);
     assertNotNull(instance);
@@ -346,13 +334,8 @@ public class WorkerIdempotencyTest {
             inputDataHash,
             Map.of("op", "VERIFY")));
 
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx,
-            () ->
-                handler.onWorkerScheduleEventHandler(
-                    new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-        .await()
-        .atMost(TIMEOUT);
+    handler.onWorkerScheduleEventHandler(
+        new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
 
     Awaitility.await()
         .during(2, TimeUnit.SECONDS)
@@ -381,7 +364,7 @@ public class WorkerIdempotencyTest {
   @Test
   void workerRunsAgainForDifferentInputHash() {
     String taskId = "diff-hash-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     bean.signal(caseId, "task", Map.of("op", "STEP_1"));
 
@@ -412,7 +395,7 @@ public class WorkerIdempotencyTest {
   @Test
   void concurrentScheduleEventsProduceSingleLog() {
     String taskId = "concurrent-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     CaseInstance instance = caseInstanceCache.get(caseId);
     assertNotNull(instance);
@@ -426,34 +409,14 @@ public class WorkerIdempotencyTest {
             Map.of("task", Map.of("op", "PARALLEL"), "taskId", taskId));
 
     // Fire four schedule events concurrently (no await between them)
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx,
-            () ->
-                handler.onWorkerScheduleEventHandler(
-                    new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-        .subscribe()
-        .asCompletionStage();
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx,
-            () ->
-                handler.onWorkerScheduleEventHandler(
-                    new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-        .subscribe()
-        .asCompletionStage();
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx,
-            () ->
-                handler.onWorkerScheduleEventHandler(
-                    new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-        .subscribe()
-        .asCompletionStage();
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx,
-            () ->
-                handler.onWorkerScheduleEventHandler(
-                    new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-        .await()
-        .atMost(TIMEOUT);
+    handler.onWorkerScheduleEventHandler(
+        new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
+    handler.onWorkerScheduleEventHandler(
+        new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
+    handler.onWorkerScheduleEventHandler(
+        new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
+    handler.onWorkerScheduleEventHandler(
+        new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -482,7 +445,7 @@ public class WorkerIdempotencyTest {
   @Test
   void recoveryPlaysOrphanedWorkerExactlyOnce() {
     String taskId = "recovery-idem-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     assertNotNull(caseInstanceCache.get(caseId));
 
@@ -502,10 +465,7 @@ public class WorkerIdempotencyTest {
             inputDataHash,
             Map.of("task", Map.of("op", "RECOVER"), "taskId", taskId)));
 
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx, () -> recoveryService.recoverPendingScheduledWorkers())
-        .await()
-        .atMost(TIMEOUT);
+    recoveryService.recoverPendingScheduledWorkers();
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -533,7 +493,7 @@ public class WorkerIdempotencyTest {
   @Test
   void workerRunsOnceForSameInputAcrossMultipleSignals() {
     String taskId = "multi-sig-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("taskId", taskId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("taskId", taskId));
 
     // All three signals produce the same context value → same input hash
     Map<String, Object> value = Map.of("op", "STABLE");
@@ -556,24 +516,14 @@ public class WorkerIdempotencyTest {
   // ================================================================== //
 
   private void persistEvent(EventLog eventLog) {
-    reactiveEventLogRepository
-        .append(eventLog, TenancyConstants.DEFAULT_TENANT_ID)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    eventLogRepository.append(eventLog, TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   private long countEvents(
       UUID caseId, CaseHubEventType eventType, String workerId, String inputDataHash) {
     List<EventLog> eventLogs =
-        reactiveEventLogRepository
-            .findByCaseAndWorkerAndType(
-                caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+        eventLogRepository.findByCaseAndWorkerAndType(
+            caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID);
 
     return eventLogs.stream()
         .filter(

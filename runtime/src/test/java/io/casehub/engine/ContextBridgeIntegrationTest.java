@@ -31,7 +31,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.context.BridgeResolver;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -57,7 +57,7 @@ class ContextBridgeIntegrationTest {
 
   @Inject CaseHubRuntime runtime;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject ReactiveEventLogRepository eventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject BridgeResolver bridgeResolver;
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -77,10 +77,7 @@ class ContextBridgeIntegrationTest {
   @Test
   void untypedWorkerReceivesMapViaIdentityBridge() {
     UUID caseId =
-        untypedWorkerBean
-            .startCase(Map.of("documentId", "DOC-1", "status", "processing"))
-            .toCompletableFuture()
-            .join();
+        untypedWorkerBean.startCase(Map.of("documentId", "DOC-1", "status", "processing"));
 
     await()
         .atMost(15, SECONDS)
@@ -96,11 +93,7 @@ class ContextBridgeIntegrationTest {
 
   @Test
   void typedWorkerReceivesPojoViaJacksonBridge() {
-    UUID caseId =
-        typedPojoWorkerBean
-            .startCase(Map.of("txnId", "TXN-42", "amount", 5000.0))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = typedPojoWorkerBean.startCase(Map.of("txnId", "TXN-42", "amount", 5000.0));
 
     await()
         .atMost(15, SECONDS)
@@ -119,11 +112,7 @@ class ContextBridgeIntegrationTest {
 
   @Test
   void eventLogRecordsBridgeTypeForTypedWorker() {
-    UUID caseId =
-        typedPojoWorkerBean
-            .startCase(Map.of("txnId", "TXN-META", "amount", 100.0))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = typedPojoWorkerBean.startCase(Map.of("txnId", "TXN-META", "amount", 100.0));
 
     await()
         .atMost(15, SECONDS)
@@ -134,15 +123,8 @@ class ContextBridgeIntegrationTest {
             });
 
     var logs =
-        eventLogRepository
-            .findByCaseAndTypes(
-                caseId,
-                List.of(CaseHubEventType.WORKER_SCHEDULED),
-                TenancyConstants.DEFAULT_TENANT_ID)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+        eventLogRepository.findByCaseAndTypes(
+            caseId, List.of(CaseHubEventType.WORKER_SCHEDULED), TenancyConstants.DEFAULT_TENANT_ID);
 
     assertThat(logs).isNotEmpty();
     var scheduledLog = logs.get(0);
@@ -155,10 +137,7 @@ class ContextBridgeIntegrationTest {
   @Test
   void eventLogRecordsMapBridgeTypeForUntypedWorker() {
     UUID caseId =
-        untypedWorkerBean
-            .startCase(Map.of("documentId", "DOC-META", "status", "processing"))
-            .toCompletableFuture()
-            .join();
+        untypedWorkerBean.startCase(Map.of("documentId", "DOC-META", "status", "processing"));
 
     await()
         .atMost(15, SECONDS)
@@ -169,15 +148,8 @@ class ContextBridgeIntegrationTest {
             });
 
     var logs =
-        eventLogRepository
-            .findByCaseAndTypes(
-                caseId,
-                List.of(CaseHubEventType.WORKER_SCHEDULED),
-                TenancyConstants.DEFAULT_TENANT_ID)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+        eventLogRepository.findByCaseAndTypes(
+            caseId, List.of(CaseHubEventType.WORKER_SCHEDULED), TenancyConstants.DEFAULT_TENANT_ID);
 
     assertThat(logs).isNotEmpty();
     var scheduledLog = logs.get(0);
@@ -212,11 +184,8 @@ class ContextBridgeIntegrationTest {
   @Test
   void mixedBridgeTypesCoexistInSameCase() {
     UUID caseId =
-        mixedBridgeBean
-            .startCase(
-                Map.of("entityId", "ENT-1", "category", "compliance", "documentId", "DOC-MIX"))
-            .toCompletableFuture()
-            .join();
+        mixedBridgeBean.startCase(
+            Map.of("entityId", "ENT-1", "category", "compliance", "documentId", "DOC-MIX"));
 
     await()
         .atMost(15, SECONDS)
@@ -232,15 +201,8 @@ class ContextBridgeIntegrationTest {
             });
 
     var logs =
-        eventLogRepository
-            .findByCaseAndTypes(
-                caseId,
-                List.of(CaseHubEventType.WORKER_SCHEDULED),
-                TenancyConstants.DEFAULT_TENANT_ID)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+        eventLogRepository.findByCaseAndTypes(
+            caseId, List.of(CaseHubEventType.WORKER_SCHEDULED), TenancyConstants.DEFAULT_TENANT_ID);
 
     assertThat(logs).hasSizeGreaterThanOrEqualTo(2);
 

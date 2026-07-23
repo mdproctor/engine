@@ -48,11 +48,7 @@ class SubCaseIntegrationTest {
 
   @Test
   void subCaseBinding_parentTransitionsToWaiting_whenWaitForCompletionTrue() {
-    UUID parentId =
-        parentCase
-            .startCase(Map.of("trigger", "go", "status", "pending"))
-            .toCompletableFuture()
-            .join();
+    UUID parentId = parentCase.startCase(Map.of("trigger", "go", "status", "pending"));
 
     // Parent should transition to WAITING when child is spawned
     await()

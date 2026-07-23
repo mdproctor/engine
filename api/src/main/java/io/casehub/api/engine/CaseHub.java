@@ -18,7 +18,6 @@ package io.casehub.api.engine;
 import io.casehub.api.model.CaseDefinition;
 import jakarta.inject.Inject;
 import java.util.UUID;
-import java.util.concurrent.CompletionStage;
 
 public abstract class CaseHub {
 
@@ -26,7 +25,7 @@ public abstract class CaseHub {
 
   public abstract CaseDefinition getDefinition();
 
-  public CompletionStage<UUID> startCase() {
+  public UUID startCase() {
     return runtime.startCase(getDefinition());
   }
 
@@ -38,12 +37,12 @@ public abstract class CaseHub {
    * {@code Map} is passed, its value types must be JSON-compatible (i.e., not typed collections
    * with non-Object values) — a raw {@code Map<String, Object>} passes through as-is.
    */
-  public CompletionStage<UUID> startCase(Object inputData) {
+  public UUID startCase(Object inputData) {
     return runtime.startCase(getDefinition(), inputData);
   }
 
-  public CompletionStage<Void> signal(UUID caseId, String path, Object value) {
-    return runtime.signal(caseId, path, value);
+  public void signal(UUID caseId, String path, Object value) {
+    runtime.signal(caseId, path, value);
   }
 
   public void cancelCase(UUID caseId) {
@@ -58,11 +57,11 @@ public abstract class CaseHub {
     runtime.resumeCase(caseId);
   }
 
-  public CompletionStage<Object> query(UUID caseId, String path) {
+  public Object query(UUID caseId, String path) {
     return runtime.query(caseId, path);
   }
 
-  public <T> CompletionStage<T> query(UUID caseId, String path, Class<T> clazz) {
+  public <T> T query(UUID caseId, String path, Class<T> clazz) {
     return runtime.query(caseId, path, clazz);
   }
 }

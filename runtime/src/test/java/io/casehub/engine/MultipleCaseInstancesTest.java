@@ -70,27 +70,13 @@ public class MultipleCaseInstancesTest {
     AtomicReference<UUID> ref3 = new AtomicReference<>();
     AtomicReference<Throwable> err = new AtomicReference<>();
 
-    bean.startCase(contextWith("doc-A"))
-        .thenAccept(ref1::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
-    bean.startCase(contextWith("doc-B"))
-        .thenAccept(ref2::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
-    bean.startCase(contextWith("doc-C"))
-        .thenAccept(ref3::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
+    try {
+      ref1.set(bean.startCase(contextWith("doc-A")));
+      ref2.set(bean.startCase(contextWith("doc-B")));
+      ref3.set(bean.startCase(contextWith("doc-C")));
+    } catch (Exception ex) {
+      err.set(ex);
+    }
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -125,16 +111,8 @@ public class MultipleCaseInstancesTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              String result1 =
-                  bean.query(caseId1, "documentId")
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS)
-                      .toString();
-              String result2 =
-                  bean.query(caseId2, "documentId")
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS)
-                      .toString();
+              String result1 = bean.query(caseId1, "documentId").toString();
+              String result2 = bean.query(caseId2, "documentId").toString();
 
               assertNotEquals(result1, result2, "Each case should have its own context data");
             });
@@ -144,13 +122,11 @@ public class MultipleCaseInstancesTest {
     AtomicReference<UUID> ref = new AtomicReference<>();
     AtomicReference<Throwable> err = new AtomicReference<>();
 
-    bean.startCase(contextWith(documentId))
-        .thenAccept(ref::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
+    try {
+      ref.set(bean.startCase(contextWith(documentId)));
+    } catch (Exception ex) {
+      err.set(ex);
+    }
 
     await()
         .atMost(10, TimeUnit.SECONDS)

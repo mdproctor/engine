@@ -38,7 +38,7 @@ import java.util.Optional;
  *
  * <ul>
  *   <li>Validating case definitions before registration
- *   <li>Persisting case metadata via {@link ReactiveCaseMetaModelRepository}
+ *   <li>Persisting case metadata via {@link CaseMetaModelRepository}
  *   <li>Maintaining an in-memory cache for fast lookup
  * </ul>
  *

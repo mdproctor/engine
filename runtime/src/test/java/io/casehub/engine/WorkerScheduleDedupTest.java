@@ -27,9 +27,8 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
@@ -66,7 +65,7 @@ public class WorkerScheduleDedupTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @Inject Vertx vertx;
 
@@ -74,10 +73,7 @@ public class WorkerScheduleDedupTest {
   void shouldSkipWhenExecutionAlreadyCompleted() {
     DedupCaseHubBean.runCount.set(0);
 
-    UUID caseId =
-        bean.startCase(Map.of("documentId", "doc-completed", "status", "queued"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = bean.startCase(Map.of("documentId", "doc-completed", "status", "queued"));
 
     CaseInstance instance = caseInstanceCache.get(caseId);
     assertNotNull(instance);
@@ -96,13 +92,8 @@ public class WorkerScheduleDedupTest {
             executionIdempotency,
             Map.of("status", "processed")));
 
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx,
-            () ->
-                handler.onWorkerScheduleEventHandler(
-                    new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-        .await()
-        .atMost(Duration.ofSeconds(10));
+    handler.onWorkerScheduleEventHandler(
+        new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
 
     Awaitility.await()
         .during(2, TimeUnit.SECONDS)
@@ -124,10 +115,7 @@ public class WorkerScheduleDedupTest {
   void shouldSkipWhenMatchingScheduledEventAlreadyExists() {
     DedupCaseHubBean.runCount.set(0);
 
-    UUID caseId =
-        bean.startCase(Map.of("documentId", "doc-resubmit", "status", "queued"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = bean.startCase(Map.of("documentId", "doc-resubmit", "status", "queued"));
 
     CaseInstance instance = caseInstanceCache.get(caseId);
     assertNotNull(instance);
@@ -146,13 +134,8 @@ public class WorkerScheduleDedupTest {
             executionIdempotency,
             Map.of("documentId", "doc-resubmit", "status", "queued")));
 
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx,
-            () ->
-                handler.onWorkerScheduleEventHandler(
-                    new WorkerScheduleEvent(instance, bean.worker(), bean.capability())))
-        .await()
-        .atMost(Duration.ofSeconds(10));
+    handler.onWorkerScheduleEventHandler(
+        new WorkerScheduleEvent(instance, bean.worker(), bean.capability()));
 
     Awaitility.await()
         .during(2, TimeUnit.SECONDS)
@@ -180,10 +163,7 @@ public class WorkerScheduleDedupTest {
   void shouldRecoverOrphanedScheduledWorkerOnRestart() {
     DedupCaseHubBean.runCount.set(0);
 
-    UUID caseId =
-        bean.startCase(Map.of("documentId", "doc-recovery", "status", "queued"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = bean.startCase(Map.of("documentId", "doc-recovery", "status", "queued"));
 
     assertNotNull(caseInstanceCache.get(caseId));
 
@@ -204,10 +184,7 @@ public class WorkerScheduleDedupTest {
             Map.of("documentId", "doc-recovery", "status", "queued")));
 
     // Recovery service reschedules the orphaned job without creating a new EventLog row.
-    ReactiveUtils.runOnSafeVertxContext(
-            vertx, () -> recoveryService.recoverPendingScheduledWorkers())
-        .await()
-        .atMost(Duration.ofSeconds(10));
+    recoveryService.recoverPendingScheduledWorkers();
 
     Awaitility.await()
         .atMost(10, TimeUnit.SECONDS)
@@ -222,27 +199,19 @@ public class WorkerScheduleDedupTest {
                       "dedup-worker",
                       executionIdempotency),
                   "no duplicate WORKER_SCHEDULED row must be created");
-              assertEquals(
-                  "processed",
-                  bean.query(caseId, "status", String.class).toCompletableFuture().join());
+              assertEquals("processed", bean.query(caseId, "status", String.class));
             });
   }
 
   private void persistEvent(EventLog eventLog) {
-    reactiveEventLogRepository
-        .append(eventLog, TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT);
+    eventLogRepository.append(eventLog, TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   private long countEvents(
       UUID caseId, CaseHubEventType eventType, String workerId, String inputDataHash) {
     List<EventLog> eventLogs =
-        reactiveEventLogRepository
-            .findByCaseAndWorkerAndType(
-                caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID)
-            .await()
-            .atMost(SPI_TIMEOUT);
+        eventLogRepository.findByCaseAndWorkerAndType(
+            caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID);
 
     return eventLogs.stream()
         .filter(

@@ -25,7 +25,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Worker;
 import io.quarkus.vertx.ConsumeEvent;
@@ -58,7 +58,7 @@ public class ActionGateApprovedHandler {
 
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
@@ -163,7 +163,8 @@ public class ActionGateApprovedHandler {
     log.setStreamType(EventStreamType.CASE);
     log.setTimestamp(Instant.now());
     log.setEventType(CaseHubEventType.ACTION_GATE_APPROVED);
-    return reactiveEventLogRepository.append(log, instance.tenancyId);
+    eventLogRepository.append(log, instance.tenancyId);
+    return Uni.createFrom().voidItem();
   }
 
   private static boolean isTerminal(final CaseStatus state) {

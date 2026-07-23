@@ -29,10 +29,8 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.persistence.memory.InMemoryCaseInstanceRepository;
-import io.casehub.persistence.memory.InMemoryReactiveCaseInstanceRepository;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerResult;
@@ -45,7 +43,6 @@ import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -64,35 +61,18 @@ public class ConsumerInMemoryStartCaseTest {
   @Inject ConsumerCaseHub caseHub;
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject CaseInstanceRepository caseInstanceRepo;
-  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepo;
 
   @Test
   void startCase_throughEventBus_shouldNotThrowTenantMismatch() {
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    AtomicReference<Throwable> err = new AtomicReference<>();
+    UUID caseId = caseHub.startCase(Map.of("documentId", "doc-001", "status", "processing"));
 
-    caseHub
-        .startCase(Map.of("documentId", "doc-001", "status", "processing"))
-        .thenAccept(ref::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
+    assertNotNull(caseId, "caseId should be assigned");
 
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              if (err.get() != null) throw new AssertionError("startCase failed", err.get());
-              assertNotNull(ref.get(), "caseId should be assigned");
-            });
-
-    await()
-        .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              var instance = caseInstanceCache.get(ref.get());
+              var instance = caseInstanceCache.get(caseId);
               assertNotNull(instance, "instance should be in cache");
               assertEquals(
                   CaseStatus.COMPLETED,
@@ -123,8 +103,7 @@ public class ConsumerInMemoryStartCaseTest {
 
   @Test
   void repoDelegate_shouldShareSameStore() {
-    assertNotNull(caseInstanceRepo, "blocking repo should be injected");
-    assertNotNull(reactiveCaseInstanceRepo, "reactive repo should be injected");
+    assertNotNull(caseInstanceRepo, "repo should be injected");
 
     var instance = new io.casehub.engine.common.internal.model.CaseInstance();
     instance.setUuid(UUID.randomUUID());
@@ -132,13 +111,10 @@ public class ConsumerInMemoryStartCaseTest {
 
     String tenancyId = "delegate-test-tenant";
 
-    // Save via blocking repo
     caseInstanceRepo.save(instance, tenancyId);
 
-    // Find via reactive repo — must see the same store
-    var found =
-        reactiveCaseInstanceRepo.findByUuid(instance.getUuid(), tenancyId).await().indefinitely();
-    assertNotNull(found, "reactive repo should find instance saved by blocking repo (same store)");
+    var found = caseInstanceRepo.findByUuid(instance.getUuid(), tenancyId);
+    assertNotNull(found, "repo should find instance saved (same store)");
   }
 
   // ── CaseHub definition ──
@@ -206,11 +182,6 @@ public class ConsumerInMemoryStartCaseTest {
   @Alternative
   @ApplicationScoped
   public static class ProfileScopedCaseInstanceRepository extends InMemoryCaseInstanceRepository {}
-
-  @Alternative
-  @ApplicationScoped
-  public static class ProfileScopedReactiveCaseInstanceRepository
-      extends InMemoryReactiveCaseInstanceRepository {}
 
   // ── Test profile ──
 

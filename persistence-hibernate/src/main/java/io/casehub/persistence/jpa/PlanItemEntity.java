@@ -17,11 +17,13 @@ package io.casehub.persistence.jpa;
 
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.TargetType;
-import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -37,7 +39,11 @@ import org.hibernate.annotations.DynamicUpdate;
       @Index(name = "idx_plan_item_case_id", columnList = "case_id"),
       @Index(name = "idx_plan_item_tenancy_id", columnList = "tenancy_id")
     })
-public class PlanItemEntity extends PanacheEntity {
+public class PlanItemEntity {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  public Long id;
 
   @Column(name = "plan_item_id", nullable = false, unique = true, length = 36)
   public String planItemId;

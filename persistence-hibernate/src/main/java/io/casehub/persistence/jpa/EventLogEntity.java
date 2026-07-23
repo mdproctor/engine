@@ -18,11 +18,13 @@ package io.casehub.persistence.jpa;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import java.time.Instant;
@@ -36,7 +38,11 @@ import org.hibernate.type.SqlTypes;
 @Table(
     name = "event_log",
     indexes = {@Index(name = "idx_event_log_tenancy_id", columnList = "tenancy_id")})
-public class EventLogEntity extends PanacheEntity {
+public class EventLogEntity {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  public Long id;
 
   @Column(
       name = "seq",

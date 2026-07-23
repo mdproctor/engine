@@ -21,8 +21,8 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -38,8 +38,8 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class EngineDecouplingIT {
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
-  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository crossTenantEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
+  @Inject @CrossTenant CrossTenantEventLogRepository crossTenantEventLogRepository;
 
   @Test
   void eventLogRepository_appendAndFind_happyPath() {
@@ -49,23 +49,12 @@ class EngineDecouplingIT {
     eventLog.setStreamType(EventStreamType.CASE);
     eventLog.setTimestamp(Instant.now());
 
-    reactiveEventLogRepository
-        .append(eventLog, TenancyConstants.DEFAULT_TENANT_ID)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    eventLogRepository.append(eventLog, TenancyConstants.DEFAULT_TENANT_ID);
 
     assertThat(eventLog.id).isNotNull().isPositive();
     assertThat(eventLog.getSeq()).isNotNull().isPositive();
 
-    EventLog found =
-        reactiveEventLogRepository
-            .findById(eventLog.id, TenancyConstants.DEFAULT_TENANT_ID)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    EventLog found = eventLogRepository.findById(eventLog.id, TenancyConstants.DEFAULT_TENANT_ID);
     assertThat(found).isNotNull();
     assertThat(found.getEventType()).isEqualTo(CaseHubEventType.CASE_STARTED);
   }
@@ -79,32 +68,18 @@ class EngineDecouplingIT {
     started.setEventType(CaseHubEventType.CASE_STARTED);
     started.setStreamType(EventStreamType.CASE);
     started.setTimestamp(Instant.now());
-    reactiveEventLogRepository
-        .append(started, TenancyConstants.DEFAULT_TENANT_ID)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    eventLogRepository.append(started, TenancyConstants.DEFAULT_TENANT_ID);
 
     EventLog completed = new EventLog();
     completed.setCaseId(caseId);
     completed.setEventType(CaseHubEventType.CASE_COMPLETED);
     completed.setStreamType(EventStreamType.CASE);
     completed.setTimestamp(Instant.now());
-    reactiveEventLogRepository
-        .append(completed, TenancyConstants.DEFAULT_TENANT_ID)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    eventLogRepository.append(completed, TenancyConstants.DEFAULT_TENANT_ID);
 
     List<EventLog> found =
-        crossTenantEventLogRepository
-            .findByTypes(List.of(CaseHubEventType.CASE_STARTED, CaseHubEventType.CASE_COMPLETED))
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+        crossTenantEventLogRepository.findByTypes(
+            List.of(CaseHubEventType.CASE_STARTED, CaseHubEventType.CASE_COMPLETED));
 
     assertThat(found).hasSizeGreaterThanOrEqualTo(2);
     assertThat(found).anyMatch(e -> e.getEventType() == CaseHubEventType.CASE_STARTED);

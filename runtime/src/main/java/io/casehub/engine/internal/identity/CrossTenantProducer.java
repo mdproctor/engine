@@ -17,8 +17,8 @@ package io.casehub.engine.internal.identity;
 
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.qualifier.EngineSystem;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
@@ -35,13 +35,13 @@ import jakarta.inject.Inject;
 public class CrossTenantProducer {
 
   @Inject @EngineSystem SystemCurrentPrincipal systemPrincipal;
-  @Inject ReactiveCrossTenantEventLogRepository eventLogRepo;
-  @Inject ReactiveCrossTenantCaseInstanceRepository caseInstanceRepo;
+  @Inject CrossTenantEventLogRepository eventLogRepo;
+  @Inject CrossTenantCaseInstanceRepository caseInstanceRepo;
 
   @Produces
   @CrossTenant
   @ApplicationScoped
-  public ReactiveCrossTenantEventLogRepository produceEventLog() {
+  public CrossTenantEventLogRepository produceEventLog() {
     if (!systemPrincipal.isCrossTenantAdmin()) {
       throw new IllegalStateException(
           "SystemCurrentPrincipal.isCrossTenantAdmin() must return true — engine#405");
@@ -52,7 +52,7 @@ public class CrossTenantProducer {
   @Produces
   @CrossTenant
   @ApplicationScoped
-  public ReactiveCrossTenantCaseInstanceRepository produceCaseInstance() {
+  public CrossTenantCaseInstanceRepository produceCaseInstance() {
     if (!systemPrincipal.isCrossTenantAdmin()) {
       throw new IllegalStateException(
           "SystemCurrentPrincipal.isCrossTenantAdmin() must return true — engine#405");

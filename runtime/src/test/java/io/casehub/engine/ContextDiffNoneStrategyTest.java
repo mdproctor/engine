@@ -28,7 +28,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -61,19 +60,11 @@ class ContextDiffNoneStrategyTest {
 
   @Inject NoneStrategyCaseHub noneCase;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @Test
   void noneStrategy_workerModifiesContext_contextChangesAbsent() {
-    final AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-
-    noneCase
-        .startCase(Map.of("status", "start"))
-        .thenAccept(caseIdRef::set)
-        .toCompletableFuture()
-        .join();
-
-    final UUID caseId = caseIdRef.get();
+    final UUID caseId = noneCase.startCase(Map.of("status", "start"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -85,13 +76,10 @@ class ContextDiffNoneStrategyTest {
             });
 
     final List<EventLog> events =
-        reactiveEventLogRepository
-            .findByCaseAndTypes(
-                caseId,
-                List.of(CaseHubEventType.WORKER_EXECUTION_COMPLETED),
-                TenancyConstants.DEFAULT_TENANT_ID)
-            .await()
-            .atMost(SPI_TIMEOUT);
+        eventLogRepository.findByCaseAndTypes(
+            caseId,
+            List.of(CaseHubEventType.WORKER_EXECUTION_COMPLETED),
+            TenancyConstants.DEFAULT_TENANT_ID);
 
     assertThat(events).isNotEmpty();
     assertThat(events.get(0).getMetadata().has("contextChanges")).isFalse();

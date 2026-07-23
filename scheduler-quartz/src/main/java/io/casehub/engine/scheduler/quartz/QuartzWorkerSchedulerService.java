@@ -42,7 +42,7 @@ class QuartzWorkerSchedulerService {
     }
   }
 
-  Uni<Void> scheduleJob(
+  void scheduleJob(
       Long eventLogId,
       String caseHubInstanceUuid,
       String workerId,
@@ -64,7 +64,7 @@ class QuartzWorkerSchedulerService {
     Trigger trigger =
         newTrigger().withIdentity(idempotency, group).startNow().forJob(jobKey).build();
 
-    return scheduleRetryAsync(job, trigger);
+    scheduleRetry(job, trigger);
   }
 
   Uni<Void> scheduleRetryAsync(JobDetail job, Trigger trigger) {

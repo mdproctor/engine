@@ -43,8 +43,8 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.routing.CbrRetrievalService;
 import io.casehub.engine.internal.routing.SubsumptionMatchStrategy;
@@ -55,12 +55,11 @@ import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -92,8 +91,8 @@ class DefaultWorkOrchestratorTest {
   private EventBus eventBus;
   private PendingWorkRegistry registry;
   private CaseDefinitionRegistry caseDefinitionRegistry;
-  private ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
-  private ReactiveEventLogRepository reactiveEventLogRepository;
+  private CaseInstanceRepository caseInstanceRepository;
+  private EventLogRepository eventLogRepository;
   private JQEvaluator jqEvaluator;
   private CbrRetrievalService cbrRetrievalService;
   private DefaultWorkOrchestrator orchestrator;
@@ -139,8 +138,8 @@ class DefaultWorkOrchestratorTest {
     eventBus = mock(EventBus.class);
     registry = new PendingWorkRegistry();
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
-    reactiveCaseInstanceRepository = mock(ReactiveCaseInstanceRepository.class);
-    reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
+    caseInstanceRepository = mock(CaseInstanceRepository.class);
+    eventLogRepository = mock(EventLogRepository.class);
     jqEvaluator = mock(JQEvaluator.class);
     cbrRetrievalService = mock(CbrRetrievalService.class);
 
@@ -148,10 +147,8 @@ class DefaultWorkOrchestratorTest {
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
     when(executionManager.getActiveWorkCount(any())).thenReturn(0);
-    when(reactiveCaseInstanceRepository.updateStateAndAppendEvent(any(), any(), any()))
-        .thenReturn(Uni.createFrom().voidItem());
-    when(reactiveEventLogRepository.appendAndReturnId(any(), any()))
-        .thenReturn(Uni.createFrom().item(1L));
+    // caseInstanceRepository.updateStateAndAppendEvent is void — no stub needed
+    when(eventLogRepository.appendAndReturnId(any(), any())).thenReturn(1L);
     when(jqEvaluator.eval(any(), any()))
         .thenReturn(
             ValidationResult.ok(
@@ -168,8 +165,8 @@ class DefaultWorkOrchestratorTest {
             eventBus,
             registry,
             caseDefinitionRegistry,
-            reactiveCaseInstanceRepository,
-            reactiveEventLogRepository,
+            caseInstanceRepository,
+            eventLogRepository,
             jqEvaluator,
             cbrRetrievalService);
   }
@@ -193,10 +190,10 @@ class DefaultWorkOrchestratorTest {
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(RoutingResult.assigned("analyst-worker", "selected by test"));
 
-    final CompletableFuture<WorkResult> future =
-        orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
+    final CompletionStage<WorkResult> future =
+        orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
 
-    assertThat(future.isDone()).isFalse();
+    assertThat(future.toCompletableFuture().isDone()).isFalse();
   }
 
   @Test
@@ -217,10 +214,9 @@ class DefaultWorkOrchestratorTest {
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(RoutingResult.unresolvable("no candidates available"));
 
-    final var future =
-        orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
+    final var future = orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
 
-    assertThat(future.isCompletedExceptionally()).isTrue();
+    assertThat(future.toCompletableFuture().isCompletedExceptionally()).isTrue();
     verify(eventBus, never()).publish(any(), any(WorkerScheduleEvent.class));
   }
 
@@ -234,10 +230,9 @@ class DefaultWorkOrchestratorTest {
             RoutingResult.escalate(
                 "analyse", EscalationReason.BORDERLINE_STALEMATE, "all candidates borderline"));
 
-    final var future =
-        orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
+    final var future = orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
 
-    assertThat(future.isCompletedExceptionally()).isTrue();
+    assertThat(future.toCompletableFuture().isCompletedExceptionally()).isTrue();
     verify(eventBus, never()).publish(any(), any(WorkerScheduleEvent.class));
     verify(eventBus)
         .publish(
@@ -251,11 +246,9 @@ class DefaultWorkOrchestratorTest {
     final CaseInstance instance = runningInstance("analyse");
 
     final var future =
-        orchestrator
-            .submit(instance, WorkRequest.of("unknown-capability", Map.of()))
-            .toCompletableFuture();
+        orchestrator.submit(instance, WorkRequest.of("unknown-capability", Map.of()));
 
-    assertThat(future.isCompletedExceptionally()).isTrue();
+    assertThat(future.toCompletableFuture().isCompletedExceptionally()).isTrue();
   }
 
   @Test
@@ -267,7 +260,7 @@ class DefaultWorkOrchestratorTest {
         .thenReturn(RoutingResult.unresolvable("no candidates available"));
 
     final CaseInstance instance = runningInstanceWithAgentWorker("analyse");
-    orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
+    orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
 
     final org.mockito.ArgumentCaptor<List<AgentCandidate>> captor =
         org.mockito.ArgumentCaptor.forClass(List.class);
@@ -304,7 +297,7 @@ class DefaultWorkOrchestratorTest {
         .thenReturn(RoutingResult.unresolvable("no candidates available"));
 
     final CaseInstance instance = runningInstanceWithAgentWorker("analyse");
-    orchestrator.submit(instance, WorkRequest.of("analyse", Map.of())).toCompletableFuture();
+    orchestrator.submit(instance, WorkRequest.of("analyse", Map.of()));
 
     final org.mockito.ArgumentCaptor<List<AgentCandidate>> captor =
         org.mockito.ArgumentCaptor.forClass(List.class);

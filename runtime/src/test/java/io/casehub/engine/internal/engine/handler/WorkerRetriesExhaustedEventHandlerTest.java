@@ -16,7 +16,6 @@
 package io.casehub.engine.internal.engine.handler;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,10 +26,9 @@ import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.SignalSettlementTracker;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,7 +42,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
 
   @Mock CaseInstanceCache caseInstanceCache;
   @Mock EventBus eventBus;
-  @Mock ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  @Mock CaseInstanceRepository caseInstanceRepository;
   @Mock WorkerStatusListener workerStatusListener;
   @Mock SignalSettlementTracker settlementTracker;
 
@@ -58,7 +56,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
         new WorkerRetriesExhaustedEventHandler(
             caseInstanceCache,
             eventBus,
-            reactiveCaseInstanceRepository,
+            caseInstanceRepository,
             workerStatusListener,
             settlementTracker);
   }
@@ -68,15 +66,11 @@ class WorkerRetriesExhaustedEventHandlerTest {
     UUID signalId = UUID.randomUUID();
     CaseInstance instance = caseInstance();
     when(caseInstanceCache.get(caseId)).thenReturn(instance);
-    when(reactiveCaseInstanceRepository.updateStateAndAppendEvent(any(), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().voidItem());
+    // caseInstanceRepository.updateStateAndAppendEvent is void — no stub needed
 
-    handler
-        .onWorkerRetriesExhaustedEvent(
-            new WorkerRetriesExhaustedEvent(
-                caseId, tenancyId, "worker-a", "hash", null, signalId, RetryState.empty()))
-        .await()
-        .indefinitely();
+    handler.onWorkerRetriesExhaustedEvent(
+        new WorkerRetriesExhaustedEvent(
+            caseId, tenancyId, "worker-a", "hash", null, signalId, RetryState.empty()));
 
     verify(settlementTracker).recordCompletion(signalId);
   }
@@ -85,15 +79,11 @@ class WorkerRetriesExhaustedEventHandlerTest {
   void onExhausted_withoutSignalId_doesNotCallRecordCompletion() {
     CaseInstance instance = caseInstance();
     when(caseInstanceCache.get(caseId)).thenReturn(instance);
-    when(reactiveCaseInstanceRepository.updateStateAndAppendEvent(any(), any(), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().voidItem());
+    // caseInstanceRepository.updateStateAndAppendEvent is void — no stub needed
 
-    handler
-        .onWorkerRetriesExhaustedEvent(
-            new WorkerRetriesExhaustedEvent(
-                caseId, tenancyId, "worker-a", "hash", null, null, RetryState.empty()))
-        .await()
-        .indefinitely();
+    handler.onWorkerRetriesExhaustedEvent(
+        new WorkerRetriesExhaustedEvent(
+            caseId, tenancyId, "worker-a", "hash", null, null, RetryState.empty()));
 
     verify(settlementTracker, never()).recordCompletion(any());
   }

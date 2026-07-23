@@ -24,8 +24,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -39,8 +39,8 @@ import org.mockito.ArgumentCaptor;
 class QhorusMessageSignalBridgeStatusTest {
 
   private CaseHubRuntime runtime;
-  private ReactiveCrossTenantEventLogRepository eventLogRepository;
-  private ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
+  private CrossTenantEventLogRepository eventLogRepository;
+  private CrossTenantCaseInstanceRepository caseInstanceRepository;
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private EventBus eventBus;
   private QhorusMessageSignalBridge bridge;
@@ -48,8 +48,8 @@ class QhorusMessageSignalBridgeStatusTest {
   @BeforeEach
   void setUp() {
     runtime = mock(CaseHubRuntime.class);
-    eventLogRepository = mock(ReactiveCrossTenantEventLogRepository.class);
-    caseInstanceRepository = mock(ReactiveCrossTenantCaseInstanceRepository.class);
+    eventLogRepository = mock(CrossTenantEventLogRepository.class);
+    caseInstanceRepository = mock(CrossTenantCaseInstanceRepository.class);
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
     eventBus = mock(EventBus.class);
 

@@ -58,13 +58,11 @@ public class WorkerRetryTest {
             "documentId", "doc-123",
             "status", "processing");
 
-    bean.startCase(initialContext)
-        .thenAccept(ref::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
+    try {
+      ref.set(bean.startCase(initialContext));
+    } catch (Exception ex) {
+      err.set(ex);
+    }
 
     await()
         .atMost(30, TimeUnit.SECONDS)

@@ -28,7 +28,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
@@ -40,7 +40,6 @@ import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -57,15 +56,13 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class CaseFaultedStateTest {
 
-  private static final Duration SPI_TIMEOUT = Duration.ofSeconds(10);
-
   @Inject AlwaysFailingCaseHubBean alwaysFailingBean;
 
   @Inject FailureGoalCaseHubBean failureGoalBean;
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @BeforeEach
   void reset() {
@@ -78,8 +75,7 @@ class CaseFaultedStateTest {
 
   @Test
   void caseTransitionsToFaultedWhenAllRetriesExhausted() {
-    UUID caseId =
-        alwaysFailingBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = alwaysFailingBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -96,8 +92,7 @@ class CaseFaultedStateTest {
   @Test
   void faultedCaseHasCaseFaultedInEventLog() {
     // The event type must be CASE_FAULTED — not the legacy CASE_FAILED.
-    UUID caseId =
-        alwaysFailingBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = alwaysFailingBean.startCase(Map.of("status", "processing"));
 
     // WorkerRetriesExhaustedEventHandler writes one CASE_FAULTED entry directly;
     // CaseStatusChangedHandler writes a second one via the CASE_STATUS_CHANGED event.
@@ -113,8 +108,7 @@ class CaseFaultedStateTest {
 
   @Test
   void faultedCaseHasNoLegacyCaseFailedInEventLog() {
-    UUID caseId =
-        alwaysFailingBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = alwaysFailingBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -130,8 +124,7 @@ class CaseFaultedStateTest {
   @Test
   void allRetriesAreAttemptedBeforeFaulting() {
     // RetryPolicy(2, 200) = 2 max attempts. Worker must be called exactly twice.
-    UUID caseId =
-        alwaysFailingBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = alwaysFailingBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -152,8 +145,7 @@ class CaseFaultedStateTest {
   void caseTransitionsToFaultedWhenFailureGoalReached() {
     // Worker writes {status: "error"}, which satisfies the failure goal condition.
     // GoalReachedEventHandler then drives the FAULTED transition.
-    UUID caseId =
-        failureGoalBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = failureGoalBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -169,8 +161,7 @@ class CaseFaultedStateTest {
 
   @Test
   void failureGoalCaseHasCaseFaultedInEventLog() {
-    UUID caseId =
-        failureGoalBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = failureGoalBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -186,18 +177,14 @@ class CaseFaultedStateTest {
   // ------------------------------------------------------------------ //
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT);
+    return eventLogRepository.findByCaseAndTypes(
+        caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   private List<EventLog> findEventsByTypeName(UUID caseId, String eventTypeName) {
-    return reactiveEventLogRepository
+    return eventLogRepository
         .findByCaseAndTypes(
             caseId, List.of(CaseHubEventType.values()), TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT)
         .stream()
         .filter(e -> eventTypeName.equals(e.getEventType().name()))
         .toList();

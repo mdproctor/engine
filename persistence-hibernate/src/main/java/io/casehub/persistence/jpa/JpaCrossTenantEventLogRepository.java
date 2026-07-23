@@ -19,48 +19,132 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
 /**
- * Blocking cross-tenant JPA {@link CrossTenantEventLogRepository}. Delegates to {@link
- * JpaReactiveCrossTenantEventLogRepository} and awaits.
+ * Blocking cross-tenant JPA {@link CrossTenantEventLogRepository}. Direct EntityManager
+ * implementation.
  */
 @ApplicationScoped
-public class JpaCrossTenantEventLogRepository implements CrossTenantEventLogRepository {
-
-  @Inject JpaReactiveCrossTenantEventLogRepository delegate;
+public class JpaCrossTenantEventLogRepository extends TenantAwareRepository
+    implements CrossTenantEventLogRepository {
 
   @Override
+  @Transactional
   public List<EventLog> findByTypes(Collection<CaseHubEventType> types) {
-    return delegate.findByTypes(types).await().indefinitely();
+    setCrossTenantContext();
+    return em
+        .createQuery(
+            "SELECT e FROM EventLogEntity e WHERE e.eventType IN :types ORDER BY e.seq ASC",
+            EventLogEntity.class)
+        .setParameter("types", types)
+        .getResultList()
+        .stream()
+        .map(this::fromEntity)
+        .toList();
   }
 
   @Override
+  @Transactional
   public List<EventLog> findByCaseAndTypes(UUID caseId, Collection<CaseHubEventType> types) {
-    return delegate.findByCaseAndTypes(caseId, types).await().indefinitely();
+    setCrossTenantContext();
+    return em
+        .createQuery(
+            "SELECT e FROM EventLogEntity e WHERE e.caseId = :caseId AND e.eventType IN :types ORDER BY e.seq ASC",
+            EventLogEntity.class)
+        .setParameter("caseId", caseId)
+        .setParameter("types", types)
+        .getResultList()
+        .stream()
+        .map(this::fromEntity)
+        .toList();
   }
 
   @Override
+  @Transactional
   public List<String> findSubmittedWorkWithoutCompletion() {
-    return delegate.findSubmittedWorkWithoutCompletion().await().indefinitely();
+    setCrossTenantContext();
+    List<EventLogEntity> submitted =
+        em.createQuery(
+                "SELECT e FROM EventLogEntity e WHERE e.eventType = :type", EventLogEntity.class)
+            .setParameter("type", CaseHubEventType.WORK_SUBMITTED)
+            .getResultList();
+    List<EventLogEntity> completed =
+        em.createQuery(
+                "SELECT e FROM EventLogEntity e WHERE e.eventType = :type", EventLogEntity.class)
+            .setParameter("type", CaseHubEventType.WORK_COMPLETED)
+            .getResultList();
+    var submittedKeys =
+        submitted.stream()
+            .map(e -> e.metadata != null ? e.metadata.path("correlationKey").asText(null) : null)
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
+    var completedKeys =
+        completed.stream()
+            .map(e -> e.metadata != null ? e.metadata.path("correlationKey").asText(null) : null)
+            .filter(java.util.Objects::nonNull)
+            .collect(java.util.stream.Collectors.toSet());
+    submittedKeys.removeAll(completedKeys);
+    return new java.util.ArrayList<>(submittedKeys);
   }
 
   @Override
-  public List<EventLog> findByWorkerAndTypeAcrossTenants(String workerId, CaseHubEventType type) {
-    return delegate.findByWorkerAndTypeAcrossTenants(workerId, type).await().indefinitely();
-  }
-
-  @Override
+  @Transactional
   public EventLog findById(Long id) {
-    return delegate.findById(id).await().indefinitely();
+    setCrossTenantContext();
+    EventLogEntity entity = em.find(EventLogEntity.class, id);
+    return entity == null ? null : fromEntity(entity);
   }
 
   @Override
+  @Transactional
   public List<EventLog> findByCaseAndWorkerAndType(
       UUID caseId, String workerId, CaseHubEventType type) {
-    return delegate.findByCaseAndWorkerAndType(caseId, workerId, type).await().indefinitely();
+    setCrossTenantContext();
+    return em
+        .createQuery(
+            "SELECT e FROM EventLogEntity e WHERE e.caseId = :caseId AND e.workerId = :workerId AND e.eventType = :type",
+            EventLogEntity.class)
+        .setParameter("caseId", caseId)
+        .setParameter("workerId", workerId)
+        .setParameter("type", type)
+        .getResultList()
+        .stream()
+        .map(this::fromEntity)
+        .toList();
+  }
+
+  @Override
+  @Transactional
+  public List<EventLog> findByWorkerAndTypeAcrossTenants(String workerId, CaseHubEventType type) {
+    setCrossTenantContext();
+    return em
+        .createQuery(
+            "SELECT e FROM EventLogEntity e WHERE e.workerId = :workerId AND e.eventType = :type",
+            EventLogEntity.class)
+        .setParameter("workerId", workerId)
+        .setParameter("type", type)
+        .getResultList()
+        .stream()
+        .map(this::fromEntity)
+        .toList();
+  }
+
+  private EventLog fromEntity(EventLogEntity entity) {
+    EventLog log = new EventLog();
+    log.id = entity.id;
+    log.tenancyId = entity.tenancyId;
+    log.setSeq(entity.seq);
+    log.setCaseId(entity.caseId);
+    log.setEventType(entity.eventType);
+    log.setStreamType(entity.streamType);
+    log.setWorkerId(entity.workerId);
+    log.setTimestamp(entity.timestamp);
+    log.setPayload(entity.payload);
+    log.setMetadata(entity.metadata);
+    return log;
   }
 }

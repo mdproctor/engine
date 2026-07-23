@@ -57,7 +57,7 @@ class SubCaseMofNOutputMappingTest {
 
   @Test
   void bothChildOutputMappings_appliedToParentContext() {
-    UUID parentId = parentCase.startCase(Map.of("trigger", "go")).toCompletableFuture().join();
+    UUID parentId = parentCase.startCase(Map.of("trigger", "go"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -68,10 +68,7 @@ class SubCaseMofNOutputMappingTest {
             });
 
     List<CaseEventLogRecord> startedEvents =
-        caseHubRuntime
-            .eventLog(parentId, Set.of(CaseHubEventType.SUBCASE_STARTED))
-            .toCompletableFuture()
-            .join();
+        caseHubRuntime.eventLog(parentId, Set.of(CaseHubEventType.SUBCASE_STARTED));
 
     assertThat(startedEvents).as("exactly 2 children must have been spawned").hasSize(2);
 

@@ -27,13 +27,11 @@ import io.casehub.engine.common.internal.event.BulkSignalReceivedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Event;
 import java.util.Map;
@@ -53,11 +51,10 @@ class BulkSignalEventLogAuditTest {
 
   @Mock CaseInstanceCache caseInstanceCache;
   @Mock EventBus eventBus;
-  @Mock ReactiveEventLogRepository reactiveEventLogRepository;
+  @Mock EventLogRepository eventLogRepository;
   @Mock WorkerExecutionRecoveryService recoveryService;
   @Mock Event<CaseLifecycleEvent> lifecycleEvents;
   @Mock LedgerTraceIdProvider traceIdProvider;
-  @Mock Vertx vertx;
   @Mock io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
   private SignalReceivedEventHandler handler;
@@ -69,11 +66,10 @@ class BulkSignalEventLogAuditTest {
   void setUp() {
     handler =
         new SignalReceivedEventHandler(
-            vertx,
             eventBus,
             caseInstanceCache,
             recoveryService,
-            reactiveEventLogRepository,
+            eventLogRepository,
             lifecycleEvents,
             traceIdProvider,
             bridgeResolver);
@@ -84,24 +80,17 @@ class BulkSignalEventLogAuditTest {
   void bulkSignal_eventLog_containsUpdatedKeys() {
     CaseInstance instance = caseInstance();
     when(caseInstanceCache.get(caseId)).thenReturn(instance);
-    when(reactiveEventLogRepository.append(any(EventLog.class), eq(tenancyId)))
-        .thenReturn(Uni.createFrom().voidItem());
+    // eventLogRepository.append is void — no stub needed
 
-    io.vertx.mutiny.core.shareddata.SharedData sharedData =
-        org.mockito.Mockito.mock(io.vertx.mutiny.core.shareddata.SharedData.class);
-    io.vertx.mutiny.core.shareddata.Lock lock =
-        org.mockito.Mockito.mock(io.vertx.mutiny.core.shareddata.Lock.class);
-    when(vertx.sharedData()).thenReturn(sharedData);
-    when(sharedData.getLocalLock(any())).thenReturn(Uni.createFrom().item(lock));
     when(lifecycleEvents.fireAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
 
     Map<String, Object> updates = Map.of("result", "done", "score", 42);
     BulkSignalReceivedEvent event = new BulkSignalReceivedEvent(caseId, tenancyId, updates);
 
-    handler.onBulkSignalReceived(event).await().indefinitely();
+    handler.onBulkSignalReceived(event);
 
     ArgumentCaptor<EventLog> captor = ArgumentCaptor.forClass(EventLog.class);
-    verify(reactiveEventLogRepository).append(captor.capture(), eq(tenancyId));
+    verify(eventLogRepository).append(captor.capture(), eq(tenancyId));
 
     EventLog captured = captor.getValue();
     JsonNode payload = captured.getPayload();

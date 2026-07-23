@@ -30,7 +30,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -61,7 +61,7 @@ public class SignalPersistenceAndDedupTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @BeforeEach
   void reset() {
@@ -70,7 +70,7 @@ public class SignalPersistenceAndDedupTest {
 
   @Test
   void signalEventPayloadUsesWrappedPatchFormat() {
-    UUID caseId = bean.startCase(Map.of("orderId", "order-payload")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", "order-payload"));
     Map<String, Object> payment = Map.of("amount", 125, "currency", "USD");
 
     bean.signal(caseId, "payment", payment);
@@ -101,7 +101,7 @@ public class SignalPersistenceAndDedupTest {
 
   @Test
   void duplicateSignalSchedulesWorkerOnceForSameInput() {
-    UUID caseId = bean.startCase(Map.of("orderId", "order-dedup")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", "order-dedup"));
     Map<String, Object> payment = Map.of("amount", 100, "currency", "EUR");
     String inputDataHash = inputDataHash(caseId, payment);
 
@@ -133,8 +133,7 @@ public class SignalPersistenceAndDedupTest {
 
   @Test
   void changedSignalSchedulesWorkerAgainForNewInput() {
-    UUID caseId =
-        bean.startCase(Map.of("orderId", "order-different-input")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", "order-different-input"));
     Map<String, Object> firstPayment = Map.of("amount", 100, "currency", "EUR");
     Map<String, Object> secondPayment = Map.of("amount", 200, "currency", "EUR");
     String firstHash = inputDataHash(caseId, firstPayment);
@@ -181,16 +180,13 @@ public class SignalPersistenceAndDedupTest {
                   findWorkerEvents(caseId, CaseHubEventType.WORKER_SCHEDULED, "payment-worker")
                       .size());
               assertEquals(
-                  Integer.valueOf(200),
-                  bean.query(caseId, "lastProcessedAmount", Integer.class)
-                      .toCompletableFuture()
-                      .join());
+                  Integer.valueOf(200), bean.query(caseId, "lastProcessedAmount", Integer.class));
             });
   }
 
   @Test
   void recoveryRestoresSignalStateFromWrappedPatchPayload() {
-    UUID caseId = bean.startCase(Map.of("orderId", "order-recovery")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", "order-recovery"));
     Map<String, Object> payment = Map.of("amount", 420, "currency", "CAD");
     String inputDataHash = inputDataHash(caseId, payment);
 
@@ -217,8 +213,7 @@ public class SignalPersistenceAndDedupTest {
 
     caseInstanceCache.clear();
 
-    CaseInstance restored =
-        recoveryService.loadOrRestoreCaseInstance(caseId).await().atMost(SPI_TIMEOUT);
+    CaseInstance restored = recoveryService.loadOrRestoreCaseInstance(caseId);
 
     assertNotNull(restored);
     assertEquals(420, ((Number) restored.getCaseContext().getPath("payment.amount")).intValue());
@@ -245,18 +240,14 @@ public class SignalPersistenceAndDedupTest {
   }
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT);
+    return eventLogRepository.findByCaseAndTypes(
+        caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   private List<EventLog> findWorkerEvents(
       UUID caseId, CaseHubEventType eventType, String workerId) {
-    return reactiveEventLogRepository
-        .findByCaseAndWorkerAndType(caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT);
+    return eventLogRepository.findByCaseAndWorkerAndType(
+        caseId, workerId, eventType, TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   private String inputDataHash(UUID caseId, Map<String, Object> payment) {

@@ -50,7 +50,7 @@ class LambdaEntryConditionBlackboardTest {
 
   @Test
   void stage_with_lambda_entry_condition_activates_when_predicate_true() {
-    UUID caseId = lambdaCase.startCase(Map.of("value", 42)).toCompletableFuture().join();
+    UUID caseId = lambdaCase.startCase(Map.of("value", 42));
 
     // Plan model is created on the first select() call from CaseStartedEvent
     await()
@@ -76,7 +76,7 @@ class LambdaEntryConditionBlackboardTest {
 
   @Test
   void stage_with_lambda_stays_pending_when_predicate_false() {
-    UUID caseId = lambdaCase.startCase(Map.of("value", 99)).toCompletableFuture().join();
+    UUID caseId = lambdaCase.startCase(Map.of("value", 99));
 
     // Plan model is created on the first select() call from CaseStartedEvent
     await()

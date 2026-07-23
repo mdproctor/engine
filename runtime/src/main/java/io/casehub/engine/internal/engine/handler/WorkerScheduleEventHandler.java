@@ -38,16 +38,14 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
-import io.vertx.mutiny.core.Vertx;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import io.vertx.mutiny.core.shareddata.Lock;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
@@ -56,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -66,7 +65,8 @@ public class WorkerScheduleEventHandler {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
-  @Inject Vertx vertx;
+  private final ConcurrentHashMap<String, java.util.concurrent.locks.ReentrantLock> locks =
+      new ConcurrentHashMap<>();
 
   @Inject WorkerExecutionManager workflowExecutionManager;
 
@@ -78,7 +78,7 @@ public class WorkerScheduleEventHandler {
 
   @Inject EventBus eventBus;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @Inject JQEvaluator jqEvaluator;
   @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
@@ -88,82 +88,93 @@ public class WorkerScheduleEventHandler {
   @ConfigProperty(name = "casehub.idempotency.window")
   Optional<Duration> idempotencyWindow;
 
+  private static String serialize(final Object value) {
+    try {
+      return OBJECT_MAPPER.writeValueAsString(value);
+    } catch (Exception e) {
+      throw new RuntimeException("Failed to serialize " + value.getClass().getSimpleName(), e);
+    }
+  }
+
   @ConsumeEvent(value = EventBusAddresses.WORKER_SCHEDULE)
-  public Uni<Void> onWorkerScheduleEventHandler(WorkerScheduleEvent event) {
-    CaseInstance instance = event.caseInstance();
-    Worker worker = event.worker();
-    Capability capability = event.capability();
-    String bindingName = event.bindingName();
+  @RunOnVirtualThread
+  public void onWorkerScheduleEventHandler(WorkerScheduleEvent event) {
+    try {
+      CaseInstance instance = event.caseInstance();
+      Worker worker = event.worker();
+      Capability capability = event.capability();
+      String bindingName = event.bindingName();
 
-    JsonNode narrowedInput =
-        evalJqAsJsonNode(
-            instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
-            event.effectiveInputProjection());
+      JsonNode narrowedInput =
+          evalJqAsJsonNode(
+              instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
+              event.effectiveInputProjection());
 
-    CaseDefinition definition =
-        caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
-    io.casehub.api.context.ContextBridge<?> bridge = bridgeResolver.resolve(worker, definition);
-    Object typedInput = bridgeResolver.initialise(bridge, instance.getCaseContext(), narrowedInput);
-    JsonNode serialisedPayload = bridgeResolver.serialise(bridge, typedInput);
+      CaseDefinition definition =
+          caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+      io.casehub.api.context.ContextBridge<?> bridge = bridgeResolver.resolve(worker, definition);
+      Object typedInput =
+          bridgeResolver.initialise(bridge, instance.getCaseContext(), narrowedInput);
+      JsonNode serialisedPayload = bridgeResolver.serialise(bridge, typedInput);
 
-    Map<String, Object> inputDataForHash = OBJECT_MAPPER.convertValue(narrowedInput, MAP_TYPE);
-    String inputDataHash =
-        WorkerExecutionKeys.inputDataHash(
-            instance.getUuid(), worker.name(), capability.name(), inputDataForHash);
+      Map<String, Object> inputDataForHash = OBJECT_MAPPER.convertValue(narrowedInput, MAP_TYPE);
+      String inputDataHash =
+          WorkerExecutionKeys.inputDataHash(
+              instance.getUuid(), worker.name(), capability.name(), inputDataForHash);
 
-    if (workerExecutionGuard.isBlocked(worker.name(), instance.getUuid())) {
-      LOG.warnf(
-          "Worker blocked by guard (quarantined?): caseId=%s worker=%s — emitting retries exhausted",
-          instance.getUuid(), worker.name());
-      eventBus.publish(
-          EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-          new WorkerRetriesExhaustedEvent(
-              instance.getUuid(),
-              instance.tenancyId,
-              worker.name(),
+      if (workerExecutionGuard.isBlocked(worker.name(), instance.getUuid())) {
+        LOG.warnf(
+            "Worker blocked by guard (quarantined?): caseId=%s worker=%s — emitting retries exhausted",
+            instance.getUuid(), worker.name());
+        eventBus.publish(
+            EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
+            new WorkerRetriesExhaustedEvent(
+                instance.getUuid(),
+                instance.tenancyId,
+                worker.name(),
+                inputDataHash,
+                bindingName,
+                event.signalId(),
+                RetryState.empty()));
+        return;
+      }
+
+      workerContextProvider.buildContext(
+          worker.name(), instance.getUuid(), WorkRequest.of(capability.name(), inputDataForHash));
+
+      EventLog eventLog =
+          buildEventLog(
+              instance,
+              worker,
+              capability,
+              serialisedPayload,
               inputDataHash,
               bindingName,
               event.signalId(),
-              RetryState.empty()));
-      return Uni.createFrom().voidItem();
+              event.origin(),
+              bridge.contextType().getName(),
+              event.experiences());
+
+      String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
+      java.util.concurrent.locks.ReentrantLock lock =
+          locks.computeIfAbsent(lockKey, k -> new java.util.concurrent.locks.ReentrantLock());
+      lock.lock();
+      try {
+        scheduleUnderLock(
+            eventLog, instance, worker, capability, inputDataForHash, inputDataHash, bindingName);
+      } finally {
+        lock.unlock();
+      }
+    } catch (Exception e) {
+      LOG.errorf(
+          e,
+          "WorkerScheduleEvent FAILED: caseId=%s worker=%s",
+          event.caseInstance().getUuid(),
+          event.worker().name());
     }
-
-    workerContextProvider.buildContext(
-        worker.name(), instance.getUuid(), WorkRequest.of(capability.name(), inputDataForHash));
-
-    EventLog eventLog =
-        buildEventLog(
-            instance,
-            worker,
-            capability,
-            serialisedPayload,
-            inputDataHash,
-            bindingName,
-            event.signalId(),
-            event.origin(),
-            bridge.contextType().getName(),
-            event.experiences());
-
-    String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
-
-    return vertx
-        .sharedData()
-        .getLocalLock(lockKey)
-        .chain(
-            lock ->
-                scheduleUnderLock(
-                    lock,
-                    eventLog,
-                    instance,
-                    worker,
-                    capability,
-                    inputDataForHash,
-                    inputDataHash,
-                    bindingName));
   }
 
-  private Uni<Void> scheduleUnderLock(
-      Lock lock,
+  private void scheduleUnderLock(
       EventLog eventLog,
       CaseInstance instance,
       Worker worker,
@@ -173,32 +184,17 @@ public class WorkerScheduleEventHandler {
       String bindingName) {
     Instant idempotencyAfter = idempotencyWindow.map(w -> Instant.now().minus(w)).orElse(null);
 
-    return reactiveEventLogRepository
-        .findSchedulingEvents(
-            instance.getUuid(), worker.name(), idempotencyAfter, instance.tenancyId)
-        .map(existing -> decideAction(existing, inputDataHash))
-        .chain(action -> executeAction(action, eventLog, instance, worker, capability))
-        .chain(
-            eventLogId ->
-                submitIfNeeded(eventLogId, instance, worker, capability, inputData, bindingName))
-        .invoke(
-            () ->
-                LOG.infof(
-                    "WorkerScheduleEvent processed: caseId=%s worker=%s capability=%s",
-                    instance.getUuid(), worker.name(), capability.name()))
-        .invoke(lock::release)
-        .replaceWithVoid()
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.errorf(
-                    t,
-                    "WorkerScheduleEvent FAILED: caseId=%s worker=%s capability=%s",
-                    instance.getUuid(),
-                    worker.name(),
-                    capability.name()))
-        .onFailure()
-        .invoke(t -> lock.release());
+    List<EventLog> existing =
+        eventLogRepository.findSchedulingEvents(
+            instance.getUuid(), worker.name(), idempotencyAfter, instance.tenancyId);
+
+    ScheduleAction action = decideAction(existing, inputDataHash);
+    Long eventLogId = executeAction(action, eventLog, instance, worker, capability);
+    submitIfNeeded(eventLogId, instance, worker, capability, inputData, bindingName);
+
+    LOG.infof(
+        "WorkerScheduleEvent processed: caseId=%s worker=%s capability=%s",
+        instance.getUuid(), worker.name(), capability.name());
   }
 
   private EventLog buildEventLog(
@@ -245,7 +241,7 @@ public class WorkerScheduleEventHandler {
     return eventLog;
   }
 
-  private Uni<Long> executeAction(
+  private Long executeAction(
       ScheduleAction action,
       EventLog eventLog,
       CaseInstance instance,
@@ -256,13 +252,13 @@ public class WorkerScheduleEventHandler {
         LOG.infof(
             "Skipping WorkerScheduleEvent: already scheduled/started/completed caseId=%s worker=%s capability=%s",
             instance.getUuid(), worker.name(), capability.name());
-        yield Uni.createFrom().nullItem();
+        yield null;
       }
-      case CREATE_NEW -> reactiveEventLogRepository.appendAndReturnId(eventLog, instance.tenancyId);
+      case CREATE_NEW -> eventLogRepository.appendAndReturnId(eventLog, instance.tenancyId);
     };
   }
 
-  private Uni<Void> submitIfNeeded(
+  private void submitIfNeeded(
       Long eventLogId,
       CaseInstance instance,
       Worker worker,
@@ -270,11 +266,11 @@ public class WorkerScheduleEventHandler {
       Map<String, Object> inputData,
       String bindingName) {
     if (eventLogId == null) {
-      return Uni.createFrom().voidItem();
+      return;
     }
-    return workflowExecutionManager
-        .submit(eventLogId, instance, worker, capability, inputData, bindingName)
-        .invoke(() -> dispatchCommand(instance, worker, capability, inputData, eventLogId));
+    workflowExecutionManager.submit(
+        eventLogId, instance, worker, capability, inputData, bindingName);
+    dispatchCommand(instance, worker, capability, inputData, eventLogId);
   }
 
   private void dispatchCommand(
@@ -332,35 +328,15 @@ public class WorkerScheduleEventHandler {
     return ScheduleAction.createNew();
   }
 
-  private record ScheduleAction(ScheduleActionType type, Long eventLogId) {
-
-    static ScheduleAction skip() {
-      return new ScheduleAction(ScheduleActionType.SKIP, null);
-    }
-
-    static ScheduleAction createNew() {
-      return new ScheduleAction(ScheduleActionType.CREATE_NEW, null);
-    }
-  }
-
-  private enum ScheduleActionType {
-    SKIP,
-    CREATE_NEW
-  }
-
-  private static String serialize(final Object value) {
-    try {
-      return OBJECT_MAPPER.writeValueAsString(value);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to serialize " + value.getClass().getSimpleName(), e);
-    }
-  }
-
   private Map<String, Object> evalJqAsMap(JsonNode context, String expression) {
-    if (expression == null || expression.isBlank()) return Map.of();
+    if (expression == null || expression.isBlank()) {
+      return Map.of();
+    }
     try {
       ValidationResult vr = jqEvaluator.eval(expression, context);
-      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) return Map.of();
+      if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
+        return Map.of();
+      }
       return OBJECT_MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
     } catch (Exception e) {
       LOG.warnf(e, "jq evaluation failed for expression '%s'", expression);
@@ -381,6 +357,22 @@ public class WorkerScheduleEventHandler {
     } catch (Exception e) {
       LOG.warnf(e, "jq evaluation failed for expression '%s'", expression);
       return context;
+    }
+  }
+
+  private enum ScheduleActionType {
+    SKIP,
+    CREATE_NEW
+  }
+
+  private record ScheduleAction(ScheduleActionType type, Long eventLogId) {
+
+    static ScheduleAction skip() {
+      return new ScheduleAction(ScheduleActionType.SKIP, null);
+    }
+
+    static ScheduleAction createNew() {
+      return new ScheduleAction(ScheduleActionType.CREATE_NEW, null);
     }
   }
 }

@@ -21,18 +21,14 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.internal.utils.ReactiveUtils;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.smallrye.mutiny.Uni;
-import io.vertx.core.Vertx;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Supplier;
 import org.jboss.logging.Logger;
 import org.quartz.JobExecutionContext;
 import org.quartz.JobExecutionException;
@@ -48,13 +44,11 @@ import org.quartz.JobListener;
 @ApplicationScoped
 class QuartzWorkerExecutionJobListener implements JobListener {
 
-  @Inject Vertx vertx;
-
   @Inject WorkerStatusListener workerStatusListener;
 
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @Inject LedgerTraceIdProvider traceIdProvider;
 
@@ -102,11 +96,12 @@ class QuartzWorkerExecutionJobListener implements JobListener {
             CaseHubEventType.WORKER_EXECUTION_STARTED,
             OBJECT_MAPPER.createObjectNode().put("inputDataHash", idempotency));
 
-    persistEventLog(jobName, eventLog, tenancyId)
-        .subscribe()
-        .with(
-            ignored -> LOG.debugf("Persisted start event for %s", jobName),
-            ex -> LOG.errorf(ex, "Failed to persist start event for %s", jobName));
+    try {
+      persistEventLog(jobName, eventLog, tenancyId);
+      LOG.debugf("Persisted start event for %s", jobName);
+    } catch (Exception ex) {
+      LOG.errorf(ex, "Failed to persist start event for %s", jobName);
+    }
   }
 
   @Override
@@ -145,13 +140,7 @@ class QuartzWorkerExecutionJobListener implements JobListener {
     return eventLog;
   }
 
-  private Uni<Void> persistEventLog(String jobName, EventLog eventLog, String tenancyId) {
-    return runOnSafeVertxContext(() -> reactiveEventLogRepository.append(eventLog, tenancyId))
-        .onFailure()
-        .invoke(ex -> LOG.errorf(ex, "Failed to persist event for job: %s", jobName));
-  }
-
-  private <T> Uni<T> runOnSafeVertxContext(Supplier<Uni<? extends T>> action) {
-    return ReactiveUtils.runOnSafeVertxContext(vertx, action);
+  private void persistEventLog(String jobName, EventLog eventLog, String tenancyId) {
+    eventLogRepository.append(eventLog, tenancyId);
   }
 }

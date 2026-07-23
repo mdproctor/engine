@@ -17,8 +17,9 @@ package io.casehub.testing;
 
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
+import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.worker.api.Worker;
 import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -42,32 +43,27 @@ import java.util.UUID;
 @ApplicationScoped
 public class WorkResultSubmitter {
 
-  @Inject ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
 
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 
   @Inject EventBus eventBus;
 
   public Uni<Void> complete(UUID caseId, String workerId, Map<String, Object> output) {
-    return caseInstanceRepository
-        .findByUuid(caseId)
-        .map(
-            instance -> {
-              var definition =
-                  caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
-              Worker worker =
-                  definition.getWorkers().stream()
-                      .filter(w -> w.name().equals(workerId))
-                      .findFirst()
-                      .orElseThrow(
-                          () ->
-                              new IllegalArgumentException(
-                                  "Worker not found in case definition: " + workerId));
-              String idempotency = UUID.randomUUID().toString();
-              eventBus.publish(
-                  EventBusAddresses.WORKER_EXECUTION_FINISHED,
-                  WorkflowExecutionCompleted.approved(instance, worker, idempotency, output, null));
-              return (Void) null;
-            });
+    CaseInstance instance = caseInstanceRepository.findByUuid(caseId);
+    var definition = caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+    Worker worker =
+        definition.getWorkers().stream()
+            .filter(w -> w.name().equals(workerId))
+            .findFirst()
+            .orElseThrow(
+                () ->
+                    new IllegalArgumentException(
+                        "Worker not found in case definition: " + workerId));
+    String idempotency = UUID.randomUUID().toString();
+    eventBus.publish(
+        EventBusAddresses.WORKER_EXECUTION_FINISHED,
+        WorkflowExecutionCompleted.approved(instance, worker, idempotency, output, null));
+    return Uni.createFrom().voidItem();
   }
 }

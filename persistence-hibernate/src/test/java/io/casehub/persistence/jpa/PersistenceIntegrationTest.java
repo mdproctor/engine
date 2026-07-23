@@ -25,13 +25,11 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseMetaModelRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.quarkus.test.junit.QuarkusTest;
-import io.quarkus.vertx.VertxContextSupport;
-import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -47,10 +45,10 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(value = 60, unit = TimeUnit.SECONDS)
 class PersistenceIntegrationTest {
 
-  @Inject ReactiveCaseInstanceRepository instanceRepository;
-  @Inject ReactiveCaseMetaModelRepository metaModelRepository;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
-  @Inject ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository;
+  @Inject CaseInstanceRepository instanceRepository;
+  @Inject CaseMetaModelRepository metaModelRepository;
+  @Inject EventLogRepository eventLogRepository;
+  @Inject SubCaseGroupRepository subCaseGroupRepository;
 
   private CaseMetaModel savedMeta;
   private UUID parentCaseId;
@@ -66,14 +64,12 @@ class PersistenceIntegrationTest {
     parentCaseId = UUID.randomUUID();
   }
 
-  private <T> T run(Supplier<Uni<T>> supplier) {
-    try {
-      return VertxContextSupport.subscribeAndAwait(supplier);
-    } catch (RuntimeException e) {
-      throw e;
-    } catch (Throwable e) {
-      throw new RuntimeException(e);
-    }
+  private <T> T run(Supplier<T> supplier) {
+    return supplier.get();
+  }
+
+  private void run(Runnable action) {
+    action.run();
   }
 
   // ========== CaseInstance + EventLog Integration ==========
@@ -97,8 +93,7 @@ class PersistenceIntegrationTest {
     assertThat(eventLog.id).isNotNull();
     assertThat(eventLog.getSeq()).isNotNull();
 
-    EventLog foundEvent =
-        run(() -> reactiveEventLogRepository.findById(eventLog.id, "test-tenant"));
+    EventLog foundEvent = run(() -> eventLogRepository.findById(eventLog.id, "test-tenant"));
     assertThat(foundEvent).isNotNull();
     assertThat(foundEvent.getEventType()).isEqualTo(CaseHubEventType.CASE_COMPLETED);
     assertThat(foundEvent.getCaseId()).isEqualTo(instance.getUuid());
@@ -133,7 +128,7 @@ class PersistenceIntegrationTest {
     List<EventLog> events =
         run(
             () ->
-                reactiveEventLogRepository.findByCaseWithFilters(
+                eventLogRepository.findByCaseWithFilters(
                     instance.getUuid(), null, null, "test-tenant"));
     assertThat(events).hasSize(3);
     assertThat(events.stream().map(EventLog::getSeq))
@@ -167,13 +162,13 @@ class PersistenceIntegrationTest {
     String groupId = "group-1";
     run(
         () ->
-            reactiveSubCaseGroupRepository.getOrCreate(
+            subCaseGroupRepository.getOrCreate(
                 parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
 
     SubCaseGroup group =
         run(
             () ->
-                reactiveSubCaseGroupRepository.registerChild(
+                subCaseGroupRepository.registerChild(
                     parentCaseId, groupId, childInstance.getUuid(), "test-tenant"));
 
     assertThat(group.getChildCaseIds()).containsExactly(childInstance.getUuid());
@@ -193,15 +188,15 @@ class PersistenceIntegrationTest {
     SubCaseGroup group =
         run(
             () ->
-                reactiveSubCaseGroupRepository.getOrCreate(
+                subCaseGroupRepository.getOrCreate(
                     parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
     run(
         () ->
-            reactiveSubCaseGroupRepository.registerChild(
+            subCaseGroupRepository.registerChild(
                 parentCaseId, groupId, childCaseId, "test-tenant"));
 
     SubCaseGroup foundGroup =
-        run(() -> reactiveSubCaseGroupRepository.findByChildCaseId(childCaseId, "test-tenant"))
+        run(() -> subCaseGroupRepository.findByChildCaseId(childCaseId, "test-tenant"))
             .orElse(null);
 
     assertThat(foundGroup).isNotNull();
@@ -215,26 +210,19 @@ class PersistenceIntegrationTest {
     String groupId = "group-1";
     run(
         () ->
-            reactiveSubCaseGroupRepository.getOrCreate(
+            subCaseGroupRepository.getOrCreate(
                 parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
 
     UUID child1 = UUID.randomUUID();
     UUID child2 = UUID.randomUUID();
     UUID child3 = UUID.randomUUID();
 
-    run(
-        () ->
-            reactiveSubCaseGroupRepository.registerChild(
-                parentCaseId, groupId, child1, "test-tenant"));
-    run(
-        () ->
-            reactiveSubCaseGroupRepository.registerChild(
-                parentCaseId, groupId, child2, "test-tenant"));
+    run(() -> subCaseGroupRepository.registerChild(parentCaseId, groupId, child1, "test-tenant"));
+    run(() -> subCaseGroupRepository.registerChild(parentCaseId, groupId, child2, "test-tenant"));
     SubCaseGroup group =
         run(
             () ->
-                reactiveSubCaseGroupRepository.registerChild(
-                    parentCaseId, groupId, child3, "test-tenant"));
+                subCaseGroupRepository.registerChild(parentCaseId, groupId, child3, "test-tenant"));
 
     assertThat(group.getChildCaseIds()).containsExactlyInAnyOrder(child1, child2, child3);
   }
@@ -244,21 +232,15 @@ class PersistenceIntegrationTest {
     String groupId = "group-1";
     run(
         () ->
-            reactiveSubCaseGroupRepository.getOrCreate(
+            subCaseGroupRepository.getOrCreate(
                 parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
 
     SubCaseGroup group =
-        run(
-            () ->
-                reactiveSubCaseGroupRepository.incrementCompleted(
-                    parentCaseId, groupId, "test-tenant"));
+        run(() -> subCaseGroupRepository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
     assertThat(group.getCompletedCount()).isEqualTo(1);
 
     group =
-        run(
-            () ->
-                reactiveSubCaseGroupRepository.incrementCompleted(
-                    parentCaseId, groupId, "test-tenant"));
+        run(() -> subCaseGroupRepository.incrementCompleted(parentCaseId, groupId, "test-tenant"));
     assertThat(group.getCompletedCount()).isEqualTo(2);
   }
 
@@ -267,14 +249,11 @@ class PersistenceIntegrationTest {
     String groupId = "group-1";
     run(
         () ->
-            reactiveSubCaseGroupRepository.getOrCreate(
+            subCaseGroupRepository.getOrCreate(
                 parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
 
     SubCaseGroup group =
-        run(
-            () ->
-                reactiveSubCaseGroupRepository.incrementRejected(
-                    parentCaseId, groupId, "test-tenant"));
+        run(() -> subCaseGroupRepository.incrementRejected(parentCaseId, groupId, "test-tenant"));
     assertThat(group.getRejectedCount()).isEqualTo(1);
   }
 
@@ -283,21 +262,15 @@ class PersistenceIntegrationTest {
     String groupId = "group-1";
     run(
         () ->
-            reactiveSubCaseGroupRepository.getOrCreate(
+            subCaseGroupRepository.getOrCreate(
                 parentCaseId, groupId, 3, 2, OnThresholdReached.KEEP, "test-tenant"));
 
     boolean firstMark =
-        run(
-            () ->
-                reactiveSubCaseGroupRepository.markPolicyTriggered(
-                    parentCaseId, groupId, "test-tenant"));
+        run(() -> subCaseGroupRepository.markPolicyTriggered(parentCaseId, groupId, "test-tenant"));
     assertThat(firstMark).isTrue();
 
     boolean secondMark =
-        run(
-            () ->
-                reactiveSubCaseGroupRepository.markPolicyTriggered(
-                    parentCaseId, groupId, "test-tenant"));
+        run(() -> subCaseGroupRepository.markPolicyTriggered(parentCaseId, groupId, "test-tenant"));
     assertThat(secondMark).isFalse();
   }
 
@@ -320,7 +293,7 @@ class PersistenceIntegrationTest {
     String groupId = "child-group";
     run(
         () ->
-            reactiveSubCaseGroupRepository.getOrCreate(
+            subCaseGroupRepository.getOrCreate(
                 parentInstance.getUuid(), groupId, 2, 2, OnThresholdReached.CANCEL, "test-tenant"));
 
     // Create child cases
@@ -329,7 +302,7 @@ class PersistenceIntegrationTest {
     run(() -> instanceRepository.save(child1, "test-tenant"));
     run(
         () ->
-            reactiveSubCaseGroupRepository.registerChild(
+            subCaseGroupRepository.registerChild(
                 parentInstance.getUuid(), groupId, child1.getUuid(), "test-tenant"));
 
     CaseInstance child2 = newInstance(CaseStatus.RUNNING);
@@ -337,7 +310,7 @@ class PersistenceIntegrationTest {
     run(() -> instanceRepository.save(child2, "test-tenant"));
     run(
         () ->
-            reactiveSubCaseGroupRepository.registerChild(
+            subCaseGroupRepository.registerChild(
                 parentInstance.getUuid(), groupId, child2.getUuid(), "test-tenant"));
 
     // Complete child1
@@ -346,7 +319,7 @@ class PersistenceIntegrationTest {
     run(() -> instanceRepository.updateStateAndAppendEvent(child1, child1Event, "test-tenant"));
     run(
         () ->
-            reactiveSubCaseGroupRepository.incrementCompleted(
+            subCaseGroupRepository.incrementCompleted(
                 parentInstance.getUuid(), groupId, "test-tenant"));
 
     // Complete child2
@@ -356,7 +329,7 @@ class PersistenceIntegrationTest {
     SubCaseGroup group =
         run(
             () ->
-                reactiveSubCaseGroupRepository.incrementCompleted(
+                subCaseGroupRepository.incrementCompleted(
                     parentInstance.getUuid(), groupId, "test-tenant"));
 
     // Verify final state
@@ -376,7 +349,7 @@ class PersistenceIntegrationTest {
     List<EventLog> allEvents =
         run(
             () ->
-                reactiveEventLogRepository.findByCaseWithFilters(
+                eventLogRepository.findByCaseWithFilters(
                     child1.getUuid(), null, null, "test-tenant"));
     assertThat(allEvents).hasSize(1);
     assertThat(allEvents.get(0).getEventType()).isEqualTo(CaseHubEventType.CASE_COMPLETED);

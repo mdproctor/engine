@@ -16,22 +16,57 @@
 package io.casehub.persistence.jpa;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import jakarta.transaction.Transactional;
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Blocking cross-tenant JPA {@link CrossTenantCaseInstanceRepository}. Delegates to {@link
- * JpaReactiveCrossTenantCaseInstanceRepository} and awaits.
+ * Blocking cross-tenant JPA {@link CrossTenantCaseInstanceRepository}. Direct EntityManager
+ * implementation.
  */
 @ApplicationScoped
-public class JpaCrossTenantCaseInstanceRepository implements CrossTenantCaseInstanceRepository {
-
-  @Inject JpaReactiveCrossTenantCaseInstanceRepository delegate;
+public class JpaCrossTenantCaseInstanceRepository extends TenantAwareRepository
+    implements CrossTenantCaseInstanceRepository {
 
   @Override
+  @Transactional
   public CaseInstance findByUuid(UUID caseId) {
-    return delegate.findByUuid(caseId).await().indefinitely();
+    setCrossTenantContext();
+    List<CaseInstanceEntity> results =
+        em.createQuery(
+                "SELECT ci FROM CaseInstanceEntity ci JOIN FETCH ci.caseMetaModel"
+                    + " WHERE ci.uuid = :uuid",
+                CaseInstanceEntity.class)
+            .setParameter("uuid", caseId)
+            .getResultList();
+    return results.isEmpty() ? null : fromEntity(results.get(0));
+  }
+
+  private CaseInstance fromEntity(CaseInstanceEntity entity) {
+    CaseInstance instance = new CaseInstance();
+    instance.id = entity.id;
+    instance.tenancyId = entity.tenancyId;
+    instance.setUuid(entity.uuid);
+    instance.setState(entity.state);
+    instance.setParentCaseId(entity.parentCaseId);
+    instance.setParentPlanItemId(entity.parentPlanItemId);
+    instance.setWaitingForWorkId(entity.waitingForWorkId);
+    if (entity.caseMetaModel != null) {
+      CaseMetaModel m = new CaseMetaModel();
+      m.id = entity.caseMetaModel.id;
+      m.tenancyId = entity.caseMetaModel.tenancyId;
+      m.setName(entity.caseMetaModel.name);
+      m.setNamespace(entity.caseMetaModel.namespace);
+      m.setVersion(entity.caseMetaModel.version);
+      m.setTitle(entity.caseMetaModel.title);
+      m.setDsl(entity.caseMetaModel.dsl);
+      m.setDefinition(entity.caseMetaModel.definition);
+      m.setCreatedAt(entity.caseMetaModel.createdAt);
+      instance.setCaseMetaModel(m);
+    }
+    return instance;
   }
 }

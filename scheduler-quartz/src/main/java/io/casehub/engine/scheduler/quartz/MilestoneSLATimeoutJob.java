@@ -23,8 +23,8 @@ import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -61,9 +61,9 @@ public class MilestoneSLATimeoutJob implements Job {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject @CrossTenant ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
+  @Inject @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository;
 
-  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
 
   @Override
   public void execute(JobExecutionContext context) throws JobExecutionException {
@@ -77,7 +77,7 @@ public class MilestoneSLATimeoutJob implements Job {
     // Load case instance
     CaseInstance caseInstance = caseInstanceCache.get(caseId);
     if (caseInstance == null) {
-      caseInstance = caseInstanceRepository.findByUuid(caseId).await().indefinitely();
+      caseInstance = caseInstanceRepository.findByUuid(caseId);
     }
 
     if (caseInstance == null) {
@@ -110,13 +110,9 @@ public class MilestoneSLATimeoutJob implements Job {
   }
 
   private MilestoneLifecycleStatus getCurrentLifecycleStatus(
-      ReactiveCrossTenantEventLogRepository eventLogRepository, UUID caseId, String milestoneName) {
+      CrossTenantEventLogRepository eventLogRepository, UUID caseId, String milestoneName) {
     EventLog lastEvent =
-        eventLogRepository
-            .findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS)
-            .await()
-            .indefinitely()
-            .stream()
+        eventLogRepository.findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS).stream()
             .filter(e -> milestoneName.equals(e.getPayload().get("milestoneName").asText()))
             .max(Comparator.comparing(EventLog::getSeq))
             .orElse(null);

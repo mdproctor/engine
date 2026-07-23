@@ -68,15 +68,12 @@ class FlowWorkerExecutorTest {
     stubApp(wfInstance);
 
     WorkerResult result =
-        handler
-            .execute(
-                new FlowWorkerFunction(mock(Workflow.class)),
-                Map.of(),
-                testContext(caseId),
-                5000,
-                new ExecutionMetadata("worker-A", "hash-1"))
-            .await()
-            .indefinitely();
+        handler.execute(
+            new FlowWorkerFunction(mock(Workflow.class)),
+            Map.of(),
+            testContext(caseId),
+            5000,
+            new ExecutionMetadata("worker-A", "hash-1"));
 
     assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
     verify(registry).register(eq(instanceId), eq(caseId), eq("worker-A"), eq("hash-1"));
@@ -95,15 +92,12 @@ class FlowWorkerExecutorTest {
     stubApp(wfInstance);
 
     try {
-      handler
-          .execute(
-              new FlowWorkerFunction(mock(Workflow.class)),
-              Map.of(),
-              testContext(caseId),
-              5000,
-              new ExecutionMetadata("worker-B", "hash-2"))
-          .await()
-          .indefinitely();
+      handler.execute(
+          new FlowWorkerFunction(mock(Workflow.class)),
+          Map.of(),
+          testContext(caseId),
+          5000,
+          new ExecutionMetadata("worker-B", "hash-2"));
     } catch (Exception ignored) {
     }
 

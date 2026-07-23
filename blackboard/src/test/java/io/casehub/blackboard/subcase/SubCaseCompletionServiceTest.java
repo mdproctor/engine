@@ -38,12 +38,11 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.GroupStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Event;
 import java.util.List;
@@ -64,9 +63,9 @@ class SubCaseCompletionServiceTest {
   private EventBus mockBus;
   private CaseResumptionService caseResumptionService;
   private CaseInstanceCache caseInstanceCache;
-  private ReactiveEventLogRepository reactiveEventLogRepository;
+  private EventLogRepository eventLogRepository;
   private CaseHubRuntime caseHubRuntime;
-  private ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository;
+  private SubCaseGroupRepository subCaseGroupRepository;
 
   @SuppressWarnings("unchecked")
   private Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents = mock(Event.class);
@@ -82,22 +81,20 @@ class SubCaseCompletionServiceTest {
     mockBus = mock(EventBus.class);
     caseResumptionService = mock(CaseResumptionService.class);
     caseInstanceCache = mock(CaseInstanceCache.class);
-    reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
+    eventLogRepository = mock(EventLogRepository.class);
     caseHubRuntime = mock(CaseHubRuntime.class);
 
-    reactiveSubCaseGroupRepository = mock(ReactiveSubCaseGroupRepository.class);
-    when(caseResumptionService.resumeIfWaiting(any(), any(), any(), any(), any()))
-        .thenReturn(Uni.createFrom().voidItem());
-    when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    subCaseGroupRepository = mock(SubCaseGroupRepository.class);
+
     when(groupLifecycleEvents.fireAsync(any())).thenReturn(mock(CompletionStage.class));
 
     service =
         new SubCaseCompletionService(
-            reactiveEventLogRepository,
+            eventLogRepository,
             mock(JQEvaluator.class),
             caseInstanceCache,
             caseResumptionService,
-            reactiveSubCaseGroupRepository,
+            subCaseGroupRepository,
             caseHubRuntime,
             mockBus,
             registry,
@@ -127,9 +124,9 @@ class SubCaseCompletionServiceTest {
   @Test
   void ungrouped_completion_publishes_subcase_execution_completed_event() {
     EventLog startedEntry = subcaseStartedEntry(parentCaseId, childCaseId, true);
-    when(reactiveEventLogRepository.findByWorkerAndType(
+    when(eventLogRepository.findByWorkerAndType(
             eq(childCaseId.toString()), eq(CaseHubEventType.SUBCASE_STARTED), any()))
-        .thenReturn(Uni.createFrom().item(List.of(startedEntry)));
+        .thenReturn(List.of(startedEntry));
 
     CaseInstance parent = mock(CaseInstance.class);
     when(parent.getUuid()).thenReturn(parentCaseId);
@@ -152,9 +149,9 @@ class SubCaseCompletionServiceTest {
     when(startedEntry.getMetadata()).thenReturn(meta);
     when(startedEntry.getCaseId()).thenReturn(parentCaseId);
 
-    when(reactiveEventLogRepository.findByWorkerAndType(
+    when(eventLogRepository.findByWorkerAndType(
             eq(childCaseId.toString()), eq(CaseHubEventType.SUBCASE_STARTED), any()))
-        .thenReturn(Uni.createFrom().item(List.of(startedEntry)));
+        .thenReturn(List.of(startedEntry));
 
     SubCaseGroup group = new SubCaseGroup();
     group.setGroupId(groupId);
@@ -163,8 +160,8 @@ class SubCaseCompletionServiceTest {
     group.setRequiredCount(2);
     group.setCompletedCount(1);
     group.setRejectedCount(0);
-    when(reactiveSubCaseGroupRepository.incrementCompleted(eq(parentCaseId), eq(groupId), any()))
-        .thenReturn(Uni.createFrom().item(group));
+    when(subCaseGroupRepository.incrementCompleted(eq(parentCaseId), eq(groupId), any()))
+        .thenReturn(group);
 
     service.handleCompletion(completionEvent(childCaseId));
 

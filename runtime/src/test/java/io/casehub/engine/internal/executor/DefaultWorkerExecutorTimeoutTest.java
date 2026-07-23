@@ -25,7 +25,6 @@ import io.casehub.worker.api.WorkerOutcome;
 import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -60,16 +59,13 @@ class DefaultWorkerExecutorTimeoutTest {
             null);
 
     WorkerResult<?> result =
-        workerExecutor
-            .execute(
-                slowWorker,
-                Map.of(),
-                context,
-                200, // 200ms timeout — worker sleeps 5s
-                null,
-                new ExecutionMetadata("test-worker", "hash-1"))
-            .await()
-            .atMost(Duration.ofSeconds(10));
+        workerExecutor.execute(
+            slowWorker,
+            Map.of(),
+            context,
+            200, // 200ms timeout — worker sleeps 5s
+            null,
+            new ExecutionMetadata("test-worker", "hash-1"));
 
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
     assertThat(((WorkerOutcome.Expired<?>) result.outcome()).reason()).contains("200ms");

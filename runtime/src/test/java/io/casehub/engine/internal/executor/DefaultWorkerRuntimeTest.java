@@ -46,8 +46,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionStage;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -253,36 +251,33 @@ class DefaultWorkerRuntimeTest {
     }
 
     @Override
-    public CompletionStage<UUID> startCase(CaseDefinition d) {
+    public UUID startCase(CaseDefinition d) {
       return null;
     }
 
     @Override
-    public CompletionStage<UUID> startCase(CaseDefinition d, Object i) {
+    public UUID startCase(CaseDefinition d, Object i) {
       return null;
     }
 
     @Override
-    public CompletionStage<UUID> startCase(
-        CaseDefinition d, Object i, UUID p, PropagationContext pc) {
-      return CompletableFuture.completedFuture(childCaseId);
+    public UUID startCase(CaseDefinition d, Object i, UUID p, PropagationContext pc) {
+      return childCaseId;
     }
 
     @Override
-    public CompletionStage<UUID> startCase(CaseDefinition d, Object i, Map<String, Object> s) {
+    public UUID startCase(CaseDefinition d, Object i, Map<String, Object> s) {
       return null;
     }
 
     @Override
-    public CompletionStage<UUID> startCase(
+    public UUID startCase(
         CaseDefinition d, Object i, Map<String, Object> s, UUID p, PropagationContext pc) {
       return null;
     }
 
     @Override
-    public CompletionStage<Void> signal(UUID id, String p, Object v) {
-      return null;
-    }
+    public void signal(UUID id, String p, Object v) {}
 
     @Override
     public void cancelCase(UUID id) {}
@@ -294,29 +289,29 @@ class DefaultWorkerRuntimeTest {
     public void resumeCase(UUID id) {}
 
     @Override
-    public CompletionStage<Object> query(UUID id, String p) {
+    public Object query(UUID id, String p) {
       return null;
     }
 
     @Override
-    public <T> CompletionStage<T> query(UUID id, String p, Class<T> c) {
+    public <T> T query(UUID id, String p, Class<T> c) {
       return null;
     }
 
     @Override
-    public CompletionStage<List<CaseEventLogRecord>> eventLog(UUID id) {
-      return null;
+    public List<CaseEventLogRecord> eventLog(UUID id) {
+      return List.of();
     }
 
     @Override
-    public CompletionStage<List<CaseEventLogRecord>> eventLog(UUID id, Set<CaseHubEventType> t) {
-      return null;
+    public List<CaseEventLogRecord> eventLog(UUID id, Set<CaseHubEventType> t) {
+      return List.of();
     }
 
     @Override
-    public CompletionStage<List<CaseEventLogRecord>> eventLog(
+    public List<CaseEventLogRecord> eventLog(
         UUID id, Set<CaseHubEventType> t, Set<EventStreamType> s) {
-      return null;
+      return List.of();
     }
   }
 

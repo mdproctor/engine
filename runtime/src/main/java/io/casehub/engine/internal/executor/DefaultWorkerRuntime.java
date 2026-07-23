@@ -150,10 +150,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
         parentInstance != null ? parentInstance.getPropagationContext() : null;
 
     try {
-      return caseHubRuntime
-          .startCase(definition, input, caseId, propagation)
-          .toCompletableFuture()
-          .join();
+      return caseHubRuntime.startCase(definition, input, caseId, propagation);
     } catch (Exception e) {
       throw new RuntimeException("Failed to spawn case '" + caseType + "'", e);
     }

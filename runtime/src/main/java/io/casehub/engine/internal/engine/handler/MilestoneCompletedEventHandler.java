@@ -31,12 +31,12 @@ import io.casehub.engine.common.internal.event.MilestoneCompletedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.scheduler.JobIdentifier;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -56,58 +56,61 @@ public class MilestoneCompletedEventHandler {
   private static final Logger LOG = Logger.getLogger(MilestoneCompletedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject JobScheduler scheduler;
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
   @Inject LedgerTraceIdProvider traceIdProvider;
 
   @ConsumeEvent(value = EventBusAddresses.MILESTONE_COMPLETED)
-  public Uni<Void> onMilestoneCompleted(MilestoneCompletedEvent event) {
-    CaseInstance caseInstance = event.caseInstance();
-    Milestone milestone = event.milestone();
-    Instant completedAt = event.completedAt();
-    SlaStatus slaStatusAtCompletion = event.slaStatusAtCompletion();
+  @RunOnVirtualThread
+  void onMilestoneCompleted(MilestoneCompletedEvent event) {
+    try {
+      CaseInstance caseInstance = event.caseInstance();
+      Milestone milestone = event.milestone();
+      Instant completedAt = event.completedAt();
+      SlaStatus slaStatusAtCompletion = event.slaStatusAtCompletion();
 
-    return recordEventLog(event)
-        .chain(() -> updateCaseContext(caseInstance, milestone, completedAt, slaStatusAtCompletion))
-        .chain(() -> cancelSlaTimeoutJob(caseInstance, milestone))
-        .chain(
-            () -> {
-              String traceId = traceIdProvider.currentTraceId().orElse(null);
-              return Uni.createFrom()
-                  .completionStage(
-                      () ->
-                          lifecycleEvents.fireAsync(
-                              CaseLifecycleEvent.of(
-                                  caseInstance,
-                                  "CompleteMilestone",
-                                  "MilestoneCompleted",
-                                  null,
-                                  "System",
-                                  traceId)))
-                  .onFailure()
-                  .recoverWithItem(
-                      t -> {
-                        LOG.warnf(
-                            t,
-                            "CaseLifecycleEvent observer failed for caseId=%s event=MilestoneCompleted",
-                            caseInstance.getUuid());
-                        return null;
-                      })
-                  .replaceWithVoid();
-            })
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.errorf(
-                    t,
-                    "Failed to process MILESTONE_COMPLETED for caseId=%s milestone=%s",
-                    caseInstance.getUuid(),
-                    milestone.getName()));
+      recordEventLog(event);
+      updateCaseContext(caseInstance, milestone, completedAt, slaStatusAtCompletion);
+      cancelSlaTimeoutJob(caseInstance, milestone);
+
+      String traceId = traceIdProvider.currentTraceId().orElse(null);
+      try {
+        lifecycleEvents
+            .fireAsync(
+                CaseLifecycleEvent.of(
+                    caseInstance,
+                    "CompleteMilestone",
+                    "MilestoneCompleted",
+                    null,
+                    "System",
+                    traceId))
+            .whenComplete(
+                (v, t) -> {
+                  if (t != null) {
+                    LOG.warnf(
+                        t,
+                        "CaseLifecycleEvent observer failed for caseId=%s event=MilestoneCompleted",
+                        caseInstance.getUuid());
+                  }
+                });
+      } catch (Exception ex) {
+        LOG.warnf(
+            ex,
+            "CaseLifecycleEvent observer failed for caseId=%s event=MilestoneCompleted",
+            caseInstance.getUuid());
+      }
+    } catch (Exception e) {
+      LOG.errorf(
+          e,
+          "Failed to process MILESTONE_COMPLETED for caseId=%s milestone=%s",
+          event.caseInstance().getUuid(),
+          event.milestone().getName());
+    }
   }
 
-  private Uni<Void> recordEventLog(MilestoneCompletedEvent event) {
+  private void recordEventLog(MilestoneCompletedEvent event) {
     CaseInstance caseInstance = event.caseInstance();
     Milestone milestone = event.milestone();
 
@@ -131,10 +134,10 @@ public class MilestoneCompletedEventHandler {
         "Recording MILESTONE_COMPLETED for case=%s milestone=%s slaStatus=%s",
         caseInstance.getUuid(), milestone.getName(), event.slaStatusAtCompletion());
 
-    return reactiveEventLogRepository.append(eventLog, caseInstance.tenancyId);
+    eventLogRepository.append(eventLog, caseInstance.tenancyId);
   }
 
-  private Uni<Void> updateCaseContext(
+  private void updateCaseContext(
       CaseInstance caseInstance,
       Milestone milestone,
       Instant completedAt,
@@ -157,28 +160,21 @@ public class MilestoneCompletedEventHandler {
         CONTEXT_CHANGED,
         new CaseContextChangedEvent(
             caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
-
-    return Uni.createFrom().voidItem();
   }
 
-  private Uni<Void> cancelSlaTimeoutJob(CaseInstance caseInstance, Milestone milestone) {
+  private void cancelSlaTimeoutJob(CaseInstance caseInstance, Milestone milestone) {
     JobIdentifier jobId =
         JobIdentifier.of("milestone-" + milestone.getName(), "case-" + caseInstance.getUuid());
 
-    return scheduler
-        .cancel(jobId)
-        .invoke(
-            deleted -> {
-              if (deleted) {
-                LOG.infof(
-                    "Cancelled SLA timeout job for case=%s milestone=%s",
-                    caseInstance.getUuid(), milestone.getName());
-              } else {
-                LOG.debugf(
-                    "SLA timeout job not found for case=%s milestone=%s (already fired or never scheduled)",
-                    caseInstance.getUuid(), milestone.getName());
-              }
-            })
-        .replaceWithVoid();
+    boolean deleted = scheduler.cancel(jobId).await().indefinitely();
+    if (deleted) {
+      LOG.infof(
+          "Cancelled SLA timeout job for case=%s milestone=%s",
+          caseInstance.getUuid(), milestone.getName());
+    } else {
+      LOG.debugf(
+          "SLA timeout job not found for case=%s milestone=%s (already fired or never scheduled)",
+          caseInstance.getUuid(), milestone.getName());
+    }
   }
 }

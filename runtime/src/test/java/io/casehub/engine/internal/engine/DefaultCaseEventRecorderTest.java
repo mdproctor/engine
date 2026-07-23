@@ -25,9 +25,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.CaseEventRequest;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
 import io.casehub.persistence.memory.InMemoryEventLogRepository;
-import io.casehub.persistence.memory.InMemoryReactiveEventLogRepository;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,23 +33,17 @@ import org.junit.jupiter.api.Test;
 
 class DefaultCaseEventRecorderTest {
 
-  private DefaultReactiveCaseEventRecorder reactiveRecorder;
-  private DefaultCaseEventRecorder blockingRecorder;
-  private InMemoryEventLogRepository blockingRepo;
-  private ReactiveEventLogRepository reactiveRepo;
+  private DefaultCaseEventRecorder recorder;
+  private InMemoryEventLogRepository repo;
 
   @BeforeEach
   void setUp() {
-    blockingRepo = new InMemoryEventLogRepository();
-    InMemoryReactiveEventLogRepository reactiveWrapper = new InMemoryReactiveEventLogRepository();
-    reactiveWrapper.setDelegate(blockingRepo);
-    reactiveRepo = reactiveWrapper;
-    reactiveRecorder = new DefaultReactiveCaseEventRecorder(reactiveRepo);
-    blockingRecorder = new DefaultCaseEventRecorder(reactiveRecorder);
+    repo = new InMemoryEventLogRepository();
+    recorder = new DefaultCaseEventRecorder(repo);
   }
 
   @Test
-  void reactive_record_delegatesToEventLogRepository() {
+  void record_delegatesToEventLogRepository() {
     UUID caseId = UUID.randomUUID();
     CaseEventRequest request =
         new CaseEventRequest(
@@ -63,10 +55,10 @@ class DefaultCaseEventRecorderTest {
             JsonNodeFactory.instance.objectNode().put("strategy", "trust-weighted"),
             NullNode.instance);
 
-    reactiveRecorder.record(request).await().indefinitely();
+    recorder.record(request);
 
     List<EventLog> events =
-        blockingRepo.findByCaseAndTypes(caseId, List.of(CaseHubEventType.AGENT_ROUTED), "tenant-1");
+        repo.findByCaseAndTypes(caseId, List.of(CaseHubEventType.AGENT_ROUTED), "tenant-1");
     assertEquals(1, events.size());
     EventLog recorded = events.get(0);
     assertEquals(caseId, recorded.getCaseId());
@@ -77,7 +69,7 @@ class DefaultCaseEventRecorderTest {
   }
 
   @Test
-  void reactive_recordAndReturnId_returnsId() {
+  void recordAndReturnId_returnsId() {
     CaseEventRequest request =
         new CaseEventRequest(
             UUID.randomUUID(),
@@ -88,46 +80,7 @@ class DefaultCaseEventRecorderTest {
             NullNode.instance,
             NullNode.instance);
 
-    Long id = reactiveRecorder.recordAndReturnId(request).await().indefinitely();
-
-    assertNotNull(id);
-    assertTrue(id > 0);
-  }
-
-  @Test
-  void blocking_record_delegatesToReactive() {
-    UUID caseId = UUID.randomUUID();
-    CaseEventRequest request =
-        new CaseEventRequest(
-            caseId,
-            CaseHubEventType.ORCHESTRATION_STARTED,
-            EventStreamType.ORCHESTRATION,
-            "w-3",
-            "t-2",
-            NullNode.instance,
-            NullNode.instance);
-
-    blockingRecorder.record(request);
-
-    List<EventLog> events =
-        blockingRepo.findByCaseAndTypes(
-            caseId, List.of(CaseHubEventType.ORCHESTRATION_STARTED), "t-2");
-    assertEquals(1, events.size());
-  }
-
-  @Test
-  void blocking_recordAndReturnId_returnsId() {
-    CaseEventRequest request =
-        new CaseEventRequest(
-            UUID.randomUUID(),
-            CaseHubEventType.AGENT_COMPLETED,
-            EventStreamType.ORCHESTRATION,
-            "w-4",
-            "t-3",
-            NullNode.instance,
-            NullNode.instance);
-
-    Long id = blockingRecorder.recordAndReturnId(request);
+    Long id = recorder.recordAndReturnId(request);
 
     assertNotNull(id);
     assertTrue(id > 0);
@@ -145,11 +98,10 @@ class DefaultCaseEventRecorderTest {
             NullNode.instance,
             NullNode.instance);
 
-    reactiveRecorder.record(request).await().indefinitely();
+    recorder.record(request);
 
     List<EventLog> events =
-        blockingRepo.findByCaseAndTypes(
-            request.caseId(), List.of(CaseHubEventType.AGENT_FAILED), "t-4");
+        repo.findByCaseAndTypes(request.caseId(), List.of(CaseHubEventType.AGENT_FAILED), "t-4");
     assertNotNull(events.get(0).getTimestamp());
   }
 }

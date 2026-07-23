@@ -67,7 +67,7 @@ public class SignalResource {
   public SignalResponse sendSignal(
       @PathParam("caseId") UUID caseId, @Valid SendSignalRequest request) {
     caseService.requireCase(caseId, currentPrincipal.tenancyId());
-    runtime.signal(caseId, request.path(), request.value()).toCompletableFuture().join();
+    runtime.signal(caseId, request.path(), request.value());
     return new SignalResponse(caseId, "accepted", "Signal delivered to case");
   }
 }

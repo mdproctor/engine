@@ -39,11 +39,8 @@ class CaseEvictionHandlerTest {
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);
 
-    handler
-        .onCaseStatusChanged(
-            new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.COMPLETED.name()))
-        .await()
-        .indefinitely();
+    handler.onCaseStatusChanged(
+        new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.COMPLETED.name()));
 
     assertThat(registry.get(caseId)).isEmpty();
   }
@@ -57,11 +54,8 @@ class CaseEvictionHandlerTest {
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);
 
-    handler
-        .onCaseStatusChanged(
-            new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.FAULTED.name()))
-        .await()
-        .indefinitely();
+    handler.onCaseStatusChanged(
+        new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.FAULTED.name()));
 
     assertThat(registry.get(caseId)).isEmpty();
   }
@@ -75,11 +69,8 @@ class CaseEvictionHandlerTest {
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);
 
-    handler
-        .onCaseStatusChanged(
-            new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.CANCELLED.name()))
-        .await()
-        .indefinitely();
+    handler.onCaseStatusChanged(
+        new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.CANCELLED.name()));
 
     assertThat(registry.get(caseId)).isEmpty();
   }
@@ -93,11 +84,8 @@ class CaseEvictionHandlerTest {
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(caseId);
 
-    handler
-        .onCaseStatusChanged(
-            new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.RUNNING.name()))
-        .await()
-        .indefinitely();
+    handler.onCaseStatusChanged(
+        new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.RUNNING.name()));
 
     assertThat(registry.get(caseId)).isPresent();
   }
@@ -109,11 +97,8 @@ class CaseEvictionHandlerTest {
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(UUID.randomUUID());
 
-    handler
-        .onCaseStatusChanged(
-            new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.COMPLETED.name()))
-        .await()
-        .indefinitely();
+    handler.onCaseStatusChanged(
+        new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.COMPLETED.name()));
     // no exception expected
   }
 }

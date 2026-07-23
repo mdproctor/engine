@@ -66,7 +66,7 @@ public class SignalDedupExtendedTest {
   @Test
   void tripleIdenticalSignalsRunWorkerOnce() {
     String id = "triple-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("id", id));
 
     bean.signal(caseId, "event", Map.of("type", "click", "source", "button"));
     bean.signal(caseId, "event", Map.of("type", "click", "source", "button"));
@@ -86,7 +86,7 @@ public class SignalDedupExtendedTest {
   @Test
   void fiveIdenticalSignalsRunWorkerOnce() {
     String id = "five-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("id", id));
     Map<String, Object> value = Map.of("amount", 100, "currency", "USD");
 
     for (int i = 0; i < 5; i++) {
@@ -110,7 +110,7 @@ public class SignalDedupExtendedTest {
   @Test
   void sameSignalValueResendProducesNoContextDiffAndDoesNotRetrigger() {
     String id = "resend-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("id", id));
     Map<String, Object> value = Map.of("type", "APPROVED");
 
     bean.signal(caseId, "event", value);
@@ -140,7 +140,7 @@ public class SignalDedupExtendedTest {
   @Test
   void identicalPrimitiveIntegerSignalsDeduplicated() {
     String id = "int-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("id", id));
 
     bean.signal(caseId, "event", 42);
     bean.signal(caseId, "event", 42);
@@ -159,7 +159,7 @@ public class SignalDedupExtendedTest {
   @Test
   void identicalStringSignalsDeduplicated() {
     String id = "str-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("id", id));
 
     bean.signal(caseId, "event", "CONFIRMED");
     bean.signal(caseId, "event", "CONFIRMED");
@@ -183,8 +183,8 @@ public class SignalDedupExtendedTest {
     String id1 = "iso-1-" + UUID.randomUUID();
     String id2 = "iso-2-" + UUID.randomUUID();
 
-    UUID caseId1 = bean.startCase(Map.of("id", id1)).toCompletableFuture().join();
-    UUID caseId2 = bean.startCase(Map.of("id", id2)).toCompletableFuture().join();
+    UUID caseId1 = bean.startCase(Map.of("id", id1));
+    UUID caseId2 = bean.startCase(Map.of("id", id2));
 
     Map<String, Object> value = Map.of("type", "SHARED_EVENT");
 
@@ -210,7 +210,7 @@ public class SignalDedupExtendedTest {
   @Test
   void signalToUnboundPathDoesNotTriggerWorker() {
     String id = "unbound-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("id", id));
 
     // `event` is the bound path; `unrelated` is referenced by no binding
     bean.signal(caseId, "unrelated", Map.of("type", "IGNORED"));
@@ -234,7 +234,7 @@ public class SignalDedupExtendedTest {
   @Test
   void duplicateSignalWithComplexNestedObjectRunsOnce() {
     String id = "complex-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("id", id));
 
     Map<String, Object> complexValue =
         Map.of(
@@ -263,7 +263,7 @@ public class SignalDedupExtendedTest {
   @Test
   void signalAfterCaseCompletionDoesNotTriggerWorker() {
     String id = "post-complete-" + UUID.randomUUID();
-    UUID caseId = goalBean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = goalBean.startCase(Map.of("id", id));
 
     goalBean.signal(caseId, "event", Map.of("type", "TRIGGER"));
 
@@ -301,7 +301,7 @@ public class SignalDedupExtendedTest {
   @Test
   void fourConcurrentIdenticalSignalsRunWorkerOnce() {
     String id = "four-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("id", id)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("id", id));
     Map<String, Object> value = Map.of("level", "HIGH", "score", 99);
 
     bean.signal(caseId, "event", value);

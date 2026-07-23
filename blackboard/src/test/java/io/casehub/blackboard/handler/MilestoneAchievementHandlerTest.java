@@ -52,7 +52,7 @@ class MilestoneAchievementHandlerTest {
     when(milestone.getName()).thenReturn("docs-received");
 
     var event = new MilestoneActivatedEvent(instance, milestone, Instant.now(), null);
-    handler.onMilestoneActivated(event).await().indefinitely();
+    handler.onMilestoneActivated(event);
 
     assertThat(plan.getMilestoneStatus("docs-received")).hasValue(MilestoneLifecycleStatus.ACTIVE);
   }
@@ -73,7 +73,7 @@ class MilestoneAchievementHandlerTest {
     when(milestone.getName()).thenReturn("docs-received");
 
     var event = new MilestoneCompletedEvent(instance, milestone, Instant.now(), SlaStatus.ON_TRACK);
-    handler.onMilestoneCompleted(event).await().indefinitely();
+    handler.onMilestoneCompleted(event);
 
     assertThat(plan.getMilestoneStatus("docs-received"))
         .hasValue(MilestoneLifecycleStatus.COMPLETED);
@@ -92,10 +92,10 @@ class MilestoneAchievementHandlerTest {
 
     // No plan model exists for this caseId — should not throw
     var activatedEvent = new MilestoneActivatedEvent(instance, milestone, Instant.now(), null);
-    handler.onMilestoneActivated(activatedEvent).await().indefinitely();
+    handler.onMilestoneActivated(activatedEvent);
 
     var completedEvent =
         new MilestoneCompletedEvent(instance, milestone, Instant.now(), SlaStatus.ON_TRACK);
-    handler.onMilestoneCompleted(completedEvent).await().indefinitely();
+    handler.onMilestoneCompleted(completedEvent);
   }
 }

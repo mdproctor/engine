@@ -23,7 +23,7 @@ import java.util.UUID;
 /**
  * Blocking SPI for {@link SubCaseGroup} persistence.
  *
- * @see ReactiveSubCaseGroupRepository
+ * @see SubCaseGroupRepository
  */
 public interface SubCaseGroupRepository {
 

@@ -27,6 +27,7 @@ import io.casehub.api.model.SignalType;
 import io.casehub.api.model.event.CaseEventLogRecord;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
@@ -40,7 +41,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletionStage;
 
 @ApplicationScoped
 class CaseHubRuntimeImpl implements CaseHubRuntime {
@@ -54,25 +54,24 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
 
   @Inject @io.casehub.engine.common.qualifier.CrossTenant
-  io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository
-      crossTenantCaseInstanceRepository;
+  io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository crossTenantCaseInstanceRepository;
 
   @Override
-  public CompletionStage<UUID> startCase(CaseDefinition definition) {
+  public UUID startCase(CaseDefinition definition) {
     var factory = resolveFactory(definition);
     UUID caseId = UUID.randomUUID();
     return reactor.startCase(definition, new CaseContextImpl(factory, caseId), caseId);
   }
 
   @Override
-  public CompletionStage<UUID> startCase(CaseDefinition definition, Object inputData) {
+  public UUID startCase(CaseDefinition definition, Object inputData) {
     var factory = resolveFactory(definition);
     UUID caseId = UUID.randomUUID();
     return reactor.startCase(definition, createContext(factory, caseId, inputData), caseId);
   }
 
   @Override
-  public CompletionStage<UUID> startCase(
+  public UUID startCase(
       CaseDefinition definition,
       Object inputData,
       UUID parentCaseId,
@@ -88,7 +87,7 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   }
 
   @Override
-  public CompletionStage<UUID> startCase(
+  public UUID startCase(
       CaseDefinition definition, Object inputData, Map<String, Object> semanticData) {
     var factory = resolveFactory(definition);
     UUID caseId = UUID.randomUUID();
@@ -97,7 +96,7 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   }
 
   @Override
-  public CompletionStage<UUID> startCase(
+  public UUID startCase(
       CaseDefinition definition,
       Object inputData,
       Map<String, Object> semanticData,
@@ -149,49 +148,41 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   }
 
   @Override
-  public CompletionStage<Void> signal(UUID caseId, String path, Object value) {
-    return reactor.signal(caseId, path, value, null, null).subscribeAsCompletionStage();
+  public void signal(UUID caseId, String path, Object value) {
+    reactor.signal(caseId, path, value, null, null);
   }
 
   @Override
-  public CompletionStage<Void> signal(
-      UUID caseId, String path, Object value, Map<String, Object> signalMetadata) {
-    return reactor.signal(caseId, path, value, signalMetadata).subscribeAsCompletionStage();
+  public void signal(UUID caseId, String path, Object value, Map<String, Object> signalMetadata) {
+    reactor.signal(caseId, path, value, signalMetadata);
   }
 
   @Override
-  public CompletionStage<Void> signal(
+  public void signal(
       UUID caseId,
       String path,
       Object value,
       String triggerChannelId,
       String triggerCorrelationId) {
-    return reactor
-        .signal(caseId, path, value, triggerChannelId, triggerCorrelationId)
-        .subscribeAsCompletionStage();
+    reactor.signal(caseId, path, value, triggerChannelId, triggerCorrelationId);
   }
 
   @Override
-  public CompletionStage<Void> signal(UUID caseId, Map<String, Object> updates) {
-    return reactor.signalBulk(caseId, updates).subscribeAsCompletionStage();
+  public void signal(UUID caseId, Map<String, Object> updates) {
+    reactor.signalBulk(caseId, updates);
   }
 
   @Override
-  public CompletionStage<CaseContext> signalAndAwait(
-      UUID caseId, Map<String, Object> updates, Duration timeout) {
-    return reactor.signalAndAwait(caseId, updates, timeout).subscribeAsCompletionStage();
+  public CaseContext signalAndAwait(UUID caseId, Map<String, Object> updates, Duration timeout) {
+    return reactor.signalAndAwait(caseId, updates, timeout);
   }
 
   @Override
-  public <T> CompletionStage<Void> signal(UUID caseId, SignalType<T> signalType, T payload) {
+  public <T> void signal(UUID caseId, SignalType<T> signalType, T payload) {
     Objects.requireNonNull(payload, "Typed signal payload must not be null");
     CaseInstance instance = caseInstanceCache.get(caseId);
     if (instance == null) {
-      instance =
-          crossTenantCaseInstanceRepository
-              .findByUuid(caseId)
-              .await()
-              .atMost(java.time.Duration.ofSeconds(10));
+      instance = crossTenantCaseInstanceRepository.findByUuid(caseId);
       if (instance == null) {
         throw new IllegalArgumentException("CaseInstance not found: " + caseId);
       }
@@ -227,14 +218,12 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
         }
       }
     }
-    return reactor
-        .signalTyped(
-            caseId,
-            signalType.name(),
-            payload,
-            signalType.payloadType(),
-            signalType.payloadType().getName())
-        .subscribeAsCompletionStage();
+    reactor.signalTyped(
+        caseId,
+        signalType.name(),
+        payload,
+        signalType.payloadType(),
+        signalType.payloadType().getName());
   }
 
   @Override
@@ -253,45 +242,38 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   }
 
   @Override
-  public CompletionStage<Object> query(UUID caseId, String path) {
+  public Object query(UUID caseId, String path) {
     return reactor.query(caseId, path);
   }
 
   @Override
-  public <T> CompletionStage<T> query(UUID caseId, String path, Class<T> clazz) {
+  public <T> T query(UUID caseId, String path, Class<T> clazz) {
     return reactor.query(caseId, path, clazz);
   }
 
   @Override
-  public CompletionStage<List<CaseEventLogRecord>> eventLog(UUID caseId) {
+  public List<CaseEventLogRecord> eventLog(UUID caseId) {
     return eventLog(caseId, Set.of());
   }
 
   @Override
-  public CompletionStage<List<CaseEventLogRecord>> eventLog(
-      UUID caseId, Set<CaseHubEventType> eventTypes) {
+  public List<CaseEventLogRecord> eventLog(UUID caseId, Set<CaseHubEventType> eventTypes) {
     return eventLog(caseId, eventTypes, Set.of());
   }
 
   @Override
-  public CompletionStage<List<CaseEventLogRecord>> eventLog(
+  public List<CaseEventLogRecord> eventLog(
       UUID caseId, Set<CaseHubEventType> eventTypes, Set<EventStreamType> streamTypes) {
-    return reactor
-        .eventLog(caseId, eventTypes, streamTypes)
-        .onItem()
-        .transform(
-            list ->
-                list.stream()
-                    .map(
-                        event ->
-                            new CaseEventLogRecord(
-                                event.getEventType(),
-                                event.getStreamType(),
-                                event.getTimestamp(),
-                                event.getPayload(),
-                                event.getMetadata()))
-                    .toList())
-        .subscribe()
-        .asCompletionStage();
+    List<EventLog> list = reactor.eventLog(caseId, eventTypes, streamTypes);
+    return list.stream()
+        .map(
+            event ->
+                new CaseEventLogRecord(
+                    event.getEventType(),
+                    event.getStreamType(),
+                    event.getTimestamp(),
+                    event.getPayload(),
+                    event.getMetadata()))
+        .toList();
   }
 }

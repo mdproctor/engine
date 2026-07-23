@@ -30,7 +30,6 @@ import io.casehub.worker.api.Worker;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import org.jboss.logging.Logger;
@@ -94,8 +93,7 @@ public class ConditionalScheduledTriggerJob implements Job {
 
     CaseInstance caseInstance;
     try {
-      caseInstance =
-          recoveryService.loadOrRestoreCaseInstance(caseId).await().atMost(Duration.ofSeconds(10));
+      caseInstance = recoveryService.loadOrRestoreCaseInstance(caseId);
     } catch (Exception e) {
       LOG.warnf(e, "Failed to load case instance: %s, skipping scheduled trigger", caseId);
       return;

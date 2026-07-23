@@ -28,8 +28,8 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -39,7 +39,6 @@ import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -53,17 +52,15 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class CaseLifecycleStateTest {
 
-  private static final Duration SPI_TIMEOUT = Duration.ofSeconds(10);
-
   @Inject IdleCaseHubBean idleBean;
 
   @Inject CompletingCaseHubBean completingBean;
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   // ------------------------------------------------------------------ //
   // RUNNING state                                                         //
@@ -75,10 +72,7 @@ class CaseLifecycleStateTest {
     // so the case stays in RUNNING. This lets us assert RUNNING without racing against
     // an asynchronous completion.
     UUID caseId =
-        idleBean
-            .startCase(Map.of("status", "idle")) // trigger requires "active" — never fires
-            .toCompletableFuture()
-            .join();
+        idleBean.startCase(Map.of("status", "idle")); // trigger requires "active" — never fires
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -92,18 +86,14 @@ class CaseLifecycleStateTest {
 
   @Test
   void runningStateIsPersistedByRepository() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await()
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(caseInstanceCache.get(caseId)).isNotNull());
 
     // Repository must store RUNNING — not the legacy ACTIVE value.
-    var stored =
-        reactiveCaseInstanceRepository
-            .findByUuid(caseId, TenancyConstants.DEFAULT_TENANT_ID)
-            .await()
-            .atMost(SPI_TIMEOUT);
+    var stored = caseInstanceRepository.findByUuid(caseId, TenancyConstants.DEFAULT_TENANT_ID);
 
     assertThat(stored).as("CaseInstance must be findable by UUID after start").isNotNull();
     assertThat(stored.getState())
@@ -117,8 +107,7 @@ class CaseLifecycleStateTest {
 
   @Test
   void caseTransitionsToCompletedWhenSuccessGoalReached() {
-    UUID caseId =
-        completingBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = completingBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -132,8 +121,7 @@ class CaseLifecycleStateTest {
 
   @Test
   void completedCaseHasCaseCompletedInEventLog() {
-    UUID caseId =
-        completingBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = completingBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -149,8 +137,7 @@ class CaseLifecycleStateTest {
   @Test
   void completedCaseDoesNotHaveLegacyCaseFailedInEventLog() {
     // Guard: CASE_FAILED must never appear — the correct name is CASE_FAULTED.
-    UUID caseId =
-        completingBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = completingBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -170,18 +157,14 @@ class CaseLifecycleStateTest {
   // ------------------------------------------------------------------ //
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT);
+    return eventLogRepository.findByCaseAndTypes(
+        caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   private List<EventLog> findEventsByTypeName(UUID caseId, String eventTypeName) {
-    return reactiveEventLogRepository
+    return eventLogRepository
         .findByCaseAndTypes(
             caseId, List.of(CaseHubEventType.values()), TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT)
         .stream()
         .filter(e -> eventTypeName.equals(e.getEventType().name()))
         .toList();

@@ -20,7 +20,7 @@ import io.casehub.blackboard.registry.BlackboardRegistry;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Set;
@@ -43,10 +43,10 @@ public class CaseEvictionHandler {
   }
 
   @ConsumeEvent(EventBusAddresses.CASE_STATUS_CHANGED)
-  public Uni<Void> onCaseStatusChanged(CaseStatusChanged event) {
+  @RunOnVirtualThread
+  public void onCaseStatusChanged(CaseStatusChanged event) {
     if (TERMINAL_STATUSES.contains(event.newStatus())) {
       registry.evict(event.instance().getUuid());
     }
-    return Uni.createFrom().voidItem();
   }
 }

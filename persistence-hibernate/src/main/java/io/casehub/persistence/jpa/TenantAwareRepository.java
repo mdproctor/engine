@@ -15,59 +15,29 @@
  */
 package io.casehub.persistence.jpa;
 
-import io.quarkus.hibernate.reactive.panache.Panache;
-import io.smallrye.mutiny.Uni;
-import java.util.function.Supplier;
+import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
-/**
- * Extends AbstractJpaRepository with RLS session-variable injection.
- *
- * <p>withTenantTransaction(): sets SET LOCAL "casehub.tenancy_id" = current tenant before any SQL.
- * Used by all tenant-scoped repositories (EventLog, CaseInstance, CaseMetaModel, etc.). Wraps reads
- * in withTransaction() because SET LOCAL only applies within an explicit transaction.
- *
- * <p>withCrossTenantTransaction(): sets SET LOCAL ROLE casehub_crosstenancy (BYPASSRLS role). Used
- * by cross-tenant repositories. Only issues the role switch when casehub.rls.enabled=true;
- * otherwise runs the work in a plain transaction.
- */
-abstract class TenantAwareRepository extends AbstractJpaRepository {
+abstract class TenantAwareRepository {
+
+  @Inject EntityManager em;
 
   @ConfigProperty(name = "casehub.rls.enabled", defaultValue = "false")
   boolean rlsEnabled;
 
-  protected <T> Uni<T> withTenantTransaction(String tenancyId, Supplier<Uni<T>> work) {
+  protected void setTenantContext(String tenancyId) {
     if (tenancyId == null || tenancyId.contains("'") || tenancyId.contains("\\")) {
-      throw new IllegalStateException("Invalid tenancyId: " + tenancyId);
+      throw new IllegalArgumentException("Invalid tenancyId: " + tenancyId);
     }
-    String sql = "SET LOCAL \"casehub.tenancy_id\" = '" + tenancyId + "'";
-    return withSafeContext(
-        () ->
-            Panache.withTransaction(
-                () ->
-                    Panache.getSession()
-                        .flatMap(
-                            session ->
-                                session
-                                    .createNativeQuery(sql)
-                                    .executeUpdate()
-                                    .replaceWith(work.get()))));
+    em.createNativeQuery("SET LOCAL \"casehub.tenancy_id\" = :tid")
+        .setParameter("tid", tenancyId)
+        .executeUpdate();
   }
 
-  protected <T> Uni<T> withCrossTenantTransaction(Supplier<Uni<T>> work) {
-    if (!rlsEnabled) {
-      return withSafeContext(() -> Panache.withTransaction(work));
+  protected void setCrossTenantContext() {
+    if (rlsEnabled) {
+      em.createNativeQuery("SET LOCAL ROLE casehub_crosstenancy").executeUpdate();
     }
-    return withSafeContext(
-        () ->
-            Panache.withTransaction(
-                () ->
-                    Panache.getSession()
-                        .flatMap(
-                            session ->
-                                session
-                                    .createNativeQuery("SET LOCAL ROLE casehub_crosstenancy")
-                                    .executeUpdate()
-                                    .replaceWith(work.get()))));
   }
 }

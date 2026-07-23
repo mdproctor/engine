@@ -35,16 +35,14 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
-import io.smallrye.mutiny.Uni;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -68,29 +66,20 @@ class SubCaseExecutionHandlerTest {
     registry = new BlackboardRegistry();
     caseHubRuntime = mock(CaseHubRuntime.class);
     CaseDefinitionRegistry definitionRegistry = mock(CaseDefinitionRegistry.class);
-    ReactiveCaseInstanceRepository instanceRepository = mock(ReactiveCaseInstanceRepository.class);
-    ReactiveEventLogRepository reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
+    CaseInstanceRepository instanceRepository = mock(CaseInstanceRepository.class);
+    EventLogRepository eventLogRepository = mock(EventLogRepository.class);
     PendingWorkRegistry pendingWorkRegistry = mock(PendingWorkRegistry.class);
-    ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository =
-        mock(ReactiveSubCaseGroupRepository.class);
-
-    // EventLogRepository returns successful Uni for all append calls
-    when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
+    SubCaseGroupRepository subCaseGroupRepository = mock(SubCaseGroupRepository.class);
 
     // CaseDefinitionRegistry returns a non-null definition by default
     when(definitionRegistry.getCaseDefinition(any()))
         .thenReturn(mock(io.casehub.api.model.CaseDefinition.class));
 
-    // CaseInstanceRepository returns Uni for updateStateAndAppendEvent
-    when(instanceRepository.updateStateAndAppendEvent(any(), any(), any()))
-        .thenReturn(Uni.createFrom().nullItem());
-
-    // SubCaseGroupRepository: stub grouped path Uni methods
+    // SubCaseGroupRepository: stub grouped path methods
     SubCaseGroup stubGroup = mock(SubCaseGroup.class);
-    when(reactiveSubCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
-        .thenReturn(Uni.createFrom().item(stubGroup));
-    when(reactiveSubCaseGroupRepository.registerChild(any(), any(), any(), any()))
-        .thenReturn(Uni.createFrom().item(stubGroup));
+    when(subCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(stubGroup);
+    when(subCaseGroupRepository.registerChild(any(), any(), any(), any())).thenReturn(stubGroup);
 
     caseInstanceCache = new CaseInstanceCacheImpl();
 
@@ -99,9 +88,9 @@ class SubCaseExecutionHandlerTest {
             caseHubRuntime,
             definitionRegistry,
             instanceRepository,
-            reactiveEventLogRepository,
+            eventLogRepository,
             pendingWorkRegistry,
-            reactiveSubCaseGroupRepository,
+            subCaseGroupRepository,
             registry,
             caseInstanceCache);
 
@@ -135,10 +124,9 @@ class SubCaseExecutionHandlerTest {
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
-    when(caseHubRuntime.startCase(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(childId));
+    when(caseHubRuntime.startCase(any(), any(), any(), any())).thenReturn(childId);
 
-    handler.onSubCaseSchedule(eventFor("spawn-child", true)).await().indefinitely();
+    handler.onSubCaseSchedule(eventFor("spawn-child", true));
 
     assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
   }
@@ -149,10 +137,9 @@ class SubCaseExecutionHandlerTest {
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
-    when(caseHubRuntime.startCase(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(childId));
+    when(caseHubRuntime.startCase(any(), any(), any(), any())).thenReturn(childId);
 
-    handler.onSubCaseSchedule(eventFor("spawn-child", true)).await().indefinitely();
+    handler.onSubCaseSchedule(eventFor("spawn-child", true));
 
     assertThat(registry.getPlanItemId(parentCaseId, childId.toString()))
         .as("child case ID must be indexed so SubCaseCompletionService can route completion")
@@ -165,10 +152,9 @@ class SubCaseExecutionHandlerTest {
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
-    when(caseHubRuntime.startCase(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(childId));
+    when(caseHubRuntime.startCase(any(), any(), any(), any())).thenReturn(childId);
 
-    handler.onSubCaseSchedule(eventFor("spawn-fire-forget", false)).await().indefinitely();
+    handler.onSubCaseSchedule(eventFor("spawn-fire-forget", false));
 
     assertThat(item.getStatus())
         .as("fire-and-forget: plan item must be COMPLETED once child is spawned")
@@ -193,7 +179,7 @@ class SubCaseExecutionHandlerTest {
     SubCaseScheduleEvent event =
         new SubCaseScheduleEvent(parent, selfReference, Map.of(), null, "spawn-child");
 
-    handler.onSubCaseSchedule(event).await().indefinitely();
+    handler.onSubCaseSchedule(event);
 
     assertThat(item.getStatus())
         .as("circular dependency must fault the PlanItem so the engine does not hang indefinitely")
@@ -208,7 +194,7 @@ class SubCaseExecutionHandlerTest {
     when(caseHubRuntime.startCase(any(), any(), any(), any()))
         .thenThrow(new RuntimeException("engine unavailable"));
 
-    handler.onSubCaseSchedule(eventFor("spawn-child", true)).await().indefinitely();
+    handler.onSubCaseSchedule(eventFor("spawn-child", true));
 
     assertThat(item.getStatus())
         .as("startCase failure must fault the PlanItem so the binding can be re-evaluated")
@@ -229,14 +215,14 @@ class SubCaseExecutionHandlerTest {
         new SubCaseExecutionHandler(
             caseHubRuntime,
             nullDefRegistry,
-            mock(ReactiveCaseInstanceRepository.class),
-            mock(ReactiveEventLogRepository.class),
+            mock(CaseInstanceRepository.class),
+            mock(EventLogRepository.class),
             mock(PendingWorkRegistry.class),
-            mock(ReactiveSubCaseGroupRepository.class),
+            mock(SubCaseGroupRepository.class),
             freshRegistry,
             new CaseInstanceCacheImpl());
 
-    handlerWithNullDef.onSubCaseSchedule(eventFor("spawn-child", true)).await().indefinitely();
+    handlerWithNullDef.onSubCaseSchedule(eventFor("spawn-child", true));
 
     assertThat(item.getStatus())
         .as("missing CaseDefinition must fault the PlanItem")
@@ -250,8 +236,7 @@ class SubCaseExecutionHandlerTest {
     item.markDelegated(); // first spawn already marked it DELEGATED
 
     UUID child2 = UUID.randomUUID();
-    when(caseHubRuntime.startCase(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(child2));
+    when(caseHubRuntime.startCase(any(), any(), any(), any())).thenReturn(child2);
 
     SubCase groupedSubCase =
         SubCase.builder()
@@ -267,7 +252,7 @@ class SubCaseExecutionHandlerTest {
             parentInstance(parentCaseId), groupedSubCase, Map.of(), null, "spawn-group");
 
     // Should not throw even though PlanItem is already DELEGATED
-    handler.onSubCaseSchedule(event).await().indefinitely();
+    handler.onSubCaseSchedule(event);
 
     // Still DELEGATED (not double-marked)
     assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);

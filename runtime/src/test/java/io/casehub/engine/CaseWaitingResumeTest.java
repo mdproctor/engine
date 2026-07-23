@@ -39,7 +39,6 @@ import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -109,10 +108,7 @@ class CaseWaitingResumeTest {
    * submission to the orchestrator is the explicit submitAndWait() call in each test.
    */
   private UUID startCase() throws Exception {
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    waitingCase.startCase(Map.of("doc", "initial")).thenAccept(ref::set);
-    await().atMost(5, TimeUnit.SECONDS).until(() -> ref.get() != null);
-    return ref.get();
+    return waitingCase.startCase(Map.of("doc", "initial"));
   }
 
   // ---- Case bean ------------------------------------------------------------

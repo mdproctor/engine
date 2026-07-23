@@ -55,7 +55,7 @@ class ExitConditionBlackboardTest {
   @Test
   void active_stage_terminated_when_worker_output_satisfies_exit_condition() {
     // Start with idle context — binding does not fire yet (no phase=active).
-    UUID caseId = exitConditionCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = exitConditionCase.startCase(Map.of("ready", true));
 
     // Plan model is created on the first select() call from CaseStartedEvent
     await()

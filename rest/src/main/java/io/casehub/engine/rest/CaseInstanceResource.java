@@ -176,7 +176,7 @@ public class CaseInstanceResource {
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public Response getContext(@PathParam("caseId") UUID caseId) {
     caseService.requireCase(caseId, currentPrincipal.tenancyId());
-    Object context = runtime.query(caseId, ".").toCompletableFuture().join();
+    Object context = runtime.query(caseId, ".");
     return Response.ok(context).build();
   }
 
@@ -196,7 +196,7 @@ public class CaseInstanceResource {
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public Response getContextPath(@PathParam("caseId") UUID caseId, @PathParam("path") String path) {
     caseService.requireCase(caseId, currentPrincipal.tenancyId());
-    Object value = runtime.query(caseId, path).toCompletableFuture().join();
+    Object value = runtime.query(caseId, path);
     return Response.ok(value).build();
   }
 
@@ -239,7 +239,7 @@ public class CaseInstanceResource {
       throw new EntityNotFoundException("Case definition not found for case: " + caseId);
     }
 
-    CaseContext caseContext = (CaseContext) runtime.query(caseId, ".").toCompletableFuture().join();
+    CaseContext caseContext = (CaseContext) runtime.query(caseId, ".");
 
     List<GoalStatusResponse> goalResponses = new ArrayList<>();
     Set<String> reachedGoalNames = new HashSet<>();

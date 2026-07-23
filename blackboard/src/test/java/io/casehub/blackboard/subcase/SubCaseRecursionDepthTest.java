@@ -35,16 +35,14 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
-import io.smallrye.mutiny.Uni;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -64,33 +62,28 @@ class SubCaseRecursionDepthTest {
     registry = new BlackboardRegistry();
     caseHubRuntime = mock(CaseHubRuntime.class);
     CaseDefinitionRegistry definitionRegistry = mock(CaseDefinitionRegistry.class);
-    ReactiveCaseInstanceRepository instanceRepository = mock(ReactiveCaseInstanceRepository.class);
-    ReactiveEventLogRepository reactiveEventLogRepository = mock(ReactiveEventLogRepository.class);
+    CaseInstanceRepository instanceRepository = mock(CaseInstanceRepository.class);
+    EventLogRepository eventLogRepository = mock(EventLogRepository.class);
     PendingWorkRegistry pendingWorkRegistry = mock(PendingWorkRegistry.class);
-    ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository =
-        mock(ReactiveSubCaseGroupRepository.class);
+    SubCaseGroupRepository subCaseGroupRepository = mock(SubCaseGroupRepository.class);
     caseInstanceCache = new CaseInstanceCacheImpl();
 
-    when(reactiveEventLogRepository.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
     when(definitionRegistry.getCaseDefinition(any()))
         .thenReturn(mock(io.casehub.api.model.CaseDefinition.class));
-    when(instanceRepository.updateStateAndAppendEvent(any(), any(), any()))
-        .thenReturn(Uni.createFrom().nullItem());
 
     SubCaseGroup stubGroup = mock(SubCaseGroup.class);
-    when(reactiveSubCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
-        .thenReturn(Uni.createFrom().item(stubGroup));
-    when(reactiveSubCaseGroupRepository.registerChild(any(), any(), any(), any()))
-        .thenReturn(Uni.createFrom().item(stubGroup));
+    when(subCaseGroupRepository.getOrCreate(any(), any(), anyInt(), anyInt(), any(), any()))
+        .thenReturn(stubGroup);
+    when(subCaseGroupRepository.registerChild(any(), any(), any(), any())).thenReturn(stubGroup);
 
     handler =
         new SubCaseExecutionHandler(
             caseHubRuntime,
             definitionRegistry,
             instanceRepository,
-            reactiveEventLogRepository,
+            eventLogRepository,
             pendingWorkRegistry,
-            reactiveSubCaseGroupRepository,
+            subCaseGroupRepository,
             registry,
             caseInstanceCache);
   }
@@ -132,7 +125,7 @@ class SubCaseRecursionDepthTest {
     PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(rootId).orElseThrow()).addPlanItem(item);
 
-    handler.onSubCaseSchedule(selfReferenceEvent(root, 0)).await().indefinitely();
+    handler.onSubCaseSchedule(selfReferenceEvent(root, 0));
 
     assertThat(item.getStatus())
         .as("maxRecursionDepth=0 must fault on self-reference (preserves current behavior)")
@@ -158,14 +151,13 @@ class SubCaseRecursionDepthTest {
 
     // L2 has depth=2 same-def ancestors (root, L1). 2 < 3 → spawn should succeed.
     UUID l3Id = UUID.randomUUID();
-    when(caseHubRuntime.startCase(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(l3Id));
+    when(caseHubRuntime.startCase(any(), any(), any(), any())).thenReturn(l3Id);
 
     registry.getOrCreate(l2Id, "test-tenant");
     PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(l2Id).orElseThrow()).addPlanItem(item);
 
-    handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth)).await().indefinitely();
+    handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth));
 
     assertThat(item.getStatus())
         .as("depth 2 < maxRecursionDepth 3 — spawn must succeed")
@@ -194,7 +186,7 @@ class SubCaseRecursionDepthTest {
     PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(l2Id).orElseThrow()).addPlanItem(item);
 
-    handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth)).await().indefinitely();
+    handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth));
 
     assertThat(item.getStatus())
         .as("depth 2 >= maxRecursionDepth 2 — must fault")
@@ -208,8 +200,7 @@ class SubCaseRecursionDepthTest {
     caseInstanceCache.put(parent);
 
     UUID childId = UUID.randomUUID();
-    when(caseHubRuntime.startCase(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(childId));
+    when(caseHubRuntime.startCase(any(), any(), any(), any())).thenReturn(childId);
 
     registry.getOrCreate(parentId, "test-tenant");
     PlanItem item = PlanItem.create("spawn-different", ExecutorRef.of("unknown"), 0);
@@ -221,7 +212,7 @@ class SubCaseRecursionDepthTest {
     SubCaseScheduleEvent event =
         new SubCaseScheduleEvent(parent, differentChild, Map.of(), null, "spawn-different");
 
-    handler.onSubCaseSchedule(event).await().indefinitely();
+    handler.onSubCaseSchedule(event);
 
     assertThat(item.getStatus())
         .as("non-self-reference bypasses depth check entirely")
@@ -249,14 +240,13 @@ class SubCaseRecursionDepthTest {
     // This scenario cannot occur under the current cache lifecycle (no eviction) —
     // this test documents the fail-open behavior as a defensive specification.
     UUID childId = UUID.randomUUID();
-    when(caseHubRuntime.startCase(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(childId));
+    when(caseHubRuntime.startCase(any(), any(), any(), any())).thenReturn(childId);
 
     registry.getOrCreate(l2Id, "test-tenant");
     PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(l2Id).orElseThrow()).addPlanItem(item);
 
-    handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth)).await().indefinitely();
+    handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth));
 
     assertThat(item.getStatus())
         .as("cache miss → walk stops early → lower depth → fail-open (permissive)")
@@ -284,14 +274,13 @@ class SubCaseRecursionDepthTest {
     // But A₂'s parent meta matches the SubCase identity (self-reference), so the guard fires.
     // Total depth = 1 (A₁). 1 < 2 → allow.
     UUID childId = UUID.randomUUID();
-    when(caseHubRuntime.startCase(any(), any(), any(), any()))
-        .thenReturn(CompletableFuture.completedFuture(childId));
+    when(caseHubRuntime.startCase(any(), any(), any(), any())).thenReturn(childId);
 
     registry.getOrCreate(a2Id, "test-tenant");
     PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(a2Id).orElseThrow()).addPlanItem(item);
 
-    handler.onSubCaseSchedule(selfReferenceEvent(a2, maxDepth)).await().indefinitely();
+    handler.onSubCaseSchedule(selfReferenceEvent(a2, maxDepth));
 
     assertThat(item.getStatus())
         .as("total counting finds A₁ across B — depth=1 < maxDepth=2 → allowed")
@@ -306,7 +295,7 @@ class SubCaseRecursionDepthTest {
     PlanItem item2 = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(a2bId).orElseThrow()).addPlanItem(item2);
 
-    handler.onSubCaseSchedule(selfReferenceEvent(a2b, 1)).await().indefinitely();
+    handler.onSubCaseSchedule(selfReferenceEvent(a2b, 1));
 
     assertThat(item2.getStatus())
         .as("total counting: A₁ across B gives depth=1, 1 >= 1 → faulted")

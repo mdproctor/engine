@@ -31,15 +31,12 @@ import io.casehub.engine.common.internal.executor.RetryDecision;
 import io.casehub.engine.common.internal.executor.RetryPolicies;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Worker;
-import io.smallrye.mutiny.Uni;
-import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -48,7 +45,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
-import java.util.function.Supplier;
 import org.jboss.logging.Logger;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
@@ -72,80 +68,69 @@ class QuartzRetryService {
   private static final Logger LOG = Logger.getLogger(QuartzRetryService.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private final ReactiveEventLogRepository reactiveEventLogRepository;
+  private final EventLogRepository eventLogRepository;
   private final WorkerExecutionRecoveryService recoveryService;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final QuartzWorkerSchedulerService schedulerService;
   private final EventBus eventBus;
-  private final Vertx vertx;
 
   @Inject
   QuartzRetryService(
-      ReactiveEventLogRepository reactiveEventLogRepository,
+      EventLogRepository eventLogRepository,
       WorkerExecutionRecoveryService recoveryService,
       CaseDefinitionRegistry caseDefinitionRegistry,
       QuartzWorkerSchedulerService schedulerService,
-      EventBus eventBus,
-      Vertx vertx) {
-    this.reactiveEventLogRepository = reactiveEventLogRepository;
+      EventBus eventBus) {
+    this.eventLogRepository = eventLogRepository;
     this.recoveryService = recoveryService;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.schedulerService = schedulerService;
     this.eventBus = eventBus;
-    this.vertx = vertx;
   }
 
-  Uni<Void> handleFailure(WorkerRetryContext ctx, String errorMessage) {
+  void handleFailure(WorkerRetryContext ctx, String errorMessage) {
     EventLog failureLog = buildFailureEventLog(ctx, errorMessage);
-
-    return persistEventLog(failureLog, ctx.tenancyId()).chain(() -> maybeRescheduleWorker(ctx));
+    eventLogRepository.append(failureLog, ctx.tenancyId());
+    maybeRescheduleWorker(ctx);
   }
 
-  private Uni<Void> maybeRescheduleWorker(WorkerRetryContext ctx) {
-    return recoveryService
-        .loadOrRestoreCaseInstance(ctx.caseId())
-        .chain(
-            instance -> {
-              RetryPolicy retryPolicy = resolveRetryPolicy(instance, ctx.workerId());
-              if (retryPolicy == null) {
-                return Uni.createFrom().voidItem();
-              }
-              return countFailedAttempts(ctx)
-                  .chain(failureCount -> applyRetryDecision(ctx, retryPolicy, failureCount));
-            });
+  private void maybeRescheduleWorker(WorkerRetryContext ctx) {
+    CaseInstance instance = recoveryService.loadOrRestoreCaseInstance(ctx.caseId());
+    RetryPolicy retryPolicy = resolveRetryPolicy(instance, ctx.workerId());
+    if (retryPolicy == null) {
+      return;
+    }
+    long failureCount = countFailedAttempts(ctx);
+    applyRetryDecision(ctx, retryPolicy, failureCount);
   }
 
-  private Uni<Void> applyRetryDecision(
+  private void applyRetryDecision(
       WorkerRetryContext ctx, RetryPolicy retryPolicy, long failureCount) {
     RetryDecision decision = RetryPolicies.evaluate((int) failureCount, retryPolicy);
-    return switch (decision) {
+    switch (decision) {
       case RetryDecision.Retry retry -> {
         LOG.infof(
             "Rescheduling worker %s: attempt %d/%d, delay=%dms",
             ctx.workerId(), failureCount + 1, retryPolicy.maxAttempts(), retry.delay().toMillis());
-        yield rescheduleWorker(ctx, retry.delay().toMillis());
+        rescheduleWorker(ctx, retry.delay().toMillis());
       }
       case RetryDecision.Exhaust exhaust -> {
         LOG.warnf(
             "Worker %s exhausted all %d retry attempts for case %s: %s",
             ctx.workerId(), retryPolicy.maxAttempts(), ctx.caseId(), exhaust.reason());
-        yield buildRetryState(ctx)
-            .onItem()
-            .invoke(
-                retryState ->
-                    eventBus.publish(
-                        EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
-                        new WorkerRetriesExhaustedEvent(
-                            ctx.caseId(),
-                            ctx.tenancyId(),
-                            ctx.workerId(),
-                            ctx.inputDataHash(),
-                            ctx.bindingName(),
-                            ctx.signalId(),
-                            retryState)))
-            .replaceWithVoid();
+        RetryState retryState = buildRetryState(ctx);
+        eventBus.publish(
+            EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
+            new WorkerRetriesExhaustedEvent(
+                ctx.caseId(),
+                ctx.tenancyId(),
+                ctx.workerId(),
+                ctx.inputDataHash(),
+                ctx.bindingName(),
+                ctx.signalId(),
+                retryState));
       }
-    };
+    }
   }
 
   private RetryPolicy resolveRetryPolicy(CaseInstance instance, String workerId) {
@@ -174,78 +159,67 @@ class QuartzRetryService {
     return executionPolicy.retries();
   }
 
-  private Uni<Long> countFailedAttempts(WorkerRetryContext ctx) {
-    return runOnSafeVertxContext(
-        () ->
-            reactiveEventLogRepository
-                .findByCaseAndWorkerAndType(
-                    ctx.caseId(),
-                    ctx.workerId(),
-                    CaseHubEventType.WORKER_EXECUTION_FAILED,
-                    ctx.tenancyId())
-                .map(
-                    eventLogs ->
-                        eventLogs.stream()
-                            .filter(
-                                eventLog -> {
-                                  JsonNode metadata = eventLog.getMetadata();
-                                  JsonNode hashNode =
-                                      metadata == null ? null : metadata.get("inputDataHash");
-                                  return hashNode != null
-                                      && ctx.inputDataHash().equals(hashNode.asText());
-                                })
-                            .count()));
+  private long countFailedAttempts(WorkerRetryContext ctx) {
+    List<EventLog> eventLogs =
+        eventLogRepository.findByCaseAndWorkerAndType(
+            ctx.caseId(),
+            ctx.workerId(),
+            CaseHubEventType.WORKER_EXECUTION_FAILED,
+            ctx.tenancyId());
+    return eventLogs.stream()
+        .filter(
+            eventLog -> {
+              JsonNode metadata = eventLog.getMetadata();
+              JsonNode hashNode = metadata == null ? null : metadata.get("inputDataHash");
+              return hashNode != null && ctx.inputDataHash().equals(hashNode.asText());
+            })
+        .count();
   }
 
-  private Uni<RetryState> buildRetryState(WorkerRetryContext ctx) {
-    return runOnSafeVertxContext(
-        () ->
-            reactiveEventLogRepository
-                .findByCaseAndWorkerAndType(
-                    ctx.caseId(),
-                    ctx.workerId(),
-                    CaseHubEventType.WORKER_EXECUTION_FAILED,
-                    ctx.tenancyId())
-                .map(
-                    eventLogs -> {
-                      List<RetryAttempt> attempts = new ArrayList<>();
-                      Instant firstAttemptTime = null;
-                      Instant lastAttemptTime = null;
+  private RetryState buildRetryState(WorkerRetryContext ctx) {
+    List<EventLog> eventLogs =
+        eventLogRepository.findByCaseAndWorkerAndType(
+            ctx.caseId(),
+            ctx.workerId(),
+            CaseHubEventType.WORKER_EXECUTION_FAILED,
+            ctx.tenancyId());
 
-                      for (EventLog log : eventLogs) {
-                        JsonNode metadata = log.getMetadata();
-                        JsonNode hashNode = metadata == null ? null : metadata.get("inputDataHash");
-                        if (hashNode == null || !ctx.inputDataHash().equals(hashNode.asText())) {
-                          continue;
-                        }
+    List<RetryAttempt> attempts = new ArrayList<>();
+    Instant firstAttemptTime = null;
+    Instant lastAttemptTime = null;
 
-                        Instant timestamp = log.getTimestamp();
-                        if (firstAttemptTime == null || timestamp.isBefore(firstAttemptTime)) {
-                          firstAttemptTime = timestamp;
-                        }
-                        if (lastAttemptTime == null || timestamp.isAfter(lastAttemptTime)) {
-                          lastAttemptTime = timestamp;
-                        }
+    for (EventLog log : eventLogs) {
+      JsonNode metadata = log.getMetadata();
+      JsonNode hashNode = metadata == null ? null : metadata.get("inputDataHash");
+      if (hashNode == null || !ctx.inputDataHash().equals(hashNode.asText())) {
+        continue;
+      }
 
-                        String errorMessage =
-                            metadata != null && metadata.has("errorMessage")
-                                ? metadata.get("errorMessage").asText()
-                                : "unknown";
+      Instant timestamp = log.getTimestamp();
+      if (firstAttemptTime == null || timestamp.isBefore(firstAttemptTime)) {
+        firstAttemptTime = timestamp;
+      }
+      if (lastAttemptTime == null || timestamp.isAfter(lastAttemptTime)) {
+        lastAttemptTime = timestamp;
+      }
 
-                        // Duration is not stored in event log metadata — use a sentinel value
-                        attempts.add(
-                            new RetryAttempt(timestamp, errorMessage, Duration.ZERO, false));
-                      }
+      String errorMessage =
+          metadata != null && metadata.has("errorMessage")
+              ? metadata.get("errorMessage").asText()
+              : "unknown";
 
-                      if (attempts.isEmpty()) {
-                        return RetryState.empty();
-                      }
+      // Duration is not stored in event log metadata — use a sentinel value
+      attempts.add(new RetryAttempt(timestamp, errorMessage, Duration.ZERO, false));
+    }
 
-                      return RetryState.of(attempts, firstAttemptTime, lastAttemptTime);
-                    }));
+    if (attempts.isEmpty()) {
+      return RetryState.empty();
+    }
+
+    return RetryState.of(attempts, firstAttemptTime, lastAttemptTime);
   }
 
-  private Uni<Void> rescheduleWorker(WorkerRetryContext ctx, long delayMs) {
+  private void rescheduleWorker(WorkerRetryContext ctx, long delayMs) {
     String group = ctx.caseId().toString();
     JobKey jobKey = new JobKey(ctx.inputDataHash(), group);
 
@@ -276,7 +250,7 @@ class QuartzRetryService {
             .forJob(jobKey)
             .build();
 
-    return schedulerService.scheduleRetryAsync(job, trigger);
+    schedulerService.scheduleRetry(job, trigger);
   }
 
   private EventLog buildFailureEventLog(WorkerRetryContext ctx, String errorMessage) {
@@ -292,13 +266,5 @@ class QuartzRetryService {
             .put("inputDataHash", ctx.inputDataHash())
             .put("errorMessage", errorMessage != null ? errorMessage : "unknown"));
     return eventLog;
-  }
-
-  private Uni<Void> persistEventLog(EventLog eventLog, String tenancyId) {
-    return runOnSafeVertxContext(() -> reactiveEventLogRepository.append(eventLog, tenancyId));
-  }
-
-  private <T> Uni<T> runOnSafeVertxContext(Supplier<Uni<? extends T>> action) {
-    return ReactiveUtils.runOnSafeVertxContext(vertx, action);
   }
 }

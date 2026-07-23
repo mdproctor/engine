@@ -21,7 +21,7 @@ import java.util.UUID;
 /**
  * Blocking cross-tenant case instance access for startup recovery services only.
  *
- * @see ReactiveCrossTenantCaseInstanceRepository
+ * @see CrossTenantCaseInstanceRepository
  */
 public interface CrossTenantCaseInstanceRepository {
 

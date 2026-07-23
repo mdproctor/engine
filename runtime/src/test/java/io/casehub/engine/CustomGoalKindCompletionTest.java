@@ -47,11 +47,11 @@ public class CustomGoalKindCompletionTest {
 
   @Test
   void customGoalKind_escalated_reachesFaultedState() {
-    UUID caseId = bean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of());
 
     assertEquals(CaseStatus.RUNNING, caseInstanceCache.get(caseId).getState());
 
-    bean.signal(caseId, "escalate", true).toCompletableFuture().join();
+    bean.signal(caseId, "escalate", true);
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -65,11 +65,11 @@ public class CustomGoalKindCompletionTest {
 
   @Test
   void standardSuccessGoal_stillCompletesNormally() {
-    UUID caseId = bean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of());
 
     assertEquals(CaseStatus.RUNNING, caseInstanceCache.get(caseId).getState());
 
-    bean.signal(caseId, "done", true).toCompletableFuture().join();
+    bean.signal(caseId, "done", true);
 
     await()
         .atMost(5, TimeUnit.SECONDS)
@@ -83,11 +83,11 @@ public class CustomGoalKindCompletionTest {
 
   @Test
   void escalatedGoal_winsOverSuccess_byInsertionOrder() {
-    UUID caseId = bean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of());
 
     assertEquals(CaseStatus.RUNNING, caseInstanceCache.get(caseId).getState());
 
-    runtime.signal(caseId, Map.of("done", true, "escalate", true)).toCompletableFuture().join();
+    runtime.signal(caseId, Map.of("done", true, "escalate", true));
 
     await()
         .atMost(5, TimeUnit.SECONDS)

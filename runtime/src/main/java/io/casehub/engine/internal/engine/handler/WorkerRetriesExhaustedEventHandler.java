@@ -25,10 +25,10 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -47,7 +47,7 @@ public class WorkerRetriesExhaustedEventHandler {
 
   private final CaseInstanceCache caseInstanceCache;
   private final EventBus eventBus;
-  private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  private final CaseInstanceRepository caseInstanceRepository;
   private final WorkerStatusListener workerStatusListener;
   private final io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
@@ -55,49 +55,55 @@ public class WorkerRetriesExhaustedEventHandler {
   WorkerRetriesExhaustedEventHandler(
       CaseInstanceCache caseInstanceCache,
       EventBus eventBus,
-      ReactiveCaseInstanceRepository reactiveCaseInstanceRepository,
+      CaseInstanceRepository caseInstanceRepository,
       WorkerStatusListener workerStatusListener,
       io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker) {
     this.caseInstanceCache = caseInstanceCache;
     this.eventBus = eventBus;
-    this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
+    this.caseInstanceRepository = caseInstanceRepository;
     this.workerStatusListener = workerStatusListener;
     this.settlementTracker = settlementTracker;
   }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED)
-  public Uni<Void> onWorkerRetriesExhaustedEvent(WorkerRetriesExhaustedEvent event) {
-    if (event.signalId() != null) {
-      settlementTracker.recordCompletion(event.signalId());
+  @RunOnVirtualThread
+  void onWorkerRetriesExhaustedEvent(WorkerRetriesExhaustedEvent event) {
+    try {
+      if (event.signalId() != null) {
+        settlementTracker.recordCompletion(event.signalId());
+      }
+
+      CaseInstance caseInstance = caseInstanceCache.get(event.caseId());
+      String oldStatus = caseInstance.getState().name();
+      caseInstance.setState(CaseStatus.FAULTED);
+
+      EventLog eventLog = new EventLog();
+      eventLog.setEventType(CaseHubEventType.CASE_FAULTED);
+      eventLog.setCaseId(caseInstance.getUuid());
+      eventLog.setStreamType(EventStreamType.CASE);
+      eventLog.setTimestamp(Instant.now());
+      eventLog.setWorkerId(event.workerId());
+      eventLog.setMetadata(
+          OBJECT_MAPPER
+              .createObjectNode()
+              .put("workerId", event.workerId())
+              .put("inputDataHash", event.idempotency()));
+
+      caseInstanceRepository.updateStateAndAppendEvent(
+          caseInstance, eventLog, caseInstance.tenancyId);
+
+      LOG.warnf(
+          "Worker retries exhausted for caseId=%s, workerId=%s", event.caseId(), event.workerId());
+      workerStatusListener.onWorkerStalled(event.workerId());
+      eventBus.publish(
+          EventBusAddresses.CASE_STATUS_CHANGED,
+          new CaseStatusChanged(caseInstance, oldStatus, CaseStatus.FAULTED.name()));
+    } catch (Exception e) {
+      LOG.errorf(
+          e,
+          "Failed to process WORKER_RETRIES_EXHAUSTED for caseId=%s workerId=%s",
+          event.caseId(),
+          event.workerId());
     }
-
-    CaseInstance caseInstance = caseInstanceCache.get(event.caseId());
-    String oldStatus = caseInstance.getState().name();
-    caseInstance.setState(CaseStatus.FAULTED);
-
-    EventLog eventLog = new EventLog();
-    eventLog.setEventType(CaseHubEventType.CASE_FAULTED);
-    eventLog.setCaseId(caseInstance.getUuid());
-    eventLog.setStreamType(EventStreamType.CASE);
-    eventLog.setTimestamp(Instant.now());
-    eventLog.setWorkerId(event.workerId());
-    eventLog.setMetadata(
-        OBJECT_MAPPER
-            .createObjectNode()
-            .put("workerId", event.workerId())
-            .put("inputDataHash", event.idempotency()));
-
-    return reactiveCaseInstanceRepository
-        .updateStateAndAppendEvent(caseInstance, eventLog, caseInstance.tenancyId)
-        .invoke(
-            () -> {
-              LOG.warnf(
-                  "Worker retries exhausted for caseId=%s, workerId=%s",
-                  event.caseId(), event.workerId());
-              workerStatusListener.onWorkerStalled(event.workerId());
-              eventBus.publish(
-                  EventBusAddresses.CASE_STATUS_CHANGED,
-                  new CaseStatusChanged(caseInstance, oldStatus, CaseStatus.FAULTED.name()));
-            });
   }
 }

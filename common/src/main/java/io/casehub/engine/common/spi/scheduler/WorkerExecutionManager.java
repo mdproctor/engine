@@ -20,7 +20,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -65,7 +64,7 @@ public interface WorkerExecutionManager {
    * io.casehub.api.engine.CaseHubRuntime#startCase}) should accept {@code Object} to align with
    * {@code Flow.instance(Object)} — tracked in casehubio/engine#302.
    */
-  Uni<Void> submit(
+  void submit(
       Long eventLogId,
       CaseInstance instance,
       Worker worker,
@@ -84,19 +83,17 @@ public interface WorkerExecutionManager {
    *
    * @param bindingName the binding name (nullable)
    */
-  default Uni<Void> submit(
+  default void submit(
       Long eventLogId,
       CaseInstance instance,
       Worker worker,
       Capability capability,
       Map<String, Object> inputData,
       String bindingName) {
-    return submit(eventLogId, instance, worker, capability, inputData);
+    submit(eventLogId, instance, worker, capability, inputData);
   }
 
-  default Uni<Void> schedulePersistedEvent(EventLog scheduledEventLog) {
-    return Uni.createFrom().voidItem();
-  }
+  default void schedulePersistedEvent(EventLog scheduledEventLog) {}
 
   int getActiveWorkCount(String workerId);
 

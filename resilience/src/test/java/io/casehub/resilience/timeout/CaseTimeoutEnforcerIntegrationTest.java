@@ -41,7 +41,6 @@ import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -108,27 +107,7 @@ class CaseTimeoutEnforcerIntegrationTest {
   // ---- Helper ---------------------------------------------------------------
 
   private UUID startCase() throws Exception {
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-    AtomicReference<Throwable> err = new AtomicReference<>();
-
-    hangingCase
-        .startCase(Map.of("trigger", "go"))
-        .thenAccept(caseIdRef::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
-
-    await()
-        .atMost(5, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              if (err.get() != null) throw new AssertionError(err.get());
-              assertThat(caseIdRef.get()).isNotNull();
-            });
-
-    return caseIdRef.get();
+    return hangingCase.startCase(Map.of("trigger", "go"));
   }
 
   // ---- Case bean ------------------------------------------------------------

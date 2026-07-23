@@ -27,9 +27,8 @@ import io.casehub.api.model.SignalType;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -44,7 +43,7 @@ class SignalAutoActivationTest {
   @Mock CaseDefinitionRegistry caseDefinitionRegistry;
   @Mock CaseInstanceCache caseInstanceCache;
   @Mock io.casehub.platform.api.routing.StrategyResolver strategyResolver;
-  @Mock ReactiveCrossTenantCaseInstanceRepository crossTenantCaseInstanceRepository;
+  @Mock CrossTenantCaseInstanceRepository crossTenantCaseInstanceRepository;
 
   @InjectMocks CaseHubRuntimeImpl runtime;
 
@@ -54,8 +53,7 @@ class SignalAutoActivationTest {
   void signal_to_nonexistent_case_throws_IllegalArgumentException() {
     UUID caseId = UUID.randomUUID();
     when(caseInstanceCache.get(caseId)).thenReturn(null);
-    when(crossTenantCaseInstanceRepository.findByUuid(caseId))
-        .thenReturn(Uni.createFrom().nullItem());
+    when(crossTenantCaseInstanceRepository.findByUuid(caseId)).thenReturn(null);
 
     assertThatThrownBy(() -> runtime.signal(caseId, testSignal, "payload"))
         .isInstanceOf(IllegalArgumentException.class)
@@ -93,11 +91,9 @@ class SignalAutoActivationTest {
     instance.setCaseMetaModel(meta);
 
     when(caseInstanceCache.get(caseId)).thenReturn(null);
-    when(crossTenantCaseInstanceRepository.findByUuid(caseId))
-        .thenReturn(Uni.createFrom().item(instance));
+    when(crossTenantCaseInstanceRepository.findByUuid(caseId)).thenReturn((instance));
     when(caseDefinitionRegistry.getCaseDefinition(meta)).thenReturn(null);
-    when(reactor.signalTyped(eq(caseId), eq("test-signal"), eq("payload"), any(), any()))
-        .thenReturn(Uni.createFrom().voidItem());
+    // reactor.signalTyped is void — no stub needed
 
     runtime.signal(caseId, testSignal, "payload");
 

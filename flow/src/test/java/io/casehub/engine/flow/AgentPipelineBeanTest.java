@@ -33,7 +33,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.AfterEach;
@@ -92,30 +91,13 @@ public class AgentPipelineBeanTest {
             "documentId", "doc-agent-1",
             "step", "submitted");
 
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    AtomicReference<Throwable> err = new AtomicReference<>();
-
-    bean.startCase(initialContext)
-        .thenAccept(ref::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
-
-    await()
-        .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              if (err.get() != null) throw new AssertionError(err.get());
-              assertNotNull(ref.get());
-            });
+    UUID caseId = bean.startCase(initialContext);
 
     await()
         .atMost(30, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              var instance = caseInstanceCache.get(ref.get());
+              var instance = caseInstanceCache.get(caseId);
               assertNotNull(instance);
               assertEquals(CaseStatus.COMPLETED, instance.getState());
             });

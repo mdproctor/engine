@@ -38,7 +38,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -63,14 +62,12 @@ class ContextChangeWhenFilterTest {
   @Test
   void contextChange_whenConditionFalse_guardedBindingSkipped() throws Exception {
     // flag=false → binding with when=".flag==true" must not fire
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    whenFilterCase.startCase(Map.of("flag", false)).thenAccept(ref::set);
+    UUID caseId = whenFilterCase.startCase(Map.of("flag", false));
 
-    await().atMost(5, TimeUnit.SECONDS).until(() -> ref.get() != null);
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
-            () -> assertThat(cache.get(ref.get()).getState()).isEqualTo(CaseStatus.COMPLETED));
+            () -> assertThat(cache.get(caseId).getState()).isEqualTo(CaseStatus.COMPLETED));
 
     assertThat(WhenFilterCase.guardedWorkerCount.get())
         .as("guarded binding must not fire when 'when' condition is false")
@@ -83,14 +80,12 @@ class ContextChangeWhenFilterTest {
   @Test
   void contextChange_whenConditionTrue_guardedBindingFires() throws Exception {
     // flag=true → both bindings must fire
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    whenFilterCase.startCase(Map.of("flag", true)).thenAccept(ref::set);
+    UUID caseId = whenFilterCase.startCase(Map.of("flag", true));
 
-    await().atMost(5, TimeUnit.SECONDS).until(() -> ref.get() != null);
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
-            () -> assertThat(cache.get(ref.get()).getState()).isEqualTo(CaseStatus.COMPLETED));
+            () -> assertThat(cache.get(caseId).getState()).isEqualTo(CaseStatus.COMPLETED));
 
     assertThat(WhenFilterCase.guardedWorkerCount.get())
         .as("guarded binding must fire when 'when' condition is true")

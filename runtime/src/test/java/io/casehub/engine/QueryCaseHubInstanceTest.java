@@ -17,7 +17,6 @@ package io.casehub.engine;
 
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
@@ -51,8 +49,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Object result =
-                  bean.query(caseId, "documentId").toCompletableFuture().get(1, TimeUnit.SECONDS);
+              Object result = bean.query(caseId, "documentId");
               assertNotNull(result);
               assertEquals("doc-123", result.toString());
             });
@@ -70,10 +67,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Object result =
-                  bean.query(caseId, "nonExistentKey")
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              Object result = bean.query(caseId, "nonExistentKey");
               assertNull(result);
             });
   }
@@ -90,10 +84,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              String result =
-                  bean.query(caseId, "documentId", String.class)
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              String result = bean.query(caseId, "documentId", String.class);
               assertEquals("doc-300", result);
             });
   }
@@ -110,10 +101,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              String result =
-                  bean.query(caseId, "missingKey", String.class)
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              String result = bean.query(caseId, "missingKey", String.class);
               assertNull(result);
             });
   }
@@ -130,14 +118,8 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              ExecutionException ex =
-                  assertThrows(
-                      ExecutionException.class,
-                      () ->
-                          bean.query(caseId, "documentId", Integer.class)
-                              .toCompletableFuture()
-                              .get(1, TimeUnit.SECONDS));
-              assertInstanceOf(ClassCastException.class, ex.getCause());
+              assertThrows(
+                  ClassCastException.class, () -> bean.query(caseId, "documentId", Integer.class));
             });
   }
 
@@ -154,10 +136,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Object nested =
-                  bean.query(caseId, "metadata.author")
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              Object nested = bean.query(caseId, "metadata.author");
               assertNotNull(nested);
               assertEquals("Alice", nested.toString());
             });
@@ -166,10 +145,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Object version =
-                  bean.query(caseId, "metadata.version")
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              Object version = bean.query(caseId, "metadata.version");
               assertNotNull(version);
               assertEquals("1.0", version.toString());
             });
@@ -187,10 +163,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Object result =
-                  bean.query(caseId, "nonExistent.deeply.nested.path")
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              Object result = bean.query(caseId, "nonExistent.deeply.nested.path");
               assertNull(result);
             });
   }
@@ -199,15 +172,9 @@ public class QueryCaseHubInstanceTest {
   public void testQueryNonExistentCaseThrowsException() {
     UUID fakeCaseId = UUID.randomUUID();
 
-    ExecutionException ex =
-        assertThrows(
-            ExecutionException.class,
-            () ->
-                bean.query(fakeCaseId, "documentId")
-                    .toCompletableFuture()
-                    .get(5, TimeUnit.SECONDS));
-    assertInstanceOf(RuntimeException.class, ex.getCause());
-    assertTrue(ex.getCause().getMessage().contains(fakeCaseId.toString()));
+    RuntimeException ex =
+        assertThrows(RuntimeException.class, () -> bean.query(fakeCaseId, "documentId"));
+    assertTrue(ex.getMessage().contains(fakeCaseId.toString()));
   }
 
   @Test
@@ -224,10 +191,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Map<String, Object> details =
-                  bean.query(caseId, "details", Map.class)
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              Map<String, Object> details = bean.query(caseId, "details", Map.class);
               assertNotNull(details);
               assertEquals("invoice", details.get("type"));
               assertEquals(100, details.get("amount"));
@@ -247,8 +211,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Object result =
-                  bean.query(caseId, "priority").toCompletableFuture().get(1, TimeUnit.SECONDS);
+              Object result = bean.query(caseId, "priority");
               assertNotNull(result);
               assertEquals(42, result);
             });
@@ -267,10 +230,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Boolean result =
-                  bean.query(caseId, "urgent", Boolean.class)
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              Boolean result = bean.query(caseId, "urgent", Boolean.class);
               assertNotNull(result);
               assertTrue(result);
             });
@@ -290,10 +250,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              List<String> tags =
-                  bean.query(caseId, "tags", List.class)
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              List<String> tags = bean.query(caseId, "tags", List.class);
               assertNotNull(tags);
               assertEquals(3, tags.size());
               assertTrue(tags.contains("urgent"));
@@ -314,10 +271,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Object author =
-                  bean.query(caseId, "metadata.author")
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              Object author = bean.query(caseId, "metadata.author");
               assertEquals("John", author);
             });
 
@@ -325,10 +279,7 @@ public class QueryCaseHubInstanceTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              Map<String, Object> metadata =
-                  bean.query(caseId, "metadata", Map.class)
-                      .toCompletableFuture()
-                      .get(1, TimeUnit.SECONDS);
+              Map<String, Object> metadata = bean.query(caseId, "metadata", Map.class);
               assertNotNull(metadata);
               assertEquals("John", metadata.get("author"));
               assertEquals("finance", metadata.get("department"));
@@ -339,13 +290,11 @@ public class QueryCaseHubInstanceTest {
     AtomicReference<UUID> ref = new AtomicReference<>();
     AtomicReference<Throwable> err = new AtomicReference<>();
 
-    bean.startCase(initialContext)
-        .thenAccept(ref::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
+    try {
+      ref.set(bean.startCase(initialContext));
+    } catch (Exception ex) {
+      err.set(ex);
+    }
 
     await()
         .atMost(10, TimeUnit.SECONDS)

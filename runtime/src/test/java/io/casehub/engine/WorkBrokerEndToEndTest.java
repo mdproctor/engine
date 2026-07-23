@@ -62,10 +62,8 @@ class WorkBrokerEndToEndTest {
 
   @Test
   void twoStagePipeline_completesSuccessfully() throws Exception {
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    pipeline.startCase(Map.of("stage", "raw")).thenAccept(ref::set);
-
-    await().atMost(5, TimeUnit.SECONDS).until(() -> ref.get() != null);
+    UUID caseId = pipeline.startCase(Map.of("stage", "raw"));
+    AtomicReference<UUID> ref = new AtomicReference<>(caseId);
 
     await()
         .atMost(20, TimeUnit.SECONDS)
@@ -78,10 +76,8 @@ class WorkBrokerEndToEndTest {
 
   @Test
   void twoStagePipeline_stage2OnlyRunsAfterStage1() throws Exception {
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    pipeline.startCase(Map.of("stage", "raw")).thenAccept(ref::set);
-
-    await().atMost(5, TimeUnit.SECONDS).until(() -> ref.get() != null);
+    UUID caseId = pipeline.startCase(Map.of("stage", "raw"));
+    AtomicReference<UUID> ref = new AtomicReference<>(caseId);
     await().atMost(10, TimeUnit.SECONDS).until(() -> TwoStagePipelineCase.stage1Count.get() == 1);
     await().atMost(10, TimeUnit.SECONDS).until(() -> TwoStagePipelineCase.stage2Count.get() == 1);
 

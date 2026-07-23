@@ -19,7 +19,7 @@ import java.util.UUID;
 
 /**
  * Outcome of a successful {@link WorkerProvisioner#provision} or {@link
- * ReactiveWorkerProvisioner#provision} call.
+ * WorkerProvisioner#provision} call.
  *
  * <p>{@code causedByEntryId} is the ledger entry ID of the COMMAND that triggered provisioning.
  * Provisioner implementations that can resolve this ID (e.g. by correlating against a Qhorus

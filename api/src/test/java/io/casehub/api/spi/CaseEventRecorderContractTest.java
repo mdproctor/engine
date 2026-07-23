@@ -64,7 +64,7 @@ class CaseEventRecorderContractTest {
 
   @Test
   void noOpReactiveRecorder_recordDoesNotThrow() {
-    final var recorder = new NoOpReactiveCaseEventRecorder();
+    final var recorder = new NoOpCaseEventRecorder();
     final var request =
         new CaseEventRequest(
             UUID.randomUUID(),
@@ -74,7 +74,7 @@ class CaseEventRecorderContractTest {
             "t",
             NullNode.instance,
             NullNode.instance);
-    assertDoesNotThrow(() -> recorder.record(request).await().indefinitely());
-    assertEquals(0L, recorder.recordAndReturnId(request).await().indefinitely());
+    assertDoesNotThrow(() -> recorder.record(request));
+    assertEquals(0L, recorder.recordAndReturnId(request));
   }
 }

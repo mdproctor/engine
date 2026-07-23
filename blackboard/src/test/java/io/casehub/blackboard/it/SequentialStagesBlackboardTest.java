@@ -55,7 +55,7 @@ class SequentialStagesBlackboardTest {
   @Test
   void two_sequential_stages_activate_in_order() {
     // Start with idle context — binding does not fire yet (no phase=start).
-    UUID caseId = twoStagesCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = twoStagesCase.startCase(Map.of("ready", true));
 
     // Plan model is created on the first select() call from CaseStartedEvent
     await()

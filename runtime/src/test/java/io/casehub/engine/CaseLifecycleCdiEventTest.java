@@ -27,7 +27,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -46,7 +46,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -75,7 +74,7 @@ class CaseLifecycleCdiEventTest {
 
   @Inject LifecycleCapture capture;
   @Inject CompletionCaseHub caseHub;
-  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
   @BeforeEach
   void reset() {
@@ -84,15 +83,7 @@ class CaseLifecycleCdiEventTest {
 
   @Test
   void caseCompleted_handlerRunsFullChainWithoutError() {
-    final AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-
-    caseHub
-        .startCase(Map.of("trigger", true))
-        .thenAccept(caseIdRef::set)
-        .toCompletableFuture()
-        .join();
-
-    final UUID caseId = caseIdRef.get();
+    final UUID caseId = caseHub.startCase(Map.of("trigger", true));
 
     // Wait for COMPLETED state — confirms the CaseStatusChangedHandler ran its full Uni chain
     // (DB update, cancel triggers, event bus publishes, CDI fire) without error or deadlock.
@@ -102,12 +93,7 @@ class CaseLifecycleCdiEventTest {
         .until(
             () -> {
               CaseInstance instance =
-                  reactiveCaseInstanceRepository
-                      .findByUuid(caseId, TenancyConstants.DEFAULT_TENANT_ID)
-                      .subscribe()
-                      .asCompletionStage()
-                      .toCompletableFuture()
-                      .join();
+                  caseInstanceRepository.findByUuid(caseId, TenancyConstants.DEFAULT_TENANT_ID);
               return instance != null && CaseStatus.COMPLETED == instance.getState();
             });
 

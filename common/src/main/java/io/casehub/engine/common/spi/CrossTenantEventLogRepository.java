@@ -24,7 +24,7 @@ import java.util.UUID;
 /**
  * Blocking cross-tenant event log access for startup recovery services only.
  *
- * @see ReactiveCrossTenantEventLogRepository
+ * @see CrossTenantEventLogRepository
  */
 public interface CrossTenantEventLogRepository {
 

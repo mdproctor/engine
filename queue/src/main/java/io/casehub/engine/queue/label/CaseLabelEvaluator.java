@@ -22,7 +22,7 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.queue.event.CaseQueueEvent;
 import io.casehub.engine.queue.event.CaseQueueEventType;
@@ -53,7 +53,7 @@ public class CaseLabelEvaluator {
 
   @Inject CaseDefinitionRegistry definitionRegistry;
 
-  @Inject ReactiveCaseInstanceRepository caseInstanceRepository;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
   @Inject SubjectViewOrchestrator views;
 

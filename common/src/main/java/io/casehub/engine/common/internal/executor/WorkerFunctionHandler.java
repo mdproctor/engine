@@ -18,7 +18,6 @@ package io.casehub.engine.common.internal.executor;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 
 /**
  * Engine-internal SPI for pluggable worker function execution. Implementations pattern-match on
@@ -37,7 +36,7 @@ public interface WorkerFunctionHandler {
 
   boolean supports(WorkerFunction<?, ?> function);
 
-  Uni<WorkerResult<?>> execute(
+  WorkerResult<?> execute(
       WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,

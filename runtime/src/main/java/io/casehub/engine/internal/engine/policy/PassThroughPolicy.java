@@ -13,16 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.testing;
+package io.casehub.engine.internal.engine.policy;
 
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.persistence.memory.InMemoryReactiveCaseInstanceRepository;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
+import io.casehub.api.engine.CaseEvaluationPolicy;
+import java.util.UUID;
 
-/** Auto-selected in-memory {@link ReactiveCaseInstanceRepository} for {@code @QuarkusTest}. */
-@Alternative
-@Priority(1)
-@ApplicationScoped
-public class TestReactiveCaseInstanceRepository extends InMemoryReactiveCaseInstanceRepository {}
+/**
+ * No-op policy — every CONTEXT_CHANGED event fires the evaluator immediately with no
+ * serialisation, coalescing, or gating. This is the pre-#771 behaviour.
+ */
+public class PassThroughPolicy implements CaseEvaluationPolicy {
+
+  @Override
+  public void submit(UUID caseId, Runnable evaluator) {
+    evaluator.run();
+  }
+}

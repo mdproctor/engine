@@ -34,15 +34,14 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerOutcome;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Instant;
 import java.util.List;
@@ -57,8 +56,8 @@ class QhorusMessageSignalBridgeTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private CaseHubRuntime runtime;
-  private ReactiveCrossTenantEventLogRepository eventLogRepository;
-  private ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
+  private CrossTenantEventLogRepository eventLogRepository;
+  private CrossTenantCaseInstanceRepository caseInstanceRepository;
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private EventBus eventBus;
   private QhorusMessageSignalBridge bridge;
@@ -66,8 +65,8 @@ class QhorusMessageSignalBridgeTest {
   @BeforeEach
   void setUp() {
     runtime = mock(CaseHubRuntime.class);
-    eventLogRepository = mock(ReactiveCrossTenantEventLogRepository.class);
-    caseInstanceRepository = mock(ReactiveCrossTenantCaseInstanceRepository.class);
+    eventLogRepository = mock(CrossTenantEventLogRepository.class);
+    caseInstanceRepository = mock(CrossTenantCaseInstanceRepository.class);
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
     eventBus = mock(EventBus.class);
 
@@ -204,7 +203,7 @@ class QhorusMessageSignalBridgeTest {
   @Test
   void declineWithEventLogNotFound_fallsThroughToSignal() {
     UUID caseId = UUID.randomUUID();
-    when(eventLogRepository.findById(999L)).thenReturn(Uni.createFrom().nullItem());
+    when(eventLogRepository.findById(999L)).thenReturn(null);
 
     bridge.onMessage(
         event(
@@ -227,7 +226,7 @@ class QhorusMessageSignalBridgeTest {
     UUID caseId = UUID.randomUUID();
     long eventLogId = 42L;
     stubEventLog(eventLogId, "worker-1", "binding-1", "hash-1");
-    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(Uni.createFrom().nullItem());
+    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(null);
 
     bridge.onMessage(
         event(
@@ -384,7 +383,7 @@ class QhorusMessageSignalBridgeTest {
     metadata.put("inputDataHash", inputDataHash);
     EventLog log = new EventLog();
     log.setMetadata(metadata);
-    when(eventLogRepository.findById(eventLogId)).thenReturn(Uni.createFrom().item(log));
+    when(eventLogRepository.findById(eventLogId)).thenReturn((log));
   }
 
   private CaseInstance stubCaseInstance(UUID caseId) {
@@ -396,7 +395,7 @@ class QhorusMessageSignalBridgeTest {
   }
 
   private void stubCaseInstance(UUID caseId, CaseInstance instance) {
-    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(Uni.createFrom().item(instance));
+    when(caseInstanceRepository.findByUuid(caseId)).thenReturn((instance));
   }
 
   private void stubWorkerInDefinition(CaseInstance instance, String workerName) {

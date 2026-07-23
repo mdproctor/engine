@@ -27,24 +27,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletionStage;
 
 public interface CaseHubRuntime {
 
-  CompletionStage<UUID> startCase(CaseDefinition definition);
+  UUID startCase(CaseDefinition definition);
 
-  CompletionStage<UUID> startCase(CaseDefinition definition, Object inputData);
+  UUID startCase(CaseDefinition definition, Object inputData);
 
-  CompletionStage<UUID> startCase(
+  UUID startCase(
       CaseDefinition definition,
       Object inputData,
       UUID parentCaseId,
       PropagationContext propagationContext);
 
-  CompletionStage<UUID> startCase(
-      CaseDefinition definition, Object inputData, Map<String, Object> semanticData);
+  UUID startCase(CaseDefinition definition, Object inputData, Map<String, Object> semanticData);
 
-  CompletionStage<UUID> startCase(
+  UUID startCase(
       CaseDefinition definition,
       Object inputData,
       Map<String, Object> semanticData,
@@ -52,22 +50,21 @@ public interface CaseHubRuntime {
       PropagationContext propagationContext);
 
   /**
-   * Signals a case context update. The returned {@code CompletionStage} resolves when the signal
-   * has been applied to the context, the event log written, and {@code CONTEXT_CHANGED} dispatched.
-   * It does NOT guarantee that goal evaluation has completed — callers that need to await case
-   * state transitions should use Awaitility on the case status.
+   * Signals a case context update. Returns when the signal has been applied to the context, the
+   * event log written, and {@code CONTEXT_CHANGED} dispatched. It does NOT guarantee that goal
+   * evaluation has completed — callers that need to await case state transitions should use
+   * Awaitility on the case status.
    *
    * <p>Refs casehubio/engine#493.
    */
-  CompletionStage<Void> signal(UUID caseId, String path, Object value);
+  void signal(UUID caseId, String path, Object value);
 
   /**
    * Signals a case context update with caller-provided metadata that is stored in the EventLog
    * entry. Use for cross-case provenance linking — callers pass causedByCaseId and causedByEvent.
    */
-  default CompletionStage<Void> signal(
-      UUID caseId, String path, Object value, Map<String, Object> signalMetadata) {
-    return signal(caseId, path, value);
+  default void signal(UUID caseId, String path, Object value, Map<String, Object> signalMetadata) {
+    signal(caseId, path, value);
   }
 
   /**
@@ -81,32 +78,31 @@ public interface CaseHubRuntime {
    *
    * <p>Refs casehubio/engine#231, casehubio/engine#493, claudony#94.
    */
-  default CompletionStage<Void> signal(
+  default void signal(
       UUID caseId,
       String path,
       Object value,
       String triggerChannelId,
       String triggerCorrelationId) {
-    return signal(caseId, path, value);
+    signal(caseId, path, value);
   }
 
   /**
-   * Atomically signals multiple context updates. The returned {@code CompletionStage} resolves when
-   * all updates have been applied to the context, the event log written, and {@code
-   * CONTEXT_CHANGED} dispatched.
+   * Atomically signals multiple context updates. Returns when all updates have been applied to the
+   * context, the event log written, and {@code CONTEXT_CHANGED} dispatched.
    *
    * <p>Use this instead of multiple {@code signal()} calls to avoid intermediate state where only
    * some keys have been updated.
    *
    * <p>Refs casehubio/engine#483.
    */
-  default CompletionStage<Void> signal(UUID caseId, Map<String, Object> updates) {
+  default void signal(UUID caseId, Map<String, Object> updates) {
     throw new UnsupportedOperationException();
   }
 
   /**
-   * Signals multiple context updates and waits for all triggered workers to complete. The returned
-   * {@code CompletionStage} resolves with the final {@code CaseContext} when:
+   * Signals multiple context updates and waits for all triggered workers to complete. Returns the
+   * final {@code CaseContext} when:
    *
    * <ul>
    *   <li>All updates have been applied
@@ -114,31 +110,19 @@ public interface CaseHubRuntime {
    *   <li>All dispatched workers have completed (success or failure)
    * </ul>
    *
-   * <p>If no workers are dispatched (no bindings match), the future resolves immediately with the
-   * updated context.
+   * <p>If no workers are dispatched (no bindings match), returns immediately with the updated
+   * context.
    *
-   * <p>Times out with {@link SettlementTimeoutException} if settlement does not complete within the
+   * <p>Throws {@link SettlementTimeoutException} if settlement does not complete within the
    * specified duration.
    *
    * <p>Refs casehubio/engine#483.
    */
-  default CompletionStage<CaseContext> signalAndAwait(
-      UUID caseId, Map<String, Object> updates, Duration timeout) {
+  default CaseContext signalAndAwait(UUID caseId, Map<String, Object> updates, Duration timeout) {
     throw new UnsupportedOperationException();
   }
 
-  /**
-   * Blocking variant of {@link #signalAndAwait(UUID, Map, Duration)}. Calls {@code
-   * toCompletableFuture().join()} on the async version.
-   *
-   * <p>Refs casehubio/engine#483.
-   */
-  default CaseContext signalAndAwaitSync(
-      UUID caseId, Map<String, Object> updates, Duration timeout) {
-    return signalAndAwait(caseId, updates, timeout).toCompletableFuture().join();
-  }
-
-  default <T> CompletionStage<Void> signal(UUID caseId, SignalType<T> signalType, T payload) {
+  default <T> void signal(UUID caseId, SignalType<T> signalType, T payload) {
     throw new UnsupportedOperationException("Typed signals not supported by this runtime");
   }
 
@@ -166,18 +150,18 @@ public interface CaseHubRuntime {
    */
   void resumeCase(UUID caseId);
 
-  CompletionStage<Object> query(UUID caseId, String path);
+  Object query(UUID caseId, String path);
 
-  <T> CompletionStage<T> query(UUID caseId, String path, Class<T> clazz);
+  <T> T query(UUID caseId, String path, Class<T> clazz);
 
   /**
    * Retrieves all event log records for a case, ordered by sequence number ascending.
    *
    * @param caseId the case identifier
-   * @return a CompletionStage containing the list of all event log records for the case
+   * @return the list of all event log records for the case
    * @throws IllegalArgumentException if the case is not found
    */
-  CompletionStage<List<CaseEventLogRecord>> eventLog(UUID caseId);
+  List<CaseEventLogRecord> eventLog(UUID caseId);
 
   /**
    * Retrieves event log records for a case filtered by event types, ordered by sequence number
@@ -185,10 +169,10 @@ public interface CaseHubRuntime {
    *
    * @param caseId the case identifier
    * @param eventTypes set of event types to filter by; if null or empty, no filtering is applied
-   * @return a CompletionStage containing the list of filtered event log records
+   * @return the list of filtered event log records
    * @throws IllegalArgumentException if the case is not found
    */
-  CompletionStage<List<CaseEventLogRecord>> eventLog(UUID caseId, Set<CaseHubEventType> eventTypes);
+  List<CaseEventLogRecord> eventLog(UUID caseId, Set<CaseHubEventType> eventTypes);
 
   /**
    * Retrieves event log records for a case filtered by event types and stream types, ordered by
@@ -197,9 +181,9 @@ public interface CaseHubRuntime {
    * @param caseId the case identifier
    * @param eventTypes set of event types to filter by; if null or empty, no filtering is applied
    * @param streamTypes set of stream types to filter by; if null or empty, no filtering is applied
-   * @return a CompletionStage containing the list of filtered event log records
+   * @return the list of filtered event log records
    * @throws IllegalArgumentException if the case is not found
    */
-  CompletionStage<List<CaseEventLogRecord>> eventLog(
+  List<CaseEventLogRecord> eventLog(
       UUID caseId, Set<CaseHubEventType> eventTypes, Set<EventStreamType> streamTypes);
 }

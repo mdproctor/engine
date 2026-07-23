@@ -56,7 +56,7 @@ class SequentialStrategyIntegrationTest {
 
   @Test
   void sequentialStrategy_firesBindingsOneAtATime() {
-    UUID caseId = sequentialBean.startCase(Map.of("trigger", true)).toCompletableFuture().join();
+    UUID caseId = sequentialBean.startCase(Map.of("trigger", true));
 
     await()
         .atMost(20, TimeUnit.SECONDS)

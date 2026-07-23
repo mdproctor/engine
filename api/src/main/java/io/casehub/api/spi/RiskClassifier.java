@@ -29,9 +29,9 @@ import java.lang.annotation.Target;
  * CDI qualifier for {@link ActionRiskClassifier} implementations.
  *
  * <p>Consumer implementations must be annotated {@code @RiskClassifier @ApplicationScoped} so the
- * engine's {@code ChainedReactiveActionRiskClassifier} can discover and chain them without circular
- * dependency. The chain implements {@link ReactiveActionRiskClassifier}, not {@code
- * ActionRiskClassifier}, which prevents self-injection.
+ * engine's {@code ChainedActionRiskClassifier} can discover and chain them without circular
+ * dependency. The chain implements {@link ActionRiskClassifier}, not {@code ActionRiskClassifier},
+ * which prevents self-injection.
  *
  * <p>Multiple classifiers from different repos (casehub-aml, casehub-clinical) are automatically
  * chained — the most restrictive {@link RiskDecision.GateRequired} wins.

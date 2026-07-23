@@ -34,13 +34,12 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Instant;
 import java.util.List;
@@ -53,8 +52,8 @@ import org.junit.jupiter.api.Test;
 class DeadLetterReplayServiceTest {
 
   private DeadLetterQueue queue;
-  private ReactiveCrossTenantEventLogRepository eventLogRepository;
-  private ReactiveCrossTenantCaseInstanceRepository caseInstanceRepository;
+  private CrossTenantEventLogRepository eventLogRepository;
+  private CrossTenantCaseInstanceRepository caseInstanceRepository;
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private EventBus eventBus;
   private DeadLetterReplayService service;
@@ -62,8 +61,8 @@ class DeadLetterReplayServiceTest {
   @BeforeEach
   void setup() {
     queue = new DeadLetterQueue();
-    eventLogRepository = mock(ReactiveCrossTenantEventLogRepository.class);
-    caseInstanceRepository = mock(ReactiveCrossTenantCaseInstanceRepository.class);
+    eventLogRepository = mock(CrossTenantEventLogRepository.class);
+    caseInstanceRepository = mock(CrossTenantCaseInstanceRepository.class);
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
     eventBus = mock(EventBus.class);
     service =
@@ -96,7 +95,7 @@ class DeadLetterReplayServiceTest {
     DeadLetterEntry entry = queue.add(caseId, "worker-a", "hash-x", Map.of(), null);
     when(eventLogRepository.findByCaseAndWorkerAndType(
             caseId, "worker-a", CaseHubEventType.WORKER_SCHEDULED))
-        .thenReturn(Uni.createFrom().item(List.of()));
+        .thenReturn(List.of());
 
     Optional<DeadLetterEntry> result = service.replay(entry.deadLetterId());
 
@@ -112,11 +111,11 @@ class DeadLetterReplayServiceTest {
     EventLog scheduledLog = scheduledLog(caseId, "worker-b", "hash-y");
     when(eventLogRepository.findByCaseAndWorkerAndType(
             caseId, "worker-b", CaseHubEventType.WORKER_SCHEDULED))
-        .thenReturn(Uni.createFrom().item(List.of(scheduledLog)));
+        .thenReturn(List.of(scheduledLog));
 
     CaseInstance faulted = new CaseInstance();
     faulted.setState(CaseStatus.FAULTED);
-    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(Uni.createFrom().item(faulted));
+    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(faulted);
 
     assertThat(service.replay(entry.deadLetterId())).isEmpty();
     assertThat(entry.status()).isEqualTo(DeadLetterStatus.PENDING_REVIEW);
@@ -132,7 +131,7 @@ class DeadLetterReplayServiceTest {
     EventLog scheduledLog = scheduledLog(caseId, workerId, hash);
     when(eventLogRepository.findByCaseAndWorkerAndType(
             caseId, workerId, CaseHubEventType.WORKER_SCHEDULED))
-        .thenReturn(Uni.createFrom().item(List.of(scheduledLog)));
+        .thenReturn(List.of(scheduledLog));
 
     CaseMetaModel metaModel = new CaseMetaModel();
     metaModel.setNamespace("test");
@@ -142,7 +141,7 @@ class DeadLetterReplayServiceTest {
     CaseInstance running = new CaseInstance();
     running.setState(CaseStatus.RUNNING);
     running.setCaseMetaModel(metaModel);
-    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(Uni.createFrom().item(running));
+    when(caseInstanceRepository.findByUuid(caseId)).thenReturn(running);
 
     Capability cap =
         Capability.builder().name(workerId).inputSchema("{}").outputSchema("{}").build();

@@ -45,13 +45,11 @@ public class MultiWorkerPipelineBeanTest {
             "documentId", "doc-456",
             "step", "received");
 
-    bean.startCase(initialContext)
-        .thenAccept(ref::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
+    try {
+      ref.set(bean.startCase(initialContext));
+    } catch (Exception ex) {
+      err.set(ex);
+    }
 
     await()
         .atMost(10, TimeUnit.SECONDS)

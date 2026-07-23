@@ -33,7 +33,6 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.ProvisionResult;
 import io.casehub.api.spi.ProvisioningException;
-import io.casehub.api.spi.ReactiveWorkerProvisioner;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.api.spi.WorkerProvisioner;
 import io.casehub.api.spi.WorkerStatusListener;
@@ -44,7 +43,6 @@ import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -97,10 +95,7 @@ class SpiWiringIntegrationTest {
   @Test
   void onWorkerStartedCalledWhenWorkerBegins() {
     UUID caseId =
-        simpleCaseHubBean
-            .startCase(Map.of("documentId", "doc-1", "status", "processing"))
-            .toCompletableFuture()
-            .join();
+        simpleCaseHubBean.startCase(Map.of("documentId", "doc-1", "status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -114,10 +109,7 @@ class SpiWiringIntegrationTest {
   @Test
   void onWorkerCompletedCalledAfterSuccessfulExecution() {
     UUID caseId =
-        simpleCaseHubBean
-            .startCase(Map.of("documentId", "doc-2", "status", "processing"))
-            .toCompletableFuture()
-            .join();
+        simpleCaseHubBean.startCase(Map.of("documentId", "doc-2", "status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -137,8 +129,7 @@ class SpiWiringIntegrationTest {
   @Test
   void onWorkerStalledCalledWhenRetriesExhausted() {
     CaseFaultedStateTest.AlwaysFailingCaseHubBean.runCount.set(0);
-    UUID caseId =
-        alwaysFailingBean.startCase(Map.of("status", "processing")).toCompletableFuture().join();
+    UUID caseId = alwaysFailingBean.startCase(Map.of("status", "processing"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -156,10 +147,7 @@ class SpiWiringIntegrationTest {
   @Test
   void openChannelCalledWhenCaseStarts() {
     UUID caseId =
-        simpleCaseHubBean
-            .startCase(Map.of("documentId", "doc-5", "status", "processing"))
-            .toCompletableFuture()
-            .join();
+        simpleCaseHubBean.startCase(Map.of("documentId", "doc-5", "status", "processing"));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -173,10 +161,7 @@ class SpiWiringIntegrationTest {
   @Test
   void closeChannelCalledWhenCaseReachesTerminalState() {
     UUID caseId =
-        simpleCaseHubBean
-            .startCase(Map.of("documentId", "doc-6", "status", "processing"))
-            .toCompletableFuture()
-            .join();
+        simpleCaseHubBean.startCase(Map.of("documentId", "doc-6", "status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -192,10 +177,7 @@ class SpiWiringIntegrationTest {
 
   @Test
   void commandDispatchedToChannelWhenWorkerScheduled() {
-    simpleCaseHubBean
-        .startCase(Map.of("documentId", "doc-cmd-1", "status", "processing"))
-        .toCompletableFuture()
-        .join();
+    simpleCaseHubBean.startCase(Map.of("documentId", "doc-cmd-1", "status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -234,10 +216,7 @@ class SpiWiringIntegrationTest {
 
   @Test
   void commandContent_omitsDeadline_whenCaseHasNoDeadline() {
-    simpleCaseHubBean
-        .startCase(Map.of("documentId", "doc-nodl-1", "status", "processing"))
-        .toCompletableFuture()
-        .join();
+    simpleCaseHubBean.startCase(Map.of("documentId", "doc-nodl-1", "status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -259,10 +238,7 @@ class SpiWiringIntegrationTest {
   @Test
   void workerExecutionContext_channelsAccessibleDuringExecution() {
     RecordingExecutionContextWorker.capturedChannels.clear();
-    recordingContextBean
-        .startCase(Map.of("documentId", "doc-exec-ctx-1", "status", "processing"))
-        .toCompletableFuture()
-        .join();
+    recordingContextBean.startCase(Map.of("documentId", "doc-exec-ctx-1", "status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -277,10 +253,7 @@ class SpiWiringIntegrationTest {
 
   @Test
   void buildContextCalledBeforeWorkerExecution() {
-    simpleCaseHubBean
-        .startCase(Map.of("documentId", "doc-ctx-1", "status", "processing"))
-        .toCompletableFuture()
-        .join();
+    simpleCaseHubBean.startCase(Map.of("documentId", "doc-ctx-1", "status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -293,10 +266,7 @@ class SpiWiringIntegrationTest {
 
   @Test
   void buildContextReceivesCorrectCapabilityName() {
-    simpleCaseHubBean
-        .startCase(Map.of("documentId", "doc-ctx-2", "status", "processing"))
-        .toCompletableFuture()
-        .join();
+    simpleCaseHubBean.startCase(Map.of("documentId", "doc-ctx-2", "status", "processing"));
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -313,10 +283,7 @@ class SpiWiringIntegrationTest {
 
   @Test
   void workerProvisionerCalledWhenNoCandidateWorkerAvailable() {
-    provisionerTriggerBean
-        .startCase(Map.of("taskId", "task-prov-1", "status", "pending"))
-        .toCompletableFuture()
-        .join();
+    provisionerTriggerBean.startCase(Map.of("taskId", "task-prov-1", "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -340,11 +307,7 @@ class SpiWiringIntegrationTest {
   @Test
   void signal_with_trigger_context_propagates_to_ProvisionContext() {
     // Start without "status:pending" so the binding does NOT fire on case start.
-    UUID caseId =
-        provisionerTriggerBean
-            .startCase(Map.of("taskId", "task-trigger-ctx-1"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = provisionerTriggerBean.startCase(Map.of("taskId", "task-trigger-ctx-1"));
 
     // Signal with trigger context — sets status=pending, fires "external-task" binding.
     // No workers match → tryProvision() is called → ProvisionContext receives trigger fields.
@@ -367,10 +330,7 @@ class SpiWiringIntegrationTest {
     RecordingWorkerProvisioner.shouldThrow.set(true);
 
     UUID caseId =
-        provisionerTriggerBean
-            .startCase(Map.of("taskId", "task-prov-2", "status", "pending"))
-            .toCompletableFuture()
-            .join();
+        provisionerTriggerBean.startCase(Map.of("taskId", "task-prov-2", "status", "pending"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)
@@ -537,34 +497,6 @@ class SpiWiringIntegrationTest {
     @Override
     public Set<String> getCapabilities() {
       return Set.of("external-task");
-    }
-  }
-
-  @Alternative
-  @Priority(1)
-  @ApplicationScoped
-  public static class RecordingReactiveWorkerProvisioner implements ReactiveWorkerProvisioner {
-
-    @Override
-    public Uni<ProvisionResult> provision(Set<String> capabilities, ProvisionContext context) {
-      RecordingWorkerProvisioner.lastProvisionContext = context;
-      if (RecordingWorkerProvisioner.shouldThrow.get()) {
-        return Uni.createFrom()
-            .failure(
-                new ProvisioningException(
-                    "RecordingReactiveWorkerProvisioner: intentional failure for test"));
-      }
-      return Uni.createFrom().item(ProvisionResult.empty());
-    }
-
-    @Override
-    public Uni<Void> terminate(String workerId, String tenancyId) {
-      return Uni.createFrom().voidItem();
-    }
-
-    @Override
-    public Uni<Set<String>> getCapabilities() {
-      return Uni.createFrom().item(Set.of("external-task"));
     }
   }
 

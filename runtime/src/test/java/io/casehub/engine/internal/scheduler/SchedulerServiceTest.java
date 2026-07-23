@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.internal.scheduler;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -50,9 +49,8 @@ class SchedulerServiceTest {
 
     when(registry.getCaseDefinition(metaModel)).thenReturn(null);
 
-    Void result = service.registerScheduledTriggers(instance).await().indefinitely();
+    service.registerScheduledTriggers(instance);
 
-    assertThat(result).isNull();
     verifyNoInteractions(scheduler);
   }
 }

@@ -26,7 +26,6 @@ import io.casehub.engine.common.internal.executor.WorkerExecutor;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -61,7 +60,7 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
   }
 
   @Override
-  public Uni<WorkerResult<?>> execute(
+  public WorkerResult<?> execute(
       WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
@@ -71,9 +70,8 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
 
     for (WorkerFunctionHandler handler : handlers) {
       if (handler.supports(function)) {
-        return handler
-            .execute(function, inputData, context, timeoutMs, metadata)
-            .map(result -> applyOutputSchema(result, outputProjection));
+        WorkerResult<?> result = handler.execute(function, inputData, context, timeoutMs, metadata);
+        return applyOutputSchema(result, outputProjection);
       }
     }
     throw new UnsupportedOperationException("No handler for: " + function.getClass().getName());

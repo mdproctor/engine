@@ -46,7 +46,6 @@ import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 @QuarkusTest
@@ -58,36 +57,18 @@ public class AgentWorkerExecutionTest {
 
   @Test
   public void agentWorkerExecutesAndCompletesCase() {
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-    AtomicReference<Throwable> errorRef = new AtomicReference<>();
-
     Map<String, Object> initialContext =
         Map.of(
             "text", "This is a great product!",
             "status", "pending");
 
-    agentCaseHub
-        .startCase(initialContext)
-        .thenAccept(caseIdRef::set)
-        .exceptionally(
-            ex -> {
-              errorRef.set(ex);
-              return null;
-            });
+    UUID caseId = agentCaseHub.startCase(initialContext);
 
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              if (errorRef.get() != null) throw new AssertionError(errorRef.get());
-              assertNotNull(caseIdRef.get());
-            });
-
-    await()
-        .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              var instance = caseInstanceCache.get(caseIdRef.get());
+              var instance = caseInstanceCache.get(caseId);
               assertNotNull(instance);
               assertEquals(CaseStatus.COMPLETED, instance.getState());
 

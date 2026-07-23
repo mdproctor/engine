@@ -24,7 +24,6 @@ import io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -80,33 +79,30 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
   }
 
   @Override
-  public Uni<Void> submit(
+  public void submit(
       Long eventLogId,
       CaseInstance instance,
       Worker worker,
       Capability capability,
       Map<String, Object> inputData) {
     if (backends.isEmpty()) {
-      return Uni.createFrom()
-          .failure(new ProvisioningException("No WorkerExecutionManager backend configured"));
+      throw new ProvisioningException("No WorkerExecutionManager backend configured");
     }
     Optional<WorkerExecutionManager> selected =
         routingStrategy.select(backends, worker, capability, instance.tenancyId);
     if (selected.isEmpty()) {
-      return Uni.createFrom()
-          .failure(
-              new ProvisioningException(
-                  "No backend supports capability '"
-                      + capability.name()
-                      + "' for tenant '"
-                      + instance.tenancyId
-                      + "'"));
+      throw new ProvisioningException(
+          "No backend supports capability '"
+              + capability.name()
+              + "' for tenant '"
+              + instance.tenancyId
+              + "'");
     }
-    return selected.get().submit(eventLogId, instance, worker, capability, inputData);
+    selected.get().submit(eventLogId, instance, worker, capability, inputData);
   }
 
   @Override
-  public Uni<Void> submit(
+  public void submit(
       Long eventLogId,
       CaseInstance instance,
       Worker worker,
@@ -114,28 +110,25 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
       Map<String, Object> inputData,
       String bindingName) {
     if (backends.isEmpty()) {
-      return Uni.createFrom()
-          .failure(new ProvisioningException("No WorkerExecutionManager backend configured"));
+      throw new ProvisioningException("No WorkerExecutionManager backend configured");
     }
     Optional<WorkerExecutionManager> selected =
         routingStrategy.select(backends, worker, capability, instance.tenancyId);
     if (selected.isEmpty()) {
-      return Uni.createFrom()
-          .failure(
-              new ProvisioningException(
-                  "No backend supports capability '"
-                      + capability.name()
-                      + "' for tenant '"
-                      + instance.tenancyId
-                      + "'"));
+      throw new ProvisioningException(
+          "No backend supports capability '"
+              + capability.name()
+              + "' for tenant '"
+              + instance.tenancyId
+              + "'");
     }
-    return selected.get().submit(eventLogId, instance, worker, capability, inputData, bindingName);
+    selected.get().submit(eventLogId, instance, worker, capability, inputData, bindingName);
   }
 
   @Override
-  public Uni<Void> schedulePersistedEvent(EventLog scheduledEventLog) {
+  public void schedulePersistedEvent(EventLog scheduledEventLog) {
     if (backends.isEmpty()) {
-      return Uni.createFrom().voidItem();
+      return;
     }
     String capabilityName = null;
     String tenancyId = scheduledEventLog.tenancyId;
@@ -146,14 +139,14 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
     if (capabilityName != null) {
       for (WorkerExecutionManager backend : backends) {
         if (backend.supports(capabilityName, tenancyId)) {
-          return backend.schedulePersistedEvent(scheduledEventLog);
+          backend.schedulePersistedEvent(scheduledEventLog);
+          return;
         }
       }
       LOG.warnf(
           "No backend supports capability '%s' for schedulePersistedEvent — event may be lost",
           capabilityName);
     }
-    return Uni.createFrom().voidItem();
   }
 
   @Override

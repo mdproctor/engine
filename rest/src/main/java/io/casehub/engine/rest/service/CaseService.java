@@ -54,7 +54,7 @@ public class CaseService {
               namespace, name, version));
     }
 
-    UUID caseId = runtime.startCase(definition, context).toCompletableFuture().join();
+    UUID caseId = runtime.startCase(definition, context);
 
     CaseInstance instance = instanceRepository.findByUuid(caseId, tenancyId);
     if (instance == null) {

@@ -24,7 +24,7 @@ import java.util.List;
  *
  * <p>tenancyId is explicit — case definitions are per-tenant.
  *
- * @see ReactiveCaseMetaModelRepository
+ * @see CaseMetaModelRepository
  */
 public interface CaseMetaModelRepository {
 

@@ -29,7 +29,7 @@ import java.util.UUID;
  * transactions. tenancyId is an explicit parameter on every method — no CDI scope injection in
  * implementations.
  *
- * @see ReactiveCaseInstanceRepository
+ * @see CaseInstanceRepository
  */
 public interface CaseInstanceRepository {
 

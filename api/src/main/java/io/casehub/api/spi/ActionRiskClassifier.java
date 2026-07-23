@@ -25,9 +25,8 @@ import io.casehub.worker.api.PlannedAction;
  * engine chains all registered implementations — the most restrictive result wins. Multiple
  * consumer repos can provide classifiers simultaneously without conflict.
  *
- * <p>The engine calls this interface via {@link ReactiveActionRiskClassifier} (the reactive
- * primary). Blocking implementations are bridged to reactive automatically by {@code
- * ChainedReactiveActionRiskClassifier}, which offloads them to the worker thread pool.
+ * <p>The engine chains all registered implementations via {@link ChainedActionRiskClassifier},
+ * which applies most-restrictive-wins semantics.
  *
  * <p>If {@code classify} throws, the engine applies a fail-safe {@link RiskDecision.GateRequired}
  * requiring manual review. Do not throw to bypass the gate — the fail-safe will catch it.

@@ -23,7 +23,6 @@ import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
 import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.worker.api.PlannedAction;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.time.Duration;
 import java.util.List;
@@ -33,9 +32,9 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class ChainedReactiveActionRiskClassifierTest {
+class ChainedActionRiskClassifierTest {
 
-  private ChainedReactiveActionRiskClassifier chain;
+  private ChainedActionRiskClassifier chain;
 
   private static PlannedAction anyAction() {
     return PlannedAction.of("desc", "spend.transfer", Map.of("amount", 100));
@@ -48,28 +47,23 @@ class ChainedReactiveActionRiskClassifierTest {
 
   @BeforeEach
   void setUp() {
-    chain = new ChainedReactiveActionRiskClassifier();
-    chain.reactiveClassifiers = unsatisfiedReactive();
+    chain = new ChainedActionRiskClassifier();
   }
-
-  // --- Empty chain ---
 
   @Test
   void emptyChain_returnsAutonomous() {
     chain.classifiers = unsatisfied();
 
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext());
 
     assertThat(result).isInstanceOf(Autonomous.class);
   }
-
-  // --- Single classifier ---
 
   @Test
   void singleClassifier_returnsAutonomous_propagatesAutonomous() {
     chain.classifiers = instanceOf((action, context) -> new Autonomous());
 
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext());
 
     assertThat(result).isInstanceOf(Autonomous.class);
   }
@@ -81,7 +75,7 @@ class ChainedReactiveActionRiskClassifierTest {
             "SAR filing", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null, null);
     chain.classifiers = instanceOf((action, context) -> gate);
 
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext());
 
     assertThat(result).isInstanceOf(GateRequired.class);
     assertThat(((GateRequired) result).reason()).isEqualTo("SAR filing");
@@ -90,14 +84,12 @@ class ChainedReactiveActionRiskClassifierTest {
         .containsExactly("mlro");
   }
 
-  // --- Two classifiers, merge semantics ---
-
   @Test
   void twoClassifiers_bothAutonomous_returnsAutonomous() {
     chain.classifiers =
         instanceOf((action, context) -> new Autonomous(), (action, context) -> new Autonomous());
 
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext());
 
     assertThat(result).isInstanceOf(Autonomous.class);
   }
@@ -111,7 +103,7 @@ class ChainedReactiveActionRiskClassifierTest {
                 new GateRequired(
                     "SUSAR filing", false, StaticSetStrategy.of("physician"), null, null, null));
 
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext());
 
     assertThat(result).isInstanceOf(GateRequired.class);
     assertThat(((GateRequired) result).candidateGroups()).isInstanceOf(StaticSetStrategy.class);
@@ -135,8 +127,7 @@ class ChainedReactiveActionRiskClassifierTest {
                     null,
                     null));
 
-    GateRequired result =
-        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
+    GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
     assertThat(result.candidateGroups()).isInstanceOf(StaticSetStrategy.class);
     assertThat(((StaticSetStrategy) result.candidateGroups()).values()).containsExactly("mlro");
@@ -159,8 +150,7 @@ class ChainedReactiveActionRiskClassifierTest {
                     null,
                     null));
 
-    GateRequired result =
-        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
+    GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
     assertThat(result.expiresIn()).isEqualTo(Duration.ofHours(24));
     assertThat(result.reason()).isEqualTo("fast");
@@ -182,8 +172,7 @@ class ChainedReactiveActionRiskClassifierTest {
                     null,
                     null));
 
-    GateRequired result =
-        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
+    GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
     assertThat(result.expiresIn()).isEqualTo(Duration.ofHours(24));
     assertThat(result.reason()).isEqualTo("with-deadline");
@@ -198,15 +187,12 @@ class ChainedReactiveActionRiskClassifierTest {
                 new GateRequired(
                     "restricted", false, StaticSetStrategy.of("mlro"), null, null, null));
 
-    GateRequired result =
-        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
+    GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
     assertThat(result.candidateGroups()).isInstanceOf(StaticSetStrategy.class);
     assertThat(((StaticSetStrategy) result.candidateGroups()).values()).containsExactly("mlro");
     assertThat(result.reason()).isEqualTo("restricted");
   }
-
-  // --- Classifier throws → fail-safe ---
 
   @Test
   void classifierThrows_failSafeGateRequiredApplied() {
@@ -216,7 +202,7 @@ class ChainedReactiveActionRiskClassifierTest {
               throw new RuntimeException("DB unavailable");
             });
 
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
+    RiskDecision result = chain.classify(anyAction(), anyContext());
 
     assertThat(result).isInstanceOf(GateRequired.class);
     GateRequired gate = (GateRequired) result;
@@ -233,14 +219,11 @@ class ChainedReactiveActionRiskClassifierTest {
               throw new IllegalStateException("config missing");
             });
 
-    GateRequired result =
-        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
+    GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
     assertThat(result.scope()).isNull();
     assertThat(result.expiresIn()).isNull();
   }
-
-  // --- ClassificationContext is passed through to classifiers ---
 
   @Test
   void classify_passesContextToClassifiers() {
@@ -255,90 +238,11 @@ class ChainedReactiveActionRiskClassifierTest {
     ClassificationContext ctx =
         new ClassificationContext(
             "worker-x", UUID.randomUUID(), "tenant-1", "test-case", "cap", "binding");
-    chain.classify(anyAction(), ctx).await().indefinitely();
+    chain.classify(anyAction(), ctx);
 
     assertThat(captured[0].workerId()).isEqualTo("worker-x");
     assertThat(captured[0]).isSameAs(ctx);
   }
-
-  // --- Reactive classifiers ---
-
-  @Test
-  void reactiveClassifier_returnsGateRequired_propagated() {
-    chain.classifiers = unsatisfied();
-    chain.reactiveClassifiers =
-        reactiveInstanceOf(
-            (action, context) ->
-                Uni.createFrom()
-                    .item(
-                        new GateRequired(
-                            "async-check",
-                            false,
-                            StaticSetStrategy.of("compliance"),
-                            null,
-                            null,
-                            null)));
-
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
-
-    assertThat(result).isInstanceOf(GateRequired.class);
-    assertThat(((GateRequired) result).candidateGroups()).isInstanceOf(StaticSetStrategy.class);
-    assertThat(((StaticSetStrategy) ((GateRequired) result).candidateGroups()).values())
-        .containsExactly("compliance");
-  }
-
-  @Test
-  void blockingAndReactive_mostRestrictiveWinsAcrossBoth() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) ->
-                new GateRequired(
-                    "blocking", false, StaticSetStrategy.of("mlro", "analyst"), null, null, null));
-    chain.reactiveClassifiers =
-        reactiveInstanceOf(
-            (action, context) ->
-                Uni.createFrom()
-                    .item(
-                        new GateRequired(
-                            "reactive", false, StaticSetStrategy.of("mlro"), null, null, null)));
-
-    GateRequired result =
-        (GateRequired) chain.classify(anyAction(), anyContext()).await().indefinitely();
-
-    assertThat(result.candidateGroups()).isInstanceOf(StaticSetStrategy.class);
-    assertThat(((StaticSetStrategy) result.candidateGroups()).values()).containsExactly("mlro");
-    assertThat(result.reason()).isEqualTo("reactive");
-  }
-
-  @Test
-  void reactiveClassifierThrows_failSafeApplied() {
-    chain.classifiers = unsatisfied();
-    chain.reactiveClassifiers =
-        reactiveInstanceOf(
-            (action, context) -> Uni.createFrom().failure(new RuntimeException("async DB down")));
-
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
-
-    assertThat(result).isInstanceOf(GateRequired.class);
-    assertThat(((GateRequired) result).reason()).contains("Classifier error");
-  }
-
-  @Test
-  void reactiveClassifierThrowsSynchronously_failSafeApplied() {
-    chain.classifiers = unsatisfied();
-    chain.reactiveClassifiers =
-        reactiveInstanceOf(
-            (action, context) -> {
-              throw new NullPointerException("synchronous arg validation");
-            });
-
-    RiskDecision result = chain.classify(anyAction(), anyContext()).await().indefinitely();
-
-    assertThat(result).isInstanceOf(GateRequired.class);
-    assertThat(((GateRequired) result).reason()).contains("Classifier error");
-  }
-
-  // --- Helpers ---
 
   @SuppressWarnings("unchecked")
   private static Instance<ActionRiskClassifier> unsatisfied() {
@@ -348,25 +252,8 @@ class ChainedReactiveActionRiskClassifierTest {
   }
 
   @SuppressWarnings("unchecked")
-  private static Instance<ReactiveActionRiskClassifier> unsatisfiedReactive() {
-    Instance<ReactiveActionRiskClassifier> inst = mock(Instance.class);
-    when(inst.isUnsatisfied()).thenReturn(true);
-    return inst;
-  }
-
-  @SuppressWarnings("unchecked")
   private static Instance<ActionRiskClassifier> instanceOf(ActionRiskClassifier... classifiers) {
     Instance<ActionRiskClassifier> inst = mock(Instance.class);
-    when(inst.isUnsatisfied()).thenReturn(false);
-    when(inst.spliterator())
-        .thenReturn(Spliterators.spliteratorUnknownSize(List.of(classifiers).iterator(), 0));
-    return inst;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Instance<ReactiveActionRiskClassifier> reactiveInstanceOf(
-      ReactiveActionRiskClassifier... classifiers) {
-    Instance<ReactiveActionRiskClassifier> inst = mock(Instance.class);
     when(inst.isUnsatisfied()).thenReturn(false);
     when(inst.spliterator())
         .thenReturn(Spliterators.spliteratorUnknownSize(List.of(classifiers).iterator(), 0));

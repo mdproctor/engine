@@ -19,7 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
-import io.smallrye.mutiny.Uni;
 import java.time.Duration;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -28,17 +27,13 @@ class WorkerRecoveryCoordinatorTest {
 
   @Test
   void initialStatus_isPending() {
-    var coordinator =
-        new WorkerRecoveryCoordinator(
-            serviceWith(Uni.createFrom().voidItem()), Duration.ofSeconds(60));
+    var coordinator = new WorkerRecoveryCoordinator(serviceWith(() -> {}), Duration.ofSeconds(60));
     assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.PENDING);
   }
 
   @Test
   void successfulRecovery_transitionsToCompleted() {
-    var coordinator =
-        new WorkerRecoveryCoordinator(
-            serviceWith(Uni.createFrom().voidItem()), Duration.ofSeconds(60));
+    var coordinator = new WorkerRecoveryCoordinator(serviceWith(() -> {}), Duration.ofSeconds(60));
 
     coordinator.triggerRecovery();
 
@@ -53,7 +48,10 @@ class WorkerRecoveryCoordinatorTest {
   void failedRecovery_transitionsToFailed() {
     var coordinator =
         new WorkerRecoveryCoordinator(
-            serviceWith(Uni.createFrom().failure(new RuntimeException("DB down"))),
+            serviceWith(
+                () -> {
+                  throw new RuntimeException("DB down");
+                }),
             Duration.ofSeconds(60));
 
     coordinator.triggerRecovery();
@@ -69,7 +67,15 @@ class WorkerRecoveryCoordinatorTest {
   void hungRecovery_transitionsToFailedAfterTimeout() {
     var coordinator =
         new WorkerRecoveryCoordinator(
-            serviceWith(Uni.createFrom().nothing()), Duration.ofMillis(100));
+            serviceWith(
+                () -> {
+                  try {
+                    Thread.sleep(10_000);
+                  } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                  }
+                }),
+            Duration.ofMillis(100));
 
     coordinator.triggerRecovery();
 
@@ -80,16 +86,16 @@ class WorkerRecoveryCoordinatorTest {
             () -> assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.FAILED));
   }
 
-  private WorkerExecutionRecoveryService serviceWith(Uni<Void> recoveryResult) {
+  private WorkerExecutionRecoveryService serviceWith(Runnable recoveryAction) {
     return new WorkerExecutionRecoveryService() {
       @Override
-      public Uni<CaseInstance> loadOrRestoreCaseInstance(UUID caseId) {
-        return Uni.createFrom().nullItem();
+      public CaseInstance loadOrRestoreCaseInstance(UUID caseId) {
+        return null;
       }
 
       @Override
-      public Uni<Void> recoverPendingScheduledWorkers() {
-        return recoveryResult;
+      public void recoverPendingScheduledWorkers() {
+        recoveryAction.run();
       }
     };
   }

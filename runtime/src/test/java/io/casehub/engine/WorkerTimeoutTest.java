@@ -63,7 +63,7 @@ class WorkerTimeoutTest {
 
   @Test
   void fastWorkerShouldCompleteSuccessfully() {
-    UUID caseId = fastWorkerBean.startCase(Map.of("input", "data")).toCompletableFuture().join();
+    UUID caseId = fastWorkerBean.startCase(Map.of("input", "data"));
 
     // Worker should execute quickly and complete
     await()
@@ -84,11 +84,7 @@ class WorkerTimeoutTest {
 
   @Test
   void slowWorkerShouldTimeoutWithDefaultTimeout() {
-    UUID caseId =
-        slowWorkerDefaultTimeoutBean
-            .startCase(Map.of("input", "data"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = slowWorkerDefaultTimeoutBean.startCase(Map.of("input", "data"));
 
     // Worker starts executing
     await()
@@ -111,8 +107,7 @@ class WorkerTimeoutTest {
 
   @Test
   void slowWorkerShouldCompleteWithCustomLongerTimeout() {
-    UUID caseId =
-        slowWorkerCustomTimeoutBean.startCase(Map.of("input", "data")).toCompletableFuture().join();
+    UUID caseId = slowWorkerCustomTimeoutBean.startCase(Map.of("input", "data"));
 
     // Worker should complete successfully with 10 second timeout (worker sleeps 3 seconds)
     await()
@@ -135,11 +130,7 @@ class WorkerTimeoutTest {
 
   @Test
   void fastWorkerShouldTimeoutWithVeryShortTimeout() {
-    UUID caseId =
-        fastWorkerWithShortTimeoutBean
-            .startCase(Map.of("input", "data"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = fastWorkerWithShortTimeoutBean.startCase(Map.of("input", "data"));
 
     // Worker starts executing
     await()

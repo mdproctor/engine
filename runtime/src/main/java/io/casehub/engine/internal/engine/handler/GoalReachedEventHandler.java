@@ -32,16 +32,17 @@ import io.casehub.engine.common.internal.event.GoalReachedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
@@ -54,55 +55,59 @@ public class GoalReachedEventHandler {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject EventBus eventBus;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
   @Inject LedgerTraceIdProvider traceIdProvider;
 
   @ConsumeEvent(value = EventBusAddresses.GOAL_REACHED)
-  public Uni<Void> onGoalReachedEventHandler(GoalReachedEvent event) {
-    final String traceId = traceIdProvider.currentTraceId().orElse(null);
-    final CaseInstance caseInstance = event.caseInstance();
-    CaseDefinition definition =
-        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    final Goal goal = event.goal();
+  @RunOnVirtualThread
+  void onGoalReachedEventHandler(GoalReachedEvent event) {
+    try {
+      final String traceId = traceIdProvider.currentTraceId().orElse(null);
+      final CaseInstance caseInstance = event.caseInstance();
+      CaseDefinition definition =
+          caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+      final Goal goal = event.goal();
 
-    EventLog eventLog = new EventLog();
-    eventLog.setCaseId(caseInstance.getUuid());
-    eventLog.setEventType(GOAL_REACHED);
-    eventLog.setStreamType(EventStreamType.CASE);
-    eventLog.setTimestamp(Instant.now());
-    eventLog.setMetadata(
-        OBJECT_MAPPER
-            .createObjectNode()
-            .put("name", goal.getName())
-            .put("description", goal.getDescription())
-            .put("kind", goal.getKind()));
+      EventLog eventLog = new EventLog();
+      eventLog.setCaseId(caseInstance.getUuid());
+      eventLog.setEventType(GOAL_REACHED);
+      eventLog.setStreamType(EventStreamType.CASE);
+      eventLog.setTimestamp(Instant.now());
+      eventLog.setMetadata(
+          OBJECT_MAPPER
+              .createObjectNode()
+              .put("name", goal.getName())
+              .put("description", goal.getDescription())
+              .put("kind", goal.getKind()));
 
-    return reactiveEventLogRepository
-        .append(eventLog, caseInstance.tenancyId)
-        .invoke(
-            () ->
-                // Fire-and-forget — evaluateCompletion (case status change) must not be
-                // gated on optional audit observer completion. Refs casehubio/engine#491.
-                lifecycleEvents
-                    .fireAsync(
-                        CaseLifecycleEvent.of(
-                            caseInstance, "ReachGoal", "GoalReached", null, "System", traceId))
-                    .whenComplete(
-                        (v, t) -> {
-                          if (t != null) {
-                            LOG.warnf(
-                                t,
-                                "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
-                                caseInstance.getUuid());
-                          }
-                        }))
-        .chain(() -> evaluateCompletion(caseInstance, definition.getCompletion()));
+      eventLogRepository.append(eventLog, caseInstance.tenancyId);
+
+      // Fire-and-forget — evaluateCompletion (case status change) must not be
+      // gated on optional audit observer completion. Refs casehubio/engine#491.
+      lifecycleEvents
+          .fireAsync(
+              CaseLifecycleEvent.of(
+                  caseInstance, "ReachGoal", "GoalReached", null, "System", traceId))
+          .whenComplete(
+              (v, t) -> {
+                if (t != null) {
+                  LOG.warnf(
+                      t,
+                      "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
+                      caseInstance.getUuid());
+                }
+              });
+
+      evaluateCompletion(caseInstance, definition.getCompletion());
+    } catch (Exception e) {
+      LOG.errorf(e, "Failed to process GOAL_REACHED for caseId=%s", event.caseInstance().getUuid());
+    }
   }
 
-  private Uni<Void> evaluateCompletion(CaseInstance caseInstance, CaseCompletion completion) {
+  private void evaluateCompletion(CaseInstance caseInstance, CaseCompletion completion) {
     if (!(completion instanceof GoalBasedCompletion<?> gbc)) {
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     CaseStatus currentState = caseInstance.getState();
@@ -112,45 +117,42 @@ public class GoalReachedEventHandler {
       LOG.debugf(
           "Skipping completion evaluation — caseId=%s is already %s",
           caseInstance.getUuid(), currentState);
-      return Uni.createFrom().voidItem();
+      return;
     }
 
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(caseInstance.getUuid(), Set.of(GOAL_REACHED), caseInstance.tenancyId)
-        .chain(
-            eventLogs -> {
-              Set<String> reachedGoals =
-                  eventLogs.stream()
-                      .map(el -> el.getMetadata().get("name").asText())
-                      .collect(Collectors.toSet());
+    List<EventLog> eventLogs =
+        eventLogRepository.findByCaseAndTypes(
+            caseInstance.getUuid(), Set.of(GOAL_REACHED), caseInstance.tenancyId);
 
-              LOG.infof(
-                  "Evaluating completion for caseId=%s, reachedGoals=%s",
-                  caseInstance.getUuid(), reachedGoals);
+    Set<String> reachedGoals =
+        eventLogs.stream()
+            .map(el -> el.getMetadata().get("name").asText())
+            .collect(Collectors.toSet());
 
-              String oldStatus = caseInstance.getState().name();
+    LOG.infof(
+        "Evaluating completion for caseId=%s, reachedGoals=%s",
+        caseInstance.getUuid(), reachedGoals);
 
-              for (var entry : gbc.getGoals().entrySet()) {
-                GoalKind kind = entry.getKey();
-                GoalExpression expr = entry.getValue();
-                String satisfiedName = expr.satisfiedGoalName(reachedGoals);
-                if (satisfiedName != null) {
-                  LOG.infof(
-                      "Goal kind '%s' satisfied (goal '%s'): caseId=%s",
-                      kind.value(), satisfiedName, caseInstance.getUuid());
-                  eventBus.publish(
-                      EventBusAddresses.CASE_STATUS_CHANGED,
-                      new CaseStatusChanged(
-                          caseInstance,
-                          oldStatus,
-                          kind.terminalStatus().name(),
-                          satisfiedName,
-                          kind.value()));
-                  return Uni.createFrom().voidItem();
-                }
-              }
+    String oldStatus = caseInstance.getState().name();
 
-              return Uni.createFrom().voidItem();
-            });
+    for (var entry : gbc.getGoals().entrySet()) {
+      GoalKind kind = entry.getKey();
+      GoalExpression expr = entry.getValue();
+      String satisfiedName = expr.satisfiedGoalName(reachedGoals);
+      if (satisfiedName != null) {
+        LOG.infof(
+            "Goal kind '%s' satisfied (goal '%s'): caseId=%s",
+            kind.value(), satisfiedName, caseInstance.getUuid());
+        eventBus.publish(
+            EventBusAddresses.CASE_STATUS_CHANGED,
+            new CaseStatusChanged(
+                caseInstance,
+                oldStatus,
+                kind.terminalStatus().name(),
+                satisfiedName,
+                kind.value()));
+        return;
+      }
+    }
   }
 }

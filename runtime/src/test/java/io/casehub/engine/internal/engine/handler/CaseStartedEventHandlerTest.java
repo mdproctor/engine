@@ -31,14 +31,13 @@ import io.casehub.engine.common.internal.event.CaseStartedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.internal.routing.CbrRetrievalService;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Event;
 import java.lang.reflect.Field;
@@ -55,38 +54,36 @@ class CaseStartedEventHandlerTest {
   private CaseStartedEventHandler handler;
   private CbrRetrievalService cbrRetrievalService;
   private CaseDefinitionRegistry caseDefinitionRegistry;
-  private ReactiveEventLogRepository eventLogRepo;
-  private ReactiveCaseInstanceRepository caseInstanceRepo;
+  private EventLogRepository eventLogRepo;
+  private CaseInstanceRepository caseInstanceRepo;
 
   @BeforeEach
   @SuppressWarnings("unchecked")
   void setUp() throws Exception {
     handler = new CaseStartedEventHandler();
     EventBus eventBus = mock(EventBus.class);
-    eventLogRepo = mock(ReactiveEventLogRepository.class);
+    eventLogRepo = mock(EventLogRepository.class);
     SchedulerService schedulerService = mock(SchedulerService.class);
     Event<CaseLifecycleEvent> lifecycleEvents = mock(Event.class);
     CaseChannelProvider channelProvider = mock(CaseChannelProvider.class);
-    caseInstanceRepo = mock(ReactiveCaseInstanceRepository.class);
+    caseInstanceRepo = mock(CaseInstanceRepository.class);
     LedgerTraceIdProvider traceIdProvider = mock(LedgerTraceIdProvider.class);
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
     cbrRetrievalService = mock(CbrRetrievalService.class);
 
     inject(handler, "eventBus", eventBus);
-    inject(handler, "reactiveEventLogRepository", eventLogRepo);
+    inject(handler, "eventLogRepository", eventLogRepo);
     inject(handler, "schedulerService", schedulerService);
     inject(handler, "lifecycleEvents", lifecycleEvents);
     inject(handler, "caseChannelProvider", channelProvider);
-    inject(handler, "reactiveCaseInstanceRepository", caseInstanceRepo);
+    inject(handler, "caseInstanceRepository", caseInstanceRepo);
     inject(handler, "traceIdProvider", traceIdProvider);
     inject(handler, "caseDefinitionRegistry", caseDefinitionRegistry);
     inject(handler, "cbrRetrievalService", cbrRetrievalService);
 
-    when(eventLogRepo.append(any(), any())).thenReturn(Uni.createFrom().voidItem());
-    when(schedulerService.registerScheduledTriggers(any(CaseInstance.class)))
-        .thenReturn(Uni.createFrom().voidItem());
+    // eventLogRepo.append and schedulerService.registerScheduledTriggers are void — no stub needed
     when(caseInstanceRepo.update(any(CaseInstance.class), any()))
-        .thenAnswer(inv -> Uni.createFrom().item(inv.getArgument(0, CaseInstance.class)));
+        .thenAnswer(inv -> inv.getArgument(0, CaseInstance.class));
     when(traceIdProvider.currentTraceId()).thenReturn(Optional.empty());
     when(lifecycleEvents.fireAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
   }
@@ -126,7 +123,7 @@ class CaseStartedEventHandlerTest {
     when(cbrRetrievalService.retrieve(eq(definition), eq(instance)))
         .thenReturn(List.of(experience));
 
-    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+    handler.onCaseStarted(new CaseStartedEvent(instance));
 
     Object cbrExperiences =
         instance.getCaseContext().layer(ContextLayer.WORKING).get("cbrExperiences");
@@ -155,7 +152,7 @@ class CaseStartedEventHandlerTest {
 
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
 
-    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+    handler.onCaseStarted(new CaseStartedEvent(instance));
 
     Object cbrExperiences =
         instance.getCaseContext().layer(ContextLayer.WORKING).get("cbrExperiences");
@@ -185,7 +182,7 @@ class CaseStartedEventHandlerTest {
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
     when(cbrRetrievalService.retrieve(definition, instance)).thenReturn(List.of());
 
-    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+    handler.onCaseStarted(new CaseStartedEvent(instance));
 
     Object cbrExperiences =
         instance.getCaseContext().layer(ContextLayer.WORKING).get("cbrExperiences");
@@ -224,7 +221,7 @@ class CaseStartedEventHandlerTest {
     when(cbrRetrievalService.retrieve(eq(definition), eq(instance)))
         .thenReturn(List.of(exp1, exp2, exp3));
 
-    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+    handler.onCaseStarted(new CaseStartedEvent(instance));
 
     var ctx = instance.getCaseContext().layer(ContextLayer.WORKING);
     assertThat(ctx.get("cbrBestSimilarity")).isEqualTo(0.85);
@@ -254,7 +251,7 @@ class CaseStartedEventHandlerTest {
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
     when(cbrRetrievalService.retrieve(definition, instance)).thenReturn(List.of());
 
-    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+    handler.onCaseStarted(new CaseStartedEvent(instance));
 
     var ctx = instance.getCaseContext().layer(ContextLayer.WORKING);
     assertThat(ctx.get("cbrBestSimilarity")).isNull();
@@ -291,7 +288,7 @@ class CaseStartedEventHandlerTest {
     when(cbrRetrievalService.retrieve(eq(definition), eq(instance)))
         .thenReturn(List.of(exp1, exp2));
 
-    handler.onCaseStarted(new CaseStartedEvent(instance)).await().indefinitely();
+    handler.onCaseStarted(new CaseStartedEvent(instance));
 
     var ctx = instance.getCaseContext().layer(ContextLayer.WORKING);
     assertThat(ctx.get("cbrBestSimilarity")).isEqualTo(0.90);

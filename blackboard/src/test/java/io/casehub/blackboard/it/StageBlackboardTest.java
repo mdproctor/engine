@@ -71,7 +71,7 @@ class StageBlackboardTest {
    */
   @Test
   void stage_with_no_entry_condition_activates_on_next_evaluation_cycle() {
-    UUID caseId = signalCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = signalCase.startCase(Map.of("ready", true));
 
     // Plan model is created on the first select() call from CaseStartedEvent
     await()
@@ -99,7 +99,7 @@ class StageBlackboardTest {
    */
   @Test
   void stage_with_satisfied_entry_condition_activates() {
-    UUID caseId = signalCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = signalCase.startCase(Map.of("ready", true));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -125,7 +125,7 @@ class StageBlackboardTest {
    */
   @Test
   void stage_with_unsatisfied_entry_condition_stays_pending() {
-    UUID caseId = signalCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = signalCase.startCase(Map.of("ready", true));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -158,7 +158,7 @@ class StageBlackboardTest {
    */
   @Test
   void active_stage_with_satisfied_exit_condition_terminates() {
-    UUID caseId = signalCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = signalCase.startCase(Map.of("ready", true));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -202,7 +202,7 @@ class StageBlackboardTest {
   @Test
   void stage_autocompletes_when_required_plan_item_completes() {
     // Start the case — no binding fires yet (requires .go == true signal)
-    UUID caseId = onceSignalCase.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = onceSignalCase.startCase(Map.of());
 
     // Wait for the plan model to be created (first select() from initial CONTEXT_CHANGED)
     await()
@@ -264,7 +264,7 @@ class StageBlackboardTest {
    */
   @Test
   void stage_with_autocomplete_false_does_not_autocomplete() {
-    UUID caseId = onceSignalCase.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = onceSignalCase.startCase(Map.of());
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -311,7 +311,7 @@ class StageBlackboardTest {
    */
   @Test
   void nested_stage_activates_only_after_parent_is_active() {
-    UUID caseId = signalCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = signalCase.startCase(Map.of("ready", true));
 
     await()
         .atMost(10, TimeUnit.SECONDS)
@@ -360,7 +360,7 @@ class StageBlackboardTest {
    */
   @Test
   void stage_binding_declarations_persist_and_stage_activates_end_to_end() {
-    UUID caseId = signalCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = signalCase.startCase(Map.of("ready", true));
 
     await()
         .atMost(10, TimeUnit.SECONDS)

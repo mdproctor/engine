@@ -28,7 +28,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.queue.entry.CaseQueueEntryManager;
@@ -66,7 +66,7 @@ class CaseQueueLifecycleTest {
   private CaseQueueEntryStore entryStore;
   private CaseQueueViewManager viewManager;
   private CaseDefinitionRegistry definitionRegistry;
-  private ReactiveCaseInstanceRepository caseInstanceRepo;
+  private CaseInstanceRepository caseInstanceRepo;
   private SubjectViewOrchestrator orchestrator;
 
   @BeforeEach
@@ -83,7 +83,7 @@ class CaseQueueLifecycleTest {
     viewManager = new CaseQueueViewManager(orchestrator, viewStore);
 
     definitionRegistry = mock(CaseDefinitionRegistry.class);
-    caseInstanceRepo = mock(ReactiveCaseInstanceRepository.class);
+    caseInstanceRepo = mock(CaseInstanceRepository.class);
     when(caseInstanceRepo.update(any(), any()))
         .thenAnswer(inv -> Uni.createFrom().item(inv.getArgument(0, CaseInstance.class)));
 

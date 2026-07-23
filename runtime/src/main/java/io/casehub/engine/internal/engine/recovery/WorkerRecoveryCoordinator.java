@@ -21,9 +21,10 @@ import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
+
+import java.time.Duration;
 
 @ApplicationScoped
 public class WorkerRecoveryCoordinator {
@@ -48,21 +49,18 @@ public class WorkerRecoveryCoordinator {
   }
 
   void triggerRecovery() {
-    recoveryService
-        .recoverPendingScheduledWorkers()
-        .ifNoItem()
-        .after(recoveryTimeout)
-        .fail()
-        .subscribe()
-        .with(
-            v -> {
-              status = RecoveryStatus.COMPLETED;
-              LOG.info("Worker execution recovery completed");
-            },
-            t -> {
-              status = RecoveryStatus.FAILED;
-              LOG.errorf(t, "Worker execution recovery failed");
-            });
+    try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      var future = executor.submit(() -> recoveryService.recoverPendingScheduledWorkers());
+      future.get(recoveryTimeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
+      status = RecoveryStatus.COMPLETED;
+      LOG.info("Worker execution recovery completed");
+    } catch (java.util.concurrent.TimeoutException t) {
+      status = RecoveryStatus.FAILED;
+      LOG.errorf("Worker execution recovery timed out after %s", recoveryTimeout);
+    } catch (Exception t) {
+      status = RecoveryStatus.FAILED;
+      LOG.errorf(t, "Worker execution recovery failed");
+    }
   }
 
   public RecoveryStatus getRecoveryStatus() {

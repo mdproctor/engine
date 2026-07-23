@@ -41,8 +41,8 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
@@ -82,8 +82,8 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
   private final EventBus eventBus;
   private final PendingWorkRegistry pendingWorkRegistry;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
-  private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
-  private final ReactiveEventLogRepository reactiveEventLogRepository;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final EventLogRepository eventLogRepository;
   private final JQEvaluator jqEvaluator;
   private final CbrRetrievalService cbrRetrievalService;
 
@@ -96,8 +96,8 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       final EventBus eventBus,
       final PendingWorkRegistry pendingWorkRegistry,
       final CaseDefinitionRegistry caseDefinitionRegistry,
-      final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository,
-      final ReactiveEventLogRepository reactiveEventLogRepository,
+      final CaseInstanceRepository caseInstanceRepository,
+      final EventLogRepository eventLogRepository,
       final JQEvaluator jqEvaluator,
       final CbrRetrievalService cbrRetrievalService) {
     this.agentCandidateFactory = agentCandidateFactory;
@@ -107,8 +107,8 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     this.eventBus = eventBus;
     this.pendingWorkRegistry = pendingWorkRegistry;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
-    this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
-    this.reactiveEventLogRepository = reactiveEventLogRepository;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.eventLogRepository = eventLogRepository;
     this.jqEvaluator = jqEvaluator;
     this.cbrRetrievalService = cbrRetrievalService;
   }
@@ -227,20 +227,18 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     // 7. Write WORK_SUBMITTED EventLog (fire-and-forget)
     final EventLog submittedLog =
         buildWorkSubmittedLog(instance, selectedWorker, capability, correlationKey);
-    reactiveEventLogRepository
-        .appendAndReturnId(submittedLog, instance.tenancyId)
-        .subscribe()
-        .with(
-            id ->
-                LOG.debugf(
-                    "WORK_SUBMITTED persisted: caseId=%s worker=%s correlationKey=%s eventLogId=%d",
-                    instance.getUuid(), selectedWorker.name(), correlationKey, id),
-            t ->
-                LOG.warnf(
-                    t,
-                    "Failed to persist WORK_SUBMITTED: caseId=%s worker=%s",
-                    instance.getUuid(),
-                    selectedWorker.name()));
+    try {
+      Long id = eventLogRepository.appendAndReturnId(submittedLog, instance.tenancyId);
+      LOG.debugf(
+          "WORK_SUBMITTED persisted: caseId=%s worker=%s correlationKey=%s eventLogId=%d",
+          instance.getUuid(), selectedWorker.name(), correlationKey, id);
+    } catch (Exception t) {
+      LOG.warnf(
+          t,
+          "Failed to persist WORK_SUBMITTED: caseId=%s worker=%s",
+          instance.getUuid(),
+          selectedWorker.name());
+    }
 
     // 8. For waitMode: transition case to WAITING and persist
     if (waitMode) {
@@ -248,15 +246,14 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
       instance.setWaitingForWorkId(correlationKey);
 
       final EventLog waitingLog = buildCaseStatusChangedLog(instance, CaseStatus.WAITING);
-      reactiveCaseInstanceRepository
-          .updateStateAndAppendEvent(instance, waitingLog, instance.tenancyId)
-          .subscribe()
-          .with(
-              ignored ->
-                  LOG.debugf(
-                      "Case transitioned to WAITING: caseId=%s correlationKey=%s",
-                      instance.getUuid(), correlationKey),
-              t -> LOG.warnf(t, "Failed to persist WAITING state: caseId=%s", instance.getUuid()));
+      try {
+        caseInstanceRepository.updateStateAndAppendEvent(instance, waitingLog, instance.tenancyId);
+        LOG.debugf(
+            "Case transitioned to WAITING: caseId=%s correlationKey=%s",
+            instance.getUuid(), correlationKey);
+      } catch (Exception t) {
+        LOG.warnf(t, "Failed to persist WAITING state: caseId=%s", instance.getUuid());
+      }
     }
 
     // 9. Publish WorkerScheduleEvent

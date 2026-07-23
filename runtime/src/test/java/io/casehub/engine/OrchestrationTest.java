@@ -39,9 +39,8 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -68,12 +67,14 @@ class OrchestrationTest {
     UUID caseId = startCase();
     var instance = cache.get(caseId);
 
-    CompletionStage<WorkResult> future =
-        orchestrator.submit(instance, WorkRequest.of("analyse", Map.of("doc", "report")));
+    CompletableFuture<WorkResult> future =
+        orchestrator
+            .submit(instance, WorkRequest.of("analyse", Map.of("doc", "report")))
+            .toCompletableFuture();
 
-    await().atMost(15, TimeUnit.SECONDS).until(() -> future.toCompletableFuture().isDone());
+    await().atMost(15, TimeUnit.SECONDS).until(() -> future.isDone());
 
-    WorkResult result = future.toCompletableFuture().get();
+    WorkResult result = future.get();
     assertThat(result.status()).isEqualTo(WorkStatus.COMPLETED);
   }
 
@@ -100,12 +101,9 @@ class OrchestrationTest {
     UUID caseId = startCase();
     var instance = cache.get(caseId);
 
-    var future =
-        orchestrator
-            .submit(instance, WorkRequest.of("nonexistent", Map.of()))
-            .toCompletableFuture();
+    var future = orchestrator.submit(instance, WorkRequest.of("nonexistent", Map.of()));
 
-    assertThat(future.isCompletedExceptionally()).isTrue();
+    assertThat(future.toCompletableFuture().isCompletedExceptionally()).isTrue();
   }
 
   // ---- helper ---------------------------------------------------------------
@@ -115,10 +113,9 @@ class OrchestrationTest {
    * submission to the orchestrator is the explicit submit() call in each test.
    */
   private UUID startCase() throws Exception {
-    AtomicReference<UUID> ref = new AtomicReference<>();
-    simpleCase.startCase(Map.of("doc", "initial")).thenAccept(ref::set);
-    await().atMost(5, TimeUnit.SECONDS).until(() -> ref.get() != null);
-    return ref.get();
+    UUID caseId = simpleCase.startCase(Map.of("doc", "initial"));
+    await().atMost(5, TimeUnit.SECONDS).until(() -> cache.get(caseId) != null);
+    return caseId;
   }
 
   // ---- Case bean ------------------------------------------------------------

@@ -56,7 +56,7 @@ class SignalRaceTest {
   @Test
   void signalImmediatelyAfterStartCaseSucceeds() {
     String orderId = "order-race-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("orderId", orderId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", orderId));
 
     // Signal immediately — no Thread.sleep, no await before signal
     bean.signal(caseId, "payment", Map.of("amount", 100, "currency", "EUR"));
@@ -85,8 +85,7 @@ class SignalRaceTest {
    */
   @Test
   void caseIsRunningWhenStartCaseReturns() {
-    UUID caseId =
-        bean.startCase(Map.of("orderId", "order-state-check")).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", "order-state-check"));
 
     var instance = caseInstanceCache.get(caseId);
     assertThat(instance).as("CaseInstance must be in cache after startCase() returns").isNotNull();

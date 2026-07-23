@@ -41,7 +41,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -67,28 +66,7 @@ class DeadLetterQueueEndToEndTest {
   /** Happy path: exhausted retries → FAULTED case + DLQ entry. */
   @Test
   void workerExhaustingRetries_faultsCase_andCreatesDlqEntry() {
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-    AtomicReference<Throwable> err = new AtomicReference<>();
-
-    alwaysFailingCase
-        .startCase(Map.of("status", "start"))
-        .thenAccept(caseIdRef::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
-
-    // Wait for case to be created
-    await()
-        .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              if (err.get() != null) throw new AssertionError(err.get());
-              assertThat(caseIdRef.get()).isNotNull();
-            });
-
-    UUID caseId = caseIdRef.get();
+    UUID caseId = alwaysFailingCase.startCase(Map.of("status", "start"));
 
     // Wait for case to reach FAULTED (all retries exhausted)
     await()
@@ -119,7 +97,7 @@ class DeadLetterQueueEndToEndTest {
   /** DLQ entry can be discarded after inspection. */
   @Test
   void dlqEntry_canBeDiscarded() {
-    fastFailingCase.startCase(Map.of("status", "start")).toCompletableFuture().join();
+    fastFailingCase.startCase(Map.of("status", "start"));
 
     // Wait for DLQ entry
     await()
@@ -141,8 +119,7 @@ class DeadLetterQueueEndToEndTest {
   /** Replay on a FAULTED case must be rejected gracefully — returns empty, entry stays PENDING. */
   @Test
   void failedWorker_dlqEntry_replayOnFaultedCase_returnsEmpty() {
-    UUID caseId =
-        alwaysFailingCase.startCase(Map.of("status", "start")).toCompletableFuture().join();
+    UUID caseId = alwaysFailingCase.startCase(Map.of("status", "start"));
 
     await()
         .atMost(30, TimeUnit.SECONDS)

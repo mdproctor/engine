@@ -72,7 +72,7 @@ public class SignalTest {
   @Test
   void workerShouldNotRunBeforeSignalAndRunAfter() {
     String orderId = "order-signal-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("orderId", orderId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", orderId));
 
     assertNotNull(caseId);
 
@@ -103,7 +103,7 @@ public class SignalTest {
 
     // Unique orderId per run — isolates this test's run count from other tests' workers
     String orderId = "order-dedup-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("orderId", orderId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", orderId));
 
     // Reset after startCase: any async workers from previous tests should have settled
     // by the time startCase() returns (it's a blocking call). This minimises contamination.
@@ -125,7 +125,7 @@ public class SignalTest {
     SignalCaseHubBean.runCountByOrderId.clear();
 
     String orderId = "order-primitive-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("orderId", orderId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", orderId));
 
     // signal writes a non-null value — rule checks `.payment != null`
     bean.signal(caseId, "payment", 999);
@@ -142,11 +142,7 @@ public class SignalTest {
   void twoIndependentSignalsTriggerTwoWorkers() {
     SignalCaseHubBean.runCount.set(0);
     SignalCaseHubBean.runCountByOrderId.clear();
-    UUID caseId =
-        twoSignalBean
-            .startCase(Map.of("orderId", "order-two-signals"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = twoSignalBean.startCase(Map.of("orderId", "order-two-signals"));
 
     // neither worker should run yet
     await()
@@ -185,14 +181,14 @@ public class SignalTest {
     SignalCaseHubBean.runCountByOrderId.clear();
 
     String orderId = "order-query-" + UUID.randomUUID();
-    UUID caseId = bean.startCase(Map.of("orderId", orderId)).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of("orderId", orderId));
 
     bean.signal(caseId, "payment", Map.of("amount", 750, "currency", "GBP"));
 
     awaitWorkerCompletedExactlyOnce(caseId, orderId, "Signal-driven worker must complete once");
 
     // the worker output wrote "status" = "paid" into the context
-    String status = bean.query(caseId, "status", String.class).toCompletableFuture().join();
+    String status = bean.query(caseId, "status", String.class);
     assertEquals("paid", status);
   }
 

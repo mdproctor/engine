@@ -33,9 +33,9 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
+import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -67,85 +67,74 @@ public class MilestoneLifecycleManager {
           CaseHubEventType.MILESTONE_COMPLETED,
           CaseHubEventType.MILESTONE_SLA_VIOLATED);
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject ExpressionEngineRegistry expressionEngineRegistry;
 
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
-  public Uni<Void> onContextChanged(CaseContextChangedEvent event) {
-    CaseInstance caseInstance = event.instance();
-    CaseMetaModel caseMetaModel = caseInstance.getCaseMetaModel();
+  @RunOnVirtualThread
+  void onContextChanged(CaseContextChangedEvent event) {
+    try {
+      CaseInstance caseInstance = event.instance();
+      CaseMetaModel caseMetaModel = caseInstance.getCaseMetaModel();
 
-    LOG.debugf(
-        "CONTEXT_CHANGED received for case %s, state=%s",
-        caseInstance.getUuid(), caseInstance.getState());
-
-    // Skip if no metamodel attached
-    if (caseMetaModel == null) {
       LOG.debugf(
-          "Case %s has no CaseMetaModel, skipping milestone evaluation", caseInstance.getUuid());
-      return Uni.createFrom().voidItem();
-    }
+          "CONTEXT_CHANGED received for case %s, state=%s",
+          caseInstance.getUuid(), caseInstance.getState());
 
-    // Only evaluate milestones for RUNNING cases
-    if (!caseInstance.getState().equals(CaseStatus.RUNNING)) {
-      LOG.debugf("Case %s not RUNNING, skipping milestone evaluation", caseInstance.getUuid());
-      return Uni.createFrom().voidItem();
-    }
+      // Skip if no metamodel attached
+      if (caseMetaModel == null) {
+        LOG.debugf(
+            "Case %s has no CaseMetaModel, skipping milestone evaluation", caseInstance.getUuid());
+        return;
+      }
 
-    CaseDefinition definition = caseDefinitionRegistry.getCaseDefinition(caseMetaModel);
+      // Only evaluate milestones for RUNNING cases
+      if (!caseInstance.getState().equals(CaseStatus.RUNNING)) {
+        LOG.debugf("Case %s not RUNNING, skipping milestone evaluation", caseInstance.getUuid());
+        return;
+      }
 
-    if (definition == null
-        || definition.getMilestones() == null
-        || definition.getMilestones().isEmpty()) {
-      LOG.debugf("Case %s has no milestones, skipping evaluation", caseInstance.getUuid());
-      return Uni.createFrom().voidItem();
+      CaseDefinition definition = caseDefinitionRegistry.getCaseDefinition(caseMetaModel);
+
+      if (definition == null
+          || definition.getMilestones() == null
+          || definition.getMilestones().isEmpty()) {
+        LOG.debugf("Case %s has no milestones, skipping evaluation", caseInstance.getUuid());
+        return;
+      }
+
+      LOG.debugf(
+          "Evaluating %d milestone(s) for case %s",
+          definition.getMilestones().size(), caseInstance.getUuid());
+
+      for (Milestone milestone : definition.getMilestones()) {
+        evaluateMilestone(caseInstance, milestone);
+      }
+    } catch (Exception e) {
+      LOG.errorf(e, "Failed to evaluate milestones for case %s", event.instance().getUuid());
     }
+  }
+
+  private void evaluateMilestone(CaseInstance caseInstance, Milestone milestone) {
+    MilestoneLifecycleStatus currentStatus =
+        getCurrentLifecycleStatus(
+            caseInstance.getUuid(), milestone.getName(), caseInstance.tenancyId);
 
     LOG.debugf(
-        "Evaluating %d milestone(s) for case %s",
-        definition.getMilestones().size(), caseInstance.getUuid());
+        "Milestone '%s' current status: %s (case %s)",
+        milestone.getName(), currentStatus, caseInstance.getUuid());
 
-    List<Uni<Void>> evaluations =
-        definition.getMilestones().stream()
-            .map(milestone -> evaluateMilestone(caseInstance, milestone))
-            .toList();
-
-    return Uni.combine()
-        .all()
-        .unis(evaluations)
-        .discardItems()
-        .onFailure()
-        .invoke(
-            throwable ->
-                LOG.errorf(
-                    throwable,
-                    "Failed to evaluate milestones for case %s",
-                    caseInstance.getUuid()));
+    if (currentStatus == MilestoneLifecycleStatus.PENDING) {
+      evaluateEntryCriteria(caseInstance, milestone);
+    } else if (currentStatus == MilestoneLifecycleStatus.ACTIVE) {
+      evaluateCompletionCriteria(caseInstance, milestone);
+    }
+    // COMPLETED, FAILED, CANCELLED — no further transitions
   }
 
-  private Uni<Void> evaluateMilestone(CaseInstance caseInstance, Milestone milestone) {
-    return getCurrentLifecycleStatus(
-            caseInstance.getUuid(), milestone.getName(), caseInstance.tenancyId)
-        .chain(
-            currentStatus -> {
-              LOG.debugf(
-                  "Milestone '%s' current status: %s (case %s)",
-                  milestone.getName(), currentStatus, caseInstance.getUuid());
-
-              if (currentStatus == MilestoneLifecycleStatus.PENDING) {
-                return evaluateEntryCriteria(caseInstance, milestone);
-              } else if (currentStatus == MilestoneLifecycleStatus.ACTIVE) {
-                return evaluateCompletionCriteria(caseInstance, milestone);
-              } else {
-                // COMPLETED, FAILED, CANCELLED — no further transitions
-                return Uni.createFrom().voidItem();
-              }
-            });
-  }
-
-  private Uni<Void> evaluateEntryCriteria(CaseInstance caseInstance, Milestone milestone) {
+  private void evaluateEntryCriteria(CaseInstance caseInstance, Milestone milestone) {
     CaseContext context = caseInstance.getCaseContext();
     boolean met = expressionEngineRegistry.evaluate(milestone.getEntryCriteria(), context);
 
@@ -154,134 +143,111 @@ public class MilestoneLifecycleManager {
         milestone.getName(), milestone.getEntryCriteria(), met, caseInstance.getUuid());
 
     if (!met) {
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     LOG.infof("Milestone '%s' ACTIVATED (entryCriteria met)", milestone.getName());
 
     Instant activatedAt = Instant.now();
+    Instant slaDeadline = calculateSlaDeadline(caseInstance, milestone, activatedAt);
 
-    return calculateSlaDeadline(caseInstance, milestone, activatedAt)
-        .chain(
-            slaDeadline ->
-                Uni.createFrom()
-                    .item(
-                        new MilestoneActivatedEvent(
-                            caseInstance, milestone, activatedAt, slaDeadline))
-                    .invoke(e -> eventBus.publish(EventBusAddresses.MILESTONE_ACTIVATED, e))
-                    .replaceWithVoid());
+    eventBus.publish(
+        EventBusAddresses.MILESTONE_ACTIVATED,
+        new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, slaDeadline));
   }
 
-  private Uni<Void> evaluateCompletionCriteria(CaseInstance caseInstance, Milestone milestone) {
+  private void evaluateCompletionCriteria(CaseInstance caseInstance, Milestone milestone) {
     CaseContext context = caseInstance.getCaseContext();
     boolean met = expressionEngineRegistry.evaluate(milestone.getCompletionCriteria(), context);
 
     if (!met) {
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     LOG.infof("Milestone '%s' COMPLETED (completionCriteria met)", milestone.getName());
 
-    return getCurrentSlaStatus(caseInstance, milestone.getName())
-        .chain(
-            slaStatus -> {
-              Instant completedAt = Instant.now();
-              return Uni.createFrom()
-                  .item(
-                      new MilestoneCompletedEvent(caseInstance, milestone, completedAt, slaStatus))
-                  .invoke(e -> eventBus.publish(EventBusAddresses.MILESTONE_COMPLETED, e))
-                  .replaceWithVoid();
-            });
+    SlaStatus slaStatus = getCurrentSlaStatus(caseInstance, milestone.getName());
+    Instant completedAt = Instant.now();
+
+    eventBus.publish(
+        EventBusAddresses.MILESTONE_COMPLETED,
+        new MilestoneCompletedEvent(caseInstance, milestone, completedAt, slaStatus));
   }
 
-  private Uni<EventLog> findLastMilestoneEvent(
+  private EventLog findLastMilestoneEvent(UUID caseId, String milestoneName, String tenancyId) {
+    List<EventLog> events =
+        eventLogRepository.findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS, tenancyId);
+    return events.stream()
+        .filter(e -> milestoneName.equals(e.getPayload().get("milestoneName").asText()))
+        .max(Comparator.comparing(EventLog::getSeq))
+        .orElse(null);
+  }
+
+  private MilestoneLifecycleStatus getCurrentLifecycleStatus(
       UUID caseId, String milestoneName, String tenancyId) {
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS, tenancyId)
-        .map(
-            events ->
-                events.stream()
-                    .filter(e -> milestoneName.equals(e.getPayload().get("milestoneName").asText()))
-                    .max(Comparator.comparing(EventLog::getSeq))
-                    .orElse(null));
+    EventLog lastEvent = findLastMilestoneEvent(caseId, milestoneName, tenancyId);
+    if (lastEvent == null) {
+      return MilestoneLifecycleStatus.PENDING;
+    }
+
+    return switch (lastEvent.getEventType()) {
+      case MILESTONE_ACTIVATED -> MilestoneLifecycleStatus.ACTIVE;
+      case MILESTONE_COMPLETED -> MilestoneLifecycleStatus.COMPLETED;
+      case MILESTONE_SLA_VIOLATED ->
+          MilestoneLifecycleStatus
+              .ACTIVE; // TODO maybe it must be configurable whether SLA violation
+      // deactivates the milestone or not?
+      default -> MilestoneLifecycleStatus.PENDING;
+    };
   }
 
-  private Uni<MilestoneLifecycleStatus> getCurrentLifecycleStatus(
-      UUID caseId, String milestoneName, String tenancyId) {
-    return findLastMilestoneEvent(caseId, milestoneName, tenancyId)
-        .map(
-            lastEvent -> {
-              if (lastEvent == null) {
-                return MilestoneLifecycleStatus.PENDING;
-              }
+  private SlaStatus getCurrentSlaStatus(CaseInstance caseInstance, String milestoneName) {
+    EventLog lastEvent =
+        findLastMilestoneEvent(caseInstance.getUuid(), milestoneName, caseInstance.tenancyId);
+    if (lastEvent == null) {
+      return SlaStatus.NOT_STARTED;
+    }
 
-              return switch (lastEvent.getEventType()) {
-                case MILESTONE_ACTIVATED -> MilestoneLifecycleStatus.ACTIVE;
-                case MILESTONE_COMPLETED -> MilestoneLifecycleStatus.COMPLETED;
-                case MILESTONE_SLA_VIOLATED ->
-                    MilestoneLifecycleStatus
-                        .ACTIVE; // TODO maybe it must be configurable whether SLA violation
-                // deactivates the milestone or not?
-                default -> MilestoneLifecycleStatus.PENDING;
-              };
-            });
+    JsonNode payload = lastEvent.getPayload();
+    JsonNode slaStatusNode = payload.get("slaStatus");
+    if (slaStatusNode == null) {
+      return SlaStatus.NOT_STARTED;
+    }
+    String slaStatusStr = slaStatusNode.asText();
+    return SlaStatus.valueOf(slaStatusStr);
   }
 
-  private Uni<SlaStatus> getCurrentSlaStatus(CaseInstance caseInstance, String milestoneName) {
-    return findLastMilestoneEvent(caseInstance.getUuid(), milestoneName, caseInstance.tenancyId)
-        .map(
-            lastEvent -> {
-              if (lastEvent == null) {
-                return SlaStatus.NOT_STARTED;
-              }
-
-              JsonNode payload = lastEvent.getPayload();
-              JsonNode slaStatusNode = payload.get("slaStatus");
-              if (slaStatusNode == null) {
-                return SlaStatus.NOT_STARTED;
-              }
-              String slaStatusStr = slaStatusNode.asText();
-              return SlaStatus.valueOf(slaStatusStr);
-            });
-  }
-
-  private Uni<Instant> calculateSlaDeadline(
+  private Instant calculateSlaDeadline(
       CaseInstance caseInstance, Milestone milestone, Instant activatedAt) {
     Duration slaDuration = milestone.getSlaDuration();
     if (slaDuration == null) {
-      return Uni.createFrom().nullItem();
+      return null;
     }
 
     SlaStartFrom slaStartFrom = milestone.getSlaStartFrom();
     if (slaStartFrom == SlaStartFrom.MILESTONE_ACTIVATED) {
-      return Uni.createFrom().item(activatedAt.plus(slaDuration));
+      return activatedAt.plus(slaDuration);
     }
 
     if (slaStartFrom == SlaStartFrom.CASE_CREATED) {
       // Query EventLog for CASE_STARTED event to get creation timestamp
-      return reactiveEventLogRepository
-          .findByCaseAndTypes(
+      List<EventLog> events =
+          eventLogRepository.findByCaseAndTypes(
               caseInstance.getUuid(),
               EnumSet.of(CaseHubEventType.CASE_STARTED),
-              caseInstance.tenancyId)
-          .map(
-              events -> {
-                EventLog caseStartedEvent =
-                    events.stream()
-                        .filter(e -> e.getEventType() == CaseHubEventType.CASE_STARTED)
-                        .findFirst()
-                        .orElseThrow(
-                            () ->
-                                new IllegalStateException(
-                                    "CASE_STARTED event not found for case: "
-                                        + caseInstance.getUuid()));
-                return caseStartedEvent.getTimestamp().plus(slaDuration);
-              });
+              caseInstance.tenancyId);
+      EventLog caseStartedEvent =
+          events.stream()
+              .filter(e -> e.getEventType() == CaseHubEventType.CASE_STARTED)
+              .findFirst()
+              .orElseThrow(
+                  () ->
+                      new IllegalStateException(
+                          "CASE_STARTED event not found for case: " + caseInstance.getUuid()));
+      return caseStartedEvent.getTimestamp().plus(slaDuration);
     }
 
-    return Uni.createFrom()
-        .failure(
-            new UnsupportedOperationException(
-                "SlaStartFrom." + slaStartFrom + " not yet implemented"));
+    throw new UnsupportedOperationException(
+        "SlaStartFrom." + slaStartFrom + " not yet implemented");
   }
 }

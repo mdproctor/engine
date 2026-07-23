@@ -16,9 +16,11 @@
 package io.casehub.persistence.jpa;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import io.quarkus.hibernate.reactive.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -34,7 +36,11 @@ import org.hibernate.type.SqlTypes;
             name = "uq_case_meta_model_tenant_key",
             columnNames = {"tenancy_id", "namespace", "name", "version"}),
     indexes = {@Index(name = "idx_case_meta_model_tenancy_id", columnList = "tenancy_id")})
-public class CaseMetaModelEntity extends PanacheEntity {
+public class CaseMetaModelEntity {
+
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  public Long id;
 
   @Column(nullable = false, length = 255)
   public String name;

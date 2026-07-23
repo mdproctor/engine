@@ -30,7 +30,7 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.SignalRejectedException;
 import io.casehub.api.model.SignalType;
 import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -49,7 +49,7 @@ class TypedSignalIntegrationTest {
 
   @Inject CaseHubRuntime runtime;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject ReactiveEventLogRepository eventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
   @Inject TypedSignalCaseBean typedSignalCaseBean;
 
   public record PaymentEvent(String txnId, double amount) {}
@@ -105,12 +105,9 @@ class TypedSignalIntegrationTest {
 
   @Test
   void typedSignal_writesToSignalsNamespace() throws Exception {
-    UUID caseId = typedSignalCaseBean.startCase(Map.of()).toCompletableFuture().get(5, SECONDS);
+    UUID caseId = typedSignalCaseBean.startCase(Map.of());
 
-    runtime
-        .signal(caseId, PAYMENT_SIGNAL, new PaymentEvent("T1", 99.99))
-        .toCompletableFuture()
-        .get(5, SECONDS);
+    runtime.signal(caseId, PAYMENT_SIGNAL, new PaymentEvent("T1", 99.99));
 
     await()
         .atMost(10, SECONDS)
@@ -125,7 +122,7 @@ class TypedSignalIntegrationTest {
 
   @Test
   void typedSignal_rejectedWhenNotDeclared() throws Exception {
-    UUID caseId = typedSignalCaseBean.startCase(Map.of()).toCompletableFuture().get(5, SECONDS);
+    UUID caseId = typedSignalCaseBean.startCase(Map.of());
 
     SignalType<String> undeclared = SignalType.of("unknown-signal", String.class);
     assertThatThrownBy(() -> runtime.signal(caseId, undeclared, "test"))
@@ -134,7 +131,7 @@ class TypedSignalIntegrationTest {
 
   @Test
   void typedSignal_rejectedWhenPayloadTypeMismatch() throws Exception {
-    UUID caseId = typedSignalCaseBean.startCase(Map.of()).toCompletableFuture().get(5, SECONDS);
+    UUID caseId = typedSignalCaseBean.startCase(Map.of());
 
     SignalType<String> wrongType = SignalType.of("payment-received", String.class);
     assertThatThrownBy(() -> runtime.signal(caseId, wrongType, "wrong"))
@@ -149,27 +146,19 @@ class TypedSignalIntegrationTest {
 
   @Test
   void typedSignal_eventLogCarriesMetadata() throws Exception {
-    UUID caseId = typedSignalCaseBean.startCase(Map.of()).toCompletableFuture().get(5, SECONDS);
+    UUID caseId = typedSignalCaseBean.startCase(Map.of());
 
-    runtime
-        .signal(caseId, PAYMENT_SIGNAL, new PaymentEvent("T2", 50.0))
-        .toCompletableFuture()
-        .get(5, SECONDS);
+    runtime.signal(caseId, PAYMENT_SIGNAL, new PaymentEvent("T2", 50.0));
 
     await()
         .atMost(10, SECONDS)
         .untilAsserted(
             () -> {
               var logs =
-                  eventLogRepository
-                      .findByCaseAndTypes(
-                          caseId,
-                          java.util.List.of(CaseHubEventType.SIGNAL_RECEIVED),
-                          TenancyConstants.DEFAULT_TENANT_ID)
-                      .subscribe()
-                      .asCompletionStage()
-                      .toCompletableFuture()
-                      .join();
+                  eventLogRepository.findByCaseAndTypes(
+                      caseId,
+                      java.util.List.of(CaseHubEventType.SIGNAL_RECEIVED),
+                      TenancyConstants.DEFAULT_TENANT_ID);
               var signalLogs =
                   logs.stream()
                       .filter(

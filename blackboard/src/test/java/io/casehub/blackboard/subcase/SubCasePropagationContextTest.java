@@ -48,7 +48,7 @@ class SubCasePropagationContextTest {
 
   @Test
   void child_inherits_traceId_and_parentCaseId() {
-    UUID parentId = parentCase.startCase(Map.of("trigger", "go")).toCompletableFuture().join();
+    UUID parentId = parentCase.startCase(Map.of("trigger", "go"));
 
     // Wait for parent to go WAITING (child spawned, waitForCompletion=true)
     await()

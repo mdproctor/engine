@@ -23,7 +23,7 @@ import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.scheduler.Scheduled;
 import io.vertx.mutiny.core.eventbus.EventBus;
@@ -56,16 +56,14 @@ public class CaseTimeoutEnforcer {
 
   private final CaseInstanceCache cache;
   private final EventBus eventBus;
-  private final ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  private final CaseInstanceRepository caseInstanceRepository;
 
   @Inject
   public CaseTimeoutEnforcer(
-      CaseInstanceCache cache,
-      EventBus eventBus,
-      ReactiveCaseInstanceRepository reactiveCaseInstanceRepository) {
+      CaseInstanceCache cache, EventBus eventBus, CaseInstanceRepository caseInstanceRepository) {
     this.cache = cache;
     this.eventBus = eventBus;
-    this.reactiveCaseInstanceRepository = reactiveCaseInstanceRepository;
+    this.caseInstanceRepository = caseInstanceRepository;
   }
 
   /**
@@ -100,19 +98,17 @@ public class CaseTimeoutEnforcer {
       eventLog.setTimestamp(now);
       eventLog.setMetadata(OBJECT_MAPPER.createObjectNode().put("reason", "timeout"));
 
-      reactiveCaseInstanceRepository
-          .updateStateAndAppendEvent(instance, eventLog, instance.tenancyId)
-          .subscribe()
-          .with(
-              ignored ->
-                  eventBus.publish(
-                      EventBusAddresses.CASE_STATUS_CHANGED,
-                      new CaseStatusChanged(instance, oldStatus, CaseStatus.FAULTED.name())),
-              error ->
-                  LOG.errorf(
-                      error,
-                      "Failed to persist FAULTED state for case %s — state is already mutated in cache",
-                      caseId));
+      try {
+        caseInstanceRepository.updateStateAndAppendEvent(instance, eventLog, instance.tenancyId);
+        eventBus.publish(
+            EventBusAddresses.CASE_STATUS_CHANGED,
+            new CaseStatusChanged(instance, oldStatus, CaseStatus.FAULTED.name()));
+      } catch (Exception error) {
+        LOG.errorf(
+            error,
+            "Failed to persist FAULTED state for case %s — state is already mutated in cache",
+            caseId);
+      }
     }
   }
 }

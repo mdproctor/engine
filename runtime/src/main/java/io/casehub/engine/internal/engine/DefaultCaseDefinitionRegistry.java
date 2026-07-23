@@ -40,9 +40,8 @@ import io.casehub.engine.common.internal.config.ConfigManager;
 import io.casehub.engine.common.internal.config.SecretManager;
 import io.casehub.engine.common.internal.model.CaseKey;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCaseMetaModelRepository;
+import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.path.Path;
 import io.casehub.worker.api.Worker;
@@ -68,8 +67,8 @@ import org.jboss.logging.Logger;
 /**
  * Default implementation of {@link CaseDefinitionRegistry}.
  *
- * <p>Persists each definition's metadata via {@link ReactiveCaseMetaModelRepository} on startup so
- * the engine can reference it by id.
+ * <p>Persists each definition's metadata via {@link CaseMetaModelRepository} on startup so the
+ * engine can reference it by id.
  */
 @ApplicationScoped
 public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
@@ -116,7 +115,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
   @Inject Instance<CaseHub> caseHubInstance;
 
-  @Inject ReactiveCaseMetaModelRepository reactiveCaseMetaModelRepository;
+  @Inject CaseMetaModelRepository caseMetaModelRepository;
 
   @Inject Vertx vertx;
 
@@ -134,9 +133,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   Duration startupTimeout;
 
   void onStart(@Observes @Priority(10) StartupEvent ev) {
-    ReactiveUtils.runOnSafeVertxContext(vertx, this::registerKnownDefinitions)
-        .await()
-        .atMost(startupTimeout);
+    registerKnownDefinitions().await().atMost(startupTimeout);
   }
 
   Uni<Void> registerKnownDefinitions() {
@@ -199,24 +196,22 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
     JsonNode definitionJson = serializeDefinition(model);
 
-    return reactiveCaseMetaModelRepository
-        .findByKey(
-            model.getNamespace(), model.getName(), model.getVersion(), currentPrincipal.tenancyId())
-        .onItem()
-        .transformToUni(
-            dbModel -> {
-              if (dbModel != null) {
-                registry.put(CaseKey.of(dbModel), new RegistryEntry(model, dbModel));
-                return Uni.createFrom().item(dbModel);
-              }
-              metaModel.setDsl(model.getDsl());
-              metaModel.setDefinition(definitionJson);
-              metaModel.setCreatedAt(Instant.now());
-              return reactiveCaseMetaModelRepository
-                  .save(metaModel, currentPrincipal.tenancyId())
-                  .invoke(
-                      saved -> registry.put(CaseKey.of(saved), new RegistryEntry(model, saved)));
-            });
+    CaseMetaModel dbModel =
+        caseMetaModelRepository.findByKey(
+            model.getNamespace(),
+            model.getName(),
+            model.getVersion(),
+            currentPrincipal.tenancyId());
+    if (dbModel != null) {
+      registry.put(CaseKey.of(dbModel), new RegistryEntry(model, dbModel));
+      return Uni.createFrom().item(dbModel);
+    }
+    metaModel.setDsl(model.getDsl());
+    metaModel.setDefinition(definitionJson);
+    metaModel.setCreatedAt(Instant.now());
+    CaseMetaModel saved = caseMetaModelRepository.save(metaModel, currentPrincipal.tenancyId());
+    registry.put(CaseKey.of(saved), new RegistryEntry(model, saved));
+    return Uni.createFrom().item(saved);
   }
 
   @Override

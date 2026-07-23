@@ -23,8 +23,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
-import io.smallrye.mutiny.Uni;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Instant;
@@ -43,21 +42,10 @@ public class CaseResumptionService {
   private static final Logger LOG = Logger.getLogger(CaseResumptionService.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject ReactiveCaseInstanceRepository reactiveCaseInstanceRepository;
+  @Inject CaseInstanceRepository caseInstanceRepository;
   @Inject PendingWorkRegistry pendingWorkRegistry;
 
-  /**
-   * Transitions a WAITING case to RUNNING if the given correlationKey matches the case's
-   * waitingForWorkId. Writes the specified EventLog entry type, completes PendingWorkRegistry
-   * futures, and publishes CONTEXT_CHANGED.
-   *
-   * @param caseInstance the parent case (state may be mutated)
-   * @param correlationKey idempotency key or childCaseId.toString()
-   * @param workerId identifier of the completing worker or child case
-   * @param rawOutput output delivered to PendingWorkRegistry futures
-   * @param eventType WORK_COMPLETED for Quartz path, SUBCASE_COMPLETED for SubCase path
-   */
-  public Uni<Void> resumeIfWaiting(
+  public void resumeIfWaiting(
       CaseInstance caseInstance,
       String correlationKey,
       String workerId,
@@ -70,7 +58,7 @@ public class CaseResumptionService {
 
     if (!isWaiting || !isMatchingWork) {
       completeRegisteredFuture(correlationKey, workerId, rawOutput, caseInstance.getUuid());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     caseInstance.setState(CaseStatus.RUNNING);
@@ -90,12 +78,9 @@ public class CaseResumptionService {
         "Resuming WAITING case %s → RUNNING (correlationKey=%s eventType=%s)",
         caseInstance.getUuid(), correlationKey, eventType);
 
-    return reactiveCaseInstanceRepository
-        .updateStateAndAppendEvent(caseInstance, completedLog, caseInstance.tenancyId)
-        .invoke(
-            () ->
-                completeRegisteredFuture(
-                    correlationKey, workerId, rawOutput, caseInstance.getUuid()));
+    caseInstanceRepository.updateStateAndAppendEvent(
+        caseInstance, completedLog, caseInstance.tenancyId);
+    completeRegisteredFuture(correlationKey, workerId, rawOutput, caseInstance.getUuid());
   }
 
   private void completeRegisteredFuture(

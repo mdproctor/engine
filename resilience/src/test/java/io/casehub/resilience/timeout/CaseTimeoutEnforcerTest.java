@@ -21,17 +21,15 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.ReactiveCaseInstanceRepository;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Duration;
 import java.util.Map;
@@ -48,16 +46,15 @@ class CaseTimeoutEnforcerTest {
 
   private CaseInstanceCache cache;
   private EventBus eventBus;
-  private ReactiveCaseInstanceRepository repository;
+  private CaseInstanceRepository repository;
   private CaseTimeoutEnforcer enforcer;
 
   @BeforeEach
   void setUp() {
     cache = new CaseInstanceCacheImpl();
     eventBus = mock(EventBus.class);
-    repository = mock(ReactiveCaseInstanceRepository.class);
-    when(repository.updateStateAndAppendEvent(any(), any(), any()))
-        .thenReturn(Uni.createFrom().voidItem());
+    repository = mock(CaseInstanceRepository.class);
+
     enforcer = new CaseTimeoutEnforcer(cache, eventBus, repository);
   }
 

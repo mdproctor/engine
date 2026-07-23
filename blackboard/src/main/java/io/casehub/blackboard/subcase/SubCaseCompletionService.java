@@ -34,8 +34,8 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.GroupStatus;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
-import io.casehub.engine.common.spi.ReactiveSubCaseGroupRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
@@ -43,7 +43,6 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
@@ -54,9 +53,8 @@ import org.jboss.logging.Logger;
  * arrives and the terminating case is a child (its UUID appears in a parent's SUBCASE_STARTED
  * EventLog entry), updates the parent context and resumes the parent if it was WAITING.
  *
- * <p>Grouped path: delegates to {@link ReactiveSubCaseGroupRepository} and {@link
- * SubCaseGroupPolicy} to track threshold progress. Resumes parent only when the group reaches
- * COMPLETED threshold.
+ * <p>Grouped path: delegates to {@link SubCaseGroupRepository} and {@link SubCaseGroupPolicy} to
+ * track threshold progress. Resumes parent only when the group reaches COMPLETED threshold.
  *
  * <p>After resuming the parent, publishes {@link SubCaseExecutionCompleted} on the event bus so
  * {@link io.casehub.blackboard.handler.PlanItemCompletionHandler} can mark the SubCase PlanItem
@@ -71,11 +69,11 @@ public class SubCaseCompletionService {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
-  private final ReactiveEventLogRepository reactiveEventLogRepository;
+  private final EventLogRepository eventLogRepository;
   private final JQEvaluator jqEvaluator;
   private final CaseInstanceCache caseInstanceCache;
   private final CaseResumptionService caseResumptionService;
-  private final ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository;
+  private final SubCaseGroupRepository subCaseGroupRepository;
   private final CaseHubRuntime caseHubRuntime;
   private final EventBus eventBus;
   private final BlackboardRegistry registry;
@@ -84,21 +82,21 @@ public class SubCaseCompletionService {
 
   @Inject
   public SubCaseCompletionService(
-      ReactiveEventLogRepository reactiveEventLogRepository,
+      EventLogRepository eventLogRepository,
       JQEvaluator jqEvaluator,
       CaseInstanceCache caseInstanceCache,
       CaseResumptionService caseResumptionService,
-      ReactiveSubCaseGroupRepository reactiveSubCaseGroupRepository,
+      SubCaseGroupRepository subCaseGroupRepository,
       CaseHubRuntime caseHubRuntime,
       EventBus eventBus,
       BlackboardRegistry registry,
       Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents,
       io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry) {
-    this.reactiveEventLogRepository = reactiveEventLogRepository;
+    this.eventLogRepository = eventLogRepository;
     this.jqEvaluator = jqEvaluator;
     this.caseInstanceCache = caseInstanceCache;
     this.caseResumptionService = caseResumptionService;
-    this.reactiveSubCaseGroupRepository = reactiveSubCaseGroupRepository;
+    this.subCaseGroupRepository = subCaseGroupRepository;
     this.caseHubRuntime = caseHubRuntime;
     this.eventBus = eventBus;
     this.registry = registry;
@@ -112,11 +110,9 @@ public class SubCaseCompletionService {
     UUID childCaseId = event.caseId();
 
     EventLog startedEntry =
-        reactiveEventLogRepository
+        eventLogRepository
             .findByWorkerAndType(
                 childCaseId.toString(), CaseHubEventType.SUBCASE_STARTED, event.tenancyId())
-            .await()
-            .atMost(Duration.ofSeconds(10))
             .stream()
             .findFirst()
             .orElse(null);
@@ -144,17 +140,9 @@ public class SubCaseCompletionService {
 
     SubCaseGroup group;
     if (childCompleted) {
-      group =
-          reactiveSubCaseGroupRepository
-              .incrementCompleted(parentCaseId, groupId, event.tenancyId())
-              .await()
-              .atMost(Duration.ofSeconds(10));
+      group = subCaseGroupRepository.incrementCompleted(parentCaseId, groupId, event.tenancyId());
     } else {
-      group =
-          reactiveSubCaseGroupRepository
-              .incrementRejected(parentCaseId, groupId, event.tenancyId())
-              .await()
-              .atMost(Duration.ofSeconds(10));
+      group = subCaseGroupRepository.incrementRejected(parentCaseId, groupId, event.tenancyId());
     }
 
     Map<String, Object> appliedData = null;
@@ -176,10 +164,7 @@ public class SubCaseCompletionService {
 
     if (groupStatus == GroupStatus.COMPLETED || groupStatus == GroupStatus.REJECTED) {
       boolean won =
-          reactiveSubCaseGroupRepository
-              .markPolicyTriggered(parentCaseId, groupId, event.tenancyId())
-              .await()
-              .atMost(Duration.ofSeconds(10));
+          subCaseGroupRepository.markPolicyTriggered(parentCaseId, groupId, event.tenancyId());
 
       if (!won) {
         return;
@@ -201,15 +186,8 @@ public class SubCaseCompletionService {
           return;
         }
 
-        caseResumptionService
-            .resumeIfWaiting(
-                parent,
-                groupId,
-                childCaseId.toString(),
-                Map.of(),
-                CaseHubEventType.SUBCASE_COMPLETED)
-            .await()
-            .atMost(Duration.ofSeconds(10));
+        caseResumptionService.resumeIfWaiting(
+            parent, groupId, childCaseId.toString(), Map.of(), CaseHubEventType.SUBCASE_COMPLETED);
 
         eventBus.publish(
             BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED,
@@ -260,15 +238,12 @@ public class SubCaseCompletionService {
 
     writeCompletedLog(parentCaseId, childCaseId, null, null, appliedData, event.tenancyId());
 
-    caseResumptionService
-        .resumeIfWaiting(
-            parent,
-            childCaseId.toString(),
-            childCaseId.toString(),
-            Map.of(),
-            CaseHubEventType.SUBCASE_COMPLETED)
-        .await()
-        .atMost(Duration.ofSeconds(10));
+    caseResumptionService.resumeIfWaiting(
+        parent,
+        childCaseId.toString(),
+        childCaseId.toString(),
+        Map.of(),
+        CaseHubEventType.SUBCASE_COMPLETED);
 
     // Notify PlanItemCompletionHandler so it can mark the SubCase PlanItem COMPLETED and evaluate
     // stage autocomplete. For fire-and-forget subcases (waitForCompletion=false), the PlanItem was
@@ -421,7 +396,7 @@ public class SubCaseCompletionService {
     if (appliedData != null && !appliedData.isEmpty()) {
       log.setPayload(OBJECT_MAPPER.valueToTree(appliedData));
     }
-    reactiveEventLogRepository.append(log, tenancyId).await().atMost(Duration.ofSeconds(10));
+    eventLogRepository.append(log, tenancyId);
   }
 
   private static boolean isTerminal(String commandType) {

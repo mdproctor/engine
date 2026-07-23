@@ -47,7 +47,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -86,27 +85,7 @@ class ResilienceIntegrationTest {
    */
   @Test
   void exhaustedRetries_dlqPopulated_andQuarantineCanBeApplied() {
-    AtomicReference<UUID> caseIdRef = new AtomicReference<>();
-    AtomicReference<Throwable> err = new AtomicReference<>();
-
-    combinedFailureCase
-        .startCase(Map.of("trigger", "go"))
-        .thenAccept(caseIdRef::set)
-        .exceptionally(
-            ex -> {
-              err.set(ex);
-              return null;
-            });
-
-    await()
-        .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(
-            () -> {
-              if (err.get() != null) throw new AssertionError(err.get());
-              assertThat(caseIdRef.get()).isNotNull();
-            });
-
-    UUID caseId = caseIdRef.get();
+    UUID caseId = combinedFailureCase.startCase(Map.of("trigger", "go"));
 
     // Wait for case to reach FAULTED (retries exhausted)
     await()

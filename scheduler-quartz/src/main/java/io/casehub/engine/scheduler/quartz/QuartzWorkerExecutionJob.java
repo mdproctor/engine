@@ -30,19 +30,16 @@ import io.casehub.engine.common.internal.executor.WorkerExecutionConfig;
 import io.casehub.engine.common.internal.executor.WorkerExecutor;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.utils.ReactiveUtils;
 import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.ReactiveCrossTenantEventLogRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import io.smallrye.mutiny.Uni;
 import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
@@ -76,7 +73,7 @@ class QuartzWorkerExecutionJob implements Job {
 
   @Inject WorkerExecutionRecoveryService workerExecutionRecoveryService;
 
-  @Inject @CrossTenant ReactiveCrossTenantEventLogRepository eventLogRepository;
+  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
 
   @Inject WorkerExecutionConfig executionConfig;
 
@@ -93,8 +90,7 @@ class QuartzWorkerExecutionJob implements Job {
       String inputDataHash = executionContext.getMergedJobDataMap().getString("inputDataHash");
       String eventLogId = executionContext.getMergedJobDataMap().getString("eventLogId");
 
-      EventLog eventLog =
-          findEventLog(eventLogId).subscribe().asCompletionStage().toCompletableFuture().join();
+      EventLog eventLog = findEventLog(eventLogId);
 
       if (eventLog == null) {
         onFailure(retryCtx, new RuntimeException("EventLog not found: id=" + eventLogId));
@@ -102,10 +98,7 @@ class QuartzWorkerExecutionJob implements Job {
       }
 
       CaseInstance instance =
-          workerExecutionRecoveryService
-              .loadOrRestoreCaseInstance(eventLog.getCaseId())
-              .await()
-              .atMost(Duration.ofSeconds(10));
+          workerExecutionRecoveryService.loadOrRestoreCaseInstance(eventLog.getCaseId());
 
       CaseDefinition definition =
           caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
@@ -194,30 +187,25 @@ class QuartzWorkerExecutionJob implements Job {
 
       ExecutionMetadata metadata = new ExecutionMetadata(workerId, inputDataHash);
 
-      workerExecutor
-          .execute(
+      io.casehub.worker.api.WorkerResult<?> workerResult =
+          workerExecutor.execute(
               worker.function(),
               typedInput,
               workerContext,
               timeoutMs,
               capability.outputSchema(),
-              metadata)
-          .subscribe()
-          .with(
-              workerResult -> {
-                Map<String, Object> output = toMap(workerResult.output());
-                if ((output == null || output.isEmpty()) && bridge.isLiveView()) {
-                  output = bridgeResolver.extractOutput(bridge, typedInput);
-                }
-                if (output != null && !output.equals(workerResult.output())) {
-                  @SuppressWarnings({"unchecked", "rawtypes"})
-                  var replaced =
-                      new io.casehub.worker.api.WorkerResult(output, workerResult.outcome());
-                  workerResult = replaced;
-                }
-                onSuccess(instance, worker, inputDataHash, workerResult, bindingName, signalId);
-              },
-              failure -> onFailure(effectiveRetryCtx, failure));
+              metadata);
+
+      Map<String, Object> output = toMap(workerResult.output());
+      if ((output == null || output.isEmpty()) && bridge.isLiveView()) {
+        output = bridgeResolver.extractOutput(bridge, typedInput);
+      }
+      if (output != null && !output.equals(workerResult.output())) {
+        @SuppressWarnings({"unchecked", "rawtypes"})
+        var replaced = new io.casehub.worker.api.WorkerResult(output, workerResult.outcome());
+        workerResult = replaced;
+      }
+      onSuccess(instance, worker, inputDataHash, workerResult, bindingName, signalId);
     } catch (Exception e) {
       onFailure(retryCtx, e);
     }
@@ -248,17 +236,15 @@ class QuartzWorkerExecutionJob implements Job {
         "Worker execution failed: caseId=%s worker=%s cause=%s",
         retryCtx.caseId(), retryCtx.workerId(), failure.getMessage());
 
-    retryService
-        .handleFailure(retryCtx, failure.getMessage())
-        .subscribe()
-        .with(
-            ignored -> {},
-            ex -> LOG.errorf(ex, "Retry handling failed for worker %s", retryCtx.workerId()));
+    try {
+      retryService.handleFailure(retryCtx, failure.getMessage());
+    } catch (Exception ex) {
+      LOG.errorf(ex, "Retry handling failed for worker %s", retryCtx.workerId());
+    }
   }
 
-  private Uni<EventLog> findEventLog(String eventLogId) {
-    return ReactiveUtils.runOnSafeVertxContext(
-        vertx, () -> eventLogRepository.findById(Long.parseLong(eventLogId)));
+  private EventLog findEventLog(String eventLogId) {
+    return eventLogRepository.findById(Long.parseLong(eventLogId));
   }
 
   private static List<RetrievedExperience> deserializeExperiences(EventLog eventLog) {

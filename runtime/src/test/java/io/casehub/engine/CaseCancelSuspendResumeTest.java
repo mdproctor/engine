@@ -26,7 +26,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
@@ -36,7 +36,6 @@ import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,12 +46,10 @@ import org.junit.jupiter.api.Test;
 @QuarkusTest
 class CaseCancelSuspendResumeTest {
 
-  private static final Duration SPI_TIMEOUT = Duration.ofSeconds(10);
-
   @Inject CaseLifecycleStateTest.IdleCaseHubBean idleBean;
   @Inject SuspendableWorkerBean suspendableBean;
   @Inject CaseInstanceCache caseInstanceCache;
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   // ------------------------------------------------------------------ //
   // cancelCase                                                           //
@@ -60,7 +57,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void cancelFromRunningTransitionsToCancelled() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -77,7 +74,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void cancelFromRunningWritesCaseCancelledEventLog() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -94,7 +91,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void cancelFromSuspendedTransitionsToCancelled() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -143,7 +140,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void suspendFromRunningTransitionsToSuspended() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -160,7 +157,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void suspendedCaseDoesNotFireWorkersOnSignal() throws InterruptedException {
-    UUID caseId = suspendableBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = suspendableBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -181,7 +178,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void suspendNonRunningCaseThrowsIllegalStateException() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -208,7 +205,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void resumeFromSuspendedTransitionsToRunning() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -230,7 +227,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void resumedCaseFiresWorkerWhenContextEligible() {
-    UUID caseId = suspendableBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = suspendableBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -245,7 +242,7 @@ class CaseCancelSuspendResumeTest {
         .until(() -> caseInstanceCache.get(caseId).getState() == CaseStatus.RUNNING);
 
     // Signal after resume — case is RUNNING, context update triggers binding evaluation
-    suspendableBean.signal(caseId, "status", "active").toCompletableFuture().join();
+    suspendableBean.signal(caseId, "status", "active");
 
     await()
         .atMost(15, TimeUnit.SECONDS)
@@ -258,7 +255,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void resumeWritesCaseStatusChangedEventLog() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -283,7 +280,7 @@ class CaseCancelSuspendResumeTest {
 
   @Test
   void resumeNonSuspendedCaseThrowsIllegalStateException() {
-    UUID caseId = idleBean.startCase(Map.of("status", "idle")).toCompletableFuture().join();
+    UUID caseId = idleBean.startCase(Map.of("status", "idle"));
 
     await().atMost(5, TimeUnit.SECONDS).until(() -> caseInstanceCache.get(caseId) != null);
 
@@ -309,29 +306,19 @@ class CaseCancelSuspendResumeTest {
     // We need an @Inject — use the one already in context from the test's own CDI
     // Instead, just start the idle bean and manually complete via cancel then verify it's terminal
     // Actually: start a completing case directly using SimpleCaseHubBean — injected separately.
-    UUID caseId =
-        simpleCaseHubBean
-            .startCase(Map.of("documentId", "d1", "status", "processing"))
-            .toCompletableFuture()
-            .join();
-    return caseId;
+    return simpleCaseHubBean.startCase(Map.of("documentId", "d1", "status", "processing"));
   }
 
   @Inject SimpleCaseHubBean simpleCaseHubBean;
 
   private List<EventLog> findEvents(UUID caseId, CaseHubEventType eventType) {
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT);
+    return eventLogRepository.findByCaseAndTypes(
+        caseId, List.of(eventType), TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   private List<EventLog> findAllEvents(UUID caseId) {
-    return reactiveEventLogRepository
-        .findByCaseAndTypes(
-            caseId, List.of(CaseHubEventType.values()), TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT);
+    return eventLogRepository.findByCaseAndTypes(
+        caseId, List.of(CaseHubEventType.values()), TenancyConstants.DEFAULT_TENANT_ID);
   }
 
   // ------------------------------------------------------------------ //

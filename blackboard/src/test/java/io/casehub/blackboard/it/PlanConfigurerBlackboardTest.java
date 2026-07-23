@@ -75,7 +75,7 @@ class PlanConfigurerBlackboardTest {
     callCount.set(0);
 
     // Start with a value that does NOT trigger the binding (.probe == "tick")
-    UUID caseId = configuredCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = configuredCase.startCase(Map.of("ready", true));
 
     // Wait for the registry entry — plan model is created on first select() from CaseStartedEvent
     await()
@@ -101,7 +101,7 @@ class PlanConfigurerBlackboardTest {
   void configurer_is_called_exactly_once_per_case_instance() {
     callCount.set(0);
 
-    UUID caseId = configuredCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = configuredCase.startCase(Map.of("ready", true));
 
     // Wait for plan model to be created — guarantees the first select() (and configure()) ran
     await()
@@ -138,7 +138,7 @@ class PlanConfigurerBlackboardTest {
   void stage_added_by_configurer_activates_on_evaluation_cycle() {
     callCount.set(0);
 
-    UUID caseId = configuredCase.startCase(Map.of("ready", true)).toCompletableFuture().join();
+    UUID caseId = configuredCase.startCase(Map.of("ready", true));
 
     // Wait for registry — configurer has run and stage is in the plan model
     await()

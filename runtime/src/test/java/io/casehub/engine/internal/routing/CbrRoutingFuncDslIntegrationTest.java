@@ -90,11 +90,8 @@ class CbrRoutingFuncDslIntegrationTest {
         io.casehub.platform.api.path.Path.root());
 
     // Start the case with context that triggers the binding
-    caseHub
-        .startCase(
-            Map.of("transaction", Map.of("riskLevel", "high", "amount", 45000, "currency", "USD")))
-        .toCompletableFuture()
-        .join();
+    caseHub.startCase(
+        Map.of("transaction", Map.of("riskLevel", "high", "amount", 45000, "currency", "USD")));
 
     // Wait for the recording strategy to be invoked with an assessRisk context
     await()

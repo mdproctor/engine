@@ -24,7 +24,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
-import io.casehub.engine.common.spi.ReactiveEventLogRepository;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.identity.TenancyConstants;
@@ -56,16 +56,13 @@ public class WorkerRecoveryTest {
 
   @Inject CaseInstanceCache caseInstanceCache;
 
-  @Inject ReactiveEventLogRepository reactiveEventLogRepository;
+  @Inject EventLogRepository eventLogRepository;
 
   @Test
   void shouldRecoverScheduledWorkerWhenCacheIsEmpty() {
     RecoveryCaseHubBean.runCount.set(0);
 
-    UUID caseId =
-        bean.startCase(Map.of("documentId", "doc-recovery", "status", "scheduled"))
-            .toCompletableFuture()
-            .join();
+    UUID caseId = bean.startCase(Map.of("documentId", "doc-recovery", "status", "scheduled"));
 
     EventLog scheduledEvent = new EventLog();
     scheduledEvent.setCaseId(caseId);
@@ -92,23 +89,18 @@ public class WorkerRecoveryTest {
                 "documentId", "doc-recovery",
                 "status", "scheduled")));
 
-    reactiveEventLogRepository
-        .append(scheduledEvent, TenancyConstants.DEFAULT_TENANT_ID)
-        .await()
-        .atMost(SPI_TIMEOUT);
+    eventLogRepository.append(scheduledEvent, TenancyConstants.DEFAULT_TENANT_ID);
 
     caseInstanceCache.clear();
 
-    recoveryService.recoverPendingScheduledWorkers().await().atMost(SPI_TIMEOUT);
+    recoveryService.recoverPendingScheduledWorkers();
 
     Awaitility.await()
         .atMost(20, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
               assertEquals(1, RecoveryCaseHubBean.runCount.get());
-              assertEquals(
-                  "processed",
-                  bean.query(caseId, "status", String.class).toCompletableFuture().join());
+              assertEquals("processed", bean.query(caseId, "status", String.class));
             });
   }
 

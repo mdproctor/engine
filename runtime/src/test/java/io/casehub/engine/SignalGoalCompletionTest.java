@@ -49,11 +49,11 @@ public class SignalGoalCompletionTest {
 
   @Test
   void signalDirectlySatisfiesGoalAndCompletesCase() {
-    UUID caseId = bean.startCase(Map.of()).toCompletableFuture().join();
+    UUID caseId = bean.startCase(Map.of());
 
     assertEquals(CaseStatus.RUNNING, caseInstanceCache.get(caseId).getState());
 
-    bean.signal(caseId, "done", true).toCompletableFuture().join();
+    bean.signal(caseId, "done", true);
 
     await()
         .atMost(5, TimeUnit.SECONDS)
