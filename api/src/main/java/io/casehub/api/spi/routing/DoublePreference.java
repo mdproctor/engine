@@ -27,4 +27,9 @@ public record DoublePreference(double value) implements SingleValuePreference {
     Objects.requireNonNull(raw, "raw must not be null");
     return new DoublePreference(Double.parseDouble(raw));
   }
+
+  @Override
+  public String toSerializedValue() {
+    return String.valueOf(value);
+  }
 }
