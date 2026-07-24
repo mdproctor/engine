@@ -54,6 +54,7 @@ import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.eidos.api.CapabilityHealth;
+import io.casehub.engine.internal.engine.CaseEvaluationSerializer;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -82,11 +83,12 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class CaseContextChangedEventHandler {
@@ -129,19 +131,22 @@ public class CaseContextChangedEventHandler {
 
   @Inject @io.quarkus.virtual.threads.VirtualThreads
   java.util.concurrent.ExecutorService virtualThreads;
+    @Inject
+    CaseEvaluationSerializer evaluationSerializer;
+
 
   @RunOnVirtualThread
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
   public void onCaseStateContextChangedEventHandler(final CaseContextChangedEvent event) {
     final CaseInstance caseInstance = event.instance();
-    final CaseStatus state = caseInstance.getState();
+    final CaseStatus   state        = caseInstance.getState();
 
     if (state != CaseStatus.RUNNING && state != CaseStatus.WAITING) {
       return;
     }
 
     final CaseContext contextSnapshot = event.contextSnapshot();
-    final String changedLayer = event.changedLayer();
+    final String      changedLayer    = event.changedLayer();
 
     if (changedLayer != null) {
       eventBus.publish(EventBusAddresses.layerChanged(changedLayer), event);
@@ -151,9 +156,19 @@ public class CaseContextChangedEventHandler {
       return;
     }
 
+    evaluationSerializer.submit(
+            caseInstance.getUuid(),
+            () -> evaluateAndDispatch(event));
+  }
+
+  private void evaluateAndDispatch(final CaseContextChangedEvent event) {
+    final CaseInstance caseInstance    = event.instance();
+    final CaseContext  contextSnapshot = event.contextSnapshot();
+    final String       changedLayer    = event.changedLayer();
+
     final CaseMetaModel caseMetaModel = caseInstance.getCaseMetaModel();
     final CaseDefinition caseDefinition =
-        caseMetaModel != null ? caseDefinitionRegistry.getCaseDefinition(caseMetaModel) : null;
+            caseMetaModel != null ? caseDefinitionRegistry.getCaseDefinition(caseMetaModel) : null;
 
     if (caseDefinition == null) {
       throw new RuntimeException("Case definition not found for caseId: " + caseInstance.getUuid());
@@ -161,19 +176,19 @@ public class CaseContextChangedEventHandler {
 
     LOG.infof("Handling CaseStateContextChangedEvent for caseId: %s", caseInstance.getUuid());
 
-    final String triggerChannelId = event.triggerChannelId();
-    final String triggerCorrelationId = event.triggerCorrelationId();
-    final java.util.UUID signalId = event.signalId();
+    final String         triggerChannelId     = event.triggerChannelId();
+    final String         triggerCorrelationId = event.triggerCorrelationId();
+    final java.util.UUID signalId             = event.signalId();
 
     try {
       rules(
-          caseInstance,
-          contextSnapshot,
-          caseDefinition,
-          changedLayer,
-          triggerChannelId,
-          triggerCorrelationId,
-          signalId);
+              caseInstance,
+              contextSnapshot,
+              caseDefinition,
+              changedLayer,
+              triggerChannelId,
+              triggerCorrelationId,
+              signalId);
       goals(caseInstance, contextSnapshot, caseDefinition);
 
       if (signalId != null) {
@@ -184,6 +199,7 @@ public class CaseContextChangedEventHandler {
       LOG.errorf(t, "Failed handling context changed for caseId: %s", caseInstance.getUuid());
     }
   }
+
 
   private void rules(
       final CaseInstance caseInstance,

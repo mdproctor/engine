@@ -13,35 +13,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.policy;
+package io.casehub.engine.internal.engine;
 
-import io.casehub.api.engine.CaseEvaluationPolicy;
+import org.jboss.logging.Logger;
+
+import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
-import org.jboss.logging.Logger;
 
 /**
- * Per-case actor model: one evaluation at a time per case. Concurrent CONTEXT_CHANGED events
- * coalesce — the latest evaluator replaces any pending one, so only the most recent context
- * snapshot is evaluated.
+ * Per-case serialiser for CONTEXT_CHANGED evaluation. One evaluation at a time per case —
+ * concurrent events coalesce so only the most recent context snapshot is evaluated.
  *
  * <p>Non-blocking for submitters: when an evaluation is already running, the submitter stores the
  * evaluator and returns immediately (virtual thread cost ≈ 0). The thread running the current
  * evaluation drains pending work after completing each cycle.
  *
- * <p>This is the per-case equivalent of what the Vert.x event loop provided before
- * {@code @RunOnVirtualThread} opted out of its single-threaded dispatch guarantee.
+ * <p>This restores the per-case ordering guarantee that the Vert.x event loop provided before
+ * {@code @RunOnVirtualThread} opted out of its single-threaded dispatch.
  *
  * <p>Refs casehubio/engine#771, #646.
  */
-public class CoalescingSerializerPolicy implements CaseEvaluationPolicy {
+@ApplicationScoped
+public class CaseEvaluationSerializer {
 
-  private static final Logger LOG = Logger.getLogger(CoalescingSerializerPolicy.class);
+  private static final Logger LOG = Logger.getLogger(CaseEvaluationSerializer.class);
 
   private final ConcurrentHashMap<UUID, CaseGate> gates = new ConcurrentHashMap<>();
 
-  @Override
   public void submit(UUID caseId, Runnable evaluator) {
     CaseGate gate = gates.computeIfAbsent(caseId, CaseGate::new);
     gate.lock.lock();
@@ -64,7 +64,6 @@ public class CoalescingSerializerPolicy implements CaseEvaluationPolicy {
     }
   }
 
-  @Override
   public void evict(UUID caseId) {
     gates.remove(caseId);
   }
@@ -74,7 +73,7 @@ public class CoalescingSerializerPolicy implements CaseEvaluationPolicy {
       Runnable next;
       gate.lock.lock();
       try {
-        next = gate.pendingEvaluator;
+        next                  = gate.pendingEvaluator;
         gate.pendingEvaluator = null;
         if (next == null) {
           gate.evaluating = false;
@@ -92,9 +91,9 @@ public class CoalescingSerializerPolicy implements CaseEvaluationPolicy {
   }
 
   private static final class CaseGate {
-    final UUID caseId;
+    final UUID          caseId;
     final ReentrantLock lock = new ReentrantLock();
-    boolean evaluating;
+    boolean  evaluating;
     Runnable pendingEvaluator;
 
     CaseGate(UUID caseId) {
