@@ -146,7 +146,8 @@ class CaseContextChangedEventHandlerRoutingTest {
 
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
     when(expressionEngineRegistry.evaluate(
-            any(io.casehub.api.model.evaluator.ExpressionEvaluator.class), any(CaseContext.class)))
+            any(io.casehub.platform.api.expression.ExpressionEvaluator.class),
+            any(CaseContext.class)))
         .thenReturn(true);
     when(executionManager.getActiveWorkCount(any())).thenReturn(0);
     when(capabilityHealth.probe(any(), any(), any()))

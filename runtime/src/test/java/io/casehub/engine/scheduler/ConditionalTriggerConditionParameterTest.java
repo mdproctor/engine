@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.ScheduleTrigger;
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;

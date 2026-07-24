@@ -163,7 +163,7 @@ class ContextChangeWhenFilterTest {
                   .capability(guardedCap)
                   .on(
                       new io.casehub.api.model.ContextChangeTrigger(
-                          (io.casehub.api.model.evaluator.ExpressionEvaluator) null))
+                          (io.casehub.platform.api.expression.ExpressionEvaluator) null))
                   .when(".flag == true")
                   .build(),
               Binding.builder()
@@ -171,7 +171,7 @@ class ContextChangeWhenFilterTest {
                   .capability(finishCap)
                   .on(
                       new io.casehub.api.model.ContextChangeTrigger(
-                          (io.casehub.api.model.evaluator.ExpressionEvaluator) null))
+                          (io.casehub.platform.api.expression.ExpressionEvaluator) null))
                   .build())
           .goals(goal)
           .completion(GoalExpression.allOf(goal))

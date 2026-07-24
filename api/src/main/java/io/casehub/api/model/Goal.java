@@ -16,9 +16,9 @@
 package io.casehub.api.model;
 
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import java.util.Objects;
 import java.util.function.Predicate;
 

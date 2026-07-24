@@ -15,11 +15,11 @@
  */
 package io.casehub.api.model;
 
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.routing.CandidateSetSpec;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
 import io.casehub.api.spi.routing.StaticSetStrategy;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;

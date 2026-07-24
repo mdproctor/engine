@@ -16,8 +16,8 @@
 package io.casehub.blackboard.stage;
 
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

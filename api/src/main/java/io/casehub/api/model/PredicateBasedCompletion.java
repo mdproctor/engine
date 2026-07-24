@@ -15,7 +15,7 @@
  */
 package io.casehub.api.model;
 
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 
 public class PredicateBasedCompletion implements CaseCompletion {
 

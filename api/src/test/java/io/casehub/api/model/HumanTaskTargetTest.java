@@ -18,11 +18,11 @@ package io.casehub.api.model;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.routing.CandidateSetSpec;
 import io.casehub.api.spi.routing.JqCandidateSetStrategy;
 import io.casehub.api.spi.routing.StaticSetStrategy;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import java.time.Duration;
 import java.util.Set;
 import org.junit.jupiter.api.Test;

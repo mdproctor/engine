@@ -16,8 +16,8 @@
 package io.casehub.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.Capability;
 import java.util.Collections;
 import java.util.Map;

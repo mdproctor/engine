@@ -16,13 +16,13 @@
 package io.casehub.api.model.evaluator;
 
 import io.casehub.api.context.CaseContext;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.platform.api.expression.LambdaExpression;
 import java.util.function.Predicate;
 
 /**
  * An {@link ExpressionEvaluator} backed by a Java lambda. Thin subclass of platform's {@link
- * LambdaExpression} that implements engine's {@link ExpressionEvaluator} and preserves the {@link
- * Predicate}-based constructor for Java DSL users.
+ * LambdaExpression} that preserves the {@link Predicate}-based constructor for Java DSL users.
  *
  * <p>Not serialisable — use {@link JQExpressionEvaluator} for YAML-defined cases.
  */

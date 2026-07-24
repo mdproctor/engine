@@ -17,9 +17,9 @@ package io.casehub.engine.internal.routing;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.engine.ExpressionEngineRegistry;
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.spi.routing.CandidateSetContext;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;

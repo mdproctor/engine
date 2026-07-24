@@ -685,7 +685,7 @@ public class CaseContextChangedEventHandler {
 
   private String resolveStringExpression(
       final CaseInstance caseInstance,
-      final io.casehub.api.model.evaluator.ExpressionEvaluator evaluator,
+      final io.casehub.platform.api.expression.ExpressionEvaluator evaluator,
       final String fieldName) {
     if (evaluator == null) {
       return null;

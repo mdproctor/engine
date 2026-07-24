@@ -17,7 +17,7 @@ package io.casehub.api.engine;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import java.util.List;
 import java.util.Optional;
 

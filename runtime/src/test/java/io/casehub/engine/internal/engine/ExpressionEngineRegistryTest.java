@@ -26,10 +26,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.engine.ExpressionEngineRegistry;
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
 import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.util.List;
@@ -109,7 +109,7 @@ class ExpressionEngineRegistryTest {
     void unknownType_throws() {
       final var context = new CaseContextImpl(Map.of());
       final var unknown =
-          new io.casehub.api.model.evaluator.ExpressionEvaluator() {
+          new io.casehub.platform.api.expression.ExpressionEvaluator() {
             @Override
             public String type() {
               return "drools";

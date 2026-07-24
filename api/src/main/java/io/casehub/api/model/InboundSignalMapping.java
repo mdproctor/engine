@@ -15,8 +15,8 @@
  */
 package io.casehub.api.model;
 
-import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.platform.api.expression.ExpressionEvaluator;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
