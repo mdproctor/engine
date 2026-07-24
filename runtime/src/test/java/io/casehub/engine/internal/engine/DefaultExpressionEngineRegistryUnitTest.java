@@ -22,12 +22,45 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngine;
 import io.casehub.api.model.evaluator.ExpressionEvaluator;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.platform.api.expression.CompiledExpression;
+import io.casehub.platform.api.expression.ExpressionEngineRegistry;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 @DisplayName("DefaultExpressionEngineRegistry — unit tests")
 class DefaultExpressionEngineRegistryUnitTest {
+
+  private static final ExpressionEngineRegistry NO_OP_PLATFORM_REGISTRY =
+      new ExpressionEngineRegistry() {
+        @Override
+        public void register(io.casehub.platform.api.expression.ExpressionEngine engine) {}
+
+        @Override
+        public Optional<io.casehub.platform.api.expression.ExpressionEngine> resolve(String type) {
+          return Optional.empty();
+        }
+
+        @Override
+        public <C, R> CompiledExpression<C, R> compile(
+            String type, String expression, Class<C> contextType, Class<R> resultType) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public <C, R> CompiledExpression<C, R> compile(
+            String type,
+            String expression,
+            Class<C> contextType,
+            Class<R> resultType,
+            Map<String, Object> variables) {
+          throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public void validate(String type, String expression) {}
+      };
 
   @Test
   @DisplayName(
@@ -59,7 +92,8 @@ class DefaultExpressionEngineRegistryUnitTest {
           }
         };
 
-    var registry = new DefaultExpressionEngineRegistry(Map.of("buggy", buggyEngine));
+    var registry =
+        new DefaultExpressionEngineRegistry(Map.of("buggy", buggyEngine), NO_OP_PLATFORM_REGISTRY);
 
     assertThatThrownBy(() -> registry.create(".x", "buggy"))
         .isInstanceOf(IllegalStateException.class)
@@ -70,7 +104,7 @@ class DefaultExpressionEngineRegistryUnitTest {
   @Test
   @DisplayName("evaluate(JsonNode) — throws IllegalArgumentException when asNode is null")
   void evaluate_nullJsonNode_throwsIllegalArgument() {
-    var registry = new DefaultExpressionEngineRegistry(Map.of());
+    var registry = new DefaultExpressionEngineRegistry(Map.of(), NO_OP_PLATFORM_REGISTRY);
     var evaluator = new JQExpressionEvaluator(".x");
 
     assertThatThrownBy(() -> registry.evaluate(evaluator, (JsonNode) null))

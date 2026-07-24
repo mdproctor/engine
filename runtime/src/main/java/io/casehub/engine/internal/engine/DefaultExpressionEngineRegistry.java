@@ -46,12 +46,17 @@ public class DefaultExpressionEngineRegistry implements ExpressionEngineRegistry
 
   @Inject Instance<ExpressionEngine> engines;
 
+  @Inject io.casehub.platform.api.expression.ExpressionEngineRegistry platformRegistry;
+
   private Map<String, ExpressionEngine> engineMap;
 
   DefaultExpressionEngineRegistry() {}
 
-  DefaultExpressionEngineRegistry(final Map<String, ExpressionEngine> engineMap) {
+  DefaultExpressionEngineRegistry(
+      final Map<String, ExpressionEngine> engineMap,
+      final io.casehub.platform.api.expression.ExpressionEngineRegistry platformRegistry) {
     this.engineMap = Map.copyOf(engineMap);
+    this.platformRegistry = platformRegistry;
   }
 
   @PostConstruct
@@ -59,6 +64,7 @@ public class DefaultExpressionEngineRegistry implements ExpressionEngineRegistry
     final var map = new LinkedHashMap<String, ExpressionEngine>();
     for (final ExpressionEngine engine : engines) {
       map.put(engine.type(), engine);
+      platformRegistry.register(engine);
     }
     engineMap = Map.copyOf(map);
   }
