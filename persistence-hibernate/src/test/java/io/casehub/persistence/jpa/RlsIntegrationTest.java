@@ -177,8 +177,8 @@ class RlsIntegrationTest {
         PreparedStatement ps =
             conn.prepareStatement(
                 "INSERT INTO event_log"
-                    + " (id, case_id, event_type, stream_type, timestamp, tenancy_id)"
-                    + " VALUES (nextval('event_log_SEQ'), ?::uuid, ?, ?, ?, ?)")) {
+                    + " (case_id, event_type, stream_type, timestamp, tenancy_id)"
+                    + " VALUES (?::uuid, ?, ?, ?, ?)")) {
       ps.setString(1, caseId.toString());
       ps.setString(2, CaseHubEventType.CASE_STARTED.name());
       ps.setString(3, EventStreamType.CASE.name());
