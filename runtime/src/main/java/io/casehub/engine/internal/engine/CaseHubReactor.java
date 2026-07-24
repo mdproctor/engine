@@ -15,8 +15,6 @@
  */
 package io.casehub.engine.internal.engine;
 
-import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
-
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.MutableCaseContext;
@@ -46,14 +44,17 @@ import io.casehub.engine.internal.context.WritableLayerImpl;
 import io.casehub.engine.internal.engine.handler.CaseStartedEventHandler;
 import io.casehub.engine.internal.engine.handler.SignalReceivedEventHandler;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
+import io.casehub.neocortex.memory.CaseMemoryStore;
 import io.casehub.neocortex.memory.Memory;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.MemoryQuery;
-import io.casehub.neocortex.memory.ReactiveCaseMemoryStore;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -63,8 +64,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
+
+import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
 
 @ApplicationScoped
 class CaseHubReactor {
@@ -92,7 +93,7 @@ class CaseHubReactor {
 
   @Inject CurrentPrincipal currentPrincipal;
 
-  @Inject ReactiveCaseMemoryStore reactiveCaseMemoryStore;
+  @Inject CaseMemoryStore caseMemoryStore;
 
   @Inject JQEvaluator jqEvaluator;
 
@@ -270,7 +271,7 @@ class CaseHubReactor {
               : MemoryQuery.forEntities(entityIds, domain, tenantId).withLimit(cfg.recent());
 
       try {
-        return reactiveCaseMemoryStore.query(query).await().indefinitely();
+        return caseMemoryStore.query(query);
       } catch (Exception t) {
         LOG.warnf(t, "EpisodicMemoryStore query failed — continuing without inter-case memory");
         return List.of();
