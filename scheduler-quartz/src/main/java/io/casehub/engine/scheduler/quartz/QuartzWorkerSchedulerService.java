@@ -15,11 +15,6 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
-import static org.quartz.JobBuilder.newJob;
-import static org.quartz.TriggerBuilder.newTrigger;
-
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.quartz.JobDetail;
@@ -28,6 +23,9 @@ import org.quartz.ObjectAlreadyExistsException;
 import org.quartz.Scheduler;
 import org.quartz.SchedulerException;
 import org.quartz.Trigger;
+
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.TriggerBuilder.newTrigger;
 
 @ApplicationScoped
 class QuartzWorkerSchedulerService {
@@ -65,17 +63,6 @@ class QuartzWorkerSchedulerService {
         newTrigger().withIdentity(idempotency, group).startNow().forJob(jobKey).build();
 
     scheduleRetry(job, trigger);
-  }
-
-  Uni<Void> scheduleRetryAsync(JobDetail job, Trigger trigger) {
-    return Uni.createFrom()
-        .item(
-            () -> {
-              scheduleRetry(job, trigger);
-              return (Void) null;
-            })
-        .runSubscriptionOn(Infrastructure.getDefaultWorkerPool())
-        .replaceWithVoid();
   }
 
   private void scheduleRetryTrigger(JobDetail job, Trigger trigger) throws SchedulerException {
