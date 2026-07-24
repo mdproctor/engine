@@ -183,6 +183,11 @@ class QhorusActorStateContributorTest {
       public void updateLastActivity(final UUID channelId, final String tenancyId) {
         throw new UnsupportedOperationException();
       }
+
+      @Override
+      public void updateTrackDelivery(final UUID channelId, final Boolean trackDelivery) {
+        throw new UnsupportedOperationException();
+      }
     };
   }
 }
