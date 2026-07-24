@@ -16,22 +16,23 @@
 package io.casehub.api.model.evaluator;
 
 import io.casehub.api.context.CaseContext;
+import io.casehub.platform.api.expression.LambdaExpression;
 import java.util.function.Predicate;
 
 /**
- * An {@link ExpressionEvaluator} backed by a Java lambda. Provides type-safe, IDE-friendly
- * conditions for Java DSL users as an alternative to {@link JQExpressionEvaluator} JQ strings.
+ * An {@link ExpressionEvaluator} backed by a Java lambda. Thin subclass of platform's {@link
+ * LambdaExpression} that implements engine's {@link ExpressionEvaluator} and preserves the {@link
+ * Predicate}-based constructor for Java DSL users.
  *
  * <p>Not serialisable — use {@link JQExpressionEvaluator} for YAML-defined cases.
  */
-public final class LambdaExpressionEvaluator implements ExpressionEvaluator {
+public final class LambdaExpressionEvaluator extends LambdaExpression<CaseContext, Boolean>
+    implements ExpressionEvaluator {
 
   public static final String TYPE = "lambda";
 
-  private final Predicate<CaseContext> predicate;
-
   public LambdaExpressionEvaluator(final Predicate<CaseContext> predicate) {
-    this.predicate = predicate;
+    super(predicate::test);
   }
 
   @Override
@@ -40,6 +41,6 @@ public final class LambdaExpressionEvaluator implements ExpressionEvaluator {
   }
 
   public boolean test(final CaseContext context) {
-    return predicate.test(context);
+    return eval(context);
   }
 }
