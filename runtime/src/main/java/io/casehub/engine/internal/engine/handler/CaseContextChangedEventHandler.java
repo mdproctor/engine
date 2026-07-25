@@ -54,7 +54,6 @@ import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.eidos.api.CapabilityHealth;
-import io.casehub.engine.internal.engine.CaseEvaluationSerializer;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -71,6 +70,7 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
+import io.casehub.engine.internal.engine.CaseEvaluationSerializer;
 import io.casehub.engine.internal.routing.AgentCandidateFactory;
 import io.casehub.engine.internal.routing.CbrRetrievalService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -83,12 +83,11 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class CaseContextChangedEventHandler {
@@ -131,22 +130,21 @@ public class CaseContextChangedEventHandler {
 
   @Inject @io.quarkus.virtual.threads.VirtualThreads
   java.util.concurrent.ExecutorService virtualThreads;
-    @Inject
-    CaseEvaluationSerializer evaluationSerializer;
 
+  @Inject CaseEvaluationSerializer evaluationSerializer;
 
   @RunOnVirtualThread
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
   public void onCaseStateContextChangedEventHandler(final CaseContextChangedEvent event) {
     final CaseInstance caseInstance = event.instance();
-    final CaseStatus   state        = caseInstance.getState();
+    final CaseStatus state = caseInstance.getState();
 
     if (state != CaseStatus.RUNNING && state != CaseStatus.WAITING) {
       return;
     }
 
     final CaseContext contextSnapshot = event.contextSnapshot();
-    final String      changedLayer    = event.changedLayer();
+    final String changedLayer = event.changedLayer();
 
     if (changedLayer != null) {
       eventBus.publish(EventBusAddresses.layerChanged(changedLayer), event);
@@ -156,19 +154,17 @@ public class CaseContextChangedEventHandler {
       return;
     }
 
-    evaluationSerializer.submit(
-            caseInstance.getUuid(),
-            () -> evaluateAndDispatch(event));
+    evaluationSerializer.submit(caseInstance.getUuid(), () -> evaluateAndDispatch(event));
   }
 
   private void evaluateAndDispatch(final CaseContextChangedEvent event) {
-    final CaseInstance caseInstance    = event.instance();
-    final CaseContext  contextSnapshot = event.contextSnapshot();
-    final String       changedLayer    = event.changedLayer();
+    final CaseInstance caseInstance = event.instance();
+    final CaseContext contextSnapshot = event.contextSnapshot();
+    final String changedLayer = event.changedLayer();
 
     final CaseMetaModel caseMetaModel = caseInstance.getCaseMetaModel();
     final CaseDefinition caseDefinition =
-            caseMetaModel != null ? caseDefinitionRegistry.getCaseDefinition(caseMetaModel) : null;
+        caseMetaModel != null ? caseDefinitionRegistry.getCaseDefinition(caseMetaModel) : null;
 
     if (caseDefinition == null) {
       throw new RuntimeException("Case definition not found for caseId: " + caseInstance.getUuid());
@@ -176,19 +172,21 @@ public class CaseContextChangedEventHandler {
 
     LOG.infof("Handling CaseStateContextChangedEvent for caseId: %s", caseInstance.getUuid());
 
-    final String         triggerChannelId     = event.triggerChannelId();
-    final String         triggerCorrelationId = event.triggerCorrelationId();
-    final java.util.UUID signalId             = event.signalId();
+    final String triggerChannelId = event.triggerChannelId();
+    final String triggerCorrelationId = event.triggerCorrelationId();
+    final java.util.UUID signalId = event.signalId();
+    final String traceId = traceIdProvider.currentTraceId().orElse(null);
 
     try {
       rules(
-              caseInstance,
-              contextSnapshot,
-              caseDefinition,
-              changedLayer,
-              triggerChannelId,
-              triggerCorrelationId,
-              signalId);
+          caseInstance,
+          contextSnapshot,
+          caseDefinition,
+          changedLayer,
+          triggerChannelId,
+          triggerCorrelationId,
+          signalId,
+          traceId);
       goals(caseInstance, contextSnapshot, caseDefinition);
 
       if (signalId != null) {
@@ -200,7 +198,6 @@ public class CaseContextChangedEventHandler {
     }
   }
 
-
   private void rules(
       final CaseInstance caseInstance,
       final CaseContext contextSnapshot,
@@ -208,7 +205,8 @@ public class CaseContextChangedEventHandler {
       final String changedLayer,
       final String triggerChannelId,
       final String triggerCorrelationId,
-      final java.util.UUID signalId) {
+      final java.util.UUID signalId,
+      final String traceId) {
     final List<Binding> bindings = definition.getBindings();
     if (bindings == null || bindings.isEmpty()) {
       return;
@@ -261,7 +259,8 @@ public class CaseContextChangedEventHandler {
           triggerChannelId,
           triggerCorrelationId,
           signalId,
-          experiences);
+          experiences,
+          traceId);
     } else {
       @SuppressWarnings("unchecked")
       java.util.concurrent.CompletableFuture<Void>[] futures =
@@ -278,7 +277,8 @@ public class CaseContextChangedEventHandler {
                                   triggerChannelId,
                                   triggerCorrelationId,
                                   signalId,
-                                  experiences),
+                                  experiences,
+                                  traceId),
                           virtualThreads))
               .toArray(java.util.concurrent.CompletableFuture[]::new);
       java.util.concurrent.CompletableFuture.allOf(futures).join();
@@ -311,7 +311,8 @@ public class CaseContextChangedEventHandler {
       final String triggerChannelId,
       final String triggerCorrelationId,
       final java.util.UUID signalId,
-      final List<RetrievedExperience> experiences) {
+      final List<RetrievedExperience> experiences,
+      final String traceId) {
     if (binding.getContextWrite() != null && !binding.getContextWrite().isEmpty()) {
       binding
           .getContextWrite()
@@ -328,7 +329,8 @@ public class CaseContextChangedEventHandler {
               triggerChannelId,
               triggerCorrelationId,
               signalId,
-              experiences);
+              experiences,
+              traceId);
       case SubCaseTarget st ->
           publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
       case HumanTaskTarget ht ->
@@ -349,17 +351,18 @@ public class CaseContextChangedEventHandler {
       final String triggerChannelId,
       final String triggerCorrelationId,
       final java.util.UUID signalId,
-      final List<RetrievedExperience> experiences) {
+      final List<RetrievedExperience> experiences,
+      final String traceId) {
 
     if (workers == null || workers.isEmpty()) {
       LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.name());
       tryProvision(
-          caseInstance,
-          capability,
-          binding.getName(),
-          triggerChannelId,
-          triggerCorrelationId,
-          binding.getInputProjectionOverride());
+              caseInstance,
+              capability,
+              binding.getName(),
+              triggerChannelId,
+              triggerCorrelationId,
+              binding.getInputProjectionOverride(), traceId);
       return;
     }
 
@@ -372,12 +375,12 @@ public class CaseContextChangedEventHandler {
           "No eligible workers for capability '%s' (binding '%s') — all unavailable or no match",
           capability.name(), binding.getName());
       tryProvision(
-          caseInstance,
-          capability,
-          binding.getName(),
-          triggerChannelId,
-          triggerCorrelationId,
-          binding.getInputProjectionOverride());
+              caseInstance,
+              capability,
+              binding.getName(),
+              triggerChannelId,
+              triggerCorrelationId,
+              binding.getInputProjectionOverride(), traceId);
       return;
     }
 
@@ -435,12 +438,12 @@ public class CaseContextChangedEventHandler {
             "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
             capability.name(), binding.getName());
         tryProvision(
-            caseInstance,
-            capability,
-            binding.getName(),
-            triggerChannelId,
-            triggerCorrelationId,
-            binding.getInputProjectionOverride());
+                caseInstance,
+                capability,
+                binding.getName(),
+                triggerChannelId,
+                triggerCorrelationId,
+                binding.getInputProjectionOverride(), traceId);
       }
       case RoutingResult.Escalated e -> handleEscalation(caseInstance, e, binding);
     }
@@ -744,13 +747,12 @@ public class CaseContextChangedEventHandler {
   }
 
   private void tryProvision(
-      final CaseInstance caseInstance,
-      final Capability capability,
-      final String bindingName,
-      final String triggerChannelId,
-      final String triggerCorrelationId,
-      final String inputProjectionOverride) {
-    final String traceId = traceIdProvider.currentTraceId().orElse(null);
+          final CaseInstance caseInstance,
+          final Capability capability,
+          final String bindingName,
+          final String triggerChannelId,
+          final String triggerCorrelationId,
+          final String inputProjectionOverride, String traceId) {
     final String effectiveProjection =
         inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
     final Map<String, Object> inputData =
