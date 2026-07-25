@@ -15,7 +15,6 @@
  */
 package io.casehub.actorstate;
 
-import io.quarkus.arc.properties.UnlessBuildProperty;
 import jakarta.annotation.security.PermitAll;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -33,13 +32,7 @@ import jakarta.ws.rs.core.MediaType;
  * <p>tenancyId is not an explicit parameter — each store handles tenant scoping implicitly (Panache
  * via security context; qhorus is single-tenant; trust scores are by actorId only; Quartz is
  * in-memory without tenancy).
- *
- * <p>Active only when {@code casehub.qhorus.reactive.enabled} is false or absent (default).
  */
-@UnlessBuildProperty(
-    name = "casehub.qhorus.reactive.enabled",
-    stringValue = "true",
-    enableIfMissing = true)
 @PermitAll
 @Path("/actors")
 @Produces(MediaType.APPLICATION_JSON)
