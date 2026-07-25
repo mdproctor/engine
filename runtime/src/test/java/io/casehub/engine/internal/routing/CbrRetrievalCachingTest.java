@@ -239,7 +239,9 @@ class CbrRetrievalCachingTest {
             "COMPLETED",
             0.95,
             Map.of("f1", FeatureValue.string("v1")),
-            List.of(trace));
+            List.of(trace),
+            null,
+            null);
     return new ScoredCbrCase<>(cbrCase, 0.87);
   }
 

@@ -164,7 +164,8 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
             .collect(Collectors.joining(", "));
 
     PlanCbrCase cbrCase =
-        new PlanCbrCase(event.caseType(), solution, event.outcomeLabel(), null, features, traces);
+        new PlanCbrCase(
+            event.caseType(), solution, event.outcomeLabel(), null, features, traces, null, null);
 
     cbrStore.store(
         cbrCase,

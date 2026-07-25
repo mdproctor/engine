@@ -202,7 +202,9 @@ class CbrRetrievalServiceTest {
             "COMPLETED",
             0.95,
             Map.of("f1", FeatureValue.string("v1")),
-            List.of(planTrace));
+            List.of(planTrace),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, 0.87)));
 
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
@@ -266,7 +268,13 @@ class CbrRetrievalServiceTest {
     CaseDefinition def = buildDefinition(config);
     io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase fvCase =
         new io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase(
-            "problem1", "solution1", "COMPLETED", 0.9, Map.of("f1", FeatureValue.string("v1")));
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.9,
+            Map.of("f1", FeatureValue.string("v1")),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.85)));
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
     assertEquals(1, result.size());
@@ -281,7 +289,13 @@ class CbrRetrievalServiceTest {
     CaseDefinition def = buildDefinition(config);
     io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase fvCase =
         new io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase(
-            "problem1", "solution1", "COMPLETED", 0.8, Map.of("f1", FeatureValue.string("v1")));
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.8,
+            Map.of("f1", FeatureValue.string("v1")),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.75)));
     List<RetrievedExperience> result =
         service.retrieve(
@@ -320,7 +334,9 @@ class CbrRetrievalServiceTest {
             "COMPLETED",
             0.95,
             Map.of("f1", FeatureValue.string("v1")),
-            List.of(pt));
+            List.of(pt),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.9)));
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
     assertEquals(1, result.size());
@@ -373,7 +389,9 @@ class CbrRetrievalServiceTest {
             "COMPLETED",
             0.95,
             Map.of("f1", FeatureValue.string("v1")),
-            List.of(pt));
+            List.of(pt),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.87)));
 
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
@@ -400,7 +418,9 @@ class CbrRetrievalServiceTest {
             "COMPLETED",
             0.9,
             Map.of("f1", FeatureValue.string("v1")),
-            List.of(new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of())));
+            List.of(new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of())),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
 
     service.retrieve(def, buildInstance());
@@ -422,7 +442,9 @@ class CbrRetrievalServiceTest {
             Map.of("f1", FeatureValue.string("v1")),
             List.of(
                 new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of()),
-                new PlanTrace("b2", "c2", "w2", "FAILURE", 0, Map.of())));
+                new PlanTrace("b2", "c2", "w2", "FAILURE", 0, Map.of())),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
 
     planAdapter.setResult(
@@ -457,7 +479,13 @@ class CbrRetrievalServiceTest {
     CaseDefinition def = buildDefinition(config);
     io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase fvCase =
         new io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase(
-            "problem1", "solution1", "COMPLETED", 0.9, Map.of("f1", FeatureValue.string("v1")));
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.9,
+            Map.of("f1", FeatureValue.string("v1")),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.85)));
 
     service.retrieve(def, buildInstance());
@@ -478,7 +506,9 @@ class CbrRetrievalServiceTest {
             "COMPLETED",
             0.9,
             Map.of("f1", FeatureValue.string("v1")),
-            List.of(pt));
+            List.of(pt),
+            null,
+            null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
 
     service =

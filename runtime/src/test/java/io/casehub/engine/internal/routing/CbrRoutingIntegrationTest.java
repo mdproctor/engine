@@ -73,7 +73,9 @@ class CbrRoutingIntegrationTest {
             0.92,
             Map.of(
                 "posture", FeatureValue.string("aggressive"), "armySize", FeatureValue.number(100)),
-            List.of(trace));
+            List.of(trace),
+            null,
+            null);
     cbrStore.store(
         pastCase,
         "battle",

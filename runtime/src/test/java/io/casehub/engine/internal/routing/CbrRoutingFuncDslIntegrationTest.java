@@ -79,7 +79,9 @@ class CbrRoutingFuncDslIntegrationTest {
             "COMPLETED",
             0.88,
             Map.of("riskLevel", FeatureValue.string("high"), "amount", FeatureValue.number(50000)),
-            List.of(trace));
+            List.of(trace),
+            null,
+            null);
     cbrStore.store(
         pastCase,
         "risk-assessment",
