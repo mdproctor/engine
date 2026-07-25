@@ -22,81 +22,81 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-/**
- * Tracks signal settlement for {@code signalAndAwait()} operations. A signal is settled when all
- * workers triggered by the context change have completed (success or failure).
- *
- * <p>Thread-safe. Settlement resolution is atomic — the future completes exactly once when both
- * {@code fullyDispatched} and {@code completed >= expected} hold.
- *
- * <p>Refs casehubio/engine#483.
- */
 @ApplicationScoped
 public class SignalSettlementTracker {
 
-  private final ConcurrentHashMap<UUID, SettlementState> states = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<UUID, SettlementState> states = new ConcurrentHashMap<>();
 
-  public UUID registerSignal(UUID caseId) {
-    UUID signalId = UUID.randomUUID();
-    states.put(signalId, new SettlementState(caseId));
-    return signalId;
-  }
-
-  public void incrementExpected(UUID signalId) {
-    SettlementState state = states.get(signalId);
-    if (state != null) {
-      synchronized (state) {
-        state.expected.incrementAndGet();
-      }
+    public UUID registerSignal(UUID caseId) {
+        UUID signalId = UUID.randomUUID();
+        states.put(signalId, new SettlementState(caseId));
+        return signalId;
     }
-  }
 
-  public void markFullyDispatched(UUID signalId) {
-    SettlementState state = states.get(signalId);
-    if (state != null) {
-      synchronized (state) {
-        state.fullyDispatched.set(true);
-        tryResolve(signalId, state);
-      }
+    public void incrementExpected(UUID signalId) {
+        SettlementState state = states.get(signalId);
+        if (state != null) {
+            state.lock.lock();
+            try {
+                state.expected.incrementAndGet();
+            } finally {
+                state.lock.unlock();
+            }
+        }
     }
-  }
 
-  public void recordCompletion(UUID signalId) {
-    SettlementState state = states.get(signalId);
-    if (state != null) {
-      synchronized (state) {
-        state.completed.incrementAndGet();
-        tryResolve(signalId, state);
-      }
+    public void markFullyDispatched(UUID signalId) {
+        SettlementState state = states.get(signalId);
+        if (state != null) {
+            state.lock.lock();
+            try {
+                state.fullyDispatched.set(true);
+                tryResolve(signalId, state);
+            } finally {
+                state.lock.unlock();
+            }
+        }
     }
-  }
 
-  public CompletableFuture<Void> getFuture(UUID signalId) {
-    SettlementState state = states.get(signalId);
-    return state != null ? state.future : null;
-  }
-
-  public void remove(UUID signalId) {
-    states.remove(signalId);
-  }
-
-  private void tryResolve(UUID signalId, SettlementState state) {
-    // Must be called while synchronized on state
-    if (state.fullyDispatched.get() && state.completed.get() >= state.expected.get()) {
-      state.future.complete(null);
-      states.remove(signalId);
+    public void recordCompletion(UUID signalId) {
+        SettlementState state = states.get(signalId);
+        if (state != null) {
+            state.lock.lock();
+            try {
+                state.completed.incrementAndGet();
+                tryResolve(signalId, state);
+            } finally {
+                state.lock.unlock();
+            }
+        }
     }
-  }
 
-  private static class SettlementState {
-    final UUID caseId;
-    final AtomicInteger expected = new AtomicInteger(0);
-    final AtomicInteger completed = new AtomicInteger(0);
-    final AtomicBoolean fullyDispatched = new AtomicBoolean(false);
-    final CompletableFuture<Void> future = new CompletableFuture<>();
-
-    SettlementState(UUID caseId) {
-      this.caseId = caseId;
+    public CompletableFuture<Void> getFuture(UUID signalId) {
+        SettlementState state = states.get(signalId);
+        return state != null ? state.future : null;
     }
-  }
+
+    public void remove(UUID signalId) {
+        states.remove(signalId);
+    }
+
+    private void tryResolve(UUID signalId, SettlementState state) {
+        if (state.fullyDispatched.get() && state.completed.get() >= state.expected.get()) {
+            state.future.complete(null);
+            states.remove(signalId);
+        }
+    }
+
+    private static class SettlementState {
+        final UUID                                     caseId;
+        final java.util.concurrent.locks.ReentrantLock lock            = new java.util.concurrent.locks.ReentrantLock();
+        final AtomicInteger                            expected        = new AtomicInteger(0);
+        final AtomicInteger                            completed       = new AtomicInteger(0);
+        final AtomicBoolean                            fullyDispatched = new AtomicBoolean(false);
+        final CompletableFuture<Void>                  future          = new CompletableFuture<>();
+
+        SettlementState(UUID caseId) {
+            this.caseId = caseId;
+        }
+    }
 }

@@ -39,8 +39,10 @@ public class CaseInstance {
   private String waitingForWorkId;
   private UUID parentPlanItemId;
   private CaseStatus state;
+  private final java.util.concurrent.locks.ReentrantLock stateLock = new java.util.concurrent.locks.ReentrantLock();
 
-  public CaseMetaModel getCaseMetaModel() {
+
+    public CaseMetaModel getCaseMetaModel() {
     return caseMetaModel;
   }
 
@@ -114,14 +116,19 @@ public class CaseInstance {
     this.state = state;
   }
 
-  public synchronized boolean trySetTerminalState(CaseStatus newState) {
-    if (state == CaseStatus.COMPLETED
-        || state == CaseStatus.FAULTED
-        || state == CaseStatus.CANCELLED) {
-      return false;
+  public boolean trySetTerminalState(CaseStatus newState) {
+    stateLock.lock();
+    try {
+      if (state == CaseStatus.COMPLETED
+          || state == CaseStatus.FAULTED
+          || state == CaseStatus.CANCELLED) {
+        return false;
+      }
+      this.state = newState;
+      return true;
+    } finally {
+      stateLock.unlock();
     }
-    this.state = newState;
-    return true;
   }
 
   /**
