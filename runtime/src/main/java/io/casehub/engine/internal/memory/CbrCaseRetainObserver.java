@@ -32,6 +32,7 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.PlanItemStore;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.FeatureValue;
@@ -66,17 +67,20 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
   private final CaseDefinitionRegistry registry;
   private final Instance<PlanItemStore> planItemStoreInstance;
   private final JQEvaluator jqEvaluator;
+  private final Instance<TrustScoreSource> trustScoreSource;
 
   @Inject
   public CbrCaseRetainObserver(
       CbrCaseMemoryStore cbrStore,
       CaseDefinitionRegistry registry,
       Instance<PlanItemStore> planItemStoreInstance,
-      JQEvaluator jqEvaluator) {
+      JQEvaluator jqEvaluator,
+      Instance<TrustScoreSource> trustScoreSource) {
     this.cbrStore = cbrStore;
     this.registry = registry;
     this.planItemStoreInstance = planItemStoreInstance;
     this.jqEvaluator = jqEvaluator;
+    this.trustScoreSource = trustScoreSource;
   }
 
   @Override
@@ -163,9 +167,19 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
             .map(t -> t.bindingName() + "→" + t.workerName() + "(" + t.stepOutcome() + ")")
             .collect(Collectors.joining(", "));
 
+    String producerAgentId = deriveProducerAgentId(traces);
+    Double trustScore = lookupTrustScore(producerAgentId);
+
     PlanCbrCase cbrCase =
         new PlanCbrCase(
-            event.caseType(), solution, event.outcomeLabel(), null, features, traces, null, null);
+            event.caseType(),
+            solution,
+            event.outcomeLabel(),
+            null,
+            features,
+            traces,
+            trustScore,
+            producerAgentId);
 
     cbrStore.store(
         cbrCase,
@@ -175,6 +189,27 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
         event.tenancyId(),
         event.caseId().toString(),
         io.casehub.platform.api.path.Path.root());
+  }
+
+  private String deriveProducerAgentId(List<PlanTrace> traces) {
+    return traces.stream()
+        .filter(t -> "SUCCESS".equals(t.stepOutcome()))
+        .map(PlanTrace::workerName)
+        .findFirst()
+        .orElseGet(() -> traces.get(0).workerName());
+  }
+
+  private Double lookupTrustScore(String agentId) {
+    if (agentId == null || trustScoreSource.isUnsatisfied()) {
+      return null;
+    }
+    try {
+      var score = trustScoreSource.get().globalScore(agentId);
+      return score.isPresent() ? score.getAsDouble() : null;
+    } catch (Exception e) {
+      LOG.debugf("Trust score lookup failed for agent '%s' — continuing without", agentId);
+      return null;
+    }
   }
 
   private String resolveDomain(CbrConfig config, CaseDefinition definition) {

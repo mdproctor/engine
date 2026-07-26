@@ -33,6 +33,7 @@ import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.PlanItemStore;
+import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.neocortex.memory.EraseRequest;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.cbr.CbrCase;
@@ -73,7 +74,12 @@ class CbrCaseRetainObserverTest {
     Instance<PlanItemStore> planItemStoreInstance = mock(Instance.class);
     when(planItemStoreInstance.isUnsatisfied()).thenReturn(false);
     when(planItemStoreInstance.get()).thenReturn(planItemStore);
-    observer = new CbrCaseRetainObserver(store, registry, planItemStoreInstance, jqEvaluator);
+    @SuppressWarnings("unchecked")
+    Instance<TrustScoreSource> trustInstance = mock(Instance.class);
+    when(trustInstance.isUnsatisfied()).thenReturn(true);
+    observer =
+        new CbrCaseRetainObserver(
+            store, registry, planItemStoreInstance, jqEvaluator, trustInstance);
   }
 
   @Test
@@ -99,6 +105,55 @@ class CbrCaseRetainObserverTest {
     assertThat(stored.planTrace().get(0).capabilityName()).isEqualTo("risk-assessment");
     assertThat(stored.planTrace().get(0).workerName()).isEqualTo("worker-1");
     assertThat(stored.planTrace().get(0).stepOutcome()).isEqualTo("SUCCESS");
+    assertThat(stored.producerAgentId()).isEqualTo("worker-1");
+    assertThat(stored.trustScore()).isNull();
+  }
+
+  @Test
+  void populates_trust_score_when_trust_source_available() {
+    TrustScoreSource source = mock(TrustScoreSource.class);
+    when(source.globalScore("worker-1")).thenReturn(java.util.OptionalDouble.of(0.92));
+    @SuppressWarnings("unchecked")
+    Instance<TrustScoreSource> trustInstance = mock(Instance.class);
+    when(trustInstance.isUnsatisfied()).thenReturn(false);
+    when(trustInstance.get()).thenReturn(source);
+    @SuppressWarnings("unchecked")
+    Instance<PlanItemStore> pisInstance = mock(Instance.class);
+    when(pisInstance.isUnsatisfied()).thenReturn(false);
+    when(pisInstance.get()).thenReturn(planItemStore);
+    var trustObserver =
+        new CbrCaseRetainObserver(store, registry, pisInstance, jqEvaluator, trustInstance);
+
+    registry.register(
+        defWithJqCbr("trust-case", "dom", Map.of("k", ".k"), capBinding("b1", "cap1")));
+    planItemStore.items = List.of(planItem("b1", "worker-1", TaskStatus.COMPLETED));
+
+    trustObserver.onOutcome(event("trust-case", "COMPLETED", Map.of("k", "v")));
+
+    assertThat(store.storedCases).hasSize(1);
+    PlanCbrCase stored = store.storedCases.get(0);
+    assertThat(stored.producerAgentId()).isEqualTo("worker-1");
+    assertThat(stored.trustScore()).isEqualTo(0.92);
+  }
+
+  @Test
+  void producer_agent_is_first_successful_worker() {
+    registry.register(
+        defWithJqCbr(
+            "multi-case",
+            "dom",
+            Map.of("k", ".k"),
+            capBinding("b1", "cap1"),
+            capBinding("b2", "cap2")));
+    planItemStore.items =
+        List.of(
+            planItem("b1", "worker-fail", TaskStatus.FAULTED),
+            planItem("b2", "worker-ok", TaskStatus.COMPLETED));
+
+    observer.onOutcome(event("multi-case", "COMPLETED", Map.of("k", "v")));
+
+    assertThat(store.storedCases).hasSize(1);
+    assertThat(store.storedCases.get(0).producerAgentId()).isEqualTo("worker-ok");
   }
 
   @Test
