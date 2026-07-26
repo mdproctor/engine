@@ -56,3 +56,4 @@ docs/superpowers/
 .certs/
 .claude/
 .worktrees/
+package-lock.json
