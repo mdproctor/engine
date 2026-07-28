@@ -17,6 +17,7 @@ package io.casehub.engine.planning.plan;
 
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SubCase;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.planning.stage.Stage;
 import java.util.List;
 import java.util.Map;
@@ -141,4 +142,36 @@ public interface CasePlanModel {
   void addSubCase(SubCase subCase);
 
   List<SubCase> getSubCases();
+
+  default void registerDefinition(PlanItemDefinition definition) {
+    throw new UnsupportedOperationException("Compound PlanItem support not implemented");
+  }
+
+  default TaskStatus getDefinitionStatus(String planItemId) {
+    throw new UnsupportedOperationException("Compound PlanItem support not implemented");
+  }
+
+  default boolean tryDefinitionTransition(String planItemId, TaskStatus from, TaskStatus to) {
+    throw new UnsupportedOperationException("Compound PlanItem support not implemented");
+  }
+
+  default java.util.Set<String> getChildrenOf(String compoundId) {
+    return java.util.Set.of();
+  }
+
+  default Optional<String> getParentOf(String planItemId) {
+    return Optional.empty();
+  }
+
+  default void addChild(String compoundId, PlanItemDefinition child) {
+    throw new UnsupportedOperationException("Compound PlanItem support not implemented");
+  }
+
+  default boolean evaluateCompletion(String compoundId) {
+    return false;
+  }
+
+  default PlanItemDefinition getDefinition(String planItemId) {
+    return null;
+  }
 }

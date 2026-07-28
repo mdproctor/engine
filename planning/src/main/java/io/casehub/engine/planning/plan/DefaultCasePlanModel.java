@@ -53,6 +53,13 @@ public class DefaultCasePlanModel implements CasePlanModel {
   private volatile Map<String, Object> resourceBudget = Map.of();
   private volatile String focus;
   private volatile String focusRationale;
+  private final ConcurrentHashMap<String, PlanItemDefinition> definitions =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, PlanItemExecutionState> definitionStates =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, java.util.Set<String>> childrenIndex =
+      new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, String> parentIndex = new ConcurrentHashMap<>();
 
   public DefaultCasePlanModel(UUID caseId) {
     this.caseId = caseId;
@@ -307,5 +314,86 @@ public class DefaultCasePlanModel implements CasePlanModel {
   @Override
   public List<SubCase> getSubCases() {
     return List.copyOf(subCases);
+  }
+
+  @Override
+  public void registerDefinition(PlanItemDefinition definition) {
+    definitions.put(definition.id(), definition);
+    definitionStates.put(definition.id(), new PlanItemExecutionState(definition.id()));
+    if (definition instanceof PlanItemDefinition.Compound compound) {
+      var childIds = java.util.concurrent.ConcurrentHashMap.<String>newKeySet();
+      for (PlanItemDefinition child : compound.children()) {
+        childIds.add(child.id());
+        parentIndex.put(child.id(), compound.id());
+        registerDefinition(child);
+      }
+      childrenIndex.put(compound.id(), childIds);
+    }
+  }
+
+  @Override
+  public TaskStatus getDefinitionStatus(String planItemId) {
+    PlanItemExecutionState state = definitionStates.get(planItemId);
+    if (state == null) {
+      throw new IllegalArgumentException("Unknown planItemId: " + planItemId);
+    }
+    return state.getStatus();
+  }
+
+  @Override
+  public boolean tryDefinitionTransition(String planItemId, TaskStatus from, TaskStatus to) {
+    PlanItemExecutionState state = definitionStates.get(planItemId);
+    if (state == null) {
+      throw new IllegalArgumentException("Unknown planItemId: " + planItemId);
+    }
+    return state.tryTransition(from, to);
+  }
+
+  @Override
+  public java.util.Set<String> getChildrenOf(String compoundId) {
+    java.util.Set<String> children = childrenIndex.get(compoundId);
+    return children != null ? java.util.Collections.unmodifiableSet(children) : java.util.Set.of();
+  }
+
+  @Override
+  public Optional<String> getParentOf(String planItemId) {
+    return Optional.ofNullable(parentIndex.get(planItemId));
+  }
+
+  @Override
+  public void addChild(String compoundId, PlanItemDefinition child) {
+    java.util.Set<String> children = childrenIndex.get(compoundId);
+    if (children == null) {
+      throw new IllegalArgumentException("Unknown compound: " + compoundId);
+    }
+    children.add(child.id());
+    parentIndex.put(child.id(), compoundId);
+    registerDefinition(child);
+  }
+
+  @Override
+  public PlanItemDefinition getDefinition(String planItemId) {
+    return definitions.get(planItemId);
+  }
+
+  @Override
+  public boolean evaluateCompletion(String compoundId) {
+    PlanItemDefinition def = definitions.get(compoundId);
+    if (!(def instanceof PlanItemDefinition.Compound compound)) {
+      return false;
+    }
+    java.util.Set<String> children = getChildrenOf(compoundId);
+    if (children.isEmpty()) {
+      return false;
+    }
+
+    long terminalCount =
+        children.stream().map(this::getDefinitionStatus).filter(TaskStatus::isTerminal).count();
+
+    return switch (compound.completion()) {
+      case CompletionSemantics.All ignored -> terminalCount == children.size();
+      case CompletionSemantics.MOfN mOfN -> terminalCount >= mOfN.m();
+      case CompletionSemantics.FirstWins ignored -> terminalCount >= 1;
+    };
   }
 }

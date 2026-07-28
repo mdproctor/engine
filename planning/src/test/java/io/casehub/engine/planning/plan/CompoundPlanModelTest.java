@@ -1,0 +1,303 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.engine.planning.plan;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.TaskStatus;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
+
+class CompoundPlanModelTest {
+
+  private DefaultCasePlanModel model() {
+    return new DefaultCasePlanModel(UUID.randomUUID());
+  }
+
+  private PlanItemDefinition.Primitive primitive(String id) {
+    return new PlanItemDefinition.Primitive(
+        id, id, ExecutorRef.of("worker"), DispatchMode.ORCHESTRATED, null);
+  }
+
+  private PlanItemDefinition.Compound compound(String id, List<PlanItemDefinition> children) {
+    return new PlanItemDefinition.Compound(
+        id,
+        id,
+        children,
+        null,
+        CompletionSemantics.all(),
+        DispatchMode.ORCHESTRATED,
+        null,
+        null,
+        false);
+  }
+
+  @Test
+  void registerDefinition_and_getStatus_returns_pending() {
+    var model = model();
+    var def = primitive("pi-1");
+    model.registerDefinition(def);
+    assertThat(model.getDefinitionStatus(def.id())).isEqualTo(TaskStatus.PENDING);
+  }
+
+  @Test
+  void tryDefinitionTransition_pending_to_running() {
+    var model = model();
+    var def = primitive("pi-1");
+    model.registerDefinition(def);
+    assertThat(model.tryDefinitionTransition("pi-1", TaskStatus.PENDING, TaskStatus.RUNNING))
+        .isTrue();
+    assertThat(model.getDefinitionStatus("pi-1")).isEqualTo(TaskStatus.RUNNING);
+  }
+
+  @Test
+  void getChildrenOf_returns_declared_children() {
+    var child1 = primitive("child-1");
+    var child2 = primitive("child-2");
+    var parent = compound("parent", List.of(child1, child2));
+    var model = model();
+    model.registerDefinition(parent);
+
+    assertThat(model.getChildrenOf("parent")).containsExactlyInAnyOrder("child-1", "child-2");
+  }
+
+  @Test
+  void addChild_extends_children() {
+    var parent = compound("parent", List.of());
+    var model = model();
+    model.registerDefinition(parent);
+
+    var newChild = primitive("runtime-child");
+    model.addChild("parent", newChild);
+
+    assertThat(model.getChildrenOf("parent")).contains("runtime-child");
+    assertThat(model.getDefinitionStatus("runtime-child")).isEqualTo(TaskStatus.PENDING);
+  }
+
+  @Test
+  void getParentOf_returns_parent_id() {
+    var child = primitive("child-1");
+    var parent = compound("parent", List.of(child));
+    var model = model();
+    model.registerDefinition(parent);
+
+    assertThat(model.getParentOf("child-1")).contains("parent");
+    assertThat(model.getParentOf("parent")).isEmpty();
+  }
+
+  @Test
+  void evaluateCompletion_all_returns_true_when_all_terminal() {
+    var child1 = primitive("c1");
+    var child2 = primitive("c2");
+    var parent = compound("parent", List.of(child1, child2));
+    var model = model();
+    model.registerDefinition(parent);
+
+    assertThat(model.evaluateCompletion("parent")).isFalse();
+
+    model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("parent")).isFalse();
+
+    model.tryDefinitionTransition("c2", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c2", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("parent")).isTrue();
+  }
+
+  @Test
+  void evaluateCompletion_m_of_n() {
+    var c1 = primitive("c1");
+    var c2 = primitive("c2");
+    var c3 = primitive("c3");
+    var parent =
+        new PlanItemDefinition.Compound(
+            "parent",
+            "parent",
+            List.of(c1, c2, c3),
+            null,
+            CompletionSemantics.mOfN(2),
+            DispatchMode.ORCHESTRATED,
+            null,
+            null,
+            false);
+    var model = model();
+    model.registerDefinition(parent);
+
+    model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("parent")).isFalse();
+
+    model.tryDefinitionTransition("c2", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c2", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("parent")).isTrue();
+  }
+
+  @Test
+  void evaluateCompletion_first_wins() {
+    var c1 = primitive("c1");
+    var c2 = primitive("c2");
+    var parent =
+        new PlanItemDefinition.Compound(
+            "parent",
+            "parent",
+            List.of(c1, c2),
+            null,
+            CompletionSemantics.firstWins(),
+            DispatchMode.ORCHESTRATED,
+            null,
+            null,
+            false);
+    var model = model();
+    model.registerDefinition(parent);
+
+    model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("parent")).isTrue();
+  }
+
+  @Test
+  void nested_compounds_track_correctly() {
+    var leaf = primitive("leaf");
+    var inner = compound("inner", List.of(leaf));
+    var outer = compound("outer", List.of(inner));
+    var model = model();
+    model.registerDefinition(outer);
+
+    assertThat(model.getChildrenOf("outer")).containsExactly("inner");
+    assertThat(model.getChildrenOf("inner")).containsExactly("leaf");
+    assertThat(model.getParentOf("inner")).contains("outer");
+    assertThat(model.getParentOf("leaf")).contains("inner");
+  }
+
+  @Test
+  void evaluateCompletion_faulted_children_count_as_terminal() {
+    var c1 = primitive("c1");
+    var c2 = primitive("c2");
+    var parent = compound("parent", List.of(c1, c2));
+    var model = model();
+    model.registerDefinition(parent);
+
+    model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    model.tryDefinitionTransition("c2", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c2", TaskStatus.RUNNING, TaskStatus.FAULTED);
+    assertThat(model.evaluateCompletion("parent")).isTrue();
+  }
+
+  @Test
+  void evaluateCompletion_cancelled_children_count_as_terminal() {
+    var c1 = primitive("c1");
+    var c2 = primitive("c2");
+    var parent = compound("parent", List.of(c1, c2));
+    var model = model();
+    model.registerDefinition(parent);
+
+    model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    model.tryDefinitionTransition("c2", TaskStatus.PENDING, TaskStatus.CANCELLED);
+    assertThat(model.evaluateCompletion("parent")).isTrue();
+  }
+
+  @Test
+  void getDefinitionStatus_unknown_id_throws() {
+    var model = model();
+    assertThatThrownBy(() -> model.getDefinitionStatus("nonexistent"))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void tryDefinitionTransition_unknown_id_throws() {
+    var model = model();
+    assertThatThrownBy(
+            () ->
+                model.tryDefinitionTransition(
+                    "nonexistent", TaskStatus.PENDING, TaskStatus.RUNNING))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void addChild_unknown_compound_throws() {
+    var model = model();
+    assertThatThrownBy(() -> model.addChild("nonexistent", primitive("c1")))
+        .isInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void evaluateCompletion_m_of_n_boundary() {
+    var c1 = primitive("c1");
+    var c2 = primitive("c2");
+    var c3 = primitive("c3");
+    var parent =
+        new PlanItemDefinition.Compound(
+            "parent",
+            "parent",
+            List.of(c1, c2, c3),
+            null,
+            CompletionSemantics.mOfN(2),
+            DispatchMode.ORCHESTRATED,
+            null,
+            null,
+            false);
+    var model = model();
+    model.registerDefinition(parent);
+
+    model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("parent")).isFalse();
+
+    model.tryDefinitionTransition("c2", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c2", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("parent")).isTrue();
+
+    model.tryDefinitionTransition("c3", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c3", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("parent")).isTrue();
+  }
+
+  @Test
+  void concurrent_transitions_only_one_wins() throws InterruptedException {
+    var model = model();
+    var def = primitive("pi-1");
+    model.registerDefinition(def);
+
+    int threadCount = 10;
+    var latch = new java.util.concurrent.CountDownLatch(threadCount);
+    var successes = new java.util.concurrent.atomic.AtomicInteger(0);
+
+    for (int i = 0; i < threadCount; i++) {
+      Thread.ofVirtual()
+          .start(
+              () -> {
+                latch.countDown();
+                try {
+                  latch.await();
+                } catch (InterruptedException e) {
+                  return;
+                }
+                if (model.tryDefinitionTransition("pi-1", TaskStatus.PENDING, TaskStatus.RUNNING)) {
+                  successes.incrementAndGet();
+                }
+              });
+    }
+
+    Thread.sleep(200);
+    assertThat(successes.get()).isEqualTo(1);
+    assertThat(model.getDefinitionStatus("pi-1")).isEqualTo(TaskStatus.RUNNING);
+  }
+}

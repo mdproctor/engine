@@ -167,10 +167,10 @@ is public (`public Long id`) and set by the repository after save.
 
 ## DAG Execution Driver
 
-`io.casehub.engine.plan` (`casehub-engine-common`) — DAG-aware parallel execution driver for topological dispatch with dependency scheduling. Pure `java.util.concurrent` — no CDI, no Mutiny. Refs engine#695.
+`io.casehub.engine.plan` — DAG-aware parallel execution driver for topological dispatch with dependency scheduling. Pure `java.util.concurrent` — no CDI, no Mutiny. Refs engine#695. Plan-definition types (`DagPlan`, `DagNode`, `JoinType`) live in `engine-api`; execution types (`DagDriver`, `DagResult`, `NodeState`, `DagEventListener`) stay in `engine-common`. See protocol PP-20260727-5267d2.
 
 **Types:**
-- `DagPlan<T>` — immutable validated DAG. Construction rejects cycles, dangling references, and plans with no entry nodes. `entryNodeIds()`, `exitNodeIds()`, `topologicalSort()`. Factories: `singleton(id, task)`, `sequence(nodes)`, `parallel(tasks)`.
+- `DagPlan<T>` — immutable validated DAG (`engine-api`). Construction rejects cycles, dangling references, and plans with no entry nodes. `entryNodeIds()`, `exitNodeIds()`, `topologicalSort()`, `sequentialMerge(List<DagPlan<T>>)`. Factories: `singleton(id, task)`, `sequence(nodes)`, `parallel(tasks)`.
 - `DagNode<T>` — record `(id, task, dependsOn, joinType)`. `dependsOn` defaults to empty, `joinType` defaults to `ALL_OF`.
 - `JoinType` — `ALL_OF` (conjunction, fire when every predecessor completes) | `ANY_OF` (disjunction, fire when any predecessor succeeds).
 - `NodeState<R>` — sealed interface: `Pending`, `Dispatched`, `Completed(R)`, `Failed(reason, cause)`, `Skipped(reason)`, `Cancelled`. `isTerminal()` and `toTaskStatus()` mapping to `io.casehub.api.model.TaskStatus`.
@@ -400,14 +400,14 @@ Provider implementations in sub-packages (`openai/`, `anthropic/`, `mistral/`, `
 
 `YamlCaseHub.getDefinition()` is `final` — subclasses that need to add programmatic workers override `protected void augment(CaseDefinition)` instead. The hook is called once, inside the double-checked lock, between YAML loading and caching. CDI-injected fields are available. Workers added in `augment()` use `Worker.builder().capabilityName("name")` (string name, not `Capability` instance). Refs engine#591.
 
-## casehub-blackboard Module
+## casehub-engine-planning Module
 
-Optional CMMN/Blackboard orchestration layer. Activated via CDI `@Alternative @Priority(10)` when on the classpath.
+Core planning infrastructure. Provides PlanningStrategy, CasePlanModel, Stage, PlanItem, and compound PlanItem types (`PlanItemDefinition`, `CompletionSemantics`, `DispatchMode`). Package: `io.casehub.engine.planning`. Renamed from `casehub-engine-blackboard` / `io.casehub.blackboard` in blocks#60. `PlanningStrategyLoopControl` is `@ApplicationScoped` (sole `LoopControl`); `ChoreographyLoopControl` in runtime is `@DefaultBean` fallback. `DefaultPlanningStrategy` renamed to `ChoreographyStrategy` (id=`"default"`).
 
 **Build and test:**
 ```bash
 mvn install -DskipTests -q          # install deps to local repo first
-TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl casehub-blackboard
+TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl planning
 ```
 
 **Test conventions:**

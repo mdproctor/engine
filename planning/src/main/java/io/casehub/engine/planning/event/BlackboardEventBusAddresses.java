@@ -29,4 +29,6 @@ public final class BlackboardEventBusAddresses {
   /** Published by SubCaseCompletionService when a child case terminates and the parent resumes. */
   public static final String SUBCASE_EXECUTION_COMPLETED =
       "casehub.blackboard.subcase.execution.completed";
+
+  public static final String COMPOUND_COMPLETED = "casehub.planning.compound.completed";
 }

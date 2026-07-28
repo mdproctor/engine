@@ -44,4 +44,12 @@ public interface PlanningStrategy extends NamedStrategy {
   String getName();
 
   List<Binding> select(CasePlanModel plan, PlanExecutionContext context, List<Binding> eligible);
+
+  default List<Binding> select(
+      CasePlanModel plan,
+      PlanExecutionContext context,
+      io.casehub.engine.planning.plan.PlanItemDefinition.Compound compound,
+      List<Binding> eligible) {
+    return select(plan, context, eligible);
+  }
 }
