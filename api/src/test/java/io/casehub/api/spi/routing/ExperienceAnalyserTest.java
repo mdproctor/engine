@@ -412,6 +412,42 @@ class ExperienceAnalyserTest {
     assertThat(result).isEmpty();
   }
 
+  @Test
+  void declinedOutcomeContributesToEvidenceMass() {
+    var successExp = experience(1.0, step("agent-a", "security-review", "SUCCESS"));
+    var declinedExp = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(successExp, declinedExp),
+            Set.of("agent-a"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result.get("agent-a")).isCloseTo(0.5, within(0.001));
+  }
+
+  @Test
+  void frequentDeclinesProduceLowScore() {
+    var declined1 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var declined2 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var declined3 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var declined4 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var declined5 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var declined6 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var declined7 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var declined8 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var declined9 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var success = experience(1.0, step("agent-a", "security-review", "SUCCESS"));
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(
+                declined1, declined2, declined3, declined4, declined5, declined6, declined7,
+                declined8, declined9, success),
+            Set.of("agent-a"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result.get("agent-a")).isCloseTo(0.1, within(0.001));
+  }
+
   private static ExperiencePlanStep step(String worker, String capability, String outcome) {
     return new ExperiencePlanStep("binding-" + worker, capability, worker, outcome, 0, Map.of());
   }
