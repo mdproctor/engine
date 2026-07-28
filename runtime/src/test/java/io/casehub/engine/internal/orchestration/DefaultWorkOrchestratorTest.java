@@ -85,6 +85,8 @@ class DefaultWorkOrchestratorTest {
           null,
           "casehubio",
           null,
+          List.of(),
+          List.of(),
           List.of());
   private AgentRoutingStrategy agentRoutingStrategy;
   private WorkerExecutionManager executionManager;

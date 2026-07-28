@@ -46,22 +46,18 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.path.Path;
 import io.casehub.worker.api.Worker;
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.Uni;
-import io.vertx.core.Vertx;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
@@ -73,10 +69,6 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
-  private record RegistryEntry(CaseDefinition definition, CaseMetaModel metaModel) {}
-
-  private final Map<CaseKey, RegistryEntry> registry = new ConcurrentHashMap<>();
-
   private static final Logger LOG = Logger.getLogger(DefaultCaseDefinitionRegistry.class);
 
   /**
@@ -85,6 +77,15 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
    * in-memory model.
    */
   private static final ObjectMapper metadataMapper = createMetadataMapper();
+
+  private final Map<CaseKey, RegistryEntry> registry = new ConcurrentHashMap<>();
+  @Inject Instance<CaseHub> caseHubInstance;
+  @Inject CaseMetaModelRepository caseMetaModelRepository;
+  @Inject ExpressionEngineRegistry expressionEngineRegistry;
+  @Inject SecretManager secretManager;
+  @Inject ConfigManager configManager;
+  @Inject CurrentPrincipal currentPrincipal;
+  @Inject Instance<VocabularyRegistry> vocabularyRegistry;
 
   private static ObjectMapper createMetadataMapper() {
     ObjectMapper mapper = new ObjectMapper();
@@ -97,49 +98,11 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
     return mapper;
   }
 
-  /** Excludes the non-serializable {@code function} record component from Worker. */
-  abstract static class WorkerMixIn {
-    @JsonIgnore
-    abstract Object function();
-  }
-
-  /** Excludes the non-serializable {@code predicate} field from LambdaExpressionEvaluator. */
-  abstract static class LambdaExpressionEvaluatorMixIn {
-    @JsonIgnore Object predicate;
-  }
-
-  /** Excludes the non-serializable {@code extractionFunction} field from LambdaFeatureExtractor. */
-  abstract static class LambdaFeatureExtractorMixIn {
-    @JsonIgnore Object extractionFunction;
-  }
-
-  @Inject Instance<CaseHub> caseHubInstance;
-
-  @Inject CaseMetaModelRepository caseMetaModelRepository;
-
-  @Inject Vertx vertx;
-
-  @Inject ExpressionEngineRegistry expressionEngineRegistry;
-
-  @Inject SecretManager secretManager;
-
-  @Inject ConfigManager configManager;
-
-  @Inject CurrentPrincipal currentPrincipal;
-
-  @Inject Instance<VocabularyRegistry> vocabularyRegistry;
-
-  @ConfigProperty(name = "casehub.engine.registry.startup-timeout", defaultValue = "30s")
-  Duration startupTimeout;
-
   void onStart(@Observes @Priority(10) StartupEvent ev) {
-    registerKnownDefinitions().await().atMost(startupTimeout);
+    registerKnownDefinitions();
   }
 
-  Uni<Void> registerKnownDefinitions() {
-    // Fail-fast: detect CaseHub beans that produce definitions with the same key.
-    // Two different beans sharing a key is always a bug — the registry uses "first wins",
-    // so whichever registers first silently shadows the other (engine#480).
+  void registerKnownDefinitions() {
     Map<CaseKey, String> seen = new java.util.LinkedHashMap<>();
     for (CaseHub hub : caseHubInstance) {
       CaseDefinition def = hub.getDefinition();
@@ -156,23 +119,13 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
       seen.put(key, beanName);
     }
 
-    return Multi.createFrom()
-        .iterable(caseHubInstance)
-        .onItem()
-        .transformToUniAndConcatenate(hub -> registerCaseDefinition(hub.getDefinition()))
-        .collect()
-        .last()
-        .replaceWithVoid();
+    for (CaseHub hub : caseHubInstance) {
+      registerCaseDefinitionBlocking(hub.getDefinition());
+    }
   }
 
-  @Override
-  public Uni<CaseMetaModel> registerCaseDefinition(CaseDefinition model) {
-    try {
-      validateExpressions(model);
-    } catch (IllegalArgumentException e) {
-      LOG.errorf("Case definition '%s' rejected: %s", model.getName(), e.getMessage());
-      return Uni.createFrom().failure(e);
-    }
+  private CaseMetaModel registerCaseDefinitionBlocking(CaseDefinition model) {
+    validateExpressions(model);
 
     LOG.info(
         "Registering case: "
@@ -186,7 +139,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
     RegistryEntry existing = registry.get(key);
     if (existing != null) {
-      return Uni.createFrom().item(existing.metaModel());
+      return existing.metaModel();
     }
 
     CaseMetaModel metaModel = new CaseMetaModel();
@@ -204,19 +157,39 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
             currentPrincipal.tenancyId());
     if (dbModel != null) {
       registry.put(CaseKey.of(dbModel), new RegistryEntry(model, dbModel));
-      return Uni.createFrom().item(dbModel);
+      return dbModel;
     }
     metaModel.setDsl(model.getDsl());
     metaModel.setDefinition(definitionJson);
     metaModel.setCreatedAt(Instant.now());
     CaseMetaModel saved = caseMetaModelRepository.save(metaModel, currentPrincipal.tenancyId());
     registry.put(CaseKey.of(saved), new RegistryEntry(model, saved));
-    return Uni.createFrom().item(saved);
+    return saved;
+  }
+
+  @Override
+  public Uni<CaseMetaModel> registerCaseDefinition(CaseDefinition model) {
+    try {
+      return Uni.createFrom().item(registerCaseDefinitionBlocking(model));
+    } catch (IllegalArgumentException e) {
+      LOG.errorf("Case definition '%s' rejected: %s", model.getName(), e.getMessage());
+      return Uni.createFrom().failure(e);
+    }
   }
 
   @Override
   public CaseDefinition getCaseDefinition(CaseMetaModel definition) {
-    RegistryEntry entry = registry.get(CaseKey.of(definition));
+    CaseKey lookupKey = CaseKey.of(definition);
+    RegistryEntry entry = registry.get(lookupKey);
+    if (entry == null) {
+      LOG.errorf(
+          "getCaseDefinition lookup miss — key=%s/%s/%s, registry contains %d entries: %s",
+          lookupKey.namespace(),
+          lookupKey.name(),
+          lookupKey.version(),
+          registry.size(),
+          registry.keySet());
+    }
     return entry != null ? entry.definition() : null;
   }
 
@@ -493,5 +466,23 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
         }
       }
     }
+  }
+
+  private record RegistryEntry(CaseDefinition definition, CaseMetaModel metaModel) {}
+
+  /** Excludes the non-serializable {@code function} record component from Worker. */
+  abstract static class WorkerMixIn {
+    @JsonIgnore
+    abstract Object function();
+  }
+
+  /** Excludes the non-serializable {@code predicate} field from LambdaExpressionEvaluator. */
+  abstract static class LambdaExpressionEvaluatorMixIn {
+    @JsonIgnore Object predicate;
+  }
+
+  /** Excludes the non-serializable {@code extractionFunction} field from LambdaFeatureExtractor. */
+  abstract static class LambdaFeatureExtractorMixIn {
+    @JsonIgnore Object extractionFunction;
   }
 }

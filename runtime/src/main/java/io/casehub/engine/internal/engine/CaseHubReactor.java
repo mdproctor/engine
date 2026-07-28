@@ -15,6 +15,8 @@
  */
 package io.casehub.engine.internal.engine;
 
+import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
+
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.MutableCaseContext;
@@ -52,9 +54,6 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -64,8 +63,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-
-import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 class CaseHubReactor {

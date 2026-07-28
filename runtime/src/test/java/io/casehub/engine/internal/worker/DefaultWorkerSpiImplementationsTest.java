@@ -431,6 +431,8 @@ class DefaultWorkerSpiImplementationsTest {
             null,
             "casehubio",
             null,
+            List.of(),
+            List.of(),
             List.of());
     CapabilityStatus status = health.probe(descriptor, "code-review", ProbeContext.of(null));
     assertThat(status).isInstanceOf(CapabilityStatus.Ready.class);

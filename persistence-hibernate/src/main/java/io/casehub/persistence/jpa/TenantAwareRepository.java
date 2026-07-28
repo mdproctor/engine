@@ -30,8 +30,7 @@ abstract class TenantAwareRepository {
     if (tenancyId == null || tenancyId.contains("'") || tenancyId.contains("\\")) {
       throw new IllegalArgumentException("Invalid tenancyId: " + tenancyId);
     }
-    em.createNativeQuery("SET LOCAL \"casehub.tenancy_id\" = '" + tenancyId + "'")
-        .executeUpdate();
+    em.createNativeQuery("SET LOCAL \"casehub.tenancy_id\" = '" + tenancyId + "'").executeUpdate();
   }
 
   protected void setCrossTenantContext() {

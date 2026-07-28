@@ -152,8 +152,13 @@ class CaseContextChangedEventHandlerRoutingTest {
     when(executionManager.getActiveWorkCount(any())).thenReturn(0);
     when(capabilityHealth.probe(any(), any(), any()))
         .thenReturn(new CapabilityHealth.CapabilityStatus.Ready());
-    org.mockito.Mockito.doAnswer(inv -> { ((Runnable) inv.getArgument(1)).run(); return null; })
-        .when(evaluationSerializer).submit(any(), any());
+    org.mockito.Mockito.doAnswer(
+            inv -> {
+              ((Runnable) inv.getArgument(1)).run();
+              return null;
+            })
+        .when(evaluationSerializer)
+        .submit(any(), any());
     when(strategyResolver.resolve(eq(AgentRoutingStrategy.class), any()))
         .thenReturn(agentRoutingStrategy);
 

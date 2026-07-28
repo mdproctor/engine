@@ -39,10 +39,10 @@ public class CaseInstance {
   private String waitingForWorkId;
   private UUID parentPlanItemId;
   private CaseStatus state;
-  private final java.util.concurrent.locks.ReentrantLock stateLock = new java.util.concurrent.locks.ReentrantLock();
+  private final java.util.concurrent.locks.ReentrantLock stateLock =
+      new java.util.concurrent.locks.ReentrantLock();
 
-
-    public CaseMetaModel getCaseMetaModel() {
+  public CaseMetaModel getCaseMetaModel() {
     return caseMetaModel;
   }
 

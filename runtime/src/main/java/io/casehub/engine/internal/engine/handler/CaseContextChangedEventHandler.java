@@ -357,12 +357,13 @@ public class CaseContextChangedEventHandler {
     if (workers == null || workers.isEmpty()) {
       LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.name());
       tryProvision(
-              caseInstance,
-              capability,
-              binding.getName(),
-              triggerChannelId,
-              triggerCorrelationId,
-              binding.getInputProjectionOverride(), traceId);
+          caseInstance,
+          capability,
+          binding.getName(),
+          triggerChannelId,
+          triggerCorrelationId,
+          binding.getInputProjectionOverride(),
+          traceId);
       return;
     }
 
@@ -375,12 +376,13 @@ public class CaseContextChangedEventHandler {
           "No eligible workers for capability '%s' (binding '%s') — all unavailable or no match",
           capability.name(), binding.getName());
       tryProvision(
-              caseInstance,
-              capability,
-              binding.getName(),
-              triggerChannelId,
-              triggerCorrelationId,
-              binding.getInputProjectionOverride(), traceId);
+          caseInstance,
+          capability,
+          binding.getName(),
+          triggerChannelId,
+          triggerCorrelationId,
+          binding.getInputProjectionOverride(),
+          traceId);
       return;
     }
 
@@ -438,12 +440,13 @@ public class CaseContextChangedEventHandler {
             "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
             capability.name(), binding.getName());
         tryProvision(
-                caseInstance,
-                capability,
-                binding.getName(),
-                triggerChannelId,
-                triggerCorrelationId,
-                binding.getInputProjectionOverride(), traceId);
+            caseInstance,
+            capability,
+            binding.getName(),
+            triggerChannelId,
+            triggerCorrelationId,
+            binding.getInputProjectionOverride(),
+            traceId);
       }
       case RoutingResult.Escalated e -> handleEscalation(caseInstance, e, binding);
     }
@@ -747,12 +750,13 @@ public class CaseContextChangedEventHandler {
   }
 
   private void tryProvision(
-          final CaseInstance caseInstance,
-          final Capability capability,
-          final String bindingName,
-          final String triggerChannelId,
-          final String triggerCorrelationId,
-          final String inputProjectionOverride, String traceId) {
+      final CaseInstance caseInstance,
+      final Capability capability,
+      final String bindingName,
+      final String triggerChannelId,
+      final String triggerCorrelationId,
+      final String inputProjectionOverride,
+      String traceId) {
     final String effectiveProjection =
         inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
     final Map<String, Object> inputData =

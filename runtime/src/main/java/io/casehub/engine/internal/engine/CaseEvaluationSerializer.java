@@ -15,12 +15,11 @@
  */
 package io.casehub.engine.internal.engine;
 
-import org.jboss.logging.Logger;
-
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import org.jboss.logging.Logger;
 
 /**
  * Per-case serialiser for CONTEXT_CHANGED evaluation. One evaluation at a time per case —
@@ -73,7 +72,7 @@ public class CaseEvaluationSerializer {
       Runnable next;
       gate.lock.lock();
       try {
-        next                  = gate.pendingEvaluator;
+        next = gate.pendingEvaluator;
         gate.pendingEvaluator = null;
         if (next == null) {
           gate.evaluating = false;
@@ -91,9 +90,9 @@ public class CaseEvaluationSerializer {
   }
 
   private static final class CaseGate {
-    final UUID          caseId;
+    final UUID caseId;
     final ReentrantLock lock = new ReentrantLock();
-    boolean  evaluating;
+    boolean evaluating;
     Runnable pendingEvaluator;
 
     CaseGate(UUID caseId) {
