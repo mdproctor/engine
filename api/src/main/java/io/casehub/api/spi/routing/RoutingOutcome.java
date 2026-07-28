@@ -21,7 +21,9 @@ package io.casehub.api.spi.routing;
  *
  * <p>{@link #SUCCESS} and {@link #FAILURE} are recorded from the worker completion path in {@code
  * WorkflowExecutionCompletedHandler}. {@link #GATE_REJECTED} and {@link #GATE_EXPIRED} are recorded
- * directly from the gate resolution handlers.
+ * directly from the gate resolution handlers. {@link #DECLINED} is stored in plan traces when a
+ * worker explicitly declines a task ({@code TaskStatus.REJECTED → "DECLINED"} in {@code
+ * CbrCaseRetainObserver}).
  */
 public enum RoutingOutcome {
   /** Worker completed successfully (including gate-approved re-dispatch). */
@@ -31,5 +33,7 @@ public enum RoutingOutcome {
   /** Worker's planned action was rejected by a human via the oversight gate. */
   GATE_REJECTED,
   /** Worker's planned action gate expired without review. */
-  GATE_EXPIRED
+  GATE_EXPIRED,
+  /** Worker explicitly declined the task. */
+  DECLINED
 }

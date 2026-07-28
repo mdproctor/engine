@@ -35,7 +35,8 @@ public final class ExperienceAnalyser {
           RoutingOutcome.SUCCESS, 1.0,
           RoutingOutcome.GATE_EXPIRED, 0.5,
           RoutingOutcome.GATE_REJECTED, 0.25,
-          RoutingOutcome.FAILURE, 0.0);
+          RoutingOutcome.FAILURE, 0.0,
+          RoutingOutcome.DECLINED, 0.0);
 
   private ExperienceAnalyser() {}
 
