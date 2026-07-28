@@ -59,7 +59,7 @@ class BlackboardRegistryLazyHydrationTest {
     String planItemId = UUID.randomUUID().toString();
 
     planItemStore.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             caseId,
             planItemId,
             "review-binding",
@@ -94,7 +94,7 @@ class BlackboardRegistryLazyHydrationTest {
     String planItemId = UUID.randomUUID().toString();
 
     planItemStore.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             caseId,
             planItemId,
             "approve-binding",
@@ -122,7 +122,7 @@ class BlackboardRegistryLazyHydrationTest {
     UUID caseId = UUID.randomUUID();
 
     planItemStore.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             caseId,
             UUID.randomUUID().toString(),
             "pending-binding",
@@ -136,7 +136,7 @@ class BlackboardRegistryLazyHydrationTest {
             null),
         "test-tenant");
     planItemStore.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             caseId,
             UUID.randomUUID().toString(),
             "completed-binding",

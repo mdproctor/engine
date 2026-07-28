@@ -34,7 +34,7 @@ public abstract class PlanItemStoreContractTest {
   protected abstract PlanItemStore store();
 
   private PlanItemSaveRequest request(UUID caseId, String planItemId, TaskStatus status) {
-    return new PlanItemSaveRequest(
+    return PlanItemSaveRequest.primitive(
         caseId,
         planItemId,
         "my-binding",

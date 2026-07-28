@@ -504,7 +504,7 @@ class CbrCaseRetainObserverTest {
   }
 
   private PlanItemRecord planItem(String bindingName, String executorName, TaskStatus status) {
-    return new PlanItemRecord(
+    return PlanItemRecord.primitive(
         UUID.randomUUID(),
         UUID.randomUUID().toString(),
         bindingName,
@@ -520,7 +520,7 @@ class CbrCaseRetainObserverTest {
 
   private PlanItemRecord planItemAt(
       String bindingName, String executorName, TaskStatus status, Instant createdAt) {
-    return new PlanItemRecord(
+    return PlanItemRecord.primitive(
         UUID.randomUUID(),
         UUID.randomUUID().toString(),
         bindingName,

@@ -67,7 +67,7 @@ class CaseInstancePlanItemsResourceTest {
     instanceRepository.save(instance, "test-tenant");
 
     planItemStore.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             caseId,
             "pi-1",
             "code-analysis",
@@ -82,7 +82,7 @@ class CaseInstancePlanItemsResourceTest {
         "test-tenant");
 
     planItemStore.save(
-        new PlanItemSaveRequest(
+        PlanItemSaveRequest.primitive(
             caseId,
             "pi-2",
             "security-review",

@@ -30,4 +30,43 @@ public record PlanItemSaveRequest(
     String tenancyId,
     String description,
     String executorName,
-    String executorDescription) {}
+    String executorDescription,
+    PlanItemType planItemType,
+    String planningStrategy,
+    String completionSemantics,
+    String dispatchMode,
+    boolean repeatable,
+    String parentCompoundId) {
+
+  public static PlanItemSaveRequest primitive(
+      UUID caseId,
+      String planItemId,
+      String bindingName,
+      TaskStatus status,
+      Instant createdAt,
+      TargetType targetType,
+      String outputMappingExpression,
+      String tenancyId,
+      String description,
+      String executorName,
+      String executorDescription) {
+    return new PlanItemSaveRequest(
+        caseId,
+        planItemId,
+        bindingName,
+        status,
+        createdAt,
+        targetType,
+        outputMappingExpression,
+        tenancyId,
+        description,
+        executorName,
+        executorDescription,
+        PlanItemType.PRIMITIVE,
+        null,
+        null,
+        null,
+        false,
+        null);
+  }
+}
