@@ -551,6 +551,11 @@ public final class CaseDefinitionYamlMapper {
       def.setPlanningStrategy(schema.getSpec().getPlanningStrategy());
     }
 
+    // Convert decompositionStrategy
+    if (schema.getSpec() != null && schema.getSpec().getDecompositionStrategy() != null) {
+      def.setDecompositionStrategy(schema.getSpec().getDecompositionStrategy());
+    }
+
     // Convert CBR configuration — features and weights read from raw node (generated classes
     // are empty shells for additionalProperties: maps)
     if (schema.getSpec() != null && schema.getSpec().getCbr() != null) {

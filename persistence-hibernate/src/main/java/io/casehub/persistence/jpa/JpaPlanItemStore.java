@@ -132,16 +132,17 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
   }
 
   private PlanItemRecord toRecord(PlanItemEntity e) {
-      return PlanItemRecord.primitive(
-              e.caseId,
-              e.planItemId,
-              e.bindingName,
-              e.status,
-              e.createdAt,
-              e.targetType,
-              e.outputMappingExpression,
-              e.tenancyId,
-              e.description,
-              e.executorName,
-              e.executorDescription);}
+    return PlanItemRecord.primitive(
+        e.caseId,
+        e.planItemId,
+        e.bindingName,
+        e.status,
+        e.createdAt,
+        e.targetType,
+        e.outputMappingExpression,
+        e.tenancyId,
+        e.description,
+        e.executorName,
+        e.executorDescription);
+  }
 }

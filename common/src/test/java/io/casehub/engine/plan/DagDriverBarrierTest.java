@@ -44,7 +44,7 @@ class DagDriverBarrierTest {
   void linearChain_executesInOrder() {
     var order = new CopyOnWriteArrayList<String>();
     var plan =
-        DagPlan.sequence(
+        DagPlan.fromNodes(
             List.of(
                 new DagNode<>("a", "first", Set.of(), io.casehub.engine.plan.JoinType.ALL_OF),
                 new DagNode<>("b", "second", Set.of("a"), JoinType.ALL_OF),
@@ -162,7 +162,7 @@ class DagDriverBarrierTest {
   @Test
   void transitiveFailure_allDependentsSkipped() {
     var plan =
-        DagPlan.sequence(
+        DagPlan.fromNodes(
             List.of(
                 new DagNode<>("a", "fail", Set.of(), JoinType.ALL_OF),
                 new DagNode<>("b", "b", Set.of("a"), JoinType.ALL_OF),
@@ -261,7 +261,7 @@ class DagDriverBarrierTest {
           }
         };
     var plan =
-        DagPlan.sequence(
+        DagPlan.fromNodes(
             List.of(
                 new DagNode<>("a", "first", Set.of(), JoinType.ALL_OF),
                 new DagNode<>("b", "second", Set.of("a"), JoinType.ALL_OF)));

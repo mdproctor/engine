@@ -82,15 +82,40 @@ public record DagPlan<T>(Map<String, DagNode<T>> nodes) {
     return new DagPlan<>(Map.of(id, new DagNode<>(id, task, Set.of(), JoinType.ALL_OF)));
   }
 
-  public static <T> DagPlan<T> sequence(List<DagNode<T>> nodes) {
-    if (nodes.isEmpty()) throw new IllegalArgumentException("nodes must not be empty");
+  public static <T> DagPlan<T> singleton(T task) {
+    return singleton("node-0", task);
+  }
+
+  public static <T> DagPlan<T> fromNodes(List<DagNode<T>> nodes) {
+    if (nodes.isEmpty()) {
+      throw new IllegalArgumentException("nodes must not be empty");
+    }
     Map<String, DagNode<T>> map = new LinkedHashMap<>();
-    for (var node : nodes) map.put(node.id(), node);
+    for (var node : nodes) {
+      map.put(node.id(), node);
+    }
     return new DagPlan<>(map);
   }
 
-  public static <T> DagPlan<T> parallel(List<T> tasks) {
-    if (tasks.isEmpty()) throw new IllegalArgumentException("tasks must not be empty");
+  public static <T> DagPlan<T> sequence(List<? extends T> tasks) {
+    if (tasks.isEmpty()) {
+      throw new IllegalArgumentException("tasks must not be empty");
+    }
+    Map<String, DagNode<T>> nodes = new LinkedHashMap<>();
+    String previousId = null;
+    for (int i = 0; i < tasks.size(); i++) {
+      String id = "node-" + i;
+      Set<String> deps = previousId != null ? Set.of(previousId) : Set.of();
+      nodes.put(id, new DagNode<>(id, tasks.get(i), deps, JoinType.ALL_OF));
+      previousId = id;
+    }
+    return new DagPlan<>(nodes);
+  }
+
+  public static <T> DagPlan<T> parallel(List<? extends T> tasks) {
+    if (tasks.isEmpty()) {
+      throw new IllegalArgumentException("tasks must not be empty");
+    }
     Map<String, DagNode<T>> map = new LinkedHashMap<>();
     for (int i = 0; i < tasks.size(); i++) {
       String id = "node-" + i;

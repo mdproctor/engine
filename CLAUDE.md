@@ -170,7 +170,7 @@ is public (`public Long id`) and set by the repository after save.
 `io.casehub.engine.plan` — DAG-aware parallel execution driver for topological dispatch with dependency scheduling. Pure `java.util.concurrent` — no CDI, no Mutiny. Refs engine#695. Plan-definition types (`DagPlan`, `DagNode`, `JoinType`) live in `engine-api`; execution types (`DagDriver`, `DagResult`, `NodeState`, `DagEventListener`) stay in `engine-common`. See protocol PP-20260727-5267d2.
 
 **Types:**
-- `DagPlan<T>` — immutable validated DAG (`engine-api`). Construction rejects cycles, dangling references, and plans with no entry nodes. `entryNodeIds()`, `exitNodeIds()`, `topologicalSort()`, `sequentialMerge(List<DagPlan<T>>)`. Factories: `singleton(id, task)`, `sequence(nodes)`, `parallel(tasks)`.
+- `DagPlan<T>` — immutable validated DAG (`engine-api`). Construction rejects cycles, dangling references, and plans with no entry nodes. `entryNodeIds()`, `exitNodeIds()`, `topologicalSort()`, `sequentialMerge(List<DagPlan<T>>)`. Factories: `singleton(T)` (auto-ID), `singleton(String id, T)`, `sequence(List<? extends T>)` (auto-wired chain), `fromNodes(List<DagNode<T>>)` (pre-wired nodes), `parallel(List<? extends T>)`. Blocks uses `DagPlan<LeafTask<T>>` — the type parameter carries the blocks constraint, not the plan type itself.
 - `DagNode<T>` — record `(id, task, dependsOn, joinType)`. `dependsOn` defaults to empty, `joinType` defaults to `ALL_OF`.
 - `JoinType` — `ALL_OF` (conjunction, fire when every predecessor completes) | `ANY_OF` (disjunction, fire when any predecessor succeeds).
 - `NodeState<R>` — sealed interface: `Pending`, `Dispatched`, `Completed(R)`, `Failed(reason, cause)`, `Skipped(reason)`, `Cancelled`. `isTerminal()` and `toTaskStatus()` mapping to `io.casehub.api.model.TaskStatus`.
@@ -179,7 +179,14 @@ is public (`public Long id`) and set by the repository after save.
 - `DagEventListener<T, R>` — observation callbacks: `onNodeDispatched`, `onNodeCompleted`, `onNodeFailed`, `onNodeSkipped`, `onNodeCancelled`, `onExecutionComplete`. Listener exceptions isolated — never crash the scheduler.
 - `DagDriver<T, R>` — single-use executor. `execute(Function<T, R>)` or `execute(Function<T, R>, Executor)`. `cancel()` marks pending nodes CANCELLED. Continue-by-default failure: failed node dependents transitively SKIPPED per join rules, independent paths unaffected.
 
-**Relationship to blocks' `ExecutionPlan<T>`:** `DagPlan<T>` is structurally equivalent but generic over `T` (no blocks coupling). Convergence path: when blocks#51 (`LeafTask implements TaskDescriptor`) ships, `ExecutionPlan<T>` can be promoted to engine-api and `DagPlan<T>` merges into it.
+**Unified with blocks (blocks#60 Phase 4):** `ExecutionPlan<T>` deleted from blocks. Blocks now uses `DagPlan<LeafTask<T>>` directly from engine-api. `fromNodes()` (renamed from `sequence(List<DagNode<T>>)`) takes pre-wired nodes; `sequence(List<? extends T>)` auto-wires a sequential chain with auto-generated IDs.
+
+**HTN decomposition SPI (blocks#60 Phase 5):** Task tree and decomposition types promoted from blocks to engine-api (`io.casehub.engine.plan`):
+- `TaskNode<T>` — sealed: `LeafTask<T>` (non-sealed, extends `TaskDescriptor`) + `CompoundTask<T>` (record with `DecompositionMethod` list). `LeafTask` is non-sealed so blocks can define concrete task types (`PrimitiveTask`, `PlannedTask`) without engine-api knowing about them.
+- `DecompositionStrategy<T>` — SPI extending `NamedStrategy`. `decompose(TaskNode<T>, DecompositionContext<T>) → Uni<DagPlan<LeafTask<T>>>`. Default id `"identity"`. Wired into `EngineStrategyResolver` (Phase 6) — YAML: `decompositionStrategy:` on spec block.
+- `DecompositionMethod<T>` — record `(Predicate<T> guard, DecompositionStrategy<T> strategy)`. HTN method concept — guard-gated decomposition.
+- `DecompositionContext<T>` — interface with `state()` and `depth()`. Blocks provides `AgenticDecompositionContext<T>` (adds `agents()`) — strategies cast when they need the richer context.
+- Blocks' `PrimitiveTask<T>` and `PlannedTask<T>` promoted from `TaskNode` inner records to top-level records implementing `TaskNode.LeafTask<T>`. `executor()` delegates to blocks-specific `agent()` field.
 
 `MutableCaseContext` (`api/context/`) — engine-internal extension of `CaseContext`. Adds `writableLayer(String name)` returning `WritableLayer`, `freezeLayer(String name)`, and `close()` (default no-op). `CaseContextImpl` implements `MutableCaseContext`. All engine-internal code (`CaseHubReactor`, `EpisodicLayerUpdater`, handlers) programs to `MutableCaseContext` — zero `instanceof CaseContextImpl` checks remain. `WritableLayerImpl` delegates storage to `CaseContextStore`. `engineSet()` and `engineUpdate()` remain on `WritableLayerImpl` only (not on the `WritableLayer` interface) — `EpisodicLayerUpdater` uses a localized cast. Refs engine#419.
 
@@ -357,7 +364,7 @@ Enriches humanTask candidate sets with historical data from CBR plan traces. Sym
 
 **CandidateMatchingStrategy** (`api/spi/routing/`) — replaces hardcoded `AgentCandidateFactory` matching. Returns `Uni<List<MatchedWorker>>` (`MatchedWorker` record pairs `Worker` with `MatchDegree`; `MatchedWorker.exact()` factory for exact-match sites). Built-in: `ExactMatchStrategy` (id=`"exact"`), `SubsumptionMatchStrategy` (id=`"subsumption"`, `@DefaultBean`). `AgentCandidateFactory` delegates matching, retains health probing and candidate construction.
 
-**CaseDefinition** gains `agentRouting`, `implementationRouting`, `candidateMatching` (all nullable String strategy IDs). Resolved at dispatch time via `StrategyResolver`.
+**CaseDefinition** gains `agentRouting`, `implementationRouting`, `candidateMatching`, `decompositionStrategy` (all nullable String strategy IDs). Resolved at dispatch time via `StrategyResolver`. `decompositionStrategy` also parsed from YAML `spec.decompositionStrategy:` by `CaseDefinitionYamlMapper`. Refs blocks#60 Phase 6.
 
 `CaseDefinition` gains `types: Set<Path>` and `labels: Set<Path>` (both `io.casehub.platform.api.path.Path`, empty by default, unmodifiable via `Set.copyOf()`). `types` = behavioral contracts (implements semantics); `labels` = operational classification. Parsed from YAML via `Path.parse()` in `CaseDefinitionYamlMapper`. `CaseDefinitionRegistry` gains `findByType(Path)` and `findByLabel(Path)` default methods — ancestor matching via `Path.isAncestorOf()`. YAML schema `tags` (dead `type: object`) and `metadata` (dead) removed. Refs engine#652.
 

@@ -40,10 +40,31 @@ class EngineStrategyResolverTest {
     }
   }
 
+  static class TestDecompositionStrategy
+      implements io.casehub.engine.plan.DecompositionStrategy<Object> {
+    private final String strategyId;
+
+    TestDecompositionStrategy(String strategyId) {
+      this.strategyId = strategyId;
+    }
+
+    @Override
+    public String id() {
+      return strategyId;
+    }
+
+    @Override
+    public io.smallrye.mutiny.Uni<
+            io.casehub.engine.plan.DagPlan<io.casehub.engine.plan.TaskNode.LeafTask<Object>>>
+        decompose(
+            io.casehub.engine.plan.TaskNode<Object> task,
+            io.casehub.engine.plan.DecompositionContext<Object> context) {
+      return io.smallrye.mutiny.Uni.createFrom().nullItem();
+    }
+  }
+
   @Test
   void defaultBean_winsRegardlessOfIterationOrder() {
-    // StrategyA is NOT @DefaultBean, StrategyB IS @DefaultBean.
-    // Even though A iterates first, B should be the default.
     var resolver =
         buildResolver(List.of(handle(new StrategyA(), false), handle(new StrategyB(), true)));
 
@@ -82,6 +103,25 @@ class EngineStrategyResolverTest {
     var resolver = buildResolver(List.of(handle(noop, true)));
     var result = resolver.resolve(io.casehub.api.spi.routing.HumanTaskRoutingStrategy.class, null);
     assertEquals("default", result.id());
+  }
+
+  @Test
+  void resolvesDecompositionStrategyById() {
+    var identity = new TestDecompositionStrategy("identity");
+    var llm = new TestDecompositionStrategy("llm");
+    var resolver = buildResolver(List.of(handle(identity, true), handle(llm, false)));
+
+    var result = resolver.resolve(io.casehub.engine.plan.DecompositionStrategy.class, "llm");
+    assertEquals("llm", result.id());
+  }
+
+  @Test
+  void resolvesDecompositionStrategyDefault() {
+    var identity = new TestDecompositionStrategy("identity");
+    var resolver = buildResolver(List.of(handle(identity, true)));
+
+    var result = resolver.resolve(io.casehub.engine.plan.DecompositionStrategy.class, null);
+    assertEquals("identity", result.id());
   }
 
   private EngineStrategyResolver buildResolver(

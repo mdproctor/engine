@@ -43,50 +43,52 @@ public class InMemoryPlanItemStore implements PlanItemStore {
 
   @Override
   public void save(PlanItemSaveRequest request, String tenancyId) {
-      records.put(
-              request.planItemId(),
-              new PlanItemRecord(
-                      request.caseId(),
-                      request.planItemId(),
-                      request.bindingName(),
-                      request.status(),
-                      request.createdAt(),
-                      request.targetType(),
-                      request.outputMappingExpression(),
-                      tenancyId,
-                      request.description(),
-                      request.executorName(),
-                      request.executorDescription(),
-                      request.planItemType(),
-                      request.planningStrategy(),
-                      request.completionSemantics(),
-                      request.dispatchMode(),
-                      request.repeatable(),
-                      request.parentCompoundId()));}
+    records.put(
+        request.planItemId(),
+        new PlanItemRecord(
+            request.caseId(),
+            request.planItemId(),
+            request.bindingName(),
+            request.status(),
+            request.createdAt(),
+            request.targetType(),
+            request.outputMappingExpression(),
+            tenancyId,
+            request.description(),
+            request.executorName(),
+            request.executorDescription(),
+            request.planItemType(),
+            request.planningStrategy(),
+            request.completionSemantics(),
+            request.dispatchMode(),
+            request.repeatable(),
+            request.parentCompoundId()));
+  }
 
   @Override
   public void updateStatus(String planItemId, TaskStatus status) {
     records.computeIfPresent(
-            planItemId,
-            (k, r) ->
-                    new PlanItemRecord(
-                            r.caseId(),
-                            r.planItemId(),
-                            r.bindingName(),
-                            status,
-                            r.createdAt(),
-                            r.targetType(),
-                            r.outputMappingExpression(),
-                            r.tenancyId(),
-                            r.description(),
-                            r.executorName(),
-                            r.executorDescription(),
-                            r.planItemType(),
-                            r.planningStrategy(),
-                            r.completionSemantics(),
-                            r.dispatchMode(),
-                            r.repeatable(),
-                            r.parentCompoundId()));}
+        planItemId,
+        (k, r) ->
+            new PlanItemRecord(
+                r.caseId(),
+                r.planItemId(),
+                r.bindingName(),
+                status,
+                r.createdAt(),
+                r.targetType(),
+                r.outputMappingExpression(),
+                r.tenancyId(),
+                r.description(),
+                r.executorName(),
+                r.executorDescription(),
+                r.planItemType(),
+                r.planningStrategy(),
+                r.completionSemantics(),
+                r.dispatchMode(),
+                r.repeatable(),
+                r.parentCompoundId()));
+  }
 
   @Override
   public List<PlanItemRecord> findByCaseId(UUID caseId, String tenancyId) {

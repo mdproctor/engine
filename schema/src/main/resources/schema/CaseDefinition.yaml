@@ -265,6 +265,11 @@ $defs:
         description: >
           Planning strategy for this case. Options: "parallel" (default), "sequential".
           Controls how multiple eligible bindings are scheduled.
+      decompositionStrategy:
+        type: string
+        description: >
+          HTN decomposition strategy for this case. Resolved via StrategyResolver
+          by name. Default: "identity".
       cbr:
         $ref: "#/$defs/Cbr"
       bindings:

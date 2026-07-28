@@ -57,6 +57,8 @@ public class CaseDefinition {
   private String humanTaskRouting;
 
   private String candidateMatching;
+  private String decompositionStrategy;
+
   private Set<Path> types = Set.of();
   private Set<Path> labels = Set.of();
   private CbrConfig cbrConfig;
@@ -221,6 +223,14 @@ public class CaseDefinition {
     this.candidateMatching = candidateMatching;
   }
 
+  public String getDecompositionStrategy() {
+    return decompositionStrategy;
+  }
+
+  public void setDecompositionStrategy(String decompositionStrategy) {
+    this.decompositionStrategy = decompositionStrategy;
+  }
+
   public Set<Path> getTypes() {
     return types;
   }
@@ -312,6 +322,8 @@ public class CaseDefinition {
     private String humanTaskRouting;
 
     private String candidateMatching;
+    private String decompositionStrategy;
+
     private Set<Path> types = new LinkedHashSet<>();
     private Set<Path> labels = new LinkedHashSet<>();
     private CbrConfig cbrConfig;
@@ -486,6 +498,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder decompositionStrategy(String decompositionStrategy) {
+      this.decompositionStrategy = decompositionStrategy;
+      return this;
+    }
+
     public Builder type(Path type) {
       this.types.add(type);
       return this;
@@ -577,6 +594,7 @@ public class CaseDefinition {
       caseHubDefinition.setImplementationRouting(implementationRouting);
       caseHubDefinition.setHumanTaskRouting(humanTaskRouting);
       caseHubDefinition.setCandidateMatching(candidateMatching);
+      caseHubDefinition.setDecompositionStrategy(decompositionStrategy);
       caseHubDefinition.setTypes(types);
       caseHubDefinition.setLabels(labels);
       caseHubDefinition.setCbrConfig(cbrConfig);

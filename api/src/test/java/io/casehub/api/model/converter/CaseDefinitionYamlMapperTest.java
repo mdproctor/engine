@@ -2616,4 +2616,43 @@ class CaseDefinitionYamlMapperTest {
     assertThat(cap.inputSchema()).isEqualTo("{ in: .data }");
     assertThat(cap.outputSchema()).isEqualTo("{ out: .result }");
   }
+
+  @Test
+  void load_decompositionStrategy_parsedCorrectly() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: HTN Case
+                version: 1.0.0
+                spec:
+                  capabilities: []
+                  workers: []
+                  bindings: []
+                  decompositionStrategy: llm
+                """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getDecompositionStrategy()).isEqualTo("llm");
+  }
+
+  @Test
+  void load_noDecompositionStrategy_isNull() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: Simple Case
+                version: 1.0.0
+                spec:
+                  capabilities: []
+                  workers: []
+                  bindings: []
+                """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getDecompositionStrategy()).isNull();
+  }
 }
