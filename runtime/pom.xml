@@ -55,6 +55,7 @@
             <artifactId>casehub-engine-common</artifactId>
             <version>${project.version}</version>
         </dependency>
+
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-engine-common</artifactId>

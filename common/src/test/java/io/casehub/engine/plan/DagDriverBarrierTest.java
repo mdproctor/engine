@@ -46,7 +46,7 @@ class DagDriverBarrierTest {
     var plan =
         DagPlan.sequence(
             List.of(
-                new DagNode<>("a", "first", Set.of(), JoinType.ALL_OF),
+                new DagNode<>("a", "first", Set.of(), io.casehub.engine.plan.JoinType.ALL_OF),
                 new DagNode<>("b", "second", Set.of("a"), JoinType.ALL_OF),
                 new DagNode<>("c", "third", Set.of("b"), JoinType.ALL_OF)));
     var driver = new DagDriver<String, String>(plan, DispatchMode.BARRIER);

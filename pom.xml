@@ -98,7 +98,7 @@
         <module>persistence-memory</module>
         <module>persistence-hibernate</module>
         <module>runtime</module>
-        <module>blackboard</module>
+        <module>planning</module>
         <module>resilience</module>
         <module>ledger</module>
         <module>testing</module>

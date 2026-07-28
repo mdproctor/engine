@@ -37,7 +37,7 @@ class DagDriverStreamingTest {
     var plan =
         new DagPlan<>(
             Map.of(
-                "a", new DagNode<>("a", "root", Set.of(), JoinType.ALL_OF),
+                "a", new DagNode<>("a", "root", Set.of(), io.casehub.engine.plan.JoinType.ALL_OF),
                 "b", new DagNode<>("b", "fast", Set.of("a"), JoinType.ALL_OF),
                 "c", new DagNode<>("c", "slow", Set.of("a"), JoinType.ALL_OF),
                 "d", new DagNode<>("d", "after-fast", Set.of("b"), JoinType.ALL_OF)));

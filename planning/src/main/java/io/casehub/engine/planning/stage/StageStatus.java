@@ -13,15 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.plan;
+package io.casehub.engine.planning.stage;
 
-/**
- * Marker interface for elements that can be wrapped in a {@code PlanItem} and tracked through a
- * CMMN lifecycle.
- *
- * <p>Permitted implementations: {@link io.casehub.api.model.Worker}, {@code
- * io.casehub.engine.planning.stage.Stage}, {@code io.casehub.engine.planning.stage.SubCase}.
- *
- * <p>Not sealed — implementations span Maven module boundaries.
- */
-public interface PlanElement {}
+/** Lifecycle states for a {@link Stage}. See casehubio/engine#76. */
+public enum StageStatus {
+  PENDING,
+  ACTIVE,
+  SUSPENDED,
+  COMPLETED,
+  TERMINATED,
+  FAULTED
+}

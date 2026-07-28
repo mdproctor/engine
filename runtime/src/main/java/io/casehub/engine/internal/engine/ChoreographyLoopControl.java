@@ -19,17 +19,18 @@ import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseStatus;
+import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
 /**
- * Default {@link LoopControl} — fires all eligible dispatch rules concurrently for RUNNING cases.
+ * Fallback {@link LoopControl} — fires all eligible dispatch rules concurrently for RUNNING cases.
  *
- * <p>Pure choreography: every rule whose trigger condition matched is scheduled for execution
- * without deliberate ordering or prioritisation. Returns an empty list for all non-RUNNING states
- * (WAITING, SUSPENDED, terminal) — no dedup mechanism exists in this path. Replace this bean via
- * {@code @Alternative @Priority} to introduce a planning strategy or sequential execution model.
+ * <p>{@code @DefaultBean}: yields automatically to {@code PlanningStrategyLoopControl} when {@code
+ * casehub-engine-planning} is on the classpath. Active only in deployments without the planning
+ * module.
  */
+@DefaultBean
 @ApplicationScoped
 public class ChoreographyLoopControl implements LoopControl {
 

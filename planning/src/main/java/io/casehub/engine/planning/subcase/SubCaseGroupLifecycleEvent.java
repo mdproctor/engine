@@ -13,15 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.plan;
+package io.casehub.engine.planning.subcase;
 
-/**
- * Marker interface for elements that can be wrapped in a {@code PlanItem} and tracked through a
- * CMMN lifecycle.
- *
- * <p>Permitted implementations: {@link io.casehub.api.model.Worker}, {@code
- * io.casehub.engine.planning.stage.Stage}, {@code io.casehub.engine.planning.stage.SubCase}.
- *
- * <p>Not sealed — implementations span Maven module boundaries.
- */
-public interface PlanElement {}
+import io.casehub.engine.common.internal.model.GroupStatus;
+import java.util.UUID;
+
+public record SubCaseGroupLifecycleEvent(
+    UUID parentCaseId,
+    String tenancyId,
+    String groupId,
+    int instanceCount,
+    int requiredCount,
+    int completedCount,
+    int rejectedCount,
+    GroupStatus groupStatus) {}

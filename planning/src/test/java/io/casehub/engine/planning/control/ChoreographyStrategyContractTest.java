@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.plan;
+package io.casehub.engine.planning.control;
 
 /**
- * Marker interface for elements that can be wrapped in a {@code PlanItem} and tracked through a
- * CMMN lifecycle.
- *
- * <p>Permitted implementations: {@link io.casehub.api.model.Worker}, {@code
- * io.casehub.engine.planning.stage.Stage}, {@code io.casehub.engine.planning.stage.SubCase}.
- *
- * <p>Not sealed — implementations span Maven module boundaries.
+ * Contract test for DefaultPlanningStrategy. Verifies DefaultPlanningStrategy honours the
+ * PlanningStrategy contract. See casehubio/engine#76.
  */
-public interface PlanElement {}
+class ChoreographyStrategyContractTest extends PlanningStrategyContractTest {
+  @Override
+  protected PlanningStrategy strategy() {
+    return new ChoreographyStrategy();
+  }
+}

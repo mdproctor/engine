@@ -13,15 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.plan;
+package io.casehub.engine.planning.subcase;
+
+import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.ObservesAsync;
+import jakarta.inject.Inject;
 
 /**
- * Marker interface for elements that can be wrapped in a {@code PlanItem} and tracked through a
- * CMMN lifecycle.
- *
- * <p>Permitted implementations: {@link io.casehub.api.model.Worker}, {@code
- * io.casehub.engine.planning.stage.Stage}, {@code io.casehub.engine.planning.stage.SubCase}.
- *
- * <p>Not sealed — implementations span Maven module boundaries.
+ * CDI adapter — receives async {@link CaseLifecycleEvent} and delegates to {@link
+ * SubCaseCompletionService}.
  */
-public interface PlanElement {}
+@ApplicationScoped
+public class SubCaseCompletionListener {
+
+  @Inject SubCaseCompletionService subCaseCompletionService;
+
+  public void onCaseLifecycle(@ObservesAsync CaseLifecycleEvent event) {
+    subCaseCompletionService.handleCompletion(event);
+  }
+}

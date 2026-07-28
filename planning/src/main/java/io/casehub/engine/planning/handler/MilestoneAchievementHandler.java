@@ -1,0 +1,67 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.engine.planning.handler;
+
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
+import io.casehub.engine.common.internal.event.MilestoneCompletedEvent;
+import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.quarkus.vertx.ConsumeEvent;
+import io.smallrye.common.annotation.RunOnVirtualThread;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+
+/**
+ * Promotes milestone lifecycle in the {@link io.casehub.engine.planning.plan.CasePlanModel} when
+ * {@code MilestoneActivatedEvent} or {@code MilestoneCompletedEvent} fires. Only acts if a plan
+ * model exists for the case — pure choreography cases have no plan model.
+ *
+ * <p>Uses {@code MILESTONE_ACTIVATED} and {@code MILESTONE_COMPLETED} which are published via
+ * {@code eventBus.publish()} (fan-out) — this handler coexists with the engine's existing milestone
+ * processing. See casehubio/engine#76. Milestone alignment: casehubio/engine#84.
+ *
+ * <p><strong>Internal Event Use:</strong> {@link MilestoneActivatedEvent} and {@link
+ * MilestoneCompletedEvent} are in the {@code engine.internal.event} package. For event consumption
+ * via {@code @ConsumeEvent}, the handler must use the same event type that was published by the
+ * engine — there is no public API alternative. Using internal event types in {@code @ConsumeEvent}
+ * handlers is the accepted pattern in this codebase.
+ */
+@ApplicationScoped
+public class MilestoneAchievementHandler {
+
+  private final BlackboardRegistry registry;
+
+  @Inject
+  public MilestoneAchievementHandler(BlackboardRegistry registry) {
+    this.registry = registry;
+  }
+
+  @ConsumeEvent(EventBusAddresses.MILESTONE_ACTIVATED)
+  @RunOnVirtualThread
+  public void onMilestoneActivated(MilestoneActivatedEvent event) {
+    registry
+        .get(event.caseInstance().getUuid())
+        .ifPresent(plan -> plan.activateMilestone(event.milestone().getName()));
+  }
+
+  @ConsumeEvent(EventBusAddresses.MILESTONE_COMPLETED)
+  @RunOnVirtualThread
+  public void onMilestoneCompleted(MilestoneCompletedEvent event) {
+    registry
+        .get(event.caseInstance().getUuid())
+        .ifPresent(plan -> plan.completeMilestone(event.milestone().getName()));
+  }
+}
