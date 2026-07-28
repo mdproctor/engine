@@ -23,11 +23,11 @@ import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.planning.control.BlackboardPlanConfigurer;
 import io.casehub.engine.planning.plan.CasePlanModel;
+import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.casehub.engine.planning.stage.Stage;
-import io.casehub.engine.planning.stage.StageStatus;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -41,78 +41,41 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
 
-/**
- * Integration tests for {@link BlackboardPlanConfigurer} — verifies that a CDI bean implementing
- * the interface has its {@code configure()} called when a case starts, that stages it adds appear
- * in the plan model, and that it is called exactly once per case instance. See casehubio/engine#76.
- *
- * <p>Design: the {@link ConfiguredCaseBean} starts with a value that does not trigger its binding
- * ({@code ready=true} vs. trigger on {@code .probe == "tick"}). The plan model is created on the
- * first {@code select()} call fired by the engine, giving the configurer a chance to run before any
- * worker fires. A subsequent signal triggers activity — allowing the "called exactly once"
- * assertion to be made after multiple evaluation cycles.
- */
 @QuarkusTest
 class PlanConfigurerBlackboardTest {
 
-  /** Static call counter — persists across CDI proxy invocations of {@link ConfigurerBean}. */
   static final AtomicInteger callCount = new AtomicInteger(0);
 
   @Inject BlackboardRegistry registry;
   @Inject ConfiguredCaseBean configuredCase;
 
-  // ------------------------------------------------------------------ //
-  // configure() is called on case start                                  //
-  // ------------------------------------------------------------------ //
-
-  /**
-   * Verifies that the configurer runs before any binding fires: the plan model exists and contains
-   * the stage the configurer added, all before the probe signal is sent.
-   */
   @Test
-  void configurer_is_called_and_stage_appears_in_plan_model() {
-    // Reset call count — tests may run in any order within the same CDI context
+  void configurer_is_called_and_compound_appears_in_plan_model() {
     callCount.set(0);
-
-    // Start with a value that does NOT trigger the binding (.probe == "tick")
     UUID caseId = configuredCase.startCase(Map.of("ready", true));
 
-    // Wait for the registry entry — plan model is created on first select() from CaseStartedEvent
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(registry.get(caseId)).isPresent());
 
-    // Configurer must have run — the plan model should contain the stage it declared
     CasePlanModel plan = registry.get(caseId).get();
-    assertThat(plan.getAllStages())
-        .as("configurer must have added 'configurer-stage' to the plan model")
-        .anyMatch(s -> s.getName().equals("configurer-stage"));
+    assertThat(plan.getAllCompounds())
+        .as("configurer must have added 'configurer-compound' to the plan model")
+        .anyMatch(c -> c.name().equals("configurer-compound"));
   }
 
-  // ------------------------------------------------------------------ //
-  // configure() is called exactly once per case instance                 //
-  // ------------------------------------------------------------------ //
-
-  /**
-   * Verifies configure() is called exactly once even after multiple evaluation cycles. Two probe
-   * signals force additional {@code select()} calls; the call count must not increase beyond 1.
-   */
   @Test
   void configurer_is_called_exactly_once_per_case_instance() {
     callCount.set(0);
-
     UUID caseId = configuredCase.startCase(Map.of("ready", true));
 
-    // Wait for plan model to be created — guarantees the first select() (and configure()) ran
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(registry.get(caseId)).isPresent());
 
-    // Force additional select() cycles via signals — configure() must NOT be called again
     configuredCase.signal(caseId, "probe", "tick");
     configuredCase.signal(caseId, "probe", "tick-2");
 
-    // Give the engine time to process both signals
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
@@ -121,77 +84,47 @@ class PlanConfigurerBlackboardTest {
                     .as("configure() must have been called at least once")
                     .isGreaterThanOrEqualTo(1));
 
-    assertThat(callCount.get())
-        .as("configure() must be called exactly once per case — not on every select() cycle")
-        .isEqualTo(1);
+    assertThat(callCount.get()).as("configure() must be called exactly once per case").isEqualTo(1);
   }
 
-  // ------------------------------------------------------------------ //
-  // Stage added by configurer is evaluatable                             //
-  // ------------------------------------------------------------------ //
-
-  /**
-   * Verifies that a stage with no entry condition (always activates) that was added by the
-   * configurer transitions to ACTIVE on the first evaluation cycle triggered by a signal.
-   */
   @Test
-  void stage_added_by_configurer_activates_on_evaluation_cycle() {
+  void compound_added_by_configurer_activates_on_evaluation_cycle() {
     callCount.set(0);
-
     UUID caseId = configuredCase.startCase(Map.of("ready", true));
 
-    // Wait for registry — configurer has run and stage is in the plan model
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(registry.get(caseId)).isPresent());
 
     CasePlanModel plan = registry.get(caseId).get();
 
-    // Find the stage the configurer added
-    Stage configurerStage =
-        plan.getAllStages().stream()
-            .filter(s -> s.getName().equals("configurer-stage"))
+    PlanItemDefinition.Compound configurerCompound =
+        plan.getAllCompounds().stream()
+            .filter(c -> c.name().equals("configurer-compound"))
             .findFirst()
-            .orElseThrow(() -> new AssertionError("configurer-stage not found in plan model"));
+            .orElseThrow(() -> new AssertionError("configurer-compound not found in plan model"));
 
-    // Signal a probe value — triggers a CONTEXT_CHANGED → select() → stage evaluation cycle
     configuredCase.signal(caseId, "probe", "tick");
 
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
-                assertThat(configurerStage.getStatus())
-                    .as("configurer stage with no entry condition must activate on evaluation")
-                    .isEqualTo(StageStatus.ACTIVE));
+                assertThat(plan.getDefinitionStatus(configurerCompound.id()))
+                    .as("configurer compound with no entry condition must activate on evaluation")
+                    .isEqualTo(TaskStatus.RUNNING));
   }
 
-  // ------------------------------------------------------------------ //
-  // Test beans                                                            //
-  // ------------------------------------------------------------------ //
-
-  /**
-   * {@link BlackboardPlanConfigurer} CDI bean. Adds a stage with no entry condition (always
-   * activates) and increments the static call counter to verify exactly-once semantics.
-   *
-   * <p>{@code @ApplicationScoped} ensures CDI auto-discovery in the test CDI context. The static
-   * {@link PlanConfigurerBlackboardTest#callCount} field is used rather than an instance field so
-   * the count survives CDI proxy invocations.
-   */
   @ApplicationScoped
   public static class ConfigurerBean implements BlackboardPlanConfigurer {
 
     @Override
     public void configure(CasePlanModel plan, PlanExecutionContext context) {
       callCount.incrementAndGet();
-      plan.addStage(Stage.alwaysActivate("configurer-stage"));
+      plan.registerDefinition(PlanItemDefinition.Compound.builder("configurer-compound").build());
     }
   }
 
-  /**
-   * Case whose binding fires only when a signal writes {@code probe=tick}. Starts with {@code
-   * ready=true} — binding never fires on start. Suitable for idle-start + signal pattern.
-   */
   @ApplicationScoped
   public static class ConfiguredCaseBean extends CaseHub {
 
@@ -225,7 +158,6 @@ class PlanConfigurerBlackboardTest {
                   .capability(cap)
                   .on(new ContextChangeTrigger(".probe == \"tick\""))
                   .build())
-          // No goals — case stays RUNNING for post-signal assertions
           .build();
     }
   }

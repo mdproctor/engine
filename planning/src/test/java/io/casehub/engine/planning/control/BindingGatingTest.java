@@ -16,20 +16,20 @@
 package io.casehub.engine.planning.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
+import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
+import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.casehub.engine.planning.stage.Stage;
 import io.casehub.platform.api.identity.TenancyConstants;
 import jakarta.enterprise.inject.Instance;
 import java.util.List;
@@ -41,8 +41,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Unit tests for the staged-vs-free-floating binding gating in {@link PlanningStrategyLoopControl}.
  *
- * <p>ADR-0002 convention: presence of {@link Stage#addBinding(String)} is the opt-in. Three modes
- * emerge from one mechanism:
+ * <p>ADR-0002 convention: presence of {@link PlanItemDefinition.Compound#scopedBindings()} is the
+ * opt-in. Three modes emerge from one mechanism:
  *
  * <ul>
  *   <li>Pure choreography — no binding declarations anywhere → all bindings pass
@@ -69,10 +69,6 @@ class BindingGatingTest {
     // DefaultPlanningStrategy passes all eligible bindings through unchanged.
     ChoreographyStrategy strategy = new ChoreographyStrategy();
 
-    // StageLifecycleEvaluator — package-private constructor for unit tests (no EventBus events).
-    StageLifecycleEvaluator evaluator = mock(StageLifecycleEvaluator.class);
-    doNothing().when(evaluator).evaluate(any(), any());
-
     // Mock Instance<PlanningStrategy> returning the default strategy
     @SuppressWarnings("unchecked")
     Instance<PlanningStrategy> strategyBeans = mock(Instance.class);
@@ -86,14 +82,16 @@ class BindingGatingTest {
     loopControl =
         new PlanningStrategyLoopControl(
             registry,
-            strategyBeans,
-            evaluator,
+            new CompoundLifecycleEvaluator(),
+            new CompoundStrategyDispatcher(
+                id ->
+                    strategyList.stream().filter(s -> s.id().equals(id)).findFirst().orElse(null)),
             emptyConfigurers,
             new io.casehub.engine.internal.routing.NoOpImplementationRoutingStrategy());
 
     caseId = UUID.randomUUID();
     CaseDefinition def = mock(CaseDefinition.class);
-    when(def.getWorkers()).thenReturn(List.of(), null, null);
+    when(def.getWorkers()).thenReturn(List.of());
     ctx =
         new PlanExecutionContext(
             caseId,
@@ -131,14 +129,14 @@ class BindingGatingTest {
   }
 
   @Test
-  void free_floating_binding_passes_even_when_stages_exist_but_declare_nothing() {
-    // Stage exists but has no addBinding() call — lifecycle-only, no gating
-    plan().addStage(Stage.alwaysActivate("lifecycle-only"));
+  void free_floating_binding_passes_even_when_compounds_exist_but_declare_nothing() {
+    var compound = PlanItemDefinition.Compound.builder("lifecycle-only").id("comp-1").build();
+    plan().registerDefinition(compound);
 
     Binding b = binding("any-b");
     List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
-        .as("binding must pass when no stage has declared ownership of it")
+        .as("binding must pass when no compound has scoped it")
         .contains("any-b");
   }
 
@@ -147,15 +145,19 @@ class BindingGatingTest {
   // ------------------------------------------------------------------ //
 
   @Test
-  void staged_binding_blocked_when_stage_is_pending() {
-    Stage stage = Stage.alwaysActivate("intake"); // PENDING, not yet activated
-    stage.addBinding("staged-b");
-    plan().addStage(stage);
+  void scoped_binding_blocked_when_compound_is_pending() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake")
+            .id("comp-1")
+            .entryCondition(c -> false)
+            .binding("staged-b")
+            .build();
+    plan().registerDefinition(compound);
 
     Binding b = binding("staged-b");
     List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
-        .as("staged binding must be blocked when its stage is PENDING")
+        .as("scoped binding must be blocked when its compound is PENDING")
         .doesNotContain("staged-b");
   }
 
@@ -164,16 +166,16 @@ class BindingGatingTest {
   // ------------------------------------------------------------------ //
 
   @Test
-  void staged_binding_passes_when_stage_is_active() {
-    Stage stage = Stage.alwaysActivate("intake");
-    stage.activate(); // explicitly activate
-    stage.addBinding("staged-b");
-    plan().addStage(stage);
+  void scoped_binding_passes_when_compound_is_running() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake").id("comp-1").binding("staged-b").build();
+    plan().registerDefinition(compound);
+    plan().tryDefinitionTransition("comp-1", TaskStatus.PENDING, TaskStatus.RUNNING);
 
     Binding b = binding("staged-b");
     List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
-        .as("staged binding must pass when its stage is ACTIVE")
+        .as("scoped binding must pass when its compound is RUNNING")
         .contains("staged-b");
   }
 
@@ -182,20 +184,24 @@ class BindingGatingTest {
   // ------------------------------------------------------------------ //
 
   @Test
-  void free_floating_passes_while_staged_binding_is_blocked() {
-    Stage stage = Stage.alwaysActivate("intake"); // PENDING
-    stage.addBinding("staged-b");
-    plan().addStage(stage);
+  void free_floating_passes_while_scoped_binding_is_blocked() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake")
+            .id("comp-1")
+            .entryCondition(c -> false)
+            .binding("staged-b")
+            .build();
+    plan().registerDefinition(compound);
 
     Binding free = binding("free-b");
     Binding staged = binding("staged-b");
     List<Binding> result = loopControl.select(ctx, List.of(free, staged));
 
     assertThat(result.stream().map(Binding::getName))
-        .as("free-floating binding must pass even when a staged binding is blocked")
+        .as("free-floating binding must pass even when a scoped binding is blocked")
         .contains("free-b");
     assertThat(result.stream().map(Binding::getName))
-        .as("staged binding must be blocked when its stage is not ACTIVE")
+        .as("scoped binding must be blocked when its compound is not RUNNING")
         .doesNotContain("staged-b");
   }
 
@@ -205,14 +211,13 @@ class BindingGatingTest {
 
   @Test
   void no_binding_declarations_means_pure_choreography() {
-    // Stage exists but declares no bindings — lifecycle-only, zero gating effect
-    Stage stage = Stage.alwaysActivate("intake");
-    plan().addStage(stage);
+    var compound = PlanItemDefinition.Compound.builder("intake").id("comp-1").build();
+    plan().registerDefinition(compound);
 
     Binding b = binding("any-b");
     List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
-        .as("binding must pass when no stage has declared ownership of it (pure choreography)")
+        .as("binding must pass when no compound has scoped it (pure choreography)")
         .contains("any-b");
   }
 
@@ -221,28 +226,33 @@ class BindingGatingTest {
   // ------------------------------------------------------------------ //
 
   @Test
-  void builder_declared_binding_is_gated_when_stage_pending() {
-    Stage stage = Stage.builder("intake").entryCondition(c -> true).binding("design-b").build();
-    // Note: stage is PENDING — not manually activated
-    plan().addStage(stage);
+  void builder_declared_binding_is_gated_when_compound_pending() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake")
+            .id("comp-1")
+            .entryCondition(c -> false)
+            .binding("design-b")
+            .build();
+    plan().registerDefinition(compound);
 
     Binding b = binding("design-b");
     List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
-        .as("builder-declared binding must be gated just like addBinding()")
+        .as("builder-declared binding must be gated when compound is PENDING")
         .doesNotContain("design-b");
   }
 
   @Test
-  void builder_declared_binding_passes_when_stage_active() {
-    Stage stage = Stage.builder("intake").entryCondition(c -> true).binding("design-b").build();
-    stage.activate();
-    plan().addStage(stage);
+  void builder_declared_binding_passes_when_compound_running() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake").id("comp-1").binding("design-b").build();
+    plan().registerDefinition(compound);
+    plan().tryDefinitionTransition("comp-1", TaskStatus.PENDING, TaskStatus.RUNNING);
 
     Binding b = binding("design-b");
     List<Binding> result = loopControl.select(ctx, List.of(b));
     assertThat(result.stream().map(Binding::getName))
-        .as("builder-declared binding must pass when stage is ACTIVE")
+        .as("builder-declared binding must pass when compound is RUNNING")
         .contains("design-b");
   }
 
@@ -416,62 +426,61 @@ class BindingGatingTest {
   // ------------------------------------------------------------------ //
 
   @Test
-  void staged_binding_auto_registers_planItem_with_owning_stage() {
-    Stage stage = Stage.alwaysActivate("intake");
-    stage.activate();
-    stage.addBinding("staged-b");
-    plan().addStage(stage);
+  void scoped_binding_creates_planItem_and_dispatches_when_compound_running() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake").id("comp-1").binding("staged-b").build();
+    plan().registerDefinition(compound);
+    plan().tryDefinitionTransition("comp-1", TaskStatus.PENDING, TaskStatus.RUNNING);
 
     Binding b = binding("staged-b");
-    loopControl.select(ctx, List.of(b));
+    List<Binding> result = loopControl.select(ctx, List.of(b));
 
-    assertThat(stage.getContainedPlanItemIds())
-        .as("PlanItem must be auto-registered in stage's containedPlanItemIds")
-        .hasSize(1);
-    assertThat(stage.getRequiredItemIds())
-        .as("PlanItem must be auto-registered in stage's requiredItemIds")
-        .hasSize(1);
-    assertThat(stage.getContainedPlanItemIds())
-        .as("containedPlanItemIds and requiredItemIds must contain the same PlanItem")
-        .containsExactlyElementsOf(stage.getRequiredItemIds());
+    assertThat(result.stream().map(Binding::getName))
+        .as("scoped binding must dispatch when compound is RUNNING")
+        .contains("staged-b");
+    assertThat(plan().getPlanItemByBindingName("staged-b"))
+        .as("PlanItem must be created for the dispatched binding")
+        .isPresent();
   }
 
   @Test
-  void free_floating_binding_does_not_register_with_any_stage() {
-    Stage stage = Stage.alwaysActivate("intake");
-    stage.activate();
-    stage.addBinding("other-b");
-    plan().addStage(stage);
+  void free_floating_binding_dispatches_independently_of_compounds() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake").id("comp-1").binding("other-b").build();
+    plan().registerDefinition(compound);
+    plan().tryDefinitionTransition("comp-1", TaskStatus.PENDING, TaskStatus.RUNNING);
 
     Binding b = binding("free-b");
-    loopControl.select(ctx, List.of(b));
+    List<Binding> result = loopControl.select(ctx, List.of(b));
 
-    assertThat(stage.getContainedPlanItemIds())
-        .as("free-floating binding must not register with unrelated stage")
-        .isEmpty();
-    assertThat(stage.getRequiredItemIds())
-        .as("free-floating binding must not register with unrelated stage")
-        .isEmpty();
+    assertThat(result.stream().map(Binding::getName))
+        .as("free-floating binding dispatches regardless of compound state")
+        .contains("free-b");
   }
 
   @Test
-  void auto_registration_skipped_when_planItem_already_exists() {
-    Stage stage = Stage.alwaysActivate("intake");
-    stage.activate();
-    stage.addBinding("staged-b");
-    plan().addStage(stage);
+  void duplicate_dispatch_prevention_when_planItem_already_exists() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake").id("comp-1").binding("staged-b").build();
+    plan().registerDefinition(compound);
+    plan().tryDefinitionTransition("comp-1", TaskStatus.PENDING, TaskStatus.RUNNING);
 
-    Binding b = binding("staged-b");
-    // First select creates and registers the PlanItem
-    loopControl.select(ctx, List.of(b));
-    int afterFirst = stage.getRequiredItemIds().size();
+    io.casehub.worker.api.Capability cap =
+        io.casehub.worker.api.Capability.builder()
+            .name("cap-1")
+            .inputSchema(".")
+            .outputSchema(".")
+            .build();
+    Binding b = mock(Binding.class);
+    when(b.getName()).thenReturn("staged-b");
+    when(b.target()).thenReturn(new CapabilityTarget(cap));
 
-    // Second select — PlanItem exists (RUNNING after indexSelectedForCompletion),
-    // addPlanItemIfAbsent returns false, no duplicate registration
-    loopControl.select(ctx, List.of(b));
+    List<Binding> firstResult = loopControl.select(ctx, List.of(b));
+    assertThat(firstResult.stream().map(Binding::getName)).contains("staged-b");
 
-    assertThat(stage.getRequiredItemIds())
-        .as("second select must not duplicate registration")
-        .hasSize(afterFirst);
+    List<Binding> secondResult = loopControl.select(ctx, List.of(b));
+    assertThat(secondResult.stream().map(Binding::getName))
+        .as("second select must not re-dispatch — PlanItem already RUNNING via CAS")
+        .doesNotContain("staged-b");
   }
 }

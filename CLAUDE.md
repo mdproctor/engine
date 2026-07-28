@@ -319,7 +319,7 @@ See design spec: `docs/specs/2026-06-05-action-risk-classifier-design.md`. Consu
 
 Selects which binding(s) handle a capability when multiple bindings target the same capability. Symmetric to `AgentRoutingStrategy` (which selects which worker instance handles a task). Package: `io.casehub.api.spi.routing`. Refs engine#476.
 
-**Pipeline:** Binding eligibility → Stage gating → **ImplementationRouting** → PlanningStrategy → **AgentRouting** → Worker scheduling.
+**Pipeline:** Binding eligibility → Compound gating → **ImplementationRouting** → PlanningStrategy → **AgentRouting** → Worker scheduling.
 
 **Sealed result:** `ImplementationSelection` — `Selected(List<String> bindingNames)` | `RunAll()` | `RunNone()`. `Selected` enforces non-empty via constructor validation.
 
@@ -331,7 +331,7 @@ Selects which binding(s) handle a capability when multiple bindings target the s
 
 Enriches humanTask candidate sets with historical data from CBR plan traces. Symmetric with `AgentRoutingStrategy` — follows the routing strategy convention (engine#634): `select()` method, context/candidates separation, sealed result type. Package: `io.casehub.api.spi.routing`. Refs engine#741.
 
-**Pipeline:** Binding eligibility → Stage gating → ImplementationRouting → PlanningStrategy → **HumanTaskRouting** (for HumanTaskTarget bindings) → HumanTaskScheduleEvent.
+**Pipeline:** Binding eligibility → Compound gating → ImplementationRouting → PlanningStrategy → **HumanTaskRouting** (for HumanTaskTarget bindings) → HumanTaskScheduleEvent.
 
 **SPI:** `HumanTaskRoutingStrategy extends NamedStrategy` — `select(HumanTaskRoutingContext, HumanTaskCandidates) → HumanTaskRoutingResult`. `HumanTaskRoutingContext` carries `caseId`, `bindingName`, `tenancyId`, `caseContext`, `experiences`. `HumanTaskCandidates` carries pre-resolved `groups` and `users` (null-safe, defensive copies). `HumanTaskRoutingResult` is sealed: `Enriched(candidateGroups, candidateUsers, candidateScores)` | `Unchanged()` | `Escalated(reason)`. `candidateScores` keys are from `candidateUsers` only — group scoring requires group membership resolution (engine#757).
 
@@ -363,19 +363,9 @@ Enriches humanTask candidate sets with historical data from CBR plan traces. Sym
 
 **EngineStrategyResolver** (`runtime/internal/routing/`) — `@Alternative @Priority(1)` resolver using per-domain `Instance<>` injection (Quarkus ARC workaround — `Instance<NamedStrategy>` does not discover sub-interface beans). Detects `@DefaultBean` strategies via `InjectableBean.isDefaultBean()` — YAML-specified IDs take precedence over defaults. Adding new strategy SPI types requires updating this resolver's constructor. Refs engine#634, engine#641, GE-20260704-d6aacc.
 
-## Repeatable Stage
+## Repeatable Compound
 
-Stage gains `repeatable` (final boolean, builder-only) and `instanceIndex` (AtomicInteger, 0-based). When a repeatable stage autocompletes, `StageAutocompleteEvaluator` calls `resetForRepetition()` — CAS COMPLETED→PENDING, clears `containedPlanItemIds`/`requiredItemIds`/`containedMilestoneIds`, increments `instanceIndex`. Binding names persist across resets (design-time declarations).
-
-**Event records:** `StageCompletedEvent(caseId, stage, instanceIndex)` and `StageActivatedEvent(caseId, stage, instanceIndex)` carry an explicit `instanceIndex` snapshot — use the field, not `stage.getInstanceIndex()` which may have advanced.
-
-**V1 constraint:** Repeatable stages must not contain nested stages or milestones. Runtime enforcement in `StageAutocompleteEvaluator` — logs warning and skips reset.
-
-**Fan-out race:** `WORKER_EXECUTION_FINISHED` fan-out means auto-registration and `resetForRepetition()` may interleave. Self-healing — at worst one cycle skipped. Refs engine#482.
-
-**Stage-PlanItem auto-registration:** `PlanningStrategyLoopControl` auto-registers newly created PlanItems with their owning stage's `containedPlanItemIds` and `requiredItemIds` via `registerWithOwningStages()`. This makes stage autocomplete work in production (previously test-only). Refs engine#497.
-
-**Outcomes cleanup:** `StageResetOutcomesCleaner` (blackboard) consumes `STAGE_ACTIVATED` and clears `_diagnostics` entries for the stage's `getContainedBindingNames()` when `instanceIndex > 0`. Without this, excluded agents from iteration N carry over to iteration N+1. Refs engine#517.
+`PlanItemDefinition.Compound` gains `repeatable` (boolean, builder). Repeatable compound lifecycle is tracked via `PlanItemExecutionState` CAS transitions. Refs engine#482. Stage-based repeatability infrastructure (StageResetOutcomesCleaner, StageActivatedEvent, resetForRepetition) was removed in the Stage retirement (blocks#60 Phase 3C.3).
 
 ## Agent Worker AI Model
 
@@ -402,7 +392,9 @@ Provider implementations in sub-packages (`openai/`, `anthropic/`, `mistral/`, `
 
 ## casehub-engine-planning Module
 
-Core planning infrastructure. Provides PlanningStrategy, CasePlanModel, Stage, PlanItem, and compound PlanItem types (`PlanItemDefinition`, `CompletionSemantics`, `DispatchMode`). Package: `io.casehub.engine.planning`. Renamed from `casehub-engine-blackboard` / `io.casehub.blackboard` in blocks#60. `PlanningStrategyLoopControl` is `@ApplicationScoped` (sole `LoopControl`); `ChoreographyLoopControl` in runtime is `@DefaultBean` fallback. `DefaultPlanningStrategy` renamed to `ChoreographyStrategy` (id=`"default"`).
+Core planning infrastructure. Provides PlanningStrategy, CasePlanModel, PlanItem, and compound PlanItem types (`PlanItemDefinition`, `CompletionSemantics`, `DispatchMode`). Package: `io.casehub.engine.planning`. Renamed from `casehub-engine-blackboard` / `io.casehub.blackboard` in blocks#60. `PlanningStrategyLoopControl` is `@ApplicationScoped` (sole `LoopControl`); `ChoreographyStrategy` (id=`"default"`) is the fallback strategy. Stage is fully retired — replaced by `PlanItemDefinition.Compound` (blocks#60 Phase 3C.3).
+
+**Compound PlanItemDefinition hierarchy (blocks#60):** `PlanItemDefinition` is a sealed interface with two permits: `Primitive` (leaf — has executor, entry condition) and `Compound` (container — has children, planning strategy, CompletionSemantics, DispatchMode, entry/exit conditions, repeatable, scopedBindings). `Primitive` has no `dispatchMode` — only `Compound` controls dispatch. `Compound.builder("name")` provides a fluent builder with defaults (CHOREOGRAPHED dispatch, All completion). `Compound.scopedBindings()` declares which binding names the compound gates — bindings only dispatch when their owning compound is RUNNING. `PlanItemExecutionState` tracks compound lifecycle via CAS transitions (PENDING→RUNNING→COMPLETED). `CompoundLifecycleEvaluator` evaluates entry/exit conditions. `CompoundStrategyDispatcher` (`@ApplicationScoped`) groups bindings by compound parent and delegates to per-compound strategies. `CompoundCompletionEvaluator` propagates completion up the compound tree. `evaluateCompletion()` on `DefaultCasePlanModel` checks both structural children (definition status) AND scoped bindings (PlanItem status). `CasePlanModel` gains `getAllCompounds()` and `getCompoundsByStatus(TaskStatus)`. `PlanningStrategyLoopControl.select()` uses compound-based gating (scopedBindings + definition status), `CompoundLifecycleEvaluator` for activation, and `CompoundStrategyDispatcher` for dispatch. Stage-based gating is removed from the dispatch path. Stage is fully retired — all infrastructure deleted and integration tests migrated to Compound (blocks#60 Phase 3C.3). `CompoundLifecycleEvaluator` evaluates BEFORE gating so compounds activated in the same cycle immediately gate their scoped bindings. `CompoundStrategyDispatcher` uses case-level `planningStrategy` for free-floating bindings (not hardcoded "default").
 
 **Build and test:**
 ```bash
@@ -428,9 +420,9 @@ TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl planning
   See `HumanTaskScheduleHandlerTest` (engine#290).
 
 **Key blackboard handlers:**
-- `PlanItemCompletionHandler` — marks PlanItems COMPLETED on `WORKER_EXECUTION_FINISHED` and `SUBCASE_EXECUTION_COMPLETED`; delegates stage autocomplete to `StageAutocompleteEvaluator`
-- `WorkerRetryExhaustionHandler` — marks CapabilityTarget PlanItems FAULTED on `WORKER_RETRIES_EXHAUSTED` (both guard-blocked and Quartz-exhausted paths); delegates stage autocomplete to `StageAutocompleteEvaluator`. Refs engine#331.
-- `StageAutocompleteEvaluator` — evaluates stage autocomplete after any PlanItem terminal transition; fires `STAGE_COMPLETED` when all required items are terminal (COMPLETED, REJECTED, FAULTED, or CANCELLED). See ADR-0002 for the semantic decision on FAULTED/REJECTED triggering autocomplete.
+- `PlanItemCompletionHandler` — marks PlanItems COMPLETED on `WORKER_EXECUTION_FINISHED` and `SUBCASE_EXECUTION_COMPLETED`; delegates compound completion to `CompoundCompletionEvaluator` (passes `item.getBindingName()`, not planItemId)
+- `WorkerRetryExhaustionHandler` — marks CapabilityTarget PlanItems FAULTED on `WORKER_RETRIES_EXHAUSTED` (both guard-blocked and Quartz-exhausted paths); delegates compound completion to `CompoundCompletionEvaluator`. Refs engine#331.
+- `CompoundCompletionEvaluator` — walks the compound parent chain from a changed binding name; evaluates completion semantics (All, MOfN, FirstWins) across structural children and scoped bindings; fires `COMPOUND_COMPLETED` event. Replaces `StageAutocompleteEvaluator`.
 - `SubCaseExecutionHandler` — consumes `SUBCASE_SCHEDULE` events. Detects self-reference (parent definition == child SubCase identity) and enforces bounded recursion via `SubCase.maxRecursionDepth()` (int, default 0 = hard block). Depth is computed by walking the `parentCaseId` chain via `CaseInstanceCache`, counting ALL same-definition ancestors (total counting, not consecutive — prevents trampoline bypass via A→B→A chains). Short-circuits at `maxRecursionDepth`. If `depth >= maxRecursionDepth` → faults the PlanItem. The cache walk relies on `CaseInstanceCacheImpl` having no eviction (bare `ConcurrentHashMap`, no `remove()` method) — all ancestors in a recursive chain are WAITING and remain cached. **Single-node assumption:** `CaseInstanceCache` is per-JVM. Clustering would require a distributed cache or repository query. **Known limitation:** mutual recursion (A→B→A cycles) is unbounded — B spawning A bypasses the self-reference check. Refs engine#573.
 - `SubCaseCompletionService` — handles grouped sub-case completion (M-of-N threshold). Fires `Event<SubCaseGroupLifecycleEvent>.fireAsync()` for every non-null `GroupStatus` transition (IN_PROGRESS, COMPLETED, REJECTED). Observers (monitoring, audit, Claudony dashboard) subscribe without coupling to the engine. Refs engine#249.
 

@@ -18,7 +18,6 @@ package io.casehub.engine.planning.plan;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SubCase;
 import io.casehub.api.model.TaskStatus;
-import io.casehub.engine.planning.stage.Stage;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -91,21 +90,8 @@ public interface CasePlanModel {
   /** Returns all PlanItems regardless of status. Used by planning strategies. */
   List<PlanItem> getAllPlanItems();
 
-  // Stage management
-  void addStage(Stage stage);
-
-  Optional<Stage> getStage(String stageId);
-
-  List<Stage> getPendingStages();
-
-  List<Stage> getActiveStages();
-
-  List<Stage> getAllStages();
-
   // Milestone lifecycle (PENDING → ACTIVE → COMPLETED). See casehubio/engine#84.
   void trackMilestone(String milestoneName);
-
-  void trackMilestone(String milestoneName, String parentStageId);
 
   void activateMilestone(String milestoneName);
 
@@ -173,5 +159,14 @@ public interface CasePlanModel {
 
   default PlanItemDefinition getDefinition(String planItemId) {
     return null;
+  }
+
+  default java.util.List<PlanItemDefinition.Compound> getAllCompounds() {
+    return java.util.List.of();
+  }
+
+  default java.util.List<PlanItemDefinition.Compound> getCompoundsByStatus(
+      io.casehub.api.model.TaskStatus status) {
+    return java.util.List.of();
   }
 }

@@ -22,9 +22,9 @@ import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.TaskStatus;
+import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.casehub.engine.planning.stage.Stage;
-import io.casehub.engine.planning.stage.StageStatus;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -37,11 +37,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-/**
- * R5: Stage with Java lambda entry condition (not JQ) activates end-to-end. Verifies
- * LambdaExpressionEvaluator dispatch in StageLifecycleEvaluator works correctly through the full
- * engine. See casehubio/engine#76.
- */
 @QuarkusTest
 class LambdaEntryConditionBlackboardTest {
 
@@ -49,19 +44,18 @@ class LambdaEntryConditionBlackboardTest {
   @Inject LambdaCaseBean lambdaCase;
 
   @Test
-  void stage_with_lambda_entry_condition_activates_when_predicate_true() {
+  void compound_with_lambda_entry_condition_activates_when_predicate_true() {
     UUID caseId = lambdaCase.startCase(Map.of("value", 42));
 
-    // Plan model is created on the first select() call from CaseStartedEvent
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(registry.get(caseId)).isPresent());
 
-    Stage stage =
-        Stage.builder("lambda-stage")
+    var compound =
+        PlanItemDefinition.Compound.builder("lambda-compound")
             .entryCondition(ctx -> Integer.valueOf(42).equals(ctx.getPath("value")))
             .build();
-    registry.get(caseId).get().addStage(stage);
+    registry.get(caseId).get().registerDefinition(compound);
 
     lambdaCase.signal(caseId, "probe", "tick");
 
@@ -69,25 +63,24 @@ class LambdaEntryConditionBlackboardTest {
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
-                assertThat(stage.getStatus())
-                    .as("stage with lambda predicate (value == 42) must activate")
-                    .isEqualTo(StageStatus.ACTIVE));
+                assertThat(registry.get(caseId).get().getDefinitionStatus(compound.id()))
+                    .as("compound with lambda predicate (value == 42) must activate")
+                    .isEqualTo(TaskStatus.RUNNING));
   }
 
   @Test
-  void stage_with_lambda_stays_pending_when_predicate_false() {
+  void compound_with_lambda_stays_pending_when_predicate_false() {
     UUID caseId = lambdaCase.startCase(Map.of("value", 99));
 
-    // Plan model is created on the first select() call from CaseStartedEvent
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(registry.get(caseId)).isPresent());
 
-    Stage stage =
-        Stage.builder("lambda-stage")
+    var compound =
+        PlanItemDefinition.Compound.builder("lambda-compound")
             .entryCondition(ctx -> Integer.valueOf(42).equals(ctx.getPath("value")))
             .build();
-    registry.get(caseId).get().addStage(stage);
+    registry.get(caseId).get().registerDefinition(compound);
 
     lambdaCase.signal(caseId, "probe", "tick");
 
@@ -96,16 +89,11 @@ class LambdaEntryConditionBlackboardTest {
         .atMost(5, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
-                assertThat(stage.getStatus())
-                    .as("stage must stay PENDING when lambda predicate is false (value=99 != 42)")
-                    .isEqualTo(StageStatus.PENDING));
+                assertThat(registry.get(caseId).get().getDefinitionStatus(compound.id()))
+                    .as("compound must stay PENDING when lambda predicate is false")
+                    .isEqualTo(TaskStatus.PENDING));
   }
 
-  /**
-   * Case whose binding fires only when {@code .value != null}. The worker writes {@code done=true}
-   * — a key disjoint from {@code value} — preventing re-trigger. Both test methods share this bean
-   * but start independent cases via different initial context.
-   */
   @ApplicationScoped
   public static class LambdaCaseBean extends CaseHub {
 

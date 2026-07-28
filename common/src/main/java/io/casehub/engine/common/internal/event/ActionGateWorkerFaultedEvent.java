@@ -24,7 +24,7 @@ import java.util.UUID;
  *
  * <p>Consumed by the blackboard module ({@code ActionGateRejectedPlanItemHandler}, {@code
  * ActionGateExpiredPlanItemHandler}) to mark the associated PlanItem FAULTED, enabling {@code
- * StageAutocompleteEvaluator} to fire. This is distinct from {@link WorkerRetriesExhaustedEvent}
+ * CompoundCompletionEvaluator} to fire. This is distinct from {@link WorkerRetriesExhaustedEvent}
  * which also faults the {@code CaseInstance} state — gate faults must leave the case RUNNING so the
  * rejection binding can react.
  *

@@ -31,8 +31,7 @@ class CompoundPlanModelTest {
   }
 
   private PlanItemDefinition.Primitive primitive(String id) {
-    return new PlanItemDefinition.Primitive(
-        id, id, ExecutorRef.of("worker"), DispatchMode.ORCHESTRATED, null);
+    return new PlanItemDefinition.Primitive(id, id, ExecutorRef.of("worker"), null);
   }
 
   private PlanItemDefinition.Compound compound(String id, List<PlanItemDefinition> children) {
@@ -45,7 +44,8 @@ class CompoundPlanModelTest {
         DispatchMode.ORCHESTRATED,
         null,
         null,
-        false);
+        false,
+        java.util.Set.of());
   }
 
   @Test
@@ -135,7 +135,8 @@ class CompoundPlanModelTest {
             DispatchMode.ORCHESTRATED,
             null,
             null,
-            false);
+            false,
+            java.util.Set.of());
     var model = model();
     model.registerDefinition(parent);
 
@@ -162,7 +163,8 @@ class CompoundPlanModelTest {
             DispatchMode.ORCHESTRATED,
             null,
             null,
-            false);
+            false,
+            java.util.Set.of());
     var model = model();
     model.registerDefinition(parent);
 
@@ -253,7 +255,8 @@ class CompoundPlanModelTest {
             DispatchMode.ORCHESTRATED,
             null,
             null,
-            false);
+            false,
+            java.util.Set.of());
     var model = model();
     model.registerDefinition(parent);
 
@@ -299,5 +302,164 @@ class CompoundPlanModelTest {
     Thread.sleep(200);
     assertThat(successes.get()).isEqualTo(1);
     assertThat(model.getDefinitionStatus("pi-1")).isEqualTo(TaskStatus.RUNNING);
+  }
+
+  @Test
+  void registerDefinition_indexes_owned_binding_names_in_parent() {
+    var compound =
+        new PlanItemDefinition.Compound(
+            "comp-1",
+            "my-stage",
+            List.of(),
+            null,
+            CompletionSemantics.all(),
+            DispatchMode.CHOREOGRAPHED,
+            null,
+            null,
+            false,
+            java.util.Set.of("binding-a", "binding-b"));
+    var model = model();
+    model.registerDefinition(compound);
+
+    assertThat(model.getParentOf("binding-a")).contains("comp-1");
+    assertThat(model.getParentOf("binding-b")).contains("comp-1");
+    assertThat(model.getChildrenOf("comp-1")).isEmpty();
+  }
+
+  @Test
+  void registerDefinition_indexes_both_children_and_owned_bindings() {
+    var child = primitive("child-1");
+    var compound =
+        new PlanItemDefinition.Compound(
+            "comp-2",
+            "hybrid",
+            List.of(child),
+            null,
+            CompletionSemantics.all(),
+            DispatchMode.CHOREOGRAPHED,
+            null,
+            null,
+            false,
+            java.util.Set.of("scoped-binding"));
+    var model = model();
+    model.registerDefinition(compound);
+
+    assertThat(model.getParentOf("child-1")).contains("comp-2");
+    assertThat(model.getParentOf("scoped-binding")).contains("comp-2");
+    assertThat(model.getChildrenOf("comp-2")).containsExactly("child-1");
+  }
+
+  @Test
+  void evaluateCompletion_works_with_scoped_bindings_and_children() {
+    var child = primitive("c1");
+    var compound =
+        new PlanItemDefinition.Compound(
+            "comp-3",
+            "mixed",
+            List.of(child),
+            null,
+            CompletionSemantics.all(),
+            DispatchMode.CHOREOGRAPHED,
+            null,
+            null,
+            false,
+            java.util.Set.of("scoped-b"));
+    var model = model();
+    model.registerDefinition(compound);
+
+    assertThat(model.evaluateCompletion("comp-3")).isFalse();
+
+    model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
+    model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
+    assertThat(model.evaluateCompletion("comp-3"))
+        .as("scoped binding not yet terminal — compound not complete")
+        .isFalse();
+
+    var pi = PlanItem.create("scoped-b", io.casehub.api.model.ExecutorRef.of("w"), 0);
+    model.addPlanItem(pi);
+    pi.markRunning();
+    pi.markCompleted();
+    assertThat(model.evaluateCompletion("comp-3"))
+        .as("both structural child and scoped binding terminal — compound complete")
+        .isTrue();
+  }
+
+  @Test
+  void getAllCompounds_returns_registered_compounds() {
+    var c1 = PlanItemDefinition.Compound.builder("phase-1").id("comp-1").build();
+    var c2 = PlanItemDefinition.Compound.builder("phase-2").id("comp-2").build();
+    var model = model();
+    model.registerDefinition(c1);
+    model.registerDefinition(c2);
+    model.registerDefinition(primitive("leaf"));
+
+    var compounds = model.getAllCompounds();
+    assertThat(compounds).hasSize(2);
+    assertThat(compounds.stream().map(PlanItemDefinition.Compound::id))
+        .containsExactlyInAnyOrder("comp-1", "comp-2");
+  }
+
+  @Test
+  void getCompoundsByStatus_filters_by_definition_status() {
+    var c1 = PlanItemDefinition.Compound.builder("active").id("comp-1").build();
+    var c2 = PlanItemDefinition.Compound.builder("pending").id("comp-2").build();
+    var model = model();
+    model.registerDefinition(c1);
+    model.registerDefinition(c2);
+
+    model.tryDefinitionTransition("comp-1", TaskStatus.PENDING, TaskStatus.RUNNING);
+
+    assertThat(model.getCompoundsByStatus(TaskStatus.RUNNING)).hasSize(1);
+    assertThat(model.getCompoundsByStatus(TaskStatus.RUNNING).get(0).id()).isEqualTo("comp-1");
+    assertThat(model.getCompoundsByStatus(TaskStatus.PENDING)).hasSize(1);
+    assertThat(model.getCompoundsByStatus(TaskStatus.PENDING).get(0).id()).isEqualTo("comp-2");
+  }
+
+  @Test
+  void getAllCompounds_includes_nested_compounds() {
+    var inner = PlanItemDefinition.Compound.builder("inner").id("inner").build();
+    var outer = PlanItemDefinition.Compound.builder("outer").id("outer").child(inner).build();
+    var model = model();
+    model.registerDefinition(outer);
+
+    assertThat(model.getAllCompounds()).hasSize(2);
+  }
+
+  @Test
+  void evaluateCompletion_scopedBindings_completes_when_planItems_terminal() {
+    var compound =
+        PlanItemDefinition.Compound.builder("stage")
+            .id("comp-1")
+            .binding("binding-a")
+            .binding("binding-b")
+            .build();
+    var model = model();
+    model.registerDefinition(compound);
+
+    assertThat(model.evaluateCompletion("comp-1")).isFalse();
+
+    var piA = PlanItem.create("binding-a", io.casehub.api.model.ExecutorRef.of("w"), 0);
+    model.addPlanItem(piA);
+    piA.markRunning();
+    piA.markCompleted();
+    assertThat(model.evaluateCompletion("comp-1")).isFalse();
+
+    var piB = PlanItem.create("binding-b", io.casehub.api.model.ExecutorRef.of("w"), 0);
+    model.addPlanItem(piB);
+    piB.markRunning();
+    piB.markCompleted();
+    assertThat(model.evaluateCompletion("comp-1")).isTrue();
+  }
+
+  @Test
+  void evaluateCompletion_scopedBindings_not_yet_dispatched_counts_as_pending() {
+    var compound =
+        PlanItemDefinition.Compound.builder("stage").id("comp-1").binding("binding-a").build();
+    var model = model();
+    model.registerDefinition(compound);
+
+    assertThat(model.evaluateCompletion("comp-1"))
+        .as("no PlanItem created yet — binding is pending, compound is not complete")
+        .isFalse();
   }
 }

@@ -15,54 +15,61 @@
  */
 package io.casehub.engine.planning.control;
 
-import io.casehub.api.engine.PlanExecutionContext;
-import io.casehub.api.model.Binding;
-import io.casehub.engine.planning.plan.CasePlanModel;
-import io.casehub.engine.planning.plan.PlanItemDefinition;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.function.Function;
-
+@jakarta.enterprise.context.ApplicationScoped
 public class CompoundStrategyDispatcher {
 
   private static final String DEFAULT_STRATEGY = "default";
 
-  private final Function<String, PlanningStrategy> strategyResolver;
+  private final java.util.function.Function<String, PlanningStrategy> strategyResolver;
 
-  public CompoundStrategyDispatcher(Function<String, PlanningStrategy> strategyResolver) {
+  @jakarta.inject.Inject
+  public CompoundStrategyDispatcher(
+      jakarta.enterprise.inject.Instance<PlanningStrategy> strategyBeans) {
+    java.util.Map<String, PlanningStrategy> strategies =
+        java.util.stream.StreamSupport.stream(strategyBeans.spliterator(), false)
+            .collect(java.util.stream.Collectors.toMap(PlanningStrategy::id, s -> s));
+    this.strategyResolver = strategies::get;
+  }
+
+  CompoundStrategyDispatcher(
+      java.util.function.Function<String, PlanningStrategy> strategyResolver) {
     this.strategyResolver = strategyResolver;
   }
 
-  public List<Binding> dispatch(
-      CasePlanModel plan, PlanExecutionContext ctx, List<Binding> eligible) {
-    if (eligible.isEmpty()) return List.of();
+  public java.util.List<io.casehub.api.model.Binding> dispatch(
+      io.casehub.engine.planning.plan.CasePlanModel plan,
+      io.casehub.api.engine.PlanExecutionContext ctx,
+      java.util.List<io.casehub.api.model.Binding> eligible) {
+    if (eligible.isEmpty()) {
+      return java.util.List.of();
+    }
 
-    Map<String, List<Binding>> byCompound = new LinkedHashMap<>();
-    List<Binding> freeFloating = new ArrayList<>();
+    java.util.Map<String, java.util.List<io.casehub.api.model.Binding>> byCompound =
+        new java.util.LinkedHashMap<>();
+    java.util.List<io.casehub.api.model.Binding> freeFloating = new java.util.ArrayList<>();
 
-    for (Binding binding : eligible) {
-      Optional<String> parentOpt = plan.getParentOf(binding.getName());
+    for (io.casehub.api.model.Binding binding : eligible) {
+      java.util.Optional<String> parentOpt = plan.getParentOf(binding.getName());
       if (parentOpt.isPresent()) {
-        byCompound.computeIfAbsent(parentOpt.get(), k -> new ArrayList<>()).add(binding);
+        byCompound.computeIfAbsent(parentOpt.get(), k -> new java.util.ArrayList<>()).add(binding);
       } else {
         freeFloating.add(binding);
       }
     }
 
-    List<Binding> result = new ArrayList<>();
+    java.util.List<io.casehub.api.model.Binding> result = new java.util.ArrayList<>();
 
     for (var entry : byCompound.entrySet()) {
       String compoundId = entry.getKey();
-      List<Binding> groupBindings = entry.getValue();
-      PlanItemDefinition def = plan.getDefinition(compoundId);
-      if (def instanceof PlanItemDefinition.Compound compound) {
+      java.util.List<io.casehub.api.model.Binding> groupBindings = entry.getValue();
+      io.casehub.engine.planning.plan.PlanItemDefinition def = plan.getDefinition(compoundId);
+      if (def instanceof io.casehub.engine.planning.plan.PlanItemDefinition.Compound compound) {
         String strategyId =
             compound.planningStrategy() != null ? compound.planningStrategy() : DEFAULT_STRATEGY;
         PlanningStrategy strategy = strategyResolver.apply(strategyId);
-        if (strategy == null) strategy = strategyResolver.apply(DEFAULT_STRATEGY);
+        if (strategy == null) {
+          strategy = strategyResolver.apply(DEFAULT_STRATEGY);
+        }
         result.addAll(strategy.select(plan, ctx, compound, groupBindings));
       } else {
         result.addAll(groupBindings);
@@ -70,8 +77,15 @@ public class CompoundStrategyDispatcher {
     }
 
     if (!freeFloating.isEmpty()) {
-      PlanningStrategy defaultStrategy = strategyResolver.apply(DEFAULT_STRATEGY);
-      result.addAll(defaultStrategy.select(plan, ctx, freeFloating));
+      String strategyId =
+          ctx.definition() != null && ctx.definition().getPlanningStrategy() != null
+              ? ctx.definition().getPlanningStrategy()
+              : DEFAULT_STRATEGY;
+      PlanningStrategy strategy = strategyResolver.apply(strategyId);
+      if (strategy == null) {
+        strategy = strategyResolver.apply(DEFAULT_STRATEGY);
+      }
+      result.addAll(strategy.select(plan, ctx, freeFloating));
     }
 
     return result;

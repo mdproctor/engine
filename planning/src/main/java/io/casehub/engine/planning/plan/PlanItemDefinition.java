@@ -15,11 +15,6 @@
  */
 package io.casehub.engine.planning.plan;
 
-import io.casehub.api.model.ExecutorRef;
-import io.casehub.platform.api.expression.ExpressionEvaluator;
-import java.util.List;
-import java.util.Objects;
-
 public sealed interface PlanItemDefinition
     permits PlanItemDefinition.Primitive, PlanItemDefinition.Compound {
 
@@ -27,40 +22,137 @@ public sealed interface PlanItemDefinition
 
   String name();
 
-  DispatchMode dispatchMode();
-
   record Primitive(
       String id,
       String name,
-      ExecutorRef executor,
-      DispatchMode dispatchMode,
-      ExpressionEvaluator entryCondition)
+      io.casehub.api.model.ExecutorRef executor,
+      io.casehub.platform.api.expression.ExpressionEvaluator entryCondition)
       implements PlanItemDefinition {
     public Primitive {
-      Objects.requireNonNull(id, "id required");
-      Objects.requireNonNull(name, "name required");
-      Objects.requireNonNull(executor, "executor required");
-      Objects.requireNonNull(dispatchMode, "dispatchMode required");
+      java.util.Objects.requireNonNull(id, "id required");
+      java.util.Objects.requireNonNull(name, "name required");
+      java.util.Objects.requireNonNull(executor, "executor required");
     }
   }
 
   record Compound(
       String id,
       String name,
-      List<PlanItemDefinition> children,
+      java.util.List<PlanItemDefinition> children,
       String planningStrategy,
       CompletionSemantics completion,
       DispatchMode dispatchMode,
-      ExpressionEvaluator entryCondition,
-      ExpressionEvaluator exitCondition,
-      boolean repeatable)
+      io.casehub.platform.api.expression.ExpressionEvaluator entryCondition,
+      io.casehub.platform.api.expression.ExpressionEvaluator exitCondition,
+      boolean repeatable,
+      java.util.Set<String> scopedBindings)
       implements PlanItemDefinition {
     public Compound {
-      Objects.requireNonNull(id, "id required");
-      Objects.requireNonNull(name, "name required");
-      Objects.requireNonNull(dispatchMode, "dispatchMode required");
-      Objects.requireNonNull(completion, "completion required");
-      children = children != null ? List.copyOf(children) : List.of();
+      java.util.Objects.requireNonNull(id, "id required");
+      java.util.Objects.requireNonNull(name, "name required");
+      java.util.Objects.requireNonNull(dispatchMode, "dispatchMode required");
+      java.util.Objects.requireNonNull(completion, "completion required");
+      children = children != null ? java.util.List.copyOf(children) : java.util.List.of();
+      scopedBindings =
+          scopedBindings != null ? java.util.Set.copyOf(scopedBindings) : java.util.Set.of();
+    }
+
+    public static Builder builder(String name) {
+      return new Builder(name);
+    }
+
+    public static final class Builder {
+      private String id = java.util.UUID.randomUUID().toString();
+      private final String name;
+      private final java.util.ArrayList<PlanItemDefinition> children = new java.util.ArrayList<>();
+      private final java.util.LinkedHashSet<String> scopedBindings =
+          new java.util.LinkedHashSet<>();
+      private String planningStrategy;
+      private CompletionSemantics completion = CompletionSemantics.all();
+      private DispatchMode dispatchMode = DispatchMode.CHOREOGRAPHED;
+      private io.casehub.platform.api.expression.ExpressionEvaluator entryCondition;
+      private io.casehub.platform.api.expression.ExpressionEvaluator exitCondition;
+      private boolean repeatable;
+
+      private Builder(String name) {
+        this.name = java.util.Objects.requireNonNull(name, "name required");
+      }
+
+      public Builder id(String id) {
+        this.id = java.util.Objects.requireNonNull(id, "id required");
+        return this;
+      }
+
+      public Builder child(PlanItemDefinition child) {
+        this.children.add(java.util.Objects.requireNonNull(child, "child required"));
+        return this;
+      }
+
+      public Builder binding(String bindingName) {
+        this.scopedBindings.add(
+            java.util.Objects.requireNonNull(bindingName, "bindingName required"));
+        return this;
+      }
+
+      public Builder planningStrategy(String strategy) {
+        this.planningStrategy = strategy;
+        return this;
+      }
+
+      public Builder completion(CompletionSemantics completion) {
+        this.completion = java.util.Objects.requireNonNull(completion, "completion required");
+        return this;
+      }
+
+      public Builder dispatchMode(DispatchMode mode) {
+        this.dispatchMode = java.util.Objects.requireNonNull(mode, "dispatchMode required");
+        return this;
+      }
+
+      public Builder entryCondition(
+          io.casehub.platform.api.expression.ExpressionEvaluator condition) {
+        this.entryCondition = condition;
+        return this;
+      }
+
+      public Builder entryCondition(
+          java.util.function.Predicate<io.casehub.api.context.CaseContext> predicate) {
+        this.entryCondition =
+            new io.casehub.api.model.evaluator.LambdaExpressionEvaluator(predicate);
+        return this;
+      }
+
+      public Builder exitCondition(
+          io.casehub.platform.api.expression.ExpressionEvaluator condition) {
+        this.exitCondition = condition;
+        return this;
+      }
+
+      public Builder exitCondition(
+          java.util.function.Predicate<io.casehub.api.context.CaseContext> predicate) {
+        this.exitCondition =
+            new io.casehub.api.model.evaluator.LambdaExpressionEvaluator(predicate);
+        return this;
+      }
+
+      public Builder repeatable(boolean repeatable) {
+        this.repeatable = repeatable;
+        return this;
+      }
+
+      public Compound build() {
+        return new Compound(
+            id,
+            name,
+            children,
+            planningStrategy,
+            completion,
+            dispatchMode,
+            entryCondition,
+            exitCondition,
+            repeatable,
+            scopedBindings);
+      }
     }
   }
 }

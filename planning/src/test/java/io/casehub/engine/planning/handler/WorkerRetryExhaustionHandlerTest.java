@@ -47,7 +47,7 @@ class WorkerRetryExhaustionHandlerTest {
   private BlackboardRegistry registry;
   private EventBus eventBus;
   private Event<PlanItemFaultedEvent> planItemFaultedEvents;
-  private StageAutocompleteEvaluator stageAutocompleteEvaluator;
+  private CompoundCompletionEvaluator compoundCompletionEvaluator;
   private WorkerRetryExhaustionHandler handler;
   private UUID caseId;
   private DefaultCasePlanModel plan;
@@ -58,10 +58,10 @@ class WorkerRetryExhaustionHandlerTest {
     registry = new BlackboardRegistry();
     eventBus = mock(EventBus.class);
     planItemFaultedEvents = mock(Event.class);
-    stageAutocompleteEvaluator = mock(StageAutocompleteEvaluator.class);
+    compoundCompletionEvaluator = mock(CompoundCompletionEvaluator.class);
     handler =
         new WorkerRetryExhaustionHandler(
-            registry, stageAutocompleteEvaluator, planItemFaultedEvents);
+            registry, compoundCompletionEvaluator, planItemFaultedEvents);
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
@@ -175,7 +175,8 @@ class WorkerRetryExhaustionHandlerTest {
             new PlanItemFaultedEvent(
                 caseId, item.getPlanItemId(), "capability-binding", "test-tenant"));
 
-    // Assert: stageAutocompleteEvaluator.evaluate() called
-    verify(stageAutocompleteEvaluator).evaluate(caseId, "test-tenant", plan, item.getPlanItemId());
+    // Assert: compoundCompletionEvaluator.evaluate() called
+    verify(compoundCompletionEvaluator)
+        .evaluate(caseId, "test-tenant", plan, item.getBindingName());
   }
 }

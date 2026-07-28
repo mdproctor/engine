@@ -25,24 +25,20 @@ import org.junit.jupiter.api.Test;
 class PlanItemDefinitionTest {
 
   @Test
-  void primitive_holds_executor_and_dispatch_mode() {
+  void primitive_holds_executor() {
     var executor = ExecutorRef.of("worker-a");
-    var item =
-        new PlanItemDefinition.Primitive(
-            "pi-1", "task-a", executor, DispatchMode.ORCHESTRATED, null);
+    var item = new PlanItemDefinition.Primitive("pi-1", "task-a", executor, null);
 
     assertThat(item.id()).isEqualTo("pi-1");
     assertThat(item.name()).isEqualTo("task-a");
     assertThat(item.executor()).isSameAs(executor);
-    assertThat(item.dispatchMode()).isEqualTo(DispatchMode.ORCHESTRATED);
     assertThat(item.entryCondition()).isNull();
   }
 
   @Test
   void compound_holds_children_and_strategy() {
     var child =
-        new PlanItemDefinition.Primitive(
-            "pi-2", "subtask", ExecutorRef.of("worker-b"), DispatchMode.ORCHESTRATED, null);
+        new PlanItemDefinition.Primitive("pi-2", "subtask", ExecutorRef.of("worker-b"), null);
     var compound =
         new PlanItemDefinition.Compound(
             "pi-root",
@@ -53,7 +49,8 @@ class PlanItemDefinitionTest {
             DispatchMode.CHOREOGRAPHED,
             null,
             null,
-            false);
+            false,
+            java.util.Set.of());
 
     assertThat(compound.children()).containsExactly(child);
     assertThat(compound.planningStrategy()).isEqualTo("sequential");
@@ -73,16 +70,15 @@ class PlanItemDefinitionTest {
             DispatchMode.ORCHESTRATED,
             null,
             null,
-            false);
+            false,
+            java.util.Set.of());
 
     assertThat(compound.planningStrategy()).isNull();
   }
 
   @Test
   void compound_children_is_defensive_copy() {
-    var child =
-        new PlanItemDefinition.Primitive(
-            "pi-4", "task", ExecutorRef.of("w"), DispatchMode.ORCHESTRATED, null);
+    var child = new PlanItemDefinition.Primitive("pi-4", "task", ExecutorRef.of("w"), null);
     var mutableList = new java.util.ArrayList<PlanItemDefinition>(List.of(child));
     var compound =
         new PlanItemDefinition.Compound(
@@ -94,7 +90,8 @@ class PlanItemDefinitionTest {
             DispatchMode.ORCHESTRATED,
             null,
             null,
-            false);
+            false,
+            java.util.Set.of());
 
     mutableList.clear();
     assertThat(compound.children()).hasSize(1);
@@ -103,8 +100,7 @@ class PlanItemDefinitionTest {
   @Test
   void primitive_is_sealed_variant() {
     PlanItemDefinition item =
-        new PlanItemDefinition.Primitive(
-            "pi-6", "task", ExecutorRef.of("w"), DispatchMode.ORCHESTRATED, null);
+        new PlanItemDefinition.Primitive("pi-6", "task", ExecutorRef.of("w"), null);
     assertThat(item).isInstanceOf(PlanItemDefinition.Primitive.class);
   }
 
@@ -120,7 +116,8 @@ class PlanItemDefinitionTest {
             DispatchMode.ORCHESTRATED,
             null,
             null,
-            false);
+            false,
+            java.util.Set.of());
     assertThat(item).isInstanceOf(PlanItemDefinition.Compound.class);
   }
 
@@ -152,15 +149,13 @@ class PlanItemDefinitionTest {
   @Test
   void dispatch_mode_values() {
     assertThat(DispatchMode.values())
-        .containsExactly(
-            DispatchMode.ORCHESTRATED, DispatchMode.CHOREOGRAPHED, DispatchMode.HYBRID);
+        .containsExactly(DispatchMode.ORCHESTRATED, DispatchMode.CHOREOGRAPHED);
   }
 
   @Test
   void pattern_matching_on_sealed_type() {
     PlanItemDefinition item =
-        new PlanItemDefinition.Primitive(
-            "pi-8", "task", ExecutorRef.of("w"), DispatchMode.ORCHESTRATED, null);
+        new PlanItemDefinition.Primitive("pi-8", "task", ExecutorRef.of("w"), null);
 
     String result =
         switch (item) {
@@ -169,5 +164,110 @@ class PlanItemDefinitionTest {
         };
 
     assertThat(result).isEqualTo("primitive:w");
+  }
+
+  @Test
+  void builder_creates_compound_with_defaults() {
+    var compound = PlanItemDefinition.Compound.builder("my-compound").build();
+
+    assertThat(compound.id()).isNotNull();
+    assertThat(compound.name()).isEqualTo("my-compound");
+    assertThat(compound.completion()).isEqualTo(CompletionSemantics.all());
+    assertThat(compound.dispatchMode()).isEqualTo(DispatchMode.CHOREOGRAPHED);
+    assertThat(compound.children()).isEmpty();
+    assertThat(compound.scopedBindings()).isEmpty();
+    assertThat(compound.planningStrategy()).isNull();
+    assertThat(compound.entryCondition()).isNull();
+    assertThat(compound.exitCondition()).isNull();
+    assertThat(compound.repeatable()).isFalse();
+  }
+
+  @Test
+  void builder_creates_compound_with_binding_names() {
+    var compound =
+        PlanItemDefinition.Compound.builder("stage")
+            .binding("trigger-a")
+            .binding("trigger-b")
+            .build();
+
+    assertThat(compound.scopedBindings()).containsExactlyInAnyOrder("trigger-a", "trigger-b");
+  }
+
+  @Test
+  void builder_creates_compound_with_children_and_strategy() {
+    var child =
+        new PlanItemDefinition.Primitive("pi-child", "subtask", ExecutorRef.of("worker"), null);
+
+    var compound =
+        PlanItemDefinition.Compound.builder("phase-1")
+            .child(child)
+            .planningStrategy("sequential")
+            .completion(CompletionSemantics.mOfN(2))
+            .build();
+
+    assertThat(compound.children()).containsExactly(child);
+    assertThat(compound.planningStrategy()).isEqualTo("sequential");
+    assertThat(compound.completion()).isInstanceOf(CompletionSemantics.MOfN.class);
+  }
+
+  @Test
+  void builder_with_entry_and_exit_conditions() {
+    var entry = new io.casehub.api.model.evaluator.LambdaExpressionEvaluator(ctx -> true);
+    var exit = new io.casehub.api.model.evaluator.LambdaExpressionEvaluator(ctx -> false);
+
+    var compound =
+        PlanItemDefinition.Compound.builder("gated")
+            .entryCondition(entry)
+            .exitCondition(exit)
+            .build();
+
+    assertThat(compound.entryCondition()).isSameAs(entry);
+    assertThat(compound.exitCondition()).isSameAs(exit);
+  }
+
+  @Test
+  void builder_with_lambda_entry_condition() {
+    var compound = PlanItemDefinition.Compound.builder("gated").entryCondition(ctx -> true).build();
+
+    assertThat(compound.entryCondition()).isNotNull();
+  }
+
+  @Test
+  void builder_repeatable_and_dispatch_mode() {
+    var compound =
+        PlanItemDefinition.Compound.builder("repeater")
+            .repeatable(true)
+            .dispatchMode(DispatchMode.ORCHESTRATED)
+            .build();
+
+    assertThat(compound.repeatable()).isTrue();
+    assertThat(compound.dispatchMode()).isEqualTo(DispatchMode.ORCHESTRATED);
+  }
+
+  @Test
+  void builder_custom_id() {
+    var compound = PlanItemDefinition.Compound.builder("named").id("custom-id").build();
+
+    assertThat(compound.id()).isEqualTo("custom-id");
+  }
+
+  @Test
+  void compound_scopedBindings_is_defensive_copy() {
+    var mutable = new java.util.HashSet<>(java.util.Set.of("a", "b"));
+    var compound =
+        new PlanItemDefinition.Compound(
+            "pi-x",
+            "test",
+            List.of(),
+            null,
+            CompletionSemantics.all(),
+            DispatchMode.CHOREOGRAPHED,
+            null,
+            null,
+            false,
+            mutable);
+
+    mutable.clear();
+    assertThat(compound.scopedBindings()).hasSize(2);
   }
 }

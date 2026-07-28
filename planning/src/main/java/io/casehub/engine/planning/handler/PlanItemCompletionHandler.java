@@ -65,18 +65,18 @@ public class PlanItemCompletionHandler {
   private final BlackboardRegistry registry;
   private final EventBus eventBus;
   private final Event<PlanItemCompletedEvent> planItemCompletedEvents;
-  private final StageAutocompleteEvaluator stageAutocompleteEvaluator;
+  private final CompoundCompletionEvaluator compoundCompletionEvaluator;
 
   @Inject
   public PlanItemCompletionHandler(
       BlackboardRegistry registry,
       EventBus eventBus,
       Event<PlanItemCompletedEvent> planItemCompletedEvents,
-      StageAutocompleteEvaluator stageAutocompleteEvaluator) {
+      CompoundCompletionEvaluator compoundCompletionEvaluator) {
     this.registry = registry;
     this.eventBus = eventBus;
     this.planItemCompletedEvents = planItemCompletedEvents;
-    this.stageAutocompleteEvaluator = stageAutocompleteEvaluator;
+    this.compoundCompletionEvaluator = compoundCompletionEvaluator;
   }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED, blocking = true)
@@ -126,7 +126,7 @@ public class PlanItemCompletionHandler {
                 return;
               }
               item.markCompleted();
-              stageAutocompleteEvaluator.evaluate(caseId, tenancyId, plan, item.getPlanItemId());
+              compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
               planItemCompletedEvents.fireAsync(
                   new PlanItemCompletedEvent(caseId, item.getPlanItemId(), bindingName, tenancyId));
             },
@@ -160,7 +160,7 @@ public class PlanItemCompletionHandler {
               item.markCompleted();
               // activeByBinding self-cleans lazily in hasActivePlanItem() — completed items remain
               // in itemsById for post-completion observability.
-              stageAutocompleteEvaluator.evaluate(caseId, tenancyId, plan, planItemId);
+              compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
               // Fire after markCompleted() so observers see the exact planItemId that completed.
               planItemCompletedEvents.fireAsync(
                   new PlanItemCompletedEvent(caseId, planItemId, trackingKey, tenancyId));

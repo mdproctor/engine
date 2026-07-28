@@ -22,9 +22,9 @@ import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.TaskStatus;
+import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.casehub.engine.planning.stage.Stage;
-import io.casehub.engine.planning.stage.StageStatus;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -37,15 +37,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-/**
- * R1: Two sequential stages activate in order. First activates when signal writes phase=start;
- * second activates after worker writes phase=two in response. See casehubio/engine#76.
- *
- * <p>Design: starts with idle context ({@code ready=true}) so the worker binding does not fire at
- * case creation. The signal writes {@code phase=start}, satisfying stage-one's entry condition and
- * triggering the worker. The worker writes {@code phase=two}, satisfying stage-two's entry
- * condition on the subsequent evaluation cycle.
- */
 @QuarkusTest
 class SequentialStagesBlackboardTest {
 
@@ -53,52 +44,40 @@ class SequentialStagesBlackboardTest {
   @Inject TwoStagesCaseBean twoStagesCase;
 
   @Test
-  void two_sequential_stages_activate_in_order() {
-    // Start with idle context — binding does not fire yet (no phase=start).
+  void two_sequential_compounds_activate_in_order() {
     UUID caseId = twoStagesCase.startCase(Map.of("ready", true));
 
-    // Plan model is created on the first select() call from CaseStartedEvent
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(registry.get(caseId)).isPresent());
 
-    // stage-one: entry condition satisfied when phase=start (written by signal below)
-    // stage-two: entry condition satisfied when phase=two (written by worker)
-    Stage stage1 =
-        Stage.builder("stage-one")
+    var compound1 =
+        PlanItemDefinition.Compound.builder("compound-one")
             .entryCondition(ctx -> "start".equals(ctx.getPath("phase")))
             .build();
-    Stage stage2 =
-        Stage.builder("stage-two")
+    var compound2 =
+        PlanItemDefinition.Compound.builder("compound-two")
             .entryCondition(ctx -> "two".equals(ctx.getPath("phase")))
             .build();
 
-    registry.get(caseId).get().addStage(stage1);
-    registry.get(caseId).get().addStage(stage2);
+    registry.get(caseId).get().registerDefinition(compound1);
+    registry.get(caseId).get().registerDefinition(compound2);
 
-    // Signal writes phase=start → CONTEXT_CHANGED → stage-one entry condition met (ACTIVE) AND
-    // worker binding fires (phase == "start") → worker writes phase=two → CONTEXT_CHANGED →
-    // stage-two entry condition met (ACTIVE).
     twoStagesCase.signal(caseId, "phase", "start");
 
     await()
         .atMost(15, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
-              assertThat(stage1.getStatus())
-                  .as("stage-one must activate: .phase == 'start' is met by signal")
-                  .isEqualTo(StageStatus.ACTIVE);
-              assertThat(stage2.getStatus())
-                  .as("stage-two must activate after worker writes phase=two")
-                  .isEqualTo(StageStatus.ACTIVE);
+              assertThat(registry.get(caseId).get().getDefinitionStatus(compound1.id()))
+                  .as("compound-one must activate: .phase == 'start' is met by signal")
+                  .isEqualTo(TaskStatus.RUNNING);
+              assertThat(registry.get(caseId).get().getDefinitionStatus(compound2.id()))
+                  .as("compound-two must activate after worker writes phase=two")
+                  .isEqualTo(TaskStatus.RUNNING);
             });
   }
 
-  /**
-   * Worker writes {@code phase=two} when triggered by {@code .phase == "start"}. Starts with idle
-   * context ({@code ready=true}) so the worker does not fire on case creation — only when the
-   * signal writes {@code phase=start}.
-   */
   @ApplicationScoped
   public static class TwoStagesCaseBean extends CaseHub {
 

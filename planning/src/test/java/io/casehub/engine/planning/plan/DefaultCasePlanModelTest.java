@@ -16,12 +16,10 @@
 package io.casehub.engine.planning.plan;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.TaskStatus;
-import io.casehub.engine.planning.stage.Stage;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
@@ -187,27 +185,6 @@ class DefaultCasePlanModelTest {
   }
 
   @Test
-  void track_milestone_with_parent_stage() {
-    var stage = Stage.alwaysActivate("kyc-stage");
-    plan.addStage(stage);
-    plan.trackMilestone("doc-check", stage.getStageId());
-    assertThat(plan.getMilestoneStatus("doc-check")).hasValue(MilestoneLifecycleStatus.PENDING);
-    assertThat(stage.getContainedMilestoneIds()).contains("doc-check");
-  }
-
-  @Test
-  void track_milestone_with_null_parent_stage() {
-    plan.trackMilestone("case-level", null);
-    assertThat(plan.getMilestoneStatus("case-level")).hasValue(MilestoneLifecycleStatus.PENDING);
-  }
-
-  @Test
-  void track_milestone_with_nonexistent_stage_throws() {
-    assertThatThrownBy(() -> plan.trackMilestone("doc-check", "nonexistent"))
-        .isInstanceOf(IllegalArgumentException.class);
-  }
-
-  @Test
   void focus_and_rationale_roundtrip() {
     plan.setFocus("analysis");
     plan.setFocusRationale("high-value documents detected");
@@ -256,25 +233,6 @@ class DefaultCasePlanModelTest {
     item.markFaulted();
     plan.addPlanItem(item);
     assertThat(plan.hasActivePlanItem("binding-a")).isFalse();
-  }
-
-  @Test
-  void stage_management_add_and_retrieve() {
-    Stage stage = Stage.alwaysActivate("intake");
-    plan.addStage(stage);
-    assertThat(plan.getStage(stage.getStageId())).contains(stage);
-    assertThat(plan.getAllStages()).containsExactly(stage);
-  }
-
-  @Test
-  void getPendingStages_and_getActiveStages_filter_by_status() {
-    Stage pending = Stage.alwaysActivate("pending-stage");
-    Stage active = Stage.alwaysActivate("active-stage");
-    active.activate();
-    plan.addStage(pending);
-    plan.addStage(active);
-    assertThat(plan.getPendingStages()).containsExactly(pending);
-    assertThat(plan.getActiveStages()).containsExactly(active);
   }
 
   @Test

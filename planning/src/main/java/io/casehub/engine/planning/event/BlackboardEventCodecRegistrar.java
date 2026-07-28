@@ -39,9 +39,7 @@ public class BlackboardEventCodecRegistrar {
 
   void onStart(@Observes StartupEvent event) {
     var bus = vertx.getDelegate().eventBus();
-    registerIfAbsent(bus, StageActivatedEvent.class, "StageActivated");
-    registerIfAbsent(bus, StageTerminatedEvent.class, "StageTerminated");
-    registerIfAbsent(bus, StageCompletedEvent.class, "StageCompleted");
+    registerIfAbsent(bus, CompoundCompletedEvent.class, "CompoundCompleted");
   }
 
   private <T> void registerIfAbsent(

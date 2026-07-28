@@ -31,7 +31,6 @@ import io.casehub.api.spi.routing.ImplementationSelection;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.casehub.engine.planning.stage.Stage;
 import io.casehub.worker.api.Worker;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
@@ -46,36 +45,27 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
-/**
- * {@link LoopControl} implementation that delegates selection to a {@link PlanningStrategy},
- * managing a {@link CasePlanModel} per case.
- *
- * <p>The sole {@link LoopControl} implementation. Choreography behavior is provided by {@link
- * ChoreographyStrategy} (id="default") when no explicit strategy is configured.
- */
 @ApplicationScoped
 public class PlanningStrategyLoopControl implements LoopControl {
 
   private static final Logger LOG = Logger.getLogger(PlanningStrategyLoopControl.class);
 
   private final BlackboardRegistry registry;
-  private final Map<String, PlanningStrategy> strategies;
-  private final StageLifecycleEvaluator stageLifecycleEvaluator;
+  private final CompoundLifecycleEvaluator compoundLifecycleEvaluator;
+  private final CompoundStrategyDispatcher compoundDispatcher;
   private final Instance<BlackboardPlanConfigurer> configurers;
   private final ImplementationRoutingStrategy implementationRoutingStrategy;
 
   @Inject
   public PlanningStrategyLoopControl(
       BlackboardRegistry registry,
-      Instance<PlanningStrategy> strategyBeans,
-      StageLifecycleEvaluator stageLifecycleEvaluator,
+      CompoundLifecycleEvaluator compoundLifecycleEvaluator,
+      CompoundStrategyDispatcher compoundDispatcher,
       Instance<BlackboardPlanConfigurer> configurers,
       ImplementationRoutingStrategy implementationRoutingStrategy) {
     this.registry = registry;
-    this.strategies =
-        java.util.stream.StreamSupport.stream(strategyBeans.spliterator(), false)
-            .collect(java.util.stream.Collectors.toMap(PlanningStrategy::id, s -> s));
-    this.stageLifecycleEvaluator = stageLifecycleEvaluator;
+    this.compoundLifecycleEvaluator = compoundLifecycleEvaluator;
+    this.compoundDispatcher = compoundDispatcher;
     this.configurers = configurers;
     this.implementationRoutingStrategy = implementationRoutingStrategy;
   }
@@ -95,27 +85,27 @@ public class PlanningStrategyLoopControl implements LoopControl {
           .forEach(c -> c.configure(plan, ctx));
     }
 
-    Set<String> allStagedNames =
-        plan.getAllStages().stream()
-            .flatMap(s -> s.getContainedBindingNames().stream())
+    compoundLifecycleEvaluator.evaluate(plan, ctx);
+
+    Set<String> allScopedNames =
+        plan.getAllCompounds().stream()
+            .flatMap(c -> c.scopedBindings().stream())
             .collect(Collectors.toSet());
 
-    Set<String> activeStagedNames =
-        plan.getActiveStages().stream()
-            .flatMap(s -> s.getContainedBindingNames().stream())
+    Set<String> activeScopedNames =
+        plan.getCompoundsByStatus(TaskStatus.RUNNING).stream()
+            .flatMap(c -> c.scopedBindings().stream())
             .collect(Collectors.toSet());
 
     List<Binding> gatedEligible =
-        allStagedNames.isEmpty()
+        allScopedNames.isEmpty()
             ? eligible
             : eligible.stream()
                 .filter(
                     b ->
-                        !allStagedNames.contains(b.getName())
-                            || activeStagedNames.contains(b.getName()))
+                        !allScopedNames.contains(b.getName())
+                            || activeScopedNames.contains(b.getName()))
                 .collect(Collectors.toList());
-
-    stageLifecycleEvaluator.evaluate(plan, ctx);
 
     List<Binding> routed = applyImplementationRouting(ctx, gatedEligible);
 
@@ -123,24 +113,10 @@ public class PlanningStrategyLoopControl implements LoopControl {
         binding -> {
           io.casehub.api.model.ExecutorRef executor = resolveExecutor(binding, ctx);
           PlanItem item = PlanItem.create(binding.getName(), executor, 0, binding.target());
-          if (plan.addPlanItemIfAbsent(item)) {
-            registerWithOwningStages(plan, binding.getName(), item.getPlanItemId());
-          }
+          plan.addPlanItemIfAbsent(item);
         });
 
-    String strategyId = ctx.definition().getPlanningStrategy();
-    if (strategyId == null || strategyId.isEmpty()) {
-      strategyId = "default";
-    }
-    PlanningStrategy strategy = strategies.get(strategyId);
-    if (strategy == null) {
-      strategy = strategies.get("default");
-      if (strategy == null) {
-        throw new IllegalStateException(
-            "No default planning strategy found. Available: " + strategies.keySet());
-      }
-    }
-    List<Binding> selected = strategy.select(plan, ctx, routed);
+    List<Binding> selected = compoundDispatcher.dispatch(plan, ctx, routed);
 
     return filterAndIndexForDispatch(caseId, plan, selected, ctx);
   }
@@ -193,12 +169,6 @@ public class PlanningStrategyLoopControl implements LoopControl {
     return result;
   }
 
-  /**
-   * Atomically filters selected bindings to those dispatchable, marks CapabilityTarget PlanItems
-   * RUNNING via CAS, and indexes them for completion tracking. Only the thread that wins the CAS
-   * dispatches. Non-CapabilityTarget bindings (HumanTask, SubCase, Extension) use status check only
-   * — the handler owns the transition.
-   */
   private List<Binding> filterAndIndexForDispatch(
       UUID caseId, CasePlanModel plan, List<Binding> selected, PlanExecutionContext ctx) {
     List<Binding> dispatched = new ArrayList<>();
@@ -261,20 +231,5 @@ public class PlanningStrategyLoopControl implements LoopControl {
       case HumanTaskTarget ht -> io.casehub.api.model.ExecutorRef.of("unknown");
       case ExtensionTarget et -> io.casehub.api.model.ExecutorRef.of("unknown");
     };
-  }
-
-  /**
-   * Registers a newly created PlanItem with all stages that declare ownership of its binding name
-   * via {@link Stage#getContainedBindingNames()}. Enables {@link
-   * io.casehub.engine.planning.handler.StageAutocompleteEvaluator} to detect when all required
-   * items in a stage have reached terminal states. Refs casehubio/engine#497.
-   */
-  private void registerWithOwningStages(CasePlanModel plan, String bindingName, String planItemId) {
-    for (Stage stage : plan.getAllStages()) {
-      if (stage.getContainedBindingNames().contains(bindingName)) {
-        stage.addPlanItem(planItemId);
-        stage.addRequiredItem(planItemId);
-      }
-    }
   }
 }

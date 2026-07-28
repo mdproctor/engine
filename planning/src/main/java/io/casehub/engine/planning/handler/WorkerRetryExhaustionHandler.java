@@ -39,7 +39,7 @@ import org.jboss.logging.Logger;
  * the tracking key stored by {@link BlackboardRegistry#indexForCompletion}.
  *
  * <p>Fires {@link PlanItemFaultedEvent} via CDI {@code fireAsync()} and calls {@link
- * StageAutocompleteEvaluator#evaluate} after marking the PlanItem FAULTED. Consolidates the
+ * CompoundCompletionEvaluator#evaluate} after marking the PlanItem FAULTED. Consolidates the
  * responsibilities of the former {@code PlanItemFaultHandler} (engine#666).
  *
  * <p>Without this handler, a RUNNING PlanItem stays active indefinitely after exhaustion, blocking
@@ -53,16 +53,16 @@ public class WorkerRetryExhaustionHandler {
   private static final Logger LOG = Logger.getLogger(WorkerRetryExhaustionHandler.class);
 
   private final BlackboardRegistry registry;
-  private final StageAutocompleteEvaluator stageAutocompleteEvaluator;
+  private final CompoundCompletionEvaluator compoundCompletionEvaluator;
   private final Event<PlanItemFaultedEvent> planItemFaultedEvents;
 
   @Inject
   public WorkerRetryExhaustionHandler(
       final BlackboardRegistry registry,
-      final StageAutocompleteEvaluator stageAutocompleteEvaluator,
+      final CompoundCompletionEvaluator compoundCompletionEvaluator,
       final Event<PlanItemFaultedEvent> planItemFaultedEvents) {
     this.registry = registry;
-    this.stageAutocompleteEvaluator = stageAutocompleteEvaluator;
+    this.compoundCompletionEvaluator = compoundCompletionEvaluator;
     this.planItemFaultedEvents = planItemFaultedEvents;
   }
 
@@ -110,8 +110,8 @@ public class WorkerRetryExhaustionHandler {
                   new PlanItemFaultedEvent(
                       event.caseId(), planItemId, item.getBindingName(), event.tenancyId()));
 
-              stageAutocompleteEvaluator.evaluate(
-                  event.caseId(), event.tenancyId(), plan, planItemId);
+              compoundCompletionEvaluator.evaluate(
+                  event.caseId(), event.tenancyId(), plan, item.getBindingName());
               LOG.warnf(
                   "PlanItem %s marked FAULTED — worker '%s' retries exhausted in case %s",
                   planItemId, event.workerId(), event.caseId());

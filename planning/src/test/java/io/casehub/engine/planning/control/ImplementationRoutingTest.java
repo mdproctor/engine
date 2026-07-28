@@ -17,7 +17,6 @@ package io.casehub.engine.planning.control;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -59,9 +58,6 @@ class ImplementationRoutingTest {
   void setUp() {
     registry = new BlackboardRegistry();
     ChoreographyStrategy strategy = new ChoreographyStrategy();
-    StageLifecycleEvaluator evaluator = mock(StageLifecycleEvaluator.class);
-    doNothing().when(evaluator).evaluate(any(), any());
-
     @SuppressWarnings("unchecked")
     Instance<PlanningStrategy> strategyBeans = mock(Instance.class);
     List<PlanningStrategy> strategyList = List.of(strategy);
@@ -74,7 +70,13 @@ class ImplementationRoutingTest {
 
     loopControl =
         new PlanningStrategyLoopControl(
-            registry, strategyBeans, evaluator, emptyConfigurers, routingStrategy);
+            registry,
+            new CompoundLifecycleEvaluator(),
+            new CompoundStrategyDispatcher(
+                id ->
+                    strategyList.stream().filter(s -> s.id().equals(id)).findFirst().orElse(null)),
+            emptyConfigurers,
+            routingStrategy);
 
     caseId = UUID.randomUUID();
 

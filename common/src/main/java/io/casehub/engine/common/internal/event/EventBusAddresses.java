@@ -99,7 +99,7 @@ public final class EventBusAddresses {
   /**
    * Published by ActionGateRejectedHandler and ActionGateExpiredHandler when a gate is resolved
    * negatively (rejected or expired). Consumed by the blackboard module to mark the associated
-   * PlanItem FAULTED — enabling StageAutocompleteEvaluator to proceed. Distinct from
+   * PlanItem FAULTED — enabling CompoundCompletionEvaluator to proceed. Distinct from
    * WORKER_RETRIES_EXHAUSTED which also faults the CaseInstance; gate faults leave the case
    * RUNNING.
    */

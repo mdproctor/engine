@@ -18,8 +18,6 @@ package io.casehub.engine.planning.plan;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SubCase;
 import io.casehub.api.model.TaskStatus;
-import io.casehub.engine.planning.stage.Stage;
-import io.casehub.engine.planning.stage.StageStatus;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -45,7 +43,6 @@ public class DefaultCasePlanModel implements CasePlanModel {
   private final ConcurrentHashMap<String, PlanItem> itemsById = new ConcurrentHashMap<>();
   // bindingName → most recent PlanItem — fast O(1) lookup for strategies and duplicate prevention
   private final ConcurrentHashMap<String, PlanItem> latestByBinding = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, Stage> stages = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, MilestoneLifecycleStatus> milestones =
       new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Object> state = new ConcurrentHashMap<>();
@@ -163,52 +160,8 @@ public class DefaultCasePlanModel implements CasePlanModel {
   }
 
   @Override
-  public void addStage(Stage stage) {
-    stages.put(stage.getStageId(), stage);
-  }
-
-  @Override
-  public Optional<Stage> getStage(String stageId) {
-    return Optional.ofNullable(stages.get(stageId));
-  }
-
-  @Override
-  public List<Stage> getPendingStages() {
-    return stages.values().stream()
-        .filter(s -> s.getStatus() == StageStatus.PENDING)
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  @Override
-  public List<Stage> getActiveStages() {
-    return stages.values().stream()
-        .filter(s -> s.getStatus() == StageStatus.ACTIVE)
-        .collect(Collectors.toUnmodifiableList());
-  }
-
-  @Override
-  public List<Stage> getAllStages() {
-    return List.copyOf(stages.values());
-  }
-
-  @Override
   public void trackMilestone(String name) {
     milestones.putIfAbsent(name, MilestoneLifecycleStatus.PENDING);
-  }
-
-  @Override
-  public void trackMilestone(String name, String parentStageId) {
-    milestones.putIfAbsent(name, MilestoneLifecycleStatus.PENDING);
-    if (parentStageId != null) {
-      Stage stage =
-          getStage(parentStageId)
-              .orElseThrow(
-                  () ->
-                      new IllegalArgumentException(
-                          "Stage '%s' not found in plan — register the stage before its milestones"
-                              .formatted(parentStageId)));
-      stage.addMilestone(name);
-    }
   }
 
   @Override
@@ -328,6 +281,9 @@ public class DefaultCasePlanModel implements CasePlanModel {
         registerDefinition(child);
       }
       childrenIndex.put(compound.id(), childIds);
+      for (String bindingName : compound.scopedBindings()) {
+        parentIndex.put(bindingName, compound.id());
+      }
     }
   }
 
@@ -383,17 +339,49 @@ public class DefaultCasePlanModel implements CasePlanModel {
       return false;
     }
     java.util.Set<String> children = getChildrenOf(compoundId);
-    if (children.isEmpty()) {
+    java.util.Set<String> scoped = compound.scopedBindings();
+
+    if (children.isEmpty() && scoped.isEmpty()) {
       return false;
     }
 
-    long terminalCount =
+    long structuralTerminal =
         children.stream().map(this::getDefinitionStatus).filter(TaskStatus::isTerminal).count();
 
+    long scopedTerminal =
+        scoped.stream()
+            .map(
+                bindingName -> {
+                  PlanItem pi = latestByBinding.get(bindingName);
+                  return pi != null ? pi.getStatus() : TaskStatus.PENDING;
+                })
+            .filter(TaskStatus::isTerminal)
+            .count();
+
+    long totalTerminal = structuralTerminal + scopedTerminal;
+    long totalCount = children.size() + scoped.size();
+
     return switch (compound.completion()) {
-      case CompletionSemantics.All ignored -> terminalCount == children.size();
-      case CompletionSemantics.MOfN mOfN -> terminalCount >= mOfN.m();
-      case CompletionSemantics.FirstWins ignored -> terminalCount >= 1;
+      case CompletionSemantics.All ignored -> totalTerminal == totalCount;
+      case CompletionSemantics.MOfN mOfN -> totalTerminal >= mOfN.m();
+      case CompletionSemantics.FirstWins ignored -> totalTerminal >= 1;
     };
+  }
+
+  @Override
+  public java.util.List<PlanItemDefinition.Compound> getAllCompounds() {
+    return definitions.values().stream()
+        .filter(d -> d instanceof PlanItemDefinition.Compound)
+        .map(d -> (PlanItemDefinition.Compound) d)
+        .collect(java.util.stream.Collectors.toUnmodifiableList());
+  }
+
+  @Override
+  public java.util.List<PlanItemDefinition.Compound> getCompoundsByStatus(TaskStatus status) {
+    return definitions.values().stream()
+        .filter(d -> d instanceof PlanItemDefinition.Compound)
+        .map(d -> (PlanItemDefinition.Compound) d)
+        .filter(c -> getDefinitionStatus(c.id()) == status)
+        .collect(java.util.stream.Collectors.toUnmodifiableList());
   }
 }

@@ -59,8 +59,7 @@ class CompoundStrategyDispatcherTest {
   }
 
   private PlanItemDefinition.Primitive primitive(String id) {
-    return new PlanItemDefinition.Primitive(
-        id, id, ExecutorRef.of("worker"), DispatchMode.ORCHESTRATED, null);
+    return new PlanItemDefinition.Primitive(id, id, ExecutorRef.of("worker"), null);
   }
 
   private PlanItemDefinition.Compound compound(
@@ -74,7 +73,8 @@ class CompoundStrategyDispatcherTest {
         DispatchMode.ORCHESTRATED,
         null,
         null,
-        false);
+        false,
+        java.util.Set.of());
   }
 
   // ── Grouping ──────────────────────────────────────────────────────────────
@@ -95,6 +95,21 @@ class CompoundStrategyDispatcherTest {
     var selected =
         dispatcher.dispatch(model, ctx, List.of(binding("orphan-a"), binding("orphan-b")));
     assertThat(selected).hasSize(2);
+  }
+
+  @Test
+  void free_floating_bindings_use_case_level_planning_strategy() {
+    var recording = new RecordingStrategy("sequential");
+    strategies.put("sequential", recording);
+
+    var definition = mock(io.casehub.api.model.CaseDefinition.class);
+    when(definition.getPlanningStrategy()).thenReturn("sequential");
+    when(ctx.definition()).thenReturn(definition);
+
+    dispatcher.dispatch(model, ctx, List.of(binding("orphan-a"), binding("orphan-b")));
+
+    assertThat(recording.invoked).isTrue();
+    assertThat(recording.receivedBindingNames).containsExactly("orphan-a", "orphan-b");
   }
 
   @Test
@@ -208,6 +223,8 @@ class CompoundStrategyDispatcherTest {
 
     @Override
     public List<Binding> select(CasePlanModel plan, PlanExecutionContext ctx, List<Binding> el) {
+      invoked = true;
+      el.forEach(b -> receivedBindingNames.add(b.getName()));
       return el;
     }
 

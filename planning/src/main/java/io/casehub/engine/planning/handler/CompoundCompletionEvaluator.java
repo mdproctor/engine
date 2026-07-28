@@ -50,9 +50,12 @@ public class CompoundCompletionEvaluator {
       plan.tryDefinitionTransition(
           parentId, plan.getDefinitionStatus(parentId), io.casehub.api.model.TaskStatus.COMPLETED);
 
+      io.casehub.engine.planning.plan.PlanItemDefinition def = plan.getDefinition(parentId);
+      String name = def != null ? def.name() : parentId;
+
       eventBus.publish(
           BlackboardEventBusAddresses.COMPOUND_COMPLETED,
-          new CompoundCompletedEvent(caseId, tenancyId, parentId, parentId));
+          new CompoundCompletedEvent(caseId, tenancyId, parentId, name));
 
       LOG.debugf("Compound '%s' completed for case %s", parentId, caseId);
       parentOpt = plan.getParentOf(parentId);

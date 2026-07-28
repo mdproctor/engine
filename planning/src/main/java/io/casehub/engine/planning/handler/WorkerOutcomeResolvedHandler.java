@@ -56,18 +56,18 @@ public class WorkerOutcomeResolvedHandler {
   private static final Logger LOG = Logger.getLogger(WorkerOutcomeResolvedHandler.class);
 
   private final BlackboardRegistry registry;
-  private final StageAutocompleteEvaluator stageAutocompleteEvaluator;
+  private final CompoundCompletionEvaluator compoundCompletionEvaluator;
   private final EventBus eventBus;
   private final Event<PlanItemFaultedEvent> planItemFaultedEvents;
 
   @Inject
   public WorkerOutcomeResolvedHandler(
       BlackboardRegistry registry,
-      StageAutocompleteEvaluator stageAutocompleteEvaluator,
+      CompoundCompletionEvaluator compoundCompletionEvaluator,
       EventBus eventBus,
       Event<PlanItemFaultedEvent> planItemFaultedEvents) {
     this.registry = registry;
-    this.stageAutocompleteEvaluator = stageAutocompleteEvaluator;
+    this.compoundCompletionEvaluator = compoundCompletionEvaluator;
     this.eventBus = eventBus;
     this.planItemFaultedEvents = planItemFaultedEvents;
   }
@@ -97,11 +97,11 @@ public class WorkerOutcomeResolvedHandler {
 
               if (event.disposition() == OutcomeDisposition.EXHAUSTED
                   || event.disposition() == OutcomeDisposition.FAULT) {
-                stageAutocompleteEvaluator.evaluate(
+                compoundCompletionEvaluator.evaluate(
                     event.caseInstance().getUuid(),
                     event.caseInstance().tenancyId,
                     plan,
-                    item.getPlanItemId());
+                    item.getBindingName());
               }
 
               if (event.disposition() != OutcomeDisposition.FAULT) {

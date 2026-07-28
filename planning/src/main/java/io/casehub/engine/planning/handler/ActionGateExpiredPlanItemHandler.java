@@ -28,7 +28,7 @@ import org.jboss.logging.Logger;
 
 /**
  * Marks the associated {@link PlanItem} FAULTED when a gate expires, enabling {@link
- * io.casehub.engine.planning.stage.StageAutocompleteEvaluator} to proceed.
+ * CompoundCompletionEvaluator} to proceed.
  *
  * <p>Consumes {@link ActionGateWorkerFaultedEvent} on {@link
  * EventBusAddresses#ACTION_GATE_WORKER_FAULTED}, published by {@code ActionGateRejectedHandler} and

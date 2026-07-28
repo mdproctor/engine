@@ -22,9 +22,9 @@ import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.model.TaskStatus;
+import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.casehub.engine.planning.stage.Stage;
-import io.casehub.engine.planning.stage.StageStatus;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
@@ -37,15 +37,6 @@ import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-/**
- * R3: Stage with explicit exit condition is terminated when worker output satisfies it. See
- * casehubio/engine#76.
- *
- * <p>Design: starts with idle context ({@code ready=true}) so the worker binding does not fire at
- * case creation. Stage is pre-activated and added before the signal. Signal writes {@code
- * phase=active}, triggering the worker which writes {@code phase=exited}. The next evaluation cycle
- * finds the ACTIVE stage's exit condition satisfied and terminates it.
- */
 @QuarkusTest
 class ExitConditionBlackboardTest {
 
@@ -53,44 +44,31 @@ class ExitConditionBlackboardTest {
   @Inject ExitConditionCaseBean exitConditionCase;
 
   @Test
-  void active_stage_terminated_when_worker_output_satisfies_exit_condition() {
-    // Start with idle context — binding does not fire yet (no phase=active).
+  void compound_completed_when_worker_output_satisfies_exit_condition() {
     UUID caseId = exitConditionCase.startCase(Map.of("ready", true));
 
-    // Plan model is created on the first select() call from CaseStartedEvent
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(() -> assertThat(registry.get(caseId)).isPresent());
 
-    // Pre-activate the stage — StageLifecycleEvaluator only checks ACTIVE stages for exit
-    Stage stage =
-        Stage.builder("active-stage")
+    var compound =
+        PlanItemDefinition.Compound.builder("active-compound")
             .entryCondition(ctx -> true)
             .exitCondition(ctx -> "exited".equals(ctx.getPath("phase")))
             .build();
-    stage.activate();
-    registry.get(caseId).get().addStage(stage);
+    registry.get(caseId).get().registerDefinition(compound);
 
-    // Signal writes phase=active → triggers worker binding → worker writes phase=exited →
-    // CONTEXT_CHANGED → exit condition satisfied → stage TERMINATED.
     exitConditionCase.signal(caseId, "phase", "active");
 
     await()
         .atMost(15, TimeUnit.SECONDS)
         .untilAsserted(
             () ->
-                assertThat(stage.getStatus())
-                    .as(
-                        "stage must be TERMINATED when worker writes phase=exited satisfying exit"
-                            + " condition")
-                    .isEqualTo(StageStatus.TERMINATED));
+                assertThat(registry.get(caseId).get().getDefinitionStatus(compound.id()))
+                    .as("compound must be COMPLETED when worker output satisfies exit condition")
+                    .isEqualTo(TaskStatus.COMPLETED));
   }
 
-  /**
-   * Worker writes {@code phase=exited} when triggered by {@code .phase == "active"}. Starts with
-   * idle context ({@code ready=true}) so the worker does not fire on case creation — only when the
-   * signal writes {@code phase=active}.
-   */
   @ApplicationScoped
   public static class ExitConditionCaseBean extends CaseHub {
 

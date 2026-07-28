@@ -17,6 +17,5 @@ package io.casehub.engine.planning.plan;
 
 public enum DispatchMode {
   ORCHESTRATED,
-  CHOREOGRAPHED,
-  HYBRID
+  CHOREOGRAPHED
 }

@@ -52,14 +52,22 @@ class CompoundCompletionEvaluatorTest {
   }
 
   private PlanItemDefinition.Primitive primitive(String id) {
-    return new PlanItemDefinition.Primitive(
-        id, id, ExecutorRef.of("worker"), DispatchMode.ORCHESTRATED, null);
+    return new PlanItemDefinition.Primitive(id, id, ExecutorRef.of("worker"), null);
   }
 
   private PlanItemDefinition.Compound compound(
       String id, List<PlanItemDefinition> children, CompletionSemantics semantics) {
     return new PlanItemDefinition.Compound(
-        id, id, children, null, semantics, DispatchMode.ORCHESTRATED, null, null, false);
+        id,
+        id,
+        children,
+        null,
+        semantics,
+        DispatchMode.ORCHESTRATED,
+        null,
+        null,
+        false,
+        java.util.Set.of());
   }
 
   // ── ALL semantics ─────────────────────────────────────────────────────────
