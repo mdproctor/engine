@@ -276,6 +276,11 @@ class CaseDefinitionVocabularyValidationTest {
     public Map<String, Set<String>> expandForMatchingByVocabulary(String value) {
       return Map.of();
     }
+
+    @Override
+    public Set<String> registeredUris() {
+      return Set.of();
+    }
   }
 
   /** Mock VocabularyTerm for testing. */

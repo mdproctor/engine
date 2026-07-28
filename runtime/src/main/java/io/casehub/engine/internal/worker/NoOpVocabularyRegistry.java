@@ -119,4 +119,9 @@ public class NoOpVocabularyRegistry implements VocabularyRegistry {
   public Map<String, Set<String>> expandForMatchingByVocabulary(final String value) {
     return Map.of();
   }
+
+  @Override
+  public Set<String> registeredUris() {
+    return Set.of();
+  }
 }

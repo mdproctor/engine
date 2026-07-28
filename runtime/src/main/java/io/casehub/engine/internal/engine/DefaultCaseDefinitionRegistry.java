@@ -179,6 +179,10 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
   @Override
   public CaseDefinition getCaseDefinition(CaseMetaModel definition) {
+    if (registry.isEmpty()) {
+      LOG.warn("Registry empty on lookup — re-registering definitions (stale bean instance)");
+      registerKnownDefinitions();
+    }
     CaseKey lookupKey = CaseKey.of(definition);
     RegistryEntry entry = registry.get(lookupKey);
     if (entry == null) {

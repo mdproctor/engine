@@ -146,10 +146,6 @@ public class CaseContextChangedEventHandler {
     final CaseContext contextSnapshot = event.contextSnapshot();
     final String changedLayer = event.changedLayer();
 
-    if (changedLayer != null) {
-      eventBus.publish(EventBusAddresses.layerChanged(changedLayer), event);
-    }
-
     if (ContextLayer.EPISODIC.equals(changedLayer)) {
       return;
     }
