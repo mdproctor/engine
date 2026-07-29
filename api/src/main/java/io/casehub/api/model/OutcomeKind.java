@@ -34,6 +34,7 @@ public enum OutcomeKind {
       case WorkerOutcome.Declined ignored -> DECLINED;
       case WorkerOutcome.Failed ignored -> FAILED;
       case WorkerOutcome.Expired ignored -> EXPIRED;
+      case WorkerOutcome.Completed ignored -> SUCCESS;
     };
   }
 

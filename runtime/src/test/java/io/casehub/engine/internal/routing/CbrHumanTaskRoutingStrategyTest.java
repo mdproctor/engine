@@ -40,7 +40,12 @@ class CbrHumanTaskRoutingStrategyTest {
   }
 
   private HumanTaskCandidates candidates(Set<String> groups, Set<String> users) {
-    return new HumanTaskCandidates(groups, users);
+    return HumanTaskCandidates.of(groups, users);
+  }
+
+  private HumanTaskCandidates candidates(
+      Set<String> groups, Set<String> users, Map<String, Set<String>> groupMembership) {
+    return new HumanTaskCandidates(groups, users, groupMembership);
   }
 
   private RetrievedExperience experience(double similarity, ExperiencePlanStep... steps) {
@@ -207,5 +212,54 @@ class CbrHumanTaskRoutingStrategyTest {
             context("review-task", List.of(exp)),
             candidates(Set.of("managers"), Set.of("alice", "bob")));
     assertThat(result).isInstanceOf(HumanTaskRoutingResult.Unchanged.class);
+  }
+
+  @Test
+  void scoresGroupExpandedUsers() {
+    var exp = experience(0.9, step("review-task", "bob", "SUCCESS"));
+    var result =
+        strategy.select(
+            context("review-task", List.of(exp)),
+            candidates(
+                Set.of("managers"), Set.of("alice"), Map.of("managers", Set.of("bob", "charlie"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
+    var enriched = (HumanTaskRoutingResult.Enriched) result;
+    assertThat(enriched.candidateScores()).containsEntry("bob", 1.0);
+    assertThat(enriched.candidateScores()).doesNotContainKey("charlie");
+  }
+
+  @Test
+  void emptyAllUsersReturnsUnchanged() {
+    var exp = experience(0.9, step("review-task", "alice", "SUCCESS"));
+    var result =
+        strategy.select(
+            context("review-task", List.of(exp)),
+            candidates(Set.of("managers"), Set.of(), Map.of()));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Unchanged.class);
+  }
+
+  @Test
+  void enrichedCandidateUsersContainsAllUsers() {
+    var exp = experience(0.9, step("review-task", "bob", "SUCCESS"));
+    var result =
+        strategy.select(
+            context("review-task", List.of(exp)),
+            candidates(Set.of("managers"), Set.of("alice"), Map.of("managers", Set.of("bob"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
+    var enriched = (HumanTaskRoutingResult.Enriched) result;
+    assertThat(enriched.candidateUsers()).containsExactlyInAnyOrder("alice", "bob");
+  }
+
+  @Test
+  void overlapBetweenDirectAndGroupProducesSingleScore() {
+    var exp = experience(0.9, step("review-task", "alice", "SUCCESS"));
+    var result =
+        strategy.select(
+            context("review-task", List.of(exp)),
+            candidates(
+                Set.of("managers"), Set.of("alice"), Map.of("managers", Set.of("alice", "bob"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
+    var enriched = (HumanTaskRoutingResult.Enriched) result;
+    assertThat(enriched.candidateScores()).containsEntry("alice", 1.0);
   }
 }

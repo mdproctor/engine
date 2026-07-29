@@ -81,10 +81,12 @@ public class ConstraintHumanTaskRoutingStrategy implements HumanTaskRoutingStrat
       return new HumanTaskRoutingResult.Unchanged();
     }
 
-    final Set<String> eligibleUsers = new LinkedHashSet<>(candidates.users());
+    final Set<String> eligibleUsers = new LinkedHashSet<>(candidates.allUsers());
+    final Set<String> eligibleGroups = new LinkedHashSet<>(candidates.groups());
     final Map<String, Double> scores = new HashMap<>();
 
-    applyContextConstraints(contextConstraints, context, eligibleUsers, scores);
+    applyContextConstraints(
+        contextConstraints, context, candidates, eligibleUsers, eligibleGroups, scores);
 
     if (eligibleUsers.isEmpty()) {
       return new HumanTaskRoutingResult.Escalated("all candidates excluded by context constraints");
@@ -101,18 +103,21 @@ public class ConstraintHumanTaskRoutingStrategy implements HumanTaskRoutingStrat
 
     scores.keySet().retainAll(eligibleUsers);
 
-    final boolean usersChanged = !eligibleUsers.equals(candidates.users());
-    if (!usersChanged && scores.isEmpty()) {
+    final boolean usersChanged = !eligibleUsers.equals(candidates.allUsers());
+    final boolean groupsChanged = !eligibleGroups.equals(candidates.groups());
+    if (!usersChanged && !groupsChanged && scores.isEmpty()) {
       return new HumanTaskRoutingResult.Unchanged();
     }
 
-    return new HumanTaskRoutingResult.Enriched(candidates.groups(), eligibleUsers, scores);
+    return new HumanTaskRoutingResult.Enriched(eligibleGroups, eligibleUsers, scores);
   }
 
   private void applyContextConstraints(
       final java.util.List<ContextConstraint> constraints,
       final HumanTaskRoutingContext context,
+      final HumanTaskCandidates candidates,
       final Set<String> eligibleUsers,
+      final Set<String> eligibleGroups,
       final Map<String, Double> scores) {
     for (final ContextConstraint constraint : constraints) {
       boolean match;
@@ -133,9 +138,18 @@ public class ConstraintHumanTaskRoutingStrategy implements HumanTaskRoutingStrat
       switch (constraint.effect()) {
         case ContextConstraint.Exclude exclude -> {
           eligibleUsers.removeAll(exclude.users());
+          for (final String group : exclude.groups()) {
+            eligibleGroups.remove(group);
+            final Set<String> members = candidates.groupMembership().getOrDefault(group, Set.of());
+            eligibleUsers.removeAll(members);
+          }
         }
         case ContextConstraint.Prefer prefer -> {
-          for (final String user : prefer.users()) {
+          final Set<String> usersToBoost = new LinkedHashSet<>(prefer.users());
+          for (final String group : prefer.groups()) {
+            usersToBoost.addAll(candidates.groupMembership().getOrDefault(group, Set.of()));
+          }
+          for (final String user : usersToBoost) {
             if (eligibleUsers.contains(user)) {
               scores.merge(user, constraint.weight(), Double::sum);
             }

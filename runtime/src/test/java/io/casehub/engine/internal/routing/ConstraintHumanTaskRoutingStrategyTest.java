@@ -53,7 +53,12 @@ class ConstraintHumanTaskRoutingStrategyTest {
   }
 
   private HumanTaskCandidates candidates(Set<String> groups, Set<String> users) {
-    return new HumanTaskCandidates(groups, users);
+    return HumanTaskCandidates.of(groups, users);
+  }
+
+  private HumanTaskCandidates candidates(
+      Set<String> groups, Set<String> users, Map<String, Set<String>> groupMembership) {
+    return new HumanTaskCandidates(groups, users, groupMembership);
   }
 
   @Test
@@ -354,26 +359,6 @@ class ConstraintHumanTaskRoutingStrategyTest {
     assertThat(enriched.candidateScores().get("bob")).isCloseTo(0.0, within(0.001));
   }
 
-  @Test
-  void groupEffectsDeferredNoOp() {
-    expressionRegistry.nextResult = true;
-    var def =
-        CaseDefinition.builder()
-            .namespace("test")
-            .name("test")
-            .version("1.0")
-            .humanTaskContextConstraint(
-                ContextConstraint.builder()
-                    .when(".always.true")
-                    .preferGroups(Set.of("senior-reviewers"))
-                    .weight(0.9)
-                    .build())
-            .build();
-    var result =
-        strategy.select(context(def), candidates(Set.of("senior-reviewers"), Set.of("alice")));
-    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Unchanged.class);
-  }
-
   static class StubExpressionRegistry implements ExpressionEngineRegistry {
     boolean nextResult = true;
 
@@ -421,5 +406,180 @@ class ConstraintHumanTaskRoutingStrategyTest {
     public Map<String, WorkloadSnapshot> getWorkload(Set<String> userIds, String tenancyId) {
       return workload;
     }
+  }
+
+  @Test
+  void excludeGroupRemovesGroupAndMembers() {
+    expressionRegistry.nextResult = true;
+    var def =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("test")
+            .version("1.0")
+            .humanTaskContextConstraint(
+                ContextConstraint.builder()
+                    .when(".always.true")
+                    .excludeGroups(Set.of("interns"))
+                    .weight(1.0)
+                    .build())
+            .build();
+    var result =
+        strategy.select(
+            context(def),
+            candidates(
+                Set.of("interns", "managers"),
+                Set.of("alice"),
+                Map.of(
+                    "interns", Set.of("bob", "charlie"),
+                    "managers", Set.of("alice"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
+    var enriched = (HumanTaskRoutingResult.Enriched) result;
+    assertThat(enriched.candidateGroups()).containsExactly("managers");
+    assertThat(enriched.candidateUsers()).doesNotContain("bob", "charlie");
+    assertThat(enriched.candidateUsers()).contains("alice");
+  }
+
+  @Test
+  void excludeGroupOverridesDirectNomination() {
+    expressionRegistry.nextResult = true;
+    var def =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("test")
+            .version("1.0")
+            .humanTaskContextConstraint(
+                ContextConstraint.builder()
+                    .when(".always.true")
+                    .excludeGroups(Set.of("blocked"))
+                    .weight(1.0)
+                    .build())
+            .build();
+    var result =
+        strategy.select(
+            context(def),
+            candidates(Set.of("blocked"), Set.of("alice"), Map.of("blocked", Set.of("alice"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Escalated.class);
+  }
+
+  @Test
+  void preferGroupBoostsMemberScores() {
+    expressionRegistry.nextResult = true;
+    var def =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("test")
+            .version("1.0")
+            .humanTaskContextConstraint(
+                ContextConstraint.builder()
+                    .when(".always.true")
+                    .preferGroups(Set.of("seniors"))
+                    .weight(0.7)
+                    .build())
+            .build();
+    var result =
+        strategy.select(
+            context(def),
+            candidates(
+                Set.of("seniors"), Set.of("alice"), Map.of("seniors", Set.of("bob", "charlie"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
+    var enriched = (HumanTaskRoutingResult.Enriched) result;
+    assertThat(enriched.candidateScores()).containsEntry("bob", 0.7);
+    assertThat(enriched.candidateScores()).containsEntry("charlie", 0.7);
+    assertThat(enriched.candidateScores()).doesNotContainKey("alice");
+  }
+
+  @Test
+  void preferWithUserInBothGroupAndUsersAppliesWeightOnce() {
+    expressionRegistry.nextResult = true;
+    var def =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("test")
+            .version("1.0")
+            .humanTaskContextConstraint(
+                ContextConstraint.builder()
+                    .when(".always.true")
+                    .prefer(Set.of("seniors"), Set.of("alice"))
+                    .weight(0.5)
+                    .build())
+            .build();
+    var result =
+        strategy.select(
+            context(def),
+            candidates(
+                Set.of("seniors"), Set.of("alice"), Map.of("seniors", Set.of("alice", "bob"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
+    var enriched = (HumanTaskRoutingResult.Enriched) result;
+    assertThat(enriched.candidateScores().get("alice")).isCloseTo(0.5, within(0.001));
+  }
+
+  @Test
+  void allExcludedViaGroupsEscalates() {
+    expressionRegistry.nextResult = true;
+    var def =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("test")
+            .version("1.0")
+            .humanTaskContextConstraint(
+                ContextConstraint.builder()
+                    .when(".always.true")
+                    .excludeGroups(Set.of("everyone"))
+                    .weight(1.0)
+                    .build())
+            .build();
+    var result =
+        strategy.select(
+            context(def),
+            candidates(Set.of("everyone"), Set.of(), Map.of("everyone", Set.of("alice", "bob"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Escalated.class);
+  }
+
+  @Test
+  void workloadAppliesToGroupExpandedUsers() {
+    workloadProvider.workload =
+        Map.of(
+            "alice", new WorkloadSnapshot(2),
+            "bob", new WorkloadSnapshot(8));
+    var def =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("test")
+            .version("1.0")
+            .humanTaskWorkloadConstraint(WorkloadConstraint.builder().maxActiveTaskCount(5).build())
+            .build();
+    var result =
+        strategy.select(
+            context(def),
+            candidates(Set.of("team"), Set.of(), Map.of("team", Set.of("alice", "bob"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
+    var enriched = (HumanTaskRoutingResult.Enriched) result;
+    assertThat(enriched.candidateUsers()).contains("alice");
+    assertThat(enriched.candidateUsers()).doesNotContain("bob");
+  }
+
+  @Test
+  void eligibleUsersInitializedFromAllUsers() {
+    expressionRegistry.nextResult = true;
+    var def =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("test")
+            .version("1.0")
+            .humanTaskContextConstraint(
+                ContextConstraint.builder()
+                    .when(".always.true")
+                    .preferUsers(Set.of("bob"))
+                    .weight(0.6)
+                    .build())
+            .build();
+    var result =
+        strategy.select(
+            context(def),
+            candidates(Set.of("team"), Set.of("alice"), Map.of("team", Set.of("bob"))));
+    assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
+    var enriched = (HumanTaskRoutingResult.Enriched) result;
+    assertThat(enriched.candidateScores()).containsEntry("bob", 0.6);
+    assertThat(enriched.candidateUsers()).containsExactlyInAnyOrder("alice", "bob");
   }
 }

@@ -132,6 +132,7 @@ public class CaseContextChangedEventHandler {
   java.util.concurrent.ExecutorService virtualThreads;
 
   @Inject CaseEvaluationSerializer evaluationSerializer;
+  @Inject io.casehub.platform.api.identity.GroupMembershipProvider groupMembershipProvider;
 
   @RunOnVirtualThread
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
@@ -569,7 +570,10 @@ public class CaseContextChangedEventHandler {
               caseInstance.getCaseContext(),
               caseDefinition,
               experiences);
-      final var htCandidates = new HumanTaskCandidates(resolvedGroups, resolvedUsers);
+      final Map<String, Set<String>> groupMembership =
+          expandGroupMembership(resolvedGroups, caseInstance.tenancyId);
+      final var htCandidates =
+          new HumanTaskCandidates(resolvedGroups, resolvedUsers, groupMembership);
 
       final HumanTaskRoutingResult routingResult =
           humanTaskStrategy.select(routingCtx, htCandidates);
@@ -646,6 +650,33 @@ public class CaseContextChangedEventHandler {
           caseInstance.getUuid(),
           binding.getName());
     }
+  }
+
+  private Map<String, Set<String>> expandGroupMembership(
+      final Set<String> groups, final String tenancyId) {
+    if (groups == null || groups.isEmpty()) {
+      return Map.of();
+    }
+    final var membership = new java.util.LinkedHashMap<String, Set<String>>();
+    for (final String group : groups) {
+      try {
+        final var members = groupMembershipProvider.membersOf(group, tenancyId);
+        if (members != null && !members.isEmpty()) {
+          membership.put(
+              group,
+              members.stream()
+                  .map(io.casehub.platform.api.identity.GroupMember::actorId)
+                  .collect(java.util.stream.Collectors.toUnmodifiableSet()));
+        }
+      } catch (final Exception e) {
+        LOG.warnf(
+            e,
+            "Group expansion failed for group '%s' tenancyId=%s — treating as empty",
+            group,
+            tenancyId);
+      }
+    }
+    return Map.copyOf(membership);
   }
 
   private Set<String> resolveCandidateSet(
