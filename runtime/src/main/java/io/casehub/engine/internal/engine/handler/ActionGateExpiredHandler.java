@@ -114,12 +114,7 @@ public class ActionGateExpiredHandler {
 
     if (!outcomeRecorder.isUnsatisfied() && gate.capabilityName() != null) {
       var ctx =
-          new AgentRoutingContext(
-              instance.getUuid(),
-              gate.capabilityName(),
-              contextSnapshot,
-              instance.tenancyId,
-              List.of());
+          new AgentRoutingContext(instance.getUuid(), gate.capabilityName(), contextSnapshot, instance.tenancyId, List.of(), null, null);
       outcomeRecorder
           .get()
           .record(ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_EXPIRED, null)

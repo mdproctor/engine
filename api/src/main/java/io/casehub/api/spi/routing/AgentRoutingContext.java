@@ -16,35 +16,17 @@
 package io.casehub.api.spi.routing;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.api.model.CognitiveDemand;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
-/**
- * Routing context passed to {@link AgentRoutingStrategy#select}.
- *
- * <p>{@code caseId} is included per the {@code spi-case-id-parameter.md} protocol — it enables a
- * future {@code PerCaseDynamicAgentRoutingStrategy} to dispatch per-case without call-site changes.
- *
- * <p>{@code caseContext} is the full case context map serialized as a {@link JsonNode}. Semantic
- * routing strategies (e.g. {@code SemanticAgentRoutingStrategy}) extract a text summary via a
- * configurable JQ expression before embedding. Strategies that do not use the context may ignore
- * it.
- *
- * <p>{@code tenancyId} identifies the tenant owning the case — enables tenant-scoped CBR routing
- * and trust weighting. Required by all routing strategies that use tenant-specific history or
- * stored experiences.
- *
- * @param caseId the case instance UUID
- * @param capabilityName the capability being routed — used for trust score lookups and filtering
- * @param caseContext the current case context as a JSON node; may be {@code NullNode} when the case
- *     has no context
- * @param tenancyId the tenant ID owning the case; used for tenant-scoped CBR and trust lookups
- * @param experiences retrieved similar cases from CBR (empty list if CBR is not configured or no
- *     matches found)
- */
 public record AgentRoutingContext(
-    UUID caseId,
-    String capabilityName,
-    JsonNode caseContext,
-    String tenancyId,
-    List<RetrievedExperience> experiences) {}
+        UUID caseId,
+        String capabilityName,
+        JsonNode caseContext,
+        String tenancyId,
+        List<RetrievedExperience> experiences,
+        @Nullable CognitiveDemand cognitiveDemand,
+        @Nullable Map<String, Double> routingSignalWeights) {}

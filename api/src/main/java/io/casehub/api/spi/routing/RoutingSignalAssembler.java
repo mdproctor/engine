@@ -18,11 +18,12 @@ package io.casehub.api.spi.routing;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import org.jboss.logging.Logger;
 
 /**
  * Discovers all {@link RoutingSignalProvider} implementations via CDI, sorts them by {@link
@@ -58,39 +59,44 @@ public class RoutingSignalAssembler {
 
   public Map<String, RoutingSignal> assemble(
       AgentRoutingContext context, List<AgentCandidate> eligible) {
-    var result = new LinkedHashMap<String, RoutingSignal>();
-    for (var provider : providers) {
-      try {
-        RoutingSignal signal = provider.signal(context, eligible);
-        if (signal != null) {
-          result.put(provider.id(), clampScores(signal, provider.id()));
-        }
-      } catch (Exception e) {
-        LOG.warnf(e, "RoutingSignalProvider threw — skipping: %s", provider.getClass().getName());
+      var result = new LinkedHashMap<String, RoutingSignal>();
+      for (var provider : providers) {
+          try {
+              RoutingSignal signal = provider.evaluate(context, eligible);
+              if (signal != null) {
+                  result.put(provider.id(), clampScores(signal, provider.id()));
+              }
+          } catch (Exception e) {
+              LOG.warnf(e, "RoutingSignalProvider threw — skipping: %s", provider.getClass().getName());
+          }
       }
-    }
-    return result;
-  }
+      return result;}
 
   private static RoutingSignal clampScores(RoutingSignal signal, String providerId) {
-    var clamped = new LinkedHashMap<String, RoutingSignal.CandidateSignal>();
-    boolean anyClamped = false;
-    for (var entry : signal.candidates().entrySet()) {
-      var cs = entry.getValue();
-      double score = cs.score();
-      if (score < 0.0 || score > 1.0) {
-        anyClamped = true;
-        score = Math.max(0.0, Math.min(1.0, score));
+      var     clamped    = new LinkedHashMap<String, RoutingSignal.CandidateSignal>();
+      boolean anyClamped = false;
+      for (var entry : signal.candidates().entrySet()) {
+          var cs = entry.getValue();
+          switch (cs) {
+              case RoutingSignal.CandidateSignal.Score s -> {
+                  double score = s.value();
+                  if (score < 0.0 || score > 1.0) {
+                      anyClamped = true;
+                      score      = Math.max(0.0, Math.min(1.0, score));
+                  }
+                  clamped.put(
+                          entry.getKey(), new RoutingSignal.CandidateSignal.Score(score, s.rationale()));
+              }
+              case RoutingSignal.CandidateSignal.Exclude e -> clamped.put(entry.getKey(), e);
+              case RoutingSignal.CandidateSignal.Escalate e -> clamped.put(entry.getKey(), e);
+          }
       }
-      clamped.put(entry.getKey(), new RoutingSignal.CandidateSignal(score, cs.reason()));
-    }
-    if (anyClamped) {
-      LOG.warnf(
-          "RoutingSignalProvider '%s' returned out-of-range scores — clamped to [0,1]", providerId);
-      return new RoutingSignal(clamped);
-    }
-    return signal;
-  }
+      if (anyClamped) {
+          LOG.warnf(
+                  "RoutingSignalProvider '%s' returned out-of-range scores — clamped to [0,1]", providerId);
+          return new RoutingSignal(clamped);
+      }
+      return signal;}
 
   private static int priority(RoutingSignalProvider provider) {
     var annotation = provider.getClass().getAnnotation(jakarta.annotation.Priority.class);

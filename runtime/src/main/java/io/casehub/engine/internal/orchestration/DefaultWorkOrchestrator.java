@@ -159,12 +159,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
     final java.util.List<RetrievedExperience> experiences =
         cbrRetrievalService.retrieve(definition, instance);
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(
-            instance.getUuid(),
-            capability.name(),
-            instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
-            instance.tenancyId,
-            experiences);
+        new AgentRoutingContext(instance.getUuid(), capability.name(), instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(), instance.tenancyId, experiences, null, null);
     final RoutingResult assignment = agentRoutingStrategy.select(ctx, candidates);
 
     switch (assignment) {

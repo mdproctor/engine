@@ -15,9 +15,10 @@
  */
 package io.casehub.api.spi.routing;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.Map;
 import java.util.Objects;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Structured per-candidate scoring data returned by a {@link RoutingSignalProvider}.
@@ -37,9 +38,11 @@ public record RoutingSignal(Map<String, CandidateSignal> candidates) {
     candidates = Map.copyOf(candidates);
   }
 
-  /**
-   * @param score scoring contribution in [0.0, 1.0]
-   * @param reason optional human-readable explanation
-   */
-  public record CandidateSignal(double score, @Nullable String reason) {}
+    public sealed interface CandidateSignal {
+        record Score(double value, @Nullable String rationale) implements CandidateSignal {}
+
+        record Exclude(String reason) implements CandidateSignal {}
+
+        record Escalate(EscalationReason reason, String rationale) implements CandidateSignal {}
+    }
 }

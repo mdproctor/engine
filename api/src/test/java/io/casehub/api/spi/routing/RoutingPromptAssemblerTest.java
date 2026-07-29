@@ -116,8 +116,7 @@ class RoutingPromptAssemblerTest {
   }
 
   private static AgentRoutingContext context() {
-    return new AgentRoutingContext(
-        UUID.randomUUID(), "analysis", NullNode.instance, "test-tenant", List.of());
+    return new AgentRoutingContext(UUID.randomUUID(), "analysis", NullNode.instance, "test-tenant", List.of(), null, null);
   }
 
   private static List<AgentCandidate> candidates() {

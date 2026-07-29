@@ -74,17 +74,15 @@ casehub-engine is a **hybrid choreography+orchestration engine**. Both models sh
 
 ### Choreography (Binding-Driven)
 
-Context changes trigger binding evaluations. When a binding's condition is met, `CaseContextChangedEventHandler` builds an `AgentCandidate` list (via `AgentCandidateFactory`) from capable workers, then calls `AgentRoutingStrategy.select()` which returns `Uni<AgentAssignment>`. The result is a sealed type with three outcomes. If no pre-defined workers match a capability, the engine calls `tryProvision()` to attempt dynamic provisioning via the registered `WorkerProvisioner` SPI. The case remains `RUNNING` throughout.
+Context changes trigger binding evaluations. When a binding's condition is met, `CaseContextChangedEventHandler` builds an `AgentCandidate` list (via `AgentCandidateFactory`) from capable workers, then calls `AgentRoutingStrategy.select()` which returns `RoutingResult` (sealed: `Selected`, `Unresolvable`, `Escalated`). The default strategy is `ComposableAgentRoutingStrategy`, which blends scores from independent `RoutingSignalProvider` implementations (workload, trust, personality, experience, semantic) with configurable per-case weights. If no pre-defined workers match a capability, the engine calls `tryProvision()` to attempt dynamic provisioning via the registered `WorkerProvisioner` SPI. The case remains `RUNNING` throughout.
 
 ```
 CaseContext change
   → CaseContextChangedEventHandler.publishByTarget()
-      CapabilityTarget → AgentRoutingStrategy.select(ctx, candidates) → Uni<AgentAssignment>
-                           Assigned(workerId)        → WorkerScheduleEvent
-                           Unresolvable()            → tryProvision()
-                           EscalateToOversight(cap)  → AgentRoutingEscalationEvent
-                                                          → AgentRoutingEscalationHandler
-                                                          → QUERY posted to oversight channel
+      CapabilityTarget → ComposableAgentRoutingStrategy.select(ctx, candidates) → RoutingResult
+                           Selected(assignments)     → WorkerScheduleEvent
+                           Unresolvable(reason)      → tryProvision()
+                           Escalated(cap, reason)    → handleEscalation()
       SubCaseTarget    → SubCaseScheduleEvent
       HumanTaskTarget  → inputMapping evaluated → HumanTaskScheduleEvent
       ExtensionTarget  → warning log, no dispatch

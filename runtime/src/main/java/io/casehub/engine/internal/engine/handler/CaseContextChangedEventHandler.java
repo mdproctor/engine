@@ -416,7 +416,9 @@ public class CaseContextChangedEventHandler {
             capability.name(),
             caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
             caseInstance.tenancyId,
-            experiences);
+            experiences,
+            caseDefinition.getCognitiveDemand(capability.name()),
+            caseDefinition.getRoutingSignalWeights());
 
     final AgentRoutingStrategy routingStrategy =
         strategyResolver.resolve(AgentRoutingStrategy.class, caseDefinition.getAgentRouting());

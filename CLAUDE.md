@@ -370,6 +370,31 @@ Enriches humanTask candidate sets with historical data from CBR plan traces. Sym
 
 **EngineStrategyResolver** (`runtime/internal/routing/`) — `@Alternative @Priority(1)` resolver using per-domain `Instance<>` injection (Quarkus ARC workaround — `Instance<NamedStrategy>` does not discover sub-interface beans). Detects `@DefaultBean` strategies via `InjectableBean.isDefaultBean()` — YAML-specified IDs take precedence over defaults. Adding new strategy SPI types requires updating this resolver's constructor. Refs engine#634, engine#641, GE-20260704-d6aacc.
 
+## Composable Routing Signal Architecture
+
+Layer 3 agent routing uses `ComposableAgentRoutingStrategy` (`@DefaultBean`, id=`"composable"`) which blends scores from independent `RoutingSignalProvider` implementations. Each provider scores candidates independently; the compositor computes a weighted sum. `CandidateSignal` is a sealed interface: `Score(double, String)` | `Exclude(String)` | `Escalate(EscalationReason, String)`. Absent candidates (not in the signal map) have their weight redistributed among contributing providers. Layer 4 strategies (blocks' `LlmAgentRoutingStrategy`, `CbrAgentRoutingStrategy`) remain as `AgentRoutingStrategy` implementations and override the compositor via `@Priority`. Refs engine#790.
+
+**Signal providers:**
+- `WorkloadSignalProvider` (id=`"workload"`, runtime) — `1/(1+runningJobs)` availability
+- `TrustSignalProvider` (id=`"trust"`, ledger) — trust maturity scoring with Exclude/Escalate for phase 2b/3/borderline
+- `ExperienceSignalProvider` (id=`"experience"`, runtime) — `ExperienceAnalyser.workerSuccessRates()` from CBR history
+- `PersonalitySignalProvider` (id=`"personality"`, runtime) — cosine similarity between effective personality weights and task `CognitiveDemand`
+- `SemanticSignalProvider` (id=`"semantic"`, engine-ai) — embedding similarity between case context and agent vocabulary
+
+**Per-case weight configuration:** `CaseDefinition.routingSignalWeights` (`Map<String, Double>`, nullable). When present, only named providers are called with given weights. When absent, all discovered providers run with equal weights. YAML: `routingSignalWeights:` block under `spec:`. `AgentRoutingContext` carries `cognitiveDemand` (nullable `CognitiveDemand` from `Capability`) and `routingSignalWeights` (nullable `Map<String, Double>` from `CaseDefinition`).
+
+**CognitiveDemand** (`api/model/`) — weighted cognitive function demand profile on `Capability`. `Map<String, Double>` keyed by Jungian function names (Ti, Te, Fi, Fe, Si, Se, Ni, Ne), summing to 1.0. Stored on `CaseDefinition` as `Map<String, CognitiveDemand> cognitiveDemands` (keyed by capability name, NOT on the foundation-tier `Capability` record). YAML: `cognitiveDemand:` nested under each capability. Refs engine#795.
+
+**Deleted strategies (engine#790):** `LeastLoadedAgentStrategy`, `TrustWeightedAgentStrategy`, `SemanticAgentRoutingStrategy` — replaced by signal providers + compositor. ADR-0003 (reactive SPI) superseded — virtual threads removed the reactive requirement.
+
+## JPAF Personality-Adaptive Routing
+
+JPAF (arXiv:2601.10025) personality adaptation via `DispositionSignalStore` activation signals and `DispositionHealth` effective weight computation. Engine records signals and routes; eidos computes effective weights, evaluates reflection, updates descriptors. Refs engine#790.
+
+**PersonalitySignalRecorder** (`runtime/internal/routing/`, `@ApplicationScoped`) — records disposition signals on worker task completion. On SUCCESS: reinforces the engaged cognitive function (whichever of dom/aux has higher demand in the task's `CognitiveDemand`). On DECLINE/FAILURE/EXPIRED: activates the compensatory function (highest-demand function NOT in dom/aux). Uses `DispositionSignalStore.recordActivation(agentId, tenancyId, functionTerm)`. After recording, probes `DispositionHealth` for `EvolutionPending` — if triggered, calls `DispositionEvolution.evaluate()` and handles `Evolved` (log) or `Dampened` (calls `signalStore.decay()`). Refs engine#791, engine#793.
+
+**Effective weight computation (eidos-side):** `effectiveWeight(f) = baseWeight(f) + activationCount(f) × Δw` where `Δw = 0.06` (`JungianFunctionTerm.REINFORCEMENT_DELTA`). No materialized TemporaryWeight state — computed at probe time from `DispositionSignalStore.activationCounts()`. Multiplicative decay (0.2×) via `DispositionSignalStore.decay()` on reflection rejection.
+
 ## Repeatable Compound
 
 `PlanItemDefinition.Compound` gains `repeatable` (boolean, builder). Repeatable compound lifecycle is tracked via `PlanItemExecutionState` CAS transitions. Refs engine#482. Stage-based repeatability infrastructure (StageResetOutcomesCleaner, StageActivatedEvent, resetForRepetition) was removed in the Stage retirement (blocks#60 Phase 3C.3).
