@@ -28,6 +28,9 @@ public class CatchAllExceptionMapper implements ExceptionMapper<RuntimeException
 
   @Override
   public Response toResponse(RuntimeException exception) {
+    if (exception instanceof jakarta.ws.rs.WebApplicationException wae) {
+      return wae.getResponse();
+    }
     LOG.error("Unhandled exception in REST endpoint", exception);
     return Response.status(500)
         .entity(new ProblemDetail("Internal server error", 500, "An unexpected error occurred"))
