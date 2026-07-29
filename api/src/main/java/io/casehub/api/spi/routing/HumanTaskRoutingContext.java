@@ -15,7 +15,8 @@
  */
 package io.casehub.api.spi.routing;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.api.context.CaseContext;
+import io.casehub.api.model.CaseDefinition;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,12 +28,16 @@ import java.util.UUID;
  * @param bindingName the binding name — matching key for plan trace analysis (equivalent to
  *     capabilityName for agent routing)
  * @param tenancyId the tenant owning the case
- * @param caseContext the current case context as a JSON node (working layer)
+ * @param caseContext the current case context (strategies needing the JSON form call {@code
+ *     caseContext.layer(ContextLayer.WORKING).asJsonNode()})
+ * @param caseDefinition the case definition — gives strategies access to definition-level
+ *     configuration (constraints, routing config) without strategy-specific context fields
  * @param experiences retrieved similar cases from CBR (empty list if CBR is not configured)
  */
 public record HumanTaskRoutingContext(
     UUID caseId,
     String bindingName,
     String tenancyId,
-    JsonNode caseContext,
+    CaseContext caseContext,
+    CaseDefinition caseDefinition,
     List<RetrievedExperience> experiences) {}
