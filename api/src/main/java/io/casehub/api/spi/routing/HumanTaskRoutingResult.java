@@ -23,8 +23,8 @@ import java.util.Set;
  * RoutingResult} (Selected | Unresolvable | Escalated) and {@link ImplementationSelection}
  * (Selected | RunAll | RunNone).
  *
- * <p>{@code candidateScores} keys are from {@code candidateUsers} only — group scoring requires
- * group membership resolution which is out of scope (engine#757).
+ * <p>{@code candidateScores} keys are individual actor IDs (direct or group-expanded), never group
+ * names. Invariant: {@code candidateScores.keySet() ⊆ candidateUsers}.
  */
 public sealed interface HumanTaskRoutingResult
     permits HumanTaskRoutingResult.Enriched,

@@ -76,22 +76,48 @@ public record ContextConstraint(ExpressionEvaluator condition, Effect effect, do
     }
 
     public Builder preferUsers(Set<String> users) {
-      this.effect = new Prefer(Set.of(), users);
+      if (effect instanceof Prefer existing) {
+        this.effect = new Prefer(existing.groups(), union(existing.users(), users));
+      } else {
+        this.effect = new Prefer(Set.of(), users);
+      }
       return this;
     }
 
     public Builder preferGroups(Set<String> groups) {
-      this.effect = new Prefer(groups, Set.of());
+      if (effect instanceof Prefer existing) {
+        this.effect = new Prefer(union(existing.groups(), groups), existing.users());
+      } else {
+        this.effect = new Prefer(groups, Set.of());
+      }
+      return this;
+    }
+
+    public Builder prefer(Set<String> groups, Set<String> users) {
+      this.effect = new Prefer(groups, users);
       return this;
     }
 
     public Builder excludeUsers(Set<String> users) {
-      this.effect = new Exclude(Set.of(), users);
+      if (effect instanceof Exclude existing) {
+        this.effect = new Exclude(existing.groups(), union(existing.users(), users));
+      } else {
+        this.effect = new Exclude(Set.of(), users);
+      }
       return this;
     }
 
     public Builder excludeGroups(Set<String> groups) {
-      this.effect = new Exclude(groups, Set.of());
+      if (effect instanceof Exclude existing) {
+        this.effect = new Exclude(union(existing.groups(), groups), existing.users());
+      } else {
+        this.effect = new Exclude(groups, Set.of());
+      }
+      return this;
+    }
+
+    public Builder exclude(Set<String> groups, Set<String> users) {
+      this.effect = new Exclude(groups, users);
       return this;
     }
 
@@ -109,6 +135,12 @@ public record ContextConstraint(ExpressionEvaluator condition, Effect effect, do
             "effect is required — call preferUsers(), preferGroups(), excludeUsers(), or excludeGroups()");
       }
       return new ContextConstraint(condition, effect, weight);
+    }
+
+    private static Set<String> union(Set<String> a, Set<String> b) {
+      var result = new java.util.LinkedHashSet<>(a);
+      result.addAll(b);
+      return Set.copyOf(result);
     }
   }
 }

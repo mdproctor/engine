@@ -23,6 +23,7 @@ import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
 import io.quarkus.arc.Unremovable;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * CBR-based humanTask routing strategy that scores candidate users using historical plan trace
@@ -50,7 +51,8 @@ public class CbrHumanTaskRoutingStrategy implements HumanTaskRoutingStrategy {
       return new HumanTaskRoutingResult.Unchanged();
     }
 
-    if (candidates.users().isEmpty()) {
+    final Set<String> allUsers = candidates.allUsers();
+    if (allUsers.isEmpty()) {
       return new HumanTaskRoutingResult.Unchanged();
     }
 
@@ -58,7 +60,7 @@ public class CbrHumanTaskRoutingStrategy implements HumanTaskRoutingStrategy {
     final Map<String, Double> scores =
         ExperienceAnalyser.workerSuccessRates(
             context.experiences(),
-            candidates.users(),
+            allUsers,
             step -> bindingName.equals(step.bindingName()),
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
 
@@ -66,6 +68,6 @@ public class CbrHumanTaskRoutingStrategy implements HumanTaskRoutingStrategy {
       return new HumanTaskRoutingResult.Unchanged();
     }
 
-    return new HumanTaskRoutingResult.Enriched(candidates.groups(), candidates.users(), scores);
+    return new HumanTaskRoutingResult.Enriched(candidates.groups(), allUsers, scores);
   }
 }

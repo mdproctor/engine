@@ -15,21 +15,33 @@
  */
 package io.casehub.api.spi.routing;
 
+import java.util.Map;
 import java.util.Set;
 
-/**
- * Pre-resolved candidate groups and users for a human task binding. Passed as a separate parameter
- * to {@link HumanTaskRoutingStrategy#select}, matching the context/candidates separation convention
- * in {@link AgentRoutingStrategy} and {@link ImplementationRoutingStrategy}.
- *
- * <p>Null groups or users default to empty sets. Defensive copies are made on construction.
- *
- * @param groups resolved candidate groups
- * @param users resolved candidate users
- */
-public record HumanTaskCandidates(Set<String> groups, Set<String> users) {
+public record HumanTaskCandidates(
+    Set<String> groups, Set<String> users, Map<String, Set<String>> groupMembership) {
   public HumanTaskCandidates {
     groups = groups != null ? Set.copyOf(groups) : Set.of();
     users = users != null ? Set.copyOf(users) : Set.of();
+    groupMembership =
+        groupMembership != null
+            ? groupMembership.entrySet().stream()
+                .collect(
+                    java.util.stream.Collectors.toUnmodifiableMap(
+                        Map.Entry::getKey, e -> Set.copyOf(e.getValue())))
+            : Map.of();
+  }
+
+  public Set<String> allUsers() {
+    if (groupMembership.isEmpty()) {
+      return users;
+    }
+    var all = new java.util.LinkedHashSet<>(users);
+    groupMembership.values().forEach(all::addAll);
+    return Set.copyOf(all);
+  }
+
+  public static HumanTaskCandidates of(Set<String> groups, Set<String> users) {
+    return new HumanTaskCandidates(groups, users, Map.of());
   }
 }
