@@ -25,6 +25,7 @@ import io.casehub.api.model.AllOfGoalExpression;
 import io.casehub.api.model.AnyOfGoalExpression;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.CognitiveDemand;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.EpisodicMemoryConfig;
 import io.casehub.api.model.ExecutionMode;
@@ -57,6 +58,13 @@ import io.casehub.platform.api.label.LabelRule;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
+import net.thisptr.jackson.jq.BuiltinFunctionLoader;
+import net.thisptr.jackson.jq.JsonQuery;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Versions;
+import net.thisptr.jackson.jq.exception.JsonQueryException;
+import org.jboss.logging.Logger;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -67,12 +75,6 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-import net.thisptr.jackson.jq.BuiltinFunctionLoader;
-import net.thisptr.jackson.jq.JsonQuery;
-import net.thisptr.jackson.jq.Scope;
-import net.thisptr.jackson.jq.Versions;
-import net.thisptr.jackson.jq.exception.JsonQueryException;
-import org.jboss.logging.Logger;
 
 /**
  * Centralized YAML marshaller for CaseDefinition.
@@ -288,6 +290,7 @@ public final class CaseDefinitionYamlMapper {
     // Convert capabilities — accepts both current (inputProjection/outputProjection) and
     // legacy (inputSchema/outputSchema) YAML field names for backward compatibility.
     final Map<String, Capability> capabilityMap = new LinkedHashMap<>();
+    final Map<String, CognitiveDemand> cognitiveDemands = new LinkedHashMap<>();
     if (schema.getSpec() != null && schema.getSpec().getCapabilities() != null) {
       final JsonNode rawCaps =
           rawNode.has("spec") && rawNode.get("spec").has("capabilities")
@@ -322,6 +325,13 @@ public final class CaseDefinitionYamlMapper {
                 .build();
         capabilityMap.put(sc.getName(), cap);
         def.getCapabilities().add(cap);
+
+        if (rawCap != null && rawCap.has("cognitiveDemand")) {
+          final JsonNode demandNode = rawCap.get("cognitiveDemand");
+          final Map<String, Double> weights = new java.util.LinkedHashMap<>();
+          demandNode.fields().forEachRemaining(e -> weights.put(e.getKey(), e.getValue().asDouble()));
+          cognitiveDemands.put(sc.getName(), new CognitiveDemand(weights));
+        }
       }
     }
 
@@ -666,6 +676,19 @@ public final class CaseDefinitionYamlMapper {
         mappings.add(mb.build());
       }
       def.setInboundMappings(List.copyOf(mappings));
+    }
+
+    if (!cognitiveDemands.isEmpty()) {
+      def.setCognitiveDemands(cognitiveDemands);
+    }
+
+    final JsonNode routingWeightsNode = rawNode.has("spec") && rawNode.get("spec").has("routingSignalWeights")
+        ? rawNode.get("spec").get("routingSignalWeights")
+        : rawNode.has("routingSignalWeights") ? rawNode.get("routingSignalWeights") : null;
+    if (routingWeightsNode != null && routingWeightsNode.isObject()) {
+      final Map<String, Double> weights = new LinkedHashMap<>();
+      routingWeightsNode.fields().forEachRemaining(e -> weights.put(e.getKey(), e.getValue().asDouble()));
+      def.setRoutingSignalWeights(weights);
     }
 
     return def;

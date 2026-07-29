@@ -470,6 +470,7 @@ public class CaseContextChangedEventHandler {
     }
 
 
+
     @SuppressWarnings("unchecked")
   private void handleAllCandidatesExhausted(
       final CaseInstance caseInstance, final String bindingName, final String capabilityName) {

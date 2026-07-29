@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.api.spi.routing.AgentRoutingContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -64,11 +65,12 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.logging.Logger;
 
 /**
  * Applies worker output to the case context, persists the completion event, and notifies listeners
@@ -732,12 +734,7 @@ public class WorkflowExecutionCompletedHandler {
     String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
     if (capabilityName == null) return;
     var ctx =
-        new io.casehub.api.spi.routing.AgentRoutingContext(
-            caseInstance.getUuid(),
-            capabilityName,
-            contextSnapshot,
-            caseInstance.tenancyId,
-            List.of());
+        new AgentRoutingContext(caseInstance.getUuid(), capabilityName, contextSnapshot, caseInstance.tenancyId, List.of(), null, null);
     outcomeRecorder
         .get()
         .record(ctx, worker.name(), bindingName, outcome, null)

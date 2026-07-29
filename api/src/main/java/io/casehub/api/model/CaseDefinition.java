@@ -67,6 +67,9 @@ public class CaseDefinition {
   private List<SignalType<?>> signals = List.of();
   private List<LabelRule> labelRules = List.of();
   private List<InboundSignalMapping> inboundMappings = List.of();
+  private Map<String, Double>        routingSignalWeights;
+  private Map<String, CognitiveDemand> cognitiveDemands = Map.of();
+
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -295,6 +298,23 @@ public class CaseDefinition {
     this.inboundMappings = inboundMappings;
   }
 
+  public Map<String, Double> getRoutingSignalWeights() {
+    return routingSignalWeights;
+  }
+
+  public void setRoutingSignalWeights(Map<String, Double> routingSignalWeights) {
+    this.routingSignalWeights = routingSignalWeights;
+  }
+
+  public CognitiveDemand getCognitiveDemand(String capabilityName) {
+    return cognitiveDemands.get(capabilityName);
+  }
+
+  public void setCognitiveDemands(Map<String, CognitiveDemand> cognitiveDemands) {
+    this.cognitiveDemands = cognitiveDemands != null ? Map.copyOf(cognitiveDemands) : Map.of();
+  }
+
+
   public static Builder builder() {
     return new Builder();
   }
@@ -332,6 +352,8 @@ public class CaseDefinition {
     private List<SignalType<?>> signals = new java.util.ArrayList<>();
     private List<LabelRule> labelRules = new ArrayList<>();
     private List<InboundSignalMapping> inboundMappings;
+    private Map<String, Double> routingSignalWeights;
+    private Map<String, CognitiveDemand> cognitiveDemands;
 
     private Builder() {}
 
@@ -561,6 +583,20 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder routingSignalWeights(Map<String, Double> weights) {
+      this.routingSignalWeights = weights;
+      return this;
+    }
+
+    public Builder cognitiveDemand(String capabilityName, CognitiveDemand demand) {
+      if (this.cognitiveDemands == null) {
+        this.cognitiveDemands = new java.util.LinkedHashMap<>();
+      }
+      this.cognitiveDemands.put(capabilityName, demand);
+      return this;
+    }
+
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -623,6 +659,10 @@ public class CaseDefinition {
           }
         }
         caseHubDefinition.setInboundMappings(List.copyOf(inboundMappings));
+      }
+      caseHubDefinition.setRoutingSignalWeights(routingSignalWeights);
+      if (cognitiveDemands != null) {
+        caseHubDefinition.setCognitiveDemands(cognitiveDemands);
       }
 
       return caseHubDefinition;

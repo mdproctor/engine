@@ -1,7 +1,11 @@
 # 0003 — AgentRoutingStrategy Returns Uni<AgentAssignment>
 
 Date: 2026-05-29
-Status: Accepted
+Status: Superseded
+
+Superseded by: Composable routing signal architecture (#790). Virtual threads removed
+the reactive requirement — all routing strategies now execute synchronously on virtual
+threads. `AgentRoutingStrategy.select()` returns `RoutingResult` directly.
 
 ## Context and Problem Statement
 
