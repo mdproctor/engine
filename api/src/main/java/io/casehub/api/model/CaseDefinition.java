@@ -55,6 +55,9 @@ public class CaseDefinition {
   private String agentRouting;
   private String implementationRouting;
   private String humanTaskRouting;
+  private List<io.casehub.api.model.routing.ContextConstraint> humanTaskContextConstraints =
+      List.of();
+  private io.casehub.api.model.routing.WorkloadConstraint humanTaskWorkloadConstraint;
 
   private String candidateMatching;
   private String decompositionStrategy;
@@ -217,6 +220,24 @@ public class CaseDefinition {
     this.humanTaskRouting = humanTaskRouting;
   }
 
+  public List<io.casehub.api.model.routing.ContextConstraint> getHumanTaskContextConstraints() {
+    return humanTaskContextConstraints;
+  }
+
+  public void setHumanTaskContextConstraints(
+      List<io.casehub.api.model.routing.ContextConstraint> constraints) {
+    this.humanTaskContextConstraints = constraints != null ? List.copyOf(constraints) : List.of();
+  }
+
+  public io.casehub.api.model.routing.WorkloadConstraint getHumanTaskWorkloadConstraint() {
+    return humanTaskWorkloadConstraint;
+  }
+
+  public void setHumanTaskWorkloadConstraint(
+      io.casehub.api.model.routing.WorkloadConstraint constraint) {
+    this.humanTaskWorkloadConstraint = constraint;
+  }
+
   public String getCandidateMatching() {
     return candidateMatching;
   }
@@ -338,6 +359,9 @@ public class CaseDefinition {
     private String agentRouting;
     private String implementationRouting;
     private String humanTaskRouting;
+    private List<io.casehub.api.model.routing.ContextConstraint> humanTaskContextConstraints =
+        new ArrayList<>();
+    private io.casehub.api.model.routing.WorkloadConstraint humanTaskWorkloadConstraint;
 
     private String candidateMatching;
     private String decompositionStrategy;
@@ -513,6 +537,18 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder humanTaskContextConstraint(
+        io.casehub.api.model.routing.ContextConstraint constraint) {
+      this.humanTaskContextConstraints.add(constraint);
+      return this;
+    }
+
+    public Builder humanTaskWorkloadConstraint(
+        io.casehub.api.model.routing.WorkloadConstraint constraint) {
+      this.humanTaskWorkloadConstraint = constraint;
+      return this;
+    }
+
     public Builder candidateMatching(String candidateMatching) {
       this.candidateMatching = candidateMatching;
       return this;
@@ -626,6 +662,8 @@ public class CaseDefinition {
       caseHubDefinition.setAgentRouting(agentRouting);
       caseHubDefinition.setImplementationRouting(implementationRouting);
       caseHubDefinition.setHumanTaskRouting(humanTaskRouting);
+      caseHubDefinition.setHumanTaskContextConstraints(humanTaskContextConstraints);
+      caseHubDefinition.setHumanTaskWorkloadConstraint(humanTaskWorkloadConstraint);
       caseHubDefinition.setCandidateMatching(candidateMatching);
       caseHubDefinition.setDecompositionStrategy(decompositionStrategy);
       caseHubDefinition.setTypes(types);

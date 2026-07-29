@@ -18,7 +18,6 @@ package io.casehub.engine.internal.routing;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
-import com.fasterxml.jackson.databind.node.NullNode;
 import io.casehub.api.spi.routing.ExperiencePlanStep;
 import io.casehub.api.spi.routing.HumanTaskCandidates;
 import io.casehub.api.spi.routing.HumanTaskRoutingContext;
@@ -37,7 +36,7 @@ class CbrHumanTaskRoutingStrategyTest {
   private HumanTaskRoutingContext context(
       String bindingName, List<RetrievedExperience> experiences) {
     return new HumanTaskRoutingContext(
-        UUID.randomUUID(), bindingName, "test-tenant", NullNode.instance, experiences);
+        UUID.randomUUID(), bindingName, "test-tenant", null, null, experiences);
   }
 
   private HumanTaskCandidates candidates(Set<String> groups, Set<String> users) {

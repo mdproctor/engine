@@ -602,7 +602,8 @@ public class CaseContextChangedEventHandler {
               caseInstance.getUuid(),
               binding.getName(),
               caseInstance.tenancyId,
-              caseContext,
+              caseInstance.getCaseContext(),
+              caseDefinition,
               experiences);
       final var htCandidates = new HumanTaskCandidates(resolvedGroups, resolvedUsers);
 
@@ -625,11 +626,9 @@ public class CaseContextChangedEventHandler {
         }
         case HumanTaskRoutingResult.Escalated e -> {
           LOG.warnf(
-              "HumanTask routing escalated for caseId=%s binding=%s: %s",
+              "HumanTask routing escalated for caseId=%s binding=%s: %s — PlanItem stays PENDING",
               caseInstance.getUuid(), binding.getName(), e.reason());
-          finalGroups = resolvedGroups;
-          finalUsers = resolvedUsers;
-          scores = Map.of();
+          return;
         }
       }
 
