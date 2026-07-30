@@ -15,6 +15,8 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
+import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseDefinition;
@@ -38,14 +40,11 @@ import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.util.List;
+import java.util.Map;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
-
-import java.util.List;
-import java.util.Map;
-
-import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
 /**
  * Thin Quartz adapter — resolves context, delegates execution to {@link WorkerExecutor}, and
@@ -124,7 +123,8 @@ class QuartzWorkerExecutionJob implements Job {
 
       io.casehub.api.model.ExecutionMode executionMode =
           eventLog.getMetadata().has("executionMode")
-              ? io.casehub.api.model.ExecutionMode.valueOf(eventLog.getMetadata().get("executionMode").asText())
+              ? io.casehub.api.model.ExecutionMode.valueOf(
+                  eventLog.getMetadata().get("executionMode").asText())
               : null;
 
       final WorkerRetryContext effectiveRetryCtx =
@@ -211,46 +211,50 @@ class QuartzWorkerExecutionJob implements Job {
         var replaced = new io.casehub.worker.api.WorkerResult(output, workerResult.outcome());
         workerResult = replaced;
       }
-      onSuccess(instance, worker, inputDataHash, workerResult, bindingName, signalId, executionMode);
+      onSuccess(
+          instance, worker, inputDataHash, workerResult, bindingName, signalId, executionMode);
     } catch (Exception e) {
       onFailure(retryCtx, e);
     }
   }
 
-    private void onSuccess(
-            CaseInstance instance,
-            Worker worker,
-            String inputDataHash,
-            io.casehub.worker.api.WorkerResult<?> workerResult,
-            String bindingName,
-            java.util.UUID signalId,
-            io.casehub.api.model.ExecutionMode executionMode) {
-        if (executionMode != null && executionMode != io.casehub.api.model.ExecutionMode.TRANSIENT) {
-            if (!(workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Completed)) {
-                Map<String, Object> output = toMap(workerResult.output());
-                if (output != null && !output.isEmpty()) {
-                    vertx.eventBus().publish(
-                            "casehub.engine.scoped-worker-output",
-                            io.vertx.core.json.JsonObject.of(
-                                    "caseId", instance.getUuid().toString(),
-                                    "bindingName", bindingName));
-                }
-                LOG.debugf("Scoped worker %s returned Success — output applied, PlanItem stays RUNNING", bindingName);
-                return;
-            }
-        }
+  private void onSuccess(
+      CaseInstance instance,
+      Worker worker,
+      String inputDataHash,
+      io.casehub.worker.api.WorkerResult<?> workerResult,
+      String bindingName,
+      java.util.UUID signalId,
+      io.casehub.api.model.ExecutionMode executionMode) {
+    if (executionMode != null && executionMode != io.casehub.api.model.ExecutionMode.TRANSIENT) {
+      if (!(workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Completed)) {
         Map<String, Object> output = toMap(workerResult.output());
-        eventBus.publish(
-                WORKER_EXECUTION_FINISHED,
-                new WorkflowExecutionCompleted(
-                        instance,
-                        worker,
-                        inputDataHash,
-                        output,
-                        bindingName,
-                        workerResult.outcome(),
-                        signalId));
+        if (output != null && !output.isEmpty()) {
+          vertx
+              .eventBus()
+              .publish(
+                  "casehub.engine.scoped-worker-output",
+                  io.vertx.core.json.JsonObject.of(
+                      "caseId", instance.getUuid().toString(), "bindingName", bindingName));
+        }
+        LOG.debugf(
+            "Scoped worker %s returned Success — output applied, PlanItem stays RUNNING",
+            bindingName);
+        return;
+      }
     }
+    Map<String, Object> output = toMap(workerResult.output());
+    eventBus.publish(
+        WORKER_EXECUTION_FINISHED,
+        new WorkflowExecutionCompleted(
+            instance,
+            worker,
+            inputDataHash,
+            output,
+            bindingName,
+            workerResult.outcome(),
+            signalId));
+  }
 
   private void onFailure(WorkerRetryContext retryCtx, Throwable failure) {
     LOG.errorf(

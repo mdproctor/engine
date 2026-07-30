@@ -15,14 +15,14 @@
  */
 package io.casehub.api.spi;
 
-import io.casehub.api.model.OnThresholdReached;
-import org.junit.jupiter.api.Test;
-
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import io.casehub.api.model.OnThresholdReached;
+import org.junit.jupiter.api.Test;
 
 class QuorumConfigTest {
 
@@ -68,38 +68,38 @@ class QuorumConfigTest {
     assertTrue(config.allowSameAssignee());
   }
 
-    @Test
-    void majority_of_5_requires_3() {
-        var config = QuorumConfig.majority(5);
-        assertEquals(5, config.instances());
-        assertEquals(3, config.required());
-    }
+  @Test
+  void majority_of_5_requires_3() {
+    var config = QuorumConfig.majority(5);
+    assertEquals(5, config.instances());
+    assertEquals(3, config.required());
+  }
 
-    @Test
-    void majority_of_3_requires_2() {
-        var config = QuorumConfig.majority(3);
-        assertEquals(3, config.instances());
-        assertEquals(2, config.required());
-    }
+  @Test
+  void majority_of_3_requires_2() {
+    var config = QuorumConfig.majority(3);
+    assertEquals(3, config.instances());
+    assertEquals(2, config.required());
+  }
 
-    @Test
-    void majority_of_2_requires_2() {
-        var config = QuorumConfig.majority(2);
-        assertEquals(2, config.instances());
-        assertEquals(2, config.required());
-    }
+  @Test
+  void majority_of_2_requires_2() {
+    var config = QuorumConfig.majority(2);
+    assertEquals(2, config.instances());
+    assertEquals(2, config.required());
+  }
 
-    @Test
-    void unanimous_of_3() {
-        var config = QuorumConfig.unanimous(3);
-        assertEquals(3, config.instances());
-        assertEquals(3, config.required());
-    }
+  @Test
+  void unanimous_of_3() {
+    var config = QuorumConfig.unanimous(3);
+    assertEquals(3, config.instances());
+    assertEquals(3, config.required());
+  }
 
-    @Test
-    void atLeast_2_of_5() {
-        var config = QuorumConfig.atLeast(5, 2);
-        assertEquals(5, config.instances());
-        assertEquals(2, config.required());
-    }
+  @Test
+  void atLeast_2_of_5() {
+    var config = QuorumConfig.atLeast(5, 2);
+    assertEquals(5, config.instances());
+    assertEquals(2, config.required());
+  }
 }

@@ -32,7 +32,6 @@ public enum OutcomeKind {
   public static OutcomeKind fromWorkerOutcome(WorkerOutcome outcome) {
     return switch (outcome) {
       case WorkerOutcome.Success ignored -> SUCCESS;
-      case WorkerOutcome.Completed ignored -> SUCCESS;
       case WorkerOutcome.Declined ignored -> DECLINED;
       case WorkerOutcome.Failed ignored -> FAILED;
       case WorkerOutcome.Expired ignored -> EXPIRED;

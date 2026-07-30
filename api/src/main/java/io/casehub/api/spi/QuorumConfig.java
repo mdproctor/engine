@@ -19,29 +19,29 @@ import io.casehub.api.model.OnThresholdReached;
 import org.jspecify.annotations.Nullable;
 
 public record QuorumConfig(
-        int instances,
-        int required,
-        @Nullable OnThresholdReached onThresholdReached,
-        boolean allowSameAssignee) {
+    int instances,
+    int required,
+    @Nullable OnThresholdReached onThresholdReached,
+    boolean allowSameAssignee) {
 
-    public QuorumConfig {
-        if (instances < 2) {
-            throw new IllegalArgumentException("instances must be >= 2, got " + instances);
-        }
-        if (required < 1 || required > instances) {
-            throw new IllegalArgumentException("required must be 1.." + instances + ", got " + required);
-        }
+  public QuorumConfig {
+    if (instances < 2) {
+      throw new IllegalArgumentException("instances must be >= 2, got " + instances);
     }
+    if (required < 1 || required > instances) {
+      throw new IllegalArgumentException("required must be 1.." + instances + ", got " + required);
+    }
+  }
 
-    public static QuorumConfig majority(int candidateCount) {
-        return new QuorumConfig(candidateCount, (candidateCount / 2) + 1, null, false);
-    }
+  public static QuorumConfig majority(int candidateCount) {
+    return new QuorumConfig(candidateCount, (candidateCount / 2) + 1, null, false);
+  }
 
-    public static QuorumConfig unanimous(int candidateCount) {
-        return new QuorumConfig(candidateCount, candidateCount, null, false);
-    }
+  public static QuorumConfig unanimous(int candidateCount) {
+    return new QuorumConfig(candidateCount, candidateCount, null, false);
+  }
 
-    public static QuorumConfig atLeast(int candidateCount, int required) {
-        return new QuorumConfig(candidateCount, required, null, false);
-    }
+  public static QuorumConfig atLeast(int candidateCount, int required) {
+    return new QuorumConfig(candidateCount, required, null, false);
+  }
 }

@@ -15,9 +15,8 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import org.jspecify.annotations.Nullable;
-
 import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 
 public record ActionGateApprovedEvent(
     UUID caseId,

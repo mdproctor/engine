@@ -104,8 +104,8 @@ public final class EventBusAddresses {
    * RUNNING.
    */
   public static final String ACTION_GATE_WORKER_FAULTED = "casehub.action.gate.worker.faulted";
-  public static final String COMPOUND_COMPLETED         = "casehub.planning.compound.completed";
 
-    public static final String COMPOUND_ACTIVATED = "casehub.planning.compound.activated";
+  public static final String COMPOUND_COMPLETED = "casehub.planning.compound.completed";
 
+  public static final String COMPOUND_ACTIVATED = "casehub.planning.compound.activated";
 }
