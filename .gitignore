@@ -57,3 +57,5 @@ docs/superpowers/
 .claude/
 .worktrees/
 package-lock.json
+wksp
+proj
