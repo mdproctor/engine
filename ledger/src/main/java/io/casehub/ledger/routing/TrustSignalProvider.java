@@ -33,9 +33,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * Trust-aware signal provider implementing the trust maturity model. Returns pure trust scores for
- * QUALIFIED candidates, neutral scores for BOOTSTRAP, and Exclude/Escalate for
- * BORDERLINE/EXCLUDED. Workload blending is handled by the compositor via {@code
- * WorkloadSignalProvider}.
+ * QUALIFIED candidates, neutral scores for BOOTSTRAP, and Exclude/Escalate for BORDERLINE/EXCLUDED.
+ * Workload blending is handled by the compositor via {@code WorkloadSignalProvider}.
  */
 @ApplicationScoped
 public class TrustSignalProvider implements RoutingSignalProvider {
@@ -96,8 +95,7 @@ public class TrustSignalProvider implements RoutingSignalProvider {
         if (policy.bootstrapEscalationRequired() && !hasQualified) {
           yield new RoutingSignal.CandidateSignal.Escalate(
               EscalationReason.NO_QUALIFIED_AGENT,
-              "bootstrap only — no qualified agents for capability '%s'"
-                  .formatted(capabilityName));
+              "bootstrap only — no qualified agents for capability '%s'".formatted(capabilityName));
         }
         if (policy.bootstrapEscalationRequired()) {
           yield new RoutingSignal.CandidateSignal.Exclude(

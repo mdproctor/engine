@@ -49,7 +49,8 @@ class AgentRoutingStrategyContractTest {
     final UUID caseId = UUID.randomUUID();
     final var caseContext = NullNode.instance;
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(caseId, "data-analysis", caseContext, "test-tenant", List.of(), null, null);
+        new AgentRoutingContext(
+            caseId, "data-analysis", caseContext, "test-tenant", List.of(), null, null);
 
     assertThat(ctx.caseId()).isEqualTo(caseId);
     assertThat(ctx.capabilityName()).isEqualTo("data-analysis");
@@ -97,7 +98,8 @@ class AgentRoutingStrategyContractTest {
 
     final UUID caseId = UUID.randomUUID();
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(caseId, "research", NullNode.instance, "test-tenant", List.of(), null, null);
+        new AgentRoutingContext(
+            caseId, "research", NullNode.instance, "test-tenant", List.of(), null, null);
     final AgentCandidate candidate =
         new AgentCandidate("agent-x", Set.of("research"), 0, AgentHealth.READY, null, null);
 
@@ -124,7 +126,8 @@ class AgentRoutingStrategyContractTest {
           }
         };
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(UUID.randomUUID(), "research", NullNode.instance, "test-tenant", List.of(), null, null);
+        new AgentRoutingContext(
+            UUID.randomUUID(), "research", NullNode.instance, "test-tenant", List.of(), null, null);
 
     final RoutingResult result = strategy.select(ctx, List.of());
 
@@ -151,7 +154,14 @@ class AgentRoutingStrategyContractTest {
           }
         };
     final AgentRoutingContext ctx =
-        new AgentRoutingContext(UUID.randomUUID(), "sensitive-review", NullNode.instance, "test-tenant", List.of(), null, null);
+        new AgentRoutingContext(
+            UUID.randomUUID(),
+            "sensitive-review",
+            NullNode.instance,
+            "test-tenant",
+            List.of(),
+            null,
+            null);
 
     final RoutingResult result = strategy.select(ctx, List.of());
 

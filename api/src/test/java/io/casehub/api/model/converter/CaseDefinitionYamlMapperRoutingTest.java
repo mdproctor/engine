@@ -15,14 +15,13 @@
  */
 package io.casehub.api.model.converter;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CognitiveDemand;
-import org.junit.jupiter.api.Test;
-
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class CaseDefinitionYamlMapperRoutingTest {
 
@@ -130,7 +129,7 @@ class CaseDefinitionYamlMapperRoutingTest {
   private static CaseDefinition load(String yaml) {
     try {
       return CaseDefinitionYamlMapper.load(
-              new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+          new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

@@ -21,16 +21,16 @@ import org.jspecify.annotations.Nullable;
 
 public interface RoutingSignalProvider extends NamedStrategy {
 
-    /**
-     * Compute per-candidate scoring signals for the given routing context and eligible candidates.
-     *
-     * <p>All scores must be in [0.0, 1.0] — {@link RoutingSignalAssembler} clamps out-of-range values
-     * and logs a warning.
-     *
-     * @param context  the routing context carrying caseId, capabilityName, experiences, etc.
-     * @param eligible the pre-filtered, health-probed candidate list
-     * @return a signal with per-candidate scores, or {@code null} if this provider has nothing to
-     * contribute
-     */
-    @Nullable RoutingSignal evaluate(AgentRoutingContext context, List<AgentCandidate> eligible);
+  /**
+   * Compute per-candidate scoring signals for the given routing context and eligible candidates.
+   *
+   * <p>All scores must be in [0.0, 1.0] — {@link RoutingSignalAssembler} clamps out-of-range values
+   * and logs a warning.
+   *
+   * @param context the routing context carrying caseId, capabilityName, experiences, etc.
+   * @param eligible the pre-filtered, health-probed candidate list
+   * @return a signal with per-candidate scores, or {@code null} if this provider has nothing to
+   *     contribute
+   */
+  @Nullable RoutingSignal evaluate(AgentRoutingContext context, List<AgentCandidate> eligible);
 }

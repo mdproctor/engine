@@ -23,10 +23,10 @@ import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
 public record AgentRoutingContext(
-        UUID caseId,
-        String capabilityName,
-        JsonNode caseContext,
-        String tenancyId,
-        List<RetrievedExperience> experiences,
-        @Nullable CognitiveDemand cognitiveDemand,
-        @Nullable Map<String, Double> routingSignalWeights) {}
+    UUID caseId,
+    String capabilityName,
+    JsonNode caseContext,
+    String tenancyId,
+    List<RetrievedExperience> experiences,
+    @Nullable CognitiveDemand cognitiveDemand,
+    @Nullable Map<String, Double> routingSignalWeights) {}

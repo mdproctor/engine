@@ -15,6 +15,12 @@
  */
 package io.casehub.ledger.routing;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.fasterxml.jackson.databind.node.NullNode;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentHealth;
@@ -24,21 +30,13 @@ import io.casehub.api.spi.routing.RoutingSignal;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.ledger.api.spi.TrustScoreSource;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
-
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.UUID;
-import java.util.UUID;
-
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.any;
-import static org.mockito.Mockito.anyString;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 class TrustSignalProviderTest {
 
@@ -52,15 +50,16 @@ class TrustSignalProviderTest {
 
   @BeforeEach
   void setUp() {
-    classifier     = new TrustCandidateClassifier();
-    source         = mock(TrustScoreSource.class);
+    classifier = new TrustCandidateClassifier();
+    source = mock(TrustScoreSource.class);
     policyProvider = mock(TrustRoutingPolicyProvider.class);
-    defaultPolicy  = new TrustRoutingPolicy(0.3, 5, 0.1, 0.7, Map.of(), false, null, Set.of(), 0.0);
+    defaultPolicy = new TrustRoutingPolicy(0.3, 5, 0.1, 0.7, Map.of(), false, null, Set.of(), 0.0);
     when(policyProvider.forCapability(anyString())).thenReturn(defaultPolicy);
     when(source.capabilityScore(any(), any())).thenReturn(OptionalDouble.empty());
     when(source.decisionCount(any(), any())).thenReturn(0);
     when(source.capabilityDimensionScore(any(), any(), any())).thenReturn(OptionalDouble.empty());
-    provider = new TrustSignalProvider(classifier, source, policyProvider);}
+    provider = new TrustSignalProvider(classifier, source, policyProvider);
+  }
 
   @Test
   void id_isTrust() {
@@ -110,8 +109,7 @@ class TrustSignalProviderTest {
     when(source.decisionCount("agent-a", "cap")).thenReturn(10);
     when(source.capabilityScore("agent-b", "cap")).thenReturn(OptionalDouble.empty());
 
-    var result =
-        provider.evaluate(ctx(), List.of(candidate("agent-a"), candidate("agent-b")));
+    var result = provider.evaluate(ctx(), List.of(candidate("agent-a"), candidate("agent-b")));
 
     assertThat(result).isNotNull();
     var signalA = result.candidates().get("agent-a");
@@ -135,7 +133,8 @@ class TrustSignalProviderTest {
 
   @Test
   void excludedCandidate_returnsExclude() {
-    var strictPolicy = new TrustRoutingPolicy(0.5, 5, 0.05, 0.7, Map.of(), false, null, Set.of(), 0.0);
+    var strictPolicy =
+        new TrustRoutingPolicy(0.5, 5, 0.05, 0.7, Map.of(), false, null, Set.of(), 0.0);
     when(policyProvider.forCapability(anyString())).thenReturn(strictPolicy);
     when(source.capabilityScore("agent-a", "cap")).thenReturn(OptionalDouble.of(0.1));
     when(source.decisionCount("agent-a", "cap")).thenReturn(10);

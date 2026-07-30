@@ -42,8 +42,14 @@ class RoutingSignalAssemblerTest {
     var result = assembler.assemble(context(), candidates());
 
     assertThat(result).containsOnlyKeys("trust");
-    assertThat(((RoutingSignal.CandidateSignal.Score) result.get("trust").candidates().get("agent-1")).value()).isEqualTo(0.8);
-    assertThat(((RoutingSignal.CandidateSignal.Score) result.get("trust").candidates().get("agent-1")).rationale()).isEqualTo("high trust");
+    assertThat(
+            ((RoutingSignal.CandidateSignal.Score) result.get("trust").candidates().get("agent-1"))
+                .value())
+        .isEqualTo(0.8);
+    assertThat(
+            ((RoutingSignal.CandidateSignal.Score) result.get("trust").candidates().get("agent-1"))
+                .rationale())
+        .isEqualTo("high trust");
   }
 
   @Test
@@ -88,7 +94,10 @@ class RoutingSignalAssemblerTest {
     var result = assembler.assemble(context(), candidates());
 
     assertThat(result).containsOnlyKeys("trust");
-    assertThat(((RoutingSignal.CandidateSignal.Score) result.get("trust").candidates().get("agent-1")).value()).isEqualTo(0.6);
+    assertThat(
+            ((RoutingSignal.CandidateSignal.Score) result.get("trust").candidates().get("agent-1"))
+                .value())
+        .isEqualTo(0.6);
   }
 
   @Test
@@ -98,7 +107,10 @@ class RoutingSignalAssemblerTest {
 
     var result = assembler.assemble(context(), candidates());
 
-    assertThat(((RoutingSignal.CandidateSignal.Score) result.get("over").candidates().get("agent-1")).value()).isEqualTo(1.0);
+    assertThat(
+            ((RoutingSignal.CandidateSignal.Score) result.get("over").candidates().get("agent-1"))
+                .value())
+        .isEqualTo(1.0);
   }
 
   @Test
@@ -108,7 +120,10 @@ class RoutingSignalAssemblerTest {
 
     var result = assembler.assemble(context(), candidates());
 
-    assertThat(((RoutingSignal.CandidateSignal.Score) result.get("under").candidates().get("agent-1")).value()).isEqualTo(0.0);
+    assertThat(
+            ((RoutingSignal.CandidateSignal.Score) result.get("under").candidates().get("agent-1"))
+                .value())
+        .isEqualTo(0.0);
   }
 
   @Test
@@ -123,10 +138,14 @@ class RoutingSignalAssemblerTest {
     var result = assembler.assemble(context(), candidates());
 
     var signal = result.get("valid");
-    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("a")).value()).isEqualTo(0.0);
-    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("b")).value()).isEqualTo(1.0);
-    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("c")).value()).isEqualTo(0.5);
-    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("c")).rationale()).isEqualTo("mid");
+    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("a")).value())
+        .isEqualTo(0.0);
+    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("b")).value())
+        .isEqualTo(1.0);
+    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("c")).value())
+        .isEqualTo(0.5);
+    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("c")).rationale())
+        .isEqualTo("mid");
   }
 
   @Test
@@ -185,7 +204,8 @@ class RoutingSignalAssemblerTest {
 
     var result = assembler.assemble(context(), candidates());
 
-    var cs = (RoutingSignal.CandidateSignal.Score) result.get("clamped").candidates().get("agent-1");
+    var cs =
+        (RoutingSignal.CandidateSignal.Score) result.get("clamped").candidates().get("agent-1");
     assertThat(cs.value()).isEqualTo(1.0);
     assertThat(cs.rationale()).isEqualTo("important reason");
   }
@@ -202,9 +222,12 @@ class RoutingSignalAssemblerTest {
     var result = assembler.assemble(context(), candidates());
 
     var signal = result.get("mixed");
-    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("ok")).value()).isEqualTo(0.7);
-    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("over")).value()).isEqualTo(1.0);
-    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("under")).value()).isEqualTo(0.0);
+    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("ok")).value())
+        .isEqualTo(0.7);
+    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("over")).value())
+        .isEqualTo(1.0);
+    assertThat(((RoutingSignal.CandidateSignal.Score) signal.candidates().get("under")).value())
+        .isEqualTo(0.0);
   }
 
   @Test
@@ -217,7 +240,8 @@ class RoutingSignalAssemblerTest {
   }
 
   private static AgentRoutingContext context() {
-    return new AgentRoutingContext(UUID.randomUUID(), "analysis", NullNode.instance, "test-tenant", List.of(), null, null);
+    return new AgentRoutingContext(
+        UUID.randomUUID(), "analysis", NullNode.instance, "test-tenant", List.of(), null, null);
   }
 
   private static List<AgentCandidate> candidates() {
@@ -226,7 +250,8 @@ class RoutingSignalAssemblerTest {
   }
 
   private static RoutingSignal signal(String workerId, double score, String reason) {
-    return new RoutingSignal(Map.of(workerId, new RoutingSignal.CandidateSignal.Score(score, reason)));
+    return new RoutingSignal(
+        Map.of(workerId, new RoutingSignal.CandidateSignal.Score(score, reason)));
   }
 
   private static RoutingSignalProvider provider(String id, RoutingSignal signal) {

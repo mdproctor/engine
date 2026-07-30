@@ -67,9 +67,8 @@ public class CaseDefinition {
   private List<SignalType<?>> signals = List.of();
   private List<LabelRule> labelRules = List.of();
   private List<InboundSignalMapping> inboundMappings = List.of();
-  private Map<String, Double>        routingSignalWeights;
+  private Map<String, Double> routingSignalWeights;
   private Map<String, CognitiveDemand> cognitiveDemands = Map.of();
-
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -313,7 +312,6 @@ public class CaseDefinition {
   public void setCognitiveDemands(Map<String, CognitiveDemand> cognitiveDemands) {
     this.cognitiveDemands = cognitiveDemands != null ? Map.copyOf(cognitiveDemands) : Map.of();
   }
-
 
   public static Builder builder() {
     return new Builder();
@@ -595,7 +593,6 @@ public class CaseDefinition {
       this.cognitiveDemands.put(capabilityName, demand);
       return this;
     }
-
 
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
