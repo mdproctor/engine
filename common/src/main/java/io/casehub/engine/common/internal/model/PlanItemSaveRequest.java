@@ -36,7 +36,8 @@ public record PlanItemSaveRequest(
     String completionSemantics,
     String dispatchMode,
     boolean repeatable,
-    String parentCompoundId) {
+    String parentCompoundId,
+    String lifecycleScope) {
 
   public static PlanItemSaveRequest primitive(
       UUID caseId,
@@ -67,6 +68,7 @@ public record PlanItemSaveRequest(
         null,
         null,
         false,
+        null,
         null);
   }
 }

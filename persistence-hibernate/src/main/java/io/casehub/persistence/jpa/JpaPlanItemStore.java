@@ -18,6 +18,7 @@ package io.casehub.persistence.jpa;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
+import io.casehub.engine.common.internal.model.PlanItemType;
 import io.casehub.engine.common.spi.PlanItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
@@ -43,6 +44,7 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
     e.description = request.description();
     e.executorName = request.executorName();
     e.executorDescription = request.executorDescription();
+    e.lifecycleScope = request.lifecycleScope();
     em.persist(e);
   }
 
@@ -132,7 +134,7 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
   }
 
   private PlanItemRecord toRecord(PlanItemEntity e) {
-    return PlanItemRecord.primitive(
+    return new PlanItemRecord(
         e.caseId,
         e.planItemId,
         e.bindingName,
@@ -143,6 +145,13 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
         e.tenancyId,
         e.description,
         e.executorName,
-        e.executorDescription);
+        e.executorDescription,
+        PlanItemType.PRIMITIVE,
+        null,
+        null,
+        null,
+        false,
+        null,
+        e.lifecycleScope);
   }
 }

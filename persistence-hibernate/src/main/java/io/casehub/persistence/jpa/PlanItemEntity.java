@@ -26,9 +26,10 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.DynamicUpdate;
+
 import java.time.Instant;
 import java.util.UUID;
-import org.hibernate.annotations.DynamicUpdate;
 
 @Entity
 @DynamicUpdate
@@ -79,4 +80,7 @@ public class PlanItemEntity {
 
   @Column(name = "executor_description", length = 1000)
   public String executorDescription;
+  @Column(name = "lifecycle_scope", length = 20)
+  public String lifecycleScope;
+
 }

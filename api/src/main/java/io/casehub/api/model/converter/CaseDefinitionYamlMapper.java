@@ -26,6 +26,7 @@ import io.casehub.api.model.AnyOfGoalExpression;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.ExecutionMode;
 import io.casehub.api.model.EpisodicMemoryConfig;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
@@ -33,8 +34,10 @@ import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.InboundSignalMapping;
+import io.casehub.api.model.LifecycleScope;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
+import io.casehub.api.model.Participation;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.PredicateBasedCompletion;
 import io.casehub.api.model.SignalType;
@@ -752,6 +755,21 @@ public final class CaseDefinitionYamlMapper {
       builder.outcomePolicy(new OutcomePolicy(onDecline, onFailure, onExpired, maxAttempts));
     }
 
+    if (schemaBinding.getLifecycleScope() != null) {
+      builder.lifecycleScope(
+          LifecycleScope.valueOf(schemaBinding.getLifecycleScope().value()));
+    }
+
+    if (schemaBinding.getParticipation() != null) {
+      builder.participation(
+          Participation.valueOf(schemaBinding.getParticipation().value()));
+    }
+
+    if (schemaBinding.getExecutionMode() != null) {
+      builder.executionMode(
+          ExecutionMode.valueOf(schemaBinding.getExecutionMode().value()));
+    }
+
     return builder.build();
   }
 
@@ -811,9 +829,13 @@ public final class CaseDefinitionYamlMapper {
           filter != null ? registry.create(filter, expressionLang) : null, listenLayer);
     }
 
+    if (schemaTrigger.getScopeActivated() != null) {
+      return new io.casehub.api.model.ScopeActivatedTrigger();
+    }
+
     // TODO: Add support for CloudEventTrigger and ScheduleTrigger
     throw new UnsupportedOperationException(
-        "Only ContextChangeTrigger is currently supported. "
+        "Only ContextChangeTrigger and ScopeActivatedTrigger are currently supported. "
             + "CloudEventTrigger and ScheduleTrigger conversion not yet implemented.");
   }
 

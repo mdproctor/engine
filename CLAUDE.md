@@ -89,7 +89,7 @@ Domain objects, SPI interfaces, and shared CDI infrastructure live in `casehub-e
 - `casehub-engine-common/src/main/java/io/casehub/engine/spi/` — `CaseMetaModelRepository`, `CaseInstanceRepository`, `EventLogRepository`, `SubCaseGroupRepository`, `PlanItemStore`, `CrossTenantCaseInstanceRepository`, `CrossTenantEventLogRepository`. All blocking. Implementations: memory is canonical, JPA uses EntityManager + `@Transactional`. **Injection convention:** repos must be injected by SPI interface (e.g. `CaseInstanceRepository`), NOT by concrete class (e.g. `InMemoryCaseInstanceRepository`). Concrete-class injection prevents `@Alternative @Priority(1)` test wrappers from being substituted — two separate stores are created, causing silent tenant mismatches. Refs engine#663, GE-20260707-f3bece.
 - `casehub-engine-common/src/main/java/io/casehub/engine/internal/jq/` — `JQEvaluator` (@ApplicationScoped), `ValidationResult` — canonical jq evaluation; lives here so `scheduler-quartz` can inject it without circular dependency. See protocol `PP-20260522-jq-evaluation-canonical`. Follow-on platform extraction tracked in engine#317.
 - `casehub-engine-common/src/main/java/io/casehub/engine/common/internal/executor/` — `WorkerExecutor` (SPI), `WorkerExecutionConfig` (@ApplicationScoped, default timeout), `RetryPolicies` (static utility, backoff computation), `RetryDecision` (sealed: Retry | Exhaust), `ExecutionMetadata` (lineage record for flow path)
-- `io.casehub.api.model/` — `TaskStatus` (enum, shared lifecycle — replaces `PlanItemStatus`), `TaskDescriptor` (behavioral interface — `PlanItem` implements it), `TaskSnapshot` (read model), `ExecutorRef` (shared executor identity), `OutcomeKind` (shared outcome taxonomy), `RoutingResult` (sealed: `Selected`, `Unresolvable`, `Escalated` — replaces `AgentAssignment`), `Assignment` (unified selection record)
+- `io.casehub.api.model/` — `TaskStatus` (enum, shared lifecycle — replaces `PlanItemStatus`), `TaskDescriptor` (behavioral interface — `PlanItem` implements it), `TaskSnapshot` (read model), `ExecutorRef` (shared executor identity), `OutcomeKind` (shared outcome taxonomy — includes COMPLETED for scoped worker lifecycle completion), `RoutingResult` (sealed: `Selected`, `Unresolvable`, `Escalated` — replaces `AgentAssignment`), `Assignment` (unified selection record)
 
 Both `engine` and both persistence modules depend on `casehub-engine-common`. Neither persistence module depends on `engine`. `scheduler-quartz` also depends on `casehub-engine-common` directly.
 
@@ -373,6 +373,18 @@ Enriches humanTask candidate sets with historical data from CBR plan traces. Sym
 ## Repeatable Compound
 
 `PlanItemDefinition.Compound` gains `repeatable` (boolean, builder). Repeatable compound lifecycle is tracked via `PlanItemExecutionState` CAS transitions. Refs engine#482. Stage-based repeatability infrastructure (StageResetOutcomesCleaner, StageActivatedEvent, resetForRepetition) was removed in the Stage retirement (blocks#60 Phase 3C.3).
+
+## Lifecycle Scopes
+
+`LifecycleScope` (`api/model/`) — scope governing worker lifetime: `BINDING` (default, single dispatch), `COMPOUND` (lives for compound duration), `CASE` (lives for case duration). `Participation` — `PARTICIPANT` (blocks completion) or `COMPANION` (sidecar, excluded from completion). `ExecutionMode` — `TRANSIENT` (fire-and-forget, default), `PERSISTENT` (long-running virtual thread with mailbox), `REINVOKED` (re-invoked on each trigger with accumulated state). All three are declared on `Binding` and validated at build time. `ScopeActivatedTrigger` (`api/model/`) fires when the owning scope becomes active. YAML: `lifecycleScope:`, `participation:`, `executionMode:` on binding definitions; `scopeActivated: {}` as trigger type.
+
+`Compound.scopedBindings()` returns `Map<String, Participation>` (was `Set<String>`). `evaluateCompletion()` excludes COMPANION bindings from completion count — only PARTICIPANT bindings block compound completion.
+
+`ScopedWorkerRegistry` (`runtime/internal/worker/scope/`, `@ApplicationScoped`) — tracks active scoped worker sessions per case. `ScopedWorkerSession` (sealed: `Persistent`, `Reinvoked`) carries mailbox or accumulated state. `CaseContextChangedEventHandler` checks the registry before dispatch — existing sessions receive context events instead of creating new PlanItems. `ScopedWorkerTerminationHandler` (`runtime/internal/engine/handler/`) consumes `COMPOUND_COMPLETED` and terminates scoped workers owned by the completed compound. `CaseStatusChangedHandler` calls `terminateByCase()` on case terminal state.
+
+`CompoundCompletedEvent` and `CompoundActivatedEvent` (`common/internal/event/`) — cross-module event types for compound lifecycle. Published by planning module (`CompoundCompletionEvaluator`, `CompoundLifecycleEvaluator`), consumed by runtime (`ScopedWorkerTerminationHandler`). Address constants in `EventBusAddresses`: `COMPOUND_COMPLETED`, `COMPOUND_ACTIVATED`. Planning module's `BlackboardEventBusAddresses` delegates to these common constants.
+
+Completion suppression: `QuartzWorkerExecutionJob` checks `executionMode` from EventLog metadata. Non-TRANSIENT workers returning `WorkerOutcome.Success` suppress `WorkflowExecutionCompleted` — PlanItem stays RUNNING. Only `WorkerOutcome.Completed` triggers PlanItem completion. Refs engine#237.
 
 ## Agent Worker AI Model
 

@@ -518,6 +518,21 @@ $defs:
         items:
           type: string
         description: "Context keys this binding is expected to produce. Used for static cycle detection and dependency reasoning."
+      lifecycleScope:
+        type: string
+        enum: [ BINDING, COMPOUND, CASE ]
+        default: BINDING
+        description: "Scope governing worker lifetime. BINDING = single dispatch (default). COMPOUND = lives for compound duration. CASE = lives for case duration."
+      participation:
+        type: string
+        enum: [ PARTICIPANT, COMPANION ]
+        default: PARTICIPANT
+        description: "PARTICIPANT blocks completion. COMPANION is a sidecar excluded from completion evaluation."
+      executionMode:
+        type: string
+        enum: [ TRANSIENT, PERSISTENT, REINVOKED ]
+        default: TRANSIENT
+        description: "TRANSIENT = fire-and-forget (default). PERSISTENT = long-running virtual thread with mailbox. REINVOKED = re-invoked on each trigger with accumulated state."
 
   OutcomePolicy:
     type: object
@@ -719,12 +734,13 @@ $defs:
   Trigger:
     type: object
     description: >
-      Defines what the Worker observes. Exactly one of: contextChange, cloudEvent, schedule.
+      Defines what the Worker observes. Exactly one of: contextChange, cloudEvent, schedule, scopeActivated.
     unevaluatedProperties: false
     oneOf:
       - required: [ contextChange ]
       - required: [ cloudEvent ]
       - required: [ schedule ]
+      - required: [ scopeActivated ]
     properties:
       contextChange:
         $ref: "#/$defs/ContextChangeTrigger"
@@ -732,6 +748,14 @@ $defs:
         $ref: "#/$defs/CloudEventTrigger"
       schedule:
         $ref: "#/$defs/ScheduleTrigger"
+      scopeActivated:
+        $ref: "#/$defs/ScopeActivatedTrigger"
+
+  ScopeActivatedTrigger:
+    type: object
+    description: "Fires when the owning scope (compound or case) becomes active. Used for lifecycle-scoped workers."
+    unevaluatedProperties: false
+    additionalProperties: false
 
   SubCase:
     description: >

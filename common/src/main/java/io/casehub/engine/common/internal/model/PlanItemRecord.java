@@ -36,7 +36,8 @@ public record PlanItemRecord(
     String completionSemantics,
     String dispatchMode,
     boolean repeatable,
-    String parentCompoundId) {
+    String parentCompoundId,
+    String lifecycleScope) {
 
   public static PlanItemRecord primitive(
       UUID caseId,
@@ -67,6 +68,7 @@ public record PlanItemRecord(
         null,
         null,
         false,
+        null,
         null);
   }
 }
