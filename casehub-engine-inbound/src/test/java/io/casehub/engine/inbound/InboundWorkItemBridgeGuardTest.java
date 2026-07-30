@@ -61,6 +61,8 @@ class InboundWorkItemBridgeGuardTest {
         "t1",
         MessageType.COMMAND,
         "sender",
+        null,
+        null,
         "corr",
         Instant.now(),
         "{}",
