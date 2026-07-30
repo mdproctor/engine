@@ -55,6 +55,7 @@ class WorkerResultExpiredTest {
     String matched =
         switch (outcome) {
           case WorkerOutcome.Success s -> "success";
+          case WorkerOutcome.Completed c -> "completed";
           case WorkerOutcome.Declined d -> "declined";
           case WorkerOutcome.Failed f -> "failed";
           case WorkerOutcome.Expired e -> "expired:" + e.reason();

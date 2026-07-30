@@ -47,7 +47,6 @@ import io.casehub.platform.view.SubjectViewEvaluator;
 import io.casehub.platform.view.SubjectViewOrchestrator;
 import io.casehub.platform.view.inmem.InMemorySubjectViewStore;
 import io.casehub.platform.view.inmem.InMemoryViewMembershipTracker;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.event.Event;
 import java.lang.reflect.Field;
 import java.util.List;
@@ -85,7 +84,7 @@ class CaseQueueLifecycleTest {
     definitionRegistry = mock(CaseDefinitionRegistry.class);
     caseInstanceRepo = mock(CaseInstanceRepository.class);
     when(caseInstanceRepo.update(any(), any()))
-        .thenAnswer(inv -> Uni.createFrom().item(inv.getArgument(0, CaseInstance.class)));
+        .thenAnswer(inv -> (inv.getArgument(0, CaseInstance.class)));
 
     io.casehub.engine.queue.store.InMemoryCaseQueueEntryStore memStore =
         new io.casehub.engine.queue.store.InMemoryCaseQueueEntryStore();
@@ -237,7 +236,7 @@ class CaseQueueLifecycleTest {
 
   private void wireRepoRead(CaseInstance instance) {
     when(caseInstanceRepo.findByUuid(instance.getUuid(), instance.tenancyId))
-        .thenReturn(Uni.createFrom().item(instance));
+        .thenReturn((instance));
   }
 
   private CaseLifecycleEvent lifecycleEvent(CaseInstance instance, String eventType) {

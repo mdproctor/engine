@@ -101,6 +101,10 @@ public class CaseQueueService {
         .toList();
   }
 
+  public List<CaseQueueEntry> findByView(UUID viewId, String tenancyId) {
+    return store.findByView(viewId, tenancyId);
+  }
+
   public long countByView(UUID viewId, String tenancyId) {
     return store.countByView(viewId, tenancyId);
   }

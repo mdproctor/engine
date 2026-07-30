@@ -51,6 +51,7 @@ public class ChainedActionRiskClassifier implements ActionRiskClassifier {
           null,
           null,
           null,
+          null,
           null);
 
   @Inject @RiskClassifier Instance<ActionRiskClassifier> classifiers;
@@ -84,14 +85,33 @@ public class ChainedActionRiskClassifier implements ActionRiskClassifier {
   }
 
   private GateRequired narrower(final GateRequired a, final GateRequired b) {
+    final boolean aHasQuorum = a.quorum() != null;
+    final boolean bHasQuorum = b.quorum() != null;
+    if (aHasQuorum != bHasQuorum) {
+      return aHasQuorum ? a : b;
+    }
+    if (aHasQuorum) {
+      if (a.quorum().required() != b.quorum().required()) {
+        return a.quorum().required() > b.quorum().required() ? a : b;
+      }
+      if (a.quorum().instances() != b.quorum().instances()) {
+        return a.quorum().instances() < b.quorum().instances() ? a : b;
+      }
+    }
     final int sizeA = candidateSetSize(a.candidateGroups());
     final int sizeB = candidateSetSize(b.candidateGroups());
-    if (sizeA != sizeB) return sizeA < sizeB ? a : b;
+    if (sizeA != sizeB) {
+      return sizeA < sizeB ? a : b;
+    }
     if (a.expiresIn() != null && b.expiresIn() != null) {
       return a.expiresIn().compareTo(b.expiresIn()) <= 0 ? a : b;
     }
-    if (a.expiresIn() != null) return a;
-    if (b.expiresIn() != null) return b;
+    if (a.expiresIn() != null) {
+      return a;
+    }
+    if (b.expiresIn() != null) {
+      return b;
+    }
     return a;
   }
 

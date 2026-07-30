@@ -72,7 +72,13 @@ class ChainedActionRiskClassifierTest {
   void singleClassifier_returnsGateRequired_propagatesGateRequired() {
     final GateRequired gate =
         new GateRequired(
-            "SAR filing", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null, null);
+            "SAR filing",
+            false,
+            StaticSetStrategy.of("mlro"),
+            Duration.ofHours(24),
+            null,
+            null,
+            null);
     chain.classifiers = instanceOf((action, context) -> gate);
 
     RiskDecision result = chain.classify(anyAction(), anyContext());
@@ -101,7 +107,13 @@ class ChainedActionRiskClassifierTest {
             (action, context) -> new Autonomous(),
             (action, context) ->
                 new GateRequired(
-                    "SUSAR filing", false, StaticSetStrategy.of("physician"), null, null, null));
+                    "SUSAR filing",
+                    false,
+                    StaticSetStrategy.of("physician"),
+                    null,
+                    null,
+                    null,
+                    null));
 
     RiskDecision result = chain.classify(anyAction(), anyContext());
 
@@ -117,12 +129,19 @@ class ChainedActionRiskClassifierTest {
         instanceOf(
             (action, context) ->
                 new GateRequired(
-                    "AML", false, StaticSetStrategy.of("mlro"), Duration.ofHours(24), null, null),
+                    "AML",
+                    false,
+                    StaticSetStrategy.of("mlro"),
+                    Duration.ofHours(24),
+                    null,
+                    null,
+                    null),
             (action, context) ->
                 new GateRequired(
                     "clinical",
                     false,
                     StaticSetStrategy.of("physician", "pharmacist"),
+                    null,
                     null,
                     null,
                     null));
@@ -140,13 +159,20 @@ class ChainedActionRiskClassifierTest {
         instanceOf(
             (action, context) ->
                 new GateRequired(
-                    "slow", false, StaticSetStrategy.of("mlro"), Duration.ofHours(48), null, null),
+                    "slow",
+                    false,
+                    StaticSetStrategy.of("mlro"),
+                    Duration.ofHours(48),
+                    null,
+                    null,
+                    null),
             (action, context) ->
                 new GateRequired(
                     "fast",
                     false,
                     StaticSetStrategy.of("analyst"),
                     Duration.ofHours(24),
+                    null,
                     null,
                     null));
 
@@ -162,13 +188,14 @@ class ChainedActionRiskClassifierTest {
         instanceOf(
             (action, context) ->
                 new GateRequired(
-                    "no-deadline", false, StaticSetStrategy.of("mlro"), null, null, null),
+                    "no-deadline", false, StaticSetStrategy.of("mlro"), null, null, null, null),
             (action, context) ->
                 new GateRequired(
                     "with-deadline",
                     false,
                     StaticSetStrategy.of("analyst"),
                     Duration.ofHours(24),
+                    null,
                     null,
                     null));
 
@@ -182,10 +209,11 @@ class ChainedActionRiskClassifierTest {
   void twoClassifiers_nullCandidateGroupsVsRestricted_restrictedGroupsWins() {
     chain.classifiers =
         instanceOf(
-            (action, context) -> new GateRequired("unrestricted", false, null, null, null, null),
+            (action, context) ->
+                new GateRequired("unrestricted", false, null, null, null, null, null),
             (action, context) ->
                 new GateRequired(
-                    "restricted", false, StaticSetStrategy.of("mlro"), null, null, null));
+                    "restricted", false, StaticSetStrategy.of("mlro"), null, null, null, null));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
@@ -242,6 +270,62 @@ class ChainedActionRiskClassifierTest {
 
     assertThat(captured[0].workerId()).isEqualTo("worker-x");
     assertThat(captured[0]).isSameAs(ctx);
+  }
+
+  @Test
+  void twoClassifiers_quorumBeatsNoQuorum() {
+    chain.classifiers =
+        instanceOf(
+            (action, context) -> new GateRequired("single", false, null, null, null, null, null),
+            (action, context) ->
+                new GateRequired(
+                    "multi", false, null, null, null, null, new QuorumConfig(3, 2, null, false)));
+
+    GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
+
+    assertThat(result.quorum()).isNotNull();
+    assertThat(result.quorum().required()).isEqualTo(2);
+    assertThat(result.reason()).isEqualTo("multi");
+  }
+
+  @Test
+  void twoClassifiers_higherRequiredWins() {
+    chain.classifiers =
+        instanceOf(
+            (action, context) ->
+                new GateRequired(
+                    "2-of-3", false, null, null, null, null, new QuorumConfig(3, 2, null, false)),
+            (action, context) ->
+                new GateRequired(
+                    "3-of-5", false, null, null, null, null, new QuorumConfig(5, 3, null, false)));
+
+    GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
+
+    assertThat(result.quorum().required()).isEqualTo(3);
+    assertThat(result.reason()).isEqualTo("3-of-5");
+  }
+
+  @Test
+  void twoClassifiers_equalRequired_lowerInstancesWins() {
+    chain.classifiers =
+        instanceOf(
+            (action, context) ->
+                new GateRequired(
+                    "2-of-2 unanimous",
+                    false,
+                    null,
+                    null,
+                    null,
+                    null,
+                    new QuorumConfig(2, 2, null, false)),
+            (action, context) ->
+                new GateRequired(
+                    "2-of-5", false, null, null, null, null, new QuorumConfig(5, 2, null, false)));
+
+    GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
+
+    assertThat(result.quorum().instances()).isEqualTo(2);
+    assertThat(result.reason()).isEqualTo("2-of-2 unanimous");
   }
 
   @SuppressWarnings("unchecked")

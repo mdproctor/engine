@@ -40,6 +40,7 @@ public sealed interface RiskDecision permits RiskDecision.Autonomous, RiskDecisi
       CandidateSetStrategy candidateGroups,
       Duration expiresIn,
       String scope,
-      @Nullable Class<?> resolutionType)
+      @Nullable Class<?> resolutionType,
+      @Nullable QuorumConfig quorum)
       implements RiskDecision {}
 }

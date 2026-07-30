@@ -15,13 +15,14 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import java.util.UUID;
 import org.jspecify.annotations.Nullable;
+
+import java.util.UUID;
 
 public record ActionGateApprovedEvent(
     UUID caseId,
     String tenancyId,
     long gateId,
-    String workItemResolution,
-    String approvedBy,
+    @Nullable String workItemResolution,
+    @Nullable String approvedBy,
     @Nullable String resolutionTypeName) {}

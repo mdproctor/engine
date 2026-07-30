@@ -70,8 +70,7 @@ public class CaseLabelEvaluator {
     ReentrantLock lock = caseLocks.computeIfAbsent(caseId, k -> new ReentrantLock());
     lock.lock();
     try {
-      CaseInstance instance =
-          caseInstanceRepository.findByUuid(caseId, tenancyId).await().indefinitely();
+      CaseInstance instance = caseInstanceRepository.findByUuid(caseId, tenancyId);
       if (instance == null) {
         LOG.debugf(
             "CaseInstance not found for caseId=%s tenancyId=%s — skipping label evaluation",
@@ -117,7 +116,7 @@ public class CaseLabelEvaluator {
       Set<String> afterLabels = instance.getLabels();
 
       if (!beforeLabels.equals(afterLabels)) {
-        caseInstanceRepository.update(instance, tenancyId).await().indefinitely();
+        caseInstanceRepository.update(instance, tenancyId);
 
         List<SubjectViewEvent> viewEvents = views.evaluateAndTrack(caseId, tenancyId, afterLabels);
         for (SubjectViewEvent ve : viewEvents) {

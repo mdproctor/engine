@@ -105,6 +105,7 @@ class ActionGateIntegrationTest {
             StaticSetStrategy.of("mlro"),
             null,
             null,
+            null,
             null);
     GateCaseHub.declareAction.set(true);
 
@@ -144,6 +145,7 @@ class ActionGateIntegrationTest {
             "SAR filing requires MLRO sign-off",
             false,
             StaticSetStrategy.of("mlro"),
+            null,
             null,
             null,
             null);

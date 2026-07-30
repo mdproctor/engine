@@ -35,13 +35,13 @@ class ActionGateResolutionTypeTest {
   void gateRequired_carries_resolutionType() {
     var gate =
         new RiskDecision.GateRequired(
-            "compliance review", true, null, null, null, ComplianceSignOff.class);
+            "compliance review", true, null, null, null, ComplianceSignOff.class, null);
     assertThat(gate.resolutionType()).isEqualTo(ComplianceSignOff.class);
   }
 
   @Test
   void gateRequired_resolutionType_nullable() {
-    var gate = new RiskDecision.GateRequired("review", true, null, null, null, null);
+    var gate = new RiskDecision.GateRequired("review", true, null, null, null, null, null);
     assertThat(gate.resolutionType()).isNull();
   }
 
@@ -68,7 +68,7 @@ class ActionGateResolutionTypeTest {
             "tenant1",
             1L,
             PlannedAction.of("desc", "type", Map.of()),
-            new RiskDecision.GateRequired("reason", true, null, null, null, null),
+            new RiskDecision.GateRequired("reason", true, null, null, null, null, null),
             Set.of(),
             ComplianceSignOff.class.getName());
     assertThat(event.resolutionTypeName()).isEqualTo(ComplianceSignOff.class.getName());

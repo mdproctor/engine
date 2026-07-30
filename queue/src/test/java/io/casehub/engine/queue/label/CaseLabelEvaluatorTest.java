@@ -42,7 +42,6 @@ import io.casehub.platform.api.label.LabelRule;
 import io.casehub.platform.api.view.SubjectViewEvent;
 import io.casehub.platform.api.view.ViewEventType;
 import io.casehub.platform.view.SubjectViewOrchestrator;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.event.Event;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -268,9 +267,9 @@ class CaseLabelEvaluatorTest {
 
   private void wireRepoRead(CaseInstance instance) {
     when(caseInstanceRepo.findByUuid(instance.getUuid(), instance.tenancyId))
-        .thenReturn(Uni.createFrom().item(instance));
+        .thenReturn((instance));
     when(caseInstanceRepo.update(any(), any()))
-        .thenAnswer(inv -> Uni.createFrom().item(inv.getArgument(0, CaseInstance.class)));
+        .thenAnswer(inv -> (inv.getArgument(0, CaseInstance.class)));
   }
 
   private CaseLifecycleEvent lifecycleEvent(CaseInstance instance, String eventType) {

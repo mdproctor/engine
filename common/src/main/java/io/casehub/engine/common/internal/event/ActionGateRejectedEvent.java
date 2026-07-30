@@ -15,6 +15,8 @@
  */
 package io.casehub.engine.common.internal.event;
 
+import org.jspecify.annotations.Nullable;
+
 import java.util.UUID;
 
 /**
@@ -23,14 +25,18 @@ import java.util.UUID;
  *
  * <p>Consumed by {@code ActionGateRejectedHandler} in the engine runtime (writes {@code
  * actionGateRejected} signal, calls {@code workerStatusListener}, fires CONTEXT_CHANGED) and by
- * {@code ActionGateRejectedPlanItemHandler} in the blackboard module (marks PlanItem FAULTED so
- * stage autocomplete can proceed).
+ * {@code ActionGateRejectedPlanItemHandler} in the planning module (marks PlanItem FAULTED so
+ * compound completion can proceed).
  *
- * @param caseId the case this gate belongs to
- * @param tenancyId the tenant owning the case
- * @param gateId the gate identifier
- * @param workItemResolution raw resolution JSON from the WorkItem
- * @param rejectedBy the user who rejected the gate, or null
+ * @param caseId             the case this gate belongs to
+ * @param tenancyId          the tenant owning the case
+ * @param gateId             the gate identifier
+ * @param workItemResolution raw resolution JSON from the WorkItem, or null for group completions
+ * @param rejectedBy         the user who rejected the gate, or null for group completions
  */
 public record ActionGateRejectedEvent(
-    UUID caseId, String tenancyId, long gateId, String workItemResolution, String rejectedBy) {}
+        UUID caseId,
+        String tenancyId,
+        long gateId,
+        @Nullable String workItemResolution,
+        @Nullable String rejectedBy) {}

@@ -83,7 +83,7 @@ class ActionGateResolutionTest {
   @Test
   void gateApproved_caseCompletes_deferredOutputApplied() {
     ResolutionClassifier.nextDecision =
-        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null, null);
+        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null, null, null);
 
     final UUID caseId = startCase();
 
@@ -124,7 +124,7 @@ class ActionGateResolutionTest {
   @Test
   void gateRejected_caseRemainsRunning_rejectionSignalInContext() {
     ResolutionClassifier.nextDecision =
-        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null, null);
+        new GateRequired("SAR filing", false, StaticSetStrategy.of("mlro"), null, null, null, null);
 
     final UUID caseId = startCase();
 

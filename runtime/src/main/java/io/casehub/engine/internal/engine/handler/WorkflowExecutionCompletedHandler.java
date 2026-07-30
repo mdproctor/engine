@@ -264,6 +264,7 @@ public class WorkflowExecutionCompletedHandler {
               null,
               null,
               null,
+              null,
               null);
     }
 
@@ -315,6 +316,8 @@ public class WorkflowExecutionCompletedHandler {
       }
       case WorkerOutcome.Success s ->
           throw new IllegalStateException("Success should not reach handleSemanticFailure");
+      case WorkerOutcome.Completed c ->
+          throw new IllegalStateException("Completed should not reach handleSemanticFailure");
     }
 
     fireOutcomeRecorder(
@@ -413,6 +416,8 @@ public class WorkflowExecutionCompletedHandler {
               WorkResult.expired(event.idempotency(), worker.name(), caseInstance.getUuid());
           case WorkerOutcome.Success s ->
               throw new IllegalStateException("Success should not reach handleSemanticFailure");
+          case WorkerOutcome.Completed c ->
+              throw new IllegalStateException("Completed should not reach handleSemanticFailure");
         };
     workerStatusListener.onWorkerCompleted(worker.name(), workResult);
 

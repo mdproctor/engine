@@ -39,7 +39,6 @@ import io.casehub.platform.api.view.CrossTenantSubjectViewStore;
 import io.casehub.platform.api.view.SubjectViewEvent;
 import io.casehub.platform.api.view.ViewEventType;
 import io.casehub.platform.view.SubjectViewOrchestrator;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.event.Event;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
@@ -102,15 +101,12 @@ class CaseLabelReconcilerTest {
     wireDefinition(instance, definition);
 
     when(caseInstanceRepo.findByStatus(CaseStatus.RUNNING, "tenant-1"))
-        .thenReturn(Uni.createFrom().item(List.of(instance)));
-    when(caseInstanceRepo.findByStatus(eq(CaseStatus.STARTING), any()))
-        .thenReturn(Uni.createFrom().item(List.of()));
-    when(caseInstanceRepo.findByStatus(eq(CaseStatus.WAITING), any()))
-        .thenReturn(Uni.createFrom().item(List.of()));
-    when(caseInstanceRepo.findByStatus(eq(CaseStatus.SUSPENDED), any()))
-        .thenReturn(Uni.createFrom().item(List.of()));
+        .thenReturn((List.of(instance)));
+    when(caseInstanceRepo.findByStatus(eq(CaseStatus.STARTING), any())).thenReturn((List.of()));
+    when(caseInstanceRepo.findByStatus(eq(CaseStatus.WAITING), any())).thenReturn((List.of()));
+    when(caseInstanceRepo.findByStatus(eq(CaseStatus.SUSPENDED), any())).thenReturn((List.of()));
     when(caseInstanceRepo.update(any(), any()))
-        .thenAnswer(inv -> Uni.createFrom().item(inv.getArgument(0, CaseInstance.class)));
+        .thenAnswer(inv -> (inv.getArgument(0, CaseInstance.class)));
 
     UUID viewId = UUID.randomUUID();
     when(views.evaluateAndTrack(eq(caseId), eq("tenant-1"), eq(Set.of("priority/high"))))
@@ -145,13 +141,10 @@ class CaseLabelReconcilerTest {
     wireDefinition(instance, definition);
 
     when(caseInstanceRepo.findByStatus(eq(CaseStatus.RUNNING), eq("tenant-1")))
-        .thenReturn(Uni.createFrom().item(List.of(instance)));
-    when(caseInstanceRepo.findByStatus(eq(CaseStatus.STARTING), any()))
-        .thenReturn(Uni.createFrom().item(List.of()));
-    when(caseInstanceRepo.findByStatus(eq(CaseStatus.WAITING), any()))
-        .thenReturn(Uni.createFrom().item(List.of()));
-    when(caseInstanceRepo.findByStatus(eq(CaseStatus.SUSPENDED), any()))
-        .thenReturn(Uni.createFrom().item(List.of()));
+        .thenReturn((List.of(instance)));
+    when(caseInstanceRepo.findByStatus(eq(CaseStatus.STARTING), any())).thenReturn((List.of()));
+    when(caseInstanceRepo.findByStatus(eq(CaseStatus.WAITING), any())).thenReturn((List.of()));
+    when(caseInstanceRepo.findByStatus(eq(CaseStatus.SUSPENDED), any())).thenReturn((List.of()));
 
     reconciler.reconcile(null);
 

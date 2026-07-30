@@ -170,6 +170,20 @@ class CaseQueueServiceTest {
   }
 
   @Test
+  void findByView_returnsAllStatuses() {
+    UUID viewId = UUID.randomUUID();
+    savePendingWithView("tenant-1", viewId);
+    CaseQueueEntry claimed = savePendingWithView("tenant-1", viewId);
+    store.claimIfPending(claimed.getId(), "user-1");
+
+    List<CaseQueueEntry> all = service.findByView(viewId, "tenant-1");
+    assertThat(all).hasSize(2);
+    assertThat(all)
+        .extracting(CaseQueueEntry::getStatus)
+        .containsExactlyInAnyOrder(QueueEntryStatus.PENDING, QueueEntryStatus.CLAIMED);
+  }
+
+  @Test
   void countByView_correct() {
     UUID viewId = UUID.randomUUID();
     savePendingWithView("tenant-1", viewId);
