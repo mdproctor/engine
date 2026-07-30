@@ -23,6 +23,7 @@ import io.casehub.api.spi.routing.RoutingSignalProvider;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.eidos.api.DispositionHealth;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -40,10 +41,10 @@ public class PersonalitySignalProvider implements RoutingSignalProvider {
   private static final Logger LOG = Logger.getLogger(PersonalitySignalProvider.class);
   static final String[] FUNCTIONS = {"Ti", "Te", "Fi", "Fe", "Si", "Se", "Ni", "Ne"};
 
-  private final DispositionHealth dispositionHealth;
+  private final Instance<DispositionHealth> dispositionHealth;
 
   @Inject
-  public PersonalitySignalProvider(DispositionHealth dispositionHealth) {
+  public PersonalitySignalProvider(Instance<DispositionHealth> dispositionHealth) {
     this.dispositionHealth = dispositionHealth;
   }
 
@@ -55,6 +56,7 @@ public class PersonalitySignalProvider implements RoutingSignalProvider {
   @Override
   public @Nullable RoutingSignal evaluate(
       AgentRoutingContext context, List<AgentCandidate> eligible) {
+    if (!dispositionHealth.isResolvable()) return null;
     CognitiveDemand demand = context.cognitiveDemand();
     if (demand == null) return null;
 
@@ -65,9 +67,11 @@ public class PersonalitySignalProvider implements RoutingSignalProvider {
       if (disposition == null || disposition.dispositionProfile().isEmpty()) continue;
 
       var status =
-          dispositionHealth.probe(
-              candidate.agentDescriptor(),
-              new CapabilityHealth.ProbeContext(context.capabilityName(), Map.of()));
+          dispositionHealth
+              .get()
+              .probe(
+                  candidate.agentDescriptor(),
+                  new CapabilityHealth.ProbeContext(context.capabilityName(), Map.of()));
       Map<String, Double> effectiveWeights = extractWeights(status);
 
       double similarity = cosineSimilarity(demand.functionWeights(), effectiveWeights);

@@ -292,9 +292,18 @@ public class CaseContextChangedEventHandler {
     }
 
     for (final Goal goal : goals) {
+      System.err.println(
+          "DIAG-GOAL: evaluating goal '"
+              + goal.getName()
+              + "' condition="
+              + goal.getCondition()
+              + " caseId="
+              + caseInstance.getUuid());
       if (!expressionEngineRegistry.evaluate(goal.getCondition(), contextSnapshot)) {
+        System.err.println("DIAG-GOAL: goal '" + goal.getName() + "' NOT reached");
         continue;
       }
+      System.err.println("DIAG-GOAL: goal '" + goal.getName() + "' REACHED!");
       LOG.infof("Goal '%s' REACHED! Publishing GoalReachedEvent", goal.getName());
       eventBus.publish(EventBusAddresses.GOAL_REACHED, new GoalReachedEvent(caseInstance, goal));
     }

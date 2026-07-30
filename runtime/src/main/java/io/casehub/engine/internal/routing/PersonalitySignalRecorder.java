@@ -27,6 +27,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.worker.api.WorkerOutcome;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.HashSet;
 import java.util.List;
@@ -45,17 +46,17 @@ public class PersonalitySignalRecorder {
 
   private static final Logger LOG = Logger.getLogger(PersonalitySignalRecorder.class);
 
-  private final DispositionSignalStore signalStore;
+  private final Instance<DispositionSignalStore> signalStore;
   private final CaseDefinitionRegistry registry;
-  private final DispositionHealth dispositionHealth;
-  private final DispositionEvolution dispositionEvolution;
+  private final Instance<DispositionHealth> dispositionHealth;
+  private final Instance<DispositionEvolution> dispositionEvolution;
 
   @Inject
   public PersonalitySignalRecorder(
-      DispositionSignalStore signalStore,
+      Instance<DispositionSignalStore> signalStore,
       CaseDefinitionRegistry registry,
-      DispositionHealth dispositionHealth,
-      DispositionEvolution dispositionEvolution) {
+      Instance<DispositionHealth> dispositionHealth,
+      Instance<DispositionEvolution> dispositionEvolution) {
     this.signalStore = signalStore;
     this.registry = registry;
     this.dispositionHealth = dispositionHealth;
@@ -67,6 +68,7 @@ public class PersonalitySignalRecorder {
       String workerName,
       String capabilityName,
       WorkerOutcome<?> outcome) {
+    if (!signalStore.isResolvable()) return;
     CaseDefinition definition;
     try {
       definition = registry.getCaseDefinition(caseInstance.getCaseMetaModel());
@@ -115,7 +117,7 @@ public class PersonalitySignalRecorder {
     String engaged = domDemand >= auxDemand ? dominant : auxiliary;
     if (engaged == null) engaged = dominant;
 
-    signalStore.recordActivation(agentId, tenancyId, engaged);
+    signalStore.get().recordActivation(agentId, tenancyId, engaged);
     LOG.debugf("Personality reinforcement: agent=%s function=%s", agentId, engaged);
   }
 
@@ -137,25 +139,26 @@ public class PersonalitySignalRecorder {
       return;
     }
 
-    signalStore.recordActivation(agentId, tenancyId, compensatory);
+    signalStore.get().recordActivation(agentId, tenancyId, compensatory);
     LOG.debugf("Personality compensation: agent=%s function=%s", agentId, compensatory);
   }
 
   void checkReflection(String agentId, String tenancyId, AgentDescriptor descriptor) {
     try {
       var status =
-          dispositionHealth.probe(
-              descriptor, new CapabilityHealth.ProbeContext(null, java.util.Map.of()));
+          dispositionHealth
+              .get()
+              .probe(descriptor, new CapabilityHealth.ProbeContext(null, java.util.Map.of()));
 
       if (status instanceof DispositionHealth.DispositionStatus.EvolutionPending pending) {
-        var result = dispositionEvolution.evaluate(descriptor, pending);
+        var result = dispositionEvolution.get().evaluate(descriptor, pending);
         switch (result) {
           case DispositionEvolution.EvolutionResult.Evolved evolved ->
               LOG.infof(
                   "Personality evolved: agent=%s %s->%s",
                   agentId, evolved.previousTypeLabel(), evolved.newTypeLabel());
           case DispositionEvolution.EvolutionResult.Dampened dampened -> {
-            signalStore.decay(agentId, tenancyId, dampened.decayFactor());
+            signalStore.get().decay(agentId, tenancyId, dampened.decayFactor());
             LOG.infof(
                 "Personality dampened: agent=%s factor=%.2f", agentId, dampened.decayFactor());
           }

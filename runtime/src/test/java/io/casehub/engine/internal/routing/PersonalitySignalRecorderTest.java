@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.model.CognitiveDemand;
 import io.casehub.eidos.api.DispositionSignalStore;
 import io.casehub.eidos.api.DispositionValue;
+import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,10 +35,14 @@ class PersonalitySignalRecorderTest {
   private DispositionSignalStore signalStore;
   private PersonalitySignalRecorder recorder;
 
+  @SuppressWarnings("unchecked")
   @BeforeEach
   void setUp() {
     signalStore = mock(DispositionSignalStore.class);
-    recorder = new PersonalitySignalRecorder(signalStore, null, null, null);
+    Instance<DispositionSignalStore> storeInstance = mock(Instance.class);
+    when(storeInstance.get()).thenReturn(signalStore);
+    when(storeInstance.isResolvable()).thenReturn(true);
+    recorder = new PersonalitySignalRecorder(storeInstance, null, null, null);
   }
 
   @Test
@@ -94,8 +99,20 @@ class PersonalitySignalRecorderTest {
   void checkReflection_evolutionPending_dampened_callsDecay() {
     var dispositionHealth = mock(io.casehub.eidos.api.DispositionHealth.class);
     var dispositionEvolution = mock(io.casehub.eidos.api.DispositionEvolution.class);
+    @SuppressWarnings("unchecked")
+    Instance<io.casehub.eidos.api.DispositionHealth> healthInst = mock(Instance.class);
+    when(healthInst.get()).thenReturn(dispositionHealth);
+    when(healthInst.isResolvable()).thenReturn(true);
+    @SuppressWarnings("unchecked")
+    Instance<io.casehub.eidos.api.DispositionEvolution> evolInst = mock(Instance.class);
+    when(evolInst.get()).thenReturn(dispositionEvolution);
+    when(evolInst.isResolvable()).thenReturn(true);
+    @SuppressWarnings("unchecked")
+    Instance<io.casehub.eidos.api.DispositionSignalStore> storeInst = mock(Instance.class);
+    when(storeInst.get()).thenReturn(signalStore);
+    when(storeInst.isResolvable()).thenReturn(true);
     var recorderWithReflection =
-        new PersonalitySignalRecorder(signalStore, null, dispositionHealth, dispositionEvolution);
+        new PersonalitySignalRecorder(storeInst, null, healthInst, evolInst);
 
     var descriptor =
         io.casehub.eidos.api.AgentDescriptor.builder()
@@ -126,8 +143,15 @@ class PersonalitySignalRecorderTest {
   @Test
   void checkReflection_aligned_noReflection() {
     var dispositionHealth = mock(io.casehub.eidos.api.DispositionHealth.class);
-    var recorderWithReflection =
-        new PersonalitySignalRecorder(signalStore, null, dispositionHealth, null);
+    @SuppressWarnings("unchecked")
+    Instance<io.casehub.eidos.api.DispositionHealth> healthInst2 = mock(Instance.class);
+    when(healthInst2.get()).thenReturn(dispositionHealth);
+    when(healthInst2.isResolvable()).thenReturn(true);
+    @SuppressWarnings("unchecked")
+    Instance<io.casehub.eidos.api.DispositionSignalStore> storeInst2 = mock(Instance.class);
+    when(storeInst2.get()).thenReturn(signalStore);
+    when(storeInst2.isResolvable()).thenReturn(true);
+    var recorderWithReflection = new PersonalitySignalRecorder(storeInst2, null, healthInst2, null);
 
     var descriptor =
         io.casehub.eidos.api.AgentDescriptor.builder()
