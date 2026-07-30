@@ -15,8 +15,11 @@
  */
 package io.casehub.engine.ai.routing;
 
-import static org.assertj.core.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.node.NullNode;
 import io.casehub.api.spi.routing.AgentCandidate;
@@ -44,7 +47,8 @@ class SemanticSignalProviderTest {
     embeddingProvider = mock(AgentEmbeddingProvider.class);
     embeddingCache = mock(EmbeddingCache.class);
     jqEvaluator = mock(JQEvaluator.class);
-    provider = new SemanticSignalProvider(embeddingProvider, embeddingCache, jqEvaluator, "tostring");
+    provider =
+        new SemanticSignalProvider(embeddingProvider, embeddingCache, jqEvaluator, "tostring");
   }
 
   @Test
@@ -61,7 +65,8 @@ class SemanticSignalProviderTest {
 
   @Test
   void embeddingServiceFailure_returnsNull() {
-    when(embeddingCache.getOrCompute(anyString(), any())).thenThrow(new RuntimeException("unavailable"));
+    when(embeddingCache.getOrCompute(anyString(), any()))
+        .thenThrow(new RuntimeException("unavailable"));
     var result = provider.evaluate(ctx(), List.of(candidateWithDescriptor("a")));
     assertThat(result).isNull();
   }

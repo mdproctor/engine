@@ -89,8 +89,7 @@ public class SemanticSignalProvider implements RoutingSignalProvider {
       double clamped = Math.max(0.0, Math.min(1.0, similarity));
       signals.put(
           candidate.workerId(),
-          new RoutingSignal.CandidateSignal.Score(
-              clamped, "semantic %.3f".formatted(clamped)));
+          new RoutingSignal.CandidateSignal.Score(clamped, "semantic %.3f".formatted(clamped)));
     }
 
     return signals.isEmpty() ? null : new RoutingSignal(signals);

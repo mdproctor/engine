@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.internal.routing;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import io.casehub.api.model.CognitiveDemand;
