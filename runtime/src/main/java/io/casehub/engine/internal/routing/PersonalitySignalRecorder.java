@@ -28,13 +28,12 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.worker.api.WorkerOutcome;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.jboss.logging.Logger;
 
 /**
  * Records disposition signals on worker task completion for JPAF personality adaptation. On
@@ -76,7 +75,9 @@ public class PersonalitySignalRecorder {
     }
 
     Optional<AgentDescriptor> descriptorOpt = definition.agentDescriptorFor(workerName);
-    if (descriptorOpt.isEmpty()) {return;}
+    if (descriptorOpt.isEmpty()) {
+      return;
+    }
 
     AgentDescriptor descriptor = descriptorOpt.get();
     if (descriptor.disposition() == null
@@ -85,11 +86,13 @@ public class PersonalitySignalRecorder {
     }
 
     CognitiveDemand demand = definition.getCognitiveDemand(capabilityName);
-    if (demand == null) {return;}
+    if (demand == null) {
+      return;
+    }
 
-    List<DispositionValue> profile   = descriptor.disposition().dispositionProfile();
-    String                 agentId   = descriptor.agentId();
-    String                 tenancyId = caseInstance.tenancyId;
+    List<DispositionValue> profile = descriptor.disposition().dispositionProfile();
+    String agentId = descriptor.agentId();
+    String tenancyId = caseInstance.tenancyId;
 
     if (outcome instanceof WorkerOutcome.Success) {
       recordReinforcement(agentId, tenancyId, profile, demand);
@@ -97,13 +100,11 @@ public class PersonalitySignalRecorder {
       recordCompensation(agentId, tenancyId, profile, demand);
     }
 
-    checkReflection(agentId, tenancyId, descriptor);}
+    checkReflection(agentId, tenancyId, descriptor);
+  }
 
   void recordReinforcement(
-      String agentId,
-      String tenancyId,
-      List<DispositionValue> profile,
-      CognitiveDemand demand) {
+      String agentId, String tenancyId, List<DispositionValue> profile, CognitiveDemand demand) {
     String dominant = profile.get(0).term();
     String auxiliary = profile.size() > 1 ? profile.get(1).term() : null;
 
@@ -119,10 +120,7 @@ public class PersonalitySignalRecorder {
   }
 
   void recordCompensation(
-      String agentId,
-      String tenancyId,
-      List<DispositionValue> profile,
-      CognitiveDemand demand) {
+      String agentId, String tenancyId, List<DispositionValue> profile, CognitiveDemand demand) {
     Set<String> domAux = new HashSet<>();
     domAux.add(profile.get(0).term());
     if (profile.size() > 1) domAux.add(profile.get(1).term());
@@ -146,24 +144,25 @@ public class PersonalitySignalRecorder {
   void checkReflection(String agentId, String tenancyId, AgentDescriptor descriptor) {
     try {
       var status =
-              dispositionHealth.probe(
-                      descriptor,
-                      new CapabilityHealth.ProbeContext(null, java.util.Map.of()));
+          dispositionHealth.probe(
+              descriptor, new CapabilityHealth.ProbeContext(null, java.util.Map.of()));
 
       if (status instanceof DispositionHealth.DispositionStatus.EvolutionPending pending) {
         var result = dispositionEvolution.evaluate(descriptor, pending);
         switch (result) {
-          case DispositionEvolution.EvolutionResult.Evolved evolved -> LOG.infof(
+          case DispositionEvolution.EvolutionResult.Evolved evolved ->
+              LOG.infof(
                   "Personality evolved: agent=%s %s->%s",
                   agentId, evolved.previousTypeLabel(), evolved.newTypeLabel());
           case DispositionEvolution.EvolutionResult.Dampened dampened -> {
             signalStore.decay(agentId, tenancyId, dampened.decayFactor());
             LOG.infof(
-                    "Personality dampened: agent=%s factor=%.2f", agentId, dampened.decayFactor());
+                "Personality dampened: agent=%s factor=%.2f", agentId, dampened.decayFactor());
           }
         }
       }
     } catch (Exception e) {
       LOG.warnf(e, "Reflection check failed for agent=%s — continuing without reflection", agentId);
-    }}
+    }
+  }
 }

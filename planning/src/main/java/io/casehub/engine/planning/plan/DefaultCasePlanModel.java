@@ -18,8 +18,6 @@ package io.casehub.engine.planning.plan;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SubCase;
 import io.casehub.api.model.TaskStatus;
-import org.jboss.logging.Logger;
-
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -29,6 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.PriorityBlockingQueue;
 import java.util.stream.Collectors;
+import org.jboss.logging.Logger;
 
 /**
  * Thread-safe in-memory {@link CasePlanModel} implementation. Plan state is transient — rebuilt
@@ -272,20 +271,21 @@ public class DefaultCasePlanModel implements CasePlanModel {
 
   @Override
   public void registerDefinition(PlanItemDefinition definition) {
-      definitions.put(definition.id(), definition);
-      definitionStates.put(definition.id(), new PlanItemExecutionState(definition.id()));
-      if (definition instanceof PlanItemDefinition.Compound compound) {
-          var childIds = java.util.concurrent.ConcurrentHashMap.<String>newKeySet();
-          for (PlanItemDefinition child : compound.children()) {
-              childIds.add(child.id());
-              parentIndex.put(child.id(), compound.id());
-              registerDefinition(child);
-          }
-          childrenIndex.put(compound.id(), childIds);
-          for (String bindingName : compound.scopedBindings().keySet()) {
-              parentIndex.put(bindingName, compound.id());
-          }
-      }}
+    definitions.put(definition.id(), definition);
+    definitionStates.put(definition.id(), new PlanItemExecutionState(definition.id()));
+    if (definition instanceof PlanItemDefinition.Compound compound) {
+      var childIds = java.util.concurrent.ConcurrentHashMap.<String>newKeySet();
+      for (PlanItemDefinition child : compound.children()) {
+        childIds.add(child.id());
+        parentIndex.put(child.id(), compound.id());
+        registerDefinition(child);
+      }
+      childrenIndex.put(compound.id(), childIds);
+      for (String bindingName : compound.scopedBindings().keySet()) {
+        parentIndex.put(bindingName, compound.id());
+      }
+    }
+  }
 
   @Override
   public TaskStatus getDefinitionStatus(String planItemId) {
@@ -338,39 +338,41 @@ public class DefaultCasePlanModel implements CasePlanModel {
     if (!(def instanceof PlanItemDefinition.Compound compound)) {
       return false;
     }
-    java.util.Set<String>                                     children = getChildrenOf(compoundId);
-    java.util.Map<String, io.casehub.api.model.Participation> scoped   = compound.scopedBindings();
+    java.util.Set<String> children = getChildrenOf(compoundId);
+    java.util.Map<String, io.casehub.api.model.Participation> scoped = compound.scopedBindings();
 
-    java.util.Set<String> participantBindings = scoped.entrySet().stream()
-                                                      .filter(e -> e.getValue() == io.casehub.api.model.Participation.PARTICIPANT)
-                                                      .map(java.util.Map.Entry::getKey)
-                                                      .collect(java.util.stream.Collectors.toSet());
+    java.util.Set<String> participantBindings =
+        scoped.entrySet().stream()
+            .filter(e -> e.getValue() == io.casehub.api.model.Participation.PARTICIPANT)
+            .map(java.util.Map.Entry::getKey)
+            .collect(java.util.stream.Collectors.toSet());
 
     if (children.isEmpty() && participantBindings.isEmpty()) {
       return false;
     }
 
     long structuralTerminal =
-            children.stream().map(this::getDefinitionStatus).filter(TaskStatus::isTerminal).count();
+        children.stream().map(this::getDefinitionStatus).filter(TaskStatus::isTerminal).count();
 
     long scopedTerminal =
-            participantBindings.stream()
-                               .map(
-                                       bindingName -> {
-                                         PlanItem pi = latestByBinding.get(bindingName);
-                                         return pi != null ? pi.getStatus() : TaskStatus.PENDING;
-                                       })
-                               .filter(TaskStatus::isTerminal)
-                               .count();
+        participantBindings.stream()
+            .map(
+                bindingName -> {
+                  PlanItem pi = latestByBinding.get(bindingName);
+                  return pi != null ? pi.getStatus() : TaskStatus.PENDING;
+                })
+            .filter(TaskStatus::isTerminal)
+            .count();
 
     long totalTerminal = structuralTerminal + scopedTerminal;
-    long totalCount    = children.size() + participantBindings.size();
+    long totalCount = children.size() + participantBindings.size();
 
     return switch (compound.completion()) {
       case CompletionSemantics.All ignored -> totalTerminal == totalCount;
       case CompletionSemantics.MOfN mOfN -> totalTerminal >= mOfN.m();
       case CompletionSemantics.FirstWins ignored -> totalTerminal >= 1;
-    };}
+    };
+  }
 
   @Override
   public java.util.List<PlanItemDefinition.Compound> getAllCompounds() {

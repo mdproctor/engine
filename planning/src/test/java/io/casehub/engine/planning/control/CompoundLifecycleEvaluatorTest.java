@@ -25,7 +25,6 @@ import io.casehub.engine.planning.plan.CompletionSemantics;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.DispatchMode;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
-import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

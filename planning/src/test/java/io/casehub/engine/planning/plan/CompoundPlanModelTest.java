@@ -15,15 +15,14 @@
  */
 package io.casehub.engine.planning.plan;
 
-import io.casehub.api.model.ExecutorRef;
-import io.casehub.api.model.TaskStatus;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-import java.util.UUID;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.TaskStatus;
+import java.util.List;
+import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
 class CompoundPlanModelTest {
 
@@ -37,16 +36,17 @@ class CompoundPlanModelTest {
 
   private PlanItemDefinition.Compound compound(String id, List<PlanItemDefinition> children) {
     return new PlanItemDefinition.Compound(
-            id,
-            id,
-            children,
-            null,
-            CompletionSemantics.all(),
-            DispatchMode.ORCHESTRATED,
-            null,
-            null,
-            false,
-            java.util.Map.of());}
+        id,
+        id,
+        children,
+        null,
+        CompletionSemantics.all(),
+        DispatchMode.ORCHESTRATED,
+        null,
+        null,
+        false,
+        java.util.Map.of());
+  }
 
   @Test
   void registerDefinition_and_getStatus_returns_pending() {
@@ -317,7 +317,11 @@ class CompoundPlanModelTest {
             null,
             null,
             false,
-            java.util.Map.of("binding-a", io.casehub.api.model.Participation.PARTICIPANT, "binding-b", io.casehub.api.model.Participation.PARTICIPANT));
+            java.util.Map.of(
+                "binding-a",
+                io.casehub.api.model.Participation.PARTICIPANT,
+                "binding-b",
+                io.casehub.api.model.Participation.PARTICIPANT));
     var model = model();
     model.registerDefinition(compound);
 
@@ -463,43 +467,46 @@ class CompoundPlanModelTest {
         .isFalse();
   }
 
-    @Test
-    void evaluateCompletion_companion_binding_excluded_from_completion() {
-        var compound = PlanItemDefinition.Compound.builder("stage")
-                                                  .id("comp-1")
-                                                  .binding("required-binding")
-                                                  .binding("companion-binding", io.casehub.api.model.Participation.COMPANION)
-                                                  .build();
-        var model = model();
-        model.registerDefinition(compound);
+  @Test
+  void evaluateCompletion_companion_binding_excluded_from_completion() {
+    var compound =
+        PlanItemDefinition.Compound.builder("stage")
+            .id("comp-1")
+            .binding("required-binding")
+            .binding("companion-binding", io.casehub.api.model.Participation.COMPANION)
+            .build();
+    var model = model();
+    model.registerDefinition(compound);
 
-        var piRequired = PlanItem.create("required-binding", io.casehub.api.model.ExecutorRef.of("w"), 0);
-        model.addPlanItem(piRequired);
-        piRequired.markRunning();
-        piRequired.markCompleted();
+    var piRequired =
+        PlanItem.create("required-binding", io.casehub.api.model.ExecutorRef.of("w"), 0);
+    model.addPlanItem(piRequired);
+    piRequired.markRunning();
+    piRequired.markCompleted();
 
-        assertThat(model.evaluateCompletion("comp-1"))
-                .as("COMPANION binding should not block completion")
-                .isTrue();
-    }
+    assertThat(model.evaluateCompletion("comp-1"))
+        .as("COMPANION binding should not block completion")
+        .isTrue();
+  }
 
-    @Test
-    void evaluateCompletion_participant_binding_blocks_completion() {
-        var compound = PlanItemDefinition.Compound.builder("stage")
-                                                  .id("comp-1")
-                                                  .binding("binding-a")
-                                                  .binding("binding-b", io.casehub.api.model.Participation.PARTICIPANT)
-                                                  .build();
-        var model = model();
-        model.registerDefinition(compound);
+  @Test
+  void evaluateCompletion_participant_binding_blocks_completion() {
+    var compound =
+        PlanItemDefinition.Compound.builder("stage")
+            .id("comp-1")
+            .binding("binding-a")
+            .binding("binding-b", io.casehub.api.model.Participation.PARTICIPANT)
+            .build();
+    var model = model();
+    model.registerDefinition(compound);
 
-        var piA = PlanItem.create("binding-a", io.casehub.api.model.ExecutorRef.of("w"), 0);
-        model.addPlanItem(piA);
-        piA.markRunning();
-        piA.markCompleted();
+    var piA = PlanItem.create("binding-a", io.casehub.api.model.ExecutorRef.of("w"), 0);
+    model.addPlanItem(piA);
+    piA.markRunning();
+    piA.markCompleted();
 
-        assertThat(model.evaluateCompletion("comp-1"))
-                .as("PARTICIPANT binding-b not yet dispatched — blocks completion")
-                .isFalse();
-    }
+    assertThat(model.evaluateCompletion("comp-1"))
+        .as("PARTICIPANT binding-b not yet dispatched — blocks completion")
+        .isFalse();
+  }
 }

@@ -21,29 +21,26 @@ import io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.util.Set;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class ScopedWorkerTerminationHandler {
 
-    private static final Logger LOG = Logger.getLogger(ScopedWorkerTerminationHandler.class);
+  private static final Logger LOG = Logger.getLogger(ScopedWorkerTerminationHandler.class);
 
-    @Inject
-    ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject ScopedWorkerRegistry scopedWorkerRegistry;
 
-    @ConsumeEvent(value = EventBusAddresses.COMPOUND_COMPLETED, blocking = true)
-    public void onCompoundCompleted(CompoundCompletedEvent event) {
-        Set<String> scopedBindings = event.scopedBindingNames();
-        if (scopedBindings == null || scopedBindings.isEmpty()) {
-            return;
-        }
-
-        scopedWorkerRegistry.terminateByScope(
-                event.caseId(), event.compoundId(), scopedBindings);
-        LOG.debugf(
-                "Terminated scoped workers for compound '%s' case %s",
-                event.compoundName(), event.caseId());
+  @ConsumeEvent(value = EventBusAddresses.COMPOUND_COMPLETED, blocking = true)
+  public void onCompoundCompleted(CompoundCompletedEvent event) {
+    Set<String> scopedBindings = event.scopedBindingNames();
+    if (scopedBindings == null || scopedBindings.isEmpty()) {
+      return;
     }
+
+    scopedWorkerRegistry.terminateByScope(event.caseId(), event.compoundId(), scopedBindings);
+    LOG.debugf(
+        "Terminated scoped workers for compound '%s' case %s",
+        event.compoundName(), event.caseId());
+  }
 }

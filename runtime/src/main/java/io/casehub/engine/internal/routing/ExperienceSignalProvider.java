@@ -37,7 +37,8 @@ public class ExperienceSignalProvider implements RoutingSignalProvider {
   }
 
   @Override
-  public @Nullable RoutingSignal evaluate(AgentRoutingContext context, List<AgentCandidate> eligible) {
+  public @Nullable RoutingSignal evaluate(
+      AgentRoutingContext context, List<AgentCandidate> eligible) {
     if (context.experiences() == null || context.experiences().isEmpty()) {
       return null;
     }

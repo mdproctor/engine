@@ -15,13 +15,12 @@
  */
 package io.casehub.engine.planning.plan;
 
-import io.casehub.api.model.ExecutorRef;
-import org.junit.jupiter.api.Test;
-
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+import io.casehub.api.model.ExecutorRef;
+import java.util.List;
+import org.junit.jupiter.api.Test;
 
 class PlanItemDefinitionTest {
 
@@ -191,7 +190,8 @@ class PlanItemDefinitionTest {
             .binding("trigger-b")
             .build();
 
-    assertThat(compound.scopedBindings().keySet()).containsExactlyInAnyOrder("trigger-a", "trigger-b");
+    assertThat(compound.scopedBindings().keySet())
+        .containsExactlyInAnyOrder("trigger-a", "trigger-b");
   }
 
   @Test
@@ -254,35 +254,38 @@ class PlanItemDefinitionTest {
 
   @Test
   void compound_scopedBindings_is_defensive_copy() {
-    var mutable = new java.util.HashMap<>(java.util.Map.of(
-            "a", io.casehub.api.model.Participation.PARTICIPANT,
-            "b", io.casehub.api.model.Participation.PARTICIPANT));
+    var mutable =
+        new java.util.HashMap<>(
+            java.util.Map.of(
+                "a", io.casehub.api.model.Participation.PARTICIPANT,
+                "b", io.casehub.api.model.Participation.PARTICIPANT));
     var compound =
-            new PlanItemDefinition.Compound(
-                    "pi-x",
-                    "test",
-                    List.of(),
-                    null,
-                    CompletionSemantics.all(),
-                    DispatchMode.CHOREOGRAPHED,
-                    null,
-                    null,
-                    false,
-                    mutable);
+        new PlanItemDefinition.Compound(
+            "pi-x",
+            "test",
+            List.of(),
+            null,
+            CompletionSemantics.all(),
+            DispatchMode.CHOREOGRAPHED,
+            null,
+            null,
+            false,
+            mutable);
 
     mutable.clear();
     assertThat(compound.scopedBindings()).hasSize(2);
   }
 
-    @Test
-    void builder_creates_compound_with_binding_and_participation() {
-        var compound = PlanItemDefinition.Compound.builder("stage")
-                                                  .binding("monitor", io.casehub.api.model.Participation.COMPANION)
-                                                  .binding("worker")
-                                                  .build();
+  @Test
+  void builder_creates_compound_with_binding_and_participation() {
+    var compound =
+        PlanItemDefinition.Compound.builder("stage")
+            .binding("monitor", io.casehub.api.model.Participation.COMPANION)
+            .binding("worker")
+            .build();
 
-        assertThat(compound.scopedBindings())
-                .containsEntry("monitor", io.casehub.api.model.Participation.COMPANION)
-                .containsEntry("worker", io.casehub.api.model.Participation.PARTICIPANT);
-    }
+    assertThat(compound.scopedBindings())
+        .containsEntry("monitor", io.casehub.api.model.Participation.COMPANION)
+        .containsEntry("worker", io.casehub.api.model.Participation.PARTICIPANT);
+  }
 }

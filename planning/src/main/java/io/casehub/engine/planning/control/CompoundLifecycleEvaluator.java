@@ -36,17 +36,17 @@ public class CompoundLifecycleEvaluator {
   private final Instance<ExpressionEngine> expressionEngines;
   private final io.vertx.mutiny.core.eventbus.EventBus eventBus;
 
-
   @Inject
-    public CompoundLifecycleEvaluator(Instance<ExpressionEngine> expressionEngines,
-                                      io.vertx.mutiny.core.eventbus.EventBus eventBus) {
-        this.expressionEngines = expressionEngines;
-        this.eventBus          = eventBus;
-    }
+  public CompoundLifecycleEvaluator(
+      Instance<ExpressionEngine> expressionEngines,
+      io.vertx.mutiny.core.eventbus.EventBus eventBus) {
+    this.expressionEngines = expressionEngines;
+    this.eventBus = eventBus;
+  }
 
   CompoundLifecycleEvaluator() {
     this.expressionEngines = null;
-    this.eventBus          = null;
+    this.eventBus = null;
   }
 
   public void evaluate(CasePlanModel plan, PlanExecutionContext ctx) {
@@ -59,7 +59,9 @@ public class CompoundLifecycleEvaluator {
       var parentOpt = plan.getParentOf(compound.id());
       if (parentOpt.isPresent()) {
         TaskStatus parentStatus = plan.getDefinitionStatus(parentOpt.get());
-        if (parentStatus != TaskStatus.RUNNING) {continue;}
+        if (parentStatus != TaskStatus.RUNNING) {
+          continue;
+        }
       }
 
       boolean conditionMet = evaluateCondition(compound.entryCondition(), ctx.caseContext());
@@ -68,13 +70,14 @@ public class CompoundLifecycleEvaluator {
           LOG.debugf("Compound '%s' activated for case %s", compound.name(), ctx.caseId());
           if (eventBus != null) {
             eventBus.publish(
-                    io.casehub.engine.planning.event.BlackboardEventBusAddresses.COMPOUND_ACTIVATED,
-                    new io.casehub.engine.common.internal.event.CompoundActivatedEvent(
-                            ctx.caseId(), ctx.tenancyId(), compound.id(), compound.name()));
+                io.casehub.engine.planning.event.BlackboardEventBusAddresses.COMPOUND_ACTIVATED,
+                new io.casehub.engine.common.internal.event.CompoundActivatedEvent(
+                    ctx.caseId(), ctx.tenancyId(), compound.id(), compound.name()));
           }
         }
       }
-    }}
+    }
+  }
 
   private void terminateRunningCompounds(CasePlanModel plan, PlanExecutionContext ctx) {
     for (PlanItemDefinition.Compound compound : plan.getCompoundsByStatus(TaskStatus.RUNNING)) {

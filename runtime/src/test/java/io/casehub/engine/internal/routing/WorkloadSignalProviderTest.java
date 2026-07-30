@@ -56,8 +56,7 @@ class WorkloadSignalProviderTest {
   @Test
   void allCandidatesScored() {
     var result =
-        provider.evaluate(
-            ctx(), List.of(candidate("a", 0), candidate("b", 1), candidate("c", 5)));
+        provider.evaluate(ctx(), List.of(candidate("a", 0), candidate("b", 1), candidate("c", 5)));
     assertThat(result.candidates()).containsOnlyKeys("a", "b", "c");
   }
 

@@ -134,14 +134,14 @@ class ComposableRoutingIntegrationTest {
     var compositor =
         composable(new PersonalitySignalProvider(health), new WorkloadSignalProvider());
 
-    var noProfileAgent = new AgentCandidate("plain-agent", Set.of(), 0, AgentHealth.READY, null, null);
+    var noProfileAgent =
+        new AgentCandidate("plain-agent", Set.of(), 0, AgentHealth.READY, null, null);
 
     var result =
         compositor.select(
             context(demand, weights),
             List.of(
-                agent("analyst-alpha", personality("Ti", 0.45, "Ne", 0.25), 2),
-                noProfileAgent));
+                agent("analyst-alpha", personality("Ti", 0.45, "Ne", 0.25), 2), noProfileAgent));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
   }
@@ -169,11 +169,9 @@ class ComposableRoutingIntegrationTest {
     return new ComposableAgentRoutingStrategy(new RoutingSignalAssembler(List.of(providers)));
   }
 
-  private static AgentDisposition personality(
-      String dom, double domW, String aux, double auxW) {
+  private static AgentDisposition personality(String dom, double domW, String aux, double auxW) {
     return AgentDisposition.builder()
-        .dispositionProfile(
-            new DispositionValue(dom, domW), new DispositionValue(aux, auxW))
+        .dispositionProfile(new DispositionValue(dom, domW), new DispositionValue(aux, auxW))
         .build();
   }
 
@@ -186,7 +184,8 @@ class ComposableRoutingIntegrationTest {
             .tenancyId("tenant-aml")
             .disposition(disposition)
             .build();
-    return new AgentCandidate(id, Set.of("entity-resolution"), runningJobs, AgentHealth.READY, descriptor, null);
+    return new AgentCandidate(
+        id, Set.of("entity-resolution"), runningJobs, AgentHealth.READY, descriptor, null);
   }
 
   private static DispositionHealth healthReturning() {

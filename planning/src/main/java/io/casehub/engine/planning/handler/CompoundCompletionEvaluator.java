@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.planning.handler;
 
-import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
+import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -52,8 +52,10 @@ public class CompoundCompletionEvaluator {
 
       io.casehub.engine.planning.plan.PlanItemDefinition def = plan.getDefinition(parentId);
       String name = def != null ? def.name() : parentId;
-      java.util.Set<String> scopedBindings = (def instanceof io.casehub.engine.planning.plan.PlanItemDefinition.Compound c)
-          ? c.scopedBindings().keySet() : java.util.Set.of();
+      java.util.Set<String> scopedBindings =
+          (def instanceof io.casehub.engine.planning.plan.PlanItemDefinition.Compound c)
+              ? c.scopedBindings().keySet()
+              : java.util.Set.of();
 
       eventBus.publish(
           BlackboardEventBusAddresses.COMPOUND_COMPLETED,

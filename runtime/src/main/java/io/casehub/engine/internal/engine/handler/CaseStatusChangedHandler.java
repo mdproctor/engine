@@ -45,10 +45,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.time.Instant;
 import java.util.Map;
+import org.jboss.logging.Logger;
 
 /**
  * Persists a case status change event and atomically updates the instance state. Publishes a
@@ -76,11 +75,9 @@ public class CaseStatusChangedHandler {
   @Inject Instance<CaseOutcomeObserver> outcomeObservers;
 
   @Inject CaseCompletionTracker caseCompletionTracker;
-  @Inject
-          io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
 
-
-    @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
+  @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public Uni<Void> onCaseStatusChangedHandler(CaseStatusChanged event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.instance();

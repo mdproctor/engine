@@ -83,12 +83,11 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class CaseContextChangedEventHandler {
@@ -133,11 +132,9 @@ public class CaseContextChangedEventHandler {
   java.util.concurrent.ExecutorService virtualThreads;
 
   @Inject CaseEvaluationSerializer evaluationSerializer;
-  @Inject
-          io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
 
-
-    @RunOnVirtualThread
+  @RunOnVirtualThread
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
   public void onCaseStateContextChangedEventHandler(final CaseContextChangedEvent event) {
     final CaseInstance caseInstance = event.instance();
@@ -353,125 +350,127 @@ public class CaseContextChangedEventHandler {
       final java.util.UUID signalId,
       final List<RetrievedExperience> experiences,
       final String traceId) {
-      if (binding.lifecycleScope() != io.casehub.api.model.LifecycleScope.BINDING) {
-          var existing = scopedWorkerRegistry.get(caseInstance.getUuid(), binding.getName());
-          if (existing.isPresent()) {
-              routeToExistingSession(existing.get(), caseInstance);
-              return;
-          }
+    if (binding.lifecycleScope() != io.casehub.api.model.LifecycleScope.BINDING) {
+      var existing = scopedWorkerRegistry.get(caseInstance.getUuid(), binding.getName());
+      if (existing.isPresent()) {
+        routeToExistingSession(existing.get(), caseInstance);
+        return;
       }
-
-      if (workers == null || workers.isEmpty()) {
-          LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.name());
-          tryProvision(
-                  caseInstance,
-                  capability,
-                  binding.getName(),
-                  triggerChannelId,
-                  triggerCorrelationId,
-                  binding.getInputProjectionOverride(),
-                  traceId);
-          return;
-      }
-
-      List<AgentCandidate> candidates =
-              agentCandidateFactory.buildCandidates(
-                      caseInstance, caseDefinition, workers, capability, executionManager, capabilityHealth);
-
-      if (candidates.isEmpty()) {
-          LOG.warnf(
-                  "No eligible workers for capability '%s' (binding '%s') — all unavailable or no match",
-                  capability.name(), binding.getName());
-          tryProvision(
-                  caseInstance,
-                  capability,
-                  binding.getName(),
-                  triggerChannelId,
-                  triggerCorrelationId,
-                  binding.getInputProjectionOverride(),
-                  traceId);
-          return;
-      }
-
-      final JsonNode outcomeNode =
-              caseInstance
-                      .getCaseContext()
-                      .layer(ContextLayer.WORKING)
-                      .asJsonNode()
-                      .path("_diagnostics")
-                      .path(binding.getName());
-      if (outcomeNode.has("excludedAgents")) {
-          final java.util.Set<String> excluded =
-                  java.util.stream.StreamSupport.stream(
-                              outcomeNode.get("excludedAgents").spliterator(), false)
-                                                .map(JsonNode::asText)
-                                                .collect(java.util.stream.Collectors.toSet());
-          candidates = candidates.stream().filter(c -> !excluded.contains(c.workerId())).toList();
-          if (!excluded.isEmpty()) {
-              LOG.debugf(
-                      "Filtered %d excluded agents for binding '%s': %s",
-                      excluded.size(), binding.getName(), excluded);
-          }
-          if (candidates.isEmpty()) {
-              LOG.warnf(
-                      "All candidates excluded for capability '%s' binding '%s' — auto-exhausting",
-                      capability.name(), binding.getName());
-              handleAllCandidatesExhausted(caseInstance, binding.getName(), capability.name());
-              return;
-          }
-      }
-
-      final AgentRoutingContext ctx =
-              new AgentRoutingContext(
-                      caseInstance.getUuid(),
-                      capability.name(),
-                      caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
-                      caseInstance.tenancyId,
-                      experiences);
-
-      final AgentRoutingStrategy routingStrategy =
-              strategyResolver.resolve(AgentRoutingStrategy.class, caseDefinition.getAgentRouting());
-      final RoutingResult assignment = routingStrategy.select(ctx, candidates);
-
-      switch (assignment) {
-          case RoutingResult.Selected s -> {
-              final var a = s.single();
-              LOG.infof(
-                      "Agent selected: worker='%s' capability='%s' binding='%s' rationale='%s'",
-                      a.executorId(), capability.name(), binding.getName(), a.reason());
-              scheduleWorker(
-                      caseInstance, workers, binding, capability, a.executorId(), signalId, experiences);
-          }
-          case RoutingResult.Unresolvable u -> {
-              LOG.warnf(
-                      "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
-                      capability.name(), binding.getName());
-              tryProvision(
-                      caseInstance,
-                      capability,
-                      binding.getName(),
-                      triggerChannelId,
-                      triggerCorrelationId,
-                      binding.getInputProjectionOverride(),
-                      traceId);
-          }
-          case RoutingResult.Escalated e -> handleEscalation(caseInstance, e, binding);
-      }}
-
-    private void routeToExistingSession(
-            io.casehub.engine.internal.worker.scope.ScopedWorkerSession session,
-            CaseInstance caseInstance) {
-        if (session instanceof io.casehub.engine.internal.worker.scope.ScopedWorkerSession.Persistent p) {
-            JsonNode snapshot = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
-            p.mailbox().offer(new io.casehub.engine.internal.worker.scope.ContextEvent(snapshot, Map.of()));
-            LOG.debugf("Routed context event to persistent session for binding '%s' case %s",
-                       session.bindingName(), caseInstance.getUuid());
-        }
     }
 
+    if (workers == null || workers.isEmpty()) {
+      LOG.warnf("No workers defined; cannot schedule capability '%s'", capability.name());
+      tryProvision(
+          caseInstance,
+          capability,
+          binding.getName(),
+          triggerChannelId,
+          triggerCorrelationId,
+          binding.getInputProjectionOverride(),
+          traceId);
+      return;
+    }
 
+    List<AgentCandidate> candidates =
+        agentCandidateFactory.buildCandidates(
+            caseInstance, caseDefinition, workers, capability, executionManager, capabilityHealth);
 
-    @SuppressWarnings("unchecked")
+    if (candidates.isEmpty()) {
+      LOG.warnf(
+          "No eligible workers for capability '%s' (binding '%s') — all unavailable or no match",
+          capability.name(), binding.getName());
+      tryProvision(
+          caseInstance,
+          capability,
+          binding.getName(),
+          triggerChannelId,
+          triggerCorrelationId,
+          binding.getInputProjectionOverride(),
+          traceId);
+      return;
+    }
+
+    final JsonNode outcomeNode =
+        caseInstance
+            .getCaseContext()
+            .layer(ContextLayer.WORKING)
+            .asJsonNode()
+            .path("_diagnostics")
+            .path(binding.getName());
+    if (outcomeNode.has("excludedAgents")) {
+      final java.util.Set<String> excluded =
+          java.util.stream.StreamSupport.stream(
+                  outcomeNode.get("excludedAgents").spliterator(), false)
+              .map(JsonNode::asText)
+              .collect(java.util.stream.Collectors.toSet());
+      candidates = candidates.stream().filter(c -> !excluded.contains(c.workerId())).toList();
+      if (!excluded.isEmpty()) {
+        LOG.debugf(
+            "Filtered %d excluded agents for binding '%s': %s",
+            excluded.size(), binding.getName(), excluded);
+      }
+      if (candidates.isEmpty()) {
+        LOG.warnf(
+            "All candidates excluded for capability '%s' binding '%s' — auto-exhausting",
+            capability.name(), binding.getName());
+        handleAllCandidatesExhausted(caseInstance, binding.getName(), capability.name());
+        return;
+      }
+    }
+
+    final AgentRoutingContext ctx =
+        new AgentRoutingContext(
+            caseInstance.getUuid(),
+            capability.name(),
+            caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(),
+            caseInstance.tenancyId,
+            experiences);
+
+    final AgentRoutingStrategy routingStrategy =
+        strategyResolver.resolve(AgentRoutingStrategy.class, caseDefinition.getAgentRouting());
+    final RoutingResult assignment = routingStrategy.select(ctx, candidates);
+
+    switch (assignment) {
+      case RoutingResult.Selected s -> {
+        final var a = s.single();
+        LOG.infof(
+            "Agent selected: worker='%s' capability='%s' binding='%s' rationale='%s'",
+            a.executorId(), capability.name(), binding.getName(), a.reason());
+        scheduleWorker(
+            caseInstance, workers, binding, capability, a.executorId(), signalId, experiences);
+      }
+      case RoutingResult.Unresolvable u -> {
+        LOG.warnf(
+            "AgentRoutingStrategy: no qualified agent for capability '%s' binding '%s'",
+            capability.name(), binding.getName());
+        tryProvision(
+            caseInstance,
+            capability,
+            binding.getName(),
+            triggerChannelId,
+            triggerCorrelationId,
+            binding.getInputProjectionOverride(),
+            traceId);
+      }
+      case RoutingResult.Escalated e -> handleEscalation(caseInstance, e, binding);
+    }
+  }
+
+  private void routeToExistingSession(
+      io.casehub.engine.internal.worker.scope.ScopedWorkerSession session,
+      CaseInstance caseInstance) {
+    if (session
+        instanceof io.casehub.engine.internal.worker.scope.ScopedWorkerSession.Persistent p) {
+      JsonNode snapshot = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
+      p.mailbox()
+          .offer(new io.casehub.engine.internal.worker.scope.ContextEvent(snapshot, Map.of()));
+      LOG.debugf(
+          "Routed context event to persistent session for binding '%s' case %s",
+          session.bindingName(), caseInstance.getUuid());
+    }
+  }
+
+  @SuppressWarnings("unchecked")
   private void handleAllCandidatesExhausted(
       final CaseInstance caseInstance, final String bindingName, final String capabilityName) {
     final Map<String, Object> existingOutcomes =
@@ -498,38 +497,39 @@ public class CaseContextChangedEventHandler {
       final String workerId,
       final java.util.UUID signalId,
       final List<RetrievedExperience> experiences) {
-      final Worker selectedWorker =
-              workers.stream().filter(w -> w.name().equals(workerId)).findFirst().orElse(null);
-      if (selectedWorker == null) {
-          LOG.errorf(
-                  "Strategy selected worker '%s' but it was not found in the case definition", workerId);
-          return;
-      }
+    final Worker selectedWorker =
+        workers.stream().filter(w -> w.name().equals(workerId)).findFirst().orElse(null);
+    if (selectedWorker == null) {
+      LOG.errorf(
+          "Strategy selected worker '%s' but it was not found in the case definition", workerId);
+      return;
+    }
 
-      LOG.debugf(
-              "Scheduling worker='%s' capability='%s' binding='%s'",
-              workerId, capability.name(), binding.getName());
+    LOG.debugf(
+        "Scheduling worker='%s' capability='%s' binding='%s'",
+        workerId, capability.name(), binding.getName());
 
-      if (signalId != null) {
-          settlementTracker.incrementExpected(signalId);
-      }
+    if (signalId != null) {
+      settlementTracker.incrementExpected(signalId);
+    }
 
-      io.casehub.api.model.LifecycleScope ls = binding.lifecycleScope();
-      io.casehub.api.model.ExecutionMode  em = binding.executionMode();
+    io.casehub.api.model.LifecycleScope ls = binding.lifecycleScope();
+    io.casehub.api.model.ExecutionMode em = binding.executionMode();
 
-      eventBus.publish(
-              EventBusAddresses.WORKER_SCHEDULE,
-              new WorkerScheduleEvent(
-                      caseInstance,
-                      selectedWorker,
-                      capability,
-                      binding.getName(),
-                      binding.getInputProjectionOverride(),
-                      signalId,
-                      ExecutionOrigin.BINDING_DISPATCH,
-                      experiences,
-                      ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
-                      em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null));}
+    eventBus.publish(
+        EventBusAddresses.WORKER_SCHEDULE,
+        new WorkerScheduleEvent(
+            caseInstance,
+            selectedWorker,
+            capability,
+            binding.getName(),
+            binding.getInputProjectionOverride(),
+            signalId,
+            ExecutionOrigin.BINDING_DISPATCH,
+            experiences,
+            ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
+            em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null));
+  }
 
   private void handleEscalation(
       final CaseInstance caseInstance,

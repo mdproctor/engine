@@ -128,7 +128,14 @@ public class ActionGateRejectedHandler {
 
     if (!outcomeRecorder.isUnsatisfied() && gate.capabilityName() != null) {
       var ctx =
-          new AgentRoutingContext(instance.getUuid(), gate.capabilityName(), contextSnapshot, instance.tenancyId, List.of(), null, null);
+          new AgentRoutingContext(
+              instance.getUuid(),
+              gate.capabilityName(),
+              contextSnapshot,
+              instance.tenancyId,
+              List.of(),
+              null,
+              null);
       outcomeRecorder
           .get()
           .record(ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_REJECTED, null)

@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.internal.engine;
 
+import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.quarkus.runtime.StartupEvent;
 import io.vertx.core.buffer.Buffer;
@@ -40,6 +41,7 @@ public class RuntimeEventCodecRegistrar {
   void onStart(@Observes StartupEvent event) {
     var bus = vertx.getDelegate().eventBus();
     registerIfAbsent(bus, CaseInstance.class, "CaseInstance");
+    registerIfAbsent(bus, WorkerOutcomeResolvedEvent.class, "WorkerOutcomeResolved");
   }
 
   private <T> void registerIfAbsent(

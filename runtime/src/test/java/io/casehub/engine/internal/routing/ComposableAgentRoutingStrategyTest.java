@@ -117,8 +117,7 @@ class ComposableAgentRoutingStrategyTest {
                 "agent-b", new RoutingSignal.CandidateSignal.Score(0.7, null)));
     var p2 =
         testProvider(
-            "personality",
-            Map.of("agent-b", new RoutingSignal.CandidateSignal.Score(0.9, null)));
+            "personality", Map.of("agent-b", new RoutingSignal.CandidateSignal.Score(0.9, null)));
     var strategy = composable(p1, p2);
 
     var result = strategy.select(ctx(null), List.of(candidate("agent-a"), candidate("agent-b")));
@@ -184,8 +183,7 @@ class ComposableAgentRoutingStrategyTest {
 
     var result =
         strategy.select(
-            ctx(null),
-            List.of(candidate("agent-a"), candidate("agent-b"), candidate("agent-c")));
+            ctx(null), List.of(candidate("agent-a"), candidate("agent-b"), candidate("agent-c")));
 
     assertThat(result).isInstanceOf(RoutingResult.Selected.class);
     assertThat(((RoutingResult.Selected) result).single().executorId()).isEqualTo("agent-c");
@@ -194,8 +192,7 @@ class ComposableAgentRoutingStrategyTest {
   // --- helpers ---
 
   private static ComposableAgentRoutingStrategy composable(RoutingSignalProvider... providers) {
-    return new ComposableAgentRoutingStrategy(
-        new RoutingSignalAssembler(List.of(providers)));
+    return new ComposableAgentRoutingStrategy(new RoutingSignalAssembler(List.of(providers)));
   }
 
   private static RoutingSignalProvider testProvider(

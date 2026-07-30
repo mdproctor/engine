@@ -44,7 +44,8 @@ class PersonalitySignalProviderTest {
   @Test
   void noCognitiveDemand_returnsNull() {
     var provider = new PersonalitySignalProvider(noOpHealth());
-    var result = provider.evaluate(ctx(null), List.of(candidateWithProfile("a", Map.of("Ti", 0.5))));
+    var result =
+        provider.evaluate(ctx(null), List.of(candidateWithProfile("a", Map.of("Ti", 0.5))));
     assertThat(result).isNull();
   }
 
@@ -75,7 +76,8 @@ class PersonalitySignalProviderTest {
     var health = mockHealth(Map.of("Fe", 0.8));
     var provider = new PersonalitySignalProvider(health);
     var demand = new CognitiveDemand(Map.of("Ti", 1.0));
-    var result = provider.evaluate(ctx(demand), List.of(candidateWithProfile("a", Map.of("Fe", 0.8))));
+    var result =
+        provider.evaluate(ctx(demand), List.of(candidateWithProfile("a", Map.of("Fe", 0.8))));
 
     assertThat(result).isNotNull();
     var score = ((RoutingSignal.CandidateSignal.Score) result.candidates().get("a")).value();

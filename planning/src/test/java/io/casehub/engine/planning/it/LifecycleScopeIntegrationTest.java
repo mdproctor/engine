@@ -15,6 +15,10 @@
  */
 package io.casehub.engine.planning.it;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
+
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
@@ -40,15 +44,10 @@ import io.casehub.worker.api.WorkerResult;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.junit.jupiter.api.Test;
-
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
-
-import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.awaitility.Awaitility.await;
+import org.junit.jupiter.api.Test;
 
 @QuarkusTest
 class LifecycleScopeIntegrationTest {
@@ -86,35 +85,35 @@ class LifecycleScopeIntegrationTest {
             });
   }
 
-    @Test
-    void reinvoked_success_suppresses_planitem_completion() {
-        UUID caseId = reinvokedCase.startCase(Map.of("ready", true));
+  @Test
+  void reinvoked_success_suppresses_planitem_completion() {
+    UUID caseId = reinvokedCase.startCase(Map.of("ready", true));
 
-        await()
-                .atMost(10, SECONDS)
-                .untilAsserted(() -> assertThat(blackboardRegistry.get(caseId)).isPresent());
+    await()
+        .atMost(10, SECONDS)
+        .untilAsserted(() -> assertThat(blackboardRegistry.get(caseId)).isPresent());
 
-        reinvokedCase.signal(caseId, "input", "first");
+    reinvokedCase.signal(caseId, "input", "first");
 
-        await()
-                .atMost(10, SECONDS)
-                .untilAsserted(
-                        () -> {
-                            var plan = blackboardRegistry.get(caseId);
-                            assertThat(plan).isPresent();
-                            var items = plan.get().getAllPlanItems();
-                            assertThat(items)
-                                    .as("Worker should have been dispatched — PlanItem exists")
-                                    .isNotEmpty();
-                            assertThat(items.stream().anyMatch(pi -> pi.status() == TaskStatus.RUNNING))
-                                    .as("PlanItem should stay RUNNING (completion suppressed for REINVOKED Success)")
-                                    .isTrue();
-                        });
+    await()
+        .atMost(10, SECONDS)
+        .untilAsserted(
+            () -> {
+              var plan = blackboardRegistry.get(caseId);
+              assertThat(plan).isPresent();
+              var items = plan.get().getAllPlanItems();
+              assertThat(items)
+                  .as("Worker should have been dispatched — PlanItem exists")
+                  .isNotEmpty();
+              assertThat(items.stream().anyMatch(pi -> pi.status() == TaskStatus.RUNNING))
+                  .as("PlanItem should stay RUNNING (completion suppressed for REINVOKED Success)")
+                  .isTrue();
+            });
 
-        assertThat(caseInstanceCache.get(caseId).getState())
-                .as("Case should still be active — reinvoked PlanItem stays RUNNING on Success")
-                .isNotEqualTo(CaseStatus.COMPLETED);
-    }
+    assertThat(caseInstanceCache.get(caseId).getState())
+        .as("Case should still be active — reinvoked PlanItem stays RUNNING on Success")
+        .isNotEqualTo(CaseStatus.COMPLETED);
+  }
 
   @Test
   void case_termination_clears_scoped_worker_registry() {
@@ -191,8 +190,7 @@ class LifecycleScopeIntegrationTest {
                       new WorkerFunction.Sync<>(
                           Map.class,
                           Map.class,
-                          (input, scope) ->
-                              WorkerResult.of(Map.of("result", "done"))))
+                          (input, scope) -> WorkerResult.of(Map.of("result", "done"))))
                   .build(),
               Worker.builder()
                   .name("monitor-ls")
@@ -201,8 +199,7 @@ class LifecycleScopeIntegrationTest {
                       new WorkerFunction.Sync<>(
                           Map.class,
                           Map.class,
-                          (input, scope) ->
-                              WorkerResult.of(Map.of("monitored", true))))
+                          (input, scope) -> WorkerResult.of(Map.of("monitored", true))))
                   .build())
           .bindings(
               Binding.builder()
