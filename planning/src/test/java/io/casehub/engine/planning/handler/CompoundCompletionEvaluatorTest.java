@@ -26,7 +26,7 @@ import static org.mockito.Mockito.verify;
 import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
-import io.casehub.engine.planning.event.CompoundCompletedEvent;
+import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
 import io.casehub.engine.planning.plan.CompletionSemantics;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.DispatchMode;
@@ -67,7 +67,7 @@ class CompoundCompletionEvaluatorTest {
         null,
         null,
         false,
-        java.util.Set.of());
+        java.util.Map.of());
   }
 
   // ── ALL semantics ─────────────────────────────────────────────────────────

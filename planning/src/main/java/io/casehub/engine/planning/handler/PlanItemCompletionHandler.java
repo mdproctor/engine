@@ -82,7 +82,8 @@ public class PlanItemCompletionHandler {
   @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED, blocking = true)
   public void onWorkerFinished(WorkflowExecutionCompleted event) {
     // Non-success outcomes are handled by WorkerOutcomeResolvedHandler — skip PlanItem completion.
-    if (!(event.outcome() instanceof WorkerOutcome.Success)) {
+    if (!(event.outcome() instanceof WorkerOutcome.Success)
+        && !(event.outcome() instanceof WorkerOutcome.Completed)) {
       return;
     }
     // bindingName-first lookup: when non-null use direct binding lookup; fallback to completion

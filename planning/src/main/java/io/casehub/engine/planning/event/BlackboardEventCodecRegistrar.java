@@ -39,7 +39,8 @@ public class BlackboardEventCodecRegistrar {
 
   void onStart(@Observes StartupEvent event) {
     var bus = vertx.getDelegate().eventBus();
-    registerIfAbsent(bus, CompoundCompletedEvent.class, "CompoundCompleted");
+    registerIfAbsent(bus, io.casehub.engine.common.internal.event.CompoundCompletedEvent.class, "CompoundCompleted");
+    registerIfAbsent(bus, io.casehub.engine.common.internal.event.CompoundActivatedEvent.class, "CompoundActivated");
   }
 
   private <T> void registerIfAbsent(

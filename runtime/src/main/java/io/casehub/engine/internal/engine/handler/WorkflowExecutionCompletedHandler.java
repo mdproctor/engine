@@ -106,7 +106,9 @@ public class WorkflowExecutionCompletedHandler {
       final Worker worker = event.worker();
 
       // Outcome fork: non-success outcomes route to the semantic failure path.
-      if (!(event.outcome() instanceof WorkerOutcome.Success)) {
+      // Completed is treated like Success — it signals lifecycle scope completion.
+      if (!(event.outcome() instanceof WorkerOutcome.Success)
+          && !(event.outcome() instanceof WorkerOutcome.Completed)) {
         if (event.signalId() != null) {
           settlementTracker.recordCompletion(event.signalId());
         }

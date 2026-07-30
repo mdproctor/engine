@@ -151,7 +151,7 @@ class CompoundLifecycleEvaluatorTest {
             new io.casehub.api.model.evaluator.LambdaExpressionEvaluator(c -> false),
             null,
             false,
-            Set.of());
+            java.util.Map.of());
     plan.registerDefinition(parentWithChild);
 
     evaluator.evaluate(plan, ctx);
@@ -174,7 +174,7 @@ class CompoundLifecycleEvaluatorTest {
             null,
             null,
             false,
-            Set.of());
+            java.util.Map.of());
     plan.registerDefinition(parent);
 
     evaluator.evaluate(plan, ctx);

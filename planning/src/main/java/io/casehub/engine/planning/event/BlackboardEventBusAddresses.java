@@ -26,5 +26,9 @@ public final class BlackboardEventBusAddresses {
   public static final String SUBCASE_EXECUTION_COMPLETED =
       "casehub.blackboard.subcase.execution.completed";
 
-  public static final String COMPOUND_COMPLETED = "casehub.planning.compound.completed";
+  public static final String COMPOUND_COMPLETED =
+      io.casehub.engine.common.internal.event.EventBusAddresses.COMPOUND_COMPLETED;
+
+  public static final String COMPOUND_ACTIVATED =
+      io.casehub.engine.common.internal.event.EventBusAddresses.COMPOUND_ACTIVATED;
 }

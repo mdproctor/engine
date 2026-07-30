@@ -22,10 +22,13 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.ExecutionMode;
+import io.casehub.api.model.LifecycleScope;
 import io.casehub.api.model.RetryState;
 import io.casehub.api.model.WorkRequest;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.model.event.ExecutionOrigin;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.api.spi.WorkerExecutionGuard;
@@ -48,15 +51,17 @@ import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class WorkerScheduleEventHandler {
@@ -144,16 +149,16 @@ public class WorkerScheduleEventHandler {
 
       EventLog eventLog =
           buildEventLog(
-              instance,
-              worker,
-              capability,
-              serialisedPayload,
-              inputDataHash,
-              bindingName,
-              event.signalId(),
-              event.origin(),
-              bridge.contextType().getName(),
-              event.experiences());
+                  instance,
+                  worker,
+                  capability,
+                  serialisedPayload,
+                  inputDataHash,
+                  bindingName,
+                  event.signalId(),
+                  event.origin(),
+                  bridge.contextType().getName(),
+                  event.experiences(), event.lifecycleScope(), event.executionMode());
 
       String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
       java.util.concurrent.locks.ReentrantLock lock =
@@ -198,48 +203,53 @@ public class WorkerScheduleEventHandler {
   }
 
   private EventLog buildEventLog(
-      CaseInstance instance,
-      Worker worker,
-      Capability capability,
-      JsonNode serialisedPayload,
-      String inputDataHash,
-      String bindingName,
-      java.util.UUID signalId,
-      io.casehub.api.model.event.ExecutionOrigin origin,
-      String contextBridgeType,
-      List<RetrievedExperience> experiences) {
-    Map<String, String> metadataBuilder = new HashMap<>();
-    metadataBuilder.put("workerName", worker.name());
-    metadataBuilder.put("capabilityName", capability.name());
-    metadataBuilder.put("inputDataHash", inputDataHash);
-    if (bindingName != null) {
-      metadataBuilder.put("bindingName", bindingName);
-    }
-    if (signalId != null) {
-      metadataBuilder.put("signalId", signalId.toString());
-    }
-    if (origin != null) {
-      metadataBuilder.put("origin", origin.name());
-    }
-    if (contextBridgeType != null) {
-      metadataBuilder.put("contextBridgeType", contextBridgeType);
-    }
+          CaseInstance instance,
+          Worker worker,
+          Capability capability,
+          JsonNode serialisedPayload,
+          String inputDataHash,
+          String bindingName,
+          UUID signalId,
+          ExecutionOrigin origin,
+          String contextBridgeType,
+          List<RetrievedExperience> experiences, LifecycleScope lifecycleScope, ExecutionMode executionMode) {
+      Map<String, String> metadataBuilder = new HashMap<>();
+      metadataBuilder.put("workerName", worker.name());
+      metadataBuilder.put("capabilityName", capability.name());
+      metadataBuilder.put("inputDataHash", inputDataHash);
+      if (bindingName != null) {
+          metadataBuilder.put("bindingName", bindingName);
+      }
+      if (signalId != null) {
+          metadataBuilder.put("signalId", signalId.toString());
+      }
+      if (origin != null) {
+          metadataBuilder.put("origin", origin.name());
+      }
+      if (contextBridgeType != null) {
+          metadataBuilder.put("contextBridgeType", contextBridgeType);
+      }
+      if (lifecycleScope != null) {
+          metadataBuilder.put("lifecycleScope", lifecycleScope.name());
+      }
+      if (executionMode != null) {
+          metadataBuilder.put("executionMode", executionMode.name());
+      }
 
-    ObjectNode metaNode = OBJECT_MAPPER.valueToTree(metadataBuilder);
-    if (experiences != null && !experiences.isEmpty()) {
-      metaNode.set("experiences", OBJECT_MAPPER.valueToTree(experiences));
-    }
+      ObjectNode metaNode = OBJECT_MAPPER.valueToTree(metadataBuilder);
+      if (experiences != null && !experiences.isEmpty()) {
+          metaNode.set("experiences", OBJECT_MAPPER.valueToTree(experiences));
+      }
 
-    EventLog eventLog = new EventLog();
-    eventLog.setCaseId(instance.getUuid());
-    eventLog.setEventType(CaseHubEventType.WORKER_SCHEDULED);
-    eventLog.setStreamType(EventStreamType.CASE);
-    eventLog.setTimestamp(Instant.now());
-    eventLog.setWorkerId(worker.name());
-    eventLog.setMetadata(metaNode);
-    eventLog.setPayload(serialisedPayload);
-    return eventLog;
-  }
+      EventLog eventLog = new EventLog();
+      eventLog.setCaseId(instance.getUuid());
+      eventLog.setEventType(CaseHubEventType.WORKER_SCHEDULED);
+      eventLog.setStreamType(EventStreamType.CASE);
+      eventLog.setTimestamp(Instant.now());
+      eventLog.setWorkerId(worker.name());
+      eventLog.setMetadata(metaNode);
+      eventLog.setPayload(serialisedPayload);
+      return eventLog;}
 
   private Long executeAction(
       ScheduleAction action,
