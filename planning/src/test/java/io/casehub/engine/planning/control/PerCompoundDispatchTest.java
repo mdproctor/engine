@@ -43,7 +43,7 @@ class PerCompoundDispatchTest {
             null,
             null,
             false,
-            java.util.Set.of());
+            java.util.Map.of());
 
     var binding = org.mockito.Mockito.mock(Binding.class);
     org.mockito.Mockito.when(binding.getName()).thenReturn("task-a");
@@ -100,7 +100,7 @@ class PerCompoundDispatchTest {
             null,
             null,
             false,
-            java.util.Set.of());
+            java.util.Map.of());
 
     var binding = org.mockito.Mockito.mock(Binding.class);
     var threeArgCalled = new boolean[] {false};
@@ -145,7 +145,7 @@ class PerCompoundDispatchTest {
             null,
             null,
             false,
-            java.util.Set.of());
+            java.util.Map.of());
 
     var binding = org.mockito.Mockito.mock(Binding.class);
     var model = new DefaultCasePlanModel(UUID.randomUUID());
@@ -169,7 +169,7 @@ class PerCompoundDispatchTest {
             null,
             null,
             false,
-            java.util.Set.of());
+            java.util.Map.of());
 
     var model = new DefaultCasePlanModel(UUID.randomUUID());
     var ctx = org.mockito.Mockito.mock(PlanExecutionContext.class);

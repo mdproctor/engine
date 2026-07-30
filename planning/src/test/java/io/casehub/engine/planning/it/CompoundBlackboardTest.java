@@ -240,7 +240,7 @@ class CompoundBlackboardTest {
             .build();
     registry.get(caseId).get().registerDefinition(compound);
 
-    assertThat(compound.scopedBindings())
+    assertThat(compound.scopedBindings().keySet())
         .as("scoped bindings must be present immediately after construction")
         .containsExactlyInAnyOrder("trigger-on-go", "trigger-b");
 
@@ -254,7 +254,7 @@ class CompoundBlackboardTest {
                     .as("compound with scoped bindings must still activate normally")
                     .isEqualTo(TaskStatus.RUNNING));
 
-    assertThat(compound.scopedBindings())
+    assertThat(compound.scopedBindings().keySet())
         .as("scoped bindings must be preserved after compound activation")
         .containsExactlyInAnyOrder("trigger-on-go", "trigger-b");
   }

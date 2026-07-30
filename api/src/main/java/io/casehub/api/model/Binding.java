@@ -37,6 +37,9 @@ public class Binding {
   private String inputProjectionOverride;
   private Map<String, Object> contextWrite;
   private Set<String> producedKeys;
+  private LifecycleScope lifecycleScope;
+  private Participation participation;
+  private ExecutionMode executionMode;
 
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
@@ -66,6 +69,18 @@ public class Binding {
 
   public void setProducedKeys(Set<String> producedKeys) {
     this.producedKeys = producedKeys != null ? Set.copyOf(producedKeys) : Collections.emptySet();
+  }
+
+  public void setLifecycleScope(LifecycleScope lifecycleScope) {
+    this.lifecycleScope = lifecycleScope;
+  }
+
+  public void setParticipation(Participation participation) {
+    this.participation = participation;
+  }
+
+  public void setExecutionMode(ExecutionMode executionMode) {
+    this.executionMode = executionMode;
   }
 
   public BindingTarget target() {
@@ -113,6 +128,18 @@ public class Binding {
     return producedKeys != null ? producedKeys : Collections.emptySet();
   }
 
+  public LifecycleScope lifecycleScope() {
+    return lifecycleScope != null ? lifecycleScope : LifecycleScope.BINDING;
+  }
+
+  public Participation participation() {
+    return participation != null ? participation : Participation.PARTICIPANT;
+  }
+
+  public ExecutionMode executionMode() {
+    return executionMode != null ? executionMode : ExecutionMode.TRANSIENT;
+  }
+
   public String effectiveInputProjection(Capability capability) {
     return inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
   }
@@ -132,6 +159,9 @@ public class Binding {
     private String inputProjectionOverride;
     private Map<String, Object> contextWrite;
     private Set<String> producedKeys;
+    private LifecycleScope lifecycleScope;
+    private Participation participation;
+    private ExecutionMode executionMode;
 
     private Builder() {}
 
@@ -204,6 +234,21 @@ public class Binding {
       return this;
     }
 
+    public Builder lifecycleScope(LifecycleScope lifecycleScope) {
+      this.lifecycleScope = lifecycleScope;
+      return this;
+    }
+
+    public Builder participation(Participation participation) {
+      this.participation = participation;
+      return this;
+    }
+
+    public Builder executionMode(ExecutionMode executionMode) {
+      this.executionMode = executionMode;
+      return this;
+    }
+
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -211,6 +256,35 @@ public class Binding {
         throw new IllegalStateException(
             "Binding '" + name + "' must have a target (capability, subCase, or humanTask)");
       }
+
+      LifecycleScope ls =
+          this.lifecycleScope != null ? this.lifecycleScope : LifecycleScope.BINDING;
+      ExecutionMode em = this.executionMode != null ? this.executionMode : ExecutionMode.TRANSIENT;
+      Participation p = this.participation != null ? this.participation : Participation.PARTICIPANT;
+
+      if (ls == LifecycleScope.BINDING && em != ExecutionMode.TRANSIENT) {
+        throw new IllegalArgumentException(
+            "BINDING scope requires TRANSIENT execution mode, got " + em);
+      }
+      if (p == Participation.COMPANION && ls == LifecycleScope.BINDING) {
+        throw new IllegalArgumentException(
+            "COMPANION requires COMPOUND or CASE scope, got BINDING");
+      }
+      if (on instanceof ScopeActivatedTrigger && ls == LifecycleScope.BINDING) {
+        throw new IllegalArgumentException(
+            "ScopeActivatedTrigger requires COMPOUND or CASE scope, got BINDING");
+      }
+      if (ls == LifecycleScope.CASE && p != Participation.COMPANION) {
+        throw new IllegalArgumentException("CASE scope requires COMPANION participation, got " + p);
+      }
+      if (ls != LifecycleScope.BINDING && !(target instanceof CapabilityTarget)) {
+        throw new IllegalArgumentException(
+            "Lifecycle scope "
+                + ls
+                + " requires CapabilityTarget, got "
+                + target.getClass().getSimpleName());
+      }
+
       Binding b = new Binding(name, target, on);
       b.setWhen(when);
       b.setConflictResolverStrategy(conflictResolverStrategy);
@@ -218,6 +292,9 @@ public class Binding {
       b.setInputProjectionOverride(inputProjectionOverride);
       b.setContextWrite(contextWrite);
       b.setProducedKeys(producedKeys);
+      b.setLifecycleScope(this.lifecycleScope);
+      b.setParticipation(this.participation);
+      b.setExecutionMode(this.executionMode);
       return b;
     }
   }

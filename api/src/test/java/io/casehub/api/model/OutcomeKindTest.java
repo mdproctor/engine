@@ -64,11 +64,12 @@ class OutcomeKindTest {
 
   @Test
   void allValuesPresent() {
-    assertEquals(5, OutcomeKind.values().length);
+    assertEquals(6, OutcomeKind.values().length);
     assertNotNull(OutcomeKind.valueOf("SUCCESS"));
     assertNotNull(OutcomeKind.valueOf("DECLINED"));
     assertNotNull(OutcomeKind.valueOf("FAILED"));
     assertNotNull(OutcomeKind.valueOf("EXPIRED"));
     assertNotNull(OutcomeKind.valueOf("ESCALATED"));
+    assertNotNull(OutcomeKind.valueOf("COMPLETED"));
   }
 }

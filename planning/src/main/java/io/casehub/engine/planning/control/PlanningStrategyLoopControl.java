@@ -89,12 +89,12 @@ public class PlanningStrategyLoopControl implements LoopControl {
 
     Set<String> allScopedNames =
         plan.getAllCompounds().stream()
-            .flatMap(c -> c.scopedBindings().stream())
+            .flatMap(c -> c.scopedBindings().keySet().stream())
             .collect(Collectors.toSet());
 
     Set<String> activeScopedNames =
         plan.getCompoundsByStatus(TaskStatus.RUNNING).stream()
-            .flatMap(c -> c.scopedBindings().stream())
+            .flatMap(c -> c.scopedBindings().keySet().stream())
             .collect(Collectors.toSet());
 
     List<Binding> gatedEligible =

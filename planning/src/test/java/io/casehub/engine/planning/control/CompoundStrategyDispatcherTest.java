@@ -74,7 +74,7 @@ class CompoundStrategyDispatcherTest {
         null,
         null,
         false,
-        java.util.Set.of());
+        java.util.Map.of());
   }
 
   // ── Grouping ──────────────────────────────────────────────────────────────

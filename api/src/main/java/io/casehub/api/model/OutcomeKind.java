@@ -26,7 +26,8 @@ public enum OutcomeKind {
   DECLINED,
   FAILED,
   EXPIRED,
-  ESCALATED;
+  ESCALATED,
+  COMPLETED;
 
   public static OutcomeKind fromWorkerOutcome(WorkerOutcome outcome) {
     return switch (outcome) {
@@ -35,10 +36,11 @@ public enum OutcomeKind {
       case WorkerOutcome.Declined ignored -> DECLINED;
       case WorkerOutcome.Failed ignored -> FAILED;
       case WorkerOutcome.Expired ignored -> EXPIRED;
+      case WorkerOutcome.Completed ignored -> COMPLETED;
     };
   }
 
   public boolean isTerminal() {
-    return this != SUCCESS;
+    return this != SUCCESS && this != COMPLETED;
   }
 }
