@@ -22,6 +22,7 @@ import io.casehub.api.engine.YamlCaseHub;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.RetrievedExperience;
+import io.casehub.api.spi.routing.RoutingOutcome;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.FeatureValue;
@@ -119,7 +120,7 @@ class CbrRoutingIntegrationTest {
     assertThat(exp.planTrace().get(0).bindingName()).isEqualTo("plan-on-enemy-sighted");
     assertThat(exp.planTrace().get(0).capabilityName()).isEqualTo("planBattle");
     assertThat(exp.planTrace().get(0).workerName()).isEqualTo("battle-planner");
-    assertThat(exp.planTrace().get(0).stepOutcome()).isEqualTo("SUCCESS");
+    assertThat(exp.planTrace().get(0).stepOutcome()).isEqualTo(RoutingOutcome.SUCCESS);
   }
 
   // ------------------------------------------------------------------ //

@@ -27,6 +27,7 @@ import io.casehub.api.model.cbr.JqFeatureExtractor;
 import io.casehub.api.model.cbr.LambdaFeatureExtractor;
 import io.casehub.api.spi.CaseOutcomeEvent;
 import io.casehub.api.spi.CaseOutcomeObserver;
+import io.casehub.api.spi.routing.RoutingOutcome;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
@@ -55,13 +56,13 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
   private static final Logger LOG = Logger.getLogger(CbrCaseRetainObserver.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private static final Map<TaskStatus, String> OUTCOME_MAP =
+  private static final Map<TaskStatus, RoutingOutcome> OUTCOME_MAP =
       Map.of(
-          TaskStatus.COMPLETED, "SUCCESS",
-          TaskStatus.FAULTED, "FAILURE",
-          TaskStatus.REJECTED, "DECLINED",
-          TaskStatus.CANCELLED, "CANCELLED",
-          TaskStatus.OBSOLETE, "OBSOLETE");
+          TaskStatus.COMPLETED, RoutingOutcome.SUCCESS,
+          TaskStatus.FAULTED, RoutingOutcome.FAILURE,
+          TaskStatus.REJECTED, RoutingOutcome.DECLINED,
+          TaskStatus.CANCELLED, RoutingOutcome.CANCELLED,
+          TaskStatus.OBSOLETE, RoutingOutcome.OBSOLETE);
 
   private final CbrCaseMemoryStore cbrStore;
   private final CaseDefinitionRegistry registry;
@@ -277,7 +278,7 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
         record.bindingName(),
         capabilityNameMap.get(record.bindingName()),
         record.executorName(),
-        OUTCOME_MAP.getOrDefault(record.status(), record.status().name()),
+        OUTCOME_MAP.getOrDefault(record.status(), RoutingOutcome.FAILURE).name(),
         priority,
         Map.of());
   }

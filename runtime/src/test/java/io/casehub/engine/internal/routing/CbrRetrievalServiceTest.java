@@ -532,6 +532,58 @@ class CbrRetrievalServiceTest {
     assertNull(result.get(0).planTrace().get(0).adaptationAction());
   }
 
+  @Test
+  void planTrace_stepOutcome_convertedToRoutingOutcome() {
+    CbrConfig config =
+        CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
+    CaseDefinition def = buildDefinition(config);
+    PlanTrace planTrace = new PlanTrace("bind1", "cap1", "worker1", "DECLINED", 0, Map.of());
+    PlanCbrCase cbrCase =
+        new PlanCbrCase(
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.95,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(planTrace),
+            null,
+            null);
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, 0.87)));
+
+    List<RetrievedExperience> result = service.retrieve(def, buildInstance());
+
+    assertEquals(1, result.size());
+    assertEquals(
+        io.casehub.api.spi.routing.RoutingOutcome.DECLINED,
+        result.get(0).planTrace().get(0).stepOutcome());
+  }
+
+  @Test
+  void planTrace_unknownOutcome_fallsBackToFailure() {
+    CbrConfig config =
+        CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
+    CaseDefinition def = buildDefinition(config);
+    PlanTrace planTrace = new PlanTrace("bind1", "cap1", "worker1", "UNKNOWN_VALUE", 0, Map.of());
+    PlanCbrCase cbrCase =
+        new PlanCbrCase(
+            "problem1",
+            "solution1",
+            "COMPLETED",
+            0.95,
+            Map.of("f1", FeatureValue.string("v1")),
+            List.of(planTrace),
+            null,
+            null);
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, 0.87)));
+
+    List<RetrievedExperience> result = service.retrieve(def, buildInstance());
+
+    assertEquals(1, result.size());
+    assertEquals(
+        io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
+        result.get(0).planTrace().get(0).stepOutcome());
+  }
+
   private CaseDefinition buildDefinition(CbrConfig config) {
     CaseDefinition def =
         CaseDefinition.builder().namespace("ns").name("test-case").version("1.0.0").build();

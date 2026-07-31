@@ -27,6 +27,7 @@ import io.casehub.api.model.cbr.JqFeatureExtractor;
 import io.casehub.api.model.cbr.LambdaFeatureExtractor;
 import io.casehub.api.spi.routing.ExperiencePlanStep;
 import io.casehub.api.spi.routing.RetrievedExperience;
+import io.casehub.api.spi.routing.RoutingOutcome;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -333,7 +334,7 @@ public class CbrRetrievalService {
                       s.bindingName(),
                       s.capabilityName(),
                       s.workerName(),
-                      s.stepOutcome(),
+                      parseOutcome(s.stepOutcome()),
                       s.priority(),
                       s.parameters(),
                       s.action().name(),
@@ -353,9 +354,17 @@ public class CbrRetrievalService {
                     t.bindingName(),
                     t.capabilityName(),
                     t.workerName(),
-                    t.stepOutcome(),
+                    parseOutcome(t.stepOutcome()),
                     t.priority(),
                     t.parameters()))
         .toList();
+  }
+
+  private static RoutingOutcome parseOutcome(String raw) {
+    try {
+      return RoutingOutcome.valueOf(raw);
+    } catch (IllegalArgumentException e) {
+      return RoutingOutcome.FAILURE;
+    }
   }
 }
