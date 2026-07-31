@@ -27,7 +27,9 @@ class ExperiencePlanStepTest {
 
   @Test
   void valid_construction() {
-    var step = new ExperiencePlanStep("bind1", "cap1", "worker1", "SUCCESS", 1, Map.of("k", "v"));
+    var step =
+        new ExperiencePlanStep(
+            "bind1", "cap1", "worker1", RoutingOutcome.SUCCESS, 1, Map.of("k", "v"));
     assertEquals("bind1", step.bindingName());
     assertEquals(1, step.priority());
   }
@@ -36,12 +38,12 @@ class ExperiencePlanStepTest {
   void null_bindingName_throws() {
     assertThrows(
         NullPointerException.class,
-        () -> new ExperiencePlanStep(null, "cap", "w", "ok", 0, Map.of()));
+        () -> new ExperiencePlanStep(null, "cap", "w", RoutingOutcome.FAILURE, 0, Map.of()));
   }
 
   @Test
   void null_capabilityName_accepted() {
-    var step = new ExperiencePlanStep("b", null, "w", "ok", 0, Map.of());
+    var step = new ExperiencePlanStep("b", null, "w", RoutingOutcome.FAILURE, 0, Map.of());
     assertNull(step.capabilityName());
   }
 
@@ -49,12 +51,12 @@ class ExperiencePlanStepTest {
   void negative_priority_throws() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new ExperiencePlanStep("b", "c", "w", "ok", -1, Map.of()));
+        () -> new ExperiencePlanStep("b", "c", "w", RoutingOutcome.FAILURE, -1, Map.of()));
   }
 
   @Test
   void null_parameters_defaults_to_empty() {
-    var step = new ExperiencePlanStep("b", "c", "w", "ok", 0, null);
+    var step = new ExperiencePlanStep("b", "c", "w", RoutingOutcome.FAILURE, 0, null);
     assertTrue(step.parameters().isEmpty());
   }
 
@@ -65,7 +67,7 @@ class ExperiencePlanStepTest {
             "bind1",
             "cap1",
             "worker1",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "BOOSTED",
@@ -77,14 +79,16 @@ class ExperiencePlanStepTest {
   @Test
   void adaptation_fields_nullable() {
     var step =
-        new ExperiencePlanStep("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of(), null, null);
+        new ExperiencePlanStep(
+            "bind1", "cap1", "worker1", RoutingOutcome.SUCCESS, 0, Map.of(), null, null);
     assertNull(step.adaptationAction());
     assertNull(step.adaptationReason());
   }
 
   @Test
   void convenience_constructor_nulls_adaptation_fields() {
-    var step = new ExperiencePlanStep("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
+    var step =
+        new ExperiencePlanStep("bind1", "cap1", "worker1", RoutingOutcome.SUCCESS, 0, Map.of());
     assertNull(step.adaptationAction());
     assertNull(step.adaptationReason());
   }

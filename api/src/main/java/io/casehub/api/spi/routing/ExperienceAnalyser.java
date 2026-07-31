@@ -31,12 +31,14 @@ import java.util.Set;
 public final class ExperienceAnalyser {
 
   public static final Map<RoutingOutcome, Double> DEFAULT_OUTCOME_WEIGHTS =
-      Map.of(
-          RoutingOutcome.SUCCESS, 1.0,
-          RoutingOutcome.GATE_EXPIRED, 0.5,
-          RoutingOutcome.GATE_REJECTED, 0.25,
-          RoutingOutcome.FAILURE, 0.0,
-          RoutingOutcome.DECLINED, 0.0);
+      Map.ofEntries(
+          Map.entry(RoutingOutcome.SUCCESS, 1.0),
+          Map.entry(RoutingOutcome.FAILURE, -1.0),
+          Map.entry(RoutingOutcome.GATE_EXPIRED, -0.25),
+          Map.entry(RoutingOutcome.GATE_REJECTED, -0.5),
+          Map.entry(RoutingOutcome.DECLINED, -0.5),
+          Map.entry(RoutingOutcome.CANCELLED, 0.0),
+          Map.entry(RoutingOutcome.OBSOLETE, 0.0));
 
   private ExperienceAnalyser() {}
 
@@ -78,12 +80,7 @@ public final class ExperienceAnalyser {
           continue;
         }
 
-        RoutingOutcome outcome;
-        try {
-          outcome = RoutingOutcome.valueOf(step.stepOutcome());
-        } catch (final IllegalArgumentException e) {
-          continue;
-        }
+        RoutingOutcome outcome = step.stepOutcome();
 
         final double outcomeWeight = outcomeWeights.getOrDefault(outcome, 0.0);
         final double[] stats = workerStats.computeIfAbsent(step.workerName(), k -> new double[2]);

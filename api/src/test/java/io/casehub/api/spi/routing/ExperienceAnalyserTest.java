@@ -38,7 +38,7 @@ class ExperienceAnalyserTest {
 
   @Test
   void noMatchingCapability_returnsEmptyMap() {
-    var exp = experience(0.8, step("agent-a", "style-review", "SUCCESS"));
+    var exp = experience(0.8, step("agent-a", "style-review", RoutingOutcome.SUCCESS));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
@@ -50,7 +50,7 @@ class ExperienceAnalyserTest {
 
   @Test
   void noMatchingWorker_returnsEmptyMap() {
-    var exp = experience(0.8, step("agent-b", "security-review", "SUCCESS"));
+    var exp = experience(0.8, step("agent-b", "security-review", RoutingOutcome.SUCCESS));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
@@ -62,7 +62,7 @@ class ExperienceAnalyserTest {
 
   @Test
   void singleSuccessStep_returnsFullScore() {
-    var exp = experience(0.9, step("agent-a", "security-review", "SUCCESS"));
+    var exp = experience(0.9, step("agent-a", "security-review", RoutingOutcome.SUCCESS));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
@@ -74,44 +74,42 @@ class ExperienceAnalyserTest {
 
   @Test
   void singleFailureStep_returnsZeroScore() {
-    var exp = experience(0.9, step("agent-a", "security-review", "FAILURE"));
+    var exp = experience(0.9, step("agent-a", "security-review", RoutingOutcome.FAILURE));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
             Set.of("agent-a"),
             "security-review",
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
-    assertThat(result).containsEntry("agent-a", 0.0);
+    assertThat(result).containsEntry("agent-a", -1.0);
   }
 
   @Test
   void multipleExperiences_weightedAverage() {
-    var exp1 = experience(0.9, step("agent-a", "security-review", "SUCCESS"));
-    var exp2 = experience(0.3, step("agent-a", "security-review", "FAILURE"));
+    var exp1 = experience(0.9, step("agent-a", "security-review", RoutingOutcome.SUCCESS));
+    var exp2 = experience(0.3, step("agent-a", "security-review", RoutingOutcome.FAILURE));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp1, exp2),
             Set.of("agent-a"),
             "security-review",
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
-    assertThat(result.get("agent-a")).isCloseTo(0.75, within(0.001));
+    assertThat(result.get("agent-a")).isCloseTo(0.5, within(0.001));
   }
 
   @Test
-  void unknownOutcome_skipped() {
-    var exp = experience(0.8, step("agent-a", "security-review", "UNKNOWN_STATUS"));
+  void outcomeNotInWeightsMap_treatedAsZeroWeight() {
+    var exp = experience(0.8, step("agent-a", "security-review", RoutingOutcome.CANCELLED));
+    var customWeights = Map.of(RoutingOutcome.SUCCESS, 1.0, RoutingOutcome.FAILURE, 0.0);
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
-            List.of(exp),
-            Set.of("agent-a"),
-            "security-review",
-            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
-    assertThat(result).isEmpty();
+            List.of(exp), Set.of("agent-a"), "security-review", customWeights);
+    assertThat(result).containsEntry("agent-a", 0.0);
   }
 
   @Test
   void zeroSimilarity_experienceSkipped() {
-    var exp = experience(0.0, step("agent-a", "security-review", "SUCCESS"));
+    var exp = experience(0.0, step("agent-a", "security-review", RoutingOutcome.SUCCESS));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
@@ -123,7 +121,7 @@ class ExperienceAnalyserTest {
 
   @Test
   void negativeSimilarity_experienceSkipped() {
-    var exp = experience(-0.5, step("agent-a", "security-review", "SUCCESS"));
+    var exp = experience(-0.5, step("agent-a", "security-review", RoutingOutcome.SUCCESS));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
@@ -138,8 +136,8 @@ class ExperienceAnalyserTest {
     var exp =
         experience(
             0.8,
-            step("agent-a", "security-review", "SUCCESS"),
-            step("agent-b", "security-review", "FAILURE"));
+            step("agent-a", "security-review", RoutingOutcome.SUCCESS),
+            step("agent-b", "security-review", RoutingOutcome.FAILURE));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
@@ -147,7 +145,7 @@ class ExperienceAnalyserTest {
             "security-review",
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
     assertThat(result).containsEntry("agent-a", 1.0);
-    assertThat(result).containsEntry("agent-b", 0.0);
+    assertThat(result).containsEntry("agent-b", -1.0);
   }
 
   @Test
@@ -158,7 +156,7 @@ class ExperienceAnalyserTest {
             RoutingOutcome.FAILURE, 0.0,
             RoutingOutcome.GATE_REJECTED, 0.0,
             RoutingOutcome.GATE_EXPIRED, 0.0);
-    var exp = experience(1.0, step("agent-a", "security-review", "SUCCESS"));
+    var exp = experience(1.0, step("agent-a", "security-review", RoutingOutcome.SUCCESS));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp), Set.of("agent-a"), "security-review", customWeights);
@@ -167,32 +165,69 @@ class ExperienceAnalyserTest {
 
   @Test
   void gateExpired_partialWeight() {
-    var exp = experience(1.0, step("agent-a", "security-review", "GATE_EXPIRED"));
+    var exp = experience(1.0, step("agent-a", "security-review", RoutingOutcome.GATE_EXPIRED));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
             Set.of("agent-a"),
             "security-review",
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
-    assertThat(result).containsEntry("agent-a", 0.5);
+    assertThat(result).containsEntry("agent-a", -0.25);
   }
 
   @Test
   void gateRejected_weakWeight() {
-    var exp = experience(1.0, step("agent-a", "security-review", "GATE_REJECTED"));
+    var exp = experience(1.0, step("agent-a", "security-review", RoutingOutcome.GATE_REJECTED));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(exp),
             Set.of("agent-a"),
             "security-review",
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
-    assertThat(result).containsEntry("agent-a", 0.25);
+    assertThat(result).containsEntry("agent-a", -0.5);
+  }
+
+  @Test
+  void declined_negativeWeight() {
+    var exp = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("agent-a"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result.get("agent-a")).isCloseTo(-0.5, within(0.001));
+  }
+
+  @Test
+  void cancelled_zeroWeight() {
+    var exp = experience(1.0, step("agent-a", "security-review", RoutingOutcome.CANCELLED));
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("agent-a"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).containsEntry("agent-a", 0.0);
+  }
+
+  @Test
+  void obsolete_zeroWeight() {
+    var exp = experience(1.0, step("agent-a", "security-review", RoutingOutcome.OBSOLETE));
+    Map<String, Double> result =
+        ExperienceAnalyser.workerSuccessRates(
+            List.of(exp),
+            Set.of("agent-a"),
+            "security-review",
+            ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
+    assertThat(result).containsEntry("agent-a", 0.0);
   }
 
   @Test
   void nullWorkerName_stepSkipped() {
     var nullWorkerStep =
-        new ExperiencePlanStep("binding", "security-review", null, "SUCCESS", 0, Map.of());
+        new ExperiencePlanStep(
+            "binding", "security-review", null, RoutingOutcome.SUCCESS, 0, Map.of());
     var exp = experience(0.8, nullWorkerStep);
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
@@ -215,7 +250,7 @@ class ExperienceAnalyserTest {
             "binding-agent-a",
             "security-review",
             "agent-a",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "ADDED",
@@ -225,7 +260,7 @@ class ExperienceAnalyserTest {
             "binding-agent-b",
             "security-review",
             "agent-b",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "RETAINED",
@@ -257,7 +292,7 @@ class ExperienceAnalyserTest {
             "binding-agent-a",
             "security-review",
             "agent-a",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "BOOSTED",
@@ -276,7 +311,7 @@ class ExperienceAnalyserTest {
 
   @Test
   void nullAdaptationAction_includedInStatistics() {
-    var unadaptedStep = step("agent-a", "security-review", "SUCCESS");
+    var unadaptedStep = step("agent-a", "security-review", RoutingOutcome.SUCCESS);
     var exp = experience(0.8, unadaptedStep);
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
@@ -294,7 +329,7 @@ class ExperienceAnalyserTest {
             "binding-agent-a",
             "security-review",
             "agent-a",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "SUBSTITUTED",
@@ -304,7 +339,7 @@ class ExperienceAnalyserTest {
             "binding-agent-b",
             "security-review",
             "agent-b",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "RETAINED",
@@ -336,7 +371,7 @@ class ExperienceAnalyserTest {
             "binding-agent-a",
             "security-review",
             "agent-a",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "SUBSTITUTED",
@@ -346,7 +381,7 @@ class ExperienceAnalyserTest {
             "binding-agent-b",
             "security-review",
             "agent-b",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "ADDED",
@@ -356,7 +391,7 @@ class ExperienceAnalyserTest {
             "binding-agent-c",
             "security-review",
             "agent-c",
-            "FAILURE",
+            RoutingOutcome.FAILURE,
             0,
             Map.of(),
             "BOOSTED",
@@ -379,12 +414,14 @@ class ExperienceAnalyserTest {
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
     assertThat(result).doesNotContainKey("agent-a");
     assertThat(result).doesNotContainKey("agent-b");
-    assertThat(result).containsEntry("agent-c", 0.0);
+    assertThat(result).containsEntry("agent-c", -1.0);
   }
 
   @Test
   void predicateOverload_matchesByBindingName() {
-    var step = new ExperiencePlanStep("review-binding", null, "reviewer-a", "SUCCESS", 0, Map.of());
+    var step =
+        new ExperiencePlanStep(
+            "review-binding", null, "reviewer-a", RoutingOutcome.SUCCESS, 0, Map.of());
     var exp =
         new RetrievedExperience(
             "problem", "solution", "COMPLETED", 1.0, 0.8, Map.of(), List.of(step), Map.of());
@@ -399,7 +436,9 @@ class ExperienceAnalyserTest {
 
   @Test
   void predicateOverload_nullCapabilityName_noMatchOnCapabilityString() {
-    var step = new ExperiencePlanStep("review-binding", null, "reviewer-a", "SUCCESS", 0, Map.of());
+    var step =
+        new ExperiencePlanStep(
+            "review-binding", null, "reviewer-a", RoutingOutcome.SUCCESS, 0, Map.of());
     var exp =
         new RetrievedExperience(
             "problem", "solution", "COMPLETED", 1.0, 0.8, Map.of(), List.of(step), Map.of());
@@ -414,29 +453,29 @@ class ExperienceAnalyserTest {
 
   @Test
   void declinedOutcomeContributesToEvidenceMass() {
-    var successExp = experience(1.0, step("agent-a", "security-review", "SUCCESS"));
-    var declinedExp = experience(1.0, step("agent-a", "security-review", "DECLINED"));
+    var successExp = experience(1.0, step("agent-a", "security-review", RoutingOutcome.SUCCESS));
+    var declinedExp = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(successExp, declinedExp),
             Set.of("agent-a"),
             "security-review",
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
-    assertThat(result.get("agent-a")).isCloseTo(0.5, within(0.001));
+    assertThat(result.get("agent-a")).isCloseTo(0.25, within(0.001));
   }
 
   @Test
   void frequentDeclinesProduceLowScore() {
-    var declined1 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var declined2 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var declined3 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var declined4 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var declined5 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var declined6 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var declined7 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var declined8 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var declined9 = experience(1.0, step("agent-a", "security-review", "DECLINED"));
-    var success = experience(1.0, step("agent-a", "security-review", "SUCCESS"));
+    var declined1 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var declined2 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var declined3 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var declined4 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var declined5 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var declined6 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var declined7 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var declined8 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var declined9 = experience(1.0, step("agent-a", "security-review", RoutingOutcome.DECLINED));
+    var success = experience(1.0, step("agent-a", "security-review", RoutingOutcome.SUCCESS));
     Map<String, Double> result =
         ExperienceAnalyser.workerSuccessRates(
             List.of(
@@ -445,10 +484,10 @@ class ExperienceAnalyserTest {
             Set.of("agent-a"),
             "security-review",
             ExperienceAnalyser.DEFAULT_OUTCOME_WEIGHTS);
-    assertThat(result.get("agent-a")).isCloseTo(0.1, within(0.001));
+    assertThat(result.get("agent-a")).isCloseTo(-0.35, within(0.001));
   }
 
-  private static ExperiencePlanStep step(String worker, String capability, String outcome) {
+  private static ExperiencePlanStep step(String worker, String capability, RoutingOutcome outcome) {
     return new ExperiencePlanStep("binding-" + worker, capability, worker, outcome, 0, Map.of());
   }
 }

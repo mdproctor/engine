@@ -28,7 +28,7 @@ class RetrievedExperienceTest {
 
   @Test
   void valid_construction() {
-    var step = new ExperiencePlanStep("b1", "cap1", "w1", "SUCCESS", 0, Map.of());
+    var step = new ExperiencePlanStep("b1", "cap1", "w1", RoutingOutcome.SUCCESS, 0, Map.of());
     var exp =
         new RetrievedExperience(
             "problem",

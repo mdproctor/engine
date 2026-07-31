@@ -22,7 +22,7 @@ public record ExperiencePlanStep(
     String bindingName,
     String capabilityName,
     String workerName,
-    String stepOutcome,
+    RoutingOutcome stepOutcome,
     int priority,
     Map<String, Object> parameters,
     String adaptationAction,
@@ -40,7 +40,7 @@ public record ExperiencePlanStep(
       String bindingName,
       String capabilityName,
       String workerName,
-      String stepOutcome,
+      RoutingOutcome stepOutcome,
       int priority,
       Map<String, Object> parameters) {
     this(bindingName, capabilityName, workerName, stepOutcome, priority, parameters, null, null);
