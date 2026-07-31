@@ -361,6 +361,7 @@ public class CbrRetrievalService {
   }
 
   private static RoutingOutcome parseOutcome(String raw) {
+    if (raw == null) return RoutingOutcome.FAILURE;
     try {
       return RoutingOutcome.valueOf(raw);
     } catch (IllegalArgumentException e) {

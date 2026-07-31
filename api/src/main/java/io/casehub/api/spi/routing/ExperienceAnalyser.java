@@ -53,7 +53,7 @@ public final class ExperienceAnalyser {
    * @param eligibleWorkerIds worker IDs to score
    * @param stepFilter predicate selecting which plan trace steps to include in scoring
    * @param outcomeWeights per-outcome scoring weights
-   * @return per-worker scores in [0.0, 1.0]; empty map when no matching data
+   * @return per-worker scores in [-1.0, 1.0]; empty map when no matching data
    */
   public static Map<String, Double> workerSuccessRates(
       final List<RetrievedExperience> experiences,
