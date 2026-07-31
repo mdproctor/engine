@@ -50,6 +50,10 @@ import io.casehub.neocortex.memory.CaseMemoryStore;
 import io.casehub.neocortex.memory.Memory;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.MemoryQuery;
+import io.casehub.platform.api.acl.AccessControlProvider;
+import io.casehub.platform.api.acl.AclAction;
+import io.casehub.platform.api.acl.AclEntryRequest;
+import io.casehub.platform.api.acl.AclResourceType;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -97,6 +101,7 @@ class CaseHubReactor {
   @Inject JQEvaluator jqEvaluator;
 
   @Inject SignalSettlementTracker settlementTracker;
+  @Inject AccessControlProvider accessControlProvider;
 
   UUID startCase(CaseDefinition definition, MutableCaseContext context, UUID caseId) {
     return startCaseInternal(definition, context, caseId, null, null, null);
@@ -139,6 +144,21 @@ class CaseHubReactor {
       Map<String, Object> semanticData) {
     CaseInstance instance =
         buildInstance(definition, context, caseId, parentCaseId, parentPropCtx, semanticData);
+
+    Map<AclAction, List<String>> authorization = definition.getAuthorization();
+    if (authorization != null && !authorization.isEmpty()) {
+      String resourceId = AclResourceType.CASE + ":" + instance.getUuid();
+      List<AclEntryRequest> requests = new ArrayList<>();
+      for (var entry : authorization.entrySet()) {
+        for (String group : entry.getValue()) {
+          requests.add(new AclEntryRequest("group:" + group, resourceId, entry.getKey(), null));
+        }
+      }
+      requests.add(
+          new AclEntryRequest(currentPrincipal.actorId(), resourceId, AclAction.ADMIN, null));
+      accessControlProvider.grantBatch(requests);
+    }
+
     LOG.info("Case started with caseId: " + instance.getUuid());
     caseStartedHandler.onCaseStarted(new CaseStartedEvent(instance));
     return instance.getUuid();

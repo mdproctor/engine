@@ -59,7 +59,6 @@ class WorkerResultExpiredTest {
           case WorkerOutcome.Declined d -> "declined";
           case WorkerOutcome.Failed f -> "failed";
           case WorkerOutcome.Expired e -> "expired:" + e.reason();
-          case WorkerOutcome.Completed c -> "completed";
         };
     assertThat(matched).isEqualTo("expired:reason");
   }

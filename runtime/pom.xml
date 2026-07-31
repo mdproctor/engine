@@ -193,6 +193,11 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-acl-inmem</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <properties>

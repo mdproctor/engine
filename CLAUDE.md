@@ -389,6 +389,8 @@ Layer 3 agent routing uses `ComposableAgentRoutingStrategy` (`@DefaultBean`, id=
 
 **CognitiveDemand** (`api/model/`) — weighted cognitive function demand profile on `Capability`. `Map<String, Double>` keyed by Jungian function names (Ti, Te, Fi, Fe, Si, Se, Ni, Ne), summing to 1.0. Stored on `CaseDefinition` as `Map<String, CognitiveDemand> cognitiveDemands` (keyed by capability name, NOT on the foundation-tier `Capability` record). YAML: `cognitiveDemand:` nested under each capability. Refs engine#795.
 
+**CaseDefinition authorization** — `CaseDefinition` gains `authorization` (`Map<AclAction, List<String>>`, nullable). Declares which groups receive ACL grants when a case is started. `CaseHubReactor.startCaseInternal()` calls `AccessControlProvider.grantBatch()` before `onCaseStarted()`. Case creator receives automatic ADMIN. If absent, no grants are created (NoOp default). YAML: `authorization:` block under `spec:` with keys `read`, `write`, `admin`, `claim`. Refs platform#219.
+
 **Deleted strategies (engine#790):** `LeastLoadedAgentStrategy`, `TrustWeightedAgentStrategy`, `SemanticAgentRoutingStrategy` — replaced by signal providers + compositor. ADR-0003 (reactive SPI) superseded — virtual threads removed the reactive requirement.
 
 ## JPAF Personality-Adaptive Routing

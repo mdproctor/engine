@@ -307,6 +307,36 @@ $defs:
       _forceGoogleAi:
         description: "TEMPORARY: forces generation of GoogleAiGeminiModel class"
         $ref: "#/$defs/GoogleAiGeminiModel"
+      authorization:
+        $ref: "#/$defs/Authorization"
+        description: >
+          ACL grants created when a case instance of this type is started.
+          Maps AclAction to groups. Absent = no ACL enforcement (NoOp default).
+
+  Authorization:
+    type: object
+    description: >
+      Declares which groups are granted each ACL action when a case
+      of this type is created. Groups are IdP-agnostic — resolved
+      via CurrentPrincipal.roles(). All fields are optional.
+    unevaluatedProperties: false
+    properties:
+      read:
+        type: array
+        items: { type: string }
+        description: "Groups granted READ — query case, view plan items, event log, work items"
+      write:
+        type: array
+        items: { type: string }
+        description: "Groups granted WRITE — signal, update context, assign work items"
+      admin:
+        type: array
+        items: { type: string }
+        description: "Groups granted ADMIN — start, close, suspend, resume, dispatch"
+      claim:
+        type: array
+        items: { type: string }
+        description: "Groups granted CLAIM — claim work items for execution"
 
   Cbr:
     type: object

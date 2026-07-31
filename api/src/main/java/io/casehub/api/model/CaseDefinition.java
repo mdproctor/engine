@@ -18,6 +18,7 @@ package io.casehub.api.model;
 import io.casehub.api.model.cbr.CbrConfig;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.eidos.api.AgentDescriptor;
+import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.label.LabelRule;
 import io.casehub.platform.api.path.Path;
 import io.casehub.worker.api.Capability;
@@ -72,6 +73,7 @@ public class CaseDefinition {
   private List<InboundSignalMapping> inboundMappings = List.of();
   private Map<String, Double> routingSignalWeights;
   private Map<String, CognitiveDemand> cognitiveDemands = Map.of();
+  private Map<AclAction, List<String>> authorization;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -334,6 +336,14 @@ public class CaseDefinition {
     this.cognitiveDemands = cognitiveDemands != null ? Map.copyOf(cognitiveDemands) : Map.of();
   }
 
+  public Map<AclAction, List<String>> getAuthorization() {
+    return authorization;
+  }
+
+  public void setAuthorization(Map<AclAction, List<String>> authorization) {
+    this.authorization = authorization;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -376,6 +386,7 @@ public class CaseDefinition {
     private List<InboundSignalMapping> inboundMappings;
     private Map<String, Double> routingSignalWeights;
     private Map<String, CognitiveDemand> cognitiveDemands;
+    private Map<AclAction, List<String>> authorization;
 
     private Builder() {}
 
@@ -630,6 +641,19 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder authorization(AclAction action, List<String> groups) {
+      if (this.authorization == null) {
+        this.authorization = new java.util.EnumMap<>(AclAction.class);
+      }
+      this.authorization.put(action, List.copyOf(groups));
+      return this;
+    }
+
+    public Builder authorization(Map<AclAction, List<String>> authorization) {
+      this.authorization = authorization != null ? new java.util.EnumMap<>(authorization) : null;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -698,6 +722,9 @@ public class CaseDefinition {
       caseHubDefinition.setRoutingSignalWeights(routingSignalWeights);
       if (cognitiveDemands != null) {
         caseHubDefinition.setCognitiveDemands(cognitiveDemands);
+      }
+      if (authorization != null && !authorization.isEmpty()) {
+        caseHubDefinition.setAuthorization(Map.copyOf(authorization));
       }
 
       return caseHubDefinition;

@@ -38,8 +38,10 @@ import io.casehub.api.model.PredicateBasedCompletion;
 import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
+import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.Capability;
+import java.util.List;
 import java.util.function.Predicate;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -229,6 +231,32 @@ class ModelBuilderTest {
               .completion(gbc)
               .build();
       assertSame(gbc, def.getCompletion());
+    }
+
+    @Test
+    @DisplayName("authorization builder sets action-to-groups map")
+    void authorization_setsMap() {
+      var def =
+          CaseDefinition.builder()
+              .namespace("ns")
+              .name("auth-test")
+              .version("1.0")
+              .authorization(AclAction.READ, List.of("auditor", "manager"))
+              .authorization(AclAction.ADMIN, List.of("supervisor"))
+              .build();
+
+      assertNotNull(def.getAuthorization());
+      assertEquals(2, def.getAuthorization().size());
+      assertEquals(List.of("auditor", "manager"), def.getAuthorization().get(AclAction.READ));
+      assertEquals(List.of("supervisor"), def.getAuthorization().get(AclAction.ADMIN));
+    }
+
+    @Test
+    @DisplayName("authorization defaults to null when not set")
+    void authorization_defaultsNull() {
+      var def = CaseDefinition.builder().namespace("ns").name("no-auth").version("1.0").build();
+
+      assertNull(def.getAuthorization());
     }
   }
 

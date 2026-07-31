@@ -48,6 +48,7 @@ import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.WorkerFunctions;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.WorkerFunctionProviderRegistry;
+import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.expression.CompiledExpression;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.platform.api.governance.BackoffStrategy;
@@ -693,6 +694,35 @@ public final class CaseDefinitionYamlMapper {
           .fields()
           .forEachRemaining(e -> weights.put(e.getKey(), e.getValue().asDouble()));
       def.setRoutingSignalWeights(weights);
+    }
+
+    // authorization — spec-level action-to-groups map for ACL grants at case start
+    final JsonNode authNode = specNode != null ? specNode.get("authorization") : null;
+    if (authNode != null && authNode.isObject()) {
+      var authMap = new java.util.EnumMap<AclAction, List<String>>(AclAction.class);
+      authNode
+          .fields()
+          .forEachRemaining(
+              e -> {
+                AclAction action;
+                try {
+                  action = AclAction.valueOf(e.getKey().toUpperCase(java.util.Locale.ROOT));
+                } catch (IllegalArgumentException ex) {
+                  throw new IllegalArgumentException(
+                      "Unknown authorization action: '"
+                          + e.getKey()
+                          + "'. Valid values: "
+                          + java.util.Arrays.toString(AclAction.values()));
+                }
+                if (e.getValue().isArray()) {
+                  var groups = new java.util.ArrayList<String>();
+                  e.getValue().forEach(g -> groups.add(g.asText()));
+                  authMap.put(action, List.copyOf(groups));
+                }
+              });
+      if (!authMap.isEmpty()) {
+        def.setAuthorization(Map.copyOf(authMap));
+      }
     }
 
     return def;

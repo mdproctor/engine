@@ -39,6 +39,7 @@ import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.routing.CandidateSetSpec;
 import io.casehub.api.spi.routing.JqCandidateSetStrategy;
 import io.casehub.api.spi.routing.StaticSetStrategy;
+import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.platform.api.governance.BackoffStrategy;
 import io.casehub.platform.api.governance.ExecutionPolicy;
@@ -2654,5 +2655,79 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def = CaseDefinitionYamlMapper.load(is);
 
     assertThat(def.getDecompositionStrategy()).isNull();
+  }
+
+  @Test
+  void load_authorizationBlock_parsedToAclActionMap() throws IOException {
+    String yaml =
+        """
+                namespace: acl-test
+                name: auth-case
+                version: 1.0.0
+                spec:
+                  authorization:
+                    read:  [case-manager, auditor]
+                    write: [case-manager]
+                    admin: [supervisor]
+                    claim: [case-worker]
+                  capabilities: []
+                  workers: []
+                  bindings: []
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getAuthorization()).isNotNull().hasSize(4);
+    assertThat(def.getAuthorization().get(AclAction.READ))
+        .containsExactly("case-manager", "auditor");
+    assertThat(def.getAuthorization().get(AclAction.WRITE)).containsExactly("case-manager");
+    assertThat(def.getAuthorization().get(AclAction.ADMIN)).containsExactly("supervisor");
+    assertThat(def.getAuthorization().get(AclAction.CLAIM)).containsExactly("case-worker");
+  }
+
+  @Test
+  void load_absentAuthorization_leavesFieldNull() throws IOException {
+    String yaml =
+        """
+                namespace: acl-test
+                name: no-auth-case
+                version: 1.0.0
+                spec:
+                  capabilities: []
+                  workers: []
+                  bindings: []
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getAuthorization()).isNull();
+  }
+
+  @Test
+  void load_partialAuthorization_parsesOnlyDeclaredActions() throws IOException {
+    String yaml =
+        """
+                namespace: acl-test
+                name: partial-auth-case
+                version: 1.0.0
+                spec:
+                  authorization:
+                    read: [viewer]
+                  capabilities: []
+                  workers: []
+                  bindings: []
+                """;
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
+
+    assertThat(def.getAuthorization()).isNotNull().hasSize(1);
+    assertThat(def.getAuthorization().get(AclAction.READ)).containsExactly("viewer");
+    assertThat(def.getAuthorization().get(AclAction.WRITE)).isNull();
   }
 }
