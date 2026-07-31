@@ -63,6 +63,12 @@ public final class NormativeChannelLayout implements CaseChannelLayout {
             // If a new MessageType is added to Qhorus with no commitment effect (like EVENT),
             // add it here. This comment is the mechanical anchor for that obligation.
             Set.of(MessageType.EVENT),
-            "Human governance — all obligation-carrying types; no telemetry"));
+            "Human governance — all obligation-carrying types; no telemetry"),
+        new CaseChannelLayout.ChannelSpec(
+            "coordination",
+            ChannelSemantic.APPEND,
+            null,
+            null,
+            "Engine coordination — opened on case start by CaseStartedEventHandler"));
   }
 }
