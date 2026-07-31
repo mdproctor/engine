@@ -153,10 +153,12 @@ public class PersonalitySignalRecorder {
       if (status instanceof DispositionHealth.DispositionStatus.EvolutionPending pending) {
         var result = dispositionEvolution.get().evaluate(descriptor, pending);
         switch (result) {
-          case DispositionEvolution.EvolutionResult.Evolved evolved ->
-              LOG.infof(
-                  "Personality evolved: agent=%s %s->%s",
-                  agentId, evolved.previousTypeLabel(), evolved.newTypeLabel());
+          case DispositionEvolution.EvolutionResult.Evolved evolved -> {
+            signalStore.get().clear(agentId, tenancyId);
+            LOG.infof(
+                "Personality evolved: agent=%s %s->%s — activations cleared",
+                agentId, evolved.previousTypeLabel(), evolved.newTypeLabel());
+          }
           case DispositionEvolution.EvolutionResult.Dampened dampened -> {
             signalStore.get().decay(agentId, tenancyId, dampened.decayFactor());
             LOG.infof(

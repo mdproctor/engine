@@ -54,6 +54,7 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
+import io.casehub.engine.internal.routing.PersonalitySignalRecorder;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.worker.api.PlannedAction;
@@ -65,11 +66,12 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.logging.Logger;
 
 /**
  * Applies worker output to the case context, persists the completion event, and notifies listeners
@@ -90,6 +92,7 @@ public class WorkflowExecutionCompletedHandler {
   @Inject ActionRiskClassifier actionRiskClassifier;
   @Inject CaseInstanceRepository caseInstanceRepository;
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
+  @Inject PersonalitySignalRecorder personalitySignalRecorder;
 
   @Inject
   jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
@@ -144,6 +147,11 @@ public class WorkflowExecutionCompletedHandler {
           bindingName,
           io.casehub.api.spi.routing.RoutingOutcome.SUCCESS,
           contextBefore);
+      personalitySignalRecorder.record(
+          caseInstance,
+          worker.name(),
+          extractCapabilityTag(caseInstance, worker, bindingName),
+          event.outcome());
 
       // Settlement recorded AFTER output application
       if (event.signalId() != null) {
@@ -329,6 +337,11 @@ public class WorkflowExecutionCompletedHandler {
         bindingName,
         io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
         caseInstance.getCaseContext().snapshot().asJsonNode());
+    personalitySignalRecorder.record(
+        caseInstance,
+        worker.name(),
+        extractCapabilityTag(caseInstance, worker, bindingName),
+        event.outcome());
 
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> existingOutcomes =

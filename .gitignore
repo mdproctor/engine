@@ -59,3 +59,4 @@ docs/superpowers/
 package-lock.json
 wksp
 proj
+.mvn/maven.config
