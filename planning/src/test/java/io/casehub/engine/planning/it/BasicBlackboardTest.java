@@ -194,34 +194,36 @@ class BasicBlackboardTest {
   // ------------------------------------------------------------------ //
 
   /**
-   * Verifies that {@link io.casehub.engine.planning.handler.MilestoneAchievementHandler} marks a
-   * tracked milestone as achieved in the plan model when the engine publishes a
-   * MilestoneReachedEvent. The milestone is pre-tracked in the plan model, the worker writes output
-   * that satisfies the milestone condition, and the handler promotes it to ACHIEVED.
+   * Verifies that milestone lifecycle events write state to CaseContext when the engine publishes
+   * MilestoneActivatedEvent and MilestoneCompletedEvent. The worker writes output that satisfies
+   * the milestone condition, and the lifecycle manager promotes it through PENDING → ACTIVE →
+   * COMPLETED.
    */
   @Test
   void milestone_is_achieved_in_plan_model_after_condition_met() {
     UUID caseId = milestoneCase.startCase(Map.of("phase", "start"));
 
-    // Wait for plan model to be created on first select()
-    await()
-        .atMost(10, TimeUnit.SECONDS)
-        .untilAsserted(() -> assertThat(registry.get(caseId)).isPresent());
-
-    // Pre-track the milestone so the handler can promote it when MilestoneReachedEvent fires
-    registry.get(caseId).get().trackMilestone("docs-received");
-
     // Signal the context change that triggers the worker to write docsUploaded=true,
     // which satisfies the milestone condition
     milestoneCase.signal(caseId, "go", true);
 
+    // Verify milestone state is written to CaseContext by MilestoneCompletedEventHandler
     await()
         .atMost(10, TimeUnit.SECONDS)
         .untilAsserted(
-            () ->
-                assertThat(registry.get(caseId).get().isMilestoneAchieved("docs-received"))
-                    .as("milestone must be ACHIEVED after condition is satisfied")
-                    .isTrue());
+            () -> {
+              var instance = caseInstanceCache.get(caseId);
+              assertThat(instance).isNotNull();
+              @SuppressWarnings("unchecked")
+              var milestones = (Map<String, Object>) instance.getCaseContext().get("milestones");
+              assertThat(milestones).isNotNull();
+              @SuppressWarnings("unchecked")
+              var milestone = (Map<String, Object>) milestones.get("docs-received");
+              assertThat(milestone).isNotNull();
+              assertThat(milestone.get("lifecycleStatus"))
+                  .as("milestone must be COMPLETED in CaseContext after condition is satisfied")
+                  .isEqualTo("COMPLETED");
+            });
   }
 
   // ------------------------------------------------------------------ //

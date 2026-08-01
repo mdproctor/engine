@@ -38,7 +38,6 @@ public final class EventBusAddresses {
   public static final String WORKER_EXECUTION_FINISHED = "casehub.worker.finished";
   public static final String WORKER_RETRIES_EXHAUSTED = "casehub.worker.retries.exhausted";
 
-  public static final String MILESTONE_REACHED = "casehub.milestone.reached";
   public static final String MILESTONE_ACTIVATED = "casehub.milestone.activated";
   public static final String MILESTONE_COMPLETED = "casehub.milestone.completed";
   public static final String MILESTONE_SLA_VIOLATED = "casehub.milestone.sla.violated";

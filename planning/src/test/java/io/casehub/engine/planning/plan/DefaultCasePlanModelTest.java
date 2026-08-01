@@ -18,7 +18,6 @@ package io.casehub.engine.planning.plan;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.ExecutorRef;
-import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.TaskStatus;
 import java.time.Instant;
 import java.util.List;
@@ -83,105 +82,6 @@ class DefaultCasePlanModelTest {
     plan.addPlanItem(item);
     plan.removePlanItem(item.getPlanItemId());
     assertThat(plan.getAgenda()).isEmpty();
-  }
-
-  @Test
-  void milestone_lifecycle_pending_to_achieved() {
-    plan.trackMilestone("docs-received");
-    assertThat(plan.isMilestoneAchieved("docs-received")).isFalse();
-    plan.completeMilestone("docs-received");
-    assertThat(plan.isMilestoneAchieved("docs-received")).isTrue();
-  }
-
-  @Test
-  void achieve_untracked_milestone_does_not_throw() {
-    // achieveMilestone on untracked milestone is a no-op — no exception expected
-    plan.achieveMilestone("unknown");
-    assertThat(plan.getMilestoneStatus("unknown")).isEmpty();
-  }
-
-  @Test
-  void achieveMilestone_delegates_to_completeMilestone() {
-    plan.trackMilestone("docs-received");
-    plan.achieveMilestone("docs-received");
-    assertThat(plan.getMilestoneStatus("docs-received"))
-        .as("achieveMilestone must delegate to completeMilestone")
-        .hasValue(MilestoneLifecycleStatus.COMPLETED);
-  }
-
-  // --- MilestoneLifecycleStatus tests ---
-
-  @Test
-  void milestone_tracks_as_pending() {
-    plan.trackMilestone("doc-check");
-    assertThat(plan.getMilestoneStatus("doc-check"))
-        .isPresent()
-        .hasValue(MilestoneLifecycleStatus.PENDING);
-  }
-
-  @Test
-  void activate_milestone_transitions_to_active() {
-    plan.trackMilestone("doc-check");
-    plan.activateMilestone("doc-check");
-    assertThat(plan.getMilestoneStatus("doc-check")).hasValue(MilestoneLifecycleStatus.ACTIVE);
-    assertThat(plan.isMilestoneAchieved("doc-check")).isFalse();
-  }
-
-  @Test
-  void complete_milestone_transitions_to_completed() {
-    plan.trackMilestone("doc-check");
-    plan.activateMilestone("doc-check");
-    plan.completeMilestone("doc-check");
-    assertThat(plan.getMilestoneStatus("doc-check")).hasValue(MilestoneLifecycleStatus.COMPLETED);
-    assertThat(plan.isMilestoneAchieved("doc-check")).isTrue();
-  }
-
-  @Test
-  void complete_from_pending_handles_out_of_order_delivery() {
-    plan.trackMilestone("doc-check");
-    plan.completeMilestone("doc-check");
-    assertThat(plan.getMilestoneStatus("doc-check")).hasValue(MilestoneLifecycleStatus.COMPLETED);
-  }
-
-  @Test
-  void activate_when_already_active_is_noop() {
-    plan.trackMilestone("doc-check");
-    plan.activateMilestone("doc-check");
-    plan.activateMilestone("doc-check"); // second call — no-op
-    assertThat(plan.getMilestoneStatus("doc-check")).hasValue(MilestoneLifecycleStatus.ACTIVE);
-  }
-
-  @Test
-  void activate_when_completed_is_noop() {
-    plan.trackMilestone("doc-check");
-    plan.completeMilestone("doc-check");
-    plan.activateMilestone("doc-check"); // too late — no-op
-    assertThat(plan.getMilestoneStatus("doc-check")).hasValue(MilestoneLifecycleStatus.COMPLETED);
-  }
-
-  @Test
-  void complete_when_already_completed_is_noop() {
-    plan.trackMilestone("doc-check");
-    plan.completeMilestone("doc-check");
-    plan.completeMilestone("doc-check"); // second call — no-op
-    assertThat(plan.getMilestoneStatus("doc-check")).hasValue(MilestoneLifecycleStatus.COMPLETED);
-  }
-
-  @Test
-  void get_milestone_status_unknown_returns_empty() {
-    assertThat(plan.getMilestoneStatus("unknown")).isEmpty();
-  }
-
-  @Test
-  void activate_untracked_milestone_is_noop() {
-    plan.activateMilestone("never-tracked"); // no exception
-    assertThat(plan.getMilestoneStatus("never-tracked")).isEmpty();
-  }
-
-  @Test
-  void complete_untracked_milestone_is_noop() {
-    plan.completeMilestone("never-tracked"); // no exception
-    assertThat(plan.getMilestoneStatus("never-tracked")).isEmpty();
   }
 
   @Test

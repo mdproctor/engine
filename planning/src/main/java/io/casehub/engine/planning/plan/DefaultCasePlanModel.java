@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.planning.plan;
 
-import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SubCase;
 import io.casehub.api.model.TaskStatus;
 import java.util.Collections;
@@ -43,8 +42,6 @@ public class DefaultCasePlanModel implements CasePlanModel {
   private final ConcurrentHashMap<String, PlanItem> itemsById = new ConcurrentHashMap<>();
   // bindingName → most recent PlanItem — fast O(1) lookup for strategies and duplicate prevention
   private final ConcurrentHashMap<String, PlanItem> latestByBinding = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, MilestoneLifecycleStatus> milestones =
-      new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, Object> state = new ConcurrentHashMap<>();
   private final CopyOnWriteArrayList<SubCase> subCases = new CopyOnWriteArrayList<>();
   private volatile Map<String, Object> resourceBudget = Map.of();
@@ -157,64 +154,6 @@ public class DefaultCasePlanModel implements CasePlanModel {
   @Override
   public List<PlanItem> getAllPlanItems() {
     return List.copyOf(itemsById.values());
-  }
-
-  @Override
-  public void trackMilestone(String name) {
-    milestones.putIfAbsent(name, MilestoneLifecycleStatus.PENDING);
-  }
-
-  @Override
-  public void activateMilestone(String name) {
-    milestones.compute(
-        name,
-        (k, current) -> {
-          if (current == null) {
-            LOG.warnf("activateMilestone called for untracked milestone '%s' — ignoring", name);
-            return null;
-          }
-          if (current == MilestoneLifecycleStatus.PENDING) {
-            return MilestoneLifecycleStatus.ACTIVE;
-          }
-          LOG.warnf(
-              "activateMilestone called for milestone '%s' in state %s — ignoring", name, current);
-          return current;
-        });
-  }
-
-  @Override
-  public void completeMilestone(String name) {
-    milestones.compute(
-        name,
-        (k, current) -> {
-          if (current == null) {
-            LOG.warnf("completeMilestone called for untracked milestone '%s' — ignoring", name);
-            return null;
-          }
-          if (current == MilestoneLifecycleStatus.PENDING
-              || current == MilestoneLifecycleStatus.ACTIVE) {
-            return MilestoneLifecycleStatus.COMPLETED;
-          }
-          LOG.warnf(
-              "completeMilestone called for milestone '%s' in state %s — ignoring", name, current);
-          return current;
-        });
-  }
-
-  @Override
-  public Optional<MilestoneLifecycleStatus> getMilestoneStatus(String name) {
-    return Optional.ofNullable(milestones.get(name));
-  }
-
-  @Deprecated(forRemoval = true)
-  @Override
-  public void achieveMilestone(String name) {
-    completeMilestone(name);
-  }
-
-  @Override
-  public boolean isMilestoneAchieved(String name) {
-    return MilestoneLifecycleStatus.COMPLETED.equals(milestones.get(name));
   }
 
   @Override

@@ -90,20 +90,6 @@ public interface CasePlanModel {
   /** Returns all PlanItems regardless of status. Used by planning strategies. */
   List<PlanItem> getAllPlanItems();
 
-  // Milestone lifecycle (PENDING → ACTIVE → COMPLETED). See casehubio/engine#84.
-  void trackMilestone(String milestoneName);
-
-  void activateMilestone(String milestoneName);
-
-  void completeMilestone(String milestoneName);
-
-  Optional<MilestoneLifecycleStatus> getMilestoneStatus(String milestoneName);
-
-  @Deprecated(forRemoval = true)
-  void achieveMilestone(String milestoneName);
-
-  boolean isMilestoneAchieved(String milestoneName);
-
   // Focus of attention (written by PlanningStrategy)
   void setFocus(String focusArea);
 
