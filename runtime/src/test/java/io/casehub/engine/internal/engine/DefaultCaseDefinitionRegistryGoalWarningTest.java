@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.Goal;
@@ -71,7 +72,7 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
   }
 
   @Test
-  void warns_when_goal_not_referenced_in_any_goal_expression() {
+  void rejects_goal_not_referenced_in_any_goal_expression() {
     var unreferencedGoal =
         Goal.builder()
             .name("orphan-goal")
@@ -85,25 +86,94 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
     var definition =
         CaseDefinition.builder()
             .namespace("test")
-            .name("warn-test")
+            .name("reject-test")
             .version("1.0")
             .goals(List.of(unreferencedGoal, referencedGoal))
             .completion(GoalExpression.allOf(referencedGoal), null)
             .build();
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    assertThatThrownBy(
+            () ->
+                registry
+                    .registerCaseDefinition(definition)
+                    .subscribe()
+                    .asCompletionStage()
+                    .toCompletableFuture()
+                    .join())
+        .hasRootCauseInstanceOf(IllegalArgumentException.class)
+        .hasRootCauseMessage(
+            "Goal 'orphan-goal' is not referenced in any completion expression. "
+                + "Goals must drive case completion — use Milestone for non-terminal checkpoints.");
+  }
 
-    assertThat(logRecords)
-        .anyMatch(
-            r ->
-                r.getMessage().contains("orphan-goal")
-                    && r.getMessage().contains("not referenced"));
-    assertThat(logRecords).noneMatch(r -> r.getMessage().contains("real-goal"));
+  @Test
+  void rejects_goal_with_predicate_based_completion() {
+    var goal = Goal.builder().name("orphan").condition(".x == true").kind(GoalKind.SUCCESS).build();
+
+    var definition =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("predicate-reject-test")
+            .version("1.0")
+            .goals(List.of(goal))
+            .completion("(.done == true)")
+            .build();
+
+    assertThatThrownBy(
+            () ->
+                registry
+                    .registerCaseDefinition(definition)
+                    .subscribe()
+                    .asCompletionStage()
+                    .toCompletableFuture()
+                    .join())
+        .hasRootCauseInstanceOf(IllegalArgumentException.class);
+  }
+
+  @Test
+  void accepts_definition_with_no_goals_and_no_completion() {
+    var definition =
+        CaseDefinition.builder().namespace("test").name("no-goal-test").version("1.0").build();
+
+    var result =
+        registry
+            .registerCaseDefinition(definition)
+            .subscribe()
+            .asCompletionStage()
+            .toCompletableFuture()
+            .join();
+
+    assertThat(result).isNotNull();
+  }
+
+  @Test
+  void rejects_partial_goal_references() {
+    var referencedGoal =
+        Goal.builder().name("wired").condition(".done == true").kind(GoalKind.SUCCESS).build();
+    var unreferencedGoal =
+        Goal.builder().name("forgotten").condition(".x == true").kind(GoalKind.SUCCESS).build();
+
+    var definition =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("partial-ref-test")
+            .version("1.0")
+            .goals(List.of(referencedGoal, unreferencedGoal))
+            .completion(GoalExpression.allOf(referencedGoal), null)
+            .build();
+
+    assertThatThrownBy(
+            () ->
+                registry
+                    .registerCaseDefinition(definition)
+                    .subscribe()
+                    .asCompletionStage()
+                    .toCompletableFuture()
+                    .join())
+        .hasRootCauseInstanceOf(IllegalArgumentException.class)
+        .hasRootCauseMessage(
+            "Goal 'forgotten' is not referenced in any completion expression. "
+                + "Goals must drive case completion — use Milestone for non-terminal checkpoints.");
   }
 
   @Test

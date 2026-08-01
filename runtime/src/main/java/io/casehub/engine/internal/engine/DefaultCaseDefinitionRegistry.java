@@ -290,44 +290,55 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
       expressionEngineRegistry.validate(pbc.getDoneWhen());
     }
 
-    // Warn if goals are not referenced in any GoalExpression
-    if (definition.getGoals() != null
-        && definition.getCompletion() instanceof GoalBasedCompletion<?> gbc) {
-      Map<String, Goal> goalsByName =
-          definition.getGoals().stream()
-              .collect(
-                  java.util.stream.Collectors.toMap(
-                      Goal::getName, java.util.function.Function.identity()));
-      var referencedGoals = new HashSet<String>();
-      for (var entry : gbc.getGoals().entrySet()) {
-        GoalExpression expr = entry.getValue();
-        if (expr != null) {
-          referencedGoals.addAll(expr.goalNames());
+    // Reject goals not referenced in any GoalExpression
+    if (definition.getGoals() != null && !definition.getGoals().isEmpty()) {
+      if (definition.getCompletion() instanceof GoalBasedCompletion<?> gbc) {
+        Map<String, Goal> goalsByName =
+            definition.getGoals().stream()
+                .collect(
+                    java.util.stream.Collectors.toMap(
+                        Goal::getName, java.util.function.Function.identity()));
+        var referencedGoals = new HashSet<String>();
+        for (var entry : gbc.getGoals().entrySet()) {
+          GoalExpression expr = entry.getValue();
+          if (expr != null) {
+            referencedGoals.addAll(expr.goalNames());
+          }
         }
-      }
-      for (Goal goal : definition.getGoals()) {
-        if (!referencedGoals.contains(goal.getName())) {
-          LOG.warnf(
-              "Goal '%s' is not referenced in any GoalExpression. "
-                  + "Goals should drive case completion — use Milestone for non-terminal checkpoints.",
-              goal.getName());
+        for (Goal goal : definition.getGoals()) {
+          if (!referencedGoals.contains(goal.getName())) {
+            throw new IllegalArgumentException(
+                "Goal '"
+                    + goal.getName()
+                    + "' is not referenced in any completion expression. "
+                    + "Goals must drive case completion — use Milestone for non-terminal checkpoints.");
+          }
         }
-      }
 
-      // Kind mismatch warning
-      for (var entry : gbc.getGoals().entrySet()) {
-        String kindValue = entry.getKey().value();
-        GoalExpression expr = entry.getValue();
-        if (expr != null) {
-          for (String goalName : expr.goalNames()) {
-            Goal g = goalsByName.get(goalName);
-            if (g != null && g.getKind() != null && !g.getKind().equals(kindValue)) {
-              LOG.warnf(
-                  "Goal '%s' has kind '%s' but is referenced in completion entry '%s'"
-                      + " — kind mismatch may indicate a configuration error.",
-                  g.getName(), g.getKind(), kindValue);
+        // Kind mismatch warning
+        for (var entry : gbc.getGoals().entrySet()) {
+          String kindValue = entry.getKey().value();
+          GoalExpression expr = entry.getValue();
+          if (expr != null) {
+            for (String goalName : expr.goalNames()) {
+              Goal g = goalsByName.get(goalName);
+              if (g != null && g.getKind() != null && !g.getKind().equals(kindValue)) {
+                LOG.warnf(
+                    "Goal '%s' has kind '%s' but is referenced in completion entry '%s'"
+                        + " — kind mismatch may indicate a configuration error.",
+                    g.getName(), g.getKind(), kindValue);
+              }
             }
           }
+        }
+      } else {
+        // Goals defined but completion is not GoalBasedCompletion
+        for (Goal goal : definition.getGoals()) {
+          throw new IllegalArgumentException(
+              "Goal '"
+                  + goal.getName()
+                  + "' is not referenced in any completion expression. "
+                  + "Goals must drive case completion — use Milestone for non-terminal checkpoints.");
         }
       }
     }

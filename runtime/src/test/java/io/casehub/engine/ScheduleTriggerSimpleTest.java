@@ -23,6 +23,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.Goal;
+import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.ScheduleTrigger;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
@@ -624,6 +625,7 @@ class ScheduleTriggerSimpleTest {
           .workers(worker)
           .bindings(binding)
           .goals(goal)
+          .completion(GoalExpression.allOf(goal))
           .build();
     }
   }
