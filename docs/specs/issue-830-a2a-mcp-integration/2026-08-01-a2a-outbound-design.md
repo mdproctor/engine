@@ -18,7 +18,7 @@ Reference: garden entry GE-20260618-fe7c8e documents the distinction between inl
 
 ## Module Structure
 
-**Module:** `casehub-engine-a2a` — new directory at engine root, sibling to `flow/`.
+**Module:** `casehub-engine-a2a` (artifact ID) — directory `a2a/` at engine root, sibling to `flow/`. Short directory name per maven-submodule-folder-naming protocol. Jandex plugin required (library-jars-require-jandex protocol) — module ships `@ApplicationScoped` CDI beans.
 
 **Compile dependencies:**
 - `casehub-engine-common` — `WorkerFunctionHandler` SPI, `HandlerResult`

@@ -18,6 +18,7 @@ package io.casehub.engine.internal.executor;
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
+import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
@@ -61,7 +62,7 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
 
   @SuppressWarnings("unchecked")
   @Override
-  public WorkerResult<?> execute(
+  public HandlerResult execute(
       WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
@@ -150,9 +151,9 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
                           .set(output));
         }
       }
-      return result;
+      return new HandlerResult(result);
     } catch (java.util.concurrent.TimeoutException e) {
-      return WorkerResult.expired("Worker timed out after " + timeoutMs + "ms");
+      return new HandlerResult(WorkerResult.expired("Worker timed out after " + timeoutMs + "ms"));
     } catch (java.util.concurrent.ExecutionException e) {
       Throwable cause = e.getCause();
       if (cause instanceof RuntimeException re) {

@@ -194,7 +194,7 @@ class QuartzWorkerExecutionJob implements Job {
       ExecutionMetadata metadata =
           new ExecutionMetadata(workerId, inputDataHash, bindingName, executionMode);
 
-      io.casehub.worker.api.WorkerResult<?> workerResult =
+      io.casehub.engine.common.internal.executor.HandlerResult handlerResult =
           workerExecutor.execute(
               worker.function(),
               typedInput,
@@ -203,6 +203,7 @@ class QuartzWorkerExecutionJob implements Job {
               capability.outputSchema(),
               metadata);
 
+      io.casehub.worker.api.WorkerResult<?> workerResult = handlerResult.result();
       Map<String, Object> output = toMap(workerResult.output());
       if ((output == null || output.isEmpty()) && bridge.isLiveView()) {
         output = bridgeResolver.extractOutput(bridge, typedInput);
@@ -213,7 +214,14 @@ class QuartzWorkerExecutionJob implements Job {
         workerResult = replaced;
       }
       onSuccess(
-          instance, worker, inputDataHash, workerResult, bindingName, signalId, executionMode);
+          instance,
+          worker,
+          inputDataHash,
+          workerResult,
+          bindingName,
+          signalId,
+          executionMode,
+          handlerResult.protocolMetadata());
     } catch (Exception e) {
       onFailure(retryCtx, e);
     }
@@ -226,7 +234,8 @@ class QuartzWorkerExecutionJob implements Job {
       io.casehub.worker.api.WorkerResult<?> workerResult,
       String bindingName,
       java.util.UUID signalId,
-      io.casehub.api.model.ExecutionMode executionMode) {
+      io.casehub.api.model.ExecutionMode executionMode,
+      Map<String, Object> protocolMetadata) {
     if (executionMode != null && executionMode != io.casehub.api.model.ExecutionMode.TRANSIENT) {
       if (workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Success) {
         Map<String, Object> output = toMap(workerResult.output());
@@ -250,7 +259,8 @@ class QuartzWorkerExecutionJob implements Job {
             output,
             bindingName,
             workerResult.outcome(),
-            signalId));
+            signalId,
+            protocolMetadata));
   }
 
   private void onFailure(WorkerRetryContext retryCtx, Throwable failure) {

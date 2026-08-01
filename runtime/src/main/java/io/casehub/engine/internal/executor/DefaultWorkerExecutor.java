@@ -22,6 +22,7 @@ import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
+import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerExecutor;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
@@ -60,7 +61,7 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
   }
 
   @Override
-  public WorkerResult<?> execute(
+  public HandlerResult execute(
       WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
@@ -70,8 +71,10 @@ public class DefaultWorkerExecutor implements WorkerExecutor {
 
     for (WorkerFunctionHandler handler : handlers) {
       if (handler.supports(function)) {
-        WorkerResult<?> result = handler.execute(function, inputData, context, timeoutMs, metadata);
-        return applyOutputSchema(result, outputProjection);
+        HandlerResult handlerResult =
+            handler.execute(function, inputData, context, timeoutMs, metadata);
+        WorkerResult<?> result = applyOutputSchema(handlerResult.result(), outputProjection);
+        return new HandlerResult(result, handlerResult.protocolMetadata());
       }
     }
     throw new UnsupportedOperationException("No handler for: " + function.getClass().getName());

@@ -26,7 +26,6 @@ import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.worker.api.WorkerFunction;
-import io.casehub.worker.api.WorkerResult;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
 import io.serverlessworkflow.impl.WorkflowDefinition;
@@ -82,11 +81,12 @@ class FlowWorkerFunctionHandlerTest {
         new WorkerContext("worker-A", caseId, null, null, PropagationContext.createRoot(), null);
     final ExecutionMetadata metadata = new ExecutionMetadata("worker-A", "hash-1");
 
-    final WorkerResult result =
+    final var handlerResult =
         handler.execute(
             new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata);
 
-    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
+    assertThat((java.util.Map<String, Object>) handlerResult.result().output())
+        .containsEntry("result", "done");
     verify(registry).register(eq(instanceId), eq(caseId), eq("worker-A"), eq("hash-1"));
     verify(registry).remove(instanceId);
   }
@@ -158,11 +158,12 @@ class FlowWorkerFunctionHandlerTest {
         new WorkerContext("w", caseId, null, null, PropagationContext.createRoot(), null);
     final ExecutionMetadata metadata = new ExecutionMetadata("w", "h");
 
-    final WorkerResult result =
+    final var handlerResult =
         handler.execute(
             new FlowWorkerFunction(mock(Workflow.class)), Map.of(), context, 60000, metadata);
 
-    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("data", "value");
+    assertThat((java.util.Map<String, Object>) handlerResult.result().output())
+        .containsEntry("data", "value");
     verify(registry).remove(instanceId);
   }
 

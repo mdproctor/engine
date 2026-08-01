@@ -17,6 +17,7 @@ package io.casehub.engine.flow;
 
 import io.casehub.api.model.WorkerContext;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
+import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
@@ -66,7 +67,7 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
 
   @SuppressWarnings("unchecked")
   @Override
-  public WorkerResult<?> execute(
+  public HandlerResult execute(
       final WorkerFunction<?, ?> function,
       final Object inputData,
       final WorkerContext context,
@@ -94,10 +95,10 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
                             + metadata.workerName()));
 
     if (flow.plannedActionFn() != null) {
-      return WorkerResult.of(outputMap, flow.plannedActionFn().apply(mapInput));
+      return new HandlerResult(WorkerResult.of(outputMap, flow.plannedActionFn().apply(mapInput)));
     }
 
-    return WorkerResult.of(outputMap);
+    return new HandlerResult(WorkerResult.of(outputMap));
   }
 
   private CompletableFuture<WorkflowModel> executeWorkflow(

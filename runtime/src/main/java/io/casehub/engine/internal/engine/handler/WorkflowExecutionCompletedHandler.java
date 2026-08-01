@@ -175,7 +175,14 @@ public class WorkflowExecutionCompletedHandler {
       }
 
       EventLog eventLog =
-          buildEventLog(caseInstance, worker, rawOutput, event.idempotency(), now, diff);
+          buildEventLog(
+              caseInstance,
+              worker,
+              rawOutput,
+              event.idempotency(),
+              now,
+              diff,
+              event.protocolMetadata());
 
       eventLogRepository.append(eventLog, caseInstance.tenancyId);
 
@@ -594,7 +601,8 @@ public class WorkflowExecutionCompletedHandler {
       Map<String, Object> output,
       String idempotency,
       Instant timestamp,
-      JsonNode contextDiff) {
+      JsonNode contextDiff,
+      Map<String, Object> protocolMetadata) {
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(caseInstance.getUuid());
     eventLog.setWorkerId(worker.name());
@@ -602,11 +610,12 @@ public class WorkflowExecutionCompletedHandler {
     eventLog.setTimestamp(timestamp);
     eventLog.setEventType(CaseHubEventType.WORKER_EXECUTION_COMPLETED);
     eventLog.setPayload(OBJECT_MAPPER.valueToTree(output == null ? Map.of() : output));
-    eventLog.setMetadata(buildMetadata(idempotency, contextDiff));
+    eventLog.setMetadata(buildMetadata(idempotency, contextDiff, protocolMetadata));
     return eventLog;
   }
 
-  private JsonNode buildMetadata(String idempotency, JsonNode contextDiff) {
+  private JsonNode buildMetadata(
+      String idempotency, JsonNode contextDiff, Map<String, Object> protocolMetadata) {
     ObjectNode metadata = OBJECT_MAPPER.createObjectNode();
     metadata.put("inputDataHash", idempotency);
     if (contextDiff != null) {
@@ -616,6 +625,9 @@ public class WorkflowExecutionCompletedHandler {
       if (!keys.isEmpty()) {
         metadata.set("producedKeys", keys);
       }
+    }
+    if (protocolMetadata != null && !protocolMetadata.isEmpty()) {
+      protocolMetadata.forEach((key, value) -> metadata.set(key, OBJECT_MAPPER.valueToTree(value)));
     }
     return metadata;
   }

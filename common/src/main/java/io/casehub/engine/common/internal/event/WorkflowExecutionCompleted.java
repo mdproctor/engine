@@ -48,9 +48,10 @@ public record WorkflowExecutionCompleted(
     WorkerOutcome outcome,
     UUID signalId,
     String workerCredentialToken,
-    io.casehub.api.model.ExecutorRef executorRef) {
+    io.casehub.api.model.ExecutorRef executorRef,
+    Map<String, Object> protocolMetadata) {
 
-  /** Convenience constructor for non-awaiting worker completions. */
+  /** Convenience constructor for non-awaiting worker completions (no protocol metadata). */
   public WorkflowExecutionCompleted(
       CaseInstance caseInstance,
       Worker worker,
@@ -58,7 +59,7 @@ public record WorkflowExecutionCompleted(
       Map<String, Object> output,
       String bindingName,
       WorkerOutcome outcome) {
-    this(caseInstance, worker, idempotency, output, bindingName, outcome, null, null, null);
+    this(caseInstance, worker, idempotency, output, bindingName, outcome, null, null, null, Map.of());
   }
 
   /** Convenience constructor with signalId but no credential token. */
@@ -70,7 +71,7 @@ public record WorkflowExecutionCompleted(
       String bindingName,
       WorkerOutcome outcome,
       UUID signalId) {
-    this(caseInstance, worker, idempotency, output, bindingName, outcome, signalId, null, null);
+    this(caseInstance, worker, idempotency, output, bindingName, outcome, signalId, null, null, Map.of());
   }
 
   /** Convenience constructor for the gate-re-fire path. */
@@ -89,6 +90,7 @@ public record WorkflowExecutionCompleted(
         WorkerOutcome.success(),
         null,
         null,
-        null);
+        null,
+        Map.of());
   }
 }

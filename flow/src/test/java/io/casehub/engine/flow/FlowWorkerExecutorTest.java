@@ -24,7 +24,6 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.WorkerContext;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
-import io.casehub.worker.api.WorkerResult;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
 import io.serverlessworkflow.impl.WorkflowDefinition;
@@ -67,7 +66,7 @@ class FlowWorkerExecutorTest {
     when(wfInstance.start()).thenReturn(CompletableFuture.completedFuture(model));
     stubApp(wfInstance);
 
-    WorkerResult result =
+    var handlerResult =
         handler.execute(
             new FlowWorkerFunction(mock(Workflow.class)),
             Map.of(),
@@ -75,7 +74,8 @@ class FlowWorkerExecutorTest {
             5000,
             new ExecutionMetadata("worker-A", "hash-1"));
 
-    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
+    assertThat((java.util.Map<String, Object>) handlerResult.result().output())
+        .containsEntry("result", "done");
     verify(registry).register(eq(instanceId), eq(caseId), eq("worker-A"), eq("hash-1"));
     verify(registry).remove(instanceId);
   }
