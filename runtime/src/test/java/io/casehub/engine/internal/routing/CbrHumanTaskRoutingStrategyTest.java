@@ -23,6 +23,7 @@ import io.casehub.api.spi.routing.HumanTaskCandidates;
 import io.casehub.api.spi.routing.HumanTaskRoutingContext;
 import io.casehub.api.spi.routing.HumanTaskRoutingResult;
 import io.casehub.api.spi.routing.RetrievedExperience;
+import io.casehub.api.spi.routing.RoutingOutcome;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -53,7 +54,7 @@ class CbrHumanTaskRoutingStrategyTest {
         "problem", "solution", "COMPLETED", 1.0, similarity, Map.of(), List.of(steps), Map.of());
   }
 
-  private ExperiencePlanStep step(String bindingName, String workerName, String outcome) {
+  private ExperiencePlanStep step(String bindingName, String workerName, RoutingOutcome outcome) {
     return new ExperiencePlanStep(bindingName, null, workerName, outcome, 0, Map.of());
   }
 
@@ -73,7 +74,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void emptyUsersReturnsUnchanged() {
-    var exp = experience(0.9, step("review-task", "alice", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "alice", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)), candidates(Set.of("managers"), Set.of()));
@@ -82,7 +83,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void scoresUsersByBindingName() {
-    var exp = experience(0.9, step("review-task", "alice", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "alice", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)),
@@ -94,10 +95,12 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void enrichesUsersWithSuccessRateScores() {
-    var exp1 = experience(0.9, step("review-task", "alice", "SUCCESS"));
+    var exp1 = experience(0.9, step("review-task", "alice", RoutingOutcome.SUCCESS));
     var exp2 =
         experience(
-            0.9, step("review-task", "alice", "FAILURE"), step("review-task", "bob", "SUCCESS"));
+            0.9,
+            step("review-task", "alice", RoutingOutcome.FAILURE),
+            step("review-task", "bob", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp1, exp2)),
@@ -112,7 +115,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void ignoresUsersNotInCandidateSet() {
-    var exp = experience(0.9, step("review-task", "charlie", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "charlie", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)), candidates(Set.of(), Set.of("alice", "bob")));
@@ -121,7 +124,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void ignoresStepsWithDifferentBindingName() {
-    var exp = experience(0.9, step("other-task", "alice", "SUCCESS"));
+    var exp = experience(0.9, step("other-task", "alice", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)), candidates(Set.of(), Set.of("alice")));
@@ -135,14 +138,14 @@ class CbrHumanTaskRoutingStrategyTest {
             "review-task",
             null,
             "alice",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "ADDED",
             "adapter recommendation");
     var retainedStep =
         new ExperiencePlanStep(
-            "review-task", null, "bob", "SUCCESS", 0, Map.of(), "RETAINED", null);
+            "review-task", null, "bob", RoutingOutcome.SUCCESS, 0, Map.of(), "RETAINED", null);
     var exp = experience(0.9, addedStep, retainedStep);
     var result =
         strategy.select(
@@ -160,14 +163,14 @@ class CbrHumanTaskRoutingStrategyTest {
             "review-task",
             null,
             "alice",
-            "SUCCESS",
+            RoutingOutcome.SUCCESS,
             0,
             Map.of(),
             "SUBSTITUTED",
             "replaced original");
     var retainedStep =
         new ExperiencePlanStep(
-            "review-task", null, "bob", "FAILURE", 0, Map.of(), "RETAINED", null);
+            "review-task", null, "bob", RoutingOutcome.FAILURE, 0, Map.of(), "RETAINED", null);
     var exp = experience(0.9, substitutedStep, retainedStep);
     var result =
         strategy.select(
@@ -175,26 +178,26 @@ class CbrHumanTaskRoutingStrategyTest {
     assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
     var enriched = (HumanTaskRoutingResult.Enriched) result;
     assertThat(enriched.candidateScores()).doesNotContainKey("alice");
-    assertThat(enriched.candidateScores()).containsEntry("bob", 0.0);
+    assertThat(enriched.candidateScores()).containsEntry("bob", -1.0);
   }
 
   @Test
   void similarityWeightingApplied() {
-    var highSimExp = experience(0.95, step("review-task", "alice", "SUCCESS"));
-    var lowSimExp = experience(0.3, step("review-task", "alice", "FAILURE"));
+    var highSimExp = experience(0.95, step("review-task", "alice", RoutingOutcome.SUCCESS));
+    var lowSimExp = experience(0.3, step("review-task", "alice", RoutingOutcome.FAILURE));
     var result =
         strategy.select(
             context("review-task", List.of(highSimExp, lowSimExp)),
             candidates(Set.of(), Set.of("alice")));
     assertThat(result).isInstanceOf(HumanTaskRoutingResult.Enriched.class);
     var enriched = (HumanTaskRoutingResult.Enriched) result;
-    // (1.0*0.95 + 0.0*0.3) / (0.95+0.3) = 0.76
-    assertThat(enriched.candidateScores().get("alice")).isCloseTo(0.76, within(0.01));
+    // (1.0*0.95 + (-1.0)*0.3) / (0.95+0.3) = 0.52
+    assertThat(enriched.candidateScores().get("alice")).isCloseTo(0.52, within(0.01));
   }
 
   @Test
   void groupsPassThroughUnchanged() {
-    var exp = experience(0.9, step("review-task", "alice", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "alice", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)),
@@ -206,7 +209,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void noMatchingTraceDataReturnsUnchanged() {
-    var exp = experience(0.9, step("review-task", "charlie", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "charlie", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)),
@@ -216,7 +219,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void scoresGroupExpandedUsers() {
-    var exp = experience(0.9, step("review-task", "bob", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "bob", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)),
@@ -230,7 +233,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void emptyAllUsersReturnsUnchanged() {
-    var exp = experience(0.9, step("review-task", "alice", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "alice", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)),
@@ -240,7 +243,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void enrichedCandidateUsersContainsAllUsers() {
-    var exp = experience(0.9, step("review-task", "bob", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "bob", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)),
@@ -252,7 +255,7 @@ class CbrHumanTaskRoutingStrategyTest {
 
   @Test
   void overlapBetweenDirectAndGroupProducesSingleScore() {
-    var exp = experience(0.9, step("review-task", "alice", "SUCCESS"));
+    var exp = experience(0.9, step("review-task", "alice", RoutingOutcome.SUCCESS));
     var result =
         strategy.select(
             context("review-task", List.of(exp)),
