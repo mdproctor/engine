@@ -17,5 +17,6 @@ package io.casehub.engine.common.internal.event;
 
 import io.casehub.api.model.Goal;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import java.util.List;
 
-public record GoalReachedEvent(CaseInstance caseInstance, Goal goal) {}
+public record GoalReachedEvent(CaseInstance caseInstance, List<Goal> goals) {}

@@ -67,37 +67,38 @@ public class GoalReachedEventHandler {
       final CaseInstance caseInstance = event.caseInstance();
       CaseDefinition definition =
           caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-      final Goal goal = event.goal();
 
-      EventLog eventLog = new EventLog();
-      eventLog.setCaseId(caseInstance.getUuid());
-      eventLog.setEventType(GOAL_REACHED);
-      eventLog.setStreamType(EventStreamType.CASE);
-      eventLog.setTimestamp(Instant.now());
-      eventLog.setMetadata(
-          OBJECT_MAPPER
-              .createObjectNode()
-              .put("name", goal.getName())
-              .put("description", goal.getDescription())
-              .put("kind", goal.getKind()));
+      for (final Goal goal : event.goals()) {
+        EventLog eventLog = new EventLog();
+        eventLog.setCaseId(caseInstance.getUuid());
+        eventLog.setEventType(GOAL_REACHED);
+        eventLog.setStreamType(EventStreamType.CASE);
+        eventLog.setTimestamp(Instant.now());
+        eventLog.setMetadata(
+            OBJECT_MAPPER
+                .createObjectNode()
+                .put("name", goal.getName())
+                .put("description", goal.getDescription())
+                .put("kind", goal.getKind()));
 
-      eventLogRepository.append(eventLog, caseInstance.tenancyId);
+        eventLogRepository.append(eventLog, caseInstance.tenancyId);
 
-      // Fire-and-forget — evaluateCompletion (case status change) must not be
-      // gated on optional audit observer completion. Refs casehubio/engine#491.
-      lifecycleEvents
-          .fireAsync(
-              CaseLifecycleEvent.of(
-                  caseInstance, "ReachGoal", "GoalReached", null, "System", traceId))
-          .whenComplete(
-              (v, t) -> {
-                if (t != null) {
-                  LOG.warnf(
-                      t,
-                      "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
-                      caseInstance.getUuid());
-                }
-              });
+        // Fire-and-forget — evaluateCompletion (case status change) must not be
+        // gated on optional audit observer completion. Refs casehubio/engine#491.
+        lifecycleEvents
+            .fireAsync(
+                CaseLifecycleEvent.of(
+                    caseInstance, "ReachGoal", "GoalReached", null, "System", traceId))
+            .whenComplete(
+                (v, t) -> {
+                  if (t != null) {
+                    LOG.warnf(
+                        t,
+                        "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
+                        caseInstance.getUuid());
+                  }
+                });
+      }
 
       evaluateCompletion(caseInstance, definition.getCompletion());
     } catch (Exception e) {
