@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.internal.milestone;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.CaseDefinition;
@@ -41,10 +40,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
@@ -54,18 +52,12 @@ import org.jboss.logging.Logger;
  * entryCriteria → publish {@link MilestoneActivatedEvent} if true - If ACTIVE: evaluate
  * completionCriteria → publish {@link MilestoneCompletedEvent} if true
  *
- * <p>State is derived from EventLog (no separate persistence).
+ * <p>State is read from CaseContext ({@code milestones.<name>.lifecycleStatus}).
  */
 @ApplicationScoped
 public class MilestoneLifecycleManager {
 
   private static final Logger LOG = Logger.getLogger(MilestoneLifecycleManager.class);
-
-  private static final EnumSet<CaseHubEventType> MILESTONE_LIFECYCLE_EVENTS =
-      EnumSet.of(
-          CaseHubEventType.MILESTONE_ACTIVATED,
-          CaseHubEventType.MILESTONE_COMPLETED,
-          CaseHubEventType.MILESTONE_SLA_VIOLATED);
 
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
@@ -119,8 +111,7 @@ public class MilestoneLifecycleManager {
 
   private void evaluateMilestone(CaseInstance caseInstance, Milestone milestone) {
     MilestoneLifecycleStatus currentStatus =
-        getCurrentLifecycleStatus(
-            caseInstance.getUuid(), milestone.getName(), caseInstance.tenancyId);
+        getCurrentLifecycleStatus(caseInstance, milestone.getName());
 
     LOG.debugf(
         "Milestone '%s' current status: %s (case %s)",
@@ -131,7 +122,7 @@ public class MilestoneLifecycleManager {
     } else if (currentStatus == MilestoneLifecycleStatus.ACTIVE) {
       evaluateCompletionCriteria(caseInstance, milestone);
     }
-    // COMPLETED, FAILED, CANCELLED — no further transitions
+    // COMPLETED — no further transitions
   }
 
   private void evaluateEntryCriteria(CaseInstance caseInstance, Milestone milestone) {
@@ -174,47 +165,55 @@ public class MilestoneLifecycleManager {
         new MilestoneCompletedEvent(caseInstance, milestone, completedAt, slaStatus));
   }
 
-  private EventLog findLastMilestoneEvent(UUID caseId, String milestoneName, String tenancyId) {
-    List<EventLog> events =
-        eventLogRepository.findByCaseAndTypes(caseId, MILESTONE_LIFECYCLE_EVENTS, tenancyId);
-    return events.stream()
-        .filter(e -> milestoneName.equals(e.getPayload().get("milestoneName").asText()))
-        .max(Comparator.comparing(EventLog::getSeq))
-        .orElse(null);
-  }
-
+  @SuppressWarnings("unchecked")
   private MilestoneLifecycleStatus getCurrentLifecycleStatus(
-      UUID caseId, String milestoneName, String tenancyId) {
-    EventLog lastEvent = findLastMilestoneEvent(caseId, milestoneName, tenancyId);
-    if (lastEvent == null) {
+      CaseInstance caseInstance, String milestoneName) {
+    Map<String, Object> milestones =
+        (Map<String, Object>) caseInstance.getCaseContext().get("milestones");
+    if (milestones == null) {
       return MilestoneLifecycleStatus.PENDING;
     }
-
-    return switch (lastEvent.getEventType()) {
-      case MILESTONE_ACTIVATED -> MilestoneLifecycleStatus.ACTIVE;
-      case MILESTONE_COMPLETED -> MilestoneLifecycleStatus.COMPLETED;
-      case MILESTONE_SLA_VIOLATED ->
-          MilestoneLifecycleStatus
-              .ACTIVE; // TODO maybe it must be configurable whether SLA violation
-      // deactivates the milestone or not?
-      default -> MilestoneLifecycleStatus.PENDING;
-    };
+    Map<String, Object> milestone = (Map<String, Object>) milestones.get(milestoneName);
+    if (milestone == null) {
+      return MilestoneLifecycleStatus.PENDING;
+    }
+    Object statusObj = milestone.get("lifecycleStatus");
+    if (statusObj == null) {
+      return MilestoneLifecycleStatus.PENDING;
+    }
+    try {
+      return MilestoneLifecycleStatus.valueOf(statusObj.toString());
+    } catch (IllegalArgumentException e) {
+      LOG.warnf(
+          "Unknown milestone lifecycle status '%s' for milestone '%s', treating as PENDING",
+          statusObj, milestoneName);
+      return MilestoneLifecycleStatus.PENDING;
+    }
   }
 
+  @SuppressWarnings("unchecked")
   private SlaStatus getCurrentSlaStatus(CaseInstance caseInstance, String milestoneName) {
-    EventLog lastEvent =
-        findLastMilestoneEvent(caseInstance.getUuid(), milestoneName, caseInstance.tenancyId);
-    if (lastEvent == null) {
+    Map<String, Object> milestones =
+        (Map<String, Object>) caseInstance.getCaseContext().get("milestones");
+    if (milestones == null) {
       return SlaStatus.NOT_STARTED;
     }
-
-    JsonNode payload = lastEvent.getPayload();
-    JsonNode slaStatusNode = payload.get("slaStatus");
-    if (slaStatusNode == null) {
+    Map<String, Object> milestone = (Map<String, Object>) milestones.get(milestoneName);
+    if (milestone == null) {
       return SlaStatus.NOT_STARTED;
     }
-    String slaStatusStr = slaStatusNode.asText();
-    return SlaStatus.valueOf(slaStatusStr);
+    Object statusObj = milestone.get("slaStatus");
+    if (statusObj == null) {
+      return SlaStatus.NOT_STARTED;
+    }
+    try {
+      return SlaStatus.valueOf(statusObj.toString());
+    } catch (IllegalArgumentException e) {
+      LOG.warnf(
+          "Unknown SLA status '%s' for milestone '%s', treating as NOT_STARTED",
+          statusObj, milestoneName);
+      return SlaStatus.NOT_STARTED;
+    }
   }
 
   private Instant calculateSlaDeadline(
