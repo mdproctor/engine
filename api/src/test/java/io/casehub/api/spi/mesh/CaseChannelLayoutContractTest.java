@@ -78,17 +78,17 @@ class CaseChannelLayoutContractTest {
   // ── named() factory ───────────────────────────────────────────────────
 
   @Test
-  void named_normative_producesThreeChannels() {
+  void named_normative_producesFourChannels() {
     CaseChannelLayout layout = CaseChannelLayout.named("normative");
-    assertThat(layout.channelsFor(UUID.randomUUID(), null)).hasSize(3);
+    assertThat(layout.channelsFor(UUID.randomUUID(), null)).hasSize(4);
   }
 
   @Test
-  void named_normative_hasWorkObserveOversight() {
+  void named_normative_hasWorkObserveOversightCoordination() {
     CaseChannelLayout layout = CaseChannelLayout.named("normative");
     assertThat(layout.channelsFor(UUID.randomUUID(), null))
         .extracting(ChannelSpec::purpose)
-        .containsExactly("work", "observe", "oversight");
+        .containsExactly("work", "observe", "oversight", "coordination");
   }
 
   @Test

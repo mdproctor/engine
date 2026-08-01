@@ -23,7 +23,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Canonical 3-channel agent mesh layout: work / observe / oversight.
+ * Canonical 4-channel agent mesh layout: work / observe / oversight / coordination.
  *
  * <p>Type enforcement per protocols PP-20260604-a7ad99 and PP-20260508-a15390:
  *
@@ -33,6 +33,7 @@ import java.util.UUID;
  *       types)
  *   <li>{@code oversight} — {@code deniedTypes = {EVENT}} (advisory enforcement; all
  *       obligation-carrying types permitted)
+ *   <li>{@code coordination} — engine coordination; unrestricted
  * </ul>
  *
  * <p>{@code caseId} and {@code definition} are both ignored — the layout is

@@ -29,17 +29,17 @@ class NormativeChannelLayoutTest {
   private final NormativeChannelLayout layout = new NormativeChannelLayout();
 
   @Test
-  void channelsFor_returnsThreeChannels() {
+  void channelsFor_returnsFourChannels() {
     List<ChannelSpec> specs = layout.channelsFor(UUID.randomUUID(), null);
-    assertThat(specs).hasSize(3);
+    assertThat(specs).hasSize(4);
   }
 
   @Test
-  void channelsFor_purposes_areWorkObserveOversight() {
+  void channelsFor_purposes_areWorkObserveOversightCoordination() {
     List<ChannelSpec> specs = layout.channelsFor(UUID.randomUUID(), null);
     assertThat(specs)
         .extracting(ChannelSpec::purpose)
-        .containsExactly("work", "observe", "oversight");
+        .containsExactly("work", "observe", "oversight", "coordination");
   }
 
   @Test
@@ -109,6 +109,26 @@ class NormativeChannelLayoutTest {
             .findFirst()
             .orElseThrow();
     assertThat(observe.deniedTypes()).isNull();
+  }
+
+  @Test
+  void channelsFor_coordinationChannel_allowedTypesIsNull() {
+    ChannelSpec coordination =
+        layout.channelsFor(UUID.randomUUID(), null).stream()
+            .filter(s -> s.purpose().equals("coordination"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(coordination.allowedTypes()).isNull();
+  }
+
+  @Test
+  void channelsFor_coordinationChannel_deniedTypesIsNull() {
+    ChannelSpec coordination =
+        layout.channelsFor(UUID.randomUUID(), null).stream()
+            .filter(s -> s.purpose().equals("coordination"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(coordination.deniedTypes()).isNull();
   }
 
   @Test
