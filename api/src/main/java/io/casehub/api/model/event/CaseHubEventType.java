@@ -35,6 +35,8 @@ public enum CaseHubEventType {
   WORKER_OUTCOME_FAILED, // worker ran correctly but could not complete (semantic failure)
   WORKER_OUTCOME_EXPIRED, // worker timed out (engine-internal or commitment expiration)
 
+  SCOPED_WORKER_OUTPUT, // scoped worker interim Success output applied to case context
+
   WORK_SUBMITTED, // orchestrated work submitted via WorkOrchestrator
   WORK_COMPLETED, // orchestrated work completed; case may resume from WAITING
 

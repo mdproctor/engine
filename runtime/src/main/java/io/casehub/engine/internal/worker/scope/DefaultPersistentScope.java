@@ -18,7 +18,6 @@ package io.casehub.engine.internal.worker.scope;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.api.model.ExecutionMode;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent;
@@ -50,6 +49,7 @@ public class DefaultPersistentScope<T> implements PersistentScope<T> {
   private final JQEvaluator jqEvaluator;
   private final io.casehub.api.engine.WorkerRuntime innerRuntime;
   private final CaseInstance caseInstance;
+  private final String bindingName;
 
   public DefaultPersistentScope(
       Class<T> inputType,
@@ -62,7 +62,8 @@ public class DefaultPersistentScope<T> implements PersistentScope<T> {
       String outputSchema,
       JQEvaluator jqEvaluator,
       WorkerRuntimeFactory workerRuntimeFactory,
-      CaseInstance caseInstance) {
+      CaseInstance caseInstance,
+      String bindingName) {
     this.inputType = inputType;
     this.mailbox = mailbox;
     this.caseId = caseId;
@@ -73,6 +74,7 @@ public class DefaultPersistentScope<T> implements PersistentScope<T> {
     this.jqEvaluator = jqEvaluator;
     this.innerRuntime = workerRuntimeFactory.create(caseId, taskId, context);
     this.caseInstance = caseInstance;
+    this.bindingName = bindingName;
   }
 
   @Override
@@ -112,7 +114,7 @@ public class DefaultPersistentScope<T> implements PersistentScope<T> {
     }
     eventBus.publish(
         EventBusAddresses.SCOPED_WORKER_OUTPUT,
-        new ScopedWorkerOutputEvent(caseInstance, taskId, projected, ExecutionMode.PERSISTENT));
+        new ScopedWorkerOutputEvent(caseInstance, taskId, projected, bindingName, null));
   }
 
   @Override

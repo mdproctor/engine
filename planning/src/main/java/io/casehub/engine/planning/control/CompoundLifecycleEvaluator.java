@@ -16,7 +16,6 @@
 package io.casehub.engine.planning.control;
 
 import io.casehub.api.context.CaseContext;
-import io.casehub.api.engine.ExpressionEngine;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
@@ -24,7 +23,6 @@ import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
@@ -33,28 +31,32 @@ public class CompoundLifecycleEvaluator {
 
   private static final Logger LOG = Logger.getLogger(CompoundLifecycleEvaluator.class);
 
-  private final Instance<ExpressionEngine> expressionEngines;
+  private final io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
   private final io.vertx.mutiny.core.eventbus.EventBus eventBus;
 
   @Inject
   public CompoundLifecycleEvaluator(
-      Instance<ExpressionEngine> expressionEngines,
+      io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry,
       io.vertx.mutiny.core.eventbus.EventBus eventBus) {
-    this.expressionEngines = expressionEngines;
+    this.expressionEngineRegistry = expressionEngineRegistry;
     this.eventBus = eventBus;
   }
 
   CompoundLifecycleEvaluator() {
-    this.expressionEngines = null;
+    this.expressionEngineRegistry = null;
     this.eventBus = null;
   }
 
-  public void evaluate(CasePlanModel plan, PlanExecutionContext ctx) {
-    activatePendingCompounds(plan, ctx);
+  public java.util.List<PlanItemDefinition.Compound> evaluate(
+      CasePlanModel plan, PlanExecutionContext ctx) {
+    java.util.List<PlanItemDefinition.Compound> activated = activatePendingCompounds(plan, ctx);
     terminateRunningCompounds(plan, ctx);
+    return activated;
   }
 
-  private void activatePendingCompounds(CasePlanModel plan, PlanExecutionContext ctx) {
+  private java.util.List<PlanItemDefinition.Compound> activatePendingCompounds(
+      CasePlanModel plan, PlanExecutionContext ctx) {
+    java.util.List<PlanItemDefinition.Compound> activated = new java.util.ArrayList<>();
     for (PlanItemDefinition.Compound compound : plan.getCompoundsByStatus(TaskStatus.PENDING)) {
       var parentOpt = plan.getParentOf(compound.id());
       if (parentOpt.isPresent()) {
@@ -68,20 +70,28 @@ public class CompoundLifecycleEvaluator {
       if (conditionMet) {
         if (plan.tryDefinitionTransition(compound.id(), TaskStatus.PENDING, TaskStatus.RUNNING)) {
           LOG.debugf("Compound '%s' activated for case %s", compound.name(), ctx.caseId());
+          activated.add(compound);
           if (eventBus != null) {
             eventBus.publish(
                 io.casehub.engine.planning.event.BlackboardEventBusAddresses.COMPOUND_ACTIVATED,
                 new io.casehub.engine.common.internal.event.CompoundActivatedEvent(
-                    ctx.caseId(), ctx.tenancyId(), compound.id(), compound.name()));
+                    ctx.caseId(),
+                    ctx.tenancyId(),
+                    compound.id(),
+                    compound.name(),
+                    compound.scopedBindings().keySet()));
           }
         }
       }
     }
+    return activated;
   }
 
   private void terminateRunningCompounds(CasePlanModel plan, PlanExecutionContext ctx) {
     for (PlanItemDefinition.Compound compound : plan.getCompoundsByStatus(TaskStatus.RUNNING)) {
-      if (compound.exitCondition() == null) continue;
+      if (compound.exitCondition() == null) {
+        continue;
+      }
       if (evaluateCondition(compound.exitCondition(), ctx.caseContext())) {
         if (plan.tryDefinitionTransition(compound.id(), TaskStatus.RUNNING, TaskStatus.COMPLETED)) {
           LOG.debugf(
@@ -96,19 +106,13 @@ public class CompoundLifecycleEvaluator {
     if (evaluator == null) {
       return true;
     }
-    if (evaluator instanceof LambdaExpressionEvaluator lambda) {
-      return lambda.test(context);
-    }
-    if (expressionEngines == null) {
-      throw new IllegalStateException(
-          "ExpressionEngine instances not available for evaluator type: " + evaluator.type());
-    }
-    final String type = evaluator.type();
-    for (ExpressionEngine engine : expressionEngines) {
-      if (engine.type().equals(type)) {
-        return engine.evaluate(evaluator, context);
+    if (expressionEngineRegistry == null) {
+      if (evaluator instanceof LambdaExpressionEvaluator lambda) {
+        return lambda.test(context);
       }
+      throw new IllegalStateException(
+          "ExpressionEngineRegistry not available for evaluator type: " + evaluator.type());
     }
-    throw new IllegalArgumentException("No ExpressionEngine registered for type '" + type + "'");
+    return expressionEngineRegistry.evaluate(evaluator, context);
   }
 }

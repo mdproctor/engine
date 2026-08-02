@@ -15,12 +15,13 @@
  */
 package io.casehub.engine.common.internal.event;
 
-import io.casehub.api.model.ExecutionMode;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.Map;
+import java.util.UUID;
 
 public record ScopedWorkerOutputEvent(
     CaseInstance caseInstance,
-    String bindingName,
+    String workerName,
     Map<String, Object> output,
-    ExecutionMode executionMode) {}
+    String bindingName,
+    UUID signalId) {}

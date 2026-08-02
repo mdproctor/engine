@@ -18,4 +18,14 @@ package io.casehub.engine.common.internal.event;
 import java.util.UUID;
 
 public record CompoundActivatedEvent(
-    UUID caseId, String tenancyId, String compoundId, String compoundName) {}
+    UUID caseId,
+    String tenancyId,
+    String compoundId,
+    String compoundName,
+    java.util.Set<String> scopedBindingNames) {
+
+  public CompoundActivatedEvent(
+      UUID caseId, String tenancyId, String compoundId, String compoundName) {
+    this(caseId, tenancyId, compoundId, compoundName, java.util.Set.of());
+  }
+}

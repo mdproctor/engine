@@ -55,6 +55,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
   private final CompoundStrategyDispatcher compoundDispatcher;
   private final Instance<BlackboardPlanConfigurer> configurers;
   private final ImplementationRoutingStrategy implementationRoutingStrategy;
+  private final io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
 
   @Inject
   public PlanningStrategyLoopControl(
@@ -62,12 +63,14 @@ public class PlanningStrategyLoopControl implements LoopControl {
       CompoundLifecycleEvaluator compoundLifecycleEvaluator,
       CompoundStrategyDispatcher compoundDispatcher,
       Instance<BlackboardPlanConfigurer> configurers,
-      ImplementationRoutingStrategy implementationRoutingStrategy) {
+      ImplementationRoutingStrategy implementationRoutingStrategy,
+      io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry) {
     this.registry = registry;
     this.compoundLifecycleEvaluator = compoundLifecycleEvaluator;
     this.compoundDispatcher = compoundDispatcher;
     this.configurers = configurers;
     this.implementationRoutingStrategy = implementationRoutingStrategy;
+    this.expressionEngineRegistry = expressionEngineRegistry;
   }
 
   @Override
@@ -79,13 +82,21 @@ public class PlanningStrategyLoopControl implements LoopControl {
     UUID caseId = ctx.caseId();
     CasePlanModel plan = registry.getOrCreate(caseId, ctx.tenancyId());
 
-    if (registry.markConfigured(caseId)) {
+    boolean isFirstCall = registry.markConfigured(caseId);
+    if (isFirstCall) {
       configurers.stream()
           .filter(c -> c.supports(ctx.definition()))
           .forEach(c -> c.configure(plan, ctx));
+      validateCompoundScopedBindings(ctx.definition(), plan);
     }
 
-    compoundLifecycleEvaluator.evaluate(plan, ctx);
+    var activatedCompounds = compoundLifecycleEvaluator.evaluate(plan, ctx);
+
+    List<Binding> scopeActivated =
+        collectScopeActivatedBindings(ctx, plan, activatedCompounds, isFirstCall);
+
+    List<Binding> allEligible = new ArrayList<>(eligible);
+    allEligible.addAll(scopeActivated);
 
     Set<String> allScopedNames =
         plan.getAllCompounds().stream()
@@ -99,8 +110,8 @@ public class PlanningStrategyLoopControl implements LoopControl {
 
     List<Binding> gatedEligible =
         allScopedNames.isEmpty()
-            ? eligible
-            : eligible.stream()
+            ? allEligible
+            : allEligible.stream()
                 .filter(
                     b ->
                         !allScopedNames.contains(b.getName())
@@ -119,6 +130,75 @@ public class PlanningStrategyLoopControl implements LoopControl {
     List<Binding> selected = compoundDispatcher.dispatch(plan, ctx, routed);
 
     return filterAndIndexForDispatch(caseId, plan, selected, ctx);
+  }
+
+  private List<Binding> collectScopeActivatedBindings(
+      PlanExecutionContext ctx,
+      CasePlanModel plan,
+      List<io.casehub.engine.planning.plan.PlanItemDefinition.Compound> activatedCompounds,
+      boolean isFirstCall) {
+    List<Binding> result = new ArrayList<>();
+    List<Binding> allBindings = ctx.definition().getBindings();
+    if (allBindings == null || allBindings.isEmpty()) {
+      return result;
+    }
+
+    if (isFirstCall) {
+      for (Binding b : allBindings) {
+        if (b.getOn() instanceof io.casehub.api.model.ScopeActivatedTrigger
+            && b.lifecycleScope() == io.casehub.api.model.LifecycleScope.CASE) {
+          if (evaluateWhenGuard(b, ctx)) {
+            result.add(b);
+          }
+        }
+      }
+    }
+
+    for (var compound : activatedCompounds) {
+      Set<String> scopedNames = compound.scopedBindings().keySet();
+      for (Binding b : allBindings) {
+        if (b.getOn() instanceof io.casehub.api.model.ScopeActivatedTrigger
+            && scopedNames.contains(b.getName())) {
+          if (evaluateWhenGuard(b, ctx)) {
+            result.add(b);
+          }
+        }
+      }
+    }
+
+    return result;
+  }
+
+  private boolean evaluateWhenGuard(Binding binding, PlanExecutionContext ctx) {
+    if (binding.getWhen() == null) {
+      return true;
+    }
+    if (expressionEngineRegistry == null) {
+      return true;
+    }
+    return expressionEngineRegistry.evaluate(binding.getWhen(), ctx.caseContext());
+  }
+
+  private void validateCompoundScopedBindings(
+      io.casehub.api.model.CaseDefinition definition, CasePlanModel plan) {
+    Set<String> allScopedNames =
+        plan.getAllCompounds().stream()
+            .flatMap(c -> c.scopedBindings().keySet().stream())
+            .collect(Collectors.toSet());
+    for (Binding b : definition.getBindings()) {
+      if (b.getOn() instanceof io.casehub.api.model.ScopeActivatedTrigger
+          && b.lifecycleScope() == io.casehub.api.model.LifecycleScope.COMPOUND
+          && !allScopedNames.contains(b.getName())) {
+        throw new IllegalStateException(
+            "Binding '"
+                + b.getName()
+                + "' has ScopeActivatedTrigger with COMPOUND scope "
+                + "but is not in any compound's scopedBindings(). "
+                + "Add it to a Compound.builder().binding(\""
+                + b.getName()
+                + "\") call.");
+      }
+    }
   }
 
   private List<Binding> applyImplementationRouting(

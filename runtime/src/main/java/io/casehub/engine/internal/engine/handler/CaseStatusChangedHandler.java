@@ -76,6 +76,7 @@ public class CaseStatusChangedHandler {
 
   @Inject CaseCompletionTracker caseCompletionTracker;
   @Inject io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject ContextOutputApplier contextOutputApplier;
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public Uni<Void> onCaseStatusChangedHandler(CaseStatusChanged event) {
@@ -139,6 +140,7 @@ public class CaseStatusChangedHandler {
       }
       schedulerService.cancelAllTriggers(caseInstance.getUuid());
       scopedWorkerRegistry.terminateByCase(caseInstance.getUuid());
+      contextOutputApplier.evict(caseInstance.getUuid());
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();
       }

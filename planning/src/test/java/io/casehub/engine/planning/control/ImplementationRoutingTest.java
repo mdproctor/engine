@@ -76,7 +76,8 @@ class ImplementationRoutingTest {
                 id ->
                     strategyList.stream().filter(s -> s.id().equals(id)).findFirst().orElse(null)),
             emptyConfigurers,
-            routingStrategy);
+            routingStrategy,
+            null);
 
     caseId = UUID.randomUUID();
 

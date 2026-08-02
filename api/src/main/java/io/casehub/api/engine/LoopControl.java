@@ -21,22 +21,24 @@ import java.util.List;
 /**
  * SPI for controlling which eligible bindings are selected for execution.
  *
- * <p>Returns {@code Uni<List<Binding>>} to allow non-blocking I/O during selection (e.g. EventLog
- * queries, LLM scoring). See casehubio/engine#76.
+ * <p>Returns {@code List<Binding>} to allow synchronous selection. See casehubio/engine#76.
  *
  * <p>The default implementation ({@link io.casehub.engine.internal.engine.ChoreographyLoopControl})
- * wraps with {@code Uni.createFrom().item(eligible)} — no behaviour change.
+ * wraps with a simple pass-through — no behaviour change.
  */
 public interface LoopControl {
 
   /**
    * Select the bindings to fire from the set of bindings whose trigger conditions have already been
-   * evaluated and matched.
+   * evaluated and matched. Implementations may augment the eligible set with bindings that become
+   * eligible through planning evaluation (e.g., scope-activated bindings triggered by compound
+   * activation or case start).
    *
    * @param context case identity, definition, and current case state — enables implementations to
    *     look up plan models without requiring access to internal engine structures
    * @param eligible bindings whose trigger conditions matched — may be empty, never null
-   * @return the subset to fire; may be empty, may be the full list, must not be null
+   * @return the bindings to fire — may include scope-activated bindings not in the eligible input;
+   *     may be empty, must not be null
    */
   List<Binding> select(PlanExecutionContext context, List<Binding> eligible);
 }

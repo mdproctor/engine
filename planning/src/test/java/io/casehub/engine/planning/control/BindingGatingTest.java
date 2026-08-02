@@ -87,7 +87,8 @@ class BindingGatingTest {
                 id ->
                     strategyList.stream().filter(s -> s.id().equals(id)).findFirst().orElse(null)),
             emptyConfigurers,
-            new io.casehub.engine.internal.routing.NoOpImplementationRoutingStrategy());
+            new io.casehub.engine.internal.routing.NoOpImplementationRoutingStrategy(),
+            null);
 
     caseId = UUID.randomUUID();
     CaseDefinition def = mock(CaseDefinition.class);

@@ -231,7 +231,7 @@ class CbrRetrievalCachingTest {
   }
 
   private ScoredCbrCase<PlanCbrCase> scoredCase(String problem, String solution) {
-    PlanTrace trace = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
+    PlanTrace trace = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of(), null);
     PlanCbrCase cbrCase =
         new PlanCbrCase(
             problem,

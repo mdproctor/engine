@@ -228,17 +228,15 @@ class QuartzWorkerExecutionJob implements Job {
       java.util.UUID signalId,
       io.casehub.api.model.ExecutionMode executionMode) {
     if (executionMode != null && executionMode != io.casehub.api.model.ExecutionMode.TRANSIENT) {
-      if (!(workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Completed)) {
+      if (workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Success) {
         Map<String, Object> output = toMap(workerResult.output());
         if (output != null && !output.isEmpty()) {
           eventBus.publish(
               io.casehub.engine.common.internal.event.EventBusAddresses.SCOPED_WORKER_OUTPUT,
               new io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent(
-                  instance, bindingName, output, executionMode));
+                  instance, worker.name(), output, bindingName, signalId));
         }
-        LOG.debugf(
-            "Scoped worker %s returned Success — output applied, PlanItem stays RUNNING",
-            bindingName);
+        LOG.debugf("Scoped worker %s returned Success — interim output published", bindingName);
         return;
       }
     }

@@ -57,6 +57,8 @@ class LifecycleScopeIntegrationTest {
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject BlackboardRegistry blackboardRegistry;
   @Inject ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject ScopeActivatedCompoundBean scopeActivatedCase;
+  @Inject CaseScopeActivatedBean caseScopeCase;
 
   @Test
   void companion_binding_does_not_block_compound_completion() {
@@ -150,6 +152,38 @@ class LifecycleScopeIntegrationTest {
     assertThat(scopedWorkerRegistry.get(caseId, "test-binding"))
         .as("Scoped worker session should be removed on case termination")
         .isEmpty();
+  }
+
+  @Test
+  void scope_activated_binding_dispatches_on_compound_activation() {
+    UUID caseId = scopeActivatedCase.startCase(Map.of("ready", true));
+
+    await()
+        .atMost(15, SECONDS)
+        .untilAsserted(
+            () -> {
+              var instance = caseInstanceCache.get(caseId);
+              assertThat(instance).isNotNull();
+              assertThat(instance.getCaseContext().get("monitored"))
+                  .as("Scope-activated monitor should have run")
+                  .isNotNull();
+            });
+  }
+
+  @Test
+  void case_scoped_binding_dispatches_on_case_start() {
+    UUID caseId = caseScopeCase.startCase(Map.of("ready", true));
+
+    await()
+        .atMost(15, SECONDS)
+        .untilAsserted(
+            () -> {
+              var instance = caseInstanceCache.get(caseId);
+              assertThat(instance).isNotNull();
+              assertThat(instance.getCaseContext().get("caseLogged"))
+                  .as("Case-scoped scope-activated logger should have run")
+                  .isNotNull();
+            });
   }
 
   @ApplicationScoped
@@ -269,6 +303,131 @@ class LifecycleScopeIntegrationTest {
                   .participation(Participation.PARTICIPANT)
                   .executionMode(ExecutionMode.REINVOKED)
                   .on(new ContextChangeTrigger(".input != null and .finalResult == null"))
+                  .build())
+          .goals(done)
+          .completion(GoalExpression.allOf(done))
+          .build();
+    }
+  }
+
+  @ApplicationScoped
+  public static class ScopeActivatedCompoundBean extends CaseHub {
+
+    private final Capability processCap =
+        Capability.builder().name("process-sa").inputSchema(".").outputSchema(".").build();
+    private final Capability monitorCap =
+        Capability.builder().name("monitor-sa").inputSchema(".").outputSchema(".").build();
+
+    @Override
+    public CaseDefinition getDefinition() {
+      Goal done =
+          Goal.builder()
+              .name("sa-complete")
+              .kind(StandardGoalKind.SUCCESS)
+              .condition(new JQExpressionEvaluator(".result != null"))
+              .build();
+
+      return CaseDefinition.builder()
+          .namespace("lifecycle-scope-it")
+          .name("Scope Activated Compound")
+          .version("1.0.0")
+          .capabilities(processCap, monitorCap)
+          .workers(
+              Worker.builder()
+                  .name("processor-sa")
+                  .capabilityName("process-sa")
+                  .function(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("result", "done"))))
+                  .build(),
+              Worker.builder()
+                  .name("monitor-sa")
+                  .capabilityName("monitor-sa")
+                  .function(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("monitored", true))))
+                  .build())
+          .bindings(
+              Binding.builder()
+                  .name("process-request-sa")
+                  .capability(processCap)
+                  .on(new ContextChangeTrigger(".ready == true and .result == null"))
+                  .build(),
+              Binding.builder()
+                  .name("monitor-activity-sa")
+                  .capability(monitorCap)
+                  .on(new io.casehub.api.model.ScopeActivatedTrigger())
+                  .lifecycleScope(LifecycleScope.COMPOUND)
+                  .participation(Participation.COMPANION)
+                  .build())
+          .goals(done)
+          .completion(GoalExpression.allOf(done))
+          .build();
+    }
+  }
+
+  @ApplicationScoped
+  public static class ScopeActivatedPlanConfigurer
+      implements io.casehub.engine.planning.control.BlackboardPlanConfigurer {
+    @Override
+    public boolean supports(CaseDefinition definition) {
+      return "Scope Activated Compound".equals(definition.getName());
+    }
+
+    @Override
+    public void configure(
+        io.casehub.engine.planning.plan.CasePlanModel plan,
+        io.casehub.api.engine.PlanExecutionContext ctx) {
+      plan.registerDefinition(
+          PlanItemDefinition.Compound.builder("processing-stage")
+              .id("sa-compound")
+              .binding("process-request-sa", Participation.PARTICIPANT)
+              .binding("monitor-activity-sa", Participation.COMPANION)
+              .build());
+    }
+  }
+
+  @ApplicationScoped
+  public static class CaseScopeActivatedBean extends CaseHub {
+
+    private final Capability loggerCap =
+        Capability.builder().name("case-logger-cap").inputSchema(".").outputSchema(".").build();
+
+    @Override
+    public CaseDefinition getDefinition() {
+      Goal done =
+          Goal.builder()
+              .name("case-logged")
+              .kind(StandardGoalKind.SUCCESS)
+              .condition(new JQExpressionEvaluator(".caseLogged != null"))
+              .build();
+
+      return CaseDefinition.builder()
+          .namespace("lifecycle-scope-it")
+          .name("Case Scope Activated")
+          .version("1.0.0")
+          .capabilities(loggerCap)
+          .workers(
+              Worker.builder()
+                  .name("case-logger-worker")
+                  .capabilityName("case-logger-cap")
+                  .function(
+                      new WorkerFunction.Sync<>(
+                          Map.class,
+                          Map.class,
+                          (input, scope) -> WorkerResult.of(Map.of("caseLogged", true))))
+                  .build())
+          .bindings(
+              Binding.builder()
+                  .name("case-logger-binding")
+                  .capability(loggerCap)
+                  .on(new io.casehub.api.model.ScopeActivatedTrigger())
+                  .lifecycleScope(LifecycleScope.CASE)
+                  .participation(Participation.COMPANION)
                   .build())
           .goals(done)
           .completion(GoalExpression.allOf(done))

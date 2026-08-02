@@ -65,7 +65,7 @@ class CbrRoutingIntegrationTest {
     // Pre-load the CBR store with a matching case
     PlanTrace trace =
         new PlanTrace(
-            "plan-on-enemy-sighted", "planBattle", "battle-planner", "SUCCESS", 0, Map.of());
+            "plan-on-enemy-sighted", "planBattle", "battle-planner", "SUCCESS", 0, Map.of(), null);
     PlanCbrCase pastCase =
         new PlanCbrCase(
             "Enemy aggressive with 100 troops",

@@ -37,6 +37,7 @@ public final class EventBusAddresses {
   public static final String WORKER_EXECUTION_STARTED = "casehub.worker.start";
   public static final String WORKER_EXECUTION_FINISHED = "casehub.worker.finished";
   public static final String WORKER_RETRIES_EXHAUSTED = "casehub.worker.retries.exhausted";
+  public static final String SCOPED_WORKER_OUTPUT = "casehub.engine.scoped-worker-output";
 
   public static final String MILESTONE_ACTIVATED = "casehub.milestone.activated";
   public static final String MILESTONE_COMPLETED = "casehub.milestone.completed";
@@ -107,5 +108,4 @@ public final class EventBusAddresses {
   public static final String COMPOUND_COMPLETED = "casehub.planning.compound.completed";
 
   public static final String COMPOUND_ACTIVATED = "casehub.planning.compound.activated";
-  public static final String SCOPED_WORKER_OUTPUT = "casehub.engine.scoped-worker-output";
 }

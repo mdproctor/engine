@@ -15,21 +15,25 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
-import io.casehub.api.context.CaseContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.ContextLayer;
-import io.casehub.api.model.Binding;
-import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.ConflictResolver;
+import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.event.CaseHubEventType;
+import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent;
+import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
-import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.EventLogRepository;
+import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import java.time.Instant;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
@@ -37,53 +41,76 @@ import org.jboss.logging.Logger;
 public class ScopedWorkerOutputHandler {
 
   private static final Logger LOG = Logger.getLogger(ScopedWorkerOutputHandler.class);
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject CaseDefinitionRegistry definitionRegistry;
-  @Inject ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject ContextOutputApplier contextOutputApplier;
+  @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
 
-  @io.quarkus.vertx.ConsumeEvent(EventBusAddresses.SCOPED_WORKER_OUTPUT)
+  @ConsumeEvent(value = EventBusAddresses.SCOPED_WORKER_OUTPUT)
   @RunOnVirtualThread
   public void onScopedWorkerOutput(ScopedWorkerOutputEvent event) {
-    CaseInstance instance = event.caseInstance();
+    try {
+      CaseInstance caseInstance = event.caseInstance();
+      CaseStatus state = caseInstance.getState();
 
-    if (scopedWorkerRegistry.get(instance.getUuid(), event.bindingName()).isEmpty()) {
-      LOG.debugf(
-          "Discarding output for terminated scope binding '%s' case %s",
-          event.bindingName(), instance.getUuid());
-      return;
+      if (state != CaseStatus.RUNNING && state != CaseStatus.WAITING) {
+        LOG.debugf(
+            "Ignoring scoped worker output for caseId=%s — case is %s",
+            caseInstance.getUuid(), state);
+        return;
+      }
+
+      JsonNode diff = contextOutputApplier.apply(caseInstance, event.output(), event.bindingName());
+      if (diff == null) {
+        return;
+      }
+
+      EventLog eventLog =
+          buildEventLog(
+              caseInstance, event.workerName(), event.output(), event.bindingName(), diff);
+      eventLogRepository.append(eventLog, caseInstance.tenancyId);
+
+      eventBus.publish(
+          EventBusAddresses.CONTEXT_CHANGED,
+          new CaseContextChangedEvent(
+              caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
+    } catch (Exception e) {
+      LOG.errorf(
+          e,
+          "Failed to apply scoped worker output for caseId=%s worker=%s",
+          event.caseInstance().getUuid(),
+          event.workerName());
     }
+  }
 
-    CaseDefinition definition = definitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
-    String strategy = null;
-    if (definition != null && definition.getBindings() != null) {
-      Binding binding =
-          definition.getBindings().stream()
-              .filter(b -> b.getName().equals(event.bindingName()))
-              .findFirst()
-              .orElse(null);
-      if (binding != null) {
-        strategy = binding.getConflictResolverStrategy();
+  private EventLog buildEventLog(
+      CaseInstance caseInstance,
+      String workerName,
+      Map<String, Object> output,
+      String bindingName,
+      JsonNode contextDiff) {
+    EventLog eventLog = new EventLog();
+    eventLog.setCaseId(caseInstance.getUuid());
+    eventLog.setWorkerId(workerName);
+    eventLog.setStreamType(EventStreamType.CASE);
+    eventLog.setTimestamp(Instant.now());
+    eventLog.setEventType(CaseHubEventType.SCOPED_WORKER_OUTPUT);
+    eventLog.setPayload(OBJECT_MAPPER.valueToTree(output == null ? Map.of() : output));
+
+    ObjectNode metadata = OBJECT_MAPPER.createObjectNode();
+    if (bindingName != null) {
+      metadata.put("bindingName", bindingName);
+    }
+    if (contextDiff != null) {
+      metadata.set("contextChanges", contextDiff);
+      var keys = OBJECT_MAPPER.createArrayNode();
+      contextDiff.fieldNames().forEachRemaining(keys::add);
+      if (!keys.isEmpty()) {
+        metadata.set("producedKeys", keys);
       }
     }
-
-    CaseContext caseContext = instance.getCaseContext();
-    for (Map.Entry<String, Object> entry : event.output().entrySet()) {
-      String key = entry.getKey();
-      Object incoming = entry.getValue();
-      Object existing = caseContext.get(key);
-      Object resolved =
-          existing != null ? ConflictResolver.resolve(strategy, key, existing, incoming) : incoming;
-      caseContext.set(key, resolved);
-    }
-
-    eventBus.publish(
-        EventBusAddresses.CONTEXT_CHANGED,
-        new CaseContextChangedEvent(
-            instance, caseContext.snapshot(), ContextLayer.WORKING, null, null, null));
-
-    LOG.debugf(
-        "Applied scoped output for binding '%s' case %s (%d keys)",
-        event.bindingName(), instance.getUuid(), event.output().size());
+    eventLog.setMetadata(metadata);
+    return eventLog;
   }
 }

@@ -15,98 +15,185 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.ExecutionMode;
-import io.casehub.api.model.LifecycleScope;
-import io.casehub.api.model.Participation;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.event.CaseHubEventType;
+import io.casehub.api.model.event.EventStreamType;
+import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent;
+import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
-import io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession;
-import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.vertx.mutiny.core.eventbus.EventBus;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 class ScopedWorkerOutputHandlerTest {
 
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
   private ScopedWorkerOutputHandler handler;
-  private ScopedWorkerRegistry registry;
-  private CaseDefinitionRegistry definitionRegistry;
+  private ContextOutputApplier applier;
+  private EventLogRepository eventLogRepository;
   private EventBus eventBus;
-  private CaseInstance caseInstance;
-  private UUID caseId;
+  private CaseInstance instance;
 
   @BeforeEach
   void setUp() {
-    registry = new ScopedWorkerRegistry();
-    definitionRegistry = mock(CaseDefinitionRegistry.class);
+    applier = mock(ContextOutputApplier.class);
+    eventLogRepository = mock(EventLogRepository.class);
     eventBus = mock(EventBus.class);
 
     handler = new ScopedWorkerOutputHandler();
-    handler.definitionRegistry = definitionRegistry;
-    handler.scopedWorkerRegistry = registry;
+    handler.contextOutputApplier = applier;
+    handler.eventLogRepository = eventLogRepository;
     handler.eventBus = eventBus;
 
-    caseId = UUID.randomUUID();
-    caseInstance = new CaseInstance();
-    caseInstance.setUuid(caseId);
-    caseInstance.setCaseContext(new io.casehub.engine.internal.context.CaseContextImpl());
-    CaseMetaModel meta = new CaseMetaModel();
-    caseInstance.setCaseMetaModel(meta);
+    CaseMetaModel metaModel = new CaseMetaModel();
+    metaModel.setNamespace("ns");
+    metaModel.setName("test");
+    metaModel.setVersion("1.0");
+
+    instance = new CaseInstance();
+    instance.setUuid(UUID.randomUUID());
+    instance.setCaseMetaModel(metaModel);
+    instance.setState(CaseStatus.RUNNING);
+    instance.tenancyId = "tenant-1";
+    instance.setCaseContext(new io.casehub.engine.internal.context.CaseContextImpl());
   }
 
   @Test
-  void applies_output_to_case_context_when_session_exists() {
-    registry.register(
-        new ScopedWorkerRegistry.ScopeKey(caseId, "binding-a"),
-        new ScopedWorkerSession.Reinvoked(
-            "binding-a",
-            caseId,
-            "worker-1",
-            LifecycleScope.COMPOUND,
-            Participation.PARTICIPANT,
-            new AtomicReference<>(Map.of()),
-            new AtomicReference<>(null)));
-
-    CaseDefinition def = mock(CaseDefinition.class);
-    when(def.getBindings()).thenReturn(List.of());
-    when(definitionRegistry.getCaseDefinition(any())).thenReturn(def);
+  void appliesOutputAndPublishesContextChanged() {
+    ObjectNode diff = OBJECT_MAPPER.createObjectNode().put("key1", "value1");
+    when(applier.apply(eq(instance), anyMap(), eq("binding1"))).thenReturn(diff);
 
     var event =
         new ScopedWorkerOutputEvent(
-            caseInstance, "binding-a", Map.of("result", "processed"), ExecutionMode.REINVOKED);
-
+            instance, "worker1", Map.of("key1", "value1"), "binding1", null);
     handler.onScopedWorkerOutput(event);
 
-    assertThat(caseInstance.getCaseContext().get("result")).isEqualTo("processed");
-    verify(eventBus).publish(any(String.class), any());
+    verify(applier).apply(instance, Map.of("key1", "value1"), "binding1");
+
+    ArgumentCaptor<EventLog> logCaptor = ArgumentCaptor.forClass(EventLog.class);
+    verify(eventLogRepository).append(logCaptor.capture(), eq("tenant-1"));
+    EventLog log = logCaptor.getValue();
+    assertEquals(CaseHubEventType.SCOPED_WORKER_OUTPUT, log.getEventType());
+    assertEquals(EventStreamType.CASE, log.getStreamType());
+    assertEquals("worker1", log.getWorkerId());
+
+    verify(eventBus)
+        .publish(eq(EventBusAddresses.CONTEXT_CHANGED), any(CaseContextChangedEvent.class));
   }
 
   @Test
-  void discards_output_when_session_terminated() {
-    CaseDefinition def = mock(CaseDefinition.class);
-    when(definitionRegistry.getCaseDefinition(any())).thenReturn(def);
+  void emptyOutputFromApplier_noEventLogNoContextChanged() {
+    when(applier.apply(any(), anyMap(), anyString())).thenReturn(null);
 
     var event =
         new ScopedWorkerOutputEvent(
-            caseInstance, "gone-binding", Map.of("result", "late"), ExecutionMode.REINVOKED);
-
+            instance, "worker1", Map.of("key1", "value1"), "binding1", null);
     handler.onScopedWorkerOutput(event);
 
-    assertThat(caseInstance.getCaseContext().get("result")).isNull();
-    verify(eventBus, never()).publish(any(String.class), any());
+    verify(eventLogRepository, never()).append(any(), anyString());
+    verify(eventBus, never()).publish(anyString(), any());
+  }
+
+  @Test
+  void terminalCaseState_completed_noOp() {
+    instance.setState(CaseStatus.COMPLETED);
+
+    var event =
+        new ScopedWorkerOutputEvent(
+            instance, "worker1", Map.of("key1", "value1"), "binding1", null);
+    handler.onScopedWorkerOutput(event);
+
+    verify(applier, never()).apply(any(), anyMap(), anyString());
+    verify(eventLogRepository, never()).append(any(), anyString());
+    verify(eventBus, never()).publish(anyString(), any());
+  }
+
+  @Test
+  void terminalCaseState_faulted_noOp() {
+    instance.setState(CaseStatus.FAULTED);
+
+    var event =
+        new ScopedWorkerOutputEvent(
+            instance, "worker1", Map.of("key1", "value1"), "binding1", null);
+    handler.onScopedWorkerOutput(event);
+
+    verify(applier, never()).apply(any(), anyMap(), anyString());
+  }
+
+  @Test
+  void terminalCaseState_cancelled_noOp() {
+    instance.setState(CaseStatus.CANCELLED);
+
+    var event =
+        new ScopedWorkerOutputEvent(
+            instance, "worker1", Map.of("key1", "value1"), "binding1", null);
+    handler.onScopedWorkerOutput(event);
+
+    verify(applier, never()).apply(any(), anyMap(), anyString());
+  }
+
+  @Test
+  void nullBindingName_stillApplies() {
+    ObjectNode diff = OBJECT_MAPPER.createObjectNode().put("key1", "value1");
+    when(applier.apply(eq(instance), anyMap(), isNull())).thenReturn(diff);
+
+    var event =
+        new ScopedWorkerOutputEvent(instance, "worker1", Map.of("key1", "value1"), null, null);
+    handler.onScopedWorkerOutput(event);
+
+    verify(applier).apply(instance, Map.of("key1", "value1"), null);
+    verify(eventLogRepository).append(any(), eq("tenant-1"));
+  }
+
+  @Test
+  void eventLogMetadata_containsBindingNameAndProducedKeys() {
+    ObjectNode diff = OBJECT_MAPPER.createObjectNode().put("key1", "v1").put("key2", "v2");
+    when(applier.apply(any(), anyMap(), anyString())).thenReturn(diff);
+
+    var event =
+        new ScopedWorkerOutputEvent(
+            instance, "worker1", Map.of("key1", "v1", "key2", "v2"), "binding1", null);
+    handler.onScopedWorkerOutput(event);
+
+    ArgumentCaptor<EventLog> logCaptor = ArgumentCaptor.forClass(EventLog.class);
+    verify(eventLogRepository).append(logCaptor.capture(), anyString());
+    var metadata = logCaptor.getValue().getMetadata();
+    assertEquals("binding1", metadata.get("bindingName").asText());
+    assertTrue(metadata.has("contextChanges"));
+    assertTrue(metadata.has("producedKeys"));
+  }
+
+  @Test
+  void exceptionCaughtAndLogged_doesNotPropagate() {
+    when(applier.apply(any(), anyMap(), anyString())).thenThrow(new RuntimeException("test error"));
+
+    var event =
+        new ScopedWorkerOutputEvent(
+            instance, "worker1", Map.of("key1", "value1"), "binding1", null);
+
+    assertDoesNotThrow(() -> handler.onScopedWorkerOutput(event));
   }
 }

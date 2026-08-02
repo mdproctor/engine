@@ -193,4 +193,34 @@ class CompoundLifecycleEvaluatorTest {
 
     assertThat(plan.getDefinitionStatus("comp-1")).isEqualTo(TaskStatus.COMPLETED);
   }
+
+  @Test
+  void evaluate_returns_activated_compounds() {
+    var compound =
+        PlanItemDefinition.Compound.builder("phase-1")
+            .id("comp-1")
+            .binding("scope-worker", io.casehub.api.model.Participation.PARTICIPANT)
+            .build();
+    plan.registerDefinition(compound);
+
+    java.util.List<PlanItemDefinition.Compound> activated = evaluator.evaluate(plan, ctx);
+
+    assertThat(activated).hasSize(1);
+    assertThat(activated.get(0).id()).isEqualTo("comp-1");
+    assertThat(activated.get(0).scopedBindings()).containsKey("scope-worker");
+  }
+
+  @Test
+  void evaluate_returns_empty_list_when_no_compounds_activate() {
+    var compound =
+        PlanItemDefinition.Compound.builder("phase-1")
+            .id("comp-1")
+            .entryCondition(c -> false)
+            .build();
+    plan.registerDefinition(compound);
+
+    java.util.List<PlanItemDefinition.Compound> activated = evaluator.evaluate(plan, ctx);
+
+    assertThat(activated).isEmpty();
+  }
 }

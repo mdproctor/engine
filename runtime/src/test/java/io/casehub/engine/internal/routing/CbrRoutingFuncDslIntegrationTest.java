@@ -71,7 +71,7 @@ class CbrRoutingFuncDslIntegrationTest {
   void lambdaFeatureExtractor_experiencesReachAgentRoutingStrategy() {
     // Pre-load the CBR store with a matching case
     PlanTrace trace =
-        new PlanTrace("analyse-risk", "assessRisk", "risk-assessor", "SUCCESS", 0, Map.of());
+        new PlanTrace("analyse-risk", "assessRisk", "risk-assessor", "SUCCESS", 0, Map.of(), null);
     PlanCbrCase pastCase =
         new PlanCbrCase(
             "High-risk transaction detected",

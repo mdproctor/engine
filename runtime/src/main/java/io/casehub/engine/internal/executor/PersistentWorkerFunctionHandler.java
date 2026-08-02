@@ -115,7 +115,8 @@ public class PersistentWorkerFunctionHandler implements WorkerFunctionHandler {
             outputSchema,
             jqEvaluator,
             workerRuntimeFactory,
-            instance);
+            instance,
+            metadata.bindingName());
 
     String bindingName = metadata.bindingName();
     virtualThreads.submit(

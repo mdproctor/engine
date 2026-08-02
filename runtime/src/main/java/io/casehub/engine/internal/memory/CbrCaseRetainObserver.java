@@ -280,7 +280,8 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
         record.executorName(),
         OUTCOME_MAP.getOrDefault(record.status(), RoutingOutcome.FAILURE).name(),
         priority,
-        Map.of());
+        Map.of(),
+        null);
   }
 
   private static Object unwrap(JsonNode node) {

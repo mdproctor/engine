@@ -194,7 +194,7 @@ class CbrRetrievalServiceTest {
     CbrConfig config =
         CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
     CaseDefinition def = buildDefinition(config);
-    PlanTrace planTrace = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
+    PlanTrace planTrace = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of(), null);
     PlanCbrCase cbrCase =
         new PlanCbrCase(
             "problem1",
@@ -326,7 +326,7 @@ class CbrRetrievalServiceTest {
             .cbrType("plan")
             .build();
     CaseDefinition def = buildDefinition(config);
-    PlanTrace pt = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
+    PlanTrace pt = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of(), null);
     PlanCbrCase planCase =
         new PlanCbrCase(
             "problem1",
@@ -381,7 +381,7 @@ class CbrRetrievalServiceTest {
     CbrConfig config =
         CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
     CaseDefinition def = buildDefinition(config);
-    PlanTrace pt = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of());
+    PlanTrace pt = new PlanTrace("bind1", "cap1", "worker1", "SUCCESS", 0, Map.of(), null);
     PlanCbrCase planCase =
         new PlanCbrCase(
             "problem1",
@@ -418,7 +418,7 @@ class CbrRetrievalServiceTest {
             "COMPLETED",
             0.9,
             Map.of("f1", FeatureValue.string("v1")),
-            List.of(new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of())),
+            List.of(new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of(), null)),
             null,
             null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
@@ -441,8 +441,8 @@ class CbrRetrievalServiceTest {
             0.9,
             Map.of("f1", FeatureValue.string("v1")),
             List.of(
-                new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of()),
-                new PlanTrace("b2", "c2", "w2", "FAILURE", 0, Map.of())),
+                new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of(), null),
+                new PlanTrace("b2", "c2", "w2", "FAILURE", 0, Map.of(), null)),
             null,
             null);
     cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
@@ -498,7 +498,7 @@ class CbrRetrievalServiceTest {
     CbrConfig config =
         CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
     CaseDefinition def = buildDefinition(config);
-    PlanTrace pt = new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of());
+    PlanTrace pt = new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of(), null);
     PlanCbrCase planCase =
         new PlanCbrCase(
             "problem1",
