@@ -54,11 +54,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
   void setUp() {
     handler =
         new WorkerRetriesExhaustedEventHandler(
-            caseInstanceCache,
-            eventBus,
-            caseInstanceRepository,
-            workerStatusListener,
-            settlementTracker);
+            caseInstanceCache, eventBus, workerStatusListener, settlementTracker);
   }
 
   @Test

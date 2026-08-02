@@ -15,52 +15,39 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
-import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.engine.internal.engine.SignalSettlementTracker;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Instant;
 import org.jboss.logging.Logger;
 
-/**
- * Handles worker retry exhaustion by marking the case as FAULTED. Atomically updates the instance
- * state and appends the event log entry.
- */
 @ApplicationScoped
 public class WorkerRetriesExhaustedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(WorkerRetriesExhaustedEventHandler.class);
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private final CaseInstanceCache caseInstanceCache;
   private final EventBus eventBus;
-  private final CaseInstanceRepository caseInstanceRepository;
   private final WorkerStatusListener workerStatusListener;
-  private final io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
+  private final SignalSettlementTracker settlementTracker;
 
   @Inject
   WorkerRetriesExhaustedEventHandler(
       CaseInstanceCache caseInstanceCache,
       EventBus eventBus,
-      CaseInstanceRepository caseInstanceRepository,
       WorkerStatusListener workerStatusListener,
-      io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker) {
+      SignalSettlementTracker settlementTracker) {
     this.caseInstanceCache = caseInstanceCache;
     this.eventBus = eventBus;
-    this.caseInstanceRepository = caseInstanceRepository;
     this.workerStatusListener = workerStatusListener;
     this.settlementTracker = settlementTracker;
   }
@@ -75,22 +62,6 @@ public class WorkerRetriesExhaustedEventHandler {
 
       CaseInstance caseInstance = caseInstanceCache.get(event.caseId());
       String oldStatus = caseInstance.getState().name();
-      caseInstance.setState(CaseStatus.FAULTED);
-
-      EventLog eventLog = new EventLog();
-      eventLog.setEventType(CaseHubEventType.CASE_FAULTED);
-      eventLog.setCaseId(caseInstance.getUuid());
-      eventLog.setStreamType(EventStreamType.CASE);
-      eventLog.setTimestamp(Instant.now());
-      eventLog.setWorkerId(event.workerId());
-      eventLog.setMetadata(
-          OBJECT_MAPPER
-              .createObjectNode()
-              .put("workerId", event.workerId())
-              .put("inputDataHash", event.idempotency()));
-
-      caseInstanceRepository.updateStateAndAppendEvent(
-          caseInstance, eventLog, caseInstance.tenancyId);
 
       LOG.warnf(
           "Worker retries exhausted for caseId=%s, workerId=%s", event.caseId(), event.workerId());
