@@ -499,18 +499,7 @@ public final class CaseDefinitionYamlMapper {
         }
 
         if (sm.getSlaStartFrom() != null) {
-          final SlaStartFrom startFrom = SlaStartFrom.valueOf(sm.getSlaStartFrom().value());
-          if (startFrom == SlaStartFrom.PREVIOUS_MILESTONE_COMPLETED
-              || startFrom == SlaStartFrom.EVENT_OCCURRED) {
-            throw new UnsupportedOperationException(
-                "Milestone '"
-                    + sm.getName()
-                    + "' uses slaStartFrom="
-                    + startFrom
-                    + " which is not yet implemented."
-                    + " Use CASE_CREATED or MILESTONE_ACTIVATED.");
-          }
-          milestoneBuilder.slaStartFrom(startFrom);
+          milestoneBuilder.slaStartFrom(SlaStartFrom.valueOf(sm.getSlaStartFrom().value()));
         }
 
         final Milestone milestone = milestoneBuilder.build();

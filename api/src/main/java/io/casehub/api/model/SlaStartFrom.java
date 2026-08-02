@@ -21,16 +21,9 @@ package io.casehub.api.model;
  * <ul>
  *   <li><b>CASE_CREATED</b> — SLA starts from case creation timestamp
  *   <li><b>MILESTONE_ACTIVATED</b> — SLA starts from PENDING → ACTIVE transition (default)
- *   <li><b>PREVIOUS_MILESTONE_COMPLETED</b> — SLA starts from previous milestone completion (TODO:
- *       future)
- *   <li><b>EVENT_OCCURRED</b> — SLA starts from a specific event (TODO: future)
  * </ul>
- *
- * <p><b>MVP scope:</b> Only CASE_CREATED and MILESTONE_ACTIVATED are implemented.
  */
 public enum SlaStartFrom {
   CASE_CREATED,
-  MILESTONE_ACTIVATED,
-  PREVIOUS_MILESTONE_COMPLETED, // TODO: future implementation
-  EVENT_OCCURRED // TODO: future implementation
+  MILESTONE_ACTIVATED
 }

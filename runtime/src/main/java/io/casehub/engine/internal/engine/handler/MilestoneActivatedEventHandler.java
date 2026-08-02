@@ -15,9 +15,6 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
-import static io.casehub.api.model.event.CaseHubEventType.MILESTONE_ACTIVATED;
-import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
@@ -44,11 +41,15 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import org.jboss.logging.Logger;
+
+import static io.casehub.api.model.event.CaseHubEventType.MILESTONE_ACTIVATED;
+import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
 
 /**
  * Handles {@link MilestoneActivatedEvent}: records to EventLog, updates CaseContext, schedules SLA
@@ -223,9 +224,5 @@ public class MilestoneActivatedEventHandler {
     LOG.infof("Scheduled SLA timeout job for milestone=%s at %s", milestone.getName(), slaDeadline);
   }
 
-  private boolean isTerminalLifecycleStatus(String lifecycleStatus) {
-    return MilestoneLifecycleStatus.COMPLETED.name().equals(lifecycleStatus)
-        || MilestoneLifecycleStatus.FAILED.name().equals(lifecycleStatus)
-        || MilestoneLifecycleStatus.CANCELLED.name().equals(lifecycleStatus);
-  }
+  private boolean isTerminalLifecycleStatus(String lifecycleStatus) {return MilestoneLifecycleStatus.COMPLETED.name().equals(lifecycleStatus);}
 }

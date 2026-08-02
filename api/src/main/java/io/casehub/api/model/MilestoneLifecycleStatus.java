@@ -18,21 +18,16 @@ package io.casehub.api.model;
 /**
  * Lifecycle status of a milestone.
  *
- * <p>A milestone progresses: PENDING → ACTIVE → COMPLETED (normal flow) or → FAILED/CANCELLED
- * (exceptional flows).
+ * <p>A milestone progresses: PENDING → ACTIVE → COMPLETED.
  *
  * <ul>
  *   <li><b>PENDING</b> — waiting for entryCriteria to become true
  *   <li><b>ACTIVE</b> — entryCriteria met, working toward completionCriteria
  *   <li><b>COMPLETED</b> — completionCriteria met successfully
- *   <li><b>FAILED</b> — explicit negative outcome (future: via REST API)
- *   <li><b>CANCELLED</b> — no longer relevant (future: via REST API)
  * </ul>
  */
 public enum MilestoneLifecycleStatus {
   PENDING,
   ACTIVE,
-  COMPLETED,
-  FAILED,
-  CANCELLED
+  COMPLETED
 }

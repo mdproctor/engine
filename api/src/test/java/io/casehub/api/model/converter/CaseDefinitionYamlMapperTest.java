@@ -1619,14 +1619,12 @@ class CaseDefinitionYamlMapperTest {
             () ->
                 CaseDefinitionYamlMapper.load(
                     new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("future-sla")
-        .hasMessageContaining("PREVIOUS_MILESTONE_COMPLETED")
-        .hasMessageContaining("not yet implemented");
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("PREVIOUS_MILESTONE_COMPLETED");
   }
 
   @Test
-  void milestone_withEventOccurredSlaStartFrom_throwsUnsupportedOperation() {
+  void milestone_withEventOccurredSlaStartFrom_throwsIllegalArgument() {
     String yaml =
         """
         namespace: test
@@ -1644,10 +1642,8 @@ class CaseDefinitionYamlMapperTest {
             () ->
                 CaseDefinitionYamlMapper.load(
                     new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8))))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("event-sla")
-        .hasMessageContaining("EVENT_OCCURRED")
-        .hasMessageContaining("not yet implemented");
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("EVENT_OCCURRED");
   }
 
   @Test
