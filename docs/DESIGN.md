@@ -621,6 +621,46 @@ Entries that exhaust max-attempts stay PENDING_REVIEW for manual triage.
 - [ ] Integration with Claudony (session management + dashboard)
 - [ ] Integration with Qhorus (inter-agent communication)
 
+## Milestone and Goal Alignment
+
+### Composition model
+
+`ExpressionEvaluator` on `CaseContext` is the platform's universal evaluation surface.
+Milestone conditions, goal conditions, binding triggers, and compound entry/exit criteria
+all compose through pluggable expression evaluation (JQ, MVEL, lambda). Structural
+containment relationships (CMMN Stage→Milestone) are replaced by expression-based
+composition — any condition can reference any context data.
+
+### Milestone/Goal boundary
+
+| Concept | Question | Nature | State | Scope |
+|---------|----------|--------|-------|-------|
+| Milestone | Where are we? | Neutral progress marker | PENDING→ACTIVE→COMPLETED in CaseContext | Case-level |
+| Goal | What outcome? | Terminal condition with GoalKind | Drives CaseStatus via GoalBasedCompletion | Case-level |
+
+Goals are always terminal. Unreferenced goals are rejected at registration. A
+non-terminal checkpoint is a Milestone.
+
+### Milestone lifecycle state
+
+CaseContext (`milestones.<name>.*`) is the canonical runtime state for event-driven
+consumers. EventLog records events for audit and scheduled job queries
+(`MilestoneSLATimeoutJob`). `MilestoneLifecycleManager` reads from CaseContext;
+the SLA timeout Quartz job reads from EventLog (CaseContext unavailable after JVM restart).
+
+### CMMN deviations (deliberate)
+
+| CMMN concept | casehub equivalent | Rationale |
+|-------------|-------------------|-----------|
+| Stage containment of Milestones | Expression-based composition via CaseContext | More flexible — any condition can reference any milestone |
+| Milestones as PlanItemDefinitions | Separate definition-time concept | Milestones are evaluated (condition-driven), not dispatched (execution-driven) |
+| Exit criteria on Case/Stage for completion | Explicit Goal + GoalBasedCompletion | Clearer intent — goals are named, typed, and composed via GoalExpressions |
+
+### Extension points
+
+- `Compound.scopedMilestones: Set<String>` — for future compound-scoped milestone evaluation (follows `scopedBindings` pattern)
+- `SlaStartFrom` — for future SLA start modes (milestone chaining, event correlation)
+
 ## Further Reading
 
 - **ADR-0001** — Blackboard model and terminology alignment
