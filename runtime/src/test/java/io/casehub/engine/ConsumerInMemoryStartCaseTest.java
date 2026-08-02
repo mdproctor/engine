@@ -117,6 +117,17 @@ public class ConsumerInMemoryStartCaseTest {
     assertNotNull(found, "repo should find instance saved (same store)");
   }
 
+  @Test
+  void startCase_shouldSetActorIdOnInstance() {
+    UUID caseId = caseHub.startCase(Map.of("documentId", "doc-002", "status", "new"));
+    assertNotNull(caseId, "caseId should be assigned");
+
+    var instance = caseInstanceCache.get(caseId);
+    assertNotNull(instance, "instance should be in cache");
+    assertEquals(
+        "system", instance.getActorId(), "actorId should match CurrentPrincipal.actorId()");
+  }
+
   // ── CaseHub definition ──
 
   @ApplicationScoped

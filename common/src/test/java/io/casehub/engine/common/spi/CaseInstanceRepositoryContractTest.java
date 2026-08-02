@@ -95,4 +95,34 @@ public abstract class CaseInstanceRepositoryContractTest {
     var query = CaseInstanceQuery.builder().status(CaseStatus.RUNNING).build();
     assertThat(repository().count(query, tenancyId())).isEqualTo(1);
   }
+
+  @Test
+  void actorId_roundTrip_preservesValue() {
+    CaseMetaModel meta = new CaseMetaModel();
+    meta.setNamespace("ns");
+    meta.setName("case-a");
+    meta.setVersion("1.0");
+
+    CaseInstance instance = new CaseInstance();
+    instance.setUuid(UUID.randomUUID());
+    instance.setCaseMetaModel(meta);
+    instance.setState(CaseStatus.RUNNING);
+    instance.setActorId("alice");
+    instance.tenancyId = tenancyId();
+
+    CaseInstance saved = repository().save(instance, tenancyId());
+    assertThat(saved.getActorId()).isEqualTo("alice");
+
+    CaseInstance found = repository().findByUuid(saved.getUuid(), tenancyId());
+    assertThat(found).isNotNull();
+    assertThat(found.getActorId()).isEqualTo("alice");
+  }
+
+  @Test
+  void actorId_null_whenNotSet() {
+    CaseInstance instance = createInstance("ns", "case-b", CaseStatus.RUNNING);
+    CaseInstance found = repository().findByUuid(instance.getUuid(), tenancyId());
+    assertThat(found).isNotNull();
+    assertThat(found.getActorId()).isNull();
+  }
 }

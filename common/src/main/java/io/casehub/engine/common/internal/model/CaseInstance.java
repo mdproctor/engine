@@ -108,6 +108,16 @@ public class CaseInstance {
     this.parentCaseId = parentCaseId;
   }
 
+  private String actorId;
+
+  public String getActorId() {
+    return actorId;
+  }
+
+  public void setActorId(String actorId) {
+    this.actorId = actorId;
+  }
+
   public CaseStatus getState() {
     return state;
   }

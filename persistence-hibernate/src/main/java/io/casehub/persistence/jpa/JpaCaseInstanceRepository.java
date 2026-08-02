@@ -43,6 +43,7 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
     entity.parentCaseId = instance.getParentCaseId();
     entity.parentPlanItemId = instance.getParentPlanItemId();
     entity.waitingForWorkId = instance.getWaitingForWorkId();
+    entity.actorId = instance.getActorId();
     entity.labels = new LinkedHashSet<>(instance.getLabels());
     if (instance.getCaseMetaModel() != null) {
       entity.caseMetaModel =
@@ -235,6 +236,7 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
     instance.setParentCaseId(entity.parentCaseId);
     instance.setParentPlanItemId(entity.parentPlanItemId);
     instance.setWaitingForWorkId(entity.waitingForWorkId);
+    instance.setActorId(entity.actorId);
     if (entity.caseMetaModel != null) {
       instance.setCaseMetaModel(fromMetaEntity(entity.caseMetaModel));
     }

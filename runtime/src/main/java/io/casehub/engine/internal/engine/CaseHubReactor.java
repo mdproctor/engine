@@ -249,6 +249,7 @@ class CaseHubReactor {
     instance.setCaseContext(context);
     instance.setPropagationContext(propagationContext);
     instance.setParentCaseId(parentCaseId);
+    instance.setActorId(currentPrincipal.actorId());
 
     caseInstanceCache.put(instance);
     return caseInstanceRepository.save(instance, currentPrincipal.tenancyId());

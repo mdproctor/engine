@@ -69,6 +69,9 @@ public class CaseInstanceEntity {
   @Column(name = "tenancy_id", nullable = false, length = 64)
   public String tenancyId;
 
+  @Column(name = "actor_id", nullable = true, length = 255)
+  public String actorId;
+
   @ElementCollection(fetch = FetchType.EAGER)
   @CollectionTable(
       name = "case_instance_label",

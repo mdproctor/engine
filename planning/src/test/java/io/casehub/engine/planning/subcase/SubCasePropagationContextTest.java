@@ -87,6 +87,12 @@ class SubCasePropagationContextTest {
     assertThat(child.getPropagationContext().getAttribute("roles"))
         .as("child must inherit roles from parent")
         .hasValue(parent.getPropagationContext().getAttribute("roles").orElseThrow());
+
+    // actorId on CaseInstance (engine#833 / platform#220 §14)
+    assertThat(parent.getActorId())
+        .as("parent must have actorId set from CurrentPrincipal")
+        .isNotNull();
+    assertThat(child.getActorId()).as("child must have actorId set").isNotNull();
   }
 
   // ------------------------------------------------------------------ //

@@ -35,7 +35,8 @@ public record CaseInstanceResponse(
         String name,
     @Schema(description = "Case version", required = true, example = "1.0.0") @NotBlank
         String version,
-    @Schema(description = "Case creation timestamp", required = true) @NotNull Instant createdAt) {
+    @Schema(description = "Case creation timestamp", required = true) @NotNull Instant createdAt,
+    @Schema(description = "Actor who created this case instance") String actorId) {
 
   public static CaseInstanceResponse from(CaseInstance instance) {
     CaseMetaModel meta = instance.getCaseMetaModel();
@@ -45,6 +46,7 @@ public record CaseInstanceResponse(
         meta.getNamespace(),
         meta.getName(),
         meta.getVersion(),
-        meta.getCreatedAt());
+        meta.getCreatedAt(),
+        instance.getActorId());
   }
 }
