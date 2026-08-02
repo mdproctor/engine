@@ -540,6 +540,48 @@ Optional module enabling `Worker(Workflow)` to dispatch casehub workers from wit
 
 `FlowWorkerFunction` (record, implements `WorkerFunction`) lives here — the serverlessworkflow SDK never leaves this module. `FlowWorkerFunctionProvider` (`@ApplicationScoped`, implements `WorkerFunctionProvider`) handles YAML `do:` block construction — receives raw `JsonNode`, deserializes to `Workflow` via `WorkflowReader`. `FlowWorkerFunctionHandler` (`@ApplicationScoped`, implements `WorkerFunctionHandler`) executes workflows using `WorkflowApplication` singleton and `FlowExecutionRegistry`, running on `@VirtualThreads ExecutorService`. `CasehubCallableTaskBuilder implements CallableTaskBuilder<CallFunction>` (registered via Java SPI) handles `call: casehub:dispatch` YAML steps. Note: `CallFunction` and `FunctionArguments` are in `io.serverlessworkflow.api.types` — not the `.func` experimental subpackage.
 
+## casehub-engine-a2a Module
+
+Optional module for invoking remote A2A-compliant agents as casehub workers. Activated by adding `casehub-engine-a2a` to the consumer's classpath. Directory: `a2a/` (short name per maven-submodule-folder-naming protocol). Refs engine#830.
+
+**Architecture:** `WorkerFunction`/`WorkerFunctionHandler` model (not `WorkerProvisioner`). A2A is synchronous request/response (with optional SSE streaming), which maps to the handler pipeline: timeout enforcement, retry via `QuartzRetryService`, `WorkerResult` outcomes, EventLog provenance. Complements `casehub-engine-flow`'s SWF `call: a2a` path — this is the worker/capability-binding level A2A integration.
+
+**Core types (all in `io.casehub.engine.a2a`):**
+- `A2AAuthConfig` — per-endpoint auth config record: `AuthType` (NONE, BEARER, API_KEY) + `tokenConfigKey` (Quarkus config property name). `A2AAuthConfig.NONE` constant.
+- `A2AWorkerFunction` — record implementing `WorkerFunction<Map, Map>`: `endpoint`, `skill` (nullable), `streaming` (boolean), `auth`.
+- `A2AWorkerFunctionProvider` — `@ApplicationScoped`, implements `WorkerFunctionProvider`. Detects `a2a:` YAML blocks, creates `A2AWorkerFunction`.
+- `A2AClient` — thin HTTP wrapper. `send()` for sync `message/send`, `stream()` for SSE `message/stream`, `cancelTask()` for fire-and-forget `tasks/cancel`. Per-request token resolution from Quarkus config (handles rotation). HTTP 401/403/429/5xx propagate as `IOException` (transient → `QuartzRetryService` retry). HTTP 4xx → `WorkerResult.failed()` (semantic → `OutcomePolicy`).
+- `A2AClientRegistry` — `@ApplicationScoped`, per-endpoint connection pooling via `ConcurrentHashMap`. Auth conflict detection (same endpoint, different auth → `IllegalArgumentException`). `evict()` on 401. `@Observes ShutdownEvent` cleanup.
+- `A2AWorkerFunctionHandler` — `@ApplicationScoped`, implements `WorkerFunctionHandler`. Branches on `streaming` flag. Sync: delegates to `A2AClient.send()`. Streaming: SSE event loop with artifact accumulation (index-based, append support), artifact bounds enforcement (`casehub.a2a.max-artifacts` default 100, `casehub.a2a.max-artifact-bytes` default 10MB), inner deadline check, best-effort `tasks/cancel` on timeout. Returns `HandlerResult` with A2A protocol metadata.
+
+**Protocol metadata** (populated in `HandlerResult.protocolMetadata()`): `a2aEndpoint`, `a2aSkill`, `a2aTaskId`, `a2aMessageId`, `a2aStreaming`, `a2aStatusTransitions` (streaming only). Merged into EventLog by `WorkflowExecutionCompletedHandler`.
+
+**`HandlerResult`** (`common/internal/executor/`) — record `(WorkerResult<?> result, Map<String, Object> protocolMetadata)`. Introduced for A2A metadata threading. `WorkerFunctionHandler.execute()` and `WorkerExecutor.execute()` return `HandlerResult` (not `WorkerResult<?>` directly). Existing handlers (`SyncAgentWorkerFunctionHandler`, `FlowWorkerFunctionHandler`) wrap with empty metadata. `WorkflowExecutionCompleted` carries `protocolMetadata` as an 8th record component. `QuartzWorkerExecutionJob` threads metadata through. Refs engine#830.
+
+**Outcome mapping:** A2A `completed` → `WorkerResult.completed()`, `failed` → `WorkerResult.failed()`, `canceled` → `WorkerResult.failed()`, `input_required` → `WorkerResult.failed()` (interactive A2A not supported in v1, engine#845).
+
+**Idempotency:** Deterministic `messageId` format `casehub:{caseId}:{workerName}:{inputDataHash}` — stable across retries.
+
+**YAML schema:**
+```yaml
+workers:
+  - name: remote-analyst
+    capabilities: [analysis]
+    a2a:
+      endpoint: https://analyst-agent.example.com
+      skill: anomaly-detection       # optional
+      streaming: true                # optional, default false
+      auth:                          # optional, default none
+        type: bearer                 # bearer | api-key | none
+        tokenConfigKey: analyst.token  # Quarkus config key
+```
+
+**Compile dependencies:** `casehub-engine-common`, `casehub-engine-api`, `casehub-worker-api`, `quarkus-arc`, `quarkus-virtual-threads`. No dependency on `casehub-engine` (runtime) or `casehub-eidos-api`.
+
+**Test dependencies:** Full engine stack with `casehub-persistence-memory`, MockWebServer.
+
+**Future work (engine#835):** AgentCard→AgentDescriptor bridge, health probing, vocabulary grounding, interactive A2A tasks.
+
 ## casehub-engine-queue Module
 
 Optional case queue operational layer. Activated via CDI when on the classpath — same pattern as `casehub-blackboard`.
@@ -571,7 +613,7 @@ Refs engine#730.
 
 ## Worker Execution Architecture
 
-`WorkerExecutor` (`common/internal/executor/`) abstracts how to run a worker function — independent of any scheduler. `DefaultWorkerExecutor` (`runtime/internal/executor/`) is a composite over `WorkerFunctionHandler` instances — it iterates `Instance<WorkerFunctionHandler>`, finds the first handler that `supports()` the function, delegates execution, and applies output schema evaluation as `.map()` post-processing. `SyncAgentWorkerFunctionHandler` (`runtime`) handles `Sync` and `AgentWorkerFunction` on `@VirtualThreads ExecutorService` with timeout enforcement. `FlowWorkerFunctionHandler` (`flow`) handles `FlowWorkerFunction` — see casehub-engine-flow Module. `WorkerFunctionHandler` (`common/internal/executor/`) is the engine-internal SPI; `outputProjection` is deliberately absent from the handler interface (cross-cutting concern owned by the composite executor). `WorkerFunctionProvider` and `WorkerFunctionProviderRegistry` (`api/spi/`) delegate YAML worker function construction to modules — the flow module registers `FlowWorkerFunctionProvider` for `do:` blocks; Agent and Sync construction stays inline in `CaseDefinitionYamlMapper`. Worker/Capability/WorkerFunction/WorkerResult/WorkerOutcome are from `io.casehub.worker.api` (foundation tier); `WorkerFunction` is a marker interface with no `execute()` method. `Worker` carries `Set<String> capabilityNames` (not `Capability` instances) — workers declare support by name; the engine resolves authoritative `Capability` instances from `CaseDefinition.getCapabilities()` via the binding's `CapabilityTarget`. Refs engine#591. `WorkerFunction.None` (engine#586) models external workers with no in-process function — `WorkerFunction.NONE` is the singleton constant. `Worker.Builder.noFunction()` is the convenience method. `CaseDefinitionYamlMapper` uses `NONE` for workers without an agent block or flow provider. `WorkerExecutionManager.canExecute(WorkerFunction)` is a `default true` method (engine#587) — Quartz overrides with positive handler delegation (iterates `WorkerFunctionHandler` instances, returns `true` only when a handler supports the function). `WorkerRecoveryCoordinator` (`runtime/internal/engine/recovery/`) initiates recovery at `@Priority(22)` via `WorkerExecutionRecoveryService.recoverPendingScheduledWorkers()` with a configurable timeout (`casehub.engine.recovery.timeout`, default 60s). Tracks `RecoveryStatus` (`PENDING`/`COMPLETED`/`FAILED`). `WorkerRecoveryHealthCheck` (`@Readiness`) reports the status at `/q/health/ready`. `QuartzWorkerExecutionManager.onStart(@Priority(20))` retains only Quartz job listener registration. Refs engine#593. ExecutionPolicy/RetryPolicy/BackoffStrategy are from `io.casehub.platform.api.governance`.
+`WorkerExecutor` (`common/internal/executor/`) abstracts how to run a worker function — independent of any scheduler. `DefaultWorkerExecutor` (`runtime/internal/executor/`) is a composite over `WorkerFunctionHandler` instances — it iterates `Instance<WorkerFunctionHandler>`, finds the first handler that `supports()` the function, delegates execution, and applies output schema evaluation as `.map()` post-processing. All handlers return `HandlerResult` (not `WorkerResult<?>` directly) — see casehub-engine-a2a Module for the type definition and threading chain. `SyncAgentWorkerFunctionHandler` (`runtime`) handles `Sync` and `AgentWorkerFunction` on `@VirtualThreads ExecutorService` with timeout enforcement. `FlowWorkerFunctionHandler` (`flow`) handles `FlowWorkerFunction` — see casehub-engine-flow Module. `A2AWorkerFunctionHandler` (`a2a`) handles `A2AWorkerFunction` — see casehub-engine-a2a Module. `WorkerFunctionHandler` (`common/internal/executor/`) is the engine-internal SPI; `outputProjection` is deliberately absent from the handler interface (cross-cutting concern owned by the composite executor). `WorkerFunctionProvider` and `WorkerFunctionProviderRegistry` (`api/spi/`) delegate YAML worker function construction to modules — the flow module registers `FlowWorkerFunctionProvider` for `do:` blocks; Agent and Sync construction stays inline in `CaseDefinitionYamlMapper`. Worker/Capability/WorkerFunction/WorkerResult/WorkerOutcome are from `io.casehub.worker.api` (foundation tier); `WorkerFunction` is a marker interface with no `execute()` method. `Worker` carries `Set<String> capabilityNames` (not `Capability` instances) — workers declare support by name; the engine resolves authoritative `Capability` instances from `CaseDefinition.getCapabilities()` via the binding's `CapabilityTarget`. Refs engine#591. `WorkerFunction.None` (engine#586) models external workers with no in-process function — `WorkerFunction.NONE` is the singleton constant. `Worker.Builder.noFunction()` is the convenience method. `CaseDefinitionYamlMapper` uses `NONE` for workers without an agent block or flow provider. `WorkerExecutionManager.canExecute(WorkerFunction)` is a `default true` method (engine#587) — Quartz overrides with positive handler delegation (iterates `WorkerFunctionHandler` instances, returns `true` only when a handler supports the function). `WorkerRecoveryCoordinator` (`runtime/internal/engine/recovery/`) initiates recovery at `@Priority(22)` via `WorkerExecutionRecoveryService.recoverPendingScheduledWorkers()` with a configurable timeout (`casehub.engine.recovery.timeout`, default 60s). Tracks `RecoveryStatus` (`PENDING`/`COMPLETED`/`FAILED`). `WorkerRecoveryHealthCheck` (`@Readiness`) reports the status at `/q/health/ready`. `QuartzWorkerExecutionManager.onStart(@Priority(20))` retains only Quartz job listener registration. Refs engine#593. ExecutionPolicy/RetryPolicy/BackoffStrategy are from `io.casehub.platform.api.governance`.
 
 `QuartzWorkerExecutionJob` is a thin fire-and-forget Quartz adapter: resolves context (EventLog, CaseInstance, Worker, Capability), delegates to `WorkerExecutor.execute()`, and subscribes with success/failure callbacks. Success publishes `WORKER_EXECUTION_FINISHED`; failure routes to `QuartzRetryService`.
 

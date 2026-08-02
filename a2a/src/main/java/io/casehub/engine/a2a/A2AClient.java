@@ -173,6 +173,20 @@ public class A2AClient implements AutoCloseable {
     // JDK 21 HttpClient has no explicit close
   }
 
+  public void cancelTask(final String taskId) {
+    try {
+      final ObjectNode root = MAPPER.createObjectNode();
+      root.put("jsonrpc", "2.0");
+      root.put("id", String.valueOf(requestIdCounter.getAndIncrement()));
+      root.put("method", "tasks/cancel");
+      root.putObject("params").put("id", taskId);
+      final HttpRequest request = buildHttpRequest(root);
+      httpClient.sendAsync(request, HttpResponse.BodyHandlers.discarding());
+    } catch (Exception e) {
+      // fire-and-forget — best-effort cancellation only
+    }
+  }
+
   public record A2ATaskResult(
       String taskId, String state, Map<String, Object> output, String failureMessage) {
     public static A2ATaskResult protocolError(final String message) {
