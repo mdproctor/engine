@@ -27,9 +27,11 @@ import dev.langchain4j.model.chat.request.ResponseFormatType;
 import dev.langchain4j.model.chat.request.json.JsonSchema;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import dev.langchain4j.model.input.PromptTemplate;
+import io.casehub.worker.api.PlannedAction;
 import io.casehub.worker.api.WorkerResult;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 import java.util.function.UnaryOperator;
 
 public final class Agent {
@@ -43,6 +45,7 @@ public final class Agent {
   private final UnaryOperator<JsonNode> outputTransformer;
   private final ChatModel model;
   private final JsonSchema responseSchema;
+  private final Function<Map<String, Object>, PlannedAction> plannedActionExtractor;
 
   Agent(
       String systemPrompt,
@@ -50,13 +53,15 @@ public final class Agent {
       UnaryOperator<JsonNode> inputTransformer,
       UnaryOperator<JsonNode> outputTransformer,
       ChatModel model,
-      JsonSchema responseSchema) {
+      JsonSchema responseSchema,
+      Function<Map<String, Object>, PlannedAction> plannedActionExtractor) {
     this.systemPrompt = systemPrompt;
     this.userMessageTemplate = userMessageTemplate;
     this.inputTransformer = inputTransformer;
     this.outputTransformer = outputTransformer;
     this.model = model;
     this.responseSchema = responseSchema;
+    this.plannedActionExtractor = plannedActionExtractor;
   }
 
   public static AgentBuilder builder() {
@@ -66,10 +71,10 @@ public final class Agent {
   /**
    * Executes this agent with the given input and returns a {@link WorkerResult}.
    *
-   * <p>The output map is the LLM response after applying the output transformer. Workers that
-   * declare a consequential action should use {@link WorkerResult#of(Map,
-   * io.casehub.api.spi.PlannedAction)} — agents that don't declare actions use {@link
-   * WorkerResult#of(Map)}.
+   * <p>The output map is the LLM response after applying the output transformer. When a {@code
+   * plannedActionExtractor} is configured and returns a non-null {@link PlannedAction}, the result
+   * carries the action for downstream risk classification via {@link WorkerResult#of(Object,
+   * PlannedAction)}.
    */
   public WorkerResult<Map<String, Object>> execute(Map<String, Object> input) {
     JsonNode inputNode = MAPPER.convertValue(input, JsonNode.class);
@@ -107,7 +112,17 @@ public final class Agent {
       throw new AgentException("LLM returned invalid JSON: " + responseText, e);
     }
 
-    return WorkerResult.of(MAPPER.convertValue(outputTransformer.apply(responseJson), MAP_TYPE));
+    Map<String, Object> output =
+        MAPPER.convertValue(outputTransformer.apply(responseJson), MAP_TYPE);
+
+    if (plannedActionExtractor != null) {
+      PlannedAction action = plannedActionExtractor.apply(output);
+      if (action != null) {
+        return WorkerResult.of(output, action);
+      }
+    }
+
+    return WorkerResult.of(output);
   }
 
   private ResponseFormat buildResponseFormat() {

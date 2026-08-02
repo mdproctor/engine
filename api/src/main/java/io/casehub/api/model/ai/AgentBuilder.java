@@ -40,6 +40,9 @@ public final class AgentBuilder {
   private ChatModel model;
   private ChatModelProvider chatModelProvider;
   private JsonSchema responseSchema;
+  private java.util.function.Function<
+          java.util.Map<String, Object>, io.casehub.worker.api.PlannedAction>
+      plannedActionExtractor;
 
   AgentBuilder() {}
 
@@ -110,15 +113,27 @@ public final class AgentBuilder {
     return this;
   }
 
+  public AgentBuilder plannedActionExtractor(
+      java.util.function.Function<
+              java.util.Map<String, Object>, io.casehub.worker.api.PlannedAction>
+          extractor) {
+    this.plannedActionExtractor = extractor;
+    return this;
+  }
+
   public Agent build() {
-    if (systemPrompt == null) throw new IllegalStateException("systemPrompt is required");
+    if (systemPrompt == null) {
+      throw new IllegalStateException("systemPrompt is required");
+    }
 
     ChatModel resolvedModel = model;
     if (resolvedModel == null && chatModelProvider != null) {
       resolvedModel = chatModelProvider.get();
     }
     if (resolvedModel == null) {
-      if (modelType == null) throw new IllegalStateException("model is required");
+      if (modelType == null) {
+        throw new IllegalStateException("model is required");
+      }
       resolvedModel =
           ServiceLoader.load(ChatModelProvider.class).stream()
               .map(ServiceLoader.Provider::get)
@@ -129,12 +144,14 @@ public final class AgentBuilder {
               .get();
     }
 
-    if (inputProjection != null && inputTransformerFn != null)
+    if (inputProjection != null && inputTransformerFn != null) {
       throw new IllegalStateException(
           "Cannot set both inputSchema and inputTransformer — choose one");
-    if (outputProjection != null && outputTransformerFn != null)
+    }
+    if (outputProjection != null && outputTransformerFn != null) {
       throw new IllegalStateException(
           "Cannot set both outputSchema and outputTransformer — choose one");
+    }
 
     final UnaryOperator<JsonNode> resolvedInput =
         inputProjection != null
@@ -151,6 +168,7 @@ public final class AgentBuilder {
         resolvedInput,
         resolvedOutput,
         resolvedModel,
-        responseSchema);
+        responseSchema,
+        plannedActionExtractor);
   }
 }

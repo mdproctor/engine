@@ -293,4 +293,74 @@ class AgentTest {
     assertThatThrownBy(() -> agent.execute(Map.of("key", "value")))
         .isInstanceOf(AgentException.class);
   }
+
+  @Test
+  void executeWithPlannedActionExtractorReturnsAction() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("You recommend actions.")
+            .inputProjection(".")
+            .outputProjection(".")
+            .model(fixedResponseModel("{\"action\": \"quarantine\", \"target\": \"host-42\"}"))
+            .plannedActionExtractor(
+                output -> {
+                  String actionType = (String) output.get("action");
+                  if (actionType == null) {
+                    return null;
+                  }
+                  return io.casehub.worker.api.PlannedAction.of(
+                      "Containment: " + actionType, actionType, output);
+                })
+            .build();
+
+    io.casehub.worker.api.WorkerResult<Map<String, Object>> result =
+        agent.execute(Map.of("input", "data"));
+
+    assertThat(result.output()).containsEntry("action", "quarantine");
+    assertThat(result.outcome()).isInstanceOf(io.casehub.worker.api.WorkerOutcome.Success.class);
+    io.casehub.worker.api.WorkerOutcome.Success<Map<String, Object>> success =
+        (io.casehub.worker.api.WorkerOutcome.Success<Map<String, Object>>) result.outcome();
+    assertThat(success.plannedAction()).isNotNull();
+    assertThat(success.plannedAction().actionType()).isEqualTo("quarantine");
+    assertThat(success.plannedAction().description()).isEqualTo("Containment: quarantine");
+  }
+
+  @Test
+  void executeWithExtractorReturningNullOmitsAction() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("You are helpful.")
+            .inputProjection(".")
+            .outputProjection(".")
+            .model(fixedResponseModel("{\"result\": \"safe\"}"))
+            .plannedActionExtractor(output -> null)
+            .build();
+
+    io.casehub.worker.api.WorkerResult<Map<String, Object>> result =
+        agent.execute(Map.of("input", "data"));
+
+    assertThat(result.output()).containsEntry("result", "safe");
+    io.casehub.worker.api.WorkerOutcome.Success<Map<String, Object>> success =
+        (io.casehub.worker.api.WorkerOutcome.Success<Map<String, Object>>) result.outcome();
+    assertThat(success.plannedAction()).isNull();
+  }
+
+  @Test
+  void executeWithoutExtractorOmitsAction() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("You are helpful.")
+            .inputProjection(".")
+            .outputProjection(".")
+            .model(fixedResponseModel("{\"result\": \"done\"}"))
+            .build();
+
+    io.casehub.worker.api.WorkerResult<Map<String, Object>> result =
+        agent.execute(Map.of("input", "data"));
+
+    assertThat(result.output()).containsEntry("result", "done");
+    io.casehub.worker.api.WorkerOutcome.Success<Map<String, Object>> success =
+        (io.casehub.worker.api.WorkerOutcome.Success<Map<String, Object>>) result.outcome();
+    assertThat(success.plannedAction()).isNull();
+  }
 }
