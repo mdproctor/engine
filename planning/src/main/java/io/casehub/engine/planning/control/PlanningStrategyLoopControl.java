@@ -186,7 +186,12 @@ public class PlanningStrategyLoopControl implements LoopControl {
         continue;
       }
       if (binding.target() instanceof CapabilityTarget) {
-        if (pi.tryMarkRunning()) {
+        io.casehub.api.model.LifecycleScope ls = binding.lifecycleScope();
+        if ((ls == io.casehub.api.model.LifecycleScope.COMPOUND
+                || ls == io.casehub.api.model.LifecycleScope.CASE)
+            && pi.getStatus() == TaskStatus.RUNNING) {
+          dispatched.add(binding);
+        } else if (pi.tryMarkRunning()) {
           registry.indexForCompletion(caseId, pi.executorName(), pi.getPlanItemId());
           dispatched.add(binding);
         }

@@ -194,7 +194,11 @@ public class WorkerScheduleEventHandler {
         eventLogRepository.findSchedulingEvents(
             instance.getUuid(), worker.name(), idempotencyAfter, instance.tenancyId);
 
-    ScheduleAction action = decideAction(existing, inputDataHash);
+    boolean isReinvoked =
+        eventLog.getMetadata().has("executionMode")
+            && "REINVOKED".equals(eventLog.getMetadata().get("executionMode").asText());
+    ScheduleAction action =
+        isReinvoked ? ScheduleAction.createNew() : decideAction(existing, inputDataHash);
     Long eventLogId = executeAction(action, eventLog, instance, worker, capability);
     submitIfNeeded(eventLogId, instance, worker, capability, inputData, bindingName);
 

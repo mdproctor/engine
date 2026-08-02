@@ -132,7 +132,7 @@ public class CaseContextChangedEventHandler {
   java.util.concurrent.ExecutorService virtualThreads;
 
   @Inject CaseEvaluationSerializer evaluationSerializer;
-  @Inject io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
   @Inject io.casehub.platform.api.identity.GroupMembershipProvider groupMembershipProvider;
 
   @RunOnVirtualThread
@@ -358,7 +358,8 @@ public class CaseContextChangedEventHandler {
     if (binding.lifecycleScope() != io.casehub.api.model.LifecycleScope.BINDING) {
       var existing = scopedWorkerRegistry.get(caseInstance.getUuid(), binding.getName());
       if (existing.isPresent()) {
-        routeToExistingSession(existing.get(), caseInstance);
+        routeToExistingSession(
+            existing.get(), caseInstance, binding, workers, capability, signalId, experiences);
         return;
       }
     }
@@ -443,6 +444,9 @@ public class CaseContextChangedEventHandler {
         LOG.infof(
             "Agent selected: worker='%s' capability='%s' binding='%s' rationale='%s'",
             a.executorId(), capability.name(), binding.getName(), a.reason());
+        if (binding.lifecycleScope() != io.casehub.api.model.LifecycleScope.BINDING) {
+          registerScopedSession(caseInstance, binding, a.executorId());
+        }
         scheduleWorker(
             caseInstance, workers, binding, capability, a.executorId(), signalId, experiences);
       }
@@ -464,16 +468,88 @@ public class CaseContextChangedEventHandler {
   }
 
   private void routeToExistingSession(
-      io.casehub.engine.internal.worker.scope.ScopedWorkerSession session,
-      CaseInstance caseInstance) {
-    if (session
-        instanceof io.casehub.engine.internal.worker.scope.ScopedWorkerSession.Persistent p) {
-      JsonNode snapshot = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
-      p.mailbox()
-          .offer(new io.casehub.engine.internal.worker.scope.ContextEvent(snapshot, Map.of()));
+      io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession session,
+      CaseInstance caseInstance,
+      Binding binding,
+      List<Worker> workers,
+      Capability capability,
+      java.util.UUID signalId,
+      List<RetrievedExperience> experiences) {
+    switch (session) {
+      case io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession.Persistent p -> {
+        JsonNode snapshot = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
+        p.mailbox()
+            .offer(
+                new io.casehub.engine.common.internal.worker.scope.ContextEvent(
+                    snapshot, Map.of()));
+        LOG.debugf(
+            "Routed context event to persistent session for binding '%s' case %s",
+            session.bindingName(), caseInstance.getUuid());
+      }
+      case io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession.Reinvoked r -> {
+        String projection = binding.getInputProjectionOverride();
+        String currentHash = computeInputHash(caseInstance, projection);
+        if (currentHash != null && currentHash.equals(r.lastInputDataHash().get())) {
+          LOG.debugf(
+              "Skipping re-invocation for '%s' — projected input unchanged", binding.getName());
+          return;
+        }
+        r.lastInputDataHash().set(currentHash);
+        scheduleWorker(
+            caseInstance, workers, binding, capability, r.executorName(), signalId, experiences);
+      }
+    }
+  }
+
+  private void registerScopedSession(
+      CaseInstance caseInstance, Binding binding, String executorName) {
+    var key =
+        new io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry.ScopeKey(
+            caseInstance.getUuid(), binding.getName());
+    switch (binding.executionMode()) {
+      case REINVOKED ->
+          scopedWorkerRegistry.register(
+              key,
+              new io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession.Reinvoked(
+                  binding.getName(),
+                  caseInstance.getUuid(),
+                  executorName,
+                  binding.lifecycleScope(),
+                  binding.participation(),
+                  new java.util.concurrent.atomic.AtomicReference<>(Map.of()),
+                  new java.util.concurrent.atomic.AtomicReference<>(null)));
+      case PERSISTENT -> {
+        var mailbox =
+            new java.util.concurrent.LinkedBlockingQueue<
+                io.casehub.engine.common.internal.worker.scope.ContextEvent>();
+        scopedWorkerRegistry.register(
+            key,
+            new io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession.Persistent(
+                binding.getName(),
+                caseInstance.getUuid(),
+                executorName,
+                binding.lifecycleScope(),
+                binding.participation(),
+                mailbox));
+      }
+      default -> {}
+    }
+  }
+
+  private String computeInputHash(CaseInstance caseInstance, String inputProjection) {
+    try {
+      JsonNode context = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
+      if (inputProjection != null) {
+        var result = jqEvaluator.eval(inputProjection, context);
+        if (result.ok() && result.output() != null && !result.output().isEmpty()) {
+          return Integer.toHexString(result.output().get(0).toString().hashCode());
+        }
+      }
+      return Integer.toHexString(context.toString().hashCode());
+    } catch (Exception e) {
       LOG.debugf(
-          "Routed context event to persistent session for binding '%s' case %s",
-          session.bindingName(), caseInstance.getUuid());
+          "Input hash computation failed for projection '%s': %s", inputProjection, e.getMessage());
+      return null;
     }
   }
 

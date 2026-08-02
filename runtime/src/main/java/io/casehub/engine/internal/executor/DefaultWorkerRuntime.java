@@ -52,11 +52,13 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final CaseDefinitionRegistry definitionRegistry;
   private final CaseInstanceCache caseInstanceCache;
   private final CaseCompletionTracker tracker;
+  private final Map<String, Object> accumulatedState;
 
   DefaultWorkerRuntime(
       UUID caseId,
       String taskId,
       WorkerContext context,
+      Map<String, Object> accumulatedState,
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry definitionRegistry,
       CaseInstanceCache caseInstanceCache,
@@ -64,10 +66,16 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
+    this.accumulatedState = accumulatedState;
     this.caseHubRuntime = caseHubRuntime;
     this.definitionRegistry = definitionRegistry;
     this.caseInstanceCache = caseInstanceCache;
     this.tracker = tracker;
+  }
+
+  @Override
+  public Map<String, Object> accumulatedState() {
+    return accumulatedState;
   }
 
   @Override

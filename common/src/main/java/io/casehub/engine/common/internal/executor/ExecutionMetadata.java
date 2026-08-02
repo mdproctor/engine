@@ -24,4 +24,13 @@ package io.casehub.engine.common.internal.executor;
  *
  * <p>Refs casehubio/engine#463.
  */
-public record ExecutionMetadata(String workerName, String inputDataHash) {}
+public record ExecutionMetadata(
+    String workerName,
+    String inputDataHash,
+    String bindingName,
+    io.casehub.api.model.ExecutionMode executionMode) {
+
+  public ExecutionMetadata(String workerName, String inputDataHash) {
+    this(workerName, inputDataHash, null, null);
+  }
+}

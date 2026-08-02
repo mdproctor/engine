@@ -32,9 +32,9 @@ import io.casehub.api.model.Participation;
 import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
+import io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry;
-import io.casehub.engine.internal.worker.scope.ScopedWorkerSession;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.worker.api.Capability;
@@ -127,10 +127,11 @@ class LifecycleScopeIntegrationTest {
         new ScopedWorkerSession.Reinvoked(
             "test-binding",
             caseId,
-            "pi-1",
+            "worker-1",
             LifecycleScope.CASE,
             Participation.COMPANION,
-            new AtomicReference<>(Map.of()));
+            new AtomicReference<>(Map.of()),
+            new AtomicReference<>(null));
     scopedWorkerRegistry.register(
         new ScopedWorkerRegistry.ScopeKey(caseId, "test-binding"), session);
 

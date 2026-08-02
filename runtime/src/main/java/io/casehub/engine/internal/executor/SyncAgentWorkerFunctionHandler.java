@@ -41,12 +41,17 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
 
   private final ExecutorService virtualThreads;
   private final WorkerRuntimeFactory workerRuntimeFactory;
+  private final io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry
+      scopedWorkerRegistry;
 
   @Inject
   public SyncAgentWorkerFunctionHandler(
-      @VirtualThreads ExecutorService virtualThreads, WorkerRuntimeFactory workerRuntimeFactory) {
+      @VirtualThreads ExecutorService virtualThreads,
+      WorkerRuntimeFactory workerRuntimeFactory,
+      io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry) {
     this.virtualThreads = virtualThreads;
     this.workerRuntimeFactory = workerRuntimeFactory;
+    this.scopedWorkerRegistry = scopedWorkerRegistry;
   }
 
   @Override
@@ -78,8 +83,34 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
     }
 
     final Object resolvedInput = inputData;
+
+    java.util.Map<String, Object> accState = java.util.Map.of();
+    java.util.concurrent.locks.ReentrantLock bindingLock = null;
+    if (metadata.executionMode() == io.casehub.api.model.ExecutionMode.REINVOKED
+        && metadata.bindingName() != null) {
+      var scopeKey =
+          new io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry.ScopeKey(
+              context.caseId(), metadata.bindingName());
+      bindingLock = scopedWorkerRegistry.executionLock(scopeKey);
+      bindingLock.lock();
+      accState =
+          scopedWorkerRegistry
+              .get(context.caseId(), metadata.bindingName())
+              .filter(
+                  io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession.Reinvoked.class
+                      ::isInstance)
+              .map(
+                  s ->
+                      ((io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession
+                                  .Reinvoked)
+                              s)
+                          .accumulatedState()
+                          .get())
+              .orElse(java.util.Map.of());
+    }
+
     final io.casehub.api.engine.WorkerRuntime runtime =
-        workerRuntimeFactory.create(context.caseId(), metadata.workerName(), context);
+        workerRuntimeFactory.create(context.caseId(), metadata.workerName(), context, accState);
 
     java.util.function.Function<Object, WorkerResult<?>> fn =
         switch (function) {
@@ -100,7 +131,30 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
     try {
       java.util.concurrent.Future<WorkerResult<?>> future =
           virtualThreads.submit(() -> fn.apply(resolvedInput));
-      return future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+      WorkerResult<?> result = future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+      if (metadata.executionMode() == io.casehub.api.model.ExecutionMode.REINVOKED
+          && metadata.bindingName() != null) {
+        @SuppressWarnings("unchecked")
+        java.util.Map<String, Object> output =
+            result.output() instanceof java.util.Map
+                ? (java.util.Map<String, Object>) result.output()
+                : null;
+        if (output != null) {
+          scopedWorkerRegistry
+              .get(context.caseId(), metadata.bindingName())
+              .filter(
+                  io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession.Reinvoked.class
+                      ::isInstance)
+              .ifPresent(
+                  s ->
+                      ((io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession
+                                  .Reinvoked)
+                              s)
+                          .accumulatedState()
+                          .set(output));
+        }
+      }
+      return result;
     } catch (java.util.concurrent.TimeoutException e) {
       return WorkerResult.expired("Worker timed out after " + timeoutMs + "ms");
     } catch (java.util.concurrent.ExecutionException e) {
@@ -112,6 +166,10 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       throw new RuntimeException("Worker execution interrupted", e);
+    } finally {
+      if (bindingLock != null) {
+        bindingLock.unlock();
+      }
     }
   }
 }

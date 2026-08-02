@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker.scope;
+package io.casehub.engine.common.internal.worker.scope;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
@@ -26,6 +26,9 @@ public class ScopedWorkerRegistry {
 
   private final ConcurrentHashMap<ScopeKey, ScopedWorkerSession> sessions =
       new ConcurrentHashMap<>();
+  private final java.util.concurrent.ConcurrentHashMap<
+          ScopeKey, java.util.concurrent.locks.ReentrantLock>
+      executionLocks = new java.util.concurrent.ConcurrentHashMap<>();
 
   public Optional<ScopedWorkerSession> get(UUID caseId, String bindingName) {
     return Optional.ofNullable(sessions.get(new ScopeKey(caseId, bindingName)));
@@ -38,6 +41,10 @@ public class ScopedWorkerRegistry {
     }
   }
 
+  public java.util.concurrent.locks.ReentrantLock executionLock(ScopeKey key) {
+    return executionLocks.computeIfAbsent(key, k -> new java.util.concurrent.locks.ReentrantLock());
+  }
+
   public void terminateByCase(UUID caseId) {
     sessions
         .entrySet()
@@ -45,6 +52,7 @@ public class ScopedWorkerRegistry {
             e -> {
               if (e.getKey().caseId().equals(caseId)) {
                 terminateSession(e.getValue());
+                executionLocks.remove(e.getKey());
                 return true;
               }
               return false;
@@ -53,10 +61,12 @@ public class ScopedWorkerRegistry {
 
   public void terminateByScope(UUID caseId, String compoundId, Set<String> ownedBindings) {
     for (String bindingName : ownedBindings) {
-      ScopedWorkerSession removed = sessions.remove(new ScopeKey(caseId, bindingName));
+      ScopeKey key = new ScopeKey(caseId, bindingName);
+      ScopedWorkerSession removed = sessions.remove(key);
       if (removed != null) {
         terminateSession(removed);
       }
+      executionLocks.remove(key);
     }
   }
 

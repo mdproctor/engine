@@ -13,16 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker.scope;
+package io.casehub.engine.common.internal.event;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.api.model.ExecutionMode;
+import io.casehub.engine.common.internal.model.CaseInstance;
 import java.util.Map;
 
-public record ContextEvent(JsonNode contextSnapshot, Map<String, Object> changeMetadata) {
-
-  public static final ContextEvent SHUTDOWN = new ContextEvent(null, null);
-
-  public boolean isShutdown() {
-    return this == SHUTDOWN;
-  }
-}
+public record ScopedWorkerOutputEvent(
+    CaseInstance caseInstance,
+    String bindingName,
+    Map<String, Object> output,
+    ExecutionMode executionMode) {}

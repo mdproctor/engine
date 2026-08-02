@@ -62,6 +62,8 @@ public class ScheduledTriggerJob implements Job {
 
   @Inject WorkerExecutionRecoveryService recoveryService;
 
+  @Inject io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
+
   @Override
   public void execute(JobExecutionContext context) throws JobExecutionException {
     JobDataMap data = context.getJobDetail().getJobDataMap();
@@ -114,21 +116,76 @@ public class ScheduledTriggerJob implements Job {
       throw new JobExecutionException("Capability not found: " + capabilityName);
     }
 
+    io.casehub.api.model.Binding binding =
+        definition.getBindings() != null
+            ? definition.getBindings().stream()
+                .filter(b -> b.getName().equals(bindingName))
+                .findFirst()
+                .orElse(null)
+            : null;
+
+    if (binding != null
+        && binding.lifecycleScope() != io.casehub.api.model.LifecycleScope.BINDING) {
+      var existing = scopedWorkerRegistry.get(caseId, bindingName);
+      if (existing.isPresent()) {
+        switch (existing.get()) {
+          case io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession.Persistent p -> {
+            com.fasterxml.jackson.databind.JsonNode snapshot =
+                caseInstance
+                    .getCaseContext()
+                    .layer(io.casehub.api.context.ContextLayer.WORKING)
+                    .asJsonNode();
+            p.mailbox()
+                .offer(
+                    new io.casehub.engine.common.internal.worker.scope.ContextEvent(
+                        snapshot, java.util.Map.of()));
+          }
+          case io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession.Reinvoked r -> {
+            Worker sessionWorker = findWorker(definition, r.executorName());
+            if (sessionWorker == null) {
+              LOG.warnf(
+                  "Executor '%s' no longer in definition for binding '%s'",
+                  r.executorName(), bindingName);
+              return;
+            }
+            eventBus.publish(
+                EventBusAddresses.WORKER_SCHEDULE,
+                new WorkerScheduleEvent(
+                    caseInstance,
+                    sessionWorker,
+                    capability,
+                    bindingName,
+                    null,
+                    null,
+                    io.casehub.api.model.event.ExecutionOrigin.SCHEDULE_TRIGGER,
+                    List.of(),
+                    binding.lifecycleScope(),
+                    binding.executionMode()));
+          }
+        }
+        return;
+      }
+    }
+
     LOG.infof(
         "Publishing WorkerScheduleEvent for case=%s, worker=%s, capability=%s",
         caseId, workerName, capabilityName);
 
+    io.casehub.api.model.LifecycleScope ls = binding != null ? binding.lifecycleScope() : null;
+    io.casehub.api.model.ExecutionMode em = binding != null ? binding.executionMode() : null;
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
         new WorkerScheduleEvent(
             caseInstance,
             worker,
             capability,
-            null,
+            bindingName,
             null,
             null,
             io.casehub.api.model.event.ExecutionOrigin.SCHEDULE_TRIGGER,
-            List.of()));
+            List.of(),
+            ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
+            em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null));
   }
 
   private Worker findWorker(CaseDefinition definition, String workerName) {

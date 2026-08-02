@@ -57,7 +57,9 @@ class DefaultWorkerRuntimeTest {
 
   @BeforeEach
   void setUp() {
-    runtime = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, null, null, null);
+    runtime =
+        new DefaultWorkerRuntime(
+            CASE_ID, "test-task", null, java.util.Map.of(), null, null, null, null);
   }
 
   @AfterEach
@@ -159,7 +161,14 @@ class DefaultWorkerRuntimeTest {
 
     var rt =
         new DefaultWorkerRuntime(
-            CASE_ID, "test-task", null, caseHubRuntime, registry, emptyCache, null);
+            CASE_ID,
+            "test-task",
+            null,
+            java.util.Map.of(),
+            caseHubRuntime,
+            registry,
+            emptyCache,
+            null);
     UUID result = rt.spawnCase("child", Map.of("key", "value"));
     assertEquals(childId, result);
   }
@@ -168,7 +177,9 @@ class DefaultWorkerRuntimeTest {
   void spawnCase_unknownDefinition_throws() {
     CaseDefinitionRegistry registry = new StubCaseDefinitionRegistry(null);
 
-    var rt = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, registry, null, null);
+    var rt =
+        new DefaultWorkerRuntime(
+            CASE_ID, "test-task", null, java.util.Map.of(), null, registry, null, null);
     assertThrows(IllegalArgumentException.class, () -> rt.spawnCase("unknown", Map.of()));
   }
 
@@ -185,7 +196,9 @@ class DefaultWorkerRuntimeTest {
 
     CaseInstanceCache cache = new StubCaseInstanceCache(childId, childInstance);
 
-    var rt = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, null, cache, tracker);
+    var rt =
+        new DefaultWorkerRuntime(
+            CASE_ID, "test-task", null, java.util.Map.of(), null, null, cache, tracker);
     CaseContext result = rt.awaitCase(childId, Duration.ofSeconds(5));
     assertNotNull(result);
   }
@@ -202,7 +215,9 @@ class DefaultWorkerRuntimeTest {
 
     CaseInstanceCache cache = new StubCaseInstanceCache(childId, childInstance);
 
-    var rt = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, null, cache, tracker);
+    var rt =
+        new DefaultWorkerRuntime(
+            CASE_ID, "test-task", null, java.util.Map.of(), null, null, cache, tracker);
     CaseTerminatedException ex =
         assertThrows(
             CaseTerminatedException.class, () -> rt.awaitCase(childId, Duration.ofSeconds(5)));

@@ -191,7 +191,8 @@ class QuartzWorkerExecutionJob implements Job {
               baseContext.properties(),
               experiences);
 
-      ExecutionMetadata metadata = new ExecutionMetadata(workerId, inputDataHash);
+      ExecutionMetadata metadata =
+          new ExecutionMetadata(workerId, inputDataHash, bindingName, executionMode);
 
       io.casehub.worker.api.WorkerResult<?> workerResult =
           workerExecutor.execute(
@@ -230,12 +231,10 @@ class QuartzWorkerExecutionJob implements Job {
       if (!(workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Completed)) {
         Map<String, Object> output = toMap(workerResult.output());
         if (output != null && !output.isEmpty()) {
-          vertx
-              .eventBus()
-              .publish(
-                  "casehub.engine.scoped-worker-output",
-                  io.vertx.core.json.JsonObject.of(
-                      "caseId", instance.getUuid().toString(), "bindingName", bindingName));
+          eventBus.publish(
+              io.casehub.engine.common.internal.event.EventBusAddresses.SCOPED_WORKER_OUTPUT,
+              new io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent(
+                  instance, bindingName, output, executionMode));
         }
         LOG.debugf(
             "Scoped worker %s returned Success — output applied, PlanItem stays RUNNING",

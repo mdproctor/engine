@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker.scope;
+package io.casehub.engine.common.internal.worker.scope;
 
 import io.casehub.api.model.LifecycleScope;
 import io.casehub.api.model.Participation;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicReference;
 
 public sealed interface ScopedWorkerSession
@@ -30,7 +29,7 @@ public sealed interface ScopedWorkerSession
 
   UUID caseId();
 
-  String planItemId();
+  String executorName();
 
   LifecycleScope scope();
 
@@ -39,19 +38,19 @@ public sealed interface ScopedWorkerSession
   record Persistent(
       String bindingName,
       UUID caseId,
-      String planItemId,
+      String executorName,
       LifecycleScope scope,
       Participation participation,
-      BlockingQueue<ContextEvent> mailbox,
-      Future<?> workerThread)
+      BlockingQueue<ContextEvent> mailbox)
       implements ScopedWorkerSession {}
 
   record Reinvoked(
       String bindingName,
       UUID caseId,
-      String planItemId,
+      String executorName,
       LifecycleScope scope,
       Participation participation,
-      AtomicReference<Map<String, Object>> accumulatedState)
+      AtomicReference<Map<String, Object>> accumulatedState,
+      AtomicReference<String> lastInputDataHash)
       implements ScopedWorkerSession {}
 }

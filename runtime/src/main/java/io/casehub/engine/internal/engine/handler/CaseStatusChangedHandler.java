@@ -75,7 +75,7 @@ public class CaseStatusChangedHandler {
   @Inject Instance<CaseOutcomeObserver> outcomeObservers;
 
   @Inject CaseCompletionTracker caseCompletionTracker;
-  @Inject io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public Uni<Void> onCaseStatusChangedHandler(CaseStatusChanged event) {

@@ -46,10 +46,19 @@ public class WorkerRuntimeFactory {
 
   public WorkerRuntime create(
       UUID caseId, String taskId, io.casehub.api.model.WorkerContext context) {
+    return create(caseId, taskId, context, java.util.Map.of());
+  }
+
+  public WorkerRuntime create(
+      UUID caseId,
+      String taskId,
+      io.casehub.api.model.WorkerContext context,
+      java.util.Map<String, Object> accumulatedState) {
     return new DefaultWorkerRuntime(
         caseId,
         taskId,
         context,
+        accumulatedState,
         caseHubRuntime,
         definitionRegistry,
         caseInstanceCache,

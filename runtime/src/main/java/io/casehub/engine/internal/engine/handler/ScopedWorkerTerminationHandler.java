@@ -17,7 +17,7 @@ package io.casehub.engine.internal.engine.handler;
 
 import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
-import io.casehub.engine.internal.worker.scope.ScopedWorkerRegistry;
+import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -31,7 +31,8 @@ public class ScopedWorkerTerminationHandler {
 
   @Inject ScopedWorkerRegistry scopedWorkerRegistry;
 
-  @ConsumeEvent(value = EventBusAddresses.COMPOUND_COMPLETED, blocking = true)
+  @ConsumeEvent(EventBusAddresses.COMPOUND_COMPLETED)
+  @io.smallrye.common.annotation.RunOnVirtualThread
   public void onCompoundCompleted(CompoundCompletedEvent event) {
     Set<String> scopedBindings = event.scopedBindingNames();
     if (scopedBindings == null || scopedBindings.isEmpty()) {

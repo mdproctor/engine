@@ -112,7 +112,9 @@ class DefaultWorkerRuntimeTypedTest {
           }
         };
 
-    var runtime = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, registry, cache, null);
+    var runtime =
+        new DefaultWorkerRuntime(
+            CASE_ID, "test-task", null, java.util.Map.of(), null, registry, cache, null);
 
     WorkerResult<?> result =
         runtime.execute("order-worker", Map.of("product", "widget", "quantity", 5));
@@ -131,7 +133,9 @@ class DefaultWorkerRuntimeTypedTest {
             Map.class,
             (order, scope) -> WorkerResult.of(Map.of("confirmed", order.product())));
 
-    var runtime = new DefaultWorkerRuntime(CASE_ID, "test-task", null, null, null, null, null);
+    var runtime =
+        new DefaultWorkerRuntime(
+            CASE_ID, "test-task", null, java.util.Map.of(), null, null, null, null);
 
     WorkerResult<?> result = runtime.execute(fn, new OrderInput("gadget", 3));
 
