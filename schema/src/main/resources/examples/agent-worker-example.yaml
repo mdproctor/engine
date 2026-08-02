@@ -1,4 +1,4 @@
-dsl: "0.1"
+dsl: "0.1.0"
 namespace: example
 name: sentiment-analysis
 version: "1.0.0"
@@ -33,7 +33,7 @@ spec:
             temperature: 0.3
             maxTokens: 100
       executionPolicy:
-        timeoutMs: 30000
+        timeoutMs: 60000
         retries:
           maxAttempts: 3
           delayMs: 1000

@@ -5,11 +5,10 @@
 ## classified, and reviewed by a human before the case can be closed.
 ##
 ## Architecture:
-##   - Worker: registered executor with capabilities + contract + workflow.
-##     All execution logic lives inside Workers. Workers do NOT know CaseContext.
+##   - Worker: registered executor with capabilities + contract.
+##     All execution logic lives inside Workers.
 ##   - Binding: connects a trigger to a Worker via capability lookup.
-##     Triggers: ContextChange (when), External Event (event), Scheduled (schedule).
-##     Bindings have NO workflow — only trigger + capability ref + data mapping.
+##     Triggers: contextChange, cloudEvent, schedule, scopeActivated.
 ##   - Milestone: observable progress marker. Passive — no execution.
 ##
 
@@ -24,29 +23,38 @@ labels:
 
 spec:
 
-  ## ─── Workers ───────────────────────────────────────────────────────
-  ## Registered executors. Each Worker declares capabilities, a contract
-  ## (inputSchema/outputSchema), and a Serverless Workflow for execution.
-  ## Workers do NOT know about CaseContext — they work with contract types.
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: ocr
+      description: "Extracts text from document images using OCR"
+      inputProjection: "{ image: .document.base64 }"
+      outputProjection: "{ ocrResult: { text: .text, confidence: .confidence } }"
 
+    - name: document-classification
+      description: "Classifies documents by type and content"
+      inputProjection: "{ text: .ocrResult.text }"
+      outputProjection: "{ classification: { category: .category, tags: .tags } }"
+
+    - name: notify
+      description: "Sends notifications via email or Slack"
+      inputProjection: '{ channel: "slack", recipient: "#case-review", message: ("Document " + .document.name + " classified as " + .classification.category) }'
+      outputProjection: "{ notified: .delivered }"
+
+    - name: validate-format
+      description: "Validates document format and structure"
+      inputProjection: "{ contentType: .document.contentType, size: .document.size }"
+      outputProjection: "{ document: (.document + { validated: .valid }) }"
+
+    - name: archive
+      description: "Archives case data to long-term storage"
+      inputProjection: "{ caseId: .caseId, data: . }"
+      outputProjection: "{ archived: true }"
+
+  ## ─── Workers ───────────────────────────────────────────────────────
   workers:
     - name: ocr-worker
       description: "Extracts text from document images using OCR"
       capabilities: [ "ocr" ]
-      inputProjection:
-        type: object
-        properties:
-          image: { type: string, description: "Base64-encoded document image" }
-      outputProjection:
-        type: object
-        properties:
-          text:       { type: string, description: "Extracted text content" }
-          confidence: { type: number, description: "OCR confidence score (0.0–1.0)" }
-      document:
-        dsl: "1.0.0"
-        namespace: casehub.workers
-        name: ocr-workflow
-        version: "1.0.0"
       do:
         - extractText:
             call: http
@@ -60,20 +68,6 @@ spec:
     - name: classifier-worker
       description: "Classifies documents by type and content"
       capabilities: [ "document-classification" ]
-      inputProjection:
-        type: object
-        properties:
-          text: { type: string, description: "Document text to classify" }
-      outputProjection:
-        type: object
-        properties:
-          category: { type: string, description: "Document category" }
-          tags:     { type: array, items: { type: string } }
-      document:
-        dsl: "1.0.0"
-        namespace: casehub.workers
-        name: classifier-workflow
-        version: "1.0.0"
       do:
         - classify:
             call: http
@@ -87,21 +81,6 @@ spec:
     - name: notification-worker
       description: "Sends notifications via email or Slack"
       capabilities: [ "notify" ]
-      inputProjection:
-        type: object
-        properties:
-          channel:   { type: string, description: "Notification channel (email, slack)" }
-          recipient: { type: string }
-          message:   { type: string }
-      outputProjection:
-        type: object
-        properties:
-          delivered: { type: boolean }
-      document:
-        dsl: "1.0.0"
-        namespace: casehub.workers
-        name: notification-workflow
-        version: "1.0.0"
       do:
         - send:
             call: http
@@ -110,28 +89,13 @@ spec:
               endpoint:
                 uri: https://notifications.internal/api/send
               body:
-                channel:   "${ .channel }"
+                channel: "${ .channel }"
                 recipient: "${ .recipient }"
-                message:   "${ .message }"
+                message: "${ .message }"
 
     - name: validator-worker
       description: "Validates document format and structure"
       capabilities: [ "validate-format" ]
-      inputProjection:
-        type: object
-        properties:
-          contentType: { type: string }
-          size:        { type: number }
-      outputProjection:
-        type: object
-        properties:
-          valid:  { type: boolean }
-          reason: { type: string }
-      document:
-        dsl: "1.0.0"
-        namespace: casehub.workers
-        name: validate-format
-        version: "1.0.0"
       do:
         - checkFormat:
             call: http
@@ -146,21 +110,6 @@ spec:
     - name: archive-worker
       description: "Archives case data to long-term storage"
       capabilities: [ "archive" ]
-      inputProjection:
-        type: object
-        properties:
-          caseId: { type: string }
-          data:   { type: object }
-      outputProjection:
-        type: object
-        properties:
-          archived: { type: boolean }
-          location: { type: string }
-      document:
-        dsl: "1.0.0"
-        namespace: casehub.workers
-        name: archive-case
-        version: "1.0.0"
       do:
         - archive:
             call: http
@@ -173,101 +122,65 @@ spec:
                 data: "${ .data }"
 
   ## ─── Bindings ──────────────────────────────────────────────────────
-  ## Connect triggers to Workers. Each Binding:
-  ##   1. Defines a trigger (when / event / schedule)
-  ##   2. References a capability → system finds a Worker
-  ##   3. Maps data: CaseContext → Worker input (input.from)
-  ##                  Worker output → CaseContext (output.as)
-
   bindings:
-    ## ContextChange: document uploaded → validate format
     - name: validate-on-upload
-      description: "Validate document format when uploaded"
-      when: ".document != null and .document.validated == null"
-      capability: "validate-format"
-      input:
-        from:
-          contentType: "${ .document.contentType }"
-          size: "${ .document.size }"
-      output:
-        as: "${ { document: (.document + { validated: .valid }) } }"
+      capability: validate-format
+      on:
+        contextChange:
+          filter: '.document != null and .document.validated == null'
 
-    ## ContextChange: document validated → OCR
     - name: extract-text
-      description: "Extract text from document using OCR"
-      when: ".document.validated == true and .ocrResult == null"
-      capability: "ocr"
-      input:
-        from:
-          image: "${ .document.base64 }"
-      output:
-        as: "${ { ocrResult: . } }"
+      capability: ocr
+      on:
+        contextChange:
+          filter: '.document.validated == true and .ocrResult == null'
 
-    ## ContextChange: text extracted → classify
     - name: classify-document
-      description: "Classify document after text extraction"
-      when: ".ocrResult != null and .classification == null"
-      capability: "document-classification"
-      input:
-        from:
-          text: "${ .ocrResult.text }"
-      output:
-        as: "${ { classification: . } }"
+      capability: document-classification
+      on:
+        contextChange:
+          filter: '.ocrResult != null and .classification == null'
 
-    ## ContextChange: classified → notify reviewers
     - name: notify-ready-for-review
-      description: "Notify reviewers when document is classified"
-      when: ".classification != null and .notified == null"
-      capability: "notify"
-      input:
-        from:
-          channel: "slack"
-          recipient: "#case-review"
-          message: >-
-            ${ "Document " + .document.name
-               + " classified as " + .classification.category
-               + ". Ready for review." }
-      output:
-        as: "${ { notified: true } }"
+      capability: notify
+      on:
+        contextChange:
+          filter: '.classification != null and .notified == null'
 
-    ## ContextChange: resolved → archive
     - name: archive-on-resolve
-      description: "Archive case when resolved"
-      when: ".status == \"resolved\" and .archived == null"
-      capability: "archive"
-      input:
-        from:
-          caseId: "${ .caseId }"
-          data: "${ . }"
-      output:
-        as: "${ { archived: true } }"
+      capability: archive
+      on:
+        contextChange:
+          filter: '.status == "resolved" and .archived == null'
 
-    ## External Event: document from upload service
     - name: on-external-document
-      description: "Handle document received via external system"
-      event:
-        type: "document.received"
-        source: "upload-service"
-      capability: "validate-format"
-      input:
-        from:
-          contentType: "${ .event.data.contentType }"
-          size: "${ .event.data.size }"
-      output:
-        as: "${ { document: { validated: .valid } } }"
+      capability: validate-format
+      on:
+        cloudEvent:
+          type: "document.received"
+          source: "upload-service"
 
   ## ─── Milestones ────────────────────────────────────────────────────
-  ## Observable progress markers — no execution, just tracking.
-
   milestones:
     - name: text-extracted
       description: "Document text has been successfully extracted"
-      condition: ".ocrResult != null and .ocrResult.confidence > 0.8"
+      condition: '.ocrResult != null and .ocrResult.confidence > 0.8'
 
     - name: document-classified
       description: "Document has been classified and is ready for human review"
-      condition: ".classification != null"
+      condition: '.classification != null'
 
     - name: human-review-complete
       description: "Human reviewer has completed their assessment"
-      condition: ".humanReview != null"
+      condition: '.humanReview != null'
+
+  ## ─── Goals & Completion ────────────────────────────────────────────
+  goals:
+    - name: processingComplete
+      condition: '.classification != null and .humanReview != null'
+      kind: success
+
+  completion:
+    success:
+      allOf:
+        - processingComplete

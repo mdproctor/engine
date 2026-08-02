@@ -70,12 +70,19 @@ public class WorkerMarshaller {
         }
       }
 
+      if (value.getSequence() != null && !value.getSequence().isEmpty()) {
+        gen.writeObjectField("sequence", value.getSequence());
+      }
+
       // Serialize agent field
       if (value.getAgent() != null) {
         gen.writeObjectField("agent", value.getAgent());
       }
       if (value.getContextType() != null) {
         gen.writeStringField("contextType", value.getContextType());
+      }
+      if (value.getOutputType() != null) {
+        gen.writeStringField("outputType", value.getOutputType());
       }
 
       gen.writeEndObject();
@@ -143,6 +150,14 @@ public class WorkerMarshaller {
         worker.setWorkflow(workflowFields);
       }
 
+      if (root.has("sequence")) {
+        List<String> sequence =
+            mapper.treeToValue(
+                root.get("sequence"),
+                mapper.getTypeFactory().constructCollectionType(List.class, String.class));
+        worker.setSequence(sequence);
+      }
+
       // Deserialize agent field
       if (root.has("agent")) {
         Agent agent = mapper.treeToValue(root.get("agent"), Agent.class);
@@ -150,6 +165,9 @@ public class WorkerMarshaller {
       }
       if (root.has("contextType")) {
         worker.setContextType(root.get("contextType").asText());
+      }
+      if (root.has("outputType")) {
+        worker.setOutputType(root.get("outputType").asText());
       }
 
       return worker;

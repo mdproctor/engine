@@ -237,6 +237,9 @@ public final class CaseDefinitionYamlMapper {
         new CaseDefinition(schema.getNamespace(), schema.getName(), schema.getVersion());
     def.setDsl(schema.getDsl());
     def.setTitle(schema.getTitle());
+    if (schema.getSummary() != null) {
+      def.setSummary(schema.getSummary());
+    }
 
     // semanticData — free-form object; read directly from raw JsonNode to avoid empty generated
     // class
@@ -569,6 +572,22 @@ public final class CaseDefinitionYamlMapper {
     // Convert decompositionStrategy
     if (schema.getSpec() != null && schema.getSpec().getDecompositionStrategy() != null) {
       def.setDecompositionStrategy(schema.getSpec().getDecompositionStrategy());
+    }
+
+    // Convert routing strategy IDs — read from raw spec node
+    if (specNode != null) {
+      if (specNode.has("agentRouting")) {
+        def.setAgentRouting(specNode.get("agentRouting").asText());
+      }
+      if (specNode.has("implementationRouting")) {
+        def.setImplementationRouting(specNode.get("implementationRouting").asText());
+      }
+      if (specNode.has("humanTaskRouting")) {
+        def.setHumanTaskRouting(specNode.get("humanTaskRouting").asText());
+      }
+      if (specNode.has("candidateMatching")) {
+        def.setCandidateMatching(specNode.get("candidateMatching").asText());
+      }
     }
 
     // Convert CBR configuration — features and weights read from raw node (generated classes

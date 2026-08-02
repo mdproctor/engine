@@ -14,7 +14,7 @@ description: >
   Case Hub is choreography-oriented by default.
 type: object
 required: [ dsl, namespace, name, version, spec ]
-unevaluatedProperties: true
+unevaluatedProperties: false
 
 properties:
   dsl:
@@ -130,6 +130,17 @@ properties:
         name:
           type: string
           description: User-defined layer name
+  context:
+    type: object
+    description: Context store configuration for this case definition
+    unevaluatedProperties: false
+    properties:
+      storeFactory:
+        type: string
+        description: >
+          Strategy ID for CaseContextStoreFactory resolution via EngineStrategyResolver.
+          Default: "in-memory". Persistent stores (e.g. Redis-backed) must implement
+          isDurable()=true and the recovery path.
   signals:
     type: array
     title: CaseSignals
@@ -150,6 +161,24 @@ properties:
           type: string
           minLength: 1
           description: Fully qualified Java class name for the signal payload type
+  labelRules:
+    type: array
+    title: CaseLabelRules
+    description: >
+      Label evaluation rules for case queue management. Evaluated on every
+      context change via CaseLabelEvaluator. Each rule's condition is a JQ
+      predicate over the working layer; actions add or remove labels.
+    items:
+      $ref: "#/$defs/LabelRule"
+  inboundMappings:
+    type: array
+    title: CaseInboundMappings
+    description: >
+      Bridges inbound connector messages to typed case signals. Each mapping
+      declares a signal name, connector type, correlation expression (resolves
+      to a case ID), and payload expression (extracts the signal payload).
+    items:
+      $ref: "#/$defs/InboundSignalMapping"
   spec:
     $ref: "#/$defs/CaseDefinitionSpec"
 $defs:
@@ -169,21 +198,6 @@ $defs:
           Secret names required by this Case definition.
           Validated at load time via SecretManager.secret().
           Accessible in JQ expressions via ${$secret.{name}.{property}}
-
-          Example configuration (application.properties):
-            openai.apiKey=sk-...
-            openai.organizationId=org-...
-
-          Example usage in YAML:
-            use:
-              secrets:
-                - openai
-            spec:
-              workers:
-                - agent:
-                    model:
-                      openai:
-                        apiKey: "${$secret.openai.apiKey}"
         items:
           type: string
           pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
@@ -198,24 +212,6 @@ $defs:
           Validated at load time via ConfigManager - checks that properties with
           {configMapName}. prefix exist.
           Accessible in JQ expressions via ${$config.{name}.{property}}
-
-          ConfigMaps provide non-sensitive configuration data (timeouts, feature flags,
-          model parameters, etc.) as opposed to secrets (API keys, credentials).
-
-          Example configuration (application.properties):
-            app-config.timeout=5000
-            app-config.retries=3
-            feature-flags.analyticsEnabled=true
-
-          Example usage in YAML:
-            use:
-              configMaps:
-                - app-config
-                - feature-flags
-            spec:
-              bindings:
-                - when: "${$config.featureFlags.analyticsEnabled == 'true'}"
-                  capability: send-analytics
         items:
           type: string
           pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
@@ -226,6 +222,11 @@ $defs:
   CaseDefinitionSpec:
     type: object
     unevaluatedProperties: true
+    description: >
+      Case definition specification. unevaluatedProperties is true because
+      the spec is an extension point — plugin modules may add their own
+      configuration blocks (e.g. cbr, routing strategies, future plugins)
+      without requiring schema changes.
     properties:
       milestones:
         type: array
@@ -263,13 +264,45 @@ $defs:
       planningStrategy:
         type: string
         description: >
-          Planning strategy for this case. Options: "parallel" (default), "sequential".
-          Controls how multiple eligible bindings are scheduled.
+          Planning strategy ID for this case. Resolved via StrategyResolver.
+          Built-in: "default" (choreography), "sequential".
+          Plugin strategies register via CDI as NamedStrategy beans.
       decompositionStrategy:
         type: string
         description: >
-          HTN decomposition strategy for this case. Resolved via StrategyResolver
-          by name. Default: "identity".
+          HTN decomposition strategy ID. Resolved via StrategyResolver.
+          Default: "identity". Plugin strategies register via CDI.
+      agentRouting:
+        type: string
+        description: >
+          Agent routing strategy ID. Selects which worker instance handles
+          a task. Resolved via StrategyResolver. Default: "composable".
+      implementationRouting:
+        type: string
+        description: >
+          Implementation routing strategy ID. Selects which binding(s) handle
+          a capability when multiple bindings target the same capability.
+          Resolved via StrategyResolver. Default: runs all.
+      humanTaskRouting:
+        type: string
+        description: >
+          HumanTask routing strategy ID. Enriches humanTask candidate sets
+          with historical data. Resolved via StrategyResolver.
+      candidateMatching:
+        type: string
+        description: >
+          Candidate matching strategy ID. Controls how worker capabilities
+          are matched to binding requirements. Built-in: "exact", "subsumption".
+          Resolved via StrategyResolver.
+      routingSignalWeights:
+        type: object
+        description: >
+          Per-signal-provider weight configuration for composable agent routing.
+          Keys are signal provider IDs (e.g. "workload", "trust", "experience",
+          "personality", "semantic"). Values are weights. When present, only
+          named providers are called with given weights.
+        additionalProperties:
+          type: number
       cbr:
         $ref: "#/$defs/Cbr"
       bindings:
@@ -286,32 +319,32 @@ $defs:
           make local decisions, and perform work.
         items:
           $ref: "#/$defs/Worker"
-      _forceAgent:
-        description: "TEMPORARY: forces generation of Agent class"
-        $ref: "#/$defs/Agent"
-      _forceAgentModel:
-        description: "TEMPORARY: forces generation of AgentModel class"
-        $ref: "#/$defs/AgentModel"
-      _forceOpenAi:
-        description: "TEMPORARY: forces generation of OpenAiModel class"
-        $ref: "#/$defs/OpenAiModel"
-      _forceOllama:
-        description: "TEMPORARY: forces generation of OllamaModel class"
-        $ref: "#/$defs/OllamaModel"
-      _forceAnthropic:
-        description: "TEMPORARY: forces generation of AnthropicModel class"
-        $ref: "#/$defs/AnthropicModel"
-      _forceMistral:
-        description: "TEMPORARY: forces generation of MistralAiModel class"
-        $ref: "#/$defs/MistralAiModel"
-      _forceGoogleAi:
-        description: "TEMPORARY: forces generation of GoogleAiGeminiModel class"
-        $ref: "#/$defs/GoogleAiGeminiModel"
       authorization:
         $ref: "#/$defs/Authorization"
         description: >
           ACL grants created when a case instance of this type is started.
           Maps AclAction to groups. Absent = no ACL enforcement (NoOp default).
+      _codegenAgent:
+        description: "Code generation directive — ensures Agent type is generated by jsonschema2pojo. Not a user-facing property."
+        $ref: "#/$defs/Agent"
+      _codegenAgentModel:
+        description: "Code generation directive — ensures AgentModel type is generated. Not a user-facing property."
+        $ref: "#/$defs/AgentModel"
+      _codegenOpenAi:
+        description: "Code generation directive — ensures OpenAiModel type is generated. Not a user-facing property."
+        $ref: "#/$defs/OpenAiModel"
+      _codegenOllama:
+        description: "Code generation directive — ensures OllamaModel type is generated. Not a user-facing property."
+        $ref: "#/$defs/OllamaModel"
+      _codegenAnthropic:
+        description: "Code generation directive — ensures AnthropicModel type is generated. Not a user-facing property."
+        $ref: "#/$defs/AnthropicModel"
+      _codegenMistral:
+        description: "Code generation directive — ensures MistralAiModel type is generated. Not a user-facing property."
+        $ref: "#/$defs/MistralAiModel"
+      _codegenGoogleAi:
+        description: "Code generation directive — ensures GoogleAiGeminiModel type is generated. Not a user-facing property."
+        $ref: "#/$defs/GoogleAiGeminiModel"
 
   Authorization:
     type: object
@@ -337,6 +370,71 @@ $defs:
         type: array
         items: { type: string }
         description: "Groups granted CLAIM — claim work items for execution"
+
+  LabelRule:
+    type: object
+    description: >
+      A label evaluation rule. Condition is a JQ predicate evaluated against
+      the working layer on every context change. Actions add or remove labels
+      from the case instance. Evaluation uses clean-slate semantics per cycle.
+    required: [ name, when, actions ]
+    unevaluatedProperties: false
+    properties:
+      name:
+        type: string
+        minLength: 1
+        description: Unique rule name within the definition
+      when:
+        type: string
+        description: JQ predicate over the working layer — rule fires when true
+      actions:
+        type: array
+        minItems: 1
+        description: Label actions to apply when the rule fires
+        items:
+          type: object
+          unevaluatedProperties: false
+          oneOf:
+            - required: [ add ]
+            - required: [ remove ]
+          properties:
+            add:
+              type: string
+              description: Label name to add
+            remove:
+              type: string
+              description: Label name to remove
+
+  InboundSignalMapping:
+    type: object
+    description: >
+      Maps inbound connector messages to typed case signals. The correlation
+      expression resolves to a case ID; the payload expression extracts the
+      signal payload. Evaluated by InboundSignalBridge.
+    required: [ signal, connectorType, correlation, payload ]
+    unevaluatedProperties: false
+    properties:
+      signal:
+        type: string
+        minLength: 1
+        description: >
+          Signal name — must reference a declared SignalType on the same definition.
+          Validated at YAML load time.
+      connectorType:
+        type: string
+        minLength: 1
+        description: Connector type discriminator (e.g. "slack", "email")
+      correlation:
+        type: string
+        description: JQ expression or ExpressionEvaluator resolving to the target case UUID
+      payload:
+        type: string
+        description: JQ expression or ExpressionEvaluator extracting the signal payload from the message
+      correlationResolver:
+        type: string
+        description: >
+          Strategy ID for CaseCorrelationResolver. Default: "uuid" (direct UUID parsing).
+          Custom resolvers register via CDI as NamedStrategy beans.
 
   Cbr:
     type: object
@@ -388,6 +486,14 @@ $defs:
         description: >
           CBR case type for retrieval. Defaults to the case definition name
           if not specified.
+      cbrType:
+        type: string
+        minLength: 1
+        description: >
+          CbrCase Java class discriminator for deserialization. Identifies which
+          CbrCase subtype to use. Built-in: "plan" (PlanCbrCase), "feature-vector"
+          (FeatureVectorCbrCase), "textual" (TextualCbrCase). Extensible via
+          CbrCaseTypeRegistration CDI bean. Distinct from caseType (query filter).
       timing:
         type: string
         enum: [ per-evaluation, case-lifetime ]
@@ -425,6 +531,17 @@ $defs:
         { type: string, description: "JQ expression producing capability input from case context" }
       outputProjection:
         { type: string, description: "JQ expression producing capability output from worker result" }
+      cognitiveDemand:
+        type: object
+        description: >
+          Weighted cognitive function demand profile for this capability.
+          Keys are Jungian function names (Ti, Te, Fi, Fe, Si, Se, Ni, Ne).
+          Values are weights that should sum to 1.0. Used by
+          PersonalitySignalProvider for JPAF personality-adaptive routing.
+        additionalProperties:
+          type: number
+          minimum: 0
+          maximum: 1
 
   HumanTask:
     type: object
@@ -435,11 +552,8 @@ $defs:
     unevaluatedProperties: false
     oneOf:
       - required: [ title ]
-        not: { required: [ templateRef ] }
       - required: [ titleExpression ]
-        not: { required: [ templateRef ] }
       - required: [ templateRef ]
-        not: { required: [ title, titleExpression ] }
     properties:
       title:
         type: string
@@ -510,21 +624,15 @@ $defs:
 
   Binding:
     type: object
-    required: [ on ]
+    required: [ "on" ]
     unevaluatedProperties: false
     oneOf:
       - required: [ capability ]
-        not:
-          required: [ subCase, humanTask ]
       - required: [ subCase ]
-        not:
-          required: [ capability, humanTask ]
       - required: [ humanTask ]
-        not:
-          required: [ capability, subCase ]
     properties:
       name: { type: string }
-      on: { $ref: "#/$defs/Trigger" }
+      "on": { $ref: "#/$defs/Trigger" }
       when: { type: string, description: "JQ over context and/or event" }
       capability: { type: string }
       subCase: { $ref: "#/$defs/SubCase" }
@@ -583,7 +691,7 @@ $defs:
         type: string
         enum: [ REROUTE, FAULT ]
         default: REROUTE
-        description: "Action when a worker's commitment expires (not yet wired — engine#513)"
+        description: "Action when a worker's commitment expires"
       maxRerouteAttempts:
         type: integer
         minimum: 1
@@ -859,53 +967,58 @@ $defs:
   Worker:
     description: >
       A Worker is an autonomous participant that owns one or more capabilities.
-      Workers observe CaseContext and events, make local decisions,
-      and perform work independently.
+      Workers observe CaseContext and events, make local decisions, and perform
+      work independently.
 
-      A Worker may be a person, a service, a workflow, a rule,
-      or an autonomous agent.
-    allOf:
-      - type: object
-        required: [ name, capabilities ]
-        unevaluatedProperties: false
-        properties:
-          name:
-            type: string
-            title: WorkerName
-            minLength: 1
-            maxLength: 255
-            description: "Worker name"
-          description:
-            type: string
-            title: WorkerDescription
-            description: "What this worker does"
-          capabilities:
-            type: array
-            title: WorkerCapabilities
-            description: "Capabilities this Worker owns and can perform"
-            minItems: 1
-            items:
-              type: string
-          executionPolicy:
-            $ref: "#/$defs/ExecutionPolicy"
-            description: >
-              Default execution policy for this Worker. These are defaults and may be
-              overridden by workflow/state-specific settings (if present).
-          sequence:
-            type: array
-            description: >
-              Sequential composition of other workers. Each step name must reference
-              a worker defined earlier in the workers list.
-            items:
-              type: string
-      - anyOf:
-          - $ref: "https://raw.githubusercontent.com/serverlessworkflow/specification/main/schema/workflow.yaml"
-          - type: string
-          - type: object
-            required: [ agent ]
-            properties:
-              agent:
-                $ref: "#/$defs/Agent"
+      Worker function configuration (agent, do, mcp, http, etc.) is plugin-supplied.
+      additionalProperties is true because Worker is an extension point — new function
+      types can be added without schema changes. The WorkerFunctionProviderRegistry
+      dispatches to the correct provider based on the raw YAML content.
+    type: object
+    required: [ name, capabilities ]
+    additionalProperties: true
+    properties:
+      name:
+        type: string
+        title: WorkerName
+        minLength: 1
+        maxLength: 255
+        description: "Worker name"
+      description:
+        type: string
+        title: WorkerDescription
+        description: "What this worker does"
+      capabilities:
+        type: array
+        title: WorkerCapabilities
+        description: "Capabilities this Worker owns and can perform"
+        minItems: 1
+        items:
+          type: string
+      executionPolicy:
+        $ref: "#/$defs/ExecutionPolicy"
+        description: >
+          Default execution policy for this Worker. These are defaults and may be
+          overridden by workflow/state-specific settings (if present).
+      sequence:
+        type: array
+        description: >
+          Sequential composition of other workers. Each step name must reference
+          a worker defined earlier in the workers list.
+        items:
+          type: string
+      contextType:
+        type: string
+        description: >
+          Fully qualified Java class name for typed worker function input.
+          Used by ContextBridge protocol for POJO deserialization.
+          When set, the engine creates a typed WorkerFunction.Sync<T>.
+      outputType:
+        type: string
+        description: >
+          Fully qualified Java class name for typed worker function output.
+          Used by ContextBridge protocol for output serialization.
+          Defaults to java.util.Map when not specified.
 
   Agent:
     description: >
@@ -960,20 +1073,7 @@ $defs:
     properties:
       apiKey:
         type: string
-        description: |
-          OpenAI API key.
-          Supports JQ expressions: "${$secret.openai.apiKey}"
-
-          Example configuration (application.properties):
-            openai.apiKey=sk-...
-            openai.organizationId=org-...
-
-          Declare the secret in use.secrets for fail-fast validation:
-            use:
-              secrets:
-                - openai
-
-          The secret is resolved at runtime during JQ expression evaluation.
+        description: "OpenAI API key. Supports JQ expressions: \"${$secret.openai.apiKey}\""
       modelName:
         type: string
         description: "Model name (e.g., gpt-4, gpt-3.5-turbo)"
@@ -1045,19 +1145,7 @@ $defs:
     properties:
       apiKey:
         type: string
-        description: |
-          Anthropic API key.
-          Supports JQ expressions: "${$secret.anthropic.apiKey}"
-
-          Example configuration (application.properties):
-            anthropic.apiKey=sk-ant-...
-
-          Declare the secret in use.secrets for fail-fast validation:
-            use:
-              secrets:
-                - anthropic
-
-          The secret is resolved at runtime during JQ expression evaluation.
+        description: "Anthropic API key. Supports JQ expressions: \"${$secret.anthropic.apiKey}\""
       modelName:
         type: string
         description: "Model name (e.g., claude-3-sonnet-20240229)"
@@ -1093,19 +1181,7 @@ $defs:
     properties:
       apiKey:
         type: string
-        description: |
-          Mistral AI API key.
-          Supports JQ expressions: "${$secret.mistralai.apiKey}"
-
-          Example configuration (application.properties):
-            mistralai.apiKey=...
-
-          Declare the secret in use.secrets for fail-fast validation:
-            use:
-              secrets:
-                - mistralai
-
-          The secret is resolved at runtime during JQ expression evaluation.
+        description: "Mistral AI API key. Supports JQ expressions: \"${$secret.mistralai.apiKey}\""
       modelName:
         type: string
         description: "Model name (e.g., mistral-large-latest)"
@@ -1134,19 +1210,7 @@ $defs:
     properties:
       apiKey:
         type: string
-        description: |
-          Google AI API key.
-          Supports JQ expressions: "${$secret.googleai.apiKey}"
-
-          Example configuration (application.properties):
-            googleai.apiKey=...
-
-          Declare the secret in use.secrets for fail-fast validation:
-            use:
-              secrets:
-                - googleai
-
-          The secret is resolved at runtime during JQ expression evaluation.
+        description: "Google AI API key. Supports JQ expressions: \"${$secret.googleai.apiKey}\""
       modelName:
         type: string
         description: "Model name (e.g., gemini-pro)"

@@ -88,8 +88,7 @@ public class CaseMemoryObserver {
             event.eventType(),
             event.commandType() != null ? event.commandType() : "unknown");
 
-    final MemoryInput input =
-        new MemoryInput(caseIdStr, DOMAIN, caseIdStr, caseIdStr, text, attrs, null);
+    final MemoryInput input = new MemoryInput(caseIdStr, DOMAIN, caseIdStr, caseIdStr, text, attrs);
 
     final CaseMemoryStore store = memoryStore.get();
     try {

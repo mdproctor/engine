@@ -1,4 +1,4 @@
-dsl: "0.1"
+dsl: "0.1.0"
 namespace: example
 name: document-classification
 version: "1.0.0"
