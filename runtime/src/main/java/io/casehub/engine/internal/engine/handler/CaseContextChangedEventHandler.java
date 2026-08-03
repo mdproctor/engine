@@ -128,6 +128,8 @@ public class CaseContextChangedEventHandler {
 
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
 
+  @Inject io.casehub.engine.internal.acl.WorkerGrantOrchestrator workerGrantOrchestrator;
+
   @Inject @io.quarkus.virtual.threads.VirtualThreads
   java.util.concurrent.ExecutorService virtualThreads;
 
@@ -529,6 +531,33 @@ public class CaseContextChangedEventHandler {
     io.casehub.api.model.LifecycleScope ls = binding.lifecycleScope();
     io.casehub.api.model.ExecutionMode em = binding.executionMode();
 
+    String credentialToken = null;
+    CaseDefinition definition =
+        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+    if (definition != null) {
+      String serviceAccountId = definition.getWorkerServiceAccountId(selectedWorker.name());
+      boolean needsGrants =
+          serviceAccountId != null || binding.getPermissionIntent() != null;
+      if (needsGrants) {
+        var actions =
+            binding.getPermissionIntent() != null
+                ? binding.getPermissionIntent()
+                : java.util.List.of(io.casehub.api.model.acl.WorkerAction.READ_CONTEXT);
+        java.time.Instant deadline =
+            caseInstance.getPropagationContext() != null
+                ? caseInstance.getPropagationContext().getDeadline().orElse(null)
+                : null;
+        var credential =
+            workerGrantOrchestrator.grantAndMint(
+                serviceAccountId,
+                actions,
+                caseInstance.getUuid(),
+                caseInstance.tenancyId,
+                deadline);
+        credentialToken = credential.token();
+      }
+    }
+
     eventBus.publish(
         EventBusAddresses.WORKER_SCHEDULE,
         new WorkerScheduleEvent(
@@ -542,7 +571,7 @@ public class CaseContextChangedEventHandler {
             experiences,
             ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
             em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null,
-            null));
+            credentialToken));
   }
 
   private void handleEscalation(
@@ -807,6 +836,25 @@ public class CaseContextChangedEventHandler {
           workerContextProvider.buildContext(
               null, caseInstance.getUuid(), workRequest, caseInstance.getPropagationContext());
 
+      String provCredentialToken = null;
+      CaseDefinition provDefinition =
+          caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+      if (provDefinition != null) {
+        Binding provBinding = provDefinition.getBindings().stream()
+            .filter(b -> bindingName.equals(b.getName()))
+            .findFirst().orElse(null);
+        var provActions = provBinding != null && provBinding.getPermissionIntent() != null
+            ? provBinding.getPermissionIntent()
+            : java.util.List.of(io.casehub.api.model.acl.WorkerAction.READ_CONTEXT);
+        java.time.Instant provDeadline =
+            caseInstance.getPropagationContext() != null
+                ? caseInstance.getPropagationContext().getDeadline().orElse(null)
+                : null;
+        var provCredential = workerGrantOrchestrator.grantAndMint(
+            null, provActions, caseInstance.getUuid(), caseInstance.tenancyId, provDeadline);
+        provCredentialToken = provCredential.token();
+      }
+
       final ProvisionContext provisionContext =
           new ProvisionContext(
               caseInstance.getUuid(),
@@ -815,7 +863,8 @@ public class CaseContextChangedEventHandler {
               workerContext,
               caseInstance.getPropagationContext(),
               triggerChannelId,
-              triggerCorrelationId);
+              triggerCorrelationId,
+              provCredentialToken);
 
       final var caps = workerProvisioner.getCapabilities();
       workerProvisioner.provision(caps, provisionContext);

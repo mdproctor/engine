@@ -32,7 +32,7 @@ class ProvisionContextTest {
         new WorkerContext(
             "task", caseId, null, List.of(), PropagationContext.createRoot(), Map.of());
     var prop = PropagationContext.createRoot();
-    var pc = new ProvisionContext(caseId, "tenant-1", "code-reviewer", wc, prop, null, null);
+    var pc = new ProvisionContext(caseId, "tenant-1", "code-reviewer", wc, prop, null, null, null);
     assertThat(pc.caseId()).isEqualTo(caseId);
     assertThat(pc.tenancyId()).isEqualTo("tenant-1");
     assertThat(pc.taskType()).isEqualTo("code-reviewer");
@@ -52,6 +52,7 @@ class ProvisionContextTest {
             null,
             PropagationContext.createRoot(),
             null,
+            null,
             null);
     assertThat(pc.workerContext()).isNull();
   }
@@ -66,7 +67,8 @@ class ProvisionContextTest {
             null,
             PropagationContext.createRoot(),
             "ch-abc-123",
-            "corr-xyz-456");
+            "corr-xyz-456",
+            null);
     assertThat(pc.triggerChannelId()).isEqualTo("ch-abc-123");
     assertThat(pc.triggerCorrelationId()).isEqualTo("corr-xyz-456");
   }

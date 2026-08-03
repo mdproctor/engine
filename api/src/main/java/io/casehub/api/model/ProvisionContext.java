@@ -44,4 +44,5 @@ public record ProvisionContext(
     WorkerContext workerContext,
     PropagationContext propagationContext,
     String triggerChannelId,
-    String triggerCorrelationId) {}
+    String triggerCorrelationId,
+    String workerCredentialToken) {}

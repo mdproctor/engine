@@ -80,6 +80,7 @@ class DefaultWorkerSpiImplementationsTest {
             workerContext,
             PropagationContext.createRoot(),
             null,
+            null,
             null);
     assertThatThrownBy(() -> provisioner.provision(java.util.Set.of("cap"), ctx))
         .isInstanceOf(ProvisioningException.class)
@@ -280,6 +281,7 @@ class DefaultWorkerSpiImplementationsTest {
             new WorkerContext(
                 "desc", null, null, List.of(), PropagationContext.createRoot(), Map.of()),
             PropagationContext.createRoot(),
+            null,
             null,
             null);
     assertThatThrownBy(() -> provisioner.provision(Set.of("cap"), ctx))
