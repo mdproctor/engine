@@ -148,18 +148,18 @@ public class WorkerScheduleEventHandler {
 
       EventLog eventLog =
           buildEventLog(
-              instance,
-              worker,
-              capability,
-              serialisedPayload,
-              inputDataHash,
-              bindingName,
-              event.signalId(),
-              event.origin(),
-              bridge.contextType().getName(),
-              event.experiences(),
-              event.lifecycleScope(),
-              event.executionMode());
+                  instance,
+                  worker,
+                  capability,
+                  serialisedPayload,
+                  inputDataHash,
+                  bindingName,
+                  event.signalId(),
+                  event.origin(),
+                  bridge.contextType().getName(),
+                  event.experiences(),
+                  event.lifecycleScope(),
+                  event.executionMode(), event.activationContext());
 
       String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
       java.util.concurrent.locks.ReentrantLock lock =
@@ -208,18 +208,18 @@ public class WorkerScheduleEventHandler {
   }
 
   private EventLog buildEventLog(
-      CaseInstance instance,
-      Worker worker,
-      Capability capability,
-      JsonNode serialisedPayload,
-      String inputDataHash,
-      String bindingName,
-      UUID signalId,
-      ExecutionOrigin origin,
-      String contextBridgeType,
-      List<RetrievedExperience> experiences,
-      LifecycleScope lifecycleScope,
-      ExecutionMode executionMode) {
+          CaseInstance instance,
+          Worker worker,
+          Capability capability,
+          JsonNode serialisedPayload,
+          String inputDataHash,
+          String bindingName,
+          UUID signalId,
+          ExecutionOrigin origin,
+          String contextBridgeType,
+          List<RetrievedExperience> experiences,
+          LifecycleScope lifecycleScope,
+          ExecutionMode executionMode, JsonNode activationContext) {
     Map<String, String> metadataBuilder = new HashMap<>();
     metadataBuilder.put("workerName", worker.name());
     metadataBuilder.put("capabilityName", capability.name());
@@ -246,6 +246,9 @@ public class WorkerScheduleEventHandler {
     ObjectNode metaNode = OBJECT_MAPPER.valueToTree(metadataBuilder);
     if (experiences != null && !experiences.isEmpty()) {
       metaNode.set("experiences", OBJECT_MAPPER.valueToTree(experiences));
+    }
+    if (activationContext != null && !activationContext.isNull()) {
+      metaNode.set("activationContext", activationContext);
     }
 
     EventLog eventLog = new EventLog();
