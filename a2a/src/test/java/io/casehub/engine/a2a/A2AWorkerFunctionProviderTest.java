@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import io.casehub.engine.common.internal.auth.AuthConfig;
 import org.junit.jupiter.api.Test;
 
 class A2AWorkerFunctionProviderTest {
@@ -69,7 +70,7 @@ class A2AWorkerFunctionProviderTest {
     assertThat(fn.endpoint()).isEqualTo("https://example.com");
     assertThat(fn.skill()).isEqualTo("anomaly-detection");
     assertThat(fn.streaming()).isTrue();
-    assertThat(fn.auth().type()).isEqualTo(A2AAuthConfig.AuthType.BEARER);
+    assertThat(fn.auth().type()).isEqualTo(AuthConfig.AuthType.BEARER);
     assertThat(fn.auth().tokenConfigKey()).isEqualTo("analyst.token");
   }
 
@@ -87,7 +88,7 @@ class A2AWorkerFunctionProviderTest {
     assertThat(fn.endpoint()).isEqualTo("https://example.com");
     assertThat(fn.skill()).isNull();
     assertThat(fn.streaming()).isFalse();
-    assertThat(fn.auth()).isEqualTo(A2AAuthConfig.NONE);
+    assertThat(fn.auth()).isEqualTo(AuthConfig.NONE);
   }
 
   @Test
@@ -104,7 +105,7 @@ class A2AWorkerFunctionProviderTest {
             """);
     var fn = (A2AWorkerFunction) provider.create(node);
 
-    assertThat(fn.auth().type()).isEqualTo(A2AAuthConfig.AuthType.API_KEY);
+    assertThat(fn.auth().type()).isEqualTo(AuthConfig.AuthType.API_KEY);
     assertThat(fn.auth().tokenConfigKey()).isEqualTo("analyst.api-key");
   }
 

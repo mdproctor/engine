@@ -16,9 +16,11 @@
 package io.casehub.engine.internal.worker;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import io.casehub.api.spi.DiscoveredWorker;
 import io.casehub.api.spi.WorkerFunctionProvider;
 import io.casehub.api.spi.WorkerFunctionProviderRegistry;
 import io.casehub.worker.api.WorkerFunction;
+import java.util.List;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -53,5 +55,18 @@ public class DefaultWorkerFunctionProviderRegistry implements WorkerFunctionProv
       }
     }
     return null;
+  }
+
+  @Override
+  public List<DiscoveredWorker> discoverWorkers(final JsonNode rawWorkerNode) {
+    for (final WorkerFunctionProvider provider : providers) {
+      if (provider.handles(rawWorkerNode)) {
+        final List<DiscoveredWorker> discovered = provider.discoverWorkers(rawWorkerNode);
+        if (!discovered.isEmpty()) {
+          return discovered;
+        }
+      }
+    }
+    return List.of();
   }
 }

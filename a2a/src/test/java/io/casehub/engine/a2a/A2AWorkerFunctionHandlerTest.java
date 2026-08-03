@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.WorkerContext;
+import io.casehub.engine.common.internal.auth.AuthConfig;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.worker.api.WorkerFunction;
@@ -56,7 +57,7 @@ class A2AWorkerFunctionHandlerTest {
 
   @Test
   void supportsA2AWorkerFunction() {
-    var fn = new A2AWorkerFunction("https://example.com", null, false, A2AAuthConfig.NONE);
+    var fn = new A2AWorkerFunction("https://example.com", null, false, AuthConfig.NONE);
     assertThat(handler.supports(fn)).isTrue();
   }
 
@@ -257,7 +258,7 @@ class A2AWorkerFunctionHandlerTest {
                     + "data: {\"id\":\"t\",\"status\":{\"state\":\"completed\"}}\n\n"));
 
     String endpoint = server.url("/").toString();
-    var fn = new A2AWorkerFunction(endpoint, null, true, A2AAuthConfig.NONE);
+    var fn = new A2AWorkerFunction(endpoint, null, true, AuthConfig.NONE);
     var context = new WorkerContext("Test task", UUID.randomUUID(), null, null, null, null);
     var metadata = new ExecutionMetadata("test-worker", "hash-abc");
     HandlerResult result =
@@ -279,7 +280,7 @@ class A2AWorkerFunctionHandlerTest {
                     + "data: {\"id\":\"t\",\"status\":{\"state\":\"completed\"}}\n\n"));
 
     String endpoint = server.url("/").toString();
-    var fn = new A2AWorkerFunction(endpoint, null, true, A2AAuthConfig.NONE);
+    var fn = new A2AWorkerFunction(endpoint, null, true, AuthConfig.NONE);
     var context = new WorkerContext("Test task", UUID.randomUUID(), null, null, null, null);
     var metadata = new ExecutionMetadata("test-worker", "hash-abc");
     HandlerResult result =
@@ -318,7 +319,7 @@ class A2AWorkerFunctionHandlerTest {
 
   private HandlerResult executeHandler(final boolean streaming) {
     String endpoint = server.url("/").toString();
-    var fn = new A2AWorkerFunction(endpoint, null, streaming, A2AAuthConfig.NONE);
+    var fn = new A2AWorkerFunction(endpoint, null, streaming, AuthConfig.NONE);
     var context = new WorkerContext("Test task", UUID.randomUUID(), null, null, null, null);
     var metadata = new ExecutionMetadata("test-worker", "hash-abc");
     return handler.execute(fn, Map.of("input", "data"), context, 30000, metadata);

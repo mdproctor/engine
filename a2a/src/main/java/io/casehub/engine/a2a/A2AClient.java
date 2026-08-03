@@ -18,6 +18,7 @@ package io.casehub.engine.a2a;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.casehub.engine.common.internal.auth.AuthConfig;
 import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
@@ -34,11 +35,11 @@ public class A2AClient implements AutoCloseable {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final String endpoint;
-  private final A2AAuthConfig auth;
+  private final AuthConfig auth;
   private final HttpClient httpClient;
   private final AtomicInteger requestIdCounter = new AtomicInteger(1);
 
-  public A2AClient(final String endpoint, final A2AAuthConfig auth) {
+  public A2AClient(final String endpoint, final AuthConfig auth) {
     this.endpoint = endpoint.endsWith("/") ? endpoint : endpoint + "/";
     this.auth = auth;
     this.httpClient = HttpClient.newBuilder().build();
@@ -115,7 +116,7 @@ public class A2AClient implements AutoCloseable {
   }
 
   private void applyAuth(final HttpRequest.Builder builder) {
-    if (auth.type() == A2AAuthConfig.AuthType.NONE) {
+    if (auth.type() == AuthConfig.AuthType.NONE) {
       return;
     }
     final String token = ConfigProvider.getConfig().getValue(auth.tokenConfigKey(), String.class);

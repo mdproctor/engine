@@ -27,6 +27,7 @@ import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
+import io.casehub.engine.common.internal.auth.AuthConfig;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -101,7 +102,7 @@ class A2AWorkerIntegrationTest {
           Worker.builder()
               .name("remote-analyst")
               .capabilityName("analysis")
-              .function(new A2AWorkerFunction(endpoint, null, false, A2AAuthConfig.NONE))
+              .function(new A2AWorkerFunction(endpoint, null, false, AuthConfig.NONE))
               .build();
 
       Binding binding =

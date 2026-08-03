@@ -18,6 +18,7 @@ package io.casehub.engine.a2a;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.casehub.engine.common.internal.auth.AuthConfig;
 import java.io.IOException;
 import java.util.Map;
 import okhttp3.mockwebserver.MockResponse;
@@ -35,7 +36,7 @@ class A2AClientTest {
   void setUp() throws Exception {
     server = new MockWebServer();
     server.start();
-    client = new A2AClient(server.url("/").toString(), A2AAuthConfig.NONE);
+    client = new A2AClient(server.url("/").toString(), AuthConfig.NONE);
   }
 
   @AfterEach
@@ -116,7 +117,7 @@ class A2AClientTest {
     client =
         new A2AClient(
             server.url("/").toString(),
-            new A2AAuthConfig(A2AAuthConfig.AuthType.BEARER, "test.a2a.token"));
+            new AuthConfig(AuthConfig.AuthType.BEARER, "test.a2a.token"));
 
     server.enqueue(
         new MockResponse()
@@ -138,7 +139,7 @@ class A2AClientTest {
     client =
         new A2AClient(
             server.url("/").toString(),
-            new A2AAuthConfig(A2AAuthConfig.AuthType.API_KEY, "test.a2a.apikey"));
+            new AuthConfig(AuthConfig.AuthType.API_KEY, "test.a2a.apikey"));
 
     server.enqueue(
         new MockResponse()

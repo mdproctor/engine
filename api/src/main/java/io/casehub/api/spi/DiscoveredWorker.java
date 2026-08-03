@@ -1,0 +1,39 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.api.spi;
+
+import io.casehub.worker.api.Capability;
+import io.casehub.worker.api.WorkerFunction;
+import java.util.Objects;
+
+/**
+ * A worker contributed by a {@link WorkerFunctionProvider} during tool discovery. Each discovered
+ * worker carries a capability (derived from the external tool's metadata) and a function that
+ * invokes the tool.
+ *
+ * <p>Used by providers that discover multiple tools from a single YAML declaration (e.g., MCP
+ * servers exposing multiple tools via {@code tools/list}).
+ *
+ * @see WorkerFunctionProvider#discoverWorkers(com.fasterxml.jackson.databind.JsonNode)
+ */
+public record DiscoveredWorker(
+    String workerName, Capability capability, WorkerFunction<?, ?> function) {
+  public DiscoveredWorker {
+    Objects.requireNonNull(workerName);
+    Objects.requireNonNull(capability);
+    Objects.requireNonNull(function);
+  }
+}

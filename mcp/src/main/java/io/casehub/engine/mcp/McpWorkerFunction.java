@@ -13,15 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.a2a;
+package io.casehub.engine.mcp;
 
-import io.casehub.engine.common.internal.auth.AuthConfig;
 import io.casehub.worker.api.WorkerFunction;
 import java.util.Map;
+import java.util.Objects;
 
 @SuppressWarnings("unchecked")
-public record A2AWorkerFunction(String endpoint, String skill, boolean streaming, AuthConfig auth)
+public record McpWorkerFunction(McpTransport transport, String toolName)
     implements WorkerFunction<Map<String, Object>, Map<String, Object>> {
+
+  public McpWorkerFunction {
+    Objects.requireNonNull(transport);
+    Objects.requireNonNull(toolName);
+  }
 
   @Override
   public Class<Map<String, Object>> inputType() {

@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.a2a;
 
+import io.casehub.engine.common.internal.auth.AuthConfig;
 import io.quarkus.runtime.ShutdownEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -24,11 +25,11 @@ import java.util.concurrent.ConcurrentHashMap;
 public class A2AClientRegistry {
 
   private final ConcurrentHashMap<String, A2AClient> clients = new ConcurrentHashMap<>();
-  private final ConcurrentHashMap<String, A2AAuthConfig> authConfigs = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, AuthConfig> authConfigs = new ConcurrentHashMap<>();
 
-  public A2AClient getOrCreate(final String endpoint, final A2AAuthConfig auth) {
+  public A2AClient getOrCreate(final String endpoint, final AuthConfig auth) {
     final String key = normalizeEndpoint(endpoint);
-    final A2AAuthConfig existing = authConfigs.putIfAbsent(key, auth);
+    final AuthConfig existing = authConfigs.putIfAbsent(key, auth);
     if (existing != null && !existing.equals(auth)) {
       throw new IllegalArgumentException(
           "A2A endpoint auth conflict for "

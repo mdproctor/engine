@@ -30,4 +30,8 @@ import io.casehub.worker.api.WorkerFunction;
 public interface WorkerFunctionProviderRegistry {
 
   WorkerFunction<?, ?> createFunction(JsonNode rawWorkerNode);
+
+  default java.util.List<DiscoveredWorker> discoverWorkers(JsonNode rawWorkerNode) {
+    return java.util.List.of();
+  }
 }

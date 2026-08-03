@@ -107,6 +107,7 @@
         <module>engine-ai</module>
         <module>flow</module>
         <module>a2a</module>
+    <module>mcp</module>
         <module>rest</module>
         <module>examples/typed-context</module>
     </modules>

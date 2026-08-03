@@ -17,6 +17,7 @@ package io.casehub.engine.a2a;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.spi.WorkerFunctionProvider;
+import io.casehub.engine.common.internal.auth.AuthConfig;
 import io.casehub.worker.api.WorkerFunction;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -34,24 +35,24 @@ public class A2AWorkerFunctionProvider implements WorkerFunctionProvider {
     final String endpoint = a2a.get("endpoint").asText();
     final String skill = a2a.has("skill") ? a2a.get("skill").asText() : null;
     final boolean streaming = a2a.has("streaming") && a2a.get("streaming").asBoolean();
-    final A2AAuthConfig auth = parseAuth(a2a);
+    final AuthConfig auth = parseAuth(a2a);
     return new A2AWorkerFunction(endpoint, skill, streaming, auth);
   }
 
-  private A2AAuthConfig parseAuth(final JsonNode a2a) {
+  private AuthConfig parseAuth(final JsonNode a2a) {
     if (!a2a.has("auth")) {
-      return A2AAuthConfig.NONE;
+      return AuthConfig.NONE;
     }
     final JsonNode authNode = a2a.get("auth");
     final String typeStr = authNode.has("type") ? authNode.get("type").asText("none") : "none";
-    final A2AAuthConfig.AuthType type =
+    final AuthConfig.AuthType type =
         switch (typeStr.toLowerCase()) {
-          case "bearer" -> A2AAuthConfig.AuthType.BEARER;
-          case "api-key", "api_key" -> A2AAuthConfig.AuthType.API_KEY;
-          default -> A2AAuthConfig.AuthType.NONE;
+          case "bearer" -> AuthConfig.AuthType.BEARER;
+          case "api-key", "api_key" -> AuthConfig.AuthType.API_KEY;
+          default -> AuthConfig.AuthType.NONE;
         };
     final String tokenConfigKey =
         authNode.has("tokenConfigKey") ? authNode.get("tokenConfigKey").asText() : null;
-    return new A2AAuthConfig(type, tokenConfigKey);
+    return new AuthConfig(type, tokenConfigKey);
   }
 }

@@ -42,4 +42,8 @@ public interface WorkerFunctionProvider {
   boolean handles(JsonNode rawWorkerNode);
 
   WorkerFunction<?, ?> create(JsonNode rawWorkerNode);
+
+  default java.util.List<DiscoveredWorker> discoverWorkers(JsonNode rawWorkerNode) {
+    return java.util.List.of();
+  }
 }

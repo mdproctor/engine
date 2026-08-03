@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.a2a;
+package io.casehub.engine.common.internal.auth;
 
-public record A2AAuthConfig(AuthType type, String tokenConfigKey) {
+public record AuthConfig(AuthType type, String tokenConfigKey) {
 
   public enum AuthType {
     NONE,
@@ -23,5 +23,5 @@ public record A2AAuthConfig(AuthType type, String tokenConfigKey) {
     API_KEY
   }
 
-  public static final A2AAuthConfig NONE = new A2AAuthConfig(AuthType.NONE, null);
+  public static final AuthConfig NONE = new AuthConfig(AuthType.NONE, null);
 }

@@ -13,23 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.a2a;
+package io.casehub.engine.mcp;
 
 import io.casehub.engine.common.internal.auth.AuthConfig;
-import io.casehub.worker.api.WorkerFunction;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
-@SuppressWarnings("unchecked")
-public record A2AWorkerFunction(String endpoint, String skill, boolean streaming, AuthConfig auth)
-    implements WorkerFunction<Map<String, Object>, Map<String, Object>> {
+public sealed interface McpTransport {
 
-  @Override
-  public Class<Map<String, Object>> inputType() {
-    return (Class) Map.class;
+  record Stdio(List<String> command, Map<String, String> env) implements McpTransport {
+    public Stdio {
+      Objects.requireNonNull(command);
+      if (command.isEmpty()) {
+        throw new IllegalArgumentException("command must not be empty");
+      }
+      command = List.copyOf(command);
+      env = env != null ? Map.copyOf(env) : Map.of();
+    }
   }
 
-  @Override
-  public Class<Map<String, Object>> outputType() {
-    return (Class) Map.class;
+  record Http(String url, AuthConfig auth) implements McpTransport {
+    public Http {
+      Objects.requireNonNull(url);
+      auth = auth != null ? auth : AuthConfig.NONE;
+    }
   }
 }

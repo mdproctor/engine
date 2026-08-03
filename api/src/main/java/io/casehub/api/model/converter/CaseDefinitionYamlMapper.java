@@ -362,8 +362,30 @@ public final class CaseDefinitionYamlMapper {
 
         // Skip sequence in first pass
         if (sw.getSequence() == null || sw.getSequence().isEmpty()) {
-          // Try providers first (for SDK-dependent types like flow)
           final JsonNode rawWorkerNode = rawWorkers.get(workerIndex);
+
+          // Try discovery first (for multi-worker providers like MCP)
+          final java.util.List<io.casehub.api.spi.DiscoveredWorker> discovered =
+              providerRegistry.discoverWorkers(rawWorkerNode);
+          if (!discovered.isEmpty()) {
+            for (final io.casehub.api.spi.DiscoveredWorker dw : discovered) {
+              if (!capabilityMap.containsKey(dw.capability().name())) {
+                capabilityMap.put(dw.capability().name(), dw.capability());
+                def.getCapabilities().add(dw.capability());
+              }
+              final Worker discoveredWorker =
+                  Worker.builder()
+                      .name(dw.workerName())
+                      .capabilityName(dw.capability().name())
+                      .function(dw.function())
+                      .build();
+              builtWorkers.put(dw.workerName(), discoveredWorker);
+            }
+            workerIndex++;
+            continue;
+          }
+
+          // Try providers (for SDK-dependent types like flow)
           WorkerFunction<?, ?> function = providerRegistry.createFunction(rawWorkerNode);
           if (function == null) {
             // API-local construction (no external SDK dependency)
