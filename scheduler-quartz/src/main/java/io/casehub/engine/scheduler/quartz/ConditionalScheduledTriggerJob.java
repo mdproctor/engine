@@ -190,7 +190,9 @@ public class ConditionalScheduledTriggerJob implements Job {
                     io.casehub.api.model.event.ExecutionOrigin.SCHEDULE_TRIGGER,
                     List.of(),
                     binding.lifecycleScope(),
-                    binding.executionMode()));
+                    binding.executionMode(),
+                    null,
+                    null));
           }
         }
         return;
@@ -215,7 +217,9 @@ public class ConditionalScheduledTriggerJob implements Job {
             io.casehub.api.model.event.ExecutionOrigin.SCHEDULE_TRIGGER,
             List.of(),
             ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
-            em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null));
+            em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null,
+            null,
+            null));
   }
 
   private Worker findWorker(CaseDefinition definition, String workerName) {

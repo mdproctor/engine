@@ -570,7 +570,8 @@ public class CaseContextChangedEventHandler {
             experiences,
             ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
             em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null,
-            credentialToken));
+            credentialToken,
+            null));
   }
 
   private void handleEscalation(
@@ -707,7 +708,8 @@ public class CaseContextChangedEventHandler {
               resolvedScope,
               resolvedExpiresIn,
               experiences,
-              scores));
+              scores,
+              null));
     } catch (Exception t) {
       LOG.warnf(
           t,

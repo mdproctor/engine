@@ -24,86 +24,90 @@ import java.util.List;
 import java.util.UUID;
 
 public record WorkerScheduleEvent(
-    CaseInstance caseInstance,
-    Worker worker,
-    Capability capability,
-    String bindingName,
-    String inputProjectionOverride,
-    UUID signalId,
-    ExecutionOrigin origin,
-    List<RetrievedExperience> experiences,
-    io.casehub.api.model.LifecycleScope lifecycleScope,
-    io.casehub.api.model.ExecutionMode executionMode,
-    String workerCredentialToken) {
+        CaseInstance caseInstance,
+        Worker worker,
+        Capability capability,
+        String bindingName,
+        String inputProjectionOverride,
+        UUID signalId,
+        ExecutionOrigin origin,
+        List<RetrievedExperience> experiences,
+        io.casehub.api.model.LifecycleScope lifecycleScope,
+        io.casehub.api.model.ExecutionMode executionMode,
+        String workerCredentialToken,
+        com.fasterxml.jackson.databind.JsonNode activationContext) {
 
-  public WorkerScheduleEvent {
-    experiences = experiences == null ? List.of() : experiences;
-  }
+    public WorkerScheduleEvent {
+        experiences = experiences == null ? List.of() : experiences;
+    }
 
-  public WorkerScheduleEvent(
-      CaseInstance caseInstance,
-      Worker worker,
-      Capability capability,
-      String bindingName,
-      String inputProjectionOverride,
-      UUID signalId,
-      ExecutionOrigin origin,
-      List<RetrievedExperience> experiences) {
-    this(
-        caseInstance,
-        worker,
-        capability,
-        bindingName,
-        inputProjectionOverride,
-        signalId,
-        origin,
-        experiences,
-        null,
-        null,
-        null);
-  }
+    public WorkerScheduleEvent(
+            CaseInstance caseInstance,
+            Worker worker,
+            Capability capability,
+            String bindingName,
+            String inputProjectionOverride,
+            UUID signalId,
+            ExecutionOrigin origin,
+            List<RetrievedExperience> experiences) {
+        this(
+                caseInstance,
+                worker,
+                capability,
+                bindingName,
+                inputProjectionOverride,
+                signalId,
+                origin,
+                experiences,
+                null,
+                null,
+                null,
+                null);
+    }
 
-  public WorkerScheduleEvent(
-      CaseInstance caseInstance,
-      Worker worker,
-      Capability capability,
-      String bindingName,
-      String inputProjectionOverride) {
-    this(
-        caseInstance,
-        worker,
-        capability,
-        bindingName,
-        inputProjectionOverride,
-        null,
-        null,
-        List.of(),
-        null,
-        null,
-        null);
-  }
+    public WorkerScheduleEvent(
+            CaseInstance caseInstance,
+            Worker worker,
+            Capability capability,
+            String bindingName,
+            String inputProjectionOverride) {
+        this(
+                caseInstance,
+                worker,
+                capability,
+                bindingName,
+                inputProjectionOverride,
+                null,
+                null,
+                List.of(),
+                null,
+                null,
+                null,
+                null);
+    }
 
-  public WorkerScheduleEvent(
-      CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
-    this(
-        caseInstance,
-        worker,
-        capability,
-        bindingName,
-        null,
-        null,
-        null,
-        List.of(),
-        null,
-        null,
-        null);
-  }
+    public WorkerScheduleEvent(
+            CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
+        this(
+                caseInstance,
+                worker,
+                capability,
+                bindingName,
+                null,
+                null,
+                null,
+                List.of(),
+                null,
+                null,
+                null,
+                null);
+    }
 
-  public WorkerScheduleEvent(CaseInstance caseInstance, Worker worker, Capability capability) {
-    this(caseInstance, worker, capability, null, null, null, null, List.of(), null, null, null);
-  }
+    public WorkerScheduleEvent(CaseInstance caseInstance, Worker worker, Capability capability) {
+        this(caseInstance, worker, capability, null, null, null, null, List.of(), null, null, null, null);
+    }
 
-  public String effectiveInputProjection() {
-    return inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
-  }
+    public String effectiveInputProjection() {
+        return inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
+    }
 }
