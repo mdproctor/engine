@@ -77,6 +77,13 @@ public record WorkflowExecutionCompleted(
       final Map<String, Object> output,
       final String bindingName) {
     return new WorkflowExecutionCompleted(
-        caseInstance, worker, idempotency, output, bindingName, WorkerOutcome.success(), null, null);
+        caseInstance,
+        worker,
+        idempotency,
+        output,
+        bindingName,
+        WorkerOutcome.success(),
+        null,
+        null);
   }
 }

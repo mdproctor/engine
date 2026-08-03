@@ -536,8 +536,7 @@ public class CaseContextChangedEventHandler {
         caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
     if (definition != null) {
       String serviceAccountId = definition.getWorkerServiceAccountId(selectedWorker.name());
-      boolean needsGrants =
-          serviceAccountId != null || binding.getPermissionIntent() != null;
+      boolean needsGrants = serviceAccountId != null || binding.getPermissionIntent() != null;
       if (needsGrants) {
         var actions =
             binding.getPermissionIntent() != null
@@ -840,18 +839,22 @@ public class CaseContextChangedEventHandler {
       CaseDefinition provDefinition =
           caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
       if (provDefinition != null) {
-        Binding provBinding = provDefinition.getBindings().stream()
-            .filter(b -> bindingName.equals(b.getName()))
-            .findFirst().orElse(null);
-        var provActions = provBinding != null && provBinding.getPermissionIntent() != null
-            ? provBinding.getPermissionIntent()
-            : java.util.List.of(io.casehub.api.model.acl.WorkerAction.READ_CONTEXT);
+        Binding provBinding =
+            provDefinition.getBindings().stream()
+                .filter(b -> bindingName.equals(b.getName()))
+                .findFirst()
+                .orElse(null);
+        var provActions =
+            provBinding != null && provBinding.getPermissionIntent() != null
+                ? provBinding.getPermissionIntent()
+                : java.util.List.of(io.casehub.api.model.acl.WorkerAction.READ_CONTEXT);
         java.time.Instant provDeadline =
             caseInstance.getPropagationContext() != null
                 ? caseInstance.getPropagationContext().getDeadline().orElse(null)
                 : null;
-        var provCredential = workerGrantOrchestrator.grantAndMint(
-            null, provActions, caseInstance.getUuid(), caseInstance.tenancyId, provDeadline);
+        var provCredential =
+            workerGrantOrchestrator.grantAndMint(
+                null, provActions, caseInstance.getUuid(), caseInstance.tenancyId, provDeadline);
         provCredentialToken = provCredential.token();
       }
 

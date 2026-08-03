@@ -34,8 +34,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseTerminatedException;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.engine.CaseCompletionTracker;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -46,10 +46,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.time.Instant;
 import java.util.Map;
+import org.jboss.logging.Logger;
 
 /**
  * Persists a case status change event and atomically updates the instance state. Publishes a
@@ -81,8 +80,7 @@ public class CaseStatusChangedHandler {
   @Inject ContextOutputApplier contextOutputApplier;
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
 
-
-    @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
+  @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public Uni<Void> onCaseStatusChangedHandler(CaseStatusChanged event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.instance();

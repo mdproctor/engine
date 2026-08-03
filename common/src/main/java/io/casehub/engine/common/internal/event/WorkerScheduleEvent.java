@@ -85,7 +85,18 @@ public record WorkerScheduleEvent(
 
   public WorkerScheduleEvent(
       CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
-    this(caseInstance, worker, capability, bindingName, null, null, null, List.of(), null, null, null);
+    this(
+        caseInstance,
+        worker,
+        capability,
+        bindingName,
+        null,
+        null,
+        null,
+        List.of(),
+        null,
+        null,
+        null);
   }
 
   public WorkerScheduleEvent(CaseInstance caseInstance, Worker worker, Capability capability) {
