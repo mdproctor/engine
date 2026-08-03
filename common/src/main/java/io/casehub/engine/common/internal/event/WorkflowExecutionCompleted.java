@@ -35,6 +35,9 @@ import java.util.UUID;
  * @param signalId Settlement tracking ID for {@code signalAndAwait()}, or null. Threaded through
  *     from WorkerScheduleEvent via EventLog metadata so the completion handler can notify the
  *     tracker. Refs engine#483.
+ * @param executorRef Nullable {@link io.casehub.api.model.ExecutorRef} containing executor
+ *     identity. Threaded through from WorkerScheduleEvent for richer executor tracking. Refs
+ *     engine#702.
  */
 public record WorkflowExecutionCompleted(
     CaseInstance caseInstance,
@@ -44,7 +47,8 @@ public record WorkflowExecutionCompleted(
     String bindingName,
     WorkerOutcome outcome,
     UUID signalId,
-    String workerCredentialToken) {
+    String workerCredentialToken,
+    io.casehub.api.model.ExecutorRef executorRef) {
 
   /** Convenience constructor for non-awaiting worker completions. */
   public WorkflowExecutionCompleted(
@@ -54,7 +58,7 @@ public record WorkflowExecutionCompleted(
       Map<String, Object> output,
       String bindingName,
       WorkerOutcome outcome) {
-    this(caseInstance, worker, idempotency, output, bindingName, outcome, null, null);
+    this(caseInstance, worker, idempotency, output, bindingName, outcome, null, null, null);
   }
 
   /** Convenience constructor with signalId but no credential token. */
@@ -66,7 +70,7 @@ public record WorkflowExecutionCompleted(
       String bindingName,
       WorkerOutcome outcome,
       UUID signalId) {
-    this(caseInstance, worker, idempotency, output, bindingName, outcome, signalId, null);
+    this(caseInstance, worker, idempotency, output, bindingName, outcome, signalId, null, null);
   }
 
   /** Convenience constructor for the gate-re-fire path. */
@@ -83,6 +87,7 @@ public record WorkflowExecutionCompleted(
         output,
         bindingName,
         WorkerOutcome.success(),
+        null,
         null,
         null);
   }

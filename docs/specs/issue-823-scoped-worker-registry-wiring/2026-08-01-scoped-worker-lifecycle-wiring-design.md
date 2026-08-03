@@ -292,9 +292,102 @@ public Map<String, Object> accumulatedState() {
 
 ### 4. Scoped Worker Output Application
 
-**Superseded by #825** — see [scoped-worker-output-design.md](../../../engine/docs/specs/2026-08-01-scoped-worker-output-design.md).
+**Problem:** `QuartzWorkerExecutionJob.onSuccess()` publishes to `"casehub.engine.scoped-worker-output"` (raw string, no consumer). Output is silently discarded.
 
-This section originally defined `ScopedWorkerOutputEvent`, `ScopedWorkerOutputHandler`, and the `QuartzWorkerExecutionJob.onSuccess()` changes inline. The #825 spec is authoritative for the output application path — it corrects API shape errors in this section's original definition and adds `ContextOutputApplier`, EventLog writing, settlement tracking, and context diff computation that were missing here.
+**New event type** in `common/internal/event/`:
+
+```java
+public record ScopedWorkerOutputEvent(
+    CaseInstance caseInstance,
+    String bindingName,
+    Map<String, Object> output,
+    ExecutionMode executionMode
+) {}
+```
+
+**New address** in `EventBusAddresses`:
+
+```java
+public static final String SCOPED_WORKER_OUTPUT = "casehub.engine.scoped-worker-output";
+```
+
+**QuartzWorkerExecutionJob.onSuccess()** — replace the raw string publish:
+
+```java
+if (output != null && !output.isEmpty()) {
+    eventBus.publish(
+        EventBusAddresses.SCOPED_WORKER_OUTPUT,
+        new ScopedWorkerOutputEvent(instance, bindingName, output, executionMode));
+}
+```
+
+Uses the Mutiny `EventBus` (already injected in this class), not the core Vert.x `vertx.eventBus()`. The Mutiny API handles codec registration automatically via Quarkus — core Vert.x requires explicit `MessageCodec` registration for POJO types and would throw `IllegalArgumentException` at runtime. This is consistent with the existing `WORKER_EXECUTION_FINISHED` publish path in the same class, which uses the Mutiny `eventBus`.
+
+**New handler** in `runtime/internal/engine/handler/`:
+
+```java
+@ApplicationScoped
+public class ScopedWorkerOutputHandler {
+
+    @Inject CaseDefinitionRegistry definitionRegistry;
+    @Inject ScopedWorkerRegistry scopedWorkerRegistry;
+    @Inject EventBus eventBus;
+
+    @ConsumeEvent(EventBusAddresses.SCOPED_WORKER_OUTPUT)
+    @RunOnVirtualThread
+    public void onScopedWorkerOutput(ScopedWorkerOutputEvent event) {
+        CaseInstance instance = event.caseInstance();
+
+        // Guard: discard output if session was terminated (scope ended while
+        // Quartz job was in-flight). Per parent spec: "Any in-flight invocation
+        // completes normally but output is discarded if scope has ended."
+        if (scopedWorkerRegistry.get(instance.getUuid(), event.bindingName()).isEmpty()) {
+            LOG.debugf("Discarding output for terminated scope binding '%s' case %s",
+                event.bindingName(), instance.getUuid());
+            return;
+        }
+
+        CaseDefinition definition = definitionRegistry.getCaseDefinition(
+            instance.getCaseMetaModel());
+        Binding binding = definition.findBindingByName(event.bindingName());
+        String conflictStrategy = binding != null
+            ? binding.getConflictResolverStrategy() : null;
+
+        CaseContext caseContext = instance.getCaseContext();
+        for (Map.Entry<String, Object> entry : event.output().entrySet()) {
+            String key = entry.getKey();
+            Object incoming = entry.getValue();
+            Object existing = caseContext.get(key);
+            Object resolved = ConflictResolver.resolve(
+                conflictStrategy, key, existing, incoming);
+            caseContext.set(key, resolved);
+        }
+
+        eventBus.publish(EventBusAddresses.CONTEXT_CHANGED,
+            new CaseContextChangedEvent(instance, ContextLayer.WORKING.name(),
+                null, null, null));
+    }
+}
+```
+
+This handler applies output using the same per-key `ConflictResolver.resolve(strategy, key, existing, incoming)` pattern as `WorkflowExecutionCompletedHandler.applyOutputWithConflictResolution()`, then publishes `CONTEXT_CHANGED` for downstream re-evaluation.
+
+**Cross-cutting concern decisions for intermediate scoped output.** `WorkflowExecutionCompletedHandler` performs many concerns beyond output application. The following are deliberately excluded from intermediate scoped output — they are completion-specific:
+
+| Concern | Included? | Rationale |
+|---------|-----------|-----------|
+| Output with conflict resolution | **Yes** | Core responsibility — same strategy as completion path |
+| `CONTEXT_CHANGED` publish | **Yes** | Triggers downstream rule/goal re-evaluation |
+| Event logging | **No** | Intermediate output is not a discrete work completion; volume concern for high-frequency emitters. Follow-on: engine#TBD |
+| Context diff computation | **No** | Tied to event logging |
+| Episodic layer updates | **No** | `EpisodicLayerUpdater.recordWorkerCompletion` records completion; intermediate output is not completion |
+| Case resumption | **No** | Handled indirectly — `CONTEXT_CHANGED` triggers rule evaluation which covers natural resumption paths |
+| Worker status listener | **No** | Reports completion events to external listeners |
+| CDI lifecycle events | **No** | Completion-specific audit events |
+| Personality recording | **No** | Records personality signal on completion outcome |
+| Settlement tracking | **No** | Tracks signal-to-completion settlement |
+| Action risk classifier | **No** | Risk classification applies at completion boundaries |
+| Success outcome recording | **No** | Records routing outcome at completion |
 
 ### 5. PersistentWorkerFunctionHandler
 

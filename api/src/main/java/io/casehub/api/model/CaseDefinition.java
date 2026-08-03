@@ -75,6 +75,7 @@ public class CaseDefinition {
   private Map<String, CognitiveDemand> cognitiveDemands = Map.of();
   private Map<AclAction, List<String>> authorization;
   private Map<String, String> workerServiceAccountIds;
+  private io.casehub.api.spi.QuorumConfig defaultQuorum;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -357,6 +358,14 @@ public class CaseDefinition {
     this.workerServiceAccountIds = workerServiceAccountIds;
   }
 
+  public io.casehub.api.spi.QuorumConfig getDefaultQuorum() {
+    return defaultQuorum;
+  }
+
+  public void setDefaultQuorum(io.casehub.api.spi.QuorumConfig defaultQuorum) {
+    this.defaultQuorum = defaultQuorum;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -401,6 +410,7 @@ public class CaseDefinition {
     private Map<String, CognitiveDemand> cognitiveDemands;
     private Map<AclAction, List<String>> authorization;
     private Map<String, String> workerServiceAccountIds;
+    private io.casehub.api.spi.QuorumConfig defaultQuorum;
 
     private Builder() {}
 
@@ -676,6 +686,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder defaultQuorum(io.casehub.api.spi.QuorumConfig defaultQuorum) {
+      this.defaultQuorum = defaultQuorum;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -765,6 +780,7 @@ public class CaseDefinition {
         }
         caseHubDefinition.setWorkerServiceAccountIds(Map.copyOf(workerServiceAccountIds));
       }
+      caseHubDefinition.setDefaultQuorum(defaultQuorum);
 
       return caseHubDefinition;
     }

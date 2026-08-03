@@ -267,4 +267,73 @@ class RoutingSignalAssemblerTest {
       }
     };
   }
+
+  @Test
+  void providerReturnsExclude_preservedInResult() {
+    var candidates = new LinkedHashMap<String, RoutingSignal.CandidateSignal>();
+    candidates.put("agent-1", new RoutingSignal.CandidateSignal.Exclude("low trust"));
+    var provider = provider("trust", new RoutingSignal(candidates));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result).containsOnlyKeys("trust");
+    var signal = result.get("trust").candidates().get("agent-1");
+    assertThat(signal).isInstanceOf(RoutingSignal.CandidateSignal.Exclude.class);
+    assertThat(((RoutingSignal.CandidateSignal.Exclude) signal).reason()).isEqualTo("low trust");
+  }
+
+  @Test
+  void providerReturnsEscalate_preservedInResult() {
+    var candidates = new LinkedHashMap<String, RoutingSignal.CandidateSignal>();
+    candidates.put(
+        "agent-1",
+        new RoutingSignal.CandidateSignal.Escalate(
+            EscalationReason.BORDERLINE_STALEMATE, "no suitable agents"));
+    var provider = provider("trust", new RoutingSignal(candidates));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    assertThat(result).containsOnlyKeys("trust");
+    var signal = result.get("trust").candidates().get("agent-1");
+    assertThat(signal).isInstanceOf(RoutingSignal.CandidateSignal.Escalate.class);
+    var escalate = (RoutingSignal.CandidateSignal.Escalate) signal;
+    assertThat(escalate.reason()).isEqualTo(EscalationReason.BORDERLINE_STALEMATE);
+    assertThat(escalate.rationale()).isEqualTo("no suitable agents");
+  }
+
+  @Test
+  void mixedSignalTypes_allPreserved() {
+    var candidates = new LinkedHashMap<String, RoutingSignal.CandidateSignal>();
+    candidates.put("agent-1", new RoutingSignal.CandidateSignal.Score(0.8, "high score"));
+    candidates.put("agent-2", new RoutingSignal.CandidateSignal.Exclude("excluded"));
+    candidates.put(
+        "agent-3",
+        new RoutingSignal.CandidateSignal.Escalate(
+            EscalationReason.NO_QUALIFIED_AGENT, "escalated"));
+    var provider = provider("mixed", new RoutingSignal(candidates));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), candidates());
+
+    var signal = result.get("mixed");
+    assertThat(signal.candidates()).hasSize(3);
+    assertThat(signal.candidates().get("agent-1"))
+        .isInstanceOf(RoutingSignal.CandidateSignal.Score.class);
+    assertThat(signal.candidates().get("agent-2"))
+        .isInstanceOf(RoutingSignal.CandidateSignal.Exclude.class);
+    assertThat(signal.candidates().get("agent-3"))
+        .isInstanceOf(RoutingSignal.CandidateSignal.Escalate.class);
+  }
+
+  @Test
+  void emptyEligibleList_assemblesWithoutError() {
+    var provider = provider("trust", signal("agent-1", 0.7, null));
+    var assembler = new RoutingSignalAssembler(List.of(provider));
+
+    var result = assembler.assemble(context(), List.of());
+
+    assertThat(result).containsOnlyKeys("trust");
+  }
 }

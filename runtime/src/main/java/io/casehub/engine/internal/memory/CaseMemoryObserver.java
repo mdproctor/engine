@@ -27,33 +27,6 @@ import java.util.Map;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-/**
- * CDI observer that automatically stores structured memories for terminal case lifecycle events.
- *
- * <p>Observes {@link CaseLifecycleEvent} fired by the engine and writes a memory entry for events
- * listed in {@link #CAPTURED_EVENTS} (currently: {@code CaseCompleted}, {@code CaseCancelled},
- * {@code CaseFailed}). These are terminal states — the fact that a case reached them is a
- * system-observed fact worth persisting.
- *
- * <p>Uses {@link Instance} injection so that the observer is a no-op when no {@link
- * CaseMemoryStore} implementation is present on the classpath. The {@code NoOpCaseMemoryStore}
- * (from casehub-platform) is a {@code @DefaultBean} that absorbs calls when no real store is
- * installed. NOT {@code @Transactional} — the default no-op store needs no transaction; JPA-backed
- * real stores must manage their own transaction internally (the observer fires on a managed
- * executor thread where starting a transaction per non-terminal event would exhaust the connection
- * pool).
- *
- * <p>Memory fields:
- *
- * <ul>
- *   <li>{@code entityId} = caseId (case-scoped identity)
- *   <li>{@code tenantId} = caseId (system-generated — not user-tenant-scoped; consumers providing a
- *       real store must map this to their tenant model or provide their own observer)
- *   <li>{@code domain} = {@code "case-lifecycle"}
- *   <li>{@code text} = human-readable event summary
- *   <li>{@code attributes} = eventType, commandType, caseStatus (when present)
- * </ul>
- */
 @ApplicationScoped
 public class CaseMemoryObserver {
 
@@ -106,9 +79,15 @@ public class CaseMemoryObserver {
   private Map<String, String> buildAttributes(final CaseLifecycleEvent event) {
     final Map<String, String> attrs = new java.util.LinkedHashMap<>();
     attrs.put("eventType", event.eventType());
-    if (event.commandType() != null) attrs.put("commandType", event.commandType());
-    if (event.caseStatus() != null) attrs.put("caseStatus", event.caseStatus());
-    if (event.actorId() != null) attrs.put("actorId", event.actorId());
+    if (event.commandType() != null) {
+      attrs.put("commandType", event.commandType());
+    }
+    if (event.caseStatus() != null) {
+      attrs.put("caseStatus", event.caseStatus());
+    }
+    if (event.actorId() != null) {
+      attrs.put("actorId", event.actorId());
+    }
     return Map.copyOf(attrs);
   }
 }

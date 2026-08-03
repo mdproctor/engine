@@ -600,7 +600,8 @@ public class CaseContextChangedEventHandler {
             ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
             em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null,
             credentialToken,
-            activationSnapshot));
+            activationSnapshot,
+            null));
   }
 
   private void handleEscalation(

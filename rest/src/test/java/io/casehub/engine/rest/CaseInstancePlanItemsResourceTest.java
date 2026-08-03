@@ -25,6 +25,7 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
+import io.casehub.engine.common.internal.model.PlanItemType;
 import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
@@ -148,5 +149,68 @@ class CaseInstancePlanItemsResourceTest {
         .then()
         .statusCode(200)
         .body("$", hasSize(0));
+  }
+
+  @Test
+  void getPlanItems_includesActivationContext() {
+    UUID contextCaseId = UUID.randomUUID();
+
+    CaseMetaModel meta3 = new CaseMetaModel();
+    meta3.setNamespace("test");
+    meta3.setName("activation-ctx-test");
+    meta3.setVersion("1.0.0");
+    meta3 = metaModelRepository.save(meta3, "test-tenant");
+
+    CaseDefinition def3 =
+        CaseDefinition.builder()
+            .namespace("test")
+            .name("activation-ctx-test")
+            .version("1.0.0")
+            .build();
+    definitionRegistry.register(def3, meta3);
+
+    CaseInstance instance3 = new CaseInstance();
+    instance3.setUuid(contextCaseId);
+    instance3.setCaseMetaModel(meta3);
+    instance3.setState(CaseStatus.RUNNING);
+    instanceRepository.save(instance3, "test-tenant");
+
+    com.fasterxml.jackson.databind.node.ObjectNode ctx =
+        com.fasterxml.jackson.databind.node.JsonNodeFactory.instance.objectNode();
+    ctx.put("securityFindings", 3);
+    ctx.put("severity", "HIGH");
+
+    planItemStore.save(
+        new PlanItemSaveRequest(
+            contextCaseId,
+            "pi-ctx",
+            "security-review",
+            TaskStatus.RUNNING,
+            Instant.parse("2026-08-01T10:00:00Z"),
+            TargetType.CAPABILITY,
+            null,
+            "test-tenant",
+            "Security review with context",
+            "agent-sec",
+            null,
+            PlanItemType.PRIMITIVE,
+            null,
+            null,
+            null,
+            false,
+            null,
+            null,
+            ctx),
+        "test-tenant");
+
+    given()
+        .when()
+        .get("/api/v1/cases/" + contextCaseId + "/plan-items")
+        .then()
+        .statusCode(200)
+        .body("$", hasSize(1))
+        .body("[0].planItemId", equalTo("pi-ctx"))
+        .body("[0].activationContext.securityFindings", equalTo(3))
+        .body("[0].activationContext.severity", equalTo("HIGH"));
   }
 }

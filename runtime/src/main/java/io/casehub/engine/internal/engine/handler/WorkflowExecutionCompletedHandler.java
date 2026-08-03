@@ -19,21 +19,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.MutableCaseContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.ConflictResolver;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.ActionRiskClassifier;
-import io.casehub.api.spi.ContextDiffStrategy;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.api.spi.routing.AgentRoutingContext;
@@ -84,7 +81,6 @@ public class WorkflowExecutionCompletedHandler {
   @Inject EventBus eventBus;
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
   @Inject Event<WorkerDecisionEvent> workerDecisionEvents;
-  @Inject ContextDiffStrategy contextDiffStrategy;
   @Inject EventLogRepository eventLogRepository;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject CaseResumptionService caseResumptionService;
@@ -95,8 +91,10 @@ public class WorkflowExecutionCompletedHandler {
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
   @Inject PersonalitySignalRecorder personalitySignalRecorder;
   @Inject GoalFailureRecorder goalFailureRecorder;
+  @Inject io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker;
 
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
+  @Inject ContextOutputApplier contextOutputApplier;
 
   @Inject
   jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
@@ -153,11 +151,12 @@ public class WorkflowExecutionCompletedHandler {
       final Instant now = Instant.now();
 
       JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
-      applyOutputWithConflictResolution(caseInstance, worker, rawOutput, bindingName);
+      JsonNode diff = contextOutputApplier.apply(caseInstance, rawOutput, bindingName);
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), "COMPLETED");
       }
       recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
+      agentGoalCompletionMarker.markGoalsCompleted(caseInstance, worker.name());
       fireOutcomeRecorder(
           caseInstance,
           worker,
@@ -174,8 +173,6 @@ public class WorkflowExecutionCompletedHandler {
       if (event.signalId() != null) {
         settlementTracker.recordCompletion(event.signalId());
       }
-      JsonNode contextAfter = caseInstance.getCaseContext().asJsonNode();
-      JsonNode diff = contextDiffStrategy.compute(contextBefore, contextAfter);
 
       EventLog eventLog =
           buildEventLog(caseInstance, worker, rawOutput, event.idempotency(), now, diff);
@@ -663,28 +660,6 @@ public class WorkflowExecutionCompletedHandler {
   }
 
   /**
-   * Writes each key from rawOutput to CaseContext, applying the conflict resolver strategy
-   * configured on the Binding that triggered this worker. If no strategy is set, the default is
-   * LAST_WRITER_WINS (overwrite). See casehubio/engine#45, #51.
-   */
-  private void applyOutputWithConflictResolution(
-      CaseInstance caseInstance, Worker worker, Map<String, Object> rawOutput, String bindingName) {
-    if (rawOutput.isEmpty()) {
-      return;
-    }
-    String strategy = resolveConflictStrategy(caseInstance, worker, bindingName);
-    CaseContext caseContext = caseInstance.getCaseContext();
-    for (Map.Entry<String, Object> entry : rawOutput.entrySet()) {
-      String key = entry.getKey();
-      Object incoming = entry.getValue();
-      Object existing = caseContext.get(key);
-      Object resolved =
-          (existing != null) ? applyStrategy(strategy, key, existing, incoming) : incoming;
-      caseContext.set(key, resolved);
-    }
-  }
-
-  /**
    * Returns the binding with the specified name. Returns null if the definition is absent or no
    * binding matches.
    */
@@ -735,23 +710,6 @@ public class WorkflowExecutionCompletedHandler {
     return binding != null && binding.target() instanceof CapabilityTarget ct
         ? ct.capability().name()
         : null;
-  }
-
-  private String resolveConflictStrategy(
-      final CaseInstance caseInstance, final Worker worker, final String bindingName) {
-    final Binding binding =
-        bindingName != null
-            ? findBindingByName(caseInstance, bindingName)
-            : findMatchingCapabilityBinding(caseInstance, worker);
-    return binding != null ? binding.getConflictResolverStrategy() : null;
-  }
-
-  /**
-   * Applies the named conflict resolution strategy. Null or unknown strategy defaults to
-   * LAST_WRITER_WINS (return incoming). See casehubio/engine#45, #51.
-   */
-  private Object applyStrategy(String strategy, String key, Object existing, Object incoming) {
-    return ConflictResolver.resolve(strategy, key, existing, incoming);
   }
 
   private void fireOutcomeRecorder(

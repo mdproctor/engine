@@ -39,6 +39,7 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
     e.bindingName = request.bindingName();
     e.status = request.status();
     e.createdAt = request.createdAt();
+    e.completedAt = null;
     e.targetType = request.targetType();
     e.outputMappingExpression = request.outputMappingExpression();
     e.description = request.description();
@@ -55,10 +56,19 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
   public void updateStatus(String planItemId, TaskStatus status) {
     setCrossTenantContext();
     em.flush();
-    em.createQuery("UPDATE PlanItemEntity SET status = :status WHERE planItemId = :planItemId")
-        .setParameter("status", status)
-        .setParameter("planItemId", planItemId)
-        .executeUpdate();
+    if (status.isTerminal()) {
+      em.createQuery(
+              "UPDATE PlanItemEntity SET status = :status, completedAt = :completedAt WHERE planItemId = :planItemId")
+          .setParameter("status", status)
+          .setParameter("completedAt", java.time.Instant.now())
+          .setParameter("planItemId", planItemId)
+          .executeUpdate();
+    } else {
+      em.createQuery("UPDATE PlanItemEntity SET status = :status WHERE planItemId = :planItemId")
+          .setParameter("status", status)
+          .setParameter("planItemId", planItemId)
+          .executeUpdate();
+    }
   }
 
   @Override
@@ -66,10 +76,19 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
   public void updateStatus(String planItemId, TaskStatus status, String tenancyId) {
     setTenantContext(tenancyId);
     em.flush();
-    em.createQuery("UPDATE PlanItemEntity SET status = :status WHERE planItemId = :planItemId")
-        .setParameter("status", status)
-        .setParameter("planItemId", planItemId)
-        .executeUpdate();
+    if (status.isTerminal()) {
+      em.createQuery(
+              "UPDATE PlanItemEntity SET status = :status, completedAt = :completedAt WHERE planItemId = :planItemId")
+          .setParameter("status", status)
+          .setParameter("completedAt", java.time.Instant.now())
+          .setParameter("planItemId", planItemId)
+          .executeUpdate();
+    } else {
+      em.createQuery("UPDATE PlanItemEntity SET status = :status WHERE planItemId = :planItemId")
+          .setParameter("status", status)
+          .setParameter("planItemId", planItemId)
+          .executeUpdate();
+    }
   }
 
   @Override
@@ -142,6 +161,7 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
         e.bindingName,
         e.status,
         e.createdAt,
+        e.completedAt,
         e.targetType,
         e.outputMappingExpression,
         e.tenancyId,

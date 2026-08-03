@@ -29,11 +29,17 @@ import java.util.UUID;
  *
  * <p>Will be non-null only after engine#231 threads Qhorus trigger context (channelId +
  * correlationId) through {@link io.casehub.api.model.ProvisionContext}.
+ *
+ * <p>{@code resolvedWorkerId} is the identifier of the provisioned worker instance. This field
+ * eliminates the workerName==agentId convention. Provisioner implementations that can resolve the
+ * worker instance ID set it here; implementations that cannot leave it {@code null}. See
+ * engine#760.
  */
-public record ProvisionResult(UUID causedByEntryId) {
+public record ProvisionResult(
+    UUID causedByEntryId, @org.jspecify.annotations.Nullable String resolvedWorkerId) {
 
   /** Convenience factory for provisioners that do not resolve a causal ledger entry. */
   public static ProvisionResult empty() {
-    return new ProvisionResult(null);
+    return new ProvisionResult(null, null);
   }
 }

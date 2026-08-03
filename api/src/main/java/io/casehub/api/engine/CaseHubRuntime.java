@@ -135,6 +135,19 @@ public interface CaseHubRuntime {
   void cancelCase(UUID caseId);
 
   /**
+   * Cancels a case with tenant isolation. Valid from any non-terminal state (RUNNING, SUSPENDED,
+   * WAITING).
+   *
+   * @param caseId the case identifier
+   * @param tenancyId the tenant identifier
+   * @throws IllegalArgumentException if the case is not found or the tenancyId does not match
+   * @throws IllegalStateException if the case is already in a terminal state
+   */
+  default void cancelCase(UUID caseId, String tenancyId) {
+    cancelCase(caseId);
+  }
+
+  /**
    * Suspends a running case. No new workers will fire while the case is suspended.
    *
    * @throws IllegalArgumentException if the case is not found
@@ -143,12 +156,38 @@ public interface CaseHubRuntime {
   void suspendCase(UUID caseId);
 
   /**
+   * Suspends a running case with tenant isolation. No new workers will fire while the case is
+   * suspended.
+   *
+   * @param caseId the case identifier
+   * @param tenancyId the tenant identifier
+   * @throws IllegalArgumentException if the case is not found or the tenancyId does not match
+   * @throws IllegalStateException if the case is not in RUNNING state
+   */
+  default void suspendCase(UUID caseId, String tenancyId) {
+    suspendCase(caseId);
+  }
+
+  /**
    * Resumes a suspended case and re-evaluates context so eligible workers can fire.
    *
    * @throws IllegalArgumentException if the case is not found
    * @throws IllegalStateException if the case is not in SUSPENDED state
    */
   void resumeCase(UUID caseId);
+
+  /**
+   * Resumes a suspended case with tenant isolation and re-evaluates context so eligible workers can
+   * fire.
+   *
+   * @param caseId the case identifier
+   * @param tenancyId the tenant identifier
+   * @throws IllegalArgumentException if the case is not found or the tenancyId does not match
+   * @throws IllegalStateException if the case is not in SUSPENDED state
+   */
+  default void resumeCase(UUID caseId, String tenancyId) {
+    resumeCase(caseId);
+  }
 
   Object query(UUID caseId, String path);
 

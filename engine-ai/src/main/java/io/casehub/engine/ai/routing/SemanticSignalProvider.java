@@ -85,7 +85,8 @@ public class SemanticSignalProvider implements RoutingSignalProvider {
       }
       String docText = buildVocabularyText(candidate.agentDescriptor());
       float[] docVector = embeddingCache.getOrCompute(docText, embeddingProvider);
-      double similarity = AgentEmbeddingProvider.cosineSimilarity(queryVector, docVector);
+      double similarity =
+          io.casehub.platform.api.util.Vectors.cosineSimilarity(queryVector, docVector);
       double clamped = Math.max(0.0, Math.min(1.0, similarity));
       signals.put(
           candidate.workerId(),

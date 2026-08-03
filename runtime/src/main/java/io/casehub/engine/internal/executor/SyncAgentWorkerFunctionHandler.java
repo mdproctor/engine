@@ -69,15 +69,11 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
       ExecutionMetadata metadata) {
 
     if (inputData == null) {
-      if (function.inputType() == java.util.Map.class) {
-        inputData = java.util.Map.of();
-      } else {
-        throw new io.casehub.api.context.BridgeTypeMismatchException(
-            function.inputType().getName(), "null");
-      }
+      throw new io.casehub.api.context.BridgeTypeMismatchException(
+          function.inputType().getName(), "null");
     }
 
-    if (!function.inputType().isInstance(inputData) && !(inputData instanceof java.util.Map)) {
+    if (!function.inputType().isInstance(inputData)) {
       throw new io.casehub.api.context.BridgeTypeMismatchException(
           function.inputType().getName(), inputData.getClass().getName());
     }

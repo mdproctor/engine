@@ -232,12 +232,30 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
   }
 
   @Override
+  public void cancelCase(UUID caseId, String tenancyId) {
+    validateTenancy(caseId, tenancyId);
+    reactor.cancelCase(caseId);
+  }
+
+  @Override
   public void suspendCase(UUID caseId) {
     reactor.suspendCase(caseId);
   }
 
   @Override
+  public void suspendCase(UUID caseId, String tenancyId) {
+    validateTenancy(caseId, tenancyId);
+    reactor.suspendCase(caseId);
+  }
+
+  @Override
   public void resumeCase(UUID caseId) {
+    reactor.resumeCase(caseId);
+  }
+
+  @Override
+  public void resumeCase(UUID caseId, String tenancyId) {
+    validateTenancy(caseId, tenancyId);
     reactor.resumeCase(caseId);
   }
 
@@ -275,5 +293,27 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
                     event.getPayload(),
                     event.getMetadata()))
         .toList();
+  }
+
+  /**
+   * Validates that the provided tenancyId matches the case instance's tenancyId.
+   *
+   * @param caseId the case identifier
+   * @param tenancyId the tenant identifier to validate
+   * @throws IllegalArgumentException if the case is not found or the tenancyId does not match
+   */
+  private void validateTenancy(UUID caseId, String tenancyId) {
+    CaseInstance instance = caseInstanceCache.get(caseId);
+    if (instance == null) {
+      instance = crossTenantCaseInstanceRepository.findByUuid(caseId);
+      if (instance == null) {
+        throw new IllegalArgumentException("CaseInstance not found: " + caseId);
+      }
+      caseInstanceCache.put(instance);
+    }
+    java.util.Objects.requireNonNull(tenancyId, "tenancyId must not be null");
+    if (!tenancyId.equals(instance.tenancyId)) {
+      throw new IllegalArgumentException("Tenant mismatch for case " + caseId);
+    }
   }
 }

@@ -30,11 +30,22 @@ class ProvisionResultTest {
   @Test
   void withId_roundtrips() {
     UUID id = UUID.randomUUID();
-    assertThat(new ProvisionResult(id).causedByEntryId()).isEqualTo(id);
+    assertThat(new ProvisionResult(id, null).causedByEntryId()).isEqualTo(id);
   }
 
   @Test
   void empty_isEquivalentToNullConstructor() {
-    assertThat(ProvisionResult.empty()).isEqualTo(new ProvisionResult(null));
+    assertThat(ProvisionResult.empty()).isEqualTo(new ProvisionResult(null, null));
+  }
+
+  @Test
+  void empty_resolvedWorkerId_isNull() {
+    assertThat(ProvisionResult.empty().resolvedWorkerId()).isNull();
+  }
+
+  @Test
+  void withWorkerId_roundtrips() {
+    String workerId = "worker-123";
+    assertThat(new ProvisionResult(null, workerId).resolvedWorkerId()).isEqualTo(workerId);
   }
 }

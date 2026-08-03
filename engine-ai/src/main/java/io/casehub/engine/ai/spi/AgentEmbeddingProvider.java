@@ -15,19 +15,6 @@
  */
 package io.casehub.engine.ai.spi;
 
-/**
- * SPI for text embedding used by {@link io.casehub.engine.ai.routing.SemanticAgentRoutingStrategy}.
- *
- * <p>Implementations MUST be {@code @ApplicationScoped} (or equivalent) and thread-safe — {@link
- * #embed(String)} may be called concurrently from multiple routing decisions.
- *
- * <p>No {@code @DefaultBean} is provided. If {@code casehub-engine-ai} is on the classpath without
- * a provider, CDI fails at startup with an unsatisfied dependency error — this is intentional.
- * Semantic routing without an embedding model is a misconfiguration. A LangChain4j-backed
- * implementation is tracked in engine#381.
- *
- * <p>Engine#380 tracks embedding vector caching (per workerId + capabilityName).
- */
 public interface AgentEmbeddingProvider {
 
   /**
@@ -40,27 +27,4 @@ public interface AgentEmbeddingProvider {
    * @return the embedding vector; all implementations must return vectors of the same dimension
    */
   float[] embed(String text);
-
-  /**
-   * Cosine similarity between two vectors. Returns {@code 0.0} for zero vectors (no NaN).
-   *
-   * @param a first vector
-   * @param b second vector; must be the same length as {@code a}
-   * @return cosine similarity in [-1, 1]; {@code 0.0} for zero vectors (cosine similarity undefined
-   *     for zero vectors — sentinel avoids NaN at call sites)
-   */
-  static double cosineSimilarity(final float[] a, final float[] b) {
-    double dot = 0.0;
-    double magA = 0.0;
-    double magB = 0.0;
-    for (int i = 0; i < a.length; i++) {
-      dot += (double) a[i] * b[i];
-      magA += (double) a[i] * a[i];
-      magB += (double) b[i] * b[i];
-    }
-    if (magA == 0.0 || magB == 0.0) {
-      return 0.0;
-    }
-    return dot / (Math.sqrt(magA) * Math.sqrt(magB));
-  }
 }

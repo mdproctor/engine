@@ -29,11 +29,36 @@ import java.util.UUID;
  * (e.g. {@code "sar-drafting"}). Null when no matching binding is found — should not occur in
  * practice but the field is nullable to avoid blocking the worker completion path.
  *
+ * <p>The {@code selectionContext} carries routing rationale when available — which strategy made
+ * the selection, the chosen candidate, and alternatives considered. Null when routing information
+ * is not captured (e.g. single-candidate paths, legacy call sites).
+ *
  * @param caseId the case instance UUID
  * @param tenancyId the tenant that owns this case
  * @param workerId the worker name from the case definition (e.g. {@code "sar-drafting-agent-v1"})
  * @param capabilityTag the capability name exercised; null if not determinable
  * @param traceId OTel trace ID captured synchronously before fireAsync()
+ * @param selectionContext routing rationale; null when not available
  */
 public record WorkerDecisionEvent(
-    UUID caseId, String tenancyId, String workerId, String capabilityTag, String traceId) {}
+    UUID caseId,
+    String tenancyId,
+    String workerId,
+    String capabilityTag,
+    String traceId,
+    SelectionContext selectionContext) {
+
+  /**
+   * Backward-compatible constructor for call sites without routing context.
+   *
+   * @param caseId the case instance UUID
+   * @param tenancyId the tenant that owns this case
+   * @param workerId the worker name
+   * @param capabilityTag the capability name exercised
+   * @param traceId OTel trace ID
+   */
+  public WorkerDecisionEvent(
+      UUID caseId, String tenancyId, String workerId, String capabilityTag, String traceId) {
+    this(caseId, tenancyId, workerId, capabilityTag, traceId, null);
+  }
+}

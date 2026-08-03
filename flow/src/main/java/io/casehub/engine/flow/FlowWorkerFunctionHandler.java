@@ -72,7 +72,6 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
       final WorkerContext context,
       final int timeoutMs,
       final ExecutionMetadata metadata) {
-
     final FlowWorkerFunction flow = (FlowWorkerFunction) function;
     final Map<String, Object> mapInput = (Map<String, Object>) inputData;
 
@@ -85,14 +84,20 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
                 metadata.inputDataHash())
             .join();
 
-    return WorkerResult.of(
+    Map<String, Object> outputMap =
         model
             .asMap()
             .orElseThrow(
                 () ->
                     new RuntimeException(
                         "Workflow produced non-serializable model for worker: "
-                            + metadata.workerName())));
+                            + metadata.workerName()));
+
+    if (flow.plannedActionFn() != null) {
+      return WorkerResult.of(outputMap, flow.plannedActionFn().apply(mapInput));
+    }
+
+    return WorkerResult.of(outputMap);
   }
 
   private CompletableFuture<WorkflowModel> executeWorkflow(

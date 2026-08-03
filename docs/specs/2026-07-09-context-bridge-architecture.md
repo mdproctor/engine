@@ -945,30 +945,45 @@ binding's JQ conditions evaluate against the JSON representation — JQ always
 operates on JSON regardless of the Java type that produced it. Existing JQ
 conditions work unchanged.
 
-### 5. Connectors (design projection — tracked in #692)
+### 5. Connectors — InboundSignalMapping (implemented in #692)
 
 Connectors are the outermost bridge boundary — they receive raw external
 data (JSON, email, Slack messages) and convert it into typed domain objects
 before signalling the case.
 
 ```
-External JSON → Connector Bridge → Typed Signal → Case Bridge → Worker Bridge
+External Message → InboundSignalBridge → Typed Signal → Case Bridge → Worker Bridge
 ```
 
-Connectors declare their payload type per endpoint:
+Inbound connector messages are mapped to typed case signals via
+`InboundSignalMapping` on `CaseDefinition`. Each mapping declares a
+connector type, a JQ correlation expression (resolving to the target
+case), and a JQ payload expression (extracting the signal payload):
 
 ```yaml
-connectors:
-  webhooks:
-    - path: /inbound/aml-alert
-      contextType: io.casehub.aml.AmlAlert
-    - path: /inbound/kyc-result
-      contextType: io.casehub.aml.KycResult
+signals:
+  - name: aml-alert
+    contextType: io.casehub.aml.AmlAlert
+
+inboundMappings:
+  - signal: aml-alert
+    connectorType: aml-system
+    correlation: '.metadata.caseRef'
+    payload: '.content | fromjson'
+    correlationResolver: uuid
 ```
 
-The connector bridge is special only in that its input is raw (JSON/text)
-rather than a `CaseContext`. It calls `bridge.deserialise(jsonPayload)`
-directly without going through `initialise()`.
+`InboundSignalBridge` (`casehub-engine-inbound`) observes
+`@ObservesAsync InboundMessage`, evaluates the JQ expressions, deserialises
+via `ContextBridge.deserialise()` (direct — no DataRef interception for
+external data), and delivers typed signals via `CaseHubRuntime.signal()`.
+`CaseCorrelationResolver` (NamedStrategy SPI) resolves correlation values
+to case UUIDs — built-in `UuidCorrelationResolver` (id=`"uuid"`) parses
+direct UUIDs.
+
+The connector bridge uses `bridge.deserialise(jsonPayload)` directly
+without going through `initialise()` — its input is raw (JSON/text)
+rather than a `CaseContext`.
 
 ### Boundary summary
 

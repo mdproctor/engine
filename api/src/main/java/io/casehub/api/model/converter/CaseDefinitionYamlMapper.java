@@ -733,6 +733,35 @@ public final class CaseDefinitionYamlMapper {
       }
     }
 
+    // defaultQuorum — spec-level default quorum configuration for action gates
+    final JsonNode quorumNode = specNode != null ? specNode.get("quorum") : null;
+    if (quorumNode != null && quorumNode.isObject()) {
+      final int instances = quorumNode.has("instances") ? quorumNode.get("instances").asInt() : 0;
+      final int required = quorumNode.has("required") ? quorumNode.get("required").asInt() : 0;
+      final io.casehub.api.model.OnThresholdReached onThresholdReached;
+      if (quorumNode.has("onThresholdReached")) {
+        try {
+          onThresholdReached =
+              io.casehub.api.model.OnThresholdReached.valueOf(
+                  quorumNode.get("onThresholdReached").asText().toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+          throw new IllegalArgumentException(
+              "Invalid onThresholdReached value: '"
+                  + quorumNode.get("onThresholdReached").asText()
+                  + "'. Valid values: "
+                  + java.util.Arrays.toString(io.casehub.api.model.OnThresholdReached.values()));
+        }
+      } else {
+        onThresholdReached = null;
+      }
+      final boolean allowSameAssignee =
+          quorumNode.has("allowSameAssignee") && quorumNode.get("allowSameAssignee").asBoolean();
+
+      def.setDefaultQuorum(
+          new io.casehub.api.spi.QuorumConfig(
+              instances, required, onThresholdReached, allowSameAssignee));
+    }
+
     return def;
   }
 

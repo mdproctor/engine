@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.rest.dto;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -39,7 +40,11 @@ public record PlanItemResponse(
         String status,
     @Schema(description = "Assigned executor", nullable = true) String executorName,
     @Schema(description = "Binding description", nullable = true) String description,
-    @Schema(description = "Creation timestamp", required = true) @NotNull Instant createdAt) {
+    @Schema(description = "Creation timestamp", required = true) @NotNull Instant createdAt,
+    @Schema(
+            description = "Context layer content that triggered this binding activation",
+            nullable = true)
+        JsonNode activationContext) {
 
   public static PlanItemResponse from(PlanItemRecord record) {
     return new PlanItemResponse(
@@ -49,6 +54,7 @@ public record PlanItemResponse(
         record.status().name(),
         record.executorName(),
         record.description(),
-        record.createdAt());
+        record.createdAt(),
+        record.activationContext());
   }
 }

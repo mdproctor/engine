@@ -179,4 +179,44 @@ class FlowWorkerFunctionHandlerTest {
     when(definition.instance(any())).thenReturn(wfInstance);
     when(app.workflowDefinition(any())).thenReturn(definition);
   }
+
+  @Test
+  void execute_includes_planned_action_when_provided() {
+    final String instanceId = "wf-action";
+    final UUID caseId = UUID.randomUUID();
+    final WorkflowModel model = mock(WorkflowModel.class);
+    when(model.asMap()).thenReturn(Optional.of(Map.of("result", "done")));
+
+    final WorkflowInstance wfInstance = mockWorkflowInstance(instanceId);
+    final CompletableFuture<WorkflowModel> future = CompletableFuture.completedFuture(model);
+    when(wfInstance.start()).thenReturn(future);
+
+    stubApp(wfInstance);
+
+    final Map<String, Object> input = Map.of("entityType", "PERSON", "riskScore", 0.8);
+    final FlowWorkerFunction function =
+        new FlowWorkerFunction(mock(Workflow.class))
+            .withPlannedAction(
+                taskInput ->
+                    new io.casehub.worker.api.PlannedAction(
+                        "Entity link proposed",
+                        "ENTITY_LINK",
+                        Map.of("entityType", taskInput.get("entityType"))));
+
+    final WorkerContext context =
+        new WorkerContext("worker-D", caseId, null, null, PropagationContext.createRoot(), null);
+    final ExecutionMetadata metadata = new ExecutionMetadata("worker-D", "hash-3");
+
+    final WorkerResult result = handler.execute(function, input, context, 60000, metadata);
+
+    assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
+    assertThat(result.outcome()).isInstanceOf(io.casehub.worker.api.WorkerOutcome.Success.class);
+
+    final io.casehub.worker.api.WorkerOutcome.Success successOutcome =
+        (io.casehub.worker.api.WorkerOutcome.Success) result.outcome();
+    assertThat(successOutcome.plannedAction()).isNotNull();
+    assertThat(successOutcome.plannedAction().description()).isEqualTo("Entity link proposed");
+    assertThat(successOutcome.plannedAction().actionType()).isEqualTo("ENTITY_LINK");
+    assertThat(successOutcome.plannedAction().parameters()).containsEntry("entityType", "PERSON");
+  }
 }

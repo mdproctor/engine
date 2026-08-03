@@ -23,6 +23,13 @@ import io.casehub.worker.api.Worker;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Event triggering worker execution scheduling.
+ *
+ * @param executorRef Nullable {@link io.casehub.api.model.ExecutorRef} containing executor
+ *     identity. Passed through to downstream handlers and EventLog for richer executor tracking.
+ *     Refs engine#702.
+ */
 public record WorkerScheduleEvent(
     CaseInstance caseInstance,
     Worker worker,
@@ -35,7 +42,8 @@ public record WorkerScheduleEvent(
     io.casehub.api.model.LifecycleScope lifecycleScope,
     io.casehub.api.model.ExecutionMode executionMode,
     String workerCredentialToken,
-    com.fasterxml.jackson.databind.JsonNode activationContext) {
+    com.fasterxml.jackson.databind.JsonNode activationContext,
+    io.casehub.api.model.ExecutorRef executorRef) {
 
   public WorkerScheduleEvent {
     experiences = experiences == null ? List.of() : experiences;
@@ -62,6 +70,7 @@ public record WorkerScheduleEvent(
         null,
         null,
         null,
+        null,
         null);
   }
 
@@ -83,6 +92,7 @@ public record WorkerScheduleEvent(
         null,
         null,
         null,
+        null,
         null);
   }
 
@@ -100,6 +110,7 @@ public record WorkerScheduleEvent(
         null,
         null,
         null,
+        null,
         null);
   }
 
@@ -113,6 +124,7 @@ public record WorkerScheduleEvent(
         null,
         null,
         List.of(),
+        null,
         null,
         null,
         null,

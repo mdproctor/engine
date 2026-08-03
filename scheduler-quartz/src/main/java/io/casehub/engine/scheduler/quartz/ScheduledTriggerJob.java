@@ -162,6 +162,7 @@ public class ScheduledTriggerJob implements Job {
                     binding.lifecycleScope(),
                     binding.executionMode(),
                     null,
+                    null,
                     null));
           }
         }
@@ -188,6 +189,7 @@ public class ScheduledTriggerJob implements Job {
             List.of(),
             ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
             em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null,
+            null,
             null,
             null));
   }

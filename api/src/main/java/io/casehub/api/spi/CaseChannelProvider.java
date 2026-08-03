@@ -56,7 +56,9 @@ public interface CaseChannelProvider {
    *     if unspecified
    * @param deadline ISO-8601 deadline for temporal obligation tracking; {@code null} if no deadline
    * @param target the intended recipient (e.g. worker name / agent ID); {@code null} if untargeted
+   * @deprecated Use {@link #postToChannel(CaseChannel, PostRequest)} instead
    */
+  @Deprecated
   void postToChannel(
       CaseChannel channel,
       String from,
@@ -67,10 +69,30 @@ public interface CaseChannelProvider {
       String target);
 
   /**
+   * Post a message to a channel.
+   *
+   * @param channel the channel reference returned by {@link #openChannel}
+   * @param request the message content and metadata
+   */
+  default void postToChannel(CaseChannel channel, PostRequest request) {
+    postToChannel(
+        channel,
+        request.from(),
+        request.content(),
+        request.type(),
+        request.correlationId(),
+        request.deadline(),
+        request.target());
+  }
+
+  /**
    * Post a message to a channel. Delegates to {@link #postToChannel(CaseChannel, String, String,
    * MessageType, String, String, String)} with {@code type}, {@code correlationId}, {@code
    * deadline}, and {@code target} all {@code null}.
+   *
+   * @deprecated Use {@link #postToChannel(CaseChannel, PostRequest)} instead
    */
+  @Deprecated
   default void postToChannel(CaseChannel channel, String from, String content) {
     postToChannel(channel, from, content, null, null, null, null);
   }

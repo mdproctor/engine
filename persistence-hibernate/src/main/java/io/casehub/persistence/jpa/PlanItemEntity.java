@@ -61,6 +61,9 @@ public class PlanItemEntity {
   @Column(name = "created_at", nullable = false)
   public Instant createdAt;
 
+  @Column(name = "completed_at")
+  public Instant completedAt;
+
   @Enumerated(EnumType.STRING)
   @Column(name = "target_type", length = 20)
   public TargetType targetType;

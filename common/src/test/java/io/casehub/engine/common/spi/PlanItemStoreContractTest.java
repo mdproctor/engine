@@ -70,6 +70,18 @@ public abstract class PlanItemStoreContractTest {
   }
 
   @Test
+  void updateStatus_to_terminal_sets_completedAt() {
+    UUID caseId = UUID.randomUUID();
+    String planItemId = UUID.randomUUID().toString();
+    store().save(request(caseId, planItemId, TaskStatus.PENDING), TEST_TENANT);
+    assertThat(store().findByCaseId(caseId, TEST_TENANT).get(0).completedAt()).isNull();
+    store().updateStatus(planItemId, TaskStatus.COMPLETED);
+    PlanItemRecord result = store().findByCaseId(caseId, TEST_TENANT).get(0);
+    assertThat(result.completedAt()).isNotNull();
+    assertThat(result.completedAt()).isBeforeOrEqualTo(Instant.now());
+  }
+
+  @Test
   void findDelegated_returns_only_delegated_CrossTenant_for_case() {
     UUID caseId = UUID.randomUUID();
     String delegatedId = UUID.randomUUID().toString();
