@@ -3,7 +3,7 @@
 **Issue:** casehubio/platform#221
 **Epic:** casehubio/engine#833 (Batch 3)
 **Date:** 2026-08-03
-**Status:** Draft
+**Status:** Reviewed (light)
 **Depends on:** Batch 1 (identity propagation, platform#220), Batch 2 (REST enforcement, engine#768)
 
 ## 1. Problem Statement
@@ -27,47 +27,57 @@ workers** with their own service-account identity and elevated grants.
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | Interaction path | Agnostic | Rights model declares what workers CAN do; enforcement is per-path (REST, channel, internal) |
-| Rights scope | Layered | Case-scoped base + resource-type granularity + action-based declaration |
+| Rights scope | Case-scoped, action-declared | All actions map to CASE resource type for enforcement. Intent vocabulary is finer-grained for audit. Per-resource-type enforcement deferred until REST layer supports it |
 | Declaration model | Action-based intent | Workers declare actions; engine maps to ACL grants. Decouples workers from ACL internals |
 | Identity | Dual | Engine mints ephemeral identity OR accepts pre-existing service-account |
 | Approval | Auto-grant from definition | The definition IS the authorization. Offline approval deferred |
 | Isolation | Structural via scoped tokens | Case-bound credentials — token physically can't reference another case |
 | Revocation | Event-driven + time expiry | Immediate revocation on completion; expiry as safety net; case terminal sweep |
-| SPI location | platform-api | Worker authorization is a platform concern, not engine-specific |
+| SPI location | engine-common | Engine is the only consumer; platform-api has no use for it. Follows SPI placement rule |
 
 ## 3. Permission Intent Model
 
 ### 3.1 WorkerAction
 
-`WorkerAction` (enum, `io.casehub.platform.api.acl`) — named actions that workers declare.
+`WorkerAction` (enum, `io.casehub.engine.common.acl`) — named actions that workers declare.
 Each action maps to concrete ACL grants via `toAclGrants()`.
 
-| Action | AclAction | AclResourceType |
-|--------|-----------|-----------------|
-| `READ_CONTEXT` | READ | CASE |
-| `WRITE_CONTEXT` | WRITE | CASE |
-| `SIGNAL_CASE` | WRITE | CASE |
-| `READ_EVENT_LOG` | READ | EVENT_LOG |
-| `READ_PLAN_ITEMS` | READ | PLAN_ITEM |
-| `SPAWN_SUB_CASE` | WRITE | CASE |
-| `ADMIN` | ADMIN | CASE |
+**Enforcement granularity (design review finding):** All actions currently map to `CASE`
+resource type because `CaseService.requireCaseAccess()` only checks `case:<caseId>`. The
+intent vocabulary is deliberately finer-grained than enforcement — it serves audit trails
+and future per-resource-type enforcement when the REST layer supports it. Multiple WRITE
+actions (`WRITE_CONTEXT`, `SIGNAL_CASE`, `SPAWN_SUB_CASE`) collapse to the same ACL grant
+after deduplication; this is expected, not a bug.
+
+| Action | AclAction | AclResourceType | Semantic intent |
+|--------|-----------|-----------------|-----------------|
+| `READ_CONTEXT` | READ | CASE | Read case context |
+| `WRITE_CONTEXT` | WRITE | CASE | Modify case context directly |
+| `SIGNAL_CASE` | WRITE | CASE | Signal the case with results |
+| `READ_EVENT_LOG` | READ | CASE | Read event log (audit: distinct from read-context) |
+| `READ_PLAN_ITEMS` | READ | CASE | Read plan items (audit: distinct from read-context) |
+| `SPAWN_SUB_CASE` | WRITE | CASE | Spawn sub-cases (audit: distinct from write-context) |
+| `ADMIN` | ADMIN | CASE | Administrative operations |
 
 ```java
 public enum WorkerAction {
-    READ_CONTEXT(List.of(new AclGrant(AclAction.READ, AclResourceType.CASE))),
-    WRITE_CONTEXT(List.of(new AclGrant(AclAction.WRITE, AclResourceType.CASE))),
-    SIGNAL_CASE(List.of(new AclGrant(AclAction.WRITE, AclResourceType.CASE))),
-    READ_EVENT_LOG(List.of(new AclGrant(AclAction.READ, AclResourceType.EVENT_LOG))),
-    READ_PLAN_ITEMS(List.of(new AclGrant(AclAction.READ, AclResourceType.PLAN_ITEM))),
-    SPAWN_SUB_CASE(List.of(new AclGrant(AclAction.WRITE, AclResourceType.CASE))),
-    ADMIN(List.of(new AclGrant(AclAction.ADMIN, AclResourceType.CASE)));
+    READ_CONTEXT(AclAction.READ),
+    WRITE_CONTEXT(AclAction.WRITE),
+    SIGNAL_CASE(AclAction.WRITE),
+    READ_EVENT_LOG(AclAction.READ),
+    READ_PLAN_ITEMS(AclAction.READ),
+    SPAWN_SUB_CASE(AclAction.WRITE),
+    ADMIN(AclAction.ADMIN);
 
-    private final List<AclGrant> grants;
-    // constructor, toAclGrants()
+    private final AclAction aclAction;
+
+    public AclGrant toAclGrant() {
+        return new AclGrant(aclAction, AclResourceType.CASE);
+    }
 }
 ```
 
-`AclGrant` — record `(AclAction action, String resourceType)` in `platform-api`. Note:
+`AclGrant` — record `(AclAction action, String resourceType)` in `engine-common`. Note:
 `AclResourceType` is a constants class with `String` fields, not an enum — the record field
 type is `String`.
 
@@ -94,10 +104,12 @@ Java DSL:
     .permissionIntent(WorkerAction.READ_CONTEXT, WorkerAction.SIGNAL_CASE, WorkerAction.READ_EVENT_LOG)
 ```
 
-**Default:** If no `permissionIntent` is declared on a binding that dispatches a worker with
-`serviceAccountId` set or via the provisioner path, the engine applies
-`[READ_CONTEXT, SIGNAL_CASE]` — the minimum viable set. Workers without `serviceAccountId`
-(and not provisioner-dispatched) get no grants — they are in-process and don't need ACL.
+**Default (design review finding — fail-closed for writes):** If no `permissionIntent` is
+declared on a binding that dispatches an external worker, the engine applies `[READ_CONTEXT]`
+only — read access, no write. WRITE actions (`SIGNAL_CASE`, `WRITE_CONTEXT`, `SPAWN_SUB_CASE`)
+must be explicitly declared. This is fail-closed: a binding author who forgets `permissionIntent`
+gets read-only access, not silent WRITE grants. Workers without `serviceAccountId` (and not
+provisioner-dispatched) get no grants — they are in-process and don't need ACL.
 
 **External worker detection:** A worker needs grants when either (a) it has a
 `serviceAccountId` declared, or (b) it is dispatched via `WorkerProvisioner.provision()`.
@@ -156,11 +168,24 @@ The `ephemeral` flag determines cleanup behavior:
 `Worker` gains `serviceAccountId` (nullable String). Builder: `.serviceAccountId(String)`.
 YAML: `serviceAccountId:` on worker definitions. `CaseDefinitionYamlMapper` parses it.
 
+**Format validation (design review finding):** `serviceAccountId` must resolve to
+`ActorType.AGENT` via `ActorTypeResolver`. In practice this means it must start with `agent:`
+or match the `[\w-]+:[\w-]+@[\w.]+` pattern. Values that resolve to `HUMAN` or `SYSTEM` are
+rejected at definition build time (`CaseDefinition.Builder.build()`) with
+`IllegalArgumentException`. This prevents identity impersonation — a case definition cannot
+claim a human or system identity for a worker.
+
+**Module placement:** `serviceAccountId` lives on the engine-api `Worker` (the CaseDefinition
+schema POJO), NOT on the `casehub-worker-api` Worker record. The worker-api Worker is a
+published foundation-tier artifact — adding fields to it would extend the impersonation
+surface to all worker-api consumers. The engine-api Worker is internal to the engine's
+definition schema.
+
 ## 5. Scoped Token & Credential Store
 
 ### 5.1 WorkerCredential
 
-Record (`io.casehub.platform.api.acl`):
+Record (`io.casehub.engine.common.acl`):
 
 ```java
 public record WorkerCredential(
@@ -178,7 +203,7 @@ not decoded.
 
 ### 5.2 WorkerCredentialStore
 
-SPI (`io.casehub.platform.api.acl`):
+SPI (`io.casehub.engine.common.acl`):
 
 ```java
 public interface WorkerCredentialStore {
@@ -190,9 +215,17 @@ public interface WorkerCredentialStore {
 }
 ```
 
-- `@DefaultBean` no-op in platform (returns empty optionals)
-- `InMemoryWorkerCredentialStore` for tests (in `casehub-platform` or test module)
-- Persistent implementation is consumer-provided (not in scope for this issue)
+- `InMemoryWorkerCredentialStore` is the `@DefaultBean @ApplicationScoped` implementation —
+  makes the feature functional out of the box for single-node deployments (design review
+  finding: no-op default makes the feature non-functional, contradicting the epic's "initial
+  implementation complete" definition of done)
+- Persistent implementations (PostgreSQL) are consumer-provided for clustered deployments
+  where in-memory state doesn't survive restarts
+- **Durability mismatch note:** `AccessControlProvider` grants persist to a database;
+  `InMemoryWorkerCredentialStore` credentials live in memory. On restart, grants survive but
+  credentials are lost. The case-terminal sweep (`revokeForCase`) is the safety net — it
+  revokes all grants for the case regardless of credential state. For long-lived cases, orphaned
+  grants persist until case completion. Clustered deployments MUST provide a persistent store
 
 ### 5.3 Token Lifecycle
 
@@ -224,15 +257,34 @@ custom header — no collision with OAuth/JWT/Bearer token flows.
 
 ### 5.5 Token Delivery
 
-The credential token is threaded to workers via:
+**Token delivery (to workers):**
 
 | Worker type | Delivery path |
 |-------------|---------------|
-| Provisioner-dispatched | `ProvisionContext.workerCredentialToken` (new nullable String field) |
-| Quartz-dispatched | `WorkerScheduleEvent.workerCredentialToken` → EventLog metadata → `QuartzWorkerExecutionJob` → `WorkerContext.credentialToken` |
+| Provisioner-dispatched | `ProvisionContext.workerCredentialToken` (new nullable String field) → provisioner includes in COMMAND payload |
+| Quartz-dispatched (external) | `WorkerScheduleEvent.workerCredentialToken` → EventLog metadata → delivered to external worker via channel COMMAND |
 | Qhorus channel | Included in COMMAND payload JSON as `credentialToken` field |
 
-Workers access the token via `((WorkerRuntime) scope).context().credentialToken()`.
+**Design review finding:** The credential token is NOT added to `WorkerContext`. Workers
+receive the token via their delivery channel (ProvisionContext or COMMAND payload) and store
+it themselves for REST callbacks. Mixing a security credential into operational context
+creates unnecessary exposure.
+
+**Token threading for revocation (back to engine):**
+
+The token must reach `WorkflowExecutionCompletedHandler` for revocation. Threading path:
+
+```
+WorkerScheduleEvent.workerCredentialToken
+  → WorkerScheduleEventHandler writes to EventLog metadata as "workerCredentialToken"
+  → QuartzWorkerExecutionJob reads from EventLog metadata
+  → WorkflowExecutionCompleted.workerCredentialToken (new nullable String field)
+  → WorkflowExecutionCompletedHandler calls revokeForWorker(token, ...)
+```
+
+`WorkflowExecutionCompleted` gains `workerCredentialToken` (nullable String). This is the
+typed contract for credential threading — no untyped metadata handoff at the revocation
+boundary.
 
 ## 6. Grant Orchestration
 
@@ -271,9 +323,26 @@ Called from `CaseContextChangedEventHandler` at dispatch time for external worke
 
 Called from `WorkflowExecutionCompletedHandler` on all outcomes (success/declined/failed/expired):
 
-1. `credentialStore.revoke(token)`
-2. Build revocation requests from the credential's `actions` → ACL grants
-3. `accessControlProvider.revokeBatch(requests)`
+**Shared service account safety (design review finding):** When a service-account identity
+has multiple concurrent bindings on the same case, revoking one binding's grants must not
+break the other. The orchestrator uses per-credential grant tracking:
+
+1. `credentialStore.revoke(token)` — invalidates this credential immediately
+2. Query remaining active credentials for the same `(actorId, caseId)`:
+   `credentialStore.findActiveByActorAndCase(actorId, caseId)`
+3. Compute grants still needed: union of `actions` across remaining credentials
+4. Compute grants to revoke: this credential's grants MINUS still-needed grants
+5. `accessControlProvider.revokeBatch(grantDiff)` — only revoke grants no other credential needs
+
+This requires an additional method on `WorkerCredentialStore`:
+
+```java
+List<WorkerCredential> findActiveByActorAndCase(String actorId, UUID caseId);
+```
+
+For ephemeral identities (unique per provisioning), this check is a no-op — there is only
+ever one credential per actorId. The reference-counting path only activates for service
+accounts with multiple concurrent bindings.
 
 ### 6.4 revokeForCase Flow
 
@@ -298,13 +367,13 @@ In-process workers are excluded — `grantAndMint()` is only called when
 
 ### 7.1 New Fields on Existing Types
 
-| Type | Field | Type | Nullable |
-|------|-------|------|----------|
-| `Worker` | `serviceAccountId` | String | Yes |
-| `Binding` | `permissionIntent` | `List<WorkerAction>` | Yes |
-| `ProvisionContext` | `workerCredentialToken` | String | Yes |
-| `WorkerScheduleEvent` | `workerCredentialToken` | String | Yes |
-| `WorkerContext` | `credentialToken` | String | Yes |
+| Type | Field | Type | Nullable | Direction |
+|------|-------|------|----------|-----------|
+| `Worker` | `serviceAccountId` | String | Yes | Declaration |
+| `Binding` | `permissionIntent` | `List<WorkerAction>` | Yes | Declaration |
+| `ProvisionContext` | `workerCredentialToken` | String | Yes | Outbound (to worker) |
+| `WorkerScheduleEvent` | `workerCredentialToken` | String | Yes | Outbound (to handler) |
+| `WorkflowExecutionCompleted` | `workerCredentialToken` | String | Yes | Inbound (for revocation) |
 
 ### 7.2 EventLog Metadata
 
@@ -360,15 +429,15 @@ YAML values are kebab-case (`read-context`), mapped to enum constants (`READ_CON
 
 ### In Scope
 
-- `WorkerAction` enum in `platform-api`
-- `AclGrant` record in `platform-api`
-- `WorkerCredential` record in `platform-api`
-- `WorkerCredentialStore` SPI in `platform-api` + `@DefaultBean` no-op + `InMemoryWorkerCredentialStore`
+- `WorkerAction` enum in `engine-common`
+- `AclGrant` record in `engine-common`
+- `WorkerCredential` record in `engine-common`
+- `WorkerCredentialStore` SPI in `engine-common` + `InMemoryWorkerCredentialStore` as `@DefaultBean`
 - `WorkerIdentityResolver` in engine runtime
 - `WorkerGrantOrchestrator` in engine runtime
 - `WorkerCredentialFilter` JAX-RS filter in engine rest
 - `permissionIntent` on `Binding`, `serviceAccountId` on `Worker`
-- Threading through `ProvisionContext`, `WorkerScheduleEvent`, `WorkerContext`
+- Threading through `ProvisionContext`, `WorkerScheduleEvent`, `WorkflowExecutionCompleted`
 - Grant/revoke wiring in handlers
 - YAML support for `permissionIntent` and `serviceAccountId`
 - `WorkerRecoveryCoordinator` integration for in-flight credential cleanup
@@ -380,3 +449,18 @@ YAML values are kebab-case (`read-context`), mapped to enum constants (`READ_CON
 - Cross-case worker access — separate design
 - Token refresh/rotation — short-lived tokens with case-terminal sweep sufficient for v1
 - Qhorus channel-level authorization — orthogonal concern
+
+## 11. Design Review Findings
+
+Light review (coherence + structure + robustness + cross-cutting) surfaced 37 issues across
+4 dimensions. After deduplication and cross-cutting synthesis, 5 themes required spec changes:
+
+| # | Theme | Resolution |
+|---|-------|------------|
+| 1 | Permission granularity mismatch — fine-grained intents vs case-level enforcement | All actions map to CASE resource type. Intent vocabulary retained for audit |
+| 2 | Credential store no-op default makes feature non-functional | `InMemoryWorkerCredentialStore` promoted to `@DefaultBean`. SPI moved to engine-common |
+| 3 | Shared service account concurrent revocation race | Per-credential grant tracking with differential revocation |
+| 4 | Token threading incomplete — doesn't reach completion handler | Token threaded via `WorkflowExecutionCompleted` record. Removed from `WorkerContext` |
+| 5 | Fail-open default grants WRITE silently | Default changed to `[READ_CONTEXT]` only. `serviceAccountId` validated against `ActorTypeResolver` |
+
+Review workspaces: `~/reviews/casehub-worktrees/worker-rights-model-{coherence,structure,robustness,crosscutting}-20260803-*`
