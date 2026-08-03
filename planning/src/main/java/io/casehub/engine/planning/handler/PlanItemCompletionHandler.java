@@ -21,7 +21,7 @@ import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.event.PlanItemCompletedEvent;
+import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
 import io.casehub.engine.planning.plan.CasePlanModel;
@@ -64,18 +64,18 @@ public class PlanItemCompletionHandler {
 
   private final BlackboardRegistry registry;
   private final EventBus eventBus;
-  private final Event<PlanItemCompletedEvent> planItemCompletedEvents;
+  private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
   private final CompoundCompletionEvaluator compoundCompletionEvaluator;
 
   @Inject
   public PlanItemCompletionHandler(
       BlackboardRegistry registry,
       EventBus eventBus,
-      Event<PlanItemCompletedEvent> planItemCompletedEvents,
+      Event<PlanItemStateChangedEvent> planItemStateChangedEvents,
       CompoundCompletionEvaluator compoundCompletionEvaluator) {
     this.registry = registry;
     this.eventBus = eventBus;
-    this.planItemCompletedEvents = planItemCompletedEvents;
+    this.planItemStateChangedEvents = planItemStateChangedEvents;
     this.compoundCompletionEvaluator = compoundCompletionEvaluator;
   }
 
@@ -126,10 +126,11 @@ public class PlanItemCompletionHandler {
                     item.getPlanItemId(), bindingName, caseId, item.getStatus());
                 return;
               }
+              String prevStatus = item.getStatus().name();
               item.markCompleted();
               compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
-              planItemCompletedEvents.fireAsync(
-                  new PlanItemCompletedEvent(caseId, item.getPlanItemId(), bindingName, tenancyId));
+              planItemStateChangedEvents.fireAsync(
+                  new PlanItemStateChangedEvent(caseId, item.getPlanItemId(), bindingName, prevStatus, TaskStatus.COMPLETED.name(), tenancyId));
             },
             () ->
                 LOG.debugf(
@@ -158,13 +159,11 @@ public class PlanItemCompletionHandler {
                     planItemId, trackingKey, caseId, item.getStatus());
                 return;
               }
+              String prevStatus = item.getStatus().name();
               item.markCompleted();
-              // activeByBinding self-cleans lazily in hasActivePlanItem() — completed items remain
-              // in itemsById for post-completion observability.
               compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
-              // Fire after markCompleted() so observers see the exact planItemId that completed.
-              planItemCompletedEvents.fireAsync(
-                  new PlanItemCompletedEvent(caseId, planItemId, trackingKey, tenancyId));
+              planItemStateChangedEvents.fireAsync(
+                  new PlanItemStateChangedEvent(caseId, planItemId, item.getBindingName(), prevStatus, TaskStatus.COMPLETED.name(), tenancyId));
             });
   }
 }

@@ -17,7 +17,7 @@ package io.casehub.engine.planning.handler;
 
 import io.casehub.engine.common.internal.event.ActionGateWorkerFaultedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
-import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
+import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.quarkus.vertx.ConsumeEvent;
@@ -42,7 +42,7 @@ public class ActionGateRejectedPlanItemHandler {
   private static final Logger LOG = Logger.getLogger(ActionGateRejectedPlanItemHandler.class);
 
   @Inject BlackboardRegistry registry;
-  @Inject Event<PlanItemFaultedEvent> planItemFaultedEvents;
+  @Inject Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
 
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_WORKER_FAULTED, blocking = true)
   public void onActionGateWorkerFaulted(final ActionGateWorkerFaultedEvent event) {
@@ -66,10 +66,11 @@ public class ActionGateRejectedPlanItemHandler {
                     planItemId, event.workerId(), event.caseId(), item.getStatus());
                 return;
               }
+              String prevStatus = item.getStatus().name();
               item.markFaulted();
-              planItemFaultedEvents.fireAsync(
-                  new PlanItemFaultedEvent(
-                      event.caseId(), planItemId, item.getBindingName(), event.tenancyId()));
+              planItemStateChangedEvents.fireAsync(
+                  new PlanItemStateChangedEvent(
+                      event.caseId(), planItemId, item.getBindingName(), prevStatus, io.casehub.api.model.TaskStatus.FAULTED.name(), event.tenancyId()));
               LOG.infof(
                   "PlanItem %s faulted (gate worker faulted): caseId=%s workerId=%s",
                   planItemId, event.caseId(), event.workerId());

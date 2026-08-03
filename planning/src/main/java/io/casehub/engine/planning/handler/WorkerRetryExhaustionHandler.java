@@ -18,7 +18,7 @@ package io.casehub.engine.planning.handler;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
-import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
+import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
@@ -54,16 +54,16 @@ public class WorkerRetryExhaustionHandler {
 
   private final BlackboardRegistry registry;
   private final CompoundCompletionEvaluator compoundCompletionEvaluator;
-  private final Event<PlanItemFaultedEvent> planItemFaultedEvents;
+  private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
 
   @Inject
   public WorkerRetryExhaustionHandler(
       final BlackboardRegistry registry,
       final CompoundCompletionEvaluator compoundCompletionEvaluator,
-      final Event<PlanItemFaultedEvent> planItemFaultedEvents) {
+      final Event<PlanItemStateChangedEvent> planItemStateChangedEvents) {
     this.registry = registry;
     this.compoundCompletionEvaluator = compoundCompletionEvaluator;
-    this.planItemFaultedEvents = planItemFaultedEvents;
+    this.planItemStateChangedEvents = planItemStateChangedEvents;
   }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED, blocking = true)
@@ -105,10 +105,10 @@ public class WorkerRetryExhaustionHandler {
                 return;
               }
 
-              // Fire PlanItemFaultedEvent via CDI for downstream observers
-              planItemFaultedEvents.fireAsync(
-                  new PlanItemFaultedEvent(
-                      event.caseId(), planItemId, item.getBindingName(), event.tenancyId()));
+              String prevStatus = item.getStatus().name();
+              planItemStateChangedEvents.fireAsync(
+                  new PlanItemStateChangedEvent(
+                      event.caseId(), planItemId, item.getBindingName(), prevStatus, io.casehub.api.model.TaskStatus.FAULTED.name(), event.tenancyId()));
 
               compoundCompletionEvaluator.evaluate(
                   event.caseId(), event.tenancyId(), plan, item.getBindingName());

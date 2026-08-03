@@ -21,7 +21,7 @@ import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.OutcomeDisposition;
 import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
-import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
+import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.quarkus.vertx.ConsumeEvent;
@@ -58,18 +58,18 @@ public class WorkerOutcomeResolvedHandler {
   private final BlackboardRegistry registry;
   private final CompoundCompletionEvaluator compoundCompletionEvaluator;
   private final EventBus eventBus;
-  private final Event<PlanItemFaultedEvent> planItemFaultedEvents;
+  private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
 
   @Inject
   public WorkerOutcomeResolvedHandler(
       BlackboardRegistry registry,
       CompoundCompletionEvaluator compoundCompletionEvaluator,
       EventBus eventBus,
-      Event<PlanItemFaultedEvent> planItemFaultedEvents) {
+      Event<PlanItemStateChangedEvent> planItemStateChangedEvents) {
     this.registry = registry;
     this.compoundCompletionEvaluator = compoundCompletionEvaluator;
     this.eventBus = eventBus;
-    this.planItemFaultedEvents = planItemFaultedEvents;
+    this.planItemStateChangedEvents = planItemStateChangedEvents;
   }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_OUTCOME_RESOLVED, blocking = true)
@@ -87,12 +87,15 @@ public class WorkerOutcomeResolvedHandler {
                 return;
               }
 
+              String prevStatus = item.getStatus().name();
               item.markFaulted();
-              planItemFaultedEvents.fireAsync(
-                  new PlanItemFaultedEvent(
+              planItemStateChangedEvents.fireAsync(
+                  new PlanItemStateChangedEvent(
                       event.caseInstance().getUuid(),
                       item.getPlanItemId(),
                       item.getBindingName(),
+                      prevStatus,
+                      io.casehub.api.model.TaskStatus.FAULTED.name(),
                       event.caseInstance().tenancyId));
 
               if (event.disposition() == OutcomeDisposition.EXHAUSTED

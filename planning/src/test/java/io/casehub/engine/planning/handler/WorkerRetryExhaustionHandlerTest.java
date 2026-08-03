@@ -23,7 +23,7 @@ import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.RetryState;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
-import io.casehub.engine.common.spi.event.PlanItemFaultedEvent;
+import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
@@ -46,7 +46,7 @@ class WorkerRetryExhaustionHandlerTest {
 
   private BlackboardRegistry registry;
   private EventBus eventBus;
-  private Event<PlanItemFaultedEvent> planItemFaultedEvents;
+  private Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
   private CompoundCompletionEvaluator compoundCompletionEvaluator;
   private WorkerRetryExhaustionHandler handler;
   private UUID caseId;
@@ -57,11 +57,11 @@ class WorkerRetryExhaustionHandlerTest {
   void setUp() {
     registry = new BlackboardRegistry();
     eventBus = mock(EventBus.class);
-    planItemFaultedEvents = mock(Event.class);
+    planItemStateChangedEvents = mock(Event.class);
     compoundCompletionEvaluator = mock(CompoundCompletionEvaluator.class);
     handler =
         new WorkerRetryExhaustionHandler(
-            registry, compoundCompletionEvaluator, planItemFaultedEvents);
+            registry, compoundCompletionEvaluator, planItemStateChangedEvents);
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
@@ -170,10 +170,10 @@ class WorkerRetryExhaustionHandlerTest {
     assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
 
     // Assert: PlanItemFaultedEvent fired via CDI
-    verify(planItemFaultedEvents)
+    verify(planItemStateChangedEvents)
         .fireAsync(
-            new PlanItemFaultedEvent(
-                caseId, item.getPlanItemId(), "capability-binding", "test-tenant"));
+            new PlanItemStateChangedEvent(
+                caseId, item.getPlanItemId(), "capability-binding", "RUNNING", "FAULTED", "test-tenant"));
 
     // Assert: compoundCompletionEvaluator.evaluate() called
     verify(compoundCompletionEvaluator)

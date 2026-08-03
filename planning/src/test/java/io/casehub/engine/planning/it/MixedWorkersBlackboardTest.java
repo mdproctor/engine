@@ -22,7 +22,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.TaskStatus;
-import io.casehub.engine.common.spi.event.PlanItemCompletedEvent;
+import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
@@ -100,9 +100,10 @@ class MixedWorkersBlackboardTest {
     private final ConcurrentHashMap<String, CompletableFuture<String>> futures =
         new ConcurrentHashMap<>();
 
-    void onPlanItemCompleted(@ObservesAsync PlanItemCompletedEvent event) {
+    void onPlanItemStateChanged(@ObservesAsync PlanItemStateChangedEvent event) {
+      if (!"COMPLETED".equals(event.newStatus())) return;
       futures
-          .computeIfAbsent(key(event.caseId(), event.trackingKey()), k -> new CompletableFuture<>())
+          .computeIfAbsent(key(event.caseId(), event.bindingName()), k -> new CompletableFuture<>())
           .complete(event.planItemId());
     }
 
