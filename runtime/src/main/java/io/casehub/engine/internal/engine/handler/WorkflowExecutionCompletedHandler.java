@@ -55,6 +55,7 @@ import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
+import io.casehub.engine.internal.routing.GoalFailureRecorder;
 import io.casehub.engine.internal.routing.PersonalitySignalRecorder;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -93,6 +94,8 @@ public class WorkflowExecutionCompletedHandler {
   @Inject CaseInstanceRepository caseInstanceRepository;
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
   @Inject PersonalitySignalRecorder personalitySignalRecorder;
+  @Inject GoalFailureRecorder goalFailureRecorder;
+
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
 
   @Inject
@@ -356,6 +359,7 @@ public class WorkflowExecutionCompletedHandler {
         worker.name(),
         extractCapabilityTag(caseInstance, worker, bindingName),
         event.outcome());
+    goalFailureRecorder.record(caseInstance, worker.name(), event.outcome());
 
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> existingOutcomes =

@@ -537,7 +537,7 @@ class CbrRetrievalServiceTest {
     CbrConfig config =
         CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
     CaseDefinition def = buildDefinition(config);
-    PlanTrace planTrace = new PlanTrace("bind1", "cap1", "worker1", "DECLINED", 0, Map.of());
+    PlanTrace planTrace = new PlanTrace("bind1", "cap1", "worker1", "DECLINED", 0, Map.of(), null);
     PlanCbrCase cbrCase =
         new PlanCbrCase(
             "problem1",
@@ -563,7 +563,8 @@ class CbrRetrievalServiceTest {
     CbrConfig config =
         CbrConfig.builder().featureExtractor(ctx -> Map.of("f1", "v1")).domain("test").build();
     CaseDefinition def = buildDefinition(config);
-    PlanTrace planTrace = new PlanTrace("bind1", "cap1", "worker1", "UNKNOWN_VALUE", 0, Map.of());
+    PlanTrace planTrace =
+        new PlanTrace("bind1", "cap1", "worker1", "UNKNOWN_VALUE", 0, Map.of(), null);
     PlanCbrCase cbrCase =
         new PlanCbrCase(
             "problem1",

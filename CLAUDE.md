@@ -410,6 +410,12 @@ JPAF (arXiv:2601.10025) personality adaptation via `DispositionSignalStore` acti
 
 **Effective weight computation (eidos-side):** `effectiveWeight(f) = baseWeight(f) + activationCount(f) × Δw` where `Δw = 0.06` (`DispositionPreferenceKeys.REINFORCEMENT_DELTA`). No materialized TemporaryWeight state — computed at probe time from `DispositionSignalStore.activationCounts()`. `DispositionSignalStore.decay(decayFactor)` — `decayFactor` is the retention fraction (0.0 = instant reset, 1.0 = no decay). Default 0.20 via `DispositionPreferenceKeys.DECAY_FACTOR` (configurable per tenancy). Called on reflection rejection (`Dampened`). On reflection acceptance (`Evolved`), `signalStore.clear()` resets all activations. `DefaultDispositionEvolution.evaluate()` is side-effect-free — callers own state mutation. Refs engine#792, engine#796.
 
+## Goal Abandonment
+
+`GoalAbandonmentEvaluator` (`runtime/internal/routing/`, `@ApplicationScoped`) — queries `BehavioralSignalStore` for per-goal DECLINE signal counts against a configurable threshold (`casehub.engine.goal.abandonment-threshold`, default 5). `isAbandoned(agentId, tenancyId, goalName)` returns true when count >= threshold. `activeGoals(AgentDescriptor)` filters abandoned goals. Uses `Instance<BehavioralSignalStore>` — when no store is available, all goals are active (transparent no-op). Sentinel capability `"__goal__"` separates goal signals from capability health signals. Refs engine#807.
+
+`GoalFailureRecorder` (`runtime/internal/routing/`, `@ApplicationScoped`) — records DECLINE signals for all agent goals on non-success worker outcomes. Injected into `WorkflowExecutionCompletedHandler` at the `handleSemanticFailure` call site. Looks up `AgentDescriptor` via `CaseDefinitionRegistry`, records one signal per goal. Uses `Instance<BehavioralSignalStore>` — no-op when unavailable. Current limitation: all goals increment on each decline — per-goal discrimination requires goal-capability mapping (engine#860). Refs engine#807.
+
 ## Repeatable Compound
 
 `PlanItemDefinition.Compound` gains `repeatable` (boolean, builder). Repeatable compound lifecycle is tracked via `PlanItemExecutionState` CAS transitions. Refs engine#482. Stage-based repeatability infrastructure (StageResetOutcomesCleaner, StageActivatedEvent, resetForRepetition) was removed in the Stage retirement (blocks#60 Phase 3C.3).
