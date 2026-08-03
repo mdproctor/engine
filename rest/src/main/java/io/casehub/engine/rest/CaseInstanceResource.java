@@ -47,6 +47,7 @@ import io.casehub.engine.rest.dto.ProblemDetail;
 import io.casehub.engine.rest.dto.StartCaseRequest;
 import io.casehub.engine.rest.exception.EntityNotFoundException;
 import io.casehub.engine.rest.service.CaseService;
+import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.inject.Inject;
@@ -161,7 +162,7 @@ public class CaseInstanceResource {
       description = "Case not found",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public CaseInstanceResponse getCaseInstance(@PathParam("caseId") UUID caseId) {
-    var instance = caseService.requireCase(caseId, currentPrincipal.tenancyId());
+    var instance = caseService.requireCaseAccess(caseId, AclAction.READ);
     return CaseInstanceResponse.from(instance);
   }
 
@@ -175,7 +176,7 @@ public class CaseInstanceResource {
       description = "Case not found",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public Response getContext(@PathParam("caseId") UUID caseId) {
-    caseService.requireCase(caseId, currentPrincipal.tenancyId());
+    caseService.requireCaseAccess(caseId, AclAction.READ);
     Object context = runtime.query(caseId, ".");
     return Response.ok(context).build();
   }
@@ -195,7 +196,7 @@ public class CaseInstanceResource {
       description = "Case not found",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public Response getContextPath(@PathParam("caseId") UUID caseId, @PathParam("path") String path) {
-    caseService.requireCase(caseId, currentPrincipal.tenancyId());
+    caseService.requireCaseAccess(caseId, AclAction.READ);
     Object value = runtime.query(caseId, path);
     return Response.ok(value).build();
   }
@@ -210,8 +211,8 @@ public class CaseInstanceResource {
       description = "Case not found",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public List<PlanItemResponse> getPlanItems(@PathParam("caseId") UUID caseId) {
+    caseService.requireCaseAccess(caseId, AclAction.READ);
     String tenancyId = currentPrincipal.tenancyId();
-    caseService.requireCase(caseId, tenancyId);
     return planItemStore.findByCaseId(caseId, tenancyId).stream()
         .map(PlanItemResponse::from)
         .toList();
@@ -230,8 +231,8 @@ public class CaseInstanceResource {
       description = "Case not found",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public GoalEvaluationResponse getGoals(@PathParam("caseId") UUID caseId) {
+    CaseInstance instance = caseService.requireCaseAccess(caseId, AclAction.READ);
     String tenancyId = currentPrincipal.tenancyId();
-    CaseInstance instance = caseService.requireCase(caseId, tenancyId);
 
     CaseMetaModel meta = instance.getCaseMetaModel();
     CaseDefinition definition = definitionRegistry.getCaseDefinition(meta);

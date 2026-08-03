@@ -20,6 +20,7 @@ import io.casehub.engine.rest.dto.ProblemDetail;
 import io.casehub.engine.rest.dto.SendSignalRequest;
 import io.casehub.engine.rest.dto.SignalResponse;
 import io.casehub.engine.rest.service.CaseService;
+import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.inject.Inject;
@@ -66,7 +67,7 @@ public class SignalResource {
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public SignalResponse sendSignal(
       @PathParam("caseId") UUID caseId, @Valid SendSignalRequest request) {
-    caseService.requireCase(caseId, currentPrincipal.tenancyId());
+    caseService.requireCaseAccess(caseId, AclAction.WRITE);
     runtime.signal(caseId, request.path(), request.value());
     return new SignalResponse(caseId, "accepted", "Signal delivered to case");
   }

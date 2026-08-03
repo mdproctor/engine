@@ -23,6 +23,7 @@ import io.casehub.engine.rest.dto.EventLogEntryResponse;
 import io.casehub.engine.rest.dto.PagedResponse;
 import io.casehub.engine.rest.dto.ProblemDetail;
 import io.casehub.engine.rest.service.CaseService;
+import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.inject.Inject;
@@ -86,7 +87,7 @@ public class EventLogResource {
       @QueryParam("eventType") List<String> eventTypeNames,
       @QueryParam("streamType") List<String> streamTypeNames) {
 
-    caseService.requireCase(caseId, currentPrincipal.tenancyId());
+    caseService.requireCaseAccess(caseId, AclAction.READ);
 
     Set<CaseHubEventType> eventTypes =
         eventTypeNames == null || eventTypeNames.isEmpty()
