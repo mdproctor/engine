@@ -63,7 +63,8 @@ public class InMemoryPlanItemStore implements PlanItemStore {
             request.dispatchMode(),
             request.repeatable(),
             request.parentCompoundId(),
-            request.lifecycleScope()));
+            request.lifecycleScope(),
+            request.activationContext()));
   }
 
   @Override
@@ -89,7 +90,8 @@ public class InMemoryPlanItemStore implements PlanItemStore {
                 r.dispatchMode(),
                 r.repeatable(),
                 r.parentCompoundId(),
-                r.lifecycleScope()));
+                r.lifecycleScope(),
+                r.activationContext()));
   }
 
   @Override
