@@ -102,6 +102,12 @@ class CaseContextChangedEventHandlerRoutingTest {
 
   @Mock io.casehub.engine.internal.engine.CaseEvaluationSerializer evaluationSerializer;
 
+  @Mock io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
+
+  @Mock
+  jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseContextUpdatedEvent>
+      caseContextUpdatedEvents;
+
   @InjectMocks CaseContextChangedEventHandler handler;
 
   private CaseInstance caseInstance;
