@@ -1,0 +1,192 @@
+##
+## Example: Loan Approval — Worker Rights and ACL Enforcement
+##
+## Demonstrates how access control works across the three isolation levels:
+##
+##   1. In-process workers (credit-check) — sandboxed by inputSchema/outputSchema.
+##      No ACL grants needed. The engine passes only the projected data in,
+##      and only the projected data out. The worker never sees the full case context.
+##
+##   2. External workers with ephemeral identity (compliance-checker) — the engine
+##      mints a unique identity (e.g., agent:worker-a1b2c3d4-7f3e) at dispatch time
+##      and creates a scoped credential token bound to the specific case. The token
+##      cannot reference any other case. Grants are revoked on worker completion.
+##
+##   3. External workers with service-account identity (risk-assessment-agent) —
+##      the worker has a pre-declared stable identity (agent:risk-pool@lending.io).
+##      The engine grants case-scoped ACL entries for this identity at dispatch
+##      and revokes them on completion. Multiple bindings sharing the same identity
+##      use differential revocation — revoking one binding's grants won't break another.
+##
+## The `authorization` block at the top grants case-level access to human groups.
+## The `permissionIntent` on each binding declares what the worker is allowed to do.
+## Together they form a layered access model: who can see the case (authorization)
+## and what automated workers can do with it (permissionIntent).
+##
+
+dsl: "1.0.0"
+namespace: casehub-examples
+name: loan-approval
+version: "1.0.0"
+
+spec:
+
+  ## ─── Authorization ──────────────────────────────────────────────────
+  ## Case-level access grants, created automatically when a case starts.
+  ## Each entry maps an AclAction to a list of groups. Members of these
+  ## groups can access cases of this type via REST endpoints.
+  ##
+  ## The case creator automatically receives ADMIN — no need to list them.
+  ##
+  ## Actions follow a subsumption hierarchy:
+  ##   ADMIN  → can do everything (includes READ + WRITE)
+  ##   WRITE  → can modify the case (includes READ)
+  ##   READ   → can view the case
+  ##   CLAIM  → can claim work items (independent of READ/WRITE)
+
+  authorization:
+    read:
+      - loan-officer
+      - auditor
+      - compliance-team
+    write:
+      - loan-officer
+    admin:
+      - branch-supervisor
+    claim:
+      - loan-officer
+
+  ## ─── Capabilities ───────────────────────────────────────────────────
+
+  capabilities:
+    - name: credit-check
+      inputSchema: ".applicant"
+      outputSchema: ".creditResult"
+
+    - name: risk-assessment
+      inputSchema: ".applicant"
+      outputSchema: ".riskResult"
+
+    - name: compliance-review
+      inputSchema: "."
+      outputSchema: ".complianceResult"
+
+  ## ─── Workers ────────────────────────────────────────────────────────
+
+  workers:
+
+    ## In-process worker — no serviceAccountId, no permissionIntent needed.
+    ## The engine sandboxes it via inputSchema/outputSchema. It receives
+    ## only `.applicant` and can only write to `.creditResult`.
+    - name: credit-check-worker
+      description: "Checks applicant credit score via bureau API"
+      capabilities: [ credit-check ]
+
+    ## External worker with a pre-declared service-account identity.
+    ## This identity persists across cases — the same pool of risk
+    ## assessment agents reuses this identity. The engine grants
+    ## case-scoped ACL entries for this actorId at dispatch time and
+    ## revokes them when the worker completes.
+    ##
+    ## serviceAccountId must resolve to ActorType.AGENT via the
+    ## platform's ActorTypeResolver — typically starts with "agent:"
+    ## or matches the pattern "name:role@domain".
+    - name: risk-assessment-agent
+      description: "AI agent that assesses loan risk"
+      serviceAccountId: "agent:risk-pool@lending.io"
+      capabilities: [ risk-assessment ]
+
+    ## External worker without a serviceAccountId — the engine mints
+    ## a unique ephemeral identity (e.g., agent:worker-<caseId>-<uuid>)
+    ## each time this worker is dispatched. The identity is discarded
+    ## after the worker completes.
+    - name: compliance-checker
+      description: "Automated compliance verification"
+      capabilities: [ compliance-review ]
+
+  ## ─── Bindings ───────────────────────────────────────────────────────
+
+  bindings:
+
+    ## In-process binding — no permissionIntent.
+    ## The worker runs inside the engine JVM. It receives projected input
+    ## and returns projected output. No REST calls, no ACL needed.
+    - name: run-credit-check
+      capability: credit-check
+      worker: credit-check-worker
+      on:
+        contextChanged: ".applicant != null and .creditResult == null"
+
+    ## External binding with permissionIntent.
+    ## The risk agent needs to:
+    ##   - read-context: read the case context via REST
+    ##   - signal-case: signal results back to the case via REST
+    ##
+    ## These are declared explicitly. If omitted, the default is
+    ## [read-context] only (fail-closed — no write access without
+    ## explicit declaration).
+    ##
+    ## At dispatch time, the engine:
+    ##   1. Resolves the worker's serviceAccountId (agent:risk-pool@lending.io)
+    ##   2. Creates ACL grants: READ + WRITE on case:<caseId>
+    ##   3. Mints a scoped credential token bound to this caseId
+    ##   4. Passes the token to the worker via the COMMAND payload
+    ##
+    ## The worker presents the token via X-Worker-Credential header on
+    ## REST callbacks. The engine validates:
+    ##   - Token exists and isn't expired
+    ##   - Token's caseId matches the requested case (structural isolation)
+    ##   - Normal ACL enforcement applies (READ/WRITE/ADMIN check)
+    ##
+    ## On completion, the engine revokes the grants and invalidates the token.
+    - name: assess-risk
+      capability: risk-assessment
+      worker: risk-assessment-agent
+      on:
+        contextChanged: ".creditResult != null and .riskResult == null"
+      permissionIntent:
+        - read-context
+        - signal-case
+
+    ## External binding with ephemeral identity.
+    ## No serviceAccountId — the engine creates a unique identity per dispatch.
+    ## permissionIntent includes read-event-log — the compliance checker
+    ## needs to read the case's event history to verify the audit trail.
+    ##
+    ## Note: read-event-log maps to the same ACL grant as read-context
+    ## (READ on CASE) in the current enforcement model. The distinction
+    ## is semantic — it documents the worker's intent for audit purposes
+    ## and will enforce separately when per-resource-type ACL is added.
+    - name: run-compliance-check
+      capability: compliance-review
+      worker: compliance-checker
+      on:
+        contextChanged: ".riskResult != null and .complianceResult == null"
+      permissionIntent:
+        - read-context
+        - read-event-log
+        - signal-case
+
+  ## ─── Human Task (no worker rights) ──────────────────────────────────
+  ## Human tasks use the case-level authorization grants above.
+  ## A loan officer with WRITE access can claim and complete work items.
+  ## No permissionIntent or serviceAccountId — humans authenticate
+  ## via standard auth (OAuth, OIDC) and the engine checks ACL based
+  ## on their identity and group membership.
+
+  ## ─── Completion ─────────────────────────────────────────────────────
+
+  completion:
+    success:
+      allOf:
+        - credit-checked
+        - risk-assessed
+        - compliance-cleared
+
+  goals:
+    - name: credit-checked
+      condition: ".creditResult != null"
+    - name: risk-assessed
+      condition: ".riskResult != null"
+    - name: compliance-cleared
+      condition: ".complianceResult != null and .complianceResult.passed == true"
