@@ -1,7 +1,7 @@
 # ACL Engine-REST Enforcement — Design Specification
 
 **Date:** 2026-08-03
-**Status:** Draft
+**Status:** Reviewed (light — coherence, structure, robustness, cross-cutting)
 **Scope:** Move ACL enforcement from per-deployment duplication into engine-rest as a built-in SPI
 **Tracking:** casehubio/engine#768
 
@@ -25,30 +25,55 @@ Enforcement is programmatic in `CaseService`, not via a `@ServerRequestFilter`. 
 
 ## 3. Changes
 
-### 3.1 `CaseService` — new `requireAccess()` method
+### 3.1 `CaseService` — consolidated `requireCaseAccess()` method
+
+A single method that performs tenant isolation, existence check, and ACL check atomically. Eliminates the fragility of separate `requireCase()` + `requireAccess()` calls where one could be omitted.
 
 ```java
 @Inject AccessControlProvider accessControlProvider;
 @Inject CurrentPrincipal currentPrincipal;
 
-public void requireAccess(UUID caseId, AclAction action) {
+public CaseInstance requireCaseAccess(UUID caseId, AclAction action) {
+    String tenancyId = currentPrincipal.tenancyId();
+    CaseInstance instance = instanceRepository.findByUuid(caseId, tenancyId);
+    if (instance == null) {
+        throw new EntityNotFoundException("Case not found: " + caseId);
+    }
     String actorId = currentPrincipal.actorId();
     String resourceId = AclResourceType.CASE + ":" + caseId;
     if (!accessControlProvider.canAccess(actorId, resourceId, action)) {
         throw new AccessDeniedException(actorId, resourceId, action);
     }
+    return instance;
 }
 ```
 
+The existing `requireCase(caseId, tenancyId)` remains for call sites that only need existence + tenant checks (e.g. internal engine paths that don't cross the REST boundary).
+
 `AccessControlProvider` is injected directly — the platform's `@DefaultBean` `NoOpAccessControlProvider` (`canAccess()` → `true`) is always available. No `Instance<>` wrapper needed. When a real implementation is on the classpath (e.g. `acl-jpa`), it displaces the NoOp automatically.
 
-`AccessDeniedException` is already mapped to HTTP 403 by `AccessDeniedExceptionMapper` in engine-rest.
+**Action subsumption:** `AclAction.satisfiedBy()` defines a subsumption hierarchy — `READ` is satisfied by `{READ, WRITE, ADMIN}`, `WRITE` by `{WRITE, ADMIN}`, `ADMIN` by `{ADMIN}` only, `CLAIM` by `{CLAIM}` only. All `AccessControlProvider` implementations use `satisfiedBy()` inside `canAccess()`: an actor with an `ADMIN` grant passes `READ` and `WRITE` checks. `requireCaseAccess()` does not need to handle subsumption; it is internal to the provider.
 
-**Action subsumption:** `AclAction.satisfiedBy()` defines a subsumption hierarchy — `READ` is satisfied by `{READ, WRITE, ADMIN}`, `WRITE` by `{WRITE, ADMIN}`, `ADMIN` by `{ADMIN}` only, `CLAIM` by `{CLAIM}` only. All `AccessControlProvider` implementations use `satisfiedBy()` inside `canAccess()`: an actor with an `ADMIN` grant passes `READ` and `WRITE` checks. Grant provisioning can rely on this — granting `ADMIN` implicitly covers all lower-privilege actions. `requireAccess()` does not need to handle subsumption; it is internal to the provider.
+### 3.2 `AccessDeniedExceptionMapper` — sanitize 403 response
 
-### 3.2 Endpoint ACL wiring
+The current `AccessDeniedExceptionMapper` includes `actorId` and `resourceId` in the response body via `exception.getMessage()`. This leaks internal security context to the caller.
 
-Each resource that accesses a case instance adds a `requireAccess()` call after `requireCase()`:
+Fix: return a generic 403 with no internal identifiers:
+
+```java
+@Override
+public Response toResponse(AccessDeniedException exception) {
+    return Response.status(403)
+        .entity(new ProblemDetail("Access denied", 403, "Insufficient permissions"))
+        .build();
+}
+```
+
+The specific actorId/resourceId/action are logged server-side (see §3.6) but never returned to the client.
+
+### 3.3 Endpoint ACL wiring
+
+Each resource replaces its `requireCase()` call with `requireCaseAccess()`:
 
 | Resource | Endpoint | AclAction |
 |---|---|---|
@@ -66,38 +91,65 @@ Each resource that accesses a case instance adds a `requireAccess()` call after 
 Call pattern in each resource method:
 
 ```java
-String tenancyId = currentPrincipal.tenancyId();
-caseService.requireCase(caseId, tenancyId);
-caseService.requireAccess(caseId, AclAction.READ); // or WRITE, ADMIN
+CaseInstance instance = caseService.requireCaseAccess(caseId, AclAction.READ);
+// use instance directly — no separate requireCase() needed
 ```
 
-### 3.3 Fix `CaseControlResource` — inject `CaseService`
+### 3.4 Fix `CaseControlResource` — full `CaseService` integration
 
 `CaseControlResource` currently injects only `CaseHubRuntime` and calls `runtime.suspendCase(caseId)` directly — no tenant check, no existence check, no ACL. Fix:
 
 1. Inject `CaseService` and `CurrentPrincipal`
-2. Call `caseService.requireCase(caseId, tenancyId)` before each operation
-3. Call `caseService.requireAccess(caseId, AclAction.ADMIN)` for all three operations
+2. Call `caseService.requireCaseAccess(caseId, AclAction.ADMIN)` before each operation
+3. Wrap `runtime.suspendCase/resumeCase/cancelCase` in try-catch consistent with the service layer pattern (map `IllegalArgumentException` to `EntityNotFoundException`)
 
-This fixes the tenant isolation gap as a side effect.
+This fixes the tenant isolation gap and the inconsistent error handling as side effects.
 
-### 3.4 Not guarded (v1 scope exclusions)
+### 3.5 Not guarded (v1 scope exclusions)
 
-**`POST /cases` (startCase):** No case instance exists yet — the ACL authorization model spec (§3.1) maps `startCase` to `ADMIN` on `casedefinition:<id>`. The SPI supports creating such grants (`AccessControlProvider.grant()` can target `casedefinition:<id>` resources), but no provisioning workflow populates definition-level grants today. The `authorization:` YAML block (§10.3) creates grants for the *case instance* at start time — it cannot gate start itself, since by the time grants exist the case already exists. Gating `startCase` requires a mechanism to pre-populate `casedefinition:<id>` grants at definition deployment/registration time. Deferred to Phase 3 (authorization service SPI).
+**`POST /cases` (startCase):** No case instance exists yet — the ACL authorization model spec (§3.1) maps `startCase` to `ADMIN` on `casedefinition:<id>`. The SPI supports creating such grants (`AccessControlProvider.grant()` can target `casedefinition:<id>` resources), but no provisioning workflow populates definition-level grants today. The `authorization:` YAML block (§10.3) creates grants for the *case instance* at start time — it cannot gate start itself. Deferred to Phase 3 (authorization service SPI). **Tracked:** engine#TBD.
 
-**`GET /cases` (listCases):** Returns all cases in the tenant. Per-instance list filtering via `accessibleResources()` is deferred — tenant isolation is the current boundary. Implementing list filtering requires a non-NoOp `AccessControlProvider`: the `NoOpAccessControlProvider.accessibleResources()` returns an empty list (by design — it has no grant store), which would incorrectly filter out all cases. Until a real provider (e.g. `acl-inmem`, `acl-jpa`) is deployed and grants are provisioned, list filtering cannot be meaningfully tested or enforced.
+**`GET /cases` (listCases):** Returns all cases in the tenant. Per-instance list filtering via `accessibleResources()` is deferred — tenant isolation is the current boundary. The `NoOpAccessControlProvider.accessibleResources()` returns an empty list, which would incorrectly filter out all cases. **Tracked:** engine#TBD.
 
-**`CaseDefinitionResource` endpoints (`/api/v1/case-definitions`):** Three read-only endpoints — list all definitions, get by namespace/name, get by key. These operate on case definitions (resource type `casedefinition`), not case instances (resource type `case`). Already tenant-scoped via `currentPrincipal.tenancyId()`. Definition-level ACL is the same deferred concern as `startCase` — no mechanism populates `casedefinition:<id>` grants today. These endpoints will be guarded when definition-level access control lands.
+**`CaseDefinitionResource` endpoints (`/api/v1/case-definitions`):** Three read-only endpoints operating on case definitions (resource type `casedefinition`). Already tenant-scoped. Definition-level ACL is the same deferred concern as `startCase`. **Tracked:** engine#TBD.
+
+**`CLAIM` action:** Not relevant to engine-rest endpoints. `CLAIM` is a `casehub-work` operation for work item claiming — engine-rest does not expose work item claim endpoints.
+
+### 3.6 Access denied logging
+
+Log every `AccessDeniedException` at WARN level before the exception mapper converts it to a 403. This goes in `requireCaseAccess()`:
+
+```java
+if (!accessControlProvider.canAccess(actorId, resourceId, action)) {
+    LOG.warnf("ACL denied: actor=%s resource=%s action=%s", actorId, resourceId, action);
+    throw new AccessDeniedException(actorId, resourceId, action);
+}
+```
+
+Server-side only — the client receives a generic 403 (§3.2).
 
 ---
 
-## 4. Dependencies
+## 4. Scaffold AclRequestFilter Coexistence
 
-### 4.1 engine-rest pom.xml
+During the transition period where scaffold's `AclRequestFilter` and engine-rest enforcement are both active, ACL checks would run twice — once in the filter, once in `CaseService`. This is harmless (double-allow is still allow, double-deny is still deny) but wasteful.
+
+**Transition plan:**
+1. Land this spec (engine-rest enforcement)
+2. Verify scaffold's integration tests pass with engine-rest enforcement active
+3. Remove scaffold's `AclRequestFilter` (scaffold#35)
+
+Steps 2-3 are tracked in scaffold#35 and are not blocking for this spec.
+
+---
+
+## 5. Dependencies
+
+### 5.1 engine-rest pom.xml
 
 `casehub-platform-api` is already a direct dependency in `rest/pom.xml` (scope: `provided`). No new dependency is needed — `AclAction`, `AclResourceType`, `AccessDeniedException`, and `AccessControlProvider` are all in `io.casehub.platform.api.acl` within this artifact.
 
-### 4.2 engine-rest test classpath
+### 5.2 engine-rest test classpath
 
 Tests that exercise ACL enforcement need a controllable `AccessControlProvider`. Options:
 - Use `NoOpAccessControlProvider` (default) for tests that should pass without ACL
@@ -105,31 +157,45 @@ Tests that exercise ACL enforcement need a controllable `AccessControlProvider`.
 
 ---
 
-## 5. Test Plan
+## 6. Deployment Safety
 
-### 5.1 Unit tests — `CaseService`
+### 6.1 NoOp default (no migration impact)
 
-- `requireAccess_allowed_noException` — NoOp provider, verify no throw
-- `requireAccess_denied_throwsAccessDeniedException` — mock provider returning false, verify exception with correct actorId/resourceId/action
-- `requireAccess_buildsCorrectResourceId` — verify `"case:" + caseId` format
+Deployments without `acl-jpa` on the classpath get the `NoOpAccessControlProvider` (`canAccess()` → `true`). Behavior is identical to today.
 
-### 5.2 Integration tests — REST endpoints
+### 6.2 Lockout prevention
 
-- `getCaseInstance_withDeniedAccess_returns403` — real REST call, deny via test `AccessControlProvider`
-- `sendSignal_withDeniedAccess_returns403` — verify WRITE action enforcement
-- `suspend_withDeniedAccess_returns403` — verify ADMIN action enforcement
-- `suspend_withNoTenancy_returns404` — verify `CaseControlResource` now checks tenancy
-- `startCase_noAclCheck_succeeds` — verify startCase is not guarded (v1 exclusion)
+Deploying a real `AccessControlProvider` (e.g. `acl-jpa`) without pre-populating grants will deny all access — every `canAccess()` call returns `false` because no grants exist. This is a silent lockout.
 
-### 5.3 Contract preservation
+**Mitigation:** Add a startup health check (`AclEnforcementHealthCheck`) that warns when:
+1. A non-NoOp `AccessControlProvider` is active (real enforcement is on)
+2. The `acl_entry` table has zero rows (no grants provisioned)
 
-- All existing REST tests continue to pass — the `NoOpAccessControlProvider` makes ACL transparent when no real implementation is deployed.
-- **`CaseControlResource` caveat:** The §3.3 change introduces a `requireCase(caseId, tenancyId)` call that depends on `CurrentPrincipal.tenancyId()`. Integration tests (e.g. `CaseControlResourceIT` in the flow module) must provide a valid `CurrentPrincipal` bean. The existing Quarkus test infrastructure already provides one (other resources like `CaseInstanceResource` and `CaseDefinitionResource` already depend on `CurrentPrincipal`), and cases created within tests use the same tenant context — so existing tests are expected to pass without modification.
+Log at WARN: `"ACL enforcement is active but no grants exist — all case access will be denied. Provision grants via AccessControlProvider.grant() or the authorization: YAML block."` This does not block startup — it's informational. But it makes the lockout diagnosable.
 
 ---
 
-## 6. Migration Impact
+## 7. Test Plan
 
-**Zero.** Deployments without `acl-jpa` on the classpath get the `NoOpAccessControlProvider` (`canAccess()` → `true`). Behavior is identical to today. Deployments that add `acl-jpa` get automatic ACL enforcement on all engine-rest endpoints — no per-deployment filter needed.
+### 7.1 Unit tests — `CaseService`
 
-Scaffold's `AclRequestFilter` becomes redundant once this lands and can be removed (tracked separately in scaffold#35).
+- `requireCaseAccess_allowed_returnsInstance` — NoOp provider, verify instance returned
+- `requireCaseAccess_denied_throwsAccessDeniedException` — mock provider returning false, verify exception
+- `requireCaseAccess_notFound_throwsEntityNotFound` — verify 404 before ACL check (tenant isolation first)
+- `requireCaseAccess_buildsCorrectResourceId` — verify `"case:" + caseId` format
+- `requireCaseAccess_logsOnDenial` — verify WARN log emitted
+
+### 7.2 Integration tests — REST endpoints
+
+- `getCaseInstance_withDeniedAccess_returns403` — real REST call, deny via test `AccessControlProvider`
+- `getCaseInstance_returns403_withoutInternalContext` — verify response body has no actorId/resourceId
+- `sendSignal_withDeniedAccess_returns403` — verify WRITE action enforcement
+- `suspend_withDeniedAccess_returns403` — verify ADMIN action enforcement
+- `suspend_withWrongTenant_returns404` — verify `CaseControlResource` now checks tenancy
+- `startCase_noAclCheck_succeeds` — verify startCase is not guarded (v1 exclusion)
+- `lockout_realProviderNoGrants_allDenied` — verify behavior when real provider has no grants
+
+### 7.3 Contract preservation
+
+- All existing REST tests continue to pass — the `NoOpAccessControlProvider` makes ACL transparent when no real implementation is deployed.
+- **`CaseControlResource` caveat:** The §3.4 change introduces a `requireCaseAccess()` call that depends on `CurrentPrincipal.tenancyId()`. Existing integration tests already provide a valid `CurrentPrincipal` bean (other resources depend on it), so existing tests are expected to pass without modification.
