@@ -20,14 +20,24 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.rest.exception.EntityNotFoundException;
+import io.casehub.platform.api.acl.AccessControlProvider;
+import io.casehub.platform.api.acl.AccessDeniedException;
+import io.casehub.platform.api.acl.AclAction;
+import io.casehub.platform.api.acl.AclResourceType;
+import io.casehub.platform.api.identity.CurrentPrincipal;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class CaseService {
 
+  @Inject AccessControlProvider accessControlProvider;
+  @Inject CurrentPrincipal currentPrincipal;
+
+  private static final Logger LOG = Logger.getLogger(CaseService.class);
   @Inject CaseDefinitionRegistry definitionRegistry;
   @Inject CaseHubRuntime runtime;
   @Inject CaseInstanceRepository instanceRepository;
@@ -67,6 +77,21 @@ public class CaseService {
     CaseInstance instance = instanceRepository.findByUuid(caseId, tenancyId);
     if (instance == null) {
       throw new EntityNotFoundException("Case not found: " + caseId);
+    }
+    return instance;
+  }
+
+  public CaseInstance requireCaseAccess(UUID caseId, AclAction action) {
+    String tenancyId = currentPrincipal.tenancyId();
+    CaseInstance instance = instanceRepository.findByUuid(caseId, tenancyId);
+    if (instance == null) {
+      throw new EntityNotFoundException("Case not found: " + caseId);
+    }
+    String actorId = currentPrincipal.actorId();
+    String resourceId = AclResourceType.CASE + ":" + caseId;
+    if (!accessControlProvider.canAccess(actorId, resourceId, action)) {
+      LOG.warnf("ACL denied: actor=%s resource=%s action=%s", actorId, resourceId, action);
+      throw new AccessDeniedException(actorId, resourceId, action);
     }
     return instance;
   }
