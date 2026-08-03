@@ -74,6 +74,7 @@ public class CaseDefinition {
   private Map<String, Double> routingSignalWeights;
   private Map<String, CognitiveDemand> cognitiveDemands = Map.of();
   private Map<AclAction, List<String>> authorization;
+  private Map<String, String> workerServiceAccountIds;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -344,6 +345,18 @@ public class CaseDefinition {
     this.authorization = authorization;
   }
 
+  public String getWorkerServiceAccountId(String workerName) {
+    return workerServiceAccountIds != null ? workerServiceAccountIds.get(workerName) : null;
+  }
+
+  public Map<String, String> getWorkerServiceAccountIds() {
+    return workerServiceAccountIds;
+  }
+
+  public void setWorkerServiceAccountIds(Map<String, String> workerServiceAccountIds) {
+    this.workerServiceAccountIds = workerServiceAccountIds;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -387,6 +400,7 @@ public class CaseDefinition {
     private Map<String, Double> routingSignalWeights;
     private Map<String, CognitiveDemand> cognitiveDemands;
     private Map<AclAction, List<String>> authorization;
+    private Map<String, String> workerServiceAccountIds;
 
     private Builder() {}
 
@@ -654,6 +668,14 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder workerServiceAccountId(String workerName, String serviceAccountId) {
+      if (this.workerServiceAccountIds == null) {
+        this.workerServiceAccountIds = new java.util.HashMap<>();
+      }
+      this.workerServiceAccountIds.put(workerName, serviceAccountId);
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -725,6 +747,23 @@ public class CaseDefinition {
       }
       if (authorization != null && !authorization.isEmpty()) {
         caseHubDefinition.setAuthorization(Map.copyOf(authorization));
+      }
+      if (workerServiceAccountIds != null && !workerServiceAccountIds.isEmpty()) {
+        for (var entry : workerServiceAccountIds.entrySet()) {
+          var actorType =
+              io.casehub.platform.api.identity.ActorTypeResolver.resolve(entry.getValue());
+          if (actorType != io.casehub.platform.api.identity.ActorType.AGENT) {
+            throw new IllegalArgumentException(
+                "serviceAccountId for worker '"
+                    + entry.getKey()
+                    + "' must resolve to AGENT, got "
+                    + actorType
+                    + " for '"
+                    + entry.getValue()
+                    + "'");
+          }
+        }
+        caseHubDefinition.setWorkerServiceAccountIds(Map.copyOf(workerServiceAccountIds));
       }
 
       return caseHubDefinition;

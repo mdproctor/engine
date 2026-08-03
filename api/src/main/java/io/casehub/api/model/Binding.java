@@ -16,10 +16,12 @@
 package io.casehub.api.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.casehub.api.model.acl.WorkerAction;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.Capability;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -40,6 +42,7 @@ public class Binding {
   private LifecycleScope lifecycleScope;
   private Participation participation;
   private ExecutionMode executionMode;
+  private List<WorkerAction> permissionIntent;
 
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
@@ -81,6 +84,10 @@ public class Binding {
 
   public void setExecutionMode(ExecutionMode executionMode) {
     this.executionMode = executionMode;
+  }
+
+  public void setPermissionIntent(List<WorkerAction> permissionIntent) {
+    this.permissionIntent = permissionIntent != null ? List.copyOf(permissionIntent) : null;
   }
 
   public BindingTarget target() {
@@ -144,6 +151,10 @@ public class Binding {
     return inputProjectionOverride != null ? inputProjectionOverride : capability.inputSchema();
   }
 
+  public List<WorkerAction> getPermissionIntent() {
+    return permissionIntent;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -162,6 +173,7 @@ public class Binding {
     private LifecycleScope lifecycleScope;
     private Participation participation;
     private ExecutionMode executionMode;
+    private List<WorkerAction> permissionIntent;
 
     private Builder() {}
 
@@ -249,6 +261,11 @@ public class Binding {
       return this;
     }
 
+    public Builder permissionIntent(List<WorkerAction> permissionIntent) {
+      this.permissionIntent = permissionIntent;
+      return this;
+    }
+
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -295,6 +312,7 @@ public class Binding {
       b.setLifecycleScope(this.lifecycleScope);
       b.setParticipation(this.participation);
       b.setExecutionMode(this.executionMode);
+      b.setPermissionIntent(this.permissionIntent);
       return b;
     }
   }

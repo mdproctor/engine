@@ -13,23 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi.acl;
+package io.casehub.api.model.acl;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.acl.AclResourceType;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.EnumSource;
 
 class WorkerActionTest {
 
-  @ParameterizedTest
-  @EnumSource(WorkerAction.class)
-  void allActionsMaptoCaseResourceType(WorkerAction action) {
-    AclGrant grant = action.toAclGrant();
-    assertEquals(AclResourceType.CASE, grant.resourceType());
+  @Test
+  void allActionsMaptoCaseResourceType() {
+    for (WorkerAction action : WorkerAction.values()) {
+      AclGrant grant = action.toAclGrant();
+      assertEquals(
+          AclResourceType.CASE,
+          grant.resourceType(),
+          "Action " + action + " should map to CASE resource type");
+    }
   }
 
   @Test

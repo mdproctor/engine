@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.common.internal.acl;
 
-import io.casehub.engine.common.spi.acl.WorkerCredential;
+import io.casehub.api.model.acl.WorkerCredential;
 import io.casehub.engine.common.spi.acl.WorkerCredentialStore;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;

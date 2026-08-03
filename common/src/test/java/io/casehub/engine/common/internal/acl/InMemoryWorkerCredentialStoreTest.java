@@ -17,8 +17,8 @@ package io.casehub.engine.common.internal.acl;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-import io.casehub.engine.common.spi.acl.WorkerAction;
-import io.casehub.engine.common.spi.acl.WorkerCredential;
+import io.casehub.api.model.acl.WorkerAction;
+import io.casehub.api.model.acl.WorkerCredential;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;

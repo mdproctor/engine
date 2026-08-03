@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.common.spi.acl;
 
+import io.casehub.api.model.acl.WorkerCredential;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
