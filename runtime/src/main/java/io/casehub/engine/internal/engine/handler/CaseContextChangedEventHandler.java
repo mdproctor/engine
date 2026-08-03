@@ -83,11 +83,13 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.logging.Logger;
+import java.util.UUID;
 
 @ApplicationScoped
 public class CaseContextChangedEventHandler {
@@ -135,6 +137,9 @@ public class CaseContextChangedEventHandler {
 
   @Inject CaseEvaluationSerializer evaluationSerializer;
   @Inject io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject
+          Event<io.casehub.engine.common.spi.event.CaseContextUpdatedEvent>   caseContextUpdatedEvents;
+
 
   @RunOnVirtualThread
   @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
@@ -170,6 +175,12 @@ public class CaseContextChangedEventHandler {
     }
 
     LOG.infof("Handling CaseStateContextChangedEvent for caseId: %s", caseInstance.getUuid());
+
+    if (changedLayer != null) {
+      caseContextUpdatedEvents.fireAsync(
+          new io.casehub.engine.common.spi.event.CaseContextUpdatedEvent(
+              caseInstance.getUuid(), changedLayer, caseInstance.tenancyId));
+    }
 
     final String triggerChannelId = event.triggerChannelId();
     final String triggerCorrelationId = event.triggerCorrelationId();
@@ -249,20 +260,25 @@ public class CaseContextChangedEventHandler {
       return;
     }
 
+    final com.fasterxml.jackson.databind.JsonNode activationSnapshot =
+        changedLayer != null && contextSnapshot.layer(changedLayer) != null
+            ? contextSnapshot.layer(changedLayer).asJsonNode()
+            : null;
+
     if (selected.size() == 1) {
       Binding b = selected.get(0);
       java.util.UUID effectiveSignalId =
           b.getOn() instanceof io.casehub.api.model.ScopeActivatedTrigger ? null : signalId;
       publishByTarget(
-          caseInstance,
-          definition,
-          workers,
-          b,
-          triggerChannelId,
-          triggerCorrelationId,
-          effectiveSignalId,
-          experiences,
-          traceId);
+              caseInstance,
+              definition,
+              workers,
+              b,
+              triggerChannelId,
+              triggerCorrelationId,
+              effectiveSignalId,
+              experiences,
+              traceId, activationSnapshot);
     } else {
       @SuppressWarnings("unchecked")
       java.util.concurrent.CompletableFuture<Void>[] futures =
@@ -276,15 +292,15 @@ public class CaseContextChangedEventHandler {
                     return java.util.concurrent.CompletableFuture.runAsync(
                         () ->
                             publishByTarget(
-                                caseInstance,
-                                definition,
-                                workers,
-                                b,
-                                triggerChannelId,
-                                triggerCorrelationId,
-                                effectiveSignalId,
-                                experiences,
-                                traceId),
+                                    caseInstance,
+                                    definition,
+                                    workers,
+                                    b,
+                                    triggerChannelId,
+                                    triggerCorrelationId,
+                                    effectiveSignalId,
+                                    experiences,
+                                    traceId, activationSnapshot),
                         virtualThreads);
                   })
               .toArray(java.util.concurrent.CompletableFuture[]::new);
@@ -312,15 +328,15 @@ public class CaseContextChangedEventHandler {
   }
 
   private void publishByTarget(
-      final CaseInstance caseInstance,
-      final CaseDefinition caseDefinition,
-      final List<Worker> workers,
-      final Binding binding,
-      final String triggerChannelId,
-      final String triggerCorrelationId,
-      final java.util.UUID signalId,
-      final List<RetrievedExperience> experiences,
-      final String traceId) {
+          final CaseInstance caseInstance,
+          final CaseDefinition caseDefinition,
+          final List<Worker> workers,
+          final Binding binding,
+          final String triggerChannelId,
+          final String triggerCorrelationId,
+          final UUID signalId,
+          final List<RetrievedExperience> experiences,
+          final String traceId, JsonNode activationSnapshot) {
     if (binding.getContextWrite() != null && !binding.getContextWrite().isEmpty()) {
       binding
           .getContextWrite()
@@ -329,20 +345,20 @@ public class CaseContextChangedEventHandler {
     switch (binding.target()) {
       case CapabilityTarget ct ->
           publishWorkerSchedule(
-              caseInstance,
-              caseDefinition,
-              workers,
-              binding,
-              ct.capability(),
-              triggerChannelId,
-              triggerCorrelationId,
-              signalId,
-              experiences,
-              traceId);
+                  caseInstance,
+                  caseDefinition,
+                  workers,
+                  binding,
+                  ct.capability(),
+                  triggerChannelId,
+                  triggerCorrelationId,
+                  signalId,
+                  experiences,
+                  traceId, activationSnapshot);
       case SubCaseTarget st ->
           publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
       case HumanTaskTarget ht ->
-          publishHumanTaskSchedule(caseInstance, caseDefinition, binding, ht, experiences);
+          publishHumanTaskSchedule(caseInstance, caseDefinition, binding, ht, experiences, activationSnapshot);
       case ExtensionTarget et ->
           LOG.warnf(
               "No handler for ExtensionTarget %s on binding '%s'",
@@ -351,16 +367,16 @@ public class CaseContextChangedEventHandler {
   }
 
   private void publishWorkerSchedule(
-      final CaseInstance caseInstance,
-      final CaseDefinition caseDefinition,
-      final List<Worker> workers,
-      final Binding binding,
-      final Capability capability,
-      final String triggerChannelId,
-      final String triggerCorrelationId,
-      final java.util.UUID signalId,
-      final List<RetrievedExperience> experiences,
-      final String traceId) {
+          final CaseInstance caseInstance,
+          final CaseDefinition caseDefinition,
+          final List<Worker> workers,
+          final Binding binding,
+          final Capability capability,
+          final String triggerChannelId,
+          final String triggerCorrelationId,
+          final UUID signalId,
+          final List<RetrievedExperience> experiences,
+          final String traceId, JsonNode activationSnapshot) {
     if (binding.lifecycleScope() != io.casehub.api.model.LifecycleScope.BINDING) {
       var existing = scopedWorkerRegistry.get(caseInstance.getUuid(), binding.getName());
       if (existing.isPresent()) {
@@ -450,7 +466,7 @@ public class CaseContextChangedEventHandler {
             "Agent selected: worker='%s' capability='%s' binding='%s' rationale='%s'",
             a.executorId(), capability.name(), binding.getName(), a.reason());
         scheduleWorker(
-            caseInstance, workers, binding, capability, a.executorId(), signalId, experiences);
+                caseInstance, workers, binding, capability, a.executorId(), signalId, experiences, activationSnapshot);
       }
       case RoutingResult.Unresolvable u -> {
         LOG.warnf(
@@ -505,13 +521,13 @@ public class CaseContextChangedEventHandler {
   }
 
   private void scheduleWorker(
-      final CaseInstance caseInstance,
-      final List<Worker> workers,
-      final Binding binding,
-      final Capability capability,
-      final String workerId,
-      final java.util.UUID signalId,
-      final List<RetrievedExperience> experiences) {
+          final CaseInstance caseInstance,
+          final List<Worker> workers,
+          final Binding binding,
+          final Capability capability,
+          final String workerId,
+          final UUID signalId,
+          final List<RetrievedExperience> experiences, JsonNode activationSnapshot) {
     final Worker selectedWorker =
         workers.stream().filter(w -> w.name().equals(workerId)).findFirst().orElse(null);
     if (selectedWorker == null) {
@@ -571,7 +587,7 @@ public class CaseContextChangedEventHandler {
             ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
             em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null,
             credentialToken,
-            null));
+            activationSnapshot));
   }
 
   private void handleEscalation(
@@ -594,11 +610,11 @@ public class CaseContextChangedEventHandler {
   }
 
   private void publishHumanTaskSchedule(
-      final CaseInstance caseInstance,
-      final CaseDefinition caseDefinition,
-      final Binding binding,
-      final HumanTaskTarget target,
-      final List<RetrievedExperience> experiences) {
+          final CaseInstance caseInstance,
+          final CaseDefinition caseDefinition,
+          final Binding binding,
+          final HumanTaskTarget target,
+          final List<RetrievedExperience> experiences, JsonNode activationSnapshot) {
     final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
 
     if (target.payloadType() != null && target.inputMapping() != null && !inputData.isEmpty()) {
@@ -709,7 +725,7 @@ public class CaseContextChangedEventHandler {
               resolvedExpiresIn,
               experiences,
               scores,
-              null));
+              activationSnapshot));
     } catch (Exception t) {
       LOG.warnf(
           t,
