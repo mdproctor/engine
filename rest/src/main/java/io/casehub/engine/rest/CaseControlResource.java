@@ -19,7 +19,8 @@ import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.engine.rest.dto.CaseControlRequest;
 import io.casehub.engine.rest.dto.CaseControlResponse;
 import io.casehub.engine.rest.dto.ProblemDetail;
-import io.casehub.engine.rest.exception.EntityNotFoundException;
+import io.casehub.engine.rest.service.CaseService;
+import io.casehub.platform.api.acl.AclAction;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Consumes;
@@ -43,6 +44,7 @@ import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 public class CaseControlResource {
 
   @Inject CaseHubRuntime runtime;
+  @Inject CaseService caseService;
 
   @POST
   @Path("suspend")
@@ -62,11 +64,8 @@ public class CaseControlResource {
       description = "Invalid state transition",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public CaseControlResponse suspend(@PathParam("caseId") UUID caseId, CaseControlRequest request) {
-    try {
-      runtime.suspendCase(caseId);
-    } catch (IllegalArgumentException e) {
-      throw new EntityNotFoundException(e.getMessage());
-    }
+    caseService.requireCaseAccess(caseId, AclAction.ADMIN);
+    runtime.suspendCase(caseId);
     return new CaseControlResponse(caseId, "suspend", "completed");
   }
 
@@ -88,11 +87,8 @@ public class CaseControlResource {
       description = "Invalid state transition",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public CaseControlResponse resume(@PathParam("caseId") UUID caseId, CaseControlRequest request) {
-    try {
-      runtime.resumeCase(caseId);
-    } catch (IllegalArgumentException e) {
-      throw new EntityNotFoundException(e.getMessage());
-    }
+    caseService.requireCaseAccess(caseId, AclAction.ADMIN);
+    runtime.resumeCase(caseId);
     return new CaseControlResponse(caseId, "resume", "completed");
   }
 
@@ -114,11 +110,8 @@ public class CaseControlResource {
       description = "Invalid state transition",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public CaseControlResponse cancel(@PathParam("caseId") UUID caseId, CaseControlRequest request) {
-    try {
-      runtime.cancelCase(caseId);
-    } catch (IllegalArgumentException e) {
-      throw new EntityNotFoundException(e.getMessage());
-    }
+    caseService.requireCaseAccess(caseId, AclAction.ADMIN);
+    runtime.cancelCase(caseId);
     return new CaseControlResponse(caseId, "cancel", "completed");
   }
 }
