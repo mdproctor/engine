@@ -108,6 +108,8 @@ class CaseContextChangedEventHandlerRoutingTest {
   jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseContextUpdatedEvent>
       caseContextUpdatedEvents;
 
+  @Mock io.casehub.engine.internal.acl.WorkerGrantOrchestrator workerGrantOrchestrator;
+
   @InjectMocks CaseContextChangedEventHandler handler;
 
   private CaseInstance caseInstance;
@@ -382,6 +384,15 @@ class CaseContextChangedEventHandlerRoutingTest {
                 java.util.Map.of()));
     when(workerProvisioner.provision(any(), any()))
         .thenReturn(io.casehub.api.spi.ProvisionResult.empty());
+    when(workerGrantOrchestrator.grantAndMint(any(), any(), any(), any(), any()))
+        .thenReturn(
+            new io.casehub.api.model.acl.WorkerCredential(
+                "test-token",
+                "agent:test",
+                caseInstance.getUuid(),
+                java.util.Set.of(),
+                java.time.Instant.now().plusSeconds(3600),
+                java.time.Instant.now()));
 
     handler.onCaseStateContextChangedEventHandler(
         new CaseContextChangedEvent(
