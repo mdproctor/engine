@@ -15,7 +15,8 @@
  */
 package io.casehub.engine.common.internal.acl;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.model.acl.WorkerAction;
 import io.casehub.api.model.acl.WorkerCredential;
