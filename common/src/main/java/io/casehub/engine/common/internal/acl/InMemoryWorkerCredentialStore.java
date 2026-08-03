@@ -62,7 +62,7 @@ public class InMemoryWorkerCredentialStore implements WorkerCredentialStore {
   @Override
   public List<WorkerCredential> findActiveByActorAndCase(String actorId, UUID caseId) {
     return store.values().stream()
-        .filter(c -> c.actorId().equals(actorId) && c.caseId().equals(caseId))
+        .filter(c -> c.actorId().equals(actorId) && c.caseId().equals(caseId) && !c.isExpired())
         .toList();
   }
 }

@@ -65,7 +65,13 @@ public class WorkerCredentialFilter implements ContainerRequestFilter {
     String path = ctx.getUriInfo().getPath();
     Matcher matcher = CASE_ID_PATTERN.matcher(path);
     if (matcher.find()) {
-      UUID requestCaseId = UUID.fromString(matcher.group(1));
+      UUID requestCaseId;
+      try {
+        requestCaseId = UUID.fromString(matcher.group(1));
+      } catch (IllegalArgumentException e) {
+        ctx.abortWith(Response.status(400).entity("Invalid case ID in path").build());
+        return;
+      }
       if (!cred.caseId().equals(requestCaseId)) {
         LOG.warnf(
             "Worker credential scope violation: token case=%s request case=%s",

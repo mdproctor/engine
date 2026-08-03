@@ -68,15 +68,15 @@ public class WorkerGrantOrchestrator {
             .map(WorkerAction::toAclGrant)
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
+    Instant maxExpiry = Instant.now().plus(MAX_CREDENTIAL_TTL);
+    Instant expiry = deadline != null && deadline.isBefore(maxExpiry) ? deadline : maxExpiry;
+
     String resourceId = AclResourceType.CASE + ":" + caseId;
     List<AclEntryRequest> requests =
         grants.stream()
-            .map(g -> new AclEntryRequest(identity.actorId(), resourceId, g.action(), null))
+            .map(g -> new AclEntryRequest(identity.actorId(), resourceId, g.action(), expiry))
             .toList();
     accessControlProvider.grantBatch(requests);
-
-    Instant maxExpiry = Instant.now().plus(MAX_CREDENTIAL_TTL);
-    Instant expiry = deadline != null && deadline.isBefore(maxExpiry) ? deadline : maxExpiry;
 
     String token = generateToken();
     var credential =
@@ -95,7 +95,9 @@ public class WorkerGrantOrchestrator {
     credentialStore.revoke(token);
 
     if (revoked.isEmpty()) {
-      LOG.warnf("Credential not found for revocation: token=%s", token);
+      LOG.warnf(
+          "Credential not found for revocation: token=...%s",
+          token.length() > 6 ? token.substring(token.length() - 6) : token);
       return;
     }
 
