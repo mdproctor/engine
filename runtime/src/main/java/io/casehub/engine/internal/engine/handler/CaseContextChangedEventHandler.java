@@ -541,7 +541,8 @@ public class CaseContextChangedEventHandler {
             ExecutionOrigin.BINDING_DISPATCH,
             experiences,
             ls != io.casehub.api.model.LifecycleScope.BINDING ? ls : null,
-            em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null));
+            em != io.casehub.api.model.ExecutionMode.TRANSIENT ? em : null,
+            null));
   }
 
   private void handleEscalation(

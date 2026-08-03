@@ -54,6 +54,7 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
+import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.routing.PersonalitySignalRecorder;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -66,11 +67,12 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.logging.Logger;
 
 /**
  * Applies worker output to the case context, persists the completion event, and notifies listeners
@@ -92,8 +94,11 @@ public class WorkflowExecutionCompletedHandler {
   @Inject CaseInstanceRepository caseInstanceRepository;
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
   @Inject PersonalitySignalRecorder personalitySignalRecorder;
-
   @Inject
+          WorkerGrantOrchestrator   workerGrantOrchestrator;
+
+
+    @Inject
   jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
       outcomeRecorder;
 
@@ -107,6 +112,19 @@ public class WorkflowExecutionCompletedHandler {
       final String traceId = traceIdProvider.currentTraceId().orElse(null);
       final CaseInstance caseInstance = event.caseInstance();
       final Worker worker = event.worker();
+
+      if (event.workerCredentialToken() != null) {
+        try {
+          workerGrantOrchestrator.revokeForWorker(
+              event.workerCredentialToken(),
+              worker.name(),
+              caseInstance.getUuid(),
+              true);
+        } catch (Exception ex) {
+          LOG.warnf(ex, "Worker credential revocation failed for case=%s worker=%s",
+              caseInstance.getUuid(), worker.name());
+        }
+      }
 
       // Outcome fork: non-success outcomes route to the semantic failure path.
       // Completed is treated like Success — it signals lifecycle scope completion.

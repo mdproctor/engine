@@ -43,7 +43,8 @@ public record WorkflowExecutionCompleted(
     Map<String, Object> output,
     String bindingName,
     WorkerOutcome outcome,
-    UUID signalId) {
+    UUID signalId,
+    String workerCredentialToken) {
 
   /** Convenience constructor for non-awaiting worker completions. */
   public WorkflowExecutionCompleted(
@@ -53,7 +54,19 @@ public record WorkflowExecutionCompleted(
       Map<String, Object> output,
       String bindingName,
       WorkerOutcome outcome) {
-    this(caseInstance, worker, idempotency, output, bindingName, outcome, null);
+    this(caseInstance, worker, idempotency, output, bindingName, outcome, null, null);
+  }
+
+  /** Convenience constructor with signalId but no credential token. */
+  public WorkflowExecutionCompleted(
+      CaseInstance caseInstance,
+      Worker worker,
+      String idempotency,
+      Map<String, Object> output,
+      String bindingName,
+      WorkerOutcome outcome,
+      UUID signalId) {
+    this(caseInstance, worker, idempotency, output, bindingName, outcome, signalId, null);
   }
 
   /** Convenience constructor for the gate-re-fire path. */
@@ -64,6 +77,6 @@ public record WorkflowExecutionCompleted(
       final Map<String, Object> output,
       final String bindingName) {
     return new WorkflowExecutionCompleted(
-        caseInstance, worker, idempotency, output, bindingName, WorkerOutcome.success(), null);
+        caseInstance, worker, idempotency, output, bindingName, WorkerOutcome.success(), null, null);
   }
 }

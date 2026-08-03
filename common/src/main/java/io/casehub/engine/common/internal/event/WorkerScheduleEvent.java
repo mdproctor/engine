@@ -33,7 +33,8 @@ public record WorkerScheduleEvent(
     ExecutionOrigin origin,
     List<RetrievedExperience> experiences,
     io.casehub.api.model.LifecycleScope lifecycleScope,
-    io.casehub.api.model.ExecutionMode executionMode) {
+    io.casehub.api.model.ExecutionMode executionMode,
+    String workerCredentialToken) {
 
   public WorkerScheduleEvent {
     experiences = experiences == null ? List.of() : experiences;
@@ -58,6 +59,7 @@ public record WorkerScheduleEvent(
         origin,
         experiences,
         null,
+        null,
         null);
   }
 
@@ -77,16 +79,17 @@ public record WorkerScheduleEvent(
         null,
         List.of(),
         null,
+        null,
         null);
   }
 
   public WorkerScheduleEvent(
       CaseInstance caseInstance, Worker worker, Capability capability, String bindingName) {
-    this(caseInstance, worker, capability, bindingName, null, null, null, List.of(), null, null);
+    this(caseInstance, worker, capability, bindingName, null, null, null, List.of(), null, null, null);
   }
 
   public WorkerScheduleEvent(CaseInstance caseInstance, Worker worker, Capability capability) {
-    this(caseInstance, worker, capability, null, null, null, null, List.of(), null, null);
+    this(caseInstance, worker, capability, null, null, null, null, List.of(), null, null, null);
   }
 
   public String effectiveInputProjection() {
