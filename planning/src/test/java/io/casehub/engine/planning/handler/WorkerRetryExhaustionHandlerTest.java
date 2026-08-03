@@ -173,7 +173,12 @@ class WorkerRetryExhaustionHandlerTest {
     verify(planItemStateChangedEvents)
         .fireAsync(
             new PlanItemStateChangedEvent(
-                caseId, item.getPlanItemId(), "capability-binding", "RUNNING", "FAULTED", "test-tenant"));
+                caseId,
+                item.getPlanItemId(),
+                "capability-binding",
+                TaskStatus.RUNNING,
+                TaskStatus.FAULTED,
+                "test-tenant"));
 
     // Assert: compoundCompletionEvaluator.evaluate() called
     verify(compoundCompletionEvaluator)

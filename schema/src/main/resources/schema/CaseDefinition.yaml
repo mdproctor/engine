@@ -656,6 +656,14 @@ $defs:
         items:
           type: string
         description: "Context keys this binding is expected to produce. Used for static cycle detection and dependency reasoning."
+      permissionIntent:
+        type: array
+        description: >
+          Declares what automated worker actions are permitted for this binding.
+          Each entry is a WorkerAction mapped to ACL grants at dispatch time.
+          Default (if omitted): [read-context] only (fail-closed).
+        items:
+          type: string
       lifecycleScope:
         type: string
         enum: [ BINDING, COMPOUND, CASE ]

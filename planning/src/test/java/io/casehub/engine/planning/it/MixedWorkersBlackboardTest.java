@@ -101,7 +101,7 @@ class MixedWorkersBlackboardTest {
         new ConcurrentHashMap<>();
 
     void onPlanItemStateChanged(@ObservesAsync PlanItemStateChangedEvent event) {
-      if (!"COMPLETED".equals(event.newStatus())) return;
+      if (TaskStatus.COMPLETED != event.newStatus()) return;
       futures
           .computeIfAbsent(key(event.caseId(), event.bindingName()), k -> new CompletableFuture<>())
           .complete(event.planItemId());

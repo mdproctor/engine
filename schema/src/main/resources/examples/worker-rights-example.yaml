@@ -3,7 +3,7 @@
 ##
 ## Demonstrates how access control works across the three isolation levels:
 ##
-##   1. In-process workers (credit-check) — sandboxed by inputSchema/outputSchema.
+##   1. In-process workers (credit-check) — sandboxed by inputProjection/outputProjection.
 ##      No ACL grants needed. The engine passes only the projected data in,
 ##      and only the projected data out. The worker never sees the full case context.
 ##
@@ -60,16 +60,16 @@ spec:
 
   capabilities:
     - name: credit-check
-      inputSchema: ".applicant"
-      outputSchema: ".creditResult"
+      inputProjection: ".applicant"
+      outputProjection: ".creditResult"
 
     - name: risk-assessment
-      inputSchema: ".applicant"
-      outputSchema: ".riskResult"
+      inputProjection: ".applicant"
+      outputProjection: ".riskResult"
 
     - name: compliance-review
-      inputSchema: "."
-      outputSchema: ".complianceResult"
+      inputProjection: "."
+      outputProjection: ".complianceResult"
 
   ## ─── Workers ────────────────────────────────────────────────────────
 
@@ -113,9 +113,9 @@ spec:
     ## and returns projected output. No REST calls, no ACL needed.
     - name: run-credit-check
       capability: credit-check
-      worker: credit-check-worker
       on:
-        contextChanged: ".applicant != null and .creditResult == null"
+        contextChange:
+          filter: ".applicant != null and .creditResult == null"
 
     ## External binding with permissionIntent.
     ## The risk agent needs to:
@@ -141,9 +141,9 @@ spec:
     ## On completion, the engine revokes the grants and invalidates the token.
     - name: assess-risk
       capability: risk-assessment
-      worker: risk-assessment-agent
       on:
-        contextChanged: ".creditResult != null and .riskResult == null"
+        contextChange:
+          filter: ".creditResult != null and .riskResult == null"
       permissionIntent:
         - read-context
         - signal-case
@@ -159,9 +159,9 @@ spec:
     ## and will enforce separately when per-resource-type ACL is added.
     - name: run-compliance-check
       capability: compliance-review
-      worker: compliance-checker
       on:
-        contextChanged: ".riskResult != null and .complianceResult == null"
+        contextChange:
+          filter: ".riskResult != null and .complianceResult == null"
       permissionIntent:
         - read-context
         - read-event-log

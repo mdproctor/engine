@@ -69,7 +69,9 @@ public class WorkerRetryExhaustionHandler {
   @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED, blocking = true)
   public void onWorkerRetriesExhausted(final WorkerRetriesExhaustedEvent event) {
     final CasePlanModel plan = registry.get(event.caseId()).orElse(null);
-    if (plan == null) return;
+    if (plan == null) {
+      return;
+    }
 
     final String planItemId;
     if (event.bindingName() != null) {
@@ -96,6 +98,7 @@ public class WorkerRetryExhaustionHandler {
                     planItemId, event.workerId(), event.caseId(), item.getStatus());
                 return;
               }
+              TaskStatus prevStatus = item.getStatus();
               try {
                 item.markFaulted();
               } catch (IllegalStateException e) {
@@ -105,10 +108,14 @@ public class WorkerRetryExhaustionHandler {
                 return;
               }
 
-              String prevStatus = item.getStatus().name();
               planItemStateChangedEvents.fireAsync(
                   new PlanItemStateChangedEvent(
-                      event.caseId(), planItemId, item.getBindingName(), prevStatus, io.casehub.api.model.TaskStatus.FAULTED.name(), event.tenancyId()));
+                      event.caseId(),
+                      planItemId,
+                      item.getBindingName(),
+                      prevStatus,
+                      TaskStatus.FAULTED,
+                      event.tenancyId()));
 
               compoundCompletionEvaluator.evaluate(
                   event.caseId(), event.tenancyId(), plan, item.getBindingName());

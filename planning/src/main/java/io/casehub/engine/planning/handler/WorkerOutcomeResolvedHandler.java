@@ -87,7 +87,7 @@ public class WorkerOutcomeResolvedHandler {
                 return;
               }
 
-              String prevStatus = item.getStatus().name();
+              TaskStatus prevStatus = item.getStatus();
               item.markFaulted();
               planItemStateChangedEvents.fireAsync(
                   new PlanItemStateChangedEvent(
@@ -95,7 +95,7 @@ public class WorkerOutcomeResolvedHandler {
                       item.getPlanItemId(),
                       item.getBindingName(),
                       prevStatus,
-                      io.casehub.api.model.TaskStatus.FAULTED.name(),
+                      TaskStatus.FAULTED,
                       event.caseInstance().tenancyId));
 
               if (event.disposition() == OutcomeDisposition.EXHAUSTED

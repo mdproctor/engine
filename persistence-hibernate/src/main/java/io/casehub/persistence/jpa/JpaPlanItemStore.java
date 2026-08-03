@@ -45,7 +45,8 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
     e.executorName = request.executorName();
     e.executorDescription = request.executorDescription();
     e.lifecycleScope = request.lifecycleScope();
-    e.activationContext = request.activationContext() != null ? request.activationContext().toString() : null;
+    e.activationContext =
+        request.activationContext() != null ? request.activationContext().toString() : null;
     em.persist(e);
   }
 
@@ -158,12 +159,13 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
   }
 
   private static com.fasterxml.jackson.databind.JsonNode parseJsonNode(String json) {
-    if (json == null || json.isBlank()) {return null;}
+    if (json == null || json.isBlank()) {
+      return null;
+    }
     try {
       return new com.fasterxml.jackson.databind.ObjectMapper().readTree(json);
     } catch (Exception e) {
       return null;
     }
   }
-
 }

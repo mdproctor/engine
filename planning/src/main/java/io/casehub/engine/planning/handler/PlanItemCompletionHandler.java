@@ -126,11 +126,17 @@ public class PlanItemCompletionHandler {
                     item.getPlanItemId(), bindingName, caseId, item.getStatus());
                 return;
               }
-              String prevStatus = item.getStatus().name();
+              TaskStatus prevStatus = item.getStatus();
               item.markCompleted();
               compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
               planItemStateChangedEvents.fireAsync(
-                  new PlanItemStateChangedEvent(caseId, item.getPlanItemId(), bindingName, prevStatus, TaskStatus.COMPLETED.name(), tenancyId));
+                  new PlanItemStateChangedEvent(
+                      caseId,
+                      item.getPlanItemId(),
+                      bindingName,
+                      prevStatus,
+                      TaskStatus.COMPLETED,
+                      tenancyId));
             },
             () ->
                 LOG.debugf(
@@ -159,11 +165,17 @@ public class PlanItemCompletionHandler {
                     planItemId, trackingKey, caseId, item.getStatus());
                 return;
               }
-              String prevStatus = item.getStatus().name();
+              TaskStatus prevStatus = item.getStatus();
               item.markCompleted();
               compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
               planItemStateChangedEvents.fireAsync(
-                  new PlanItemStateChangedEvent(caseId, planItemId, item.getBindingName(), prevStatus, TaskStatus.COMPLETED.name(), tenancyId));
+                  new PlanItemStateChangedEvent(
+                      caseId,
+                      planItemId,
+                      item.getBindingName(),
+                      prevStatus,
+                      TaskStatus.COMPLETED,
+                      tenancyId));
             });
   }
 }

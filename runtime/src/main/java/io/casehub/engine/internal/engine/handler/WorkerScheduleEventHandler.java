@@ -148,18 +148,19 @@ public class WorkerScheduleEventHandler {
 
       EventLog eventLog =
           buildEventLog(
-                  instance,
-                  worker,
-                  capability,
-                  serialisedPayload,
-                  inputDataHash,
-                  bindingName,
-                  event.signalId(),
-                  event.origin(),
-                  bridge.contextType().getName(),
-                  event.experiences(),
-                  event.lifecycleScope(),
-                  event.executionMode(), event.activationContext());
+              instance,
+              worker,
+              capability,
+              serialisedPayload,
+              inputDataHash,
+              bindingName,
+              event.signalId(),
+              event.origin(),
+              bridge.contextType().getName(),
+              event.experiences(),
+              event.lifecycleScope(),
+              event.executionMode(),
+              event.activationContext());
 
       String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
       java.util.concurrent.locks.ReentrantLock lock =
@@ -208,18 +209,19 @@ public class WorkerScheduleEventHandler {
   }
 
   private EventLog buildEventLog(
-          CaseInstance instance,
-          Worker worker,
-          Capability capability,
-          JsonNode serialisedPayload,
-          String inputDataHash,
-          String bindingName,
-          UUID signalId,
-          ExecutionOrigin origin,
-          String contextBridgeType,
-          List<RetrievedExperience> experiences,
-          LifecycleScope lifecycleScope,
-          ExecutionMode executionMode, JsonNode activationContext) {
+      CaseInstance instance,
+      Worker worker,
+      Capability capability,
+      JsonNode serialisedPayload,
+      String inputDataHash,
+      String bindingName,
+      UUID signalId,
+      ExecutionOrigin origin,
+      String contextBridgeType,
+      List<RetrievedExperience> experiences,
+      LifecycleScope lifecycleScope,
+      ExecutionMode executionMode,
+      JsonNode activationContext) {
     Map<String, String> metadataBuilder = new HashMap<>();
     metadataBuilder.put("workerName", worker.name());
     metadataBuilder.put("capabilityName", capability.name());

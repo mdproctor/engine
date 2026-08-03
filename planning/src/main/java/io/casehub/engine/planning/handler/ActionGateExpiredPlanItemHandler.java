@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.planning.handler;
 
+import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.event.ActionGateWorkerFaultedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
@@ -66,11 +67,16 @@ public class ActionGateExpiredPlanItemHandler {
                     planItemId, event.workerId(), event.caseId(), item.getStatus());
                 return;
               }
-              String prevStatus = item.getStatus().name();
+              TaskStatus prevStatus = item.getStatus();
               item.markFaulted();
               planItemStateChangedEvents.fireAsync(
                   new PlanItemStateChangedEvent(
-                      event.caseId(), planItemId, item.getBindingName(), prevStatus, io.casehub.api.model.TaskStatus.FAULTED.name(), event.tenancyId()));
+                      event.caseId(),
+                      planItemId,
+                      item.getBindingName(),
+                      prevStatus,
+                      TaskStatus.FAULTED,
+                      event.tenancyId()));
               LOG.infof(
                   "PlanItem %s faulted (gate worker faulted): caseId=%s workerId=%s",
                   planItemId, event.caseId(), event.workerId());
