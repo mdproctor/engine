@@ -198,6 +198,11 @@
             <artifactId>casehub-platform-acl-inmem</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-micrometer</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <properties>
