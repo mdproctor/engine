@@ -26,8 +26,7 @@ public class AccessDeniedExceptionMapper implements ExceptionMapper<AccessDenied
 
   @Override
   public Response toResponse(AccessDeniedException exception) {
-    return Response.status(403)
-        .entity(new ProblemDetail("Access denied", 403, exception.getMessage()))
-        .build();
-  }
+      return Response.status(403)
+                     .entity(new ProblemDetail("Access denied", 403, "Insufficient permissions"))
+                     .build();}
 }
