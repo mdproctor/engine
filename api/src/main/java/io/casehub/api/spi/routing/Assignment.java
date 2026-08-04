@@ -19,8 +19,15 @@ import jakarta.annotation.Nullable;
 import java.util.Objects;
 
 public record Assignment(
-    String executorId, @Nullable String capabilityName, @Nullable String reason) {
+    String executorId,
+    @Nullable String capabilityName,
+    @Nullable String reason,
+    @Nullable String variantId) {
   public Assignment {
     Objects.requireNonNull(executorId, "executorId");
+  }
+
+  public Assignment(String executorId, @Nullable String capabilityName, @Nullable String reason) {
+    this(executorId, capabilityName, reason, null);
   }
 }

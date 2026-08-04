@@ -39,7 +39,8 @@ public record PlanItemRecord(
     boolean repeatable,
     String parentCompoundId,
     String lifecycleScope,
-    com.fasterxml.jackson.databind.JsonNode activationContext) {
+    com.fasterxml.jackson.databind.JsonNode activationContext,
+    String variantId) {
 
   public static PlanItemRecord primitive(
       UUID caseId,
@@ -71,6 +72,7 @@ public record PlanItemRecord(
         null,
         null,
         false,
+        null,
         null,
         null,
         null);

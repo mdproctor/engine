@@ -175,7 +175,8 @@ public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemS
         false,
         null,
         e.lifecycleScope,
-        parseJsonNode(e.activationContext));
+        parseJsonNode(e.activationContext),
+        null);
   }
 
   private static com.fasterxml.jackson.databind.JsonNode parseJsonNode(String json) {

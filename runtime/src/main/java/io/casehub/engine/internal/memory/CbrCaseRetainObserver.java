@@ -281,7 +281,7 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
         OUTCOME_MAP.getOrDefault(record.status(), RoutingOutcome.FAILURE).name(),
         priority,
         Map.of(),
-        null);
+        record.variantId());
   }
 
   private static Object unwrap(JsonNode node) {

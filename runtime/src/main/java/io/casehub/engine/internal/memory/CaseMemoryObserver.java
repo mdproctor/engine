@@ -16,39 +16,32 @@
 package io.casehub.engine.internal.memory;
 
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
-import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.memory.runtime.MemoryEmitter;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.MemoryInput;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
-import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class CaseMemoryObserver {
-
-  private static final Logger LOG = Logger.getLogger(CaseMemoryObserver.class);
 
   private static final MemoryDomain DOMAIN = new MemoryDomain("case-lifecycle");
 
   private static final Set<String> CAPTURED_EVENTS =
       Set.of("CaseCompleted", "CaseCancelled", "CaseFailed");
 
-  private final Instance<CaseMemoryStore> memoryStore;
+  private final MemoryEmitter emitter;
 
   @Inject
-  public CaseMemoryObserver(final Instance<CaseMemoryStore> memoryStore) {
-    this.memoryStore = memoryStore;
+  public CaseMemoryObserver(final MemoryEmitter emitter) {
+    this.emitter = emitter;
   }
 
   public void onCaseLifecycleEvent(@ObservesAsync final CaseLifecycleEvent event) {
     if (!CAPTURED_EVENTS.contains(event.eventType())) {
-      return;
-    }
-    if (!memoryStore.isResolvable()) {
       return;
     }
 
@@ -64,16 +57,7 @@ public class CaseMemoryObserver {
     final MemoryInput input =
         new MemoryInput(caseIdStr, DOMAIN, caseIdStr, caseIdStr, text, attrs, null);
 
-    final CaseMemoryStore store = memoryStore.get();
-    try {
-      store.store(input);
-    } catch (final Exception e) {
-      LOG.warnf(
-          "CaseMemoryObserver: failed to store memory for caseId=%s event=%s: %s",
-          caseIdStr, event.eventType(), e.getMessage());
-    } finally {
-      memoryStore.destroy(store);
-    }
+    emitter.emit(input);
   }
 
   private Map<String, String> buildAttributes(final CaseLifecycleEvent event) {

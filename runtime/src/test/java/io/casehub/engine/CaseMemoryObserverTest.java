@@ -17,37 +17,29 @@ package io.casehub.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.memory.CaseMemoryObserver;
-import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.memory.runtime.MemoryEmitter;
 import io.casehub.neocortex.memory.MemoryInput;
-import jakarta.enterprise.inject.Instance;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class CaseMemoryObserverTest {
 
-  private CaseMemoryStore memoryStore;
+  private MemoryEmitter emitter;
   private CaseMemoryObserver observer;
 
   @BeforeEach
   void setUp() {
-    memoryStore = mock(CaseMemoryStore.class);
-    when(memoryStore.store(any())).thenReturn("mem-id-1");
-
-    @SuppressWarnings("unchecked")
-    final Instance<CaseMemoryStore> instance = mock(Instance.class);
-    when(instance.isResolvable()).thenReturn(true);
-    when(instance.get()).thenReturn(memoryStore);
-
-    observer = new CaseMemoryObserver(instance);
+    emitter = mock(MemoryEmitter.class);
+    observer = new CaseMemoryObserver(emitter);
   }
 
   @Test
@@ -58,19 +50,20 @@ class CaseMemoryObserverTest {
         CaseLifecycleEvent.of(
             caseId, null, "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
 
-    verify(memoryStore, times(1)).store(any(MemoryInput.class));
+    verify(emitter, times(1)).emit(any(MemoryInput.class));
   }
 
   @Test
   void caseCompleted_memoryContainsCaseId() {
     final UUID caseId = UUID.randomUUID();
     final MemoryInput[] captured = new MemoryInput[1];
-    when(memoryStore.store(any()))
-        .thenAnswer(
+    doAnswer(
             inv -> {
               captured[0] = inv.getArgument(0);
-              return "id";
-            });
+              return null;
+            })
+        .when(emitter)
+        .emit(any());
 
     observer.onCaseLifecycleEvent(
         CaseLifecycleEvent.of(
@@ -90,20 +83,6 @@ class CaseMemoryObserverTest {
         CaseLifecycleEvent.of(
             caseId, null, "StartCase", "CaseStarted", "RUNNING", null, null, null));
 
-    verify(memoryStore, never()).store(any());
-  }
-
-  @Test
-  void storeNotResolvable_doesNotThrow() {
-    @SuppressWarnings("unchecked")
-    final Instance<CaseMemoryStore> absent = mock(Instance.class);
-    when(absent.isResolvable()).thenReturn(false);
-    final CaseMemoryObserver noStoreObserver = new CaseMemoryObserver(absent);
-
-    noStoreObserver.onCaseLifecycleEvent(
-        CaseLifecycleEvent.of(
-            UUID.randomUUID(), null, "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
-
-    verify(absent, never()).get();
+    verify(emitter, never()).emit(any());
   }
 }
