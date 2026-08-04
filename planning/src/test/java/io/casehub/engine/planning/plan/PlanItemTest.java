@@ -198,6 +198,7 @@ class PlanItemTest {
   @Test
   void markDelegated_from_pending_transitions_to_delegated() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
   }
@@ -212,6 +213,7 @@ class PlanItemTest {
   @Test
   void markDelegated_from_delegated_throws() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     assertThatThrownBy(item::markDelegated).isInstanceOf(IllegalStateException.class);
   }
@@ -219,6 +221,7 @@ class PlanItemTest {
   @Test
   void markCompleted_from_delegated_succeeds() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     item.markCompleted();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
@@ -227,6 +230,7 @@ class PlanItemTest {
   @Test
   void markFaulted_from_delegated_succeeds() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     item.markFaulted();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
@@ -235,6 +239,7 @@ class PlanItemTest {
   @Test
   void markCancelled_from_delegated_succeeds() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     item.markCancelled();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.CANCELLED);
@@ -253,6 +258,7 @@ class PlanItemTest {
   @Test
   void markRejected_from_delegated_transitions_to_rejected() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     item.markRejected();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.REJECTED);
@@ -313,6 +319,7 @@ class PlanItemTest {
   @Test
   void markObsolete_from_delegated_succeeds() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     item.markObsolete();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.OBSOLETE);
@@ -366,6 +373,7 @@ class PlanItemTest {
   @Test
   void markSuspended_from_delegated_succeeds() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     item.markSuspended();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.SUSPENDED);
@@ -395,6 +403,7 @@ class PlanItemTest {
   @Test
   void markResumed_from_suspended_returns_to_delegated() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     item.markSuspended();
     item.markResumed();
@@ -404,6 +413,7 @@ class PlanItemTest {
   @Test
   void markResumed_from_delegated_throws() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     assertThatThrownBy(item::markResumed).isInstanceOf(IllegalStateException.class);
   }
@@ -417,6 +427,7 @@ class PlanItemTest {
   @Test
   void suspend_resume_cycle_returns_to_delegated() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     item.markSuspended();
     item.markResumed();
@@ -595,6 +606,7 @@ class PlanItemTest {
   @Test
   void markCancelled_concurrentCallers_exactlyOneWins() throws Exception {
     PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
 
     int threadCount = 10;
@@ -635,6 +647,7 @@ class PlanItemTest {
   @Test
   void markObsolete_vs_markCancelled_exactlyOneWins() throws Exception {
     PlanItem item = PlanItem.create("b1", ExecutorRef.of("w1"), 0, null);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
 
     CountDownLatch ready = new CountDownLatch(2);
@@ -687,5 +700,118 @@ class PlanItemTest {
         .as("exactly one transition must win")
         .isEqualTo(1);
     assertThat(item.getStatus().isTerminal()).isTrue();
+  }
+
+  @Test
+  void tryMarkDispatching_from_pending_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DISPATCHING);
+  }
+
+  @Test
+  void tryMarkDispatching_from_running_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.markRunning();
+    assertThat(item.tryMarkDispatching()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.RUNNING);
+  }
+
+  @Test
+  void tryMarkDispatching_from_dispatching_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkDispatching();
+    assertThat(item.tryMarkDispatching()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DISPATCHING);
+  }
+
+  @Test
+  void revertDispatching_from_dispatching_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkDispatching();
+    assertThat(item.revertDispatching()).isTrue();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.PENDING);
+  }
+
+  @Test
+  void revertDispatching_from_pending_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    assertThat(item.revertDispatching()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.PENDING);
+  }
+
+  @Test
+  void markDelegated_from_dispatching_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkDispatching();
+    item.markDelegated();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
+  }
+
+  @Test
+  void markDelegated_from_pending_throws() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    assertThatThrownBy(item::markDelegated)
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessageContaining("Cannot transition to DELEGATED from PENDING");
+  }
+
+  @Test
+  void markFaulted_from_dispatching_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkDispatching();
+    item.markFaulted();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
+  }
+
+  @Test
+  void dispatching_is_active_and_not_terminal() {
+    assertThat(TaskStatus.DISPATCHING.isActive()).isTrue();
+    assertThat(TaskStatus.DISPATCHING.isTerminal()).isFalse();
+  }
+
+  @Test
+  void restore_rejects_dispatching() {
+    assertThatThrownBy(
+            () ->
+                PlanItem.restore(
+                    "id-1",
+                    "binding-a",
+                    ExecutorRef.of("w"),
+                    null,
+                    TaskStatus.DISPATCHING,
+                    Instant.now()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("DISPATCHING");
+  }
+
+  @Test
+  void concurrent_tryMarkDispatching_only_one_thread_wins() throws InterruptedException {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    int threadCount = 10;
+    CountDownLatch ready = new CountDownLatch(threadCount);
+    CountDownLatch go = new CountDownLatch(1);
+    AtomicInteger winners = new AtomicInteger(0);
+
+    for (int i = 0; i < threadCount; i++) {
+      Thread.ofVirtual()
+          .start(
+              () -> {
+                ready.countDown();
+                try {
+                  go.await();
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+                if (item.tryMarkDispatching()) {
+                  winners.incrementAndGet();
+                }
+              });
+    }
+    ready.await();
+    go.countDown();
+    Thread.sleep(100);
+    assertThat(winners.get()).isEqualTo(1);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DISPATCHING);
   }
 }

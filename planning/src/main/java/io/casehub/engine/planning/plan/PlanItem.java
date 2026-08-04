@@ -200,6 +200,14 @@ public class PlanItem implements Comparable<PlanItem>, TaskDescriptor {
     return status.compareAndSet(TaskStatus.PENDING, TaskStatus.RUNNING);
   }
 
+  public boolean tryMarkDispatching() {
+    return status.compareAndSet(TaskStatus.PENDING, TaskStatus.DISPATCHING);
+  }
+
+  public boolean revertDispatching() {
+    return status.compareAndSet(TaskStatus.DISPATCHING, TaskStatus.PENDING);
+  }
+
   public void markRunning() {
     if (!status.compareAndSet(TaskStatus.PENDING, TaskStatus.RUNNING)) {
       throw new IllegalStateException(
@@ -208,7 +216,7 @@ public class PlanItem implements Comparable<PlanItem>, TaskDescriptor {
   }
 
   public void markDelegated() {
-    if (!status.compareAndSet(TaskStatus.PENDING, TaskStatus.DELEGATED)) {
+    if (!status.compareAndSet(TaskStatus.DISPATCHING, TaskStatus.DELEGATED)) {
       throw new IllegalStateException(
           "Cannot transition to DELEGATED from "
               + status.get()

@@ -41,6 +41,7 @@ package io.casehub.api.model;
  */
 public enum TaskStatus {
   PENDING,
+  DISPATCHING,
   RUNNING,
   DELEGATED,
   SUSPENDED,
@@ -59,6 +60,10 @@ public enum TaskStatus {
   }
 
   public boolean isActive() {
-    return this == PENDING || this == RUNNING || this == DELEGATED || this == SUSPENDED;
+    return this == PENDING
+        || this == DISPATCHING
+        || this == RUNNING
+        || this == DELEGATED
+        || this == SUSPENDED;
   }
 }
