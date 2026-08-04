@@ -156,6 +156,7 @@ class SubCaseRecursionDepthTest {
     registry.getOrCreate(l2Id, "test-tenant");
     PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(l2Id).orElseThrow()).addPlanItem(item);
+    assertThat(item.tryMarkDispatching()).isTrue();
 
     handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth));
 
@@ -205,6 +206,7 @@ class SubCaseRecursionDepthTest {
     registry.getOrCreate(parentId, "test-tenant");
     PlanItem item = PlanItem.create("spawn-different", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(parentId).orElseThrow()).addPlanItem(item);
+    assertThat(item.tryMarkDispatching()).isTrue();
 
     // Parent is other-case, child is recursive-case — not a self-reference
     SubCase differentChild =
@@ -245,6 +247,7 @@ class SubCaseRecursionDepthTest {
     registry.getOrCreate(l2Id, "test-tenant");
     PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(l2Id).orElseThrow()).addPlanItem(item);
+    assertThat(item.tryMarkDispatching()).isTrue();
 
     handler.onSubCaseSchedule(selfReferenceEvent(l2, maxDepth));
 
@@ -279,6 +282,7 @@ class SubCaseRecursionDepthTest {
     registry.getOrCreate(a2Id, "test-tenant");
     PlanItem item = PlanItem.create("spawn-self", ExecutorRef.of("unknown"), 0);
     ((DefaultCasePlanModel) registry.get(a2Id).orElseThrow()).addPlanItem(item);
+    assertThat(item.tryMarkDispatching()).isTrue();
 
     handler.onSubCaseSchedule(selfReferenceEvent(a2, maxDepth));
 

@@ -231,6 +231,7 @@ class DefaultCasePlanModelTest {
     // A DELEGATED item is active — must block duplicate scheduling
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     plan.addPlanItemIfAbsent(item);
+    item.tryMarkDispatching();
     item.markDelegated();
     PlanItem second = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     assertThat(plan.addPlanItemIfAbsent(second))
@@ -242,6 +243,7 @@ class DefaultCasePlanModelTest {
   void getPlanItemByBindingName_returns_delegated_item() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
+    item.tryMarkDispatching();
     item.markDelegated();
     assertThat(plan.getPlanItemByBindingName("binding-a"))
         .as("DELEGATED item must be findable by binding name")
@@ -252,6 +254,7 @@ class DefaultCasePlanModelTest {
   void hasActivePlanItem_returns_true_for_delegated() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
+    item.tryMarkDispatching();
     item.markDelegated();
     assertThat(plan.hasActivePlanItem("binding-a"))
         .as("DELEGATED item counts as active — must block re-trigger")
@@ -264,6 +267,7 @@ class DefaultCasePlanModelTest {
     PlanItem delegated = PlanItem.create("b-delegated", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(pending);
     plan.addPlanItem(delegated);
+    delegated.tryMarkDispatching();
     delegated.markDelegated();
 
     List<PlanItem> agenda = plan.getAgenda();

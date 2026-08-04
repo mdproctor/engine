@@ -186,6 +186,7 @@ class PlanItemCompletionHandlerTest {
   void marks_subcase_plan_item_completed_on_subcase_execution_completed() {
     PlanItem item = PlanItem.create("subcase-binding", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
+    item.tryMarkDispatching();
     item.markDelegated();
     UUID childCaseId = UUID.randomUUID();
     registry.indexForCompletion(caseId, childCaseId.toString(), item.getPlanItemId());
@@ -199,6 +200,7 @@ class PlanItemCompletionHandlerTest {
   void subcase_completion_triggers_compound_completion() {
     PlanItem item = PlanItem.create("subcase-binding", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
+    item.tryMarkDispatching();
     item.markDelegated();
     UUID childCaseId = UUID.randomUUID();
     registry.indexForCompletion(caseId, childCaseId.toString(), item.getPlanItemId());
@@ -223,6 +225,7 @@ class PlanItemCompletionHandlerTest {
   void mofn_grouped_subcase_any_child_routes_to_same_plan_item() {
     PlanItem item = PlanItem.create("subcase-group", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
+    item.tryMarkDispatching();
     item.markDelegated();
     UUID child1 = UUID.randomUUID();
     UUID child2 = UUID.randomUUID();

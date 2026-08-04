@@ -185,6 +185,7 @@ class SubCaseCompletionServiceTest {
         (DefaultCasePlanModel) registry.getOrCreate(parentCaseId, "test-tenant");
     PlanItem subcaseItem = PlanItem.create("spawn-sites", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(subcaseItem);
+    subcaseItem.tryMarkDispatching();
     subcaseItem.markDelegated();
     registry.indexForCompletion(parentCaseId, childCaseId.toString(), subcaseItem.getPlanItemId());
 
