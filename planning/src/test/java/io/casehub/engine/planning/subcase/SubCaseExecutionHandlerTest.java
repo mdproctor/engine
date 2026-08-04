@@ -121,6 +121,7 @@ class SubCaseExecutionHandlerTest {
   @Test
   void subcase_spawn_marks_plan_item_delegated() {
     PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
@@ -134,6 +135,7 @@ class SubCaseExecutionHandlerTest {
   @Test
   void subcase_spawn_indexes_child_case_id_for_completion_routing() {
     PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
@@ -149,6 +151,7 @@ class SubCaseExecutionHandlerTest {
   @Test
   void fire_and_forget_subcase_marks_plan_item_completed_immediately() {
     PlanItem item = PlanItem.create("spawn-fire-forget", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     plan.addPlanItem(item);
 
     UUID childId = UUID.randomUUID();
@@ -164,6 +167,7 @@ class SubCaseExecutionHandlerTest {
   @Test
   void circular_dependency_marks_plan_item_faulted() {
     PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     plan.addPlanItem(item);
 
     // Parent meta matches child definition — circular dependency detected
@@ -189,6 +193,7 @@ class SubCaseExecutionHandlerTest {
   @Test
   void startCase_failure_marks_plan_item_faulted() {
     PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     plan.addPlanItem(item);
 
     when(caseHubRuntime.startCase(any(), any(), any(), any()))
@@ -207,6 +212,7 @@ class SubCaseExecutionHandlerTest {
     DefaultCasePlanModel freshPlan =
         (DefaultCasePlanModel) freshRegistry.getOrCreate(parentCaseId, "test-tenant");
     PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     freshPlan.addPlanItem(item);
 
     CaseDefinitionRegistry nullDefRegistry = mock(CaseDefinitionRegistry.class);
@@ -233,6 +239,7 @@ class SubCaseExecutionHandlerTest {
   void mofn_second_spawn_does_not_re_mark_delegated_but_indexes() {
     PlanItem item = PlanItem.create("spawn-group", ExecutorRef.of("unknown"), 0);
     plan.addPlanItem(item);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated(); // first spawn already marked it DELEGATED
 
     UUID child2 = UUID.randomUUID();

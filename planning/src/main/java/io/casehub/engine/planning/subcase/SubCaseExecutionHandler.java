@@ -165,7 +165,7 @@ public class SubCaseExecutionHandler {
         .flatMap(plan -> plan.getPlanItemByBindingName(bindingName))
         .ifPresent(
             pi -> {
-              if (pi.getStatus() == TaskStatus.PENDING) {
+              if (pi.getStatus() == TaskStatus.DISPATCHING) {
                 pi.markDelegated();
               }
               // Index ALL spawns → same planItemId (M-of-N: any completing child routes here)
