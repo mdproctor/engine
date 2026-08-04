@@ -43,9 +43,17 @@ public class GoalFailureRecorder {
     this.registry = registry;
   }
 
-  public void record(CaseInstance caseInstance, String workerName, WorkerOutcome<?> outcome) {
-    if (!signalStore.isResolvable()) return;
-    if (outcome instanceof WorkerOutcome.Success) return;
+  public void record(
+      CaseInstance caseInstance,
+      String workerName,
+      String capabilityName,
+      WorkerOutcome<?> outcome) {
+    if (!signalStore.isResolvable()) {
+      return;
+    }
+    if (outcome instanceof WorkerOutcome.Success) {
+      return;
+    }
 
     CaseDefinition definition;
     try {
@@ -55,15 +63,24 @@ public class GoalFailureRecorder {
     }
 
     Optional<AgentDescriptor> descriptorOpt = definition.agentDescriptorFor(workerName);
-    if (descriptorOpt.isEmpty()) return;
+    if (descriptorOpt.isEmpty()) {
+      return;
+    }
 
     AgentDescriptor descriptor = descriptorOpt.get();
-    if (descriptor.goals().isEmpty()) return;
+    if (descriptor.goals().isEmpty()) {
+      return;
+    }
 
     String agentId = descriptor.agentId();
     String tenancyId = caseInstance.tenancyId;
 
     for (var goal : descriptor.goals()) {
+      if (capabilityName != null
+          && !goal.capabilities().isEmpty()
+          && !goal.capabilities().contains(capabilityName)) {
+        continue;
+      }
       signalStore
           .get()
           .record(
@@ -72,7 +89,9 @@ public class GoalFailureRecorder {
               GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
               goal.name(),
               BehavioralSignal.DECLINE);
-      LOG.debugf("Goal failure recorded: agent=%s goal=%s", agentId, goal.name());
+      LOG.debugf(
+          "Goal failure recorded: agent=%s goal=%s capability=%s",
+          agentId, goal.name(), capabilityName);
     }
   }
 }

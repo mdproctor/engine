@@ -18,6 +18,7 @@ package io.casehub.engine.internal.routing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.CaseDefinition;
@@ -70,12 +71,20 @@ class GoalFailureRecorderTest {
                     .goals(
                         List.of(
                             new AgentGoal(
-                                "goal-a", "First", GoalPriority.PRIMARY, Visibility.PUBLIC),
+                                "goal-a",
+                                "First",
+                                GoalPriority.PRIMARY,
+                                Visibility.PUBLIC,
+                                List.of("cap-x")),
                             new AgentGoal(
-                                "goal-b", "Second", GoalPriority.SECONDARY, Visibility.PUBLIC)))
+                                "goal-b",
+                                "Second",
+                                GoalPriority.SECONDARY,
+                                Visibility.PUBLIC,
+                                List.of("cap-x"))))
                     .build()));
 
-    recorder.record(instance, "worker-1", new WorkerOutcome.Declined<>("not possible"));
+    recorder.record(instance, "worker-1", "cap-x", new WorkerOutcome.Declined<>("not possible"));
 
     verify(signalStore)
         .record(
@@ -94,6 +103,169 @@ class GoalFailureRecorderTest {
   }
 
   @Test
+  void decline_nonMatchingCapability_doesNotRecord() {
+    CaseInstance instance = buildCaseInstance("tenant-1");
+    CaseDefinition definition = mock(CaseDefinition.class);
+    when(registry.getCaseDefinition(instance.getCaseMetaModel())).thenReturn(definition);
+    when(definition.agentDescriptorFor("worker-1"))
+        .thenReturn(
+            Optional.of(
+                AgentDescriptor.builder()
+                    .agentId("agent-1")
+                    .name("Agent")
+                    .slot("default")
+                    .tenancyId("tenant-1")
+                    .goals(
+                        List.of(
+                            new AgentGoal(
+                                "goal-a",
+                                "First",
+                                GoalPriority.PRIMARY,
+                                Visibility.PUBLIC,
+                                List.of("cap-x"))))
+                    .build()));
+
+    recorder.record(instance, "worker-1", "cap-y", new WorkerOutcome.Declined<>("fail"));
+
+    verifyNoInteractions(signalStore);
+  }
+
+  @Test
+  void decline_emptyCapabilities_alwaysRecorded() {
+    CaseInstance instance = buildCaseInstance("tenant-1");
+    CaseDefinition definition = mock(CaseDefinition.class);
+    when(registry.getCaseDefinition(instance.getCaseMetaModel())).thenReturn(definition);
+    when(definition.agentDescriptorFor("worker-1"))
+        .thenReturn(
+            Optional.of(
+                AgentDescriptor.builder()
+                    .agentId("agent-1")
+                    .name("Agent")
+                    .slot("default")
+                    .tenancyId("tenant-1")
+                    .goals(
+                        List.of(
+                            new AgentGoal(
+                                "goal-a",
+                                "First",
+                                GoalPriority.PRIMARY,
+                                Visibility.PUBLIC,
+                                List.of())))
+                    .build()));
+
+    recorder.record(instance, "worker-1", "cap-y", new WorkerOutcome.Declined<>("fail"));
+
+    verify(signalStore)
+        .record(
+            "agent-1",
+            "tenant-1",
+            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
+            "goal-a",
+            BehavioralSignal.DECLINE);
+  }
+
+  @Test
+  void decline_nullCapabilityName_recordsAllGoals() {
+    CaseInstance instance = buildCaseInstance("tenant-1");
+    CaseDefinition definition = mock(CaseDefinition.class);
+    when(registry.getCaseDefinition(instance.getCaseMetaModel())).thenReturn(definition);
+    when(definition.agentDescriptorFor("worker-1"))
+        .thenReturn(
+            Optional.of(
+                AgentDescriptor.builder()
+                    .agentId("agent-1")
+                    .name("Agent")
+                    .slot("default")
+                    .tenancyId("tenant-1")
+                    .goals(
+                        List.of(
+                            new AgentGoal(
+                                "goal-a",
+                                "First",
+                                GoalPriority.PRIMARY,
+                                Visibility.PUBLIC,
+                                List.of("cap-x")),
+                            new AgentGoal(
+                                "goal-b",
+                                "Second",
+                                GoalPriority.SECONDARY,
+                                Visibility.PUBLIC,
+                                List.of("cap-y"))))
+                    .build()));
+
+    recorder.record(instance, "worker-1", null, new WorkerOutcome.Declined<>("fail"));
+
+    verify(signalStore)
+        .record(
+            "agent-1",
+            "tenant-1",
+            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
+            "goal-a",
+            BehavioralSignal.DECLINE);
+    verify(signalStore)
+        .record(
+            "agent-1",
+            "tenant-1",
+            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
+            "goal-b",
+            BehavioralSignal.DECLINE);
+  }
+
+  @Test
+  void decline_mixedCapabilities_onlyMatchingGoalsRecorded() {
+    CaseInstance instance = buildCaseInstance("tenant-1");
+    CaseDefinition definition = mock(CaseDefinition.class);
+    when(registry.getCaseDefinition(instance.getCaseMetaModel())).thenReturn(definition);
+    when(definition.agentDescriptorFor("worker-1"))
+        .thenReturn(
+            Optional.of(
+                AgentDescriptor.builder()
+                    .agentId("agent-1")
+                    .name("Agent")
+                    .slot("default")
+                    .tenancyId("tenant-1")
+                    .goals(
+                        List.of(
+                            new AgentGoal(
+                                "goal-a",
+                                "First",
+                                GoalPriority.PRIMARY,
+                                Visibility.PUBLIC,
+                                List.of("cap-x")),
+                            new AgentGoal(
+                                "goal-b",
+                                "Second",
+                                GoalPriority.SECONDARY,
+                                Visibility.PUBLIC,
+                                List.of("cap-y")),
+                            new AgentGoal(
+                                "goal-c",
+                                "Third",
+                                GoalPriority.PRIMARY,
+                                Visibility.PUBLIC,
+                                List.of())))
+                    .build()));
+
+    recorder.record(instance, "worker-1", "cap-x", new WorkerOutcome.Declined<>("fail"));
+
+    verify(signalStore)
+        .record(
+            "agent-1",
+            "tenant-1",
+            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
+            "goal-a",
+            BehavioralSignal.DECLINE);
+    verify(signalStore)
+        .record(
+            "agent-1",
+            "tenant-1",
+            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
+            "goal-c",
+            BehavioralSignal.DECLINE);
+    verifyNoMoreInteractions(signalStore);
+  }
+
+  @Test
   void success_doesNotRecord() {
     CaseInstance instance = buildCaseInstance("tenant-1");
     CaseDefinition definition = mock(CaseDefinition.class);
@@ -109,10 +281,14 @@ class GoalFailureRecorderTest {
                     .goals(
                         List.of(
                             new AgentGoal(
-                                "goal-a", "First", GoalPriority.PRIMARY, Visibility.PUBLIC)))
+                                "goal-a",
+                                "First",
+                                GoalPriority.PRIMARY,
+                                Visibility.PUBLIC,
+                                List.of())))
                     .build()));
 
-    recorder.record(instance, "worker-1", WorkerOutcome.success());
+    recorder.record(instance, "worker-1", "cap-x", WorkerOutcome.success());
 
     verifyNoInteractions(signalStore);
   }
@@ -124,7 +300,7 @@ class GoalFailureRecorderTest {
     when(registry.getCaseDefinition(instance.getCaseMetaModel())).thenReturn(definition);
     when(definition.agentDescriptorFor("worker-1")).thenReturn(Optional.empty());
 
-    recorder.record(instance, "worker-1", new WorkerOutcome.Declined<>("fail"));
+    recorder.record(instance, "worker-1", "cap-x", new WorkerOutcome.Declined<>("fail"));
 
     verifyNoInteractions(signalStore);
   }
@@ -144,7 +320,7 @@ class GoalFailureRecorderTest {
                     .tenancyId("tenant-1")
                     .build()));
 
-    recorder.record(instance, "worker-1", new WorkerOutcome.Declined<>("fail"));
+    recorder.record(instance, "worker-1", "cap-x", new WorkerOutcome.Declined<>("fail"));
 
     verifyNoInteractions(signalStore);
   }
@@ -157,7 +333,7 @@ class GoalFailureRecorderTest {
     var noStoreRecorder = new GoalFailureRecorder(absent, registry);
 
     CaseInstance instance = buildCaseInstance("tenant-1");
-    noStoreRecorder.record(instance, "worker-1", new WorkerOutcome.Declined<>("fail"));
+    noStoreRecorder.record(instance, "worker-1", "cap-x", new WorkerOutcome.Declined<>("fail"));
 
     verifyNoInteractions(registry);
   }

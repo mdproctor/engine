@@ -351,12 +351,9 @@ public class WorkflowExecutionCompletedHandler {
         bindingName,
         io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
         caseInstance.getCaseContext().snapshot().asJsonNode());
-    personalitySignalRecorder.record(
-        caseInstance,
-        worker.name(),
-        extractCapabilityTag(caseInstance, worker, bindingName),
-        event.outcome());
-    goalFailureRecorder.record(caseInstance, worker.name(), event.outcome());
+    String capabilityTag = extractCapabilityTag(caseInstance, worker, bindingName);
+    personalitySignalRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
+    goalFailureRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
 
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> existingOutcomes =
