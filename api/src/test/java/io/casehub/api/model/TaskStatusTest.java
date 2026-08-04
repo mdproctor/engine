@@ -49,6 +49,6 @@ class TaskStatusTest {
 
   @Test
   void allNineValuesPresent() {
-    assertThat(TaskStatus.values()).hasSize(9);
+    assertThat(TaskStatus.values()).hasSize(10);
   }
 }
