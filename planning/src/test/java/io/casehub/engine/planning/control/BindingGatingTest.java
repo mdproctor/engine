@@ -25,6 +25,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
@@ -365,6 +366,7 @@ class BindingGatingTest {
             null);
 
     PlanItem item = PlanItem.create("delegated-b", ExecutorRef.of("ht-worker"), 0);
+    assertThat(item.tryMarkDispatching()).isTrue();
     item.markDelegated();
     plan().addPlanItem(item);
 
@@ -419,6 +421,28 @@ class BindingGatingTest {
     assertThat(result.stream().map(Binding::getName))
         .as("RUNNING case must not re-dispatch a binding whose PlanItem is already RUNNING")
         .doesNotContain("in-flight-b");
+  }
+
+  @Test
+  void duplicate_dispatch_prevention_for_humanTaskTarget() {
+    var compound =
+        PlanItemDefinition.Compound.builder("intake").id("comp-1").binding("ht-b").build();
+    plan().registerDefinition(compound);
+    plan().tryDefinitionTransition("comp-1", TaskStatus.PENDING, TaskStatus.RUNNING);
+
+    Binding b = mock(Binding.class);
+    when(b.getName()).thenReturn("ht-b");
+    when(b.target()).thenReturn(HumanTaskTarget.inline().title("Review").build());
+
+    List<Binding> firstResult = loopControl.select(ctx, List.of(b));
+    assertThat(firstResult.stream().map(Binding::getName))
+        .as("first select must dispatch")
+        .contains("ht-b");
+
+    List<Binding> secondResult = loopControl.select(ctx, List.of(b));
+    assertThat(secondResult.stream().map(Binding::getName))
+        .as("second select must not re-dispatch — PlanItem already DISPATCHING via CAS")
+        .doesNotContain("ht-b");
   }
 
   // ------------------------------------------------------------------ //

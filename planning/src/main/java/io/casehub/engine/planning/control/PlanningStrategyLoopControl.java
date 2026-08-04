@@ -276,7 +276,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
           dispatched.add(binding);
         }
       } else {
-        if (pi.getStatus() == TaskStatus.PENDING) {
+        if (pi.tryMarkDispatching()) {
           dispatched.add(binding);
         }
       }
