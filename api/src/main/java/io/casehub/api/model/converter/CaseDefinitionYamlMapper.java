@@ -372,6 +372,10 @@ public final class CaseDefinitionYamlMapper {
               if (!capabilityMap.containsKey(dw.capability().name())) {
                 capabilityMap.put(dw.capability().name(), dw.capability());
                 def.getCapabilities().add(dw.capability());
+              } else {
+                LOG.debugf(
+                    "Discovered capability '%s' from worker '%s' overridden by explicit YAML declaration",
+                    dw.capability().name(), dw.workerName());
               }
               final Worker discoveredWorker =
                   Worker.builder()

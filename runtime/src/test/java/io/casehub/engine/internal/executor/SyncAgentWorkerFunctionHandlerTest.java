@@ -100,12 +100,14 @@ class SyncAgentWorkerFunctionHandlerTest {
             Map.class,
             (input, scope) -> WorkerResult.of(Map.of("result", input.get("key"))));
     WorkerResult<?> result =
-        handler.execute(
-            sync,
-            Map.of("key", "value"),
-            testContext(),
-            5000,
-            new ExecutionMetadata("w1", "hash1"));
+        handler
+            .execute(
+                sync,
+                Map.of("key", "value"),
+                testContext(),
+                5000,
+                new ExecutionMetadata("w1", "hash1"))
+            .result();
     assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "value");
   }
 
@@ -135,12 +137,14 @@ class SyncAgentWorkerFunctionHandlerTest {
     AgentWorkerFunction agentFunction = new AgentWorkerFunction(agent);
 
     WorkerResult<?> result =
-        handler.execute(
-            agentFunction,
-            Map.of("input", "data"),
-            testContext(),
-            5000,
-            new ExecutionMetadata("agent-w", "hash2"));
+        handler
+            .execute(
+                agentFunction,
+                Map.of("input", "data"),
+                testContext(),
+                5000,
+                new ExecutionMetadata("agent-w", "hash2"))
+            .result();
 
     assertThat((java.util.Map<String, Object>) result.output())
         .containsEntry("agentResult", "done");
@@ -162,12 +166,14 @@ class SyncAgentWorkerFunctionHandlerTest {
             });
 
     WorkerResult<?> result =
-        handler.execute(
-            slowWorker,
-            Map.of(),
-            testContext(),
-            200, // 200ms timeout — worker sleeps 5s
-            new ExecutionMetadata("test-worker", "hash-1"));
+        handler
+            .execute(
+                slowWorker,
+                Map.of(),
+                testContext(),
+                200,
+                new ExecutionMetadata("test-worker", "hash-1"))
+            .result();
 
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
     assertThat(((WorkerOutcome.Expired) result.outcome()).reason()).contains("200ms");

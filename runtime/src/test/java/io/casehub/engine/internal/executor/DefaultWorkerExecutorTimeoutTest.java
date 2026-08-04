@@ -58,7 +58,7 @@ class DefaultWorkerExecutorTimeoutTest {
             io.casehub.api.context.PropagationContext.createRoot(),
             null);
 
-    WorkerResult<?> result =
+    var handlerResult =
         workerExecutor.execute(
             slowWorker,
             Map.of(),
@@ -67,6 +67,7 @@ class DefaultWorkerExecutorTimeoutTest {
             null,
             new ExecutionMetadata("test-worker", "hash-1"));
 
+    WorkerResult<?> result = handlerResult.result();
     assertThat(result.outcome()).isInstanceOf(WorkerOutcome.Expired.class);
     assertThat(((WorkerOutcome.Expired<?>) result.outcome()).reason()).contains("200ms");
     assertThat(result.output()).isNull();

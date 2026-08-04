@@ -20,10 +20,10 @@ import io.casehub.api.spi.DiscoveredWorker;
 import io.casehub.api.spi.WorkerFunctionProvider;
 import io.casehub.api.spi.WorkerFunctionProviderRegistry;
 import io.casehub.worker.api.WorkerFunction;
-import java.util.List;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.util.List;
 
 /**
  * Default implementation of {@link WorkerFunctionProviderRegistry}.

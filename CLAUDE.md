@@ -547,7 +547,7 @@ Optional module for invoking remote A2A-compliant agents as casehub workers. Act
 **Architecture:** `WorkerFunction`/`WorkerFunctionHandler` model (not `WorkerProvisioner`). A2A is synchronous request/response (with optional SSE streaming), which maps to the handler pipeline: timeout enforcement, retry via `QuartzRetryService`, `WorkerResult` outcomes, EventLog provenance. Complements `casehub-engine-flow`'s SWF `call: a2a` path — this is the worker/capability-binding level A2A integration.
 
 **Core types (all in `io.casehub.engine.a2a`):**
-- `A2AAuthConfig` — per-endpoint auth config record: `AuthType` (NONE, BEARER, API_KEY) + `tokenConfigKey` (Quarkus config property name). `A2AAuthConfig.NONE` constant.
+- `A2AWorkerFunction` uses `AuthConfig` (`common/internal/auth/`) for per-endpoint auth.
 - `A2AWorkerFunction` — record implementing `WorkerFunction<Map, Map>`: `endpoint`, `skill` (nullable), `streaming` (boolean), `auth`.
 - `A2AWorkerFunctionProvider` — `@ApplicationScoped`, implements `WorkerFunctionProvider`. Detects `a2a:` YAML blocks, creates `A2AWorkerFunction`.
 - `A2AClient` — thin HTTP wrapper. `send()` for sync `message/send`, `stream()` for SSE `message/stream`, `cancelTask()` for fire-and-forget `tasks/cancel`. Per-request token resolution from Quarkus config (handles rotation). HTTP 401/403/429/5xx propagate as `IOException` (transient → `QuartzRetryService` retry). HTTP 4xx → `WorkerResult.failed()` (semantic → `OutcomePolicy`).
@@ -556,7 +556,7 @@ Optional module for invoking remote A2A-compliant agents as casehub workers. Act
 
 **Protocol metadata** (populated in `HandlerResult.protocolMetadata()`): `a2aEndpoint`, `a2aSkill`, `a2aTaskId`, `a2aMessageId`, `a2aStreaming`, `a2aStatusTransitions` (streaming only). Merged into EventLog by `WorkflowExecutionCompletedHandler`.
 
-**`HandlerResult`** (`common/internal/executor/`) — record `(WorkerResult<?> result, Map<String, Object> protocolMetadata)`. Introduced for A2A metadata threading. `WorkerFunctionHandler.execute()` and `WorkerExecutor.execute()` return `HandlerResult` (not `WorkerResult<?>` directly). Existing handlers (`SyncAgentWorkerFunctionHandler`, `FlowWorkerFunctionHandler`) wrap with empty metadata. `WorkflowExecutionCompleted` carries `protocolMetadata` as an 8th record component. `QuartzWorkerExecutionJob` threads metadata through. Refs engine#830.
+**`HandlerResult`** (`common/internal/executor/`) — record `(WorkerResult<?> result, Map<String, Object> protocolMetadata)`. Introduced for A2A metadata threading. `WorkerFunctionHandler.execute()` and `WorkerExecutor.execute()` return `HandlerResult` (not `WorkerResult<?>` directly). Existing handlers (`SyncAgentWorkerFunctionHandler`, `FlowWorkerFunctionHandler`) wrap with empty metadata. `WorkflowExecutionCompleted` carries `protocolMetadata` as its last record component. `QuartzWorkerExecutionJob` threads metadata through. Refs engine#830.
 
 **Outcome mapping:** A2A `completed` → `WorkerResult.completed()`, `failed` → `WorkerResult.failed()`, `canceled` → `WorkerResult.failed()`, `input_required` → `WorkerResult.failed()` (interactive A2A not supported in v1, engine#845).
 
@@ -581,6 +581,47 @@ workers:
 **Test dependencies:** Full engine stack with `casehub-persistence-memory`, MockWebServer.
 
 **Future work (engine#835):** AgentCard→AgentDescriptor bridge, health probing, vocabulary grounding, interactive A2A tasks.
+
+## casehub-engine-mcp Module
+
+Optional module for invoking MCP server tools as casehub workers. Activated by adding `casehub-engine-mcp` to the consumer's classpath. Directory: `mcp/` (short name per maven-submodule-folder-naming protocol). Refs engine#831.
+
+**Architecture:** `WorkerFunction`/`WorkerFunctionHandler` model with tool discovery via `tools/list`. Uses official MCP Java SDK (`io.modelcontextprotocol.sdk:mcp` v2.0.0). One function per discovered tool — each `McpWorkerFunction(transport, toolName)` targets a single MCP tool. A single YAML `mcp:` declaration expands into multiple workers via `WorkerFunctionProvider.discoverWorkers()`.
+
+**Core types (all in `io.casehub.engine.mcp`):**
+- `McpTransport` — sealed interface: `Stdio(List<String> command, Map<String, String> env)` | `Http(String url, AuthConfig auth)`. Transport type encoded in the type system.
+- `McpWorkerFunction` — record implementing `WorkerFunction<Map, Map>`: `transport`, `toolName`. One function per MCP tool.
+- `McpWorkerFunctionProvider` — `@ApplicationScoped`, implements `WorkerFunctionProvider`. Detects `mcp:` YAML blocks, connects to MCP server, discovers tools via `listTools()`, creates `DiscoveredWorker` per tool. Temporary discovery client separate from runtime connections.
+- `McpClientRegistry` — `@ApplicationScoped`, per-server connection pooling via `ConcurrentHashMap`. Thread-safe init with `computeIfAbsent`. MCP session handshake (initialize/initialized) on first use. Auth/env conflict detection. `@Observes ShutdownEvent` cleanup.
+- `McpWorkerFunctionHandler` — `@ApplicationScoped`, implements `WorkerFunctionHandler`. Calls `callTool(toolName, input)` via `McpSyncClient`. Timeout via `Future.get()`. Transient error detection with cause-chain walk and registry eviction.
+
+**Discovery model:** At definition build time, provider connects to MCP server, calls `tools/list`, creates one `Worker` per tool. If YAML declares explicit `capabilities:`, those filter the discovered tools. If no explicit capabilities, all tools become capabilities with passthrough input/output schemas (`.`). Explicit YAML capability declarations take precedence over discovered defaults.
+
+**YAML schema:**
+```yaml
+workers:
+  - name: file-tools
+    mcp:
+      command: ["/path/to/mcp-server"]       # stdio transport
+  - name: remote-tools
+    mcp:
+      url: https://mcp-server.example.com/mcp  # HTTP transport
+      auth:
+        type: bearer
+        tokenConfigKey: mcp.server.token
+```
+
+**Cross-cutting changes (engine#831):**
+- `AuthConfig` (`common/internal/auth/`) — extracted from `A2AAuthConfig`, shared by both a2a and mcp modules.
+- `DiscoveredWorker` (`api/spi/`) — record `(workerName, Capability, WorkerFunction)` for multi-worker contribution.
+- `WorkerFunctionProvider.discoverWorkers(JsonNode)` — default method returning `List<DiscoveredWorker>`. `CaseDefinitionYamlMapper` checks discovery before single-function path.
+- `DefaultWorkerFunctionProviderRegistry.discoverWorkers()` — iterates providers, returns first non-empty discovery.
+
+**Compile dependencies:** `casehub-engine-common`, `casehub-engine-api`, `casehub-worker-api`, `io.modelcontextprotocol.sdk:mcp`, `quarkus-arc`, `quarkus-virtual-threads`. No dependency on `casehub-engine` (runtime) or `casehub-eidos-api`.
+
+**Test dependencies:** Full engine stack with `casehub-persistence-memory`, Mockito for McpSyncClient mocking.
+
+**Future work:** #841 WorkerDiscoveryProvider SPI, #844 MCP discovery federation, MCP resources/prompts (v1 is tools-only), MCP sampling.
 
 ## casehub-engine-queue Module
 

@@ -208,7 +208,8 @@ class FlowWorkerFunctionHandlerTest {
         new WorkerContext("worker-D", caseId, null, null, PropagationContext.createRoot(), null);
     final ExecutionMetadata metadata = new ExecutionMetadata("worker-D", "hash-3");
 
-    final WorkerResult result = handler.execute(function, input, context, 60000, metadata);
+    final io.casehub.worker.api.WorkerResult result =
+        handler.execute(function, input, context, 60000, metadata).result();
 
     assertThat((java.util.Map<String, Object>) result.output()).containsEntry("result", "done");
     assertThat(result.outcome()).isInstanceOf(io.casehub.worker.api.WorkerOutcome.Success.class);

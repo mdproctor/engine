@@ -74,19 +74,19 @@ public class WorkerDecisionEntry extends JpaLedgerEntry {
    */
   @Column(name = "threshold_applied")
   public Double thresholdApplied;
-    /**
-     * JSON snapshot of the full routing selection result at decision time. Contains the selected
-     * candidate, all alternatives with scores/phases, and the applied policy. Null for entries
-     * created before this field was added, or when the strategy does not provide a selection context.
-     *
-     * <p>Excluded from {@link #domainContentBytes()} — informational metadata, not part of the
-     * tamper-evident content hash.
-     */
+
+  /**
+   * JSON snapshot of the full routing selection result at decision time. Contains the selected
+   * candidate, all alternatives with scores/phases, and the applied policy. Null for entries
+   * created before this field was added, or when the strategy does not provide a selection context.
+   *
+   * <p>Excluded from {@link #domainContentBytes()} — informational metadata, not part of the
+   * tamper-evident content hash.
+   */
   @Column(name = "routing_rationale", columnDefinition = "TEXT")
   public String routingRationale;
 
-
-    @Override
+  @Override
   protected byte[] domainContentBytes() {
     return String.join(
             "|",

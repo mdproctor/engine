@@ -97,10 +97,12 @@ public class WorkerDecisionEventCapture {
 
     if (event.selectionContext() != null) {
       try {
-        entry.routingRationale = new com.fasterxml.jackson.databind.ObjectMapper()
-            .writeValueAsString(event.selectionContext());
+        entry.routingRationale =
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                .writeValueAsString(event.selectionContext());
       } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-        LOG.warnf("Failed to serialize routing rationale for caseId=%s: %s",
+        LOG.warnf(
+            "Failed to serialize routing rationale for caseId=%s: %s",
             event.caseId(), e.getMessage());
       }
     }

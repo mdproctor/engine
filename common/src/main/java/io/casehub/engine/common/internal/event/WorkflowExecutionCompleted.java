@@ -59,7 +59,17 @@ public record WorkflowExecutionCompleted(
       Map<String, Object> output,
       String bindingName,
       WorkerOutcome outcome) {
-    this(caseInstance, worker, idempotency, output, bindingName, outcome, null, null, null, Map.of());
+    this(
+        caseInstance,
+        worker,
+        idempotency,
+        output,
+        bindingName,
+        outcome,
+        null,
+        null,
+        null,
+        Map.of());
   }
 
   /** Convenience constructor with signalId but no credential token. */
@@ -71,7 +81,40 @@ public record WorkflowExecutionCompleted(
       String bindingName,
       WorkerOutcome outcome,
       UUID signalId) {
-    this(caseInstance, worker, idempotency, output, bindingName, outcome, signalId, null, null, Map.of());
+    this(
+        caseInstance,
+        worker,
+        idempotency,
+        output,
+        bindingName,
+        outcome,
+        signalId,
+        null,
+        null,
+        Map.of());
+  }
+
+  /** Convenience constructor with signalId and protocol metadata. */
+  public WorkflowExecutionCompleted(
+      CaseInstance caseInstance,
+      Worker worker,
+      String idempotency,
+      Map<String, Object> output,
+      String bindingName,
+      WorkerOutcome outcome,
+      UUID signalId,
+      Map<String, Object> protocolMetadata) {
+    this(
+        caseInstance,
+        worker,
+        idempotency,
+        output,
+        bindingName,
+        outcome,
+        signalId,
+        null,
+        null,
+        protocolMetadata);
   }
 
   /** Convenience constructor for the gate-re-fire path. */

@@ -65,7 +65,7 @@ public class PersistentWorkerFunctionHandler implements WorkerFunctionHandler {
 
   @SuppressWarnings("unchecked")
   @Override
-  public WorkerResult<?> execute(
+  public io.casehub.engine.common.internal.executor.HandlerResult execute(
       WorkerFunction<?, ?> function,
       Object inputData,
       WorkerContext context,
@@ -139,7 +139,7 @@ public class PersistentWorkerFunctionHandler implements WorkerFunctionHandler {
           }
         });
 
-    return WorkerResult.of(Map.of());
+    return new io.casehub.engine.common.internal.executor.HandlerResult(WorkerResult.of(Map.of()));
   }
 
   private void publishCompletion(
