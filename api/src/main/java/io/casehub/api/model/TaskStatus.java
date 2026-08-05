@@ -22,6 +22,8 @@ package io.casehub.api.model;
  *
  * <ul>
  *   <li>PENDING — work defined, not yet started
+ *   <li>DISPATCHING — transient: CAS lock during dispatch (never persisted)
+ *   <li>ESCALATED — transient: awaiting human routing oversight (never persisted)
  *   <li>RUNNING — actively executing
  *   <li>DELEGATED — control passed to external actor; waiting for completion signal
  *   <li>SUSPENDED — execution paused; slot occupied, resumes without re-dispatch
@@ -42,6 +44,7 @@ package io.casehub.api.model;
 public enum TaskStatus {
   PENDING,
   DISPATCHING,
+  ESCALATED,
   RUNNING,
   DELEGATED,
   SUSPENDED,
@@ -62,6 +65,7 @@ public enum TaskStatus {
   public boolean isActive() {
     return this == PENDING
         || this == DISPATCHING
+        || this == ESCALATED
         || this == RUNNING
         || this == DELEGATED
         || this == SUSPENDED;

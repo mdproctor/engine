@@ -36,6 +36,7 @@ class TaskStatusTest {
     assertThat(TaskStatus.RUNNING.isActive()).isTrue();
     assertThat(TaskStatus.DELEGATED.isActive()).isTrue();
     assertThat(TaskStatus.SUSPENDED.isActive()).isTrue();
+    assertThat(TaskStatus.ESCALATED.isActive()).isTrue();
   }
 
   @Test
@@ -49,6 +50,6 @@ class TaskStatusTest {
 
   @Test
   void allNineValuesPresent() {
-    assertThat(TaskStatus.values()).hasSize(10);
+    assertThat(TaskStatus.values()).hasSize(11);
   }
 }

@@ -814,4 +814,135 @@ class PlanItemTest {
     assertThat(winners.get()).isEqualTo(1);
     assertThat(item.getStatus()).isEqualTo(TaskStatus.DISPATCHING);
   }
+
+  // --- ESCALATED state (engine#384) ---
+
+  @Test
+  void tryMarkEscalated_from_pending_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    assertThat(item.tryMarkEscalated()).isTrue();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.ESCALATED);
+  }
+
+  @Test
+  void tryMarkEscalated_from_running_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.markRunning();
+    assertThat(item.tryMarkEscalated()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.RUNNING);
+  }
+
+  @Test
+  void tryMarkEscalated_from_escalated_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkEscalated();
+    assertThat(item.tryMarkEscalated()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.ESCALATED);
+  }
+
+  @Test
+  void tryMarkEscalated_from_dispatching_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkDispatching();
+    assertThat(item.tryMarkEscalated()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DISPATCHING);
+  }
+
+  @Test
+  void revertEscalated_from_escalated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkEscalated();
+    assertThat(item.revertEscalated()).isTrue();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.PENDING);
+  }
+
+  @Test
+  void revertEscalated_from_pending_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    assertThat(item.revertEscalated()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.PENDING);
+  }
+
+  @Test
+  void markFaulted_from_escalated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkEscalated();
+    item.markFaulted();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.FAULTED);
+  }
+
+  @Test
+  void markCancelled_from_escalated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkEscalated();
+    item.markCancelled();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.CANCELLED);
+  }
+
+  @Test
+  void markObsolete_from_escalated_succeeds() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkEscalated();
+    item.markObsolete();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.OBSOLETE);
+  }
+
+  @Test
+  void escalated_is_active_and_not_terminal() {
+    assertThat(TaskStatus.ESCALATED.isActive()).isTrue();
+    assertThat(TaskStatus.ESCALATED.isTerminal()).isFalse();
+  }
+
+  @Test
+  void restore_rejects_escalated() {
+    assertThatThrownBy(
+            () ->
+                PlanItem.restore(
+                    "id-1",
+                    "binding-a",
+                    ExecutorRef.of("w"),
+                    null,
+                    TaskStatus.ESCALATED,
+                    Instant.now()))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("ESCALATED");
+  }
+
+  @Test
+  void concurrent_tryMarkEscalated_only_one_thread_wins() throws InterruptedException {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    int threadCount = 10;
+    CountDownLatch ready = new CountDownLatch(threadCount);
+    CountDownLatch go = new CountDownLatch(1);
+    AtomicInteger winners = new AtomicInteger(0);
+
+    for (int i = 0; i < threadCount; i++) {
+      Thread.ofVirtual()
+          .start(
+              () -> {
+                ready.countDown();
+                try {
+                  go.await();
+                } catch (InterruptedException e) {
+                  Thread.currentThread().interrupt();
+                }
+                if (item.tryMarkEscalated()) {
+                  winners.incrementAndGet();
+                }
+              });
+    }
+    ready.await();
+    go.countDown();
+    Thread.sleep(100);
+    assertThat(winners.get()).isEqualTo(1);
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.ESCALATED);
+  }
+
+  @Test
+  void tryMarkDispatching_from_escalated_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkEscalated();
+    assertThat(item.tryMarkDispatching()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.ESCALATED);
+  }
 }
