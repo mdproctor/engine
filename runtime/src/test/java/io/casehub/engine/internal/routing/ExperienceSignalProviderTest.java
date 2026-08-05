@@ -48,7 +48,7 @@ class ExperienceSignalProviderTest {
   }
 
   private static AgentCandidate candidate(String id) {
-    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, null, null);
+    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, null, null, null);
   }
 
   private static AgentRoutingContext ctx(

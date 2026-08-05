@@ -69,7 +69,7 @@ class WorkloadSignalProviderTest {
   }
 
   private static AgentCandidate candidate(String id, int jobs) {
-    return new AgentCandidate(id, Set.of(), jobs, AgentHealth.READY, null, null);
+    return new AgentCandidate(id, Set.of(), jobs, AgentHealth.READY, null, null, null);
   }
 
   private static AgentRoutingContext ctx() {

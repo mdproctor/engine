@@ -136,7 +136,7 @@ class ComposableRoutingIntegrationTest {
         composable(new PersonalitySignalProvider(health), new WorkloadSignalProvider());
 
     var noProfileAgent =
-        new AgentCandidate("plain-agent", Set.of(), 0, AgentHealth.READY, null, null);
+        new AgentCandidate("plain-agent", Set.of(), 0, AgentHealth.READY, null, null, null);
 
     var result =
         compositor.select(
@@ -186,7 +186,7 @@ class ComposableRoutingIntegrationTest {
             .disposition(disposition)
             .build();
     return new AgentCandidate(
-        id, Set.of("entity-resolution"), runningJobs, AgentHealth.READY, descriptor, null);
+        id, Set.of("entity-resolution"), runningJobs, AgentHealth.READY, descriptor, null, null);
   }
 
   @SuppressWarnings("unchecked")

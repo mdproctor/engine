@@ -183,11 +183,11 @@ class GoalSignalProviderTest {
   }
 
   private static AgentCandidate candidateWithDescriptor(String id, AgentDescriptor descriptor) {
-    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, descriptor, null);
+    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, descriptor, null, null);
   }
 
   private static AgentCandidate candidateWithoutDescriptor(String id) {
-    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, null, null);
+    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, null, null, null);
   }
 
   private static AgentDescriptor descriptorWithGoals(String agentId, List<AgentGoal> goals) {

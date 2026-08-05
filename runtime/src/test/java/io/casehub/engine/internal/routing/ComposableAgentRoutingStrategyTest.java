@@ -221,7 +221,7 @@ class ComposableAgentRoutingStrategyTest {
   }
 
   private static AgentCandidate candidate(String workerId) {
-    return new AgentCandidate(workerId, Set.of(), 0, AgentHealth.READY, null, null);
+    return new AgentCandidate(workerId, Set.of(), 0, AgentHealth.READY, null, null, null);
   }
 
   private static AgentRoutingContext ctx(Map<String, Double> weights) {

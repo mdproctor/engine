@@ -148,11 +148,11 @@ class PersonalitySignalProviderTest {
             .tenancyId("t1")
             .disposition(disposition)
             .build();
-    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, descriptor, null);
+    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, descriptor, null, null);
   }
 
   private static AgentCandidate candidateWithoutProfile(String id) {
-    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, null, null);
+    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, null, null, null);
   }
 
   private static AgentRoutingContext ctx(CognitiveDemand demand) {

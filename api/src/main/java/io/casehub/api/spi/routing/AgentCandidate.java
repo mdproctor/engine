@@ -17,6 +17,8 @@ package io.casehub.api.spi.routing;
 
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.MatchDegree;
+import jakarta.annotation.Nullable;
+import java.util.Map;
 import java.util.Set;
 
 /**
@@ -25,11 +27,13 @@ import java.util.Set;
  * @param workerId the worker name from the case definition YAML
  * @param capabilities all capabilities declared by this worker
  * @param runningJobs count of currently active Quartz execution jobs for this worker
- * @param health pre-probed health status; UNAVAILABLE workers are never included
+ * @param health pre-probed health status; UNAVAILABLE and EXCLUDED workers are never included
  * @param agentDescriptor the agent's registered descriptor from casehub-eidos; null if no
  *     descriptor is registered for this worker
  * @param matchDegree how this worker matched the requested capability; null when match metadata is
  *     unavailable (bootstrap workers without eidos descriptors)
+ * @param violations per-dimension violation counts from {@code
+ *     CapabilityStatus.BehavioralViolation}; null when health is not {@code BEHAVIORAL_VIOLATION}
  */
 public record AgentCandidate(
     String workerId,
@@ -37,4 +41,5 @@ public record AgentCandidate(
     int runningJobs,
     AgentHealth health,
     AgentDescriptor agentDescriptor,
-    MatchDegree matchDegree) {}
+    MatchDegree matchDegree,
+    @Nullable Map<String, Integer> violations) {}

@@ -246,7 +246,7 @@ class RoutingSignalAssemblerTest {
 
   private static List<AgentCandidate> candidates() {
     return List.of(
-        new AgentCandidate("agent-1", Set.of("analysis"), 0, AgentHealth.READY, null, null));
+        new AgentCandidate("agent-1", Set.of("analysis"), 0, AgentHealth.READY, null, null, null));
   }
 
   private static RoutingSignal signal(String workerId, double score, String reason) {

@@ -72,6 +72,6 @@ class RoutingPromptSectionContractTest {
 
   private static List<AgentCandidate> candidates() {
     return List.of(
-        new AgentCandidate("agent-1", Set.of("analysis"), 0, AgentHealth.READY, null, null));
+        new AgentCandidate("agent-1", Set.of("analysis"), 0, AgentHealth.READY, null, null, null));
   }
 }

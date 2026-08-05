@@ -86,13 +86,13 @@ class SemanticSignalProviderTest {
   }
 
   private static AgentCandidate candidateWithoutDescriptor(String id) {
-    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, null, null);
+    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, null, null, null);
   }
 
   private static AgentCandidate candidateWithDescriptor(String id) {
     var descriptor =
         AgentDescriptor.builder().agentId(id).name(id).slot("test").tenancyId("t1").build();
-    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, descriptor, null);
+    return new AgentCandidate(id, Set.of(), 0, AgentHealth.READY, descriptor, null, null);
   }
 
   private static AgentRoutingContext ctx() {

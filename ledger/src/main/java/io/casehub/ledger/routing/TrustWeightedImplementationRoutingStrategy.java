@@ -121,6 +121,7 @@ public class TrustWeightedImplementationRoutingStrategy implements Implementatio
                         0,
                         AgentHealth.READY,
                         null,
+                        null,
                         null))
             .toList();
 

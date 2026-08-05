@@ -123,7 +123,8 @@ public class AgentCandidateFactory {
               executionManager.getActiveWorkCount(w.name()),
               health,
               descriptor,
-              mw.matchDegree()));
+              mw.matchDegree(),
+              null));
     }
     return candidates;
   }
