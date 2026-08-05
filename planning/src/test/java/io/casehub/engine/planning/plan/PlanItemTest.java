@@ -825,11 +825,11 @@ class PlanItemTest {
   }
 
   @Test
-  void tryMarkEscalated_from_running_fails() {
+  void tryMarkEscalated_from_running_succeeds() {
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
     item.markRunning();
-    assertThat(item.tryMarkEscalated()).isFalse();
-    assertThat(item.getStatus()).isEqualTo(TaskStatus.RUNNING);
+    assertThat(item.tryMarkEscalated()).isTrue();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.ESCALATED);
   }
 
   @Test
@@ -846,6 +846,24 @@ class PlanItemTest {
     item.tryMarkDispatching();
     assertThat(item.tryMarkEscalated()).isFalse();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.DISPATCHING);
+  }
+
+  @Test
+  void tryMarkEscalated_from_delegated_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.tryMarkDispatching();
+    item.markDelegated();
+    assertThat(item.tryMarkEscalated()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
+  }
+
+  @Test
+  void tryMarkEscalated_from_completed_fails() {
+    PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 0);
+    item.markRunning();
+    item.markCompleted();
+    assertThat(item.tryMarkEscalated()).isFalse();
+    assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
   }
 
   @Test

@@ -209,7 +209,13 @@ public class PlanItem implements Comparable<PlanItem>, TaskDescriptor {
   }
 
   public boolean tryMarkEscalated() {
-    return status.compareAndSet(TaskStatus.PENDING, TaskStatus.ESCALATED);
+    while (true) {
+      TaskStatus current = status.get();
+      if (current != TaskStatus.PENDING && current != TaskStatus.RUNNING) {
+        return false;
+      }
+      if (status.compareAndSet(current, TaskStatus.ESCALATED)) return true;
+    }
   }
 
   public boolean revertEscalated() {

@@ -32,8 +32,10 @@ import org.jboss.logging.Logger;
  * borderline, this handler posts a QUERY to the case's oversight channel so a human supervisor can
  * make the routing decision.
  *
- * <p>PlanItem state during escalation: the PlanItem stays PENDING. The response-handling loop
- * (human COMMAND response → re-trigger routing) is tracked in engine#383.
+ * <p>PlanItem state during escalation: {@link
+ * io.casehub.engine.planning.handler.PlanItemEscalationHandler} marks the PlanItem ESCALATED on the
+ * same event bus fan-out. The response-handling loop (human COMMAND response → re-trigger routing)
+ * is tracked in engine#383.
  *
  * <p>If no oversight channel is open (e.g. in deployments using the no-op channel provider), the
  * escalation is logged with a {@code [METRIC:escalation.no-oversight-channel]} prefix for log-based
@@ -74,7 +76,7 @@ public class AgentRoutingEscalationHandler {
                 LOG.warnf(
                     "[METRIC:escalation.no-oversight-channel] caseId=%s capability=%s binding=%s"
                         + " — escalation absorbed; no oversight channel open."
-                        + " PlanItem stays PENDING indefinitely. engine#383 tracks response handling.",
+                        + " PlanItem remains ESCALATED. engine#383 tracks response handling.",
                     event.caseId(), event.capabilityName(), event.bindingName()));
   }
 
