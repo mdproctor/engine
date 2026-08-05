@@ -384,6 +384,48 @@ class AgentCandidateFactoryTest {
     assertThat(result).isEmpty();
   }
 
+  @Test
+  void behavioralViolationWorker_includedWithCorrectHealthAndViolations() {
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
+    final AgentDescriptor descriptor = mock(AgentDescriptor.class);
+    final Worker worker = workerWithCapability("agent-1", "research");
+    final CaseDefinition def = definitionFor(worker, descriptor);
+    when(capabilityHealth.probe(any(), any(), any()))
+        .thenReturn(
+            new CapabilityStatus.BehavioralViolation(
+                Map.of("LATENCY", 3, "ATTESTATION_RATE", 1),
+                CapabilityStatus.BehavioralViolation.ViolationKind.PER_DIMENSION));
+
+    final List<AgentCandidate> result =
+        factory.buildCandidates(
+            caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
+
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).health()).isEqualTo(AgentHealth.BEHAVIORAL_VIOLATION);
+    assertThat(result.get(0).violations())
+        .containsEntry("LATENCY", 3)
+        .containsEntry("ATTESTATION_RATE", 1);
+  }
+
+  @Test
+  void excludedWorker_isExcluded() {
+    final AgentCandidateFactory factory =
+        new AgentCandidateFactory(resolverFor(new NoOpVocabularyRegistry()));
+    final AgentDescriptor descriptor = mock(AgentDescriptor.class);
+    final Worker worker = workerWithCapability("agent-1", "research");
+    final CaseDefinition def = definitionFor(worker, descriptor);
+    when(capabilityHealth.probe(any(), any(), any()))
+        .thenReturn(
+            new CapabilityStatus.Excluded("research", CapabilityStatus.ExclusionSource.LEARNED, 5));
+
+    final List<AgentCandidate> result =
+        factory.buildCandidates(
+            caseInstance, def, List.of(worker), capability, executionManager, capabilityHealth);
+
+    assertThat(result).isEmpty();
+  }
+
   // --- Helpers ---
 
   private Worker workerWithCapability(final String name, final String capabilityName) {

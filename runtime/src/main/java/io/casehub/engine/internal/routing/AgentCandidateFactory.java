@@ -108,13 +108,27 @@ public class AgentCandidateFactory {
             w.name(), capabilityName, u.reason());
         continue;
       }
+      if (status instanceof CapabilityStatus.Excluded ex) {
+        LOG.warnf(
+            "Worker '%s' excluded for capability '%s': %s — excluded",
+            w.name(), capabilityName, ex.domain());
+        continue;
+      }
 
       final AgentHealth health =
           switch (status) {
+            case CapabilityStatus.Ready r -> AgentHealth.READY;
+            case CapabilityStatus.BehavioralViolation bv -> AgentHealth.BEHAVIORAL_VIOLATION;
             case CapabilityStatus.EpistemicallyWeak ew -> AgentHealth.EPISTEMICALLY_WEAK;
             case CapabilityStatus.Degraded d -> AgentHealth.DEGRADED;
-            default -> AgentHealth.READY;
+            case CapabilityStatus.Unavailable u ->
+                throw new IllegalStateException("unreachable — filtered above");
+            case CapabilityStatus.Excluded ex ->
+                throw new IllegalStateException("unreachable — filtered above");
           };
+
+      final java.util.Map<String, Integer> violations =
+          status instanceof CapabilityStatus.BehavioralViolation bv ? bv.violations() : null;
 
       candidates.add(
           new AgentCandidate(
@@ -124,7 +138,7 @@ public class AgentCandidateFactory {
               health,
               descriptor,
               mw.matchDegree(),
-              null));
+              violations));
     }
     return candidates;
   }
