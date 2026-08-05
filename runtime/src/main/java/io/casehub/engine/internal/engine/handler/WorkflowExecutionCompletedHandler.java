@@ -52,6 +52,7 @@ import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
+import io.casehub.engine.internal.routing.BehavioralComplianceRecorder;
 import io.casehub.engine.internal.routing.GoalFailureRecorder;
 import io.casehub.engine.internal.routing.PersonalitySignalRecorder;
 import io.casehub.engine.internal.work.CaseResumptionService;
@@ -92,6 +93,7 @@ public class WorkflowExecutionCompletedHandler {
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
   @Inject PersonalitySignalRecorder personalitySignalRecorder;
   @Inject GoalFailureRecorder goalFailureRecorder;
+  @Inject BehavioralComplianceRecorder behavioralComplianceRecorder;
   @Inject io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker;
   @Inject
           io.casehub.engine.internal.memory.AgentExperienceRecorder    agentExperienceRecorder;
@@ -178,6 +180,12 @@ public class WorkflowExecutionCompletedHandler {
           extractCapabilityTag(caseInstance, worker, bindingName),
           event.outcome(),
           bindingName);
+      behavioralComplianceRecorder.record(
+          caseInstance,
+          worker.name(),
+          extractCapabilityTag(caseInstance, worker, bindingName),
+          event.outcome(),
+          extractDurationMs(event));
 
       // Settlement recorded AFTER output application
       if (event.signalId() != null) {
@@ -373,6 +381,8 @@ public class WorkflowExecutionCompletedHandler {
     goalFailureRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
     agentExperienceRecorder.record(
         caseInstance, worker.name(), capabilityTag, event.outcome(), bindingName);
+    behavioralComplianceRecorder.record(
+        caseInstance, worker.name(), capabilityTag, event.outcome(), extractDurationMs(event));
 
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> existingOutcomes =
@@ -763,5 +773,16 @@ public class WorkflowExecutionCompletedHandler {
                     "Outcome recording failed for caseId=%s worker=%s",
                     caseInstance.getUuid(),
                     worker.name()));
+  }
+
+  private static Long extractDurationMs(WorkflowExecutionCompleted event) {
+    if (event.protocolMetadata() == null) {
+      return null;
+    }
+    Object duration = event.protocolMetadata().get("executionDurationMs");
+    if (duration instanceof Number n) {
+      return n.longValue();
+    }
+    return null;
   }
 }
