@@ -41,7 +41,8 @@ public record WorkerContext(
     List<WorkerSummary> priorWorkers,
     PropagationContext propagationContext,
     Map<String, Object> properties,
-    List<RetrievedExperience> experiences) {
+    List<RetrievedExperience> experiences,
+    List<RetrievedMemory> memories) {
 
   public WorkerContext {
     channels = channels == null ? List.of() : List.copyOf(channels);
@@ -51,6 +52,26 @@ public record WorkerContext(
             ? Map.of()
             : Collections.unmodifiableMap(new LinkedHashMap<>(properties));
     experiences = experiences == null ? List.of() : List.copyOf(experiences);
+    memories = memories == null ? List.of() : List.copyOf(memories);
+  }
+
+  public WorkerContext(
+      String taskDescription,
+      UUID caseId,
+      List<CaseChannel> channels,
+      List<WorkerSummary> priorWorkers,
+      PropagationContext propagationContext,
+      Map<String, Object> properties,
+      List<RetrievedExperience> experiences) {
+    this(
+        taskDescription,
+        caseId,
+        channels,
+        priorWorkers,
+        propagationContext,
+        properties,
+        experiences,
+        List.of());
   }
 
   public WorkerContext(
@@ -61,6 +82,13 @@ public record WorkerContext(
       PropagationContext propagationContext,
       Map<String, Object> properties) {
     this(
-        taskDescription, caseId, channels, priorWorkers, propagationContext, properties, List.of());
+        taskDescription,
+        caseId,
+        channels,
+        priorWorkers,
+        propagationContext,
+        properties,
+        List.of(),
+        List.of());
   }
 }

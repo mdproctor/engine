@@ -76,6 +76,8 @@ public class CaseDefinition {
   private Map<AclAction, List<String>> authorization;
   private Map<String, String> workerServiceAccountIds;
   private io.casehub.api.spi.QuorumConfig defaultQuorum;
+  private ReflectionTriggerConfig reflectionTrigger;
+  private MemoryRetrievalConfig memoryRetrieval;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -366,6 +368,22 @@ public class CaseDefinition {
     this.defaultQuorum = defaultQuorum;
   }
 
+  public ReflectionTriggerConfig getReflectionTrigger() {
+    return reflectionTrigger;
+  }
+
+  public void setReflectionTrigger(ReflectionTriggerConfig reflectionTrigger) {
+    this.reflectionTrigger = reflectionTrigger;
+  }
+
+  public MemoryRetrievalConfig getMemoryRetrieval() {
+    return memoryRetrieval;
+  }
+
+  public void setMemoryRetrieval(MemoryRetrievalConfig memoryRetrieval) {
+    this.memoryRetrieval = memoryRetrieval;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -411,6 +429,8 @@ public class CaseDefinition {
     private Map<AclAction, List<String>> authorization;
     private Map<String, String> workerServiceAccountIds;
     private io.casehub.api.spi.QuorumConfig defaultQuorum;
+    private ReflectionTriggerConfig reflectionTrigger;
+    private MemoryRetrievalConfig memoryRetrieval;
 
     private Builder() {}
 
@@ -691,6 +711,16 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder reflectionTrigger(ReflectionTriggerConfig reflectionTrigger) {
+      this.reflectionTrigger = reflectionTrigger;
+      return this;
+    }
+
+    public Builder memoryRetrieval(MemoryRetrievalConfig memoryRetrieval) {
+      this.memoryRetrieval = memoryRetrieval;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -781,6 +811,8 @@ public class CaseDefinition {
         caseHubDefinition.setWorkerServiceAccountIds(Map.copyOf(workerServiceAccountIds));
       }
       caseHubDefinition.setDefaultQuorum(defaultQuorum);
+      caseHubDefinition.setReflectionTrigger(reflectionTrigger);
+      caseHubDefinition.setMemoryRetrieval(memoryRetrieval);
 
       return caseHubDefinition;
     }

@@ -15,8 +15,6 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
-import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseDefinition;
@@ -40,11 +38,14 @@ import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.util.List;
-import java.util.Map;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
+
+import java.util.List;
+import java.util.Map;
+
+import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
 /**
  * Thin Quartz adapter — resolves context, delegates execution to {@link WorkerExecutor}, and
@@ -181,6 +182,7 @@ class QuartzWorkerExecutionJob implements Job {
               instance.getPropagationContext());
 
       List<RetrievedExperience> experiences = deserializeExperiences(eventLog);
+      java.util.List<io.casehub.api.model.RetrievedMemory> memories = deserializeMemories(eventLog);
       WorkerContext workerContext =
           new WorkerContext(
               baseContext.taskDescription(),
@@ -189,7 +191,8 @@ class QuartzWorkerExecutionJob implements Job {
               baseContext.priorWorkers(),
               baseContext.propagationContext(),
               baseContext.properties(),
-              experiences);
+              experiences,
+              memories);
 
       ExecutionMetadata metadata =
           new ExecutionMetadata(workerId, inputDataHash, bindingName, executionMode);
@@ -297,7 +300,26 @@ class QuartzWorkerExecutionJob implements Job {
     }
   }
 
-  @SuppressWarnings("unchecked")
+    private static java.util.List<io.casehub.api.model.RetrievedMemory> deserializeMemories(EventLog eventLog) {
+        JsonNode memoriesNode = eventLog.getMetadata().get("memories");
+        if (memoriesNode == null || memoriesNode.isNull() || memoriesNode.isEmpty()) {
+            return java.util.List.of();
+        }
+        try {
+            return OBJECT_MAPPER.convertValue(
+                    memoriesNode,
+                    OBJECT_MAPPER
+                            .getTypeFactory()
+                            .constructCollectionType(java.util.List.class, io.casehub.api.model.RetrievedMemory.class));
+        } catch (Exception e) {
+            LOG.warnf(
+                    e, "Failed to deserialize memories from EventLog metadata — proceeding without");
+            return java.util.List.of();
+        }
+    }
+
+
+    @SuppressWarnings("unchecked")
   private static Map<String, Object> toMap(Object output) {
     if (output == null) {
       return null;

@@ -65,11 +65,12 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.logging.Logger;
 
 /**
  * Applies worker output to the case context, persists the completion event, and notifies listeners
@@ -92,8 +93,11 @@ public class WorkflowExecutionCompletedHandler {
   @Inject PersonalitySignalRecorder personalitySignalRecorder;
   @Inject GoalFailureRecorder goalFailureRecorder;
   @Inject io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker;
+  @Inject
+          io.casehub.engine.internal.memory.AgentExperienceRecorder    agentExperienceRecorder;
 
-  @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
+
+    @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
   @Inject ContextOutputApplier contextOutputApplier;
 
   @Inject
@@ -168,6 +172,12 @@ public class WorkflowExecutionCompletedHandler {
           worker.name(),
           extractCapabilityTag(caseInstance, worker, bindingName),
           event.outcome());
+      agentExperienceRecorder.record(
+          caseInstance,
+          worker.name(),
+          extractCapabilityTag(caseInstance, worker, bindingName),
+          event.outcome(),
+          bindingName);
 
       // Settlement recorded AFTER output application
       if (event.signalId() != null) {
@@ -361,6 +371,8 @@ public class WorkflowExecutionCompletedHandler {
     String capabilityTag = extractCapabilityTag(caseInstance, worker, bindingName);
     personalitySignalRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
     goalFailureRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
+    agentExperienceRecorder.record(
+        caseInstance, worker.name(), capabilityTag, event.outcome(), bindingName);
 
     @SuppressWarnings("unchecked")
     final java.util.Map<String, Object> existingOutcomes =

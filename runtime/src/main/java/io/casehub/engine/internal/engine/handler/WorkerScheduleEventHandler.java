@@ -51,6 +51,9 @@ import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
+
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -59,8 +62,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class WorkerScheduleEventHandler {
@@ -88,8 +89,11 @@ public class WorkerScheduleEventHandler {
   @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
   @Inject io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
+  @Inject
+          io.casehub.engine.internal.memory.AgentMemoryRetriever agentMemoryRetriever;
 
-  @ConfigProperty(name = "casehub.idempotency.window")
+
+    @ConfigProperty(name = "casehub.idempotency.window")
   Optional<Duration> idempotencyWindow;
 
   private static String serialize(final Object value) {
@@ -146,6 +150,10 @@ public class WorkerScheduleEventHandler {
       workerContextProvider.buildContext(
           worker.name(), instance.getUuid(), WorkRequest.of(capability.name(), inputDataForHash));
 
+      java.util.List<io.casehub.api.model.RetrievedMemory> memories =
+          agentMemoryRetriever.retrieve(
+              worker.name(), instance.tenancyId, capability.name(), definition);
+
       EventLog eventLog =
           buildEventLog(
               instance,
@@ -160,7 +168,8 @@ public class WorkerScheduleEventHandler {
               event.experiences(),
               event.lifecycleScope(),
               event.executionMode(),
-              event.activationContext());
+              event.activationContext(),
+              memories);
 
       String lockKey = "wse:" + instance.getUuid() + ":" + worker.name() + ":" + inputDataHash;
       java.util.concurrent.locks.ReentrantLock lock =
@@ -221,7 +230,8 @@ public class WorkerScheduleEventHandler {
       List<RetrievedExperience> experiences,
       LifecycleScope lifecycleScope,
       ExecutionMode executionMode,
-      JsonNode activationContext) {
+      JsonNode activationContext,
+      java.util.List<io.casehub.api.model.RetrievedMemory> memories) {
     Map<String, String> metadataBuilder = new HashMap<>();
     metadataBuilder.put("workerName", worker.name());
     metadataBuilder.put("capabilityName", capability.name());
@@ -248,6 +258,10 @@ public class WorkerScheduleEventHandler {
     ObjectNode metaNode = OBJECT_MAPPER.valueToTree(metadataBuilder);
     if (experiences != null && !experiences.isEmpty()) {
       metaNode.set("experiences", OBJECT_MAPPER.valueToTree(experiences));
+    }
+    if (memories != null && !memories.isEmpty()) {
+      metaNode.set("memories", OBJECT_MAPPER.valueToTree(memories));
+      metaNode.put("retrievedMemoryCount", memories.size());
     }
     if (activationContext != null && !activationContext.isNull()) {
       metaNode.set("activationContext", activationContext);

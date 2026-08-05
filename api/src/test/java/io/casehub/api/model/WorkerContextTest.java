@@ -78,4 +78,38 @@ class WorkerContextTest {
     mutable.put("extra", "injected");
     assertThat(wc.properties()).doesNotContainKey("extra");
   }
+
+  @Test
+  void eightArgConstructor_memoriesImmutable() {
+    var mem = new RetrievedMemory("id", "text", "exp", java.time.Instant.now(), Map.of());
+    var ctx =
+        new WorkerContext(
+            "desc",
+            UUID.randomUUID(),
+            List.of(),
+            List.of(),
+            null,
+            Map.of(),
+            List.of(),
+            List.of(mem));
+    assertThat(ctx.memories()).hasSize(1);
+    assertThatThrownBy(() -> ctx.memories().add(mem))
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void sevenArgConstructor_memoriesEmpty() {
+    var ctx =
+        new WorkerContext(
+            "desc", UUID.randomUUID(), List.of(), List.of(), null, Map.of(), List.of());
+    assertThat(ctx.memories()).isEmpty();
+  }
+
+  @Test
+  void nullMemories_defaultsToEmptyList() {
+    var ctx =
+        new WorkerContext(
+            "desc", UUID.randomUUID(), List.of(), List.of(), null, Map.of(), List.of(), null);
+    assertThat(ctx.memories()).isNotNull().isEmpty();
+  }
 }

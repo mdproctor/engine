@@ -36,11 +36,13 @@ import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.InboundSignalMapping;
 import io.casehub.api.model.LifecycleScope;
+import io.casehub.api.model.MemoryRetrievalConfig;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.Participation;
 import io.casehub.api.model.PredicateBasedCompletion;
+import io.casehub.api.model.ReflectionTriggerConfig;
 import io.casehub.api.model.SignalType;
 import io.casehub.api.model.SingleGoalExpression;
 import io.casehub.api.model.SlaStartFrom;
@@ -68,6 +70,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 import net.thisptr.jackson.jq.BuiltinFunctionLoader;
 import net.thisptr.jackson.jq.JsonQuery;
@@ -561,7 +564,9 @@ public final class CaseDefinitionYamlMapper {
       while (fields.hasNext()) {
         var entry = fields.next();
         String kindValue = entry.getKey();
-        if ("doneWhen".equals(kindValue)) continue;
+        if ("doneWhen".equals(kindValue)) {
+          continue;
+        }
         hasGoalEntries = true;
         GoalKind kind = resolveGoalKind(kindValue, entry.getValue());
         GoalExpression expr = parseGoalExpressionFromNode(entry.getValue(), goalMap);
@@ -786,6 +791,50 @@ public final class CaseDefinitionYamlMapper {
       def.setDefaultQuorum(
           new io.casehub.api.spi.QuorumConfig(
               instances, required, onThresholdReached, allowSameAssignee));
+    }
+
+    // reflection — per-case reflection trigger configuration
+    final JsonNode reflectionNode = specNode != null ? specNode.get("reflection") : null;
+    if (reflectionNode != null && reflectionNode.isObject()) {
+      Map<String, Double> impWeights = ReflectionTriggerConfig.DEFAULT_IMPORTANCE_WEIGHTS;
+      JsonNode weightsNode = reflectionNode.get("importanceWeights");
+      if (weightsNode != null && weightsNode.isObject()) {
+        var parsed = new LinkedHashMap<String, Double>();
+        weightsNode.fields().forEachRemaining(e -> parsed.put(e.getKey(), e.getValue().asDouble()));
+        impWeights = Map.copyOf(parsed);
+      }
+      def.setReflectionTrigger(
+          new ReflectionTriggerConfig(
+              reflectionNode.has("enabled") && reflectionNode.get("enabled").asBoolean(),
+              reflectionNode.has("importanceThreshold")
+                  ? reflectionNode.get("importanceThreshold").asDouble()
+                  : 3.0,
+              reflectionNode.has("maxUnreflectedOutcomes")
+                  ? reflectionNode.get("maxUnreflectedOutcomes").asInt()
+                  : 10,
+              reflectionNode.has("maxSourceMemories")
+                  ? reflectionNode.get("maxSourceMemories").asInt()
+                  : 50,
+              impWeights));
+    }
+
+    // memoryRetrieval — per-case memory retrieval configuration
+    final JsonNode memRetrievalNode = specNode != null ? specNode.get("memoryRetrieval") : null;
+    if (memRetrievalNode != null && memRetrievalNode.isObject()) {
+      Set<String> domains = Set.of();
+      JsonNode domainsNode = memRetrievalNode.get("domains");
+      if (domainsNode != null && domainsNode.isArray()) {
+        var domainSet = new java.util.LinkedHashSet<String>();
+        domainsNode.forEach(n -> domainSet.add(n.asText()));
+        domains = Set.copyOf(domainSet);
+      }
+      def.setMemoryRetrieval(
+          new MemoryRetrievalConfig(
+              memRetrievalNode.has("enabled") && memRetrievalNode.get("enabled").asBoolean(),
+              memRetrievalNode.has("maxMemories")
+                  ? memRetrievalNode.get("maxMemories").asInt()
+                  : 10,
+              domains));
     }
 
     return def;
