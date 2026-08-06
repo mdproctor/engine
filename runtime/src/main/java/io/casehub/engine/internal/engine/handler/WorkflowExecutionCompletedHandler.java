@@ -66,12 +66,11 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jboss.logging.Logger;
 
 /**
  * Applies worker output to the case context, persists the completion event, and notifies listeners
@@ -95,11 +94,9 @@ public class WorkflowExecutionCompletedHandler {
   @Inject GoalFailureRecorder goalFailureRecorder;
   @Inject BehavioralComplianceRecorder behavioralComplianceRecorder;
   @Inject io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker;
-  @Inject
-          io.casehub.engine.internal.memory.AgentExperienceRecorder    agentExperienceRecorder;
+  @Inject io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder;
 
-
-    @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
+  @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
   @Inject ContextOutputApplier contextOutputApplier;
 
   @Inject

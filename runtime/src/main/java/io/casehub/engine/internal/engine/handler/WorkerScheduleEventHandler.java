@@ -51,9 +51,6 @@ import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-import org.jboss.logging.Logger;
-
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -62,6 +59,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class WorkerScheduleEventHandler {
@@ -89,11 +88,9 @@ public class WorkerScheduleEventHandler {
   @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
   @Inject io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject
-          io.casehub.engine.internal.memory.AgentMemoryRetriever agentMemoryRetriever;
+  @Inject io.casehub.engine.internal.memory.AgentMemoryRetriever agentMemoryRetriever;
 
-
-    @ConfigProperty(name = "casehub.idempotency.window")
+  @ConfigProperty(name = "casehub.idempotency.window")
   Optional<Duration> idempotencyWindow;
 
   private static String serialize(final Object value) {

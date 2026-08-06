@@ -20,11 +20,15 @@ import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.PlanItemType;
 import io.casehub.engine.common.spi.PlanItemStore;
+import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Alternative;
 import jakarta.transaction.Transactional;
 import java.util.List;
 import java.util.UUID;
 
+@Alternative
+@Priority(2)
 @ApplicationScoped
 public class JpaPlanItemStore extends TenantAwareRepository implements PlanItemStore {
 
