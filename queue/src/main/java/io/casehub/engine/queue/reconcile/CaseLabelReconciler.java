@@ -73,8 +73,7 @@ public class CaseLabelReconciler {
     int reconciledCount = 0;
     for (String tenancyId : tenancyIds) {
       for (CaseStatus status : ACTIVE_STATUSES) {
-        List<CaseInstance> cases =
-            caseInstanceRepository.findByStatus(status, tenancyId);
+        List<CaseInstance> cases = caseInstanceRepository.findByStatus(status, tenancyId);
         for (CaseInstance instance : cases) {
           if (reconcileCase(instance, tenancyId)) {
             reconciledCount++;

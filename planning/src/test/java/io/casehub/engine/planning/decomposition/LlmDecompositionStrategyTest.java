@@ -15,7 +15,8 @@
  */
 package io.casehub.engine.planning.decomposition;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -47,7 +48,9 @@ class LlmDecompositionStrategyTest {
                 new Capability("data-gathering", "", "", null),
                 new Capability("analysis", "", "", null),
                 new Capability("reporting", "", "", null)));
-    var task = new TaskNode.CompoundTask<JsonNode>("comprehensive-analysis", List.of());
+    var task =
+        new TaskNode.CompoundTask<JsonNode>(
+            "comprehensive-analysis", "comprehensive-analysis", List.of());
 
     var plan = strategy.decompose(task, context).await().indefinitely();
 
@@ -69,7 +72,7 @@ class LlmDecompositionStrategyTest {
     var strategy = new LlmDecompositionStrategy();
     setField(strategy, "chatModelProviders", unsatisfiedInstance());
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
-    var task = new TaskNode.CompoundTask<JsonNode>("goal-1", List.of());
+    var task = new TaskNode.CompoundTask<JsonNode>("goal-1", "goal-1", List.of());
 
     assertThatThrownBy(() -> strategy.decompose(task, context).await().indefinitely())
         .isInstanceOf(UnsupportedOperationException.class);
@@ -79,7 +82,7 @@ class LlmDecompositionStrategyTest {
   void failsOnEmptySteps() {
     var strategy = buildWithMockChatModel("{\"steps\": []}");
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
-    var task = new TaskNode.CompoundTask<JsonNode>("goal-1", List.of());
+    var task = new TaskNode.CompoundTask<JsonNode>("goal-1", "goal-1", List.of());
 
     assertThatThrownBy(() -> strategy.decompose(task, context).await().indefinitely())
         .isInstanceOf(AgentException.class)
@@ -90,7 +93,7 @@ class LlmDecompositionStrategyTest {
   void failsOnMissingStepsField() {
     var strategy = buildWithMockChatModel("{\"result\": \"ok\"}");
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
-    var task = new TaskNode.CompoundTask<JsonNode>("goal-1", List.of());
+    var task = new TaskNode.CompoundTask<JsonNode>("goal-1", "goal-1", List.of());
 
     assertThatThrownBy(() -> strategy.decompose(task, context).await().indefinitely())
         .isInstanceOf(AgentException.class);

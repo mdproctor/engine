@@ -16,7 +16,6 @@
 package io.casehub.engine.rest;
 
 import static io.restassured.RestAssured.given;
-import static org.hamcrest.Matchers.*;
 
 import io.casehub.engine.plan.execution.ExecutionSnapshotStore;
 import io.quarkus.test.junit.QuarkusTest;

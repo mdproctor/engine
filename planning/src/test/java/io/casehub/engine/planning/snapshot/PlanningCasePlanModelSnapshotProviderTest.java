@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.planning.snapshot;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.ExecutorRef;
 import io.casehub.engine.plan.snapshot.CompoundItemSnapshot;
