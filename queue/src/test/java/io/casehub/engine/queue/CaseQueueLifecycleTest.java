@@ -78,6 +78,14 @@ class CaseQueueLifecycleTest {
     inject(orchestrator, "evaluator", viewEvaluator);
     inject(orchestrator, "viewStore", viewStore);
     inject(orchestrator, "tracker", tracker);
+    io.casehub.platform.api.preferences.PreferenceProvider prefProvider =
+        mock(io.casehub.platform.api.preferences.PreferenceProvider.class);
+    io.casehub.platform.api.preferences.Preferences prefs =
+        mock(io.casehub.platform.api.preferences.Preferences.class);
+    when(prefs.getOrDefault(any(io.casehub.platform.api.preferences.PreferenceKey.class)))
+        .thenReturn(io.casehub.platform.api.preferences.IntPreference.of(300));
+    when(prefProvider.resolve(any())).thenReturn(prefs);
+    inject(orchestrator, "preferenceProvider", prefProvider);
 
     viewManager = new CaseQueueViewManager(orchestrator, viewStore);
 
