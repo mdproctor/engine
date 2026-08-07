@@ -13,9 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.plan;
+package io.casehub.engine.plan.snapshot;
 
-import java.util.function.Predicate;
+import io.casehub.engine.plan.JoinType;
+import java.util.Set;
 
-public record DecompositionMethod<T>(
-    Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {}
+public record DagNodeSnapshot(
+    String id,
+    String taskId,
+    String taskDescription,
+    String executorName,
+    Set<String> dependsOn,
+    JoinType joinType) {}

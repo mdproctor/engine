@@ -205,11 +205,25 @@ is public (`public Long id`) and set by the repository after save.
 **Unified with blocks (blocks#60 Phase 4):** `ExecutionPlan<T>` deleted from blocks. Blocks now uses `DagPlan<LeafTask<T>>` directly from engine-api. `fromNodes()` (renamed from `sequence(List<DagNode<T>>)`) takes pre-wired nodes; `sequence(List<? extends T>)` auto-wires a sequential chain with auto-generated IDs.
 
 **HTN decomposition SPI (blocks#60 Phase 5):** Task tree and decomposition types promoted from blocks to engine-api (`io.casehub.engine.plan`):
-- `TaskNode<T>` — sealed: `LeafTask<T>` (non-sealed, extends `TaskDescriptor`) + `CompoundTask<T>` (record with `DecompositionMethod` list). `LeafTask` is non-sealed so blocks can define concrete task types (`PrimitiveTask`, `PlannedTask`) without engine-api knowing about them.
+- `TaskNode<T>` — sealed: `LeafTask<T>` (non-sealed, extends `TaskDescriptor`) + `CompoundTask<T>` (record `(id, name, methods)`). `id` is the node identity (engine#873). `LeafTask` is non-sealed so blocks can define concrete task types (`PrimitiveTask`, `PlannedTask`) without engine-api knowing about them.
 - `DecompositionStrategy<T>` — SPI extending `NamedStrategy`. `decompose(TaskNode<T>, DecompositionContext<T>) → Uni<DagPlan<LeafTask<T>>>`. Default id `"identity"`. Wired into `EngineStrategyResolver` (Phase 6) — YAML: `decompositionStrategy:` on spec block.
-- `DecompositionMethod<T>` — record `(Predicate<T> guard, DecompositionStrategy<T> strategy)`. HTN method concept — guard-gated decomposition.
+- `DecompositionMethod<T>` — record `(Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel)`. HTN method concept — guard-gated decomposition. `guardLabel` (nullable) provides a human-readable description for UI serialization (engine#873).
 - `DecompositionContext<T>` — interface with `state()` and `depth()`. Blocks provides `AgenticDecompositionContext<T>` (adds `agents()`) — strategies cast when they need the richer context.
 - Blocks' `PrimitiveTask<T>` and `PlannedTask<T>` promoted from `TaskNode` inner records to top-level records implementing `TaskNode.LeafTask<T>`. `executor()` delegates to blocks-specific `agent()` field.
+
+## Plan Snapshot Infrastructure
+
+Non-generic, Jackson-serializable snapshot types for REST serialization of HTN/DAG runtime state. Plan-definition snapshots in `engine-api` (`io.casehub.engine.plan.snapshot`); execution snapshots in `engine-common` (`io.casehub.engine.plan.execution`). Refs engine#873.
+
+**Plan-definition snapshots (engine-api):** `TaskNodeSnapshot` (sealed: `LeafTaskSnapshot`, `CompoundTaskSnapshot` — `@JsonTypeInfo` `kind` discriminator), `DecompositionMethodSnapshot`, `DecompositionSnapshot`, `DagNodeSnapshot`, `DagPlanSnapshot`, `PlanItemDefinitionSnapshot` (sealed: `PrimitiveItemSnapshot`, `CompoundItemSnapshot`), `CompletionSemanticsSnapshot` (sealed: `AllSnapshot`, `MOfNSnapshot`, `FirstWinsSnapshot`). Static `from()` factories extract `TaskDescriptor` fields from generic engine types.
+
+**Execution snapshots (engine-common):** `NodeStateSnapshot`, `DagResultSnapshot`, `AgendaItemSnapshot`, `SubCaseSnapshotRecord`, `CompoundStatusSnapshot`, `CasePlanModelSnapshot`.
+
+**SPIs (engine-common):** `ExecutionSnapshotStore` — read/write store for captured decomposition, DAG plan, and DAG result snapshots. `InMemoryExecutionSnapshotStore` (`@DefaultBean @ApplicationScoped`) uses `ConcurrentHashMap` with `AtomicReference` per field. `CasePlanModelSnapshotProvider` — live plan model data computed on-demand. `NoOpCasePlanModelSnapshotProvider` (`@DefaultBean`). `PlanningCasePlanModelSnapshotProvider` (planning module) reads from `BlackboardRegistry`.
+
+**`SnapshotCapturingDagEventListener<T,R>`** (engine-common) — convenience `DagEventListener` that stores `DagPlanSnapshot` on construction and `DagResultSnapshot` on `onExecutionComplete()`. Blocks passes this listener when constructing `DagDriver`.
+
+**REST endpoints (`PlanResource`):** `GET /api/v1/cases/{caseId}/plan/model` (live CasePlanModel), `/definitions` (PlanItemDefinition hierarchy), `/decomposition` (captured HTN tree), `/dag` (captured DagPlan), `/dag/result` (captured DagResult). All `@RunOnVirtualThread` with ACL enforcement. Returns snapshot types directly — Jackson `@JsonTypeInfo` discriminators match blocks-ui TypeScript contracts.
 
 `MutableCaseContext` (`api/context/`) — engine-internal extension of `CaseContext`. Adds `writableLayer(String name)` returning `WritableLayer`, `freezeLayer(String name)`, and `close()` (default no-op). `CaseContextImpl` implements `MutableCaseContext`. All engine-internal code (`CaseHubReactor`, `EpisodicLayerUpdater`, handlers) programs to `MutableCaseContext` — zero `instanceof CaseContextImpl` checks remain. `WritableLayerImpl` delegates storage to `CaseContextStore`. `engineSet()` and `engineUpdate()` remain on `WritableLayerImpl` only (not on the `WritableLayer` interface) — `EpisodicLayerUpdater` uses a localized cast. Refs engine#419.
 

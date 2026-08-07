@@ -13,22 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.plan;
+package io.casehub.engine.plan.execution;
 
-import io.casehub.api.model.TaskDescriptor;
+import io.casehub.engine.plan.snapshot.PlanItemDefinitionSnapshot;
+import io.quarkus.arc.DefaultBean;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
-import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
 
-public sealed interface TaskNode<T> permits TaskNode.LeafTask, TaskNode.CompoundTask {
+@DefaultBean
+@ApplicationScoped
+public class NoOpCasePlanModelSnapshotProvider implements CasePlanModelSnapshotProvider {
 
-  non-sealed interface LeafTask<T> extends TaskNode<T>, TaskDescriptor {}
+  @Override
+  public Optional<CasePlanModelSnapshot> getSnapshot(UUID caseId, String tenancyId) {
+    return Optional.empty();
+  }
 
-  record CompoundTask<T>(String id, String name, List<DecompositionMethod<T>> methods)
-      implements TaskNode<T> {
-    public CompoundTask {
-      Objects.requireNonNull(id, "id");
-      Objects.requireNonNull(name, "name");
-      methods = List.copyOf(methods);
-    }
+  @Override
+  public List<PlanItemDefinitionSnapshot> getDefinitions(UUID caseId, String tenancyId) {
+    return List.of();
   }
 }

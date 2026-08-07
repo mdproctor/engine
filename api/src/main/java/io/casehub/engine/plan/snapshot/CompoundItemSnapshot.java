@@ -13,9 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.plan;
+package io.casehub.engine.plan.snapshot;
 
-import java.util.function.Predicate;
+import java.util.List;
+import java.util.Map;
 
-public record DecompositionMethod<T>(
-    Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {}
+public record CompoundItemSnapshot(
+    String id,
+    String name,
+    List<PlanItemDefinitionSnapshot> children,
+    String planningStrategy,
+    CompletionSemanticsSnapshot completion,
+    String dispatchMode,
+    String entryCondition,
+    String exitCondition,
+    boolean repeatable,
+    Map<String, String> scopedBindings)
+    implements PlanItemDefinitionSnapshot {}

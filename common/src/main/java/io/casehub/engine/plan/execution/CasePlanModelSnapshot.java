@@ -13,9 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.plan;
+package io.casehub.engine.plan.execution;
 
-import java.util.function.Predicate;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
-public record DecompositionMethod<T>(
-    Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {}
+public record CasePlanModelSnapshot(
+    UUID caseId,
+    List<AgendaItemSnapshot> agenda,
+    String focus,
+    String focusRationale,
+    Map<String, Object> resourceBudget,
+    List<SubCaseSnapshotRecord> subCases,
+    List<CompoundStatusSnapshot> compounds,
+    Instant timestamp) {}

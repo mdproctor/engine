@@ -13,9 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.plan;
+package io.casehub.engine.plan.snapshot;
 
-import java.util.function.Predicate;
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 
-public record DecompositionMethod<T>(
-    Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {}
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "kind")
+@JsonSubTypes({
+  @JsonSubTypes.Type(value = LeafTaskSnapshot.class, name = "leaf"),
+  @JsonSubTypes.Type(value = CompoundTaskSnapshot.class, name = "compound")
+})
+public sealed interface TaskNodeSnapshot permits LeafTaskSnapshot, CompoundTaskSnapshot {}

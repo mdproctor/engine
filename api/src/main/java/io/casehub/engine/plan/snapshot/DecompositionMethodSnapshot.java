@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.plan;
+package io.casehub.engine.plan.snapshot;
 
-import java.util.function.Predicate;
+import java.util.List;
 
-public record DecompositionMethod<T>(
-    Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {}
+public record DecompositionMethodSnapshot(
+    String guardLabel, String strategyId, List<TaskNodeSnapshot> children) {}
