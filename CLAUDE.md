@@ -224,6 +224,26 @@ Non-generic, Jackson-serializable snapshot types for REST serialization of HTN/D
 **`SnapshotCapturingDagEventListener<T,R>`** (engine-common) — convenience `DagEventListener` that stores `DagPlanSnapshot` on construction and `DagResultSnapshot` on `onExecutionComplete()`. Blocks passes this listener when constructing `DagDriver`.
 
 **REST endpoints (`PlanResource`):** `GET /api/v1/cases/{caseId}/plan/model` (live CasePlanModel), `/definitions` (PlanItemDefinition hierarchy), `/decomposition` (captured HTN tree), `/dag` (captured DagPlan), `/dag/result` (captured DagResult). All `@RunOnVirtualThread` with ACL enforcement. Returns snapshot types directly — Jackson `@JsonTypeInfo` discriminators match blocks-ui TypeScript contracts.
+## Goal Decomposition
+
+`GoalDecomposer` (`common/spi/`, SPI interface) — pre-dispatch goal decomposition at case start. `DefaultGoalDecomposer` (`planning/decomposition/`, `@ApplicationScoped`) maps active `AgentGoal`s to `CompoundTask` inputs, calls the resolved `DecompositionStrategy`, validates the result, and materializes it as compound `PlanItemDefinition`s via `registerDefinition()`. Injected into `CaseStartedEventHandler` via `Instance<GoalDecomposer>` — transparent no-op when planning module absent. Refs engine#802.
+
+**Activation:** `CaseDefinition.decompositionStrategy` (nullable String, YAML: `decompositionStrategy:`) selects the strategy by ID. When null, no decomposition runs.
+
+**v1 constraints:** Plans must be linear chains (sequential only). Parallel branches rejected at validation. Single strategy per case definition.
+
+**`LlmDecompositionStrategy`** (`planning/decomposition/`, `@ApplicationScoped`, id=`"llm"`) — LLM-backed `DecompositionStrategy<JsonNode>`. Prompts `ChatModel` (via `Instance<ChatModelProvider>`) with goal description + available capabilities, parses structured JSON response into `DagPlan<LeafTask<JsonNode>>`. Transparent no-op when `ChatModelProvider` absent.
+
+**`GoalStep`** (`planning/decomposition/`) — record implementing `TaskNode.LeafTask<JsonNode>`. Fields: `goalStepId` (UUID), `description`, `capabilityName`, `createdAt`. `TaskDescriptor.id()` returns `goalStepId.toString()`. `executor()` returns null (assigned at dispatch time). `status()` returns PENDING.
+
+**`GoalDecompositionContext`** (`planning/decomposition/`) — record implementing `DecompositionContext<JsonNode>`. Extends base context with `availableCapabilities` (`List<Capability>`) for LLM prompt construction. Strategies cast from `DecompositionContext` when they need capabilities (same pattern as blocks' `AgenticDecompositionContext`).
+
+**Validation:** Unknown capabilities filtered (warning logged). Non-linear plans rejected (v1). Overlapping compound scopes resolved by `AgentGoal.priority()` — higher priority wins contested bindings. Idempotency: skips when PlanItems with `parentCompoundId` already exist for the case.
+
+**Timeout:** `casehub.engine.decomposition.timeout-ms` (default 30000). Per-goal — one timeout doesn't block other goals. Graceful degradation: case starts without plan, bindings fire normally.
+
+**Audit:** `GOAL_DECOMPOSED` event type in `CaseHubEventType`. EventLog metadata: `goalName`, `strategyId`, `stepCount`, `skippedSteps`.
+
 
 `MutableCaseContext` (`api/context/`) — engine-internal extension of `CaseContext`. Adds `writableLayer(String name)` returning `WritableLayer`, `freezeLayer(String name)`, and `close()` (default no-op). `CaseContextImpl` implements `MutableCaseContext`. All engine-internal code (`CaseHubReactor`, `EpisodicLayerUpdater`, handlers) programs to `MutableCaseContext` — zero `instanceof CaseContextImpl` checks remain. `WritableLayerImpl` delegates storage to `CaseContextStore`. `engineSet()` and `engineUpdate()` remain on `WritableLayerImpl` only (not on the `WritableLayer` interface) — `EpisodicLayerUpdater` uses a localized cast. Refs engine#419.
 

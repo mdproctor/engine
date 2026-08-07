@@ -48,6 +48,7 @@ public enum CaseHubEventType {
   MILESTONE_SLA_VIOLATED,
 
   GOAL_REACHED,
+  GOAL_DECOMPOSED, // agent goal decomposed into ordered sub-step plan at case start
 
   SUBCASE_STARTED, // child case spawned by a SubCase binding
   SUBCASE_COMPLETED, // child case reached a terminal state; parent context updated

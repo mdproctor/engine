@@ -73,6 +73,9 @@ public class CaseStartedEventHandler {
 
   @Inject CbrRetrievalService cbrRetrievalService;
 
+  @Inject
+  jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.GoalDecomposer> goalDecomposer;
+
   private static double computeOutcomeConsistency(List<RetrievedExperience> experiences) {
     Map<String, Long> freq =
         experiences.stream()
@@ -123,6 +126,26 @@ public class CaseStartedEventHandler {
       eventLogRepository.append(runningLog, instance.tenancyId);
 
       injectCbrExperiences(instance);
+
+      if (goalDecomposer.isResolvable()) {
+        try {
+          var metaModel = instance.getCaseMetaModel();
+          if (metaModel != null) {
+            var definition = caseDefinitionRegistry.getCaseDefinition(metaModel);
+            goalDecomposer
+                .get()
+                .decompose(
+                    instance,
+                    definition,
+                    (io.casehub.api.context.MutableCaseContext) instance.getCaseContext());
+          }
+        } catch (Exception e) {
+          LOG.warnf(
+              e,
+              "Goal decomposition failed for caseId=%s — case continues without plan",
+              instance.getUuid());
+        }
+      }
 
       lifecycleEvents
           .fireAsync(
