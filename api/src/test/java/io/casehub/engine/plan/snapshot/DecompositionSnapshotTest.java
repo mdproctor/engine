@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.plan.snapshot;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.engine.plan.DecompositionMethod;
 import io.casehub.engine.plan.TaskNode;

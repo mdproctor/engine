@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.plan.snapshot;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.List;
