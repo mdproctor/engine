@@ -78,8 +78,11 @@ public class CaseDefinition {
   private io.casehub.api.spi.QuorumConfig defaultQuorum;
   private ReflectionTriggerConfig reflectionTrigger;
   private MemoryRetrievalConfig memoryRetrieval;
+  private List<ChannelDeclaration> channels = List.of();
+  private AdaptationConfig         adaptationConfig;
 
-  public CaseDefinition(String namespace, String name, String version) {
+
+    public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
     this.name = name;
     this.version = version;
@@ -384,6 +387,23 @@ public class CaseDefinition {
     this.memoryRetrieval = memoryRetrieval;
   }
 
+  public List<ChannelDeclaration> getChannels() {
+    return channels;
+  }
+
+  public void setChannels(List<ChannelDeclaration> channels) {
+    this.channels = channels != null ? List.copyOf(channels) : List.of();
+  }
+
+  public AdaptationConfig getAdaptationConfig() {
+    return adaptationConfig;
+  }
+
+  public void setAdaptationConfig(AdaptationConfig adaptationConfig) {
+    this.adaptationConfig = adaptationConfig;
+  }
+
+
   public static Builder builder() {
     return new Builder();
   }
@@ -431,6 +451,9 @@ public class CaseDefinition {
     private io.casehub.api.spi.QuorumConfig defaultQuorum;
     private ReflectionTriggerConfig reflectionTrigger;
     private MemoryRetrievalConfig memoryRetrieval;
+    private List<ChannelDeclaration> channels = new java.util.ArrayList<>();
+    private AdaptationConfig         adaptationConfig;
+
 
     private Builder() {}
 
@@ -721,6 +744,27 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder channel(String name, Class<?> recordType) {
+      this.channels.add(new ChannelDeclaration(name, recordType, null, null));
+      return this;
+    }
+
+    public Builder channel(String name, Class<?> recordType, String transport) {
+      this.channels.add(new ChannelDeclaration(name, recordType, transport, null));
+      return this;
+    }
+
+    public Builder channel(ChannelDeclaration channel) {
+      this.channels.add(channel);
+      return this;
+    }
+
+    public Builder adaptationConfig(AdaptationConfig adaptationConfig) {
+      this.adaptationConfig = adaptationConfig;
+      return this;
+    }
+
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -762,6 +806,8 @@ public class CaseDefinition {
       caseHubDefinition.setCbrConfig(cbrConfig);
       caseHubDefinition.setDefaultWorkerBridge(defaultWorkerBridge);
       caseHubDefinition.setContextStoreFactory(contextStoreFactory);
+      caseHubDefinition.setChannels(channels);
+      caseHubDefinition.setAdaptationConfig(adaptationConfig);
 
       Set<String> signalNames = new HashSet<>();
       for (SignalType<?> s : signals) {

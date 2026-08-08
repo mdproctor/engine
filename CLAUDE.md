@@ -244,6 +244,23 @@ Non-generic, Jackson-serializable snapshot types for REST serialization of HTN/D
 
 **Audit:** `GOAL_DECOMPOSED` event type in `CaseHubEventType`. EventLog metadata: `goalName`, `strategyId`, `stepCount`, `skippedSteps`.
 
+## Plan Adaptation
+
+`PlanAdaptationEvaluator` (`common/spi/`, SPI interface) — post-dispatch plan revision after worker completions within decomposed compounds. `DefaultPlanAdaptationEvaluator` (`planning/adaptation/`, `@ApplicationScoped`) resolves trigger and revision strategies via `EngineStrategyResolver`, evaluates whether the current plan should be revised, calls the revision strategy, and applies the result via `CasePlanModel.replaceCompound()`. Injected into `PlanItemCompletionHandler` and `WorkerRetryExhaustionHandler` via `Instance<PlanAdaptationEvaluator>` — transparent no-op when planning module absent. Refs engine#803.
+
+**Activation:** `CaseDefinition.adaptationConfig` (nullable `AdaptationConfig(String trigger, String revision)`). When null, no adaptation runs. YAML: explicit `adaptation: {trigger: every-step, revision: forward-replan}` or preset shorthands `adaptation: adaptive` (every-step + forward-replan), `adaptation: conservative` (on-failure + forward-replan), `adaptation: off`.
+
+**SPIs (engine-api, `io.casehub.engine.plan.adaptation`):** `AdaptationTrigger extends NamedStrategy` — `evaluate(AdaptationContext) → AdaptationSignal` (PROCEED/SKIP). `PlanRevisionStrategy extends NamedStrategy` — `revise(RevisionContext) → Uni<RevisedPlan>`. `AdaptationContext` carries completed/pending/running step descriptors, current context, definition, latest status. `AdaptationCause` sealed: `StepCompleted` | `StepFailed`. `RevisedPlan(List<PlanStepDescriptor> steps, String rationale)`. `PlanStepDescriptor(String id, String description, String capabilityName)` — SPI-level plan step type (avoids engine-api → planning dependency).
+
+**Built-in strategies:** `EveryStepTrigger` (id=`"every-step"`, always PROCEED), `OnFailureTrigger` (id=`"on-failure"`, PROCEED on FAULTED/REJECTED/CANCELLED only), `ForwardReplanRevision` (id=`"forward-replan"`, re-invokes LLM with completed step history + current context).
+
+**Concurrency:** `Semaphore` bounds concurrent adaptations (`casehub.engine.adaptation.max-concurrent`, default 3). Per-compound `ReentrantLock` prevents concurrent adaptations within the same compound. Generation counter per compound for idempotency — after acquiring lock, re-checks generation to skip redundant LLM calls.
+
+**Compound replacement:** `CasePlanModel.replaceCompound(String compoundId, Compound newCompound, int newGeneration)` — atomic compound replacement. Unregisters old children, removes non-terminal PlanItems, registers new compound with updated `scopedBindings`. COMPLETED and RUNNING PlanItems preserved; PENDING marked OBSOLETE.
+
+**Lock lifecycle:** `@ConsumeEvent(COMPOUND_COMPLETED)` removes per-compound locks. `cleanLocksForCase(UUID)` removes all locks for a case on terminal status.
+
+**Audit:** `PLAN_ADAPTED` event type. Metadata: `goalName`, `compoundId`, `triggerStrategy`, `revisionStrategy`, `previousStepCount`, `newStepCount`, `obsoletedSteps`, `materializedSteps`, `adaptationGeneration`, `rationale`.
 
 `MutableCaseContext` (`api/context/`) — engine-internal extension of `CaseContext`. Adds `writableLayer(String name)` returning `WritableLayer`, `freezeLayer(String name)`, and `close()` (default no-op). `CaseContextImpl` implements `MutableCaseContext`. All engine-internal code (`CaseHubReactor`, `EpisodicLayerUpdater`, handlers) programs to `MutableCaseContext` — zero `instanceof CaseContextImpl` checks remain. `WritableLayerImpl` delegates storage to `CaseContextStore`. `engineSet()` and `engineUpdate()` remain on `WritableLayerImpl` only (not on the `WritableLayer` interface) — `EpisodicLayerUpdater` uses a localized cast. Refs engine#419.
 

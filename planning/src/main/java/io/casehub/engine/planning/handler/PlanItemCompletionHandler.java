@@ -21,6 +21,7 @@ import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.PlanAdaptationEvaluator;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
@@ -32,6 +33,7 @@ import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.EnumSet;
 import java.util.Set;
@@ -66,17 +68,20 @@ public class PlanItemCompletionHandler {
   private final EventBus eventBus;
   private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
   private final CompoundCompletionEvaluator compoundCompletionEvaluator;
+  private final Instance<PlanAdaptationEvaluator> planAdaptationEvaluator;
 
   @Inject
   public PlanItemCompletionHandler(
       BlackboardRegistry registry,
       EventBus eventBus,
       Event<PlanItemStateChangedEvent> planItemStateChangedEvents,
-      CompoundCompletionEvaluator compoundCompletionEvaluator) {
+      CompoundCompletionEvaluator compoundCompletionEvaluator,
+      Instance<PlanAdaptationEvaluator> planAdaptationEvaluator) {
     this.registry = registry;
     this.eventBus = eventBus;
     this.planItemStateChangedEvents = planItemStateChangedEvents;
     this.compoundCompletionEvaluator = compoundCompletionEvaluator;
+    this.planAdaptationEvaluator = planAdaptationEvaluator;
   }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED, blocking = true)
@@ -128,6 +133,11 @@ public class PlanItemCompletionHandler {
               }
               TaskStatus prevStatus = item.getStatus();
               item.markCompleted();
+              if (planAdaptationEvaluator.isResolvable()) {
+                planAdaptationEvaluator
+                    .get()
+                    .evaluateAdaptation(caseId, tenancyId, bindingName, TaskStatus.COMPLETED);
+              }
               compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
               planItemStateChangedEvents.fireAsync(
                   new PlanItemStateChangedEvent(
@@ -167,6 +177,12 @@ public class PlanItemCompletionHandler {
               }
               TaskStatus prevStatus = item.getStatus();
               item.markCompleted();
+              if (planAdaptationEvaluator.isResolvable()) {
+                planAdaptationEvaluator
+                    .get()
+                    .evaluateAdaptation(
+                        caseId, tenancyId, item.getBindingName(), TaskStatus.COMPLETED);
+              }
               compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
               planItemStateChangedEvents.fireAsync(
                   new PlanItemStateChangedEvent(

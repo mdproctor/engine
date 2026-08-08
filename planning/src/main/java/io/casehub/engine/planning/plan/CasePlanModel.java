@@ -155,4 +155,13 @@ public interface CasePlanModel {
       io.casehub.api.model.TaskStatus status) {
     return java.util.List.of();
   }
+
+  default void replaceCompound(
+      String compoundId, PlanItemDefinition.Compound newCompound, int newGeneration) {
+    throw new UnsupportedOperationException("replaceCompound not supported");
+  }
+
+  default int getAdaptationGeneration(String compoundId) {
+    return 0;
+  }
 }

@@ -837,6 +837,37 @@ public final class CaseDefinitionYamlMapper {
               domains));
     }
 
+    // adaptation — per-case plan adaptation configuration
+    final JsonNode adaptationNode = specNode != null ? specNode.get("adaptation") : null;
+    if (adaptationNode != null) {
+      if (adaptationNode.isTextual()) {
+        String preset = adaptationNode.asText();
+        switch (preset) {
+          case "adaptive" ->
+              def.setAdaptationConfig(
+                  new io.casehub.api.model.AdaptationConfig("every-step", "forward-replan"));
+          case "conservative" ->
+              def.setAdaptationConfig(
+                  new io.casehub.api.model.AdaptationConfig("on-failure", "forward-replan"));
+          case "off" -> {} // null = disabled
+          default -> throw new IllegalArgumentException("Unknown adaptation preset: " + preset);
+        }
+      } else if (adaptationNode.isObject()) {
+        String trigger =
+            adaptationNode.has("trigger") ? adaptationNode.get("trigger").asText() : "every-step";
+        String revision =
+            adaptationNode.has("revision")
+                ? adaptationNode.get("revision").asText()
+                : "forward-replan";
+        def.setAdaptationConfig(new io.casehub.api.model.AdaptationConfig(trigger, revision));
+      }
+      if (def.getAdaptationConfig() != null && def.getDecompositionStrategy() == null) {
+        LOG.warnf(
+            "adaptation configured without decompositionStrategy — "
+                + "adaptation requires initial decomposition");
+      }
+    }
+
     return def;
   }
 

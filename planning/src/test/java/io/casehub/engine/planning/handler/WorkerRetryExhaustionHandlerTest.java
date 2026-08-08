@@ -59,9 +59,13 @@ class WorkerRetryExhaustionHandlerTest {
     eventBus = mock(EventBus.class);
     planItemStateChangedEvents = mock(Event.class);
     compoundCompletionEvaluator = mock(CompoundCompletionEvaluator.class);
+    @SuppressWarnings("unchecked")
+    jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.PlanAdaptationEvaluator>
+        mockAdaptation = mock(jakarta.enterprise.inject.Instance.class);
+    org.mockito.Mockito.when(mockAdaptation.isResolvable()).thenReturn(false);
     handler =
         new WorkerRetryExhaustionHandler(
-            registry, compoundCompletionEvaluator, planItemStateChangedEvents);
+            registry, compoundCompletionEvaluator, planItemStateChangedEvents, mockAdaptation);
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }

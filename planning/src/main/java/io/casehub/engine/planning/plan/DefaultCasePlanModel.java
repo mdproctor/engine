@@ -54,6 +54,8 @@ public class DefaultCasePlanModel implements CasePlanModel {
   private final ConcurrentHashMap<String, java.util.Set<String>> childrenIndex =
       new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, String> parentIndex = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<String, java.util.concurrent.atomic.AtomicInteger>
+      adaptationGenerations = new ConcurrentHashMap<>();
 
   public DefaultCasePlanModel(UUID caseId) {
     this.caseId = caseId;
@@ -328,5 +330,59 @@ public class DefaultCasePlanModel implements CasePlanModel {
         .map(d -> (PlanItemDefinition.Compound) d)
         .filter(c -> getDefinitionStatus(c.id()) == status)
         .collect(java.util.stream.Collectors.toUnmodifiableList());
+  }
+
+  @Override
+  public void replaceCompound(
+      String compoundId, PlanItemDefinition.Compound newCompound, int newGeneration) {
+    PlanItemDefinition existing = definitions.get(compoundId);
+    if (existing == null) {
+      throw new IllegalArgumentException("Unknown compound: " + compoundId);
+    }
+    if (!(existing instanceof PlanItemDefinition.Compound oldCompound)) {
+      throw new IllegalArgumentException("Not a compound: " + compoundId);
+    }
+
+    // 1. Remove old children's definitions
+    java.util.Set<String> oldChildIds = childrenIndex.getOrDefault(compoundId, java.util.Set.of());
+    for (String childId : new java.util.ArrayList<>(oldChildIds)) {
+      definitions.remove(childId);
+      definitionStates.remove(childId);
+      parentIndex.remove(childId);
+    }
+
+    // 2. Remove PlanItems for old scoped bindings (only non-terminal, non-running)
+    for (String bindingName : oldCompound.scopedBindings().keySet()) {
+      PlanItem item = latestByBinding.get(bindingName);
+      if (item != null
+          && !item.getStatus().isTerminal()
+          && item.getStatus() != io.casehub.api.model.TaskStatus.RUNNING) {
+        removePlanItem(item.getPlanItemId());
+      }
+      parentIndex.remove(bindingName);
+    }
+
+    // 3. Remove old compound definition
+    definitions.remove(compoundId);
+    definitionStates.remove(compoundId);
+    childrenIndex.remove(compoundId);
+
+    // 4. Register new compound (populates all index structures)
+    registerDefinition(newCompound);
+
+    // 5. Update generation
+    adaptationGenerations
+        .computeIfAbsent(compoundId, k -> new java.util.concurrent.atomic.AtomicInteger())
+        .set(newGeneration);
+
+    LOG.debugf(
+        "Compound '%s' replaced with %d children (generation %d)",
+        compoundId, newCompound.children().size(), newGeneration);
+  }
+
+  @Override
+  public int getAdaptationGeneration(String compoundId) {
+    java.util.concurrent.atomic.AtomicInteger gen = adaptationGenerations.get(compoundId);
+    return gen != null ? gen.get() : 0;
   }
 }
