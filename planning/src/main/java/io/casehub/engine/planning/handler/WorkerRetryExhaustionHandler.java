@@ -18,6 +18,7 @@ package io.casehub.engine.planning.handler;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
+import io.casehub.engine.common.spi.PlanAdaptationEvaluator;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
@@ -25,6 +26,7 @@ import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
@@ -55,15 +57,18 @@ public class WorkerRetryExhaustionHandler {
   private final BlackboardRegistry registry;
   private final CompoundCompletionEvaluator compoundCompletionEvaluator;
   private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
+  private final Instance<PlanAdaptationEvaluator> planAdaptationEvaluator;
 
   @Inject
   public WorkerRetryExhaustionHandler(
       final BlackboardRegistry registry,
       final CompoundCompletionEvaluator compoundCompletionEvaluator,
-      final Event<PlanItemStateChangedEvent> planItemStateChangedEvents) {
+      final Event<PlanItemStateChangedEvent> planItemStateChangedEvents,
+      final Instance<PlanAdaptationEvaluator> planAdaptationEvaluator) {
     this.registry = registry;
     this.compoundCompletionEvaluator = compoundCompletionEvaluator;
     this.planItemStateChangedEvents = planItemStateChangedEvents;
+    this.planAdaptationEvaluator = planAdaptationEvaluator;
   }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED, blocking = true)
@@ -116,6 +121,16 @@ public class WorkerRetryExhaustionHandler {
                       prevStatus,
                       TaskStatus.FAULTED,
                       event.tenancyId()));
+
+              if (planAdaptationEvaluator.isResolvable()) {
+                planAdaptationEvaluator
+                    .get()
+                    .evaluateAdaptation(
+                        event.caseId(),
+                        event.tenancyId(),
+                        item.getBindingName(),
+                        TaskStatus.FAULTED);
+              }
 
               compoundCompletionEvaluator.evaluate(
                   event.caseId(), event.tenancyId(), plan, item.getBindingName());

@@ -53,12 +53,17 @@ class PlanItemCompletionHandlerTest {
   void setUp() {
     registry = new BlackboardRegistry();
     mockBus = mock(EventBus.class);
+    @SuppressWarnings("unchecked")
+    jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.PlanAdaptationEvaluator>
+        mockAdaptation = mock(jakarta.enterprise.inject.Instance.class);
+    when(mockAdaptation.isResolvable()).thenReturn(false);
     handler =
         new PlanItemCompletionHandler(
             registry,
             mockBus,
             mock(jakarta.enterprise.event.Event.class),
-            new CompoundCompletionEvaluator(mockBus));
+            new CompoundCompletionEvaluator(mockBus),
+            mockAdaptation);
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
