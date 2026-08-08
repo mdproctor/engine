@@ -78,6 +78,7 @@ public class CaseDefinition {
   private io.casehub.api.spi.QuorumConfig defaultQuorum;
   private ReflectionTriggerConfig reflectionTrigger;
   private MemoryRetrievalConfig memoryRetrieval;
+  private AdaptationConfig adaptationConfig;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -384,6 +385,14 @@ public class CaseDefinition {
     this.memoryRetrieval = memoryRetrieval;
   }
 
+  public AdaptationConfig getAdaptationConfig() {
+    return adaptationConfig;
+  }
+
+  public void setAdaptationConfig(AdaptationConfig adaptationConfig) {
+    this.adaptationConfig = adaptationConfig;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -431,6 +440,7 @@ public class CaseDefinition {
     private io.casehub.api.spi.QuorumConfig defaultQuorum;
     private ReflectionTriggerConfig reflectionTrigger;
     private MemoryRetrievalConfig memoryRetrieval;
+    private AdaptationConfig adaptationConfig;
 
     private Builder() {}
 
@@ -721,6 +731,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder adaptationConfig(AdaptationConfig adaptationConfig) {
+      this.adaptationConfig = adaptationConfig;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -813,6 +828,7 @@ public class CaseDefinition {
       caseHubDefinition.setDefaultQuorum(defaultQuorum);
       caseHubDefinition.setReflectionTrigger(reflectionTrigger);
       caseHubDefinition.setMemoryRetrieval(memoryRetrieval);
+      caseHubDefinition.setAdaptationConfig(adaptationConfig);
 
       return caseHubDefinition;
     }

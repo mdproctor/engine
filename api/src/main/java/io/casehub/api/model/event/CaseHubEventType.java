@@ -49,6 +49,7 @@ public enum CaseHubEventType {
 
   GOAL_REACHED,
   GOAL_DECOMPOSED, // agent goal decomposed into ordered sub-step plan at case start
+  PLAN_ADAPTED, // decomposed plan revised after worker completion
 
   SUBCASE_STARTED, // child case spawned by a SubCase binding
   SUBCASE_COMPLETED, // child case reached a terminal state; parent context updated
