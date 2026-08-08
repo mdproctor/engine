@@ -48,7 +48,7 @@ class CaseMemoryObserverTest {
 
     observer.onCaseLifecycleEvent(
         CaseLifecycleEvent.of(
-            caseId, null, "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
+            caseId, "tenant-1", "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
 
     verify(emitter, times(1)).emit(any(MemoryInput.class));
   }
@@ -67,7 +67,7 @@ class CaseMemoryObserverTest {
 
     observer.onCaseLifecycleEvent(
         CaseLifecycleEvent.of(
-            caseId, null, "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
+            caseId, "tenant-1", "CloseCase", "CaseCompleted", "COMPLETED", null, null, null));
 
     assertThat(captured[0]).isNotNull();
     assertThat(captured[0].caseId()).isEqualTo(caseId.toString());
@@ -81,7 +81,7 @@ class CaseMemoryObserverTest {
 
     observer.onCaseLifecycleEvent(
         CaseLifecycleEvent.of(
-            caseId, null, "StartCase", "CaseStarted", "RUNNING", null, null, null));
+            caseId, "tenant-1", "StartCase", "CaseStarted", "RUNNING", null, null, null));
 
     verify(emitter, never()).emit(any());
   }
