@@ -54,9 +54,12 @@ docs/superpowers/
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
+.claude
 .claude/
+.worktrees
 .worktrees/
 package-lock.json
 wksp
 proj
 .mvn/maven.config
+.mvn/slot-settings.xml

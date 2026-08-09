@@ -108,6 +108,7 @@
         <module>flow</module>
         <module>a2a</module>
     <module>mcp</module>
+        <module>agentic-engine</module>
         <module>queue</module>
         <module>rest</module>
         <module>examples/typed-context</module>
