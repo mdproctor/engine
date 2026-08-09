@@ -13,19 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.spi;
+package io.casehub.engine.common.internal.channel;
 
-import io.casehub.platform.api.routing.NamedStrategy;
+import io.casehub.api.spi.ExchangeProjectionStrategy;
 import io.casehub.worker.api.Exchange;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 
-public interface ExchangeProjectionStrategy extends NamedStrategy {
+@ApplicationScoped
+public class ExchangeOnlyProjection implements ExchangeProjectionStrategy {
 
-  record ProjectionContext(String bindingName, String expression) {
-    public ProjectionContext(String bindingName) {
-      this(bindingName, null);
-    }
+  @Override
+  public Map<String, Object> project(Exchange<?> exchange, ProjectionContext context) {
+    return Map.of();
   }
 
-  Map<String, Object> project(Exchange<?> exchange, ProjectionContext context);
+  @Override
+  public String id() {
+    return "exchange-only";
+  }
 }
