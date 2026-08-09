@@ -53,6 +53,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final CaseInstanceCache caseInstanceCache;
   private final CaseCompletionTracker tracker;
   private final Map<String, Object> accumulatedState;
+  private final io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry;
+  private final io.casehub.api.spi.DataChannelFactory defaultChannelFactory;
 
   DefaultWorkerRuntime(
       UUID caseId,
@@ -62,7 +64,9 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry definitionRegistry,
       CaseInstanceCache caseInstanceCache,
-      CaseCompletionTracker tracker) {
+      CaseCompletionTracker tracker,
+      io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
+      io.casehub.api.spi.DataChannelFactory defaultChannelFactory) {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
@@ -71,6 +75,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.definitionRegistry = definitionRegistry;
     this.caseInstanceCache = caseInstanceCache;
     this.tracker = tracker;
+    this.channelRegistry = channelRegistry;
+    this.defaultChannelFactory = defaultChannelFactory;
   }
 
   @Override
@@ -94,11 +100,40 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   }
 
   @Override
+  public <T> io.casehub.worker.api.DataChannel<T> channel(String name) {
+    if (channelRegistry == null) {
+      throw new UnsupportedOperationException("DataChannel requires engine context");
+    }
+    return channelRegistry.get(caseId, name);
+  }
+
+  @Override
+  public <T> io.casehub.worker.api.ChannelRef<T> createChannel(String name, Class<T> recordType) {
+    if (channelRegistry == null || defaultChannelFactory == null) {
+      throw new UnsupportedOperationException("DataChannel requires engine context");
+    }
+    channelRegistry.getOrCreate(caseId, name, recordType, defaultChannelFactory);
+    channelRegistry.trackExecution(caseId, name, taskId);
+    return io.casehub.worker.api.ChannelRef.of(name, recordType);
+  }
+
+  @Override
   @SuppressWarnings("unchecked")
   public <T, R> WorkerResult<R> execute(WorkerFunction<T, R> function, T input) {
     if (function instanceof WorkerFunction.Sync<T, R> sync) {
       try {
         return sync.fn().apply(input, this);
+      } catch (Exception e) {
+        return (WorkerResult<R>) WorkerResult.failed(e.getMessage());
+      }
+    }
+    if (function instanceof WorkerFunction.ExchangeProcessor<?, ?> ep) {
+      try {
+        @SuppressWarnings("unchecked")
+        var biFn =
+            (java.util.function.BiFunction<T, io.casehub.worker.api.WorkerScope, WorkerResult<R>>)
+                (java.util.function.BiFunction) ep.fn();
+        return biFn.apply(input, this);
       } catch (Exception e) {
         return (WorkerResult<R>) WorkerResult.failed(e.getMessage());
       }

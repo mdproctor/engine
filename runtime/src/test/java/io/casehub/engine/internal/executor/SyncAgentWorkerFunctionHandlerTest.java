@@ -44,7 +44,7 @@ class SyncAgentWorkerFunctionHandlerTest {
   @BeforeEach
   void setUp() {
     WorkerRuntimeFactory mockFactory =
-        new WorkerRuntimeFactory(null, null, null, null) {
+        new WorkerRuntimeFactory(null, null, null, null, null, null) {
           @Override
           public io.casehub.api.engine.WorkerRuntime create(
               UUID caseId,
@@ -52,7 +52,7 @@ class SyncAgentWorkerFunctionHandlerTest {
               io.casehub.api.model.WorkerContext context,
               java.util.Map<String, Object> accumulatedState) {
             return new DefaultWorkerRuntime(
-                caseId, taskId, context, accumulatedState, null, null, null, null);
+                caseId, taskId, context, accumulatedState, null, null, null, null, null, null);
           }
         };
     handler =

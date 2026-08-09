@@ -59,6 +59,16 @@ public class DataChannelRegistry {
     return (DataChannel<T>) entry.channel();
   }
 
+  @SuppressWarnings("unchecked")
+  public <T> DataChannel<T> get(UUID caseId, String name) {
+    final ChannelKey key = new ChannelKey(caseId, name);
+    final ChannelEntry entry = channels.get(key);
+    if (entry == null) {
+      throw new IllegalArgumentException("No channel '" + name + "' for case " + caseId);
+    }
+    return (DataChannel<T>) entry.channel();
+  }
+
   public void trackExecution(UUID caseId, String channelName, String executionId) {
     executionIndex
         .computeIfAbsent(executionId, k -> ConcurrentHashMap.newKeySet())

@@ -114,7 +114,16 @@ class DefaultWorkerRuntimeTypedTest {
 
     var runtime =
         new DefaultWorkerRuntime(
-            CASE_ID, "test-task", null, java.util.Map.of(), null, registry, cache, null);
+            CASE_ID,
+            "test-task",
+            null,
+            java.util.Map.of(),
+            null,
+            registry,
+            cache,
+            null,
+            null,
+            null);
 
     WorkerResult<?> result =
         runtime.execute("order-worker", Map.of("product", "widget", "quantity", 5));
@@ -135,7 +144,7 @@ class DefaultWorkerRuntimeTypedTest {
 
     var runtime =
         new DefaultWorkerRuntime(
-            CASE_ID, "test-task", null, java.util.Map.of(), null, null, null, null);
+            CASE_ID, "test-task", null, java.util.Map.of(), null, null, null, null, null, null);
 
     WorkerResult<?> result = runtime.execute(fn, new OrderInput("gadget", 3));
 

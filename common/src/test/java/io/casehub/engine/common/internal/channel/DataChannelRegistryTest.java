@@ -191,4 +191,20 @@ class DataChannelRegistryTest {
 
     assertThat(received.body()).isEqualTo("test-data");
   }
+
+  @Test
+  void getReturnsExistingChannel() {
+    UUID caseId = UUID.randomUUID();
+    DataChannel<String> created = registry.getOrCreate(caseId, "pipe", String.class, factory);
+    DataChannel<String> retrieved = registry.get(caseId, "pipe");
+
+    assertThat(retrieved).isSameAs(created);
+  }
+
+  @Test
+  void getThrowsWhenChannelNotFound() {
+    assertThatThrownBy(() -> registry.get(UUID.randomUUID(), "nonexistent"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("nonexistent");
+  }
 }
