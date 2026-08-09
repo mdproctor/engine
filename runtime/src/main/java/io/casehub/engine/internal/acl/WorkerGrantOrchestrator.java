@@ -15,12 +15,16 @@
  */
 package io.casehub.engine.internal.acl;
 
-import io.casehub.api.model.acl.WorkerAction;
-import io.casehub.api.model.acl.WorkerCredential;
-import io.casehub.engine.common.spi.acl.WorkerCredentialStore;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclEntryRequest;
 import io.casehub.platform.api.acl.AclResourceType;
+import io.casehub.platform.api.acl.AuthorizationDecision;
+import io.casehub.platform.api.acl.WorkerAction;
+import io.casehub.platform.api.acl.WorkerAuthorizationDeniedException;
+import io.casehub.platform.api.acl.WorkerAuthorizationPolicy;
+import io.casehub.platform.api.acl.WorkerCredential;
+import io.casehub.platform.api.acl.WorkerCredentialStore;
+import io.casehub.platform.api.acl.WorkerPermissionRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.security.SecureRandom;
@@ -43,15 +47,18 @@ public class WorkerGrantOrchestrator {
   private final AccessControlProvider accessControlProvider;
   private final WorkerCredentialStore credentialStore;
   private final WorkerIdentityResolver identityResolver;
+  private final WorkerAuthorizationPolicy authorizationPolicy;
 
   @Inject
   public WorkerGrantOrchestrator(
       AccessControlProvider accessControlProvider,
       WorkerCredentialStore credentialStore,
-      WorkerIdentityResolver identityResolver) {
+      WorkerIdentityResolver identityResolver,
+      WorkerAuthorizationPolicy authorizationPolicy) {
     this.accessControlProvider = accessControlProvider;
     this.credentialStore = credentialStore;
     this.identityResolver = identityResolver;
+    this.authorizationPolicy = authorizationPolicy;
   }
 
   public WorkerCredential grantAndMint(
@@ -59,13 +66,27 @@ public class WorkerGrantOrchestrator {
       List<WorkerAction> actions,
       UUID caseId,
       String tenancyId,
-      Instant deadline) {
+      Instant deadline,
+      String caseDefinitionId) {
 
     var identity = identityResolver.resolve(serviceAccountId, caseId);
 
-    var grants =
+    var permissionRequest =
+        new WorkerPermissionRequest(
+            identity.actorId(),
+            AclResourceType.CASE,
+            Set.copyOf(actions),
+            caseDefinitionId,
+            tenancyId);
+    AuthorizationDecision decision = authorizationPolicy.evaluate(permissionRequest);
+    if (!decision.approved()) {
+      throw new WorkerAuthorizationDeniedException(
+          identity.actorId(), caseDefinitionId, decision.reason());
+    }
+
+    var dedupedActions =
         actions.stream()
-            .map(WorkerAction::toAclGrant)
+            .map(WorkerAction::aclAction)
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
     Instant maxExpiry = Instant.now().plus(MAX_CREDENTIAL_TTL);
@@ -73,16 +94,27 @@ public class WorkerGrantOrchestrator {
 
     String resourceId = AclResourceType.CASE + ":" + caseId;
     List<AclEntryRequest> requests =
-        grants.stream()
-            .map(g -> new AclEntryRequest(identity.actorId(), resourceId, g.action(), expiry))
+        dedupedActions.stream()
+            .map(a -> new AclEntryRequest(identity.actorId(), resourceId, a, expiry))
             .toList();
     accessControlProvider.grantBatch(requests);
 
     String token = generateToken();
     var credential =
         new WorkerCredential(
-            token, identity.actorId(), caseId, Set.copyOf(actions), expiry, Instant.now());
-    credentialStore.store(credential);
+            token,
+            identity.actorId(),
+            caseId,
+            tenancyId,
+            Set.copyOf(actions),
+            expiry,
+            Instant.now());
+    try {
+      credentialStore.store(credential);
+    } catch (RuntimeException e) {
+      accessControlProvider.revokeBatch(requests);
+      throw e;
+    }
 
     LOG.infof(
         "Granted worker credential: actor=%s case=%s actions=%s ephemeral=%s expires=%s",
@@ -101,26 +133,26 @@ public class WorkerGrantOrchestrator {
       return;
     }
 
-    Set<io.casehub.api.model.acl.AclGrant> revokedGrants =
+    var revokedActions =
         revoked.get().actions().stream()
-            .map(WorkerAction::toAclGrant)
+            .map(WorkerAction::aclAction)
             .collect(Collectors.toCollection(LinkedHashSet::new));
 
     if (!ephemeral) {
       var remaining = credentialStore.findActiveByActorAndCase(actorId, caseId);
-      Set<io.casehub.api.model.acl.AclGrant> stillNeeded =
+      var stillNeeded =
           remaining.stream()
               .flatMap(c -> c.actions().stream())
-              .map(WorkerAction::toAclGrant)
+              .map(WorkerAction::aclAction)
               .collect(Collectors.toSet());
-      revokedGrants.removeAll(stillNeeded);
+      revokedActions.removeAll(stillNeeded);
     }
 
-    if (!revokedGrants.isEmpty()) {
+    if (!revokedActions.isEmpty()) {
       String resourceId = AclResourceType.CASE + ":" + caseId;
       List<AclEntryRequest> requests =
-          revokedGrants.stream()
-              .map(g -> new AclEntryRequest(actorId, resourceId, g.action(), null))
+          revokedActions.stream()
+              .map(a -> new AclEntryRequest(actorId, resourceId, a, null))
               .toList();
       accessControlProvider.revokeBatch(requests);
     }

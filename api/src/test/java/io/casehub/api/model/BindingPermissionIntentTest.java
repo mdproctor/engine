@@ -18,7 +18,7 @@ package io.casehub.api.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import io.casehub.api.model.acl.WorkerAction;
+import io.casehub.platform.api.acl.WorkerAction;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

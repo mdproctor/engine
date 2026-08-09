@@ -19,9 +19,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import io.casehub.api.model.acl.WorkerAction;
-import io.casehub.api.model.acl.WorkerCredential;
-import io.casehub.engine.common.internal.acl.InMemoryWorkerCredentialStore;
+import io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore;
+import io.casehub.platform.api.acl.WorkerAction;
+import io.casehub.platform.api.acl.WorkerCredential;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.core.UriInfo;
@@ -82,6 +82,7 @@ class WorkerCredentialFilterTest {
             "tok1",
             "agent:w1",
             caseId,
+            "tenant-1",
             Set.of(WorkerAction.READ_CONTEXT),
             Instant.now().minusSeconds(10),
             Instant.now().minusSeconds(3600)));
@@ -121,6 +122,7 @@ class WorkerCredentialFilterTest {
         token,
         actorId,
         caseId,
+        "tenant-1",
         Set.of(WorkerAction.READ_CONTEXT),
         Instant.now().plusSeconds(3600),
         Instant.now());

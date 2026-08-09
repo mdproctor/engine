@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.engine.recovery;
 
-import io.casehub.engine.common.spi.acl.WorkerCredentialStore;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
+import io.casehub.platform.api.acl.WorkerCredentialStore;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -56,12 +56,6 @@ public class WorkerRecoveryCoordinator {
       var future = executor.submit(() -> recoveryService.recoverPendingScheduledWorkers());
       future.get(recoveryTimeout.toMillis(), java.util.concurrent.TimeUnit.MILLISECONDS);
       status = RecoveryStatus.COMPLETED;
-      if (credentialStore
-          instanceof io.casehub.engine.common.internal.acl.InMemoryWorkerCredentialStore) {
-        LOG.info(
-            "Worker credential store is in-memory — credentials lost on restart. "
-                + "Orphaned ACL grants will be cleaned up by case-terminal sweep.");
-      }
       LOG.info("Worker execution recovery completed");
     } catch (java.util.concurrent.TimeoutException t) {
       status = RecoveryStatus.FAILED;

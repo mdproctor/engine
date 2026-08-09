@@ -17,20 +17,28 @@ package io.casehub.engine.internal.acl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyCollection;
 import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import io.casehub.api.model.acl.WorkerAction;
-import io.casehub.api.model.acl.WorkerCredential;
-import io.casehub.engine.common.internal.acl.InMemoryWorkerCredentialStore;
+import io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.acl.AclEntryRequest;
+import io.casehub.platform.api.acl.AuthorizationDecision;
+import io.casehub.platform.api.acl.WorkerAction;
+import io.casehub.platform.api.acl.WorkerAuthorizationDeniedException;
+import io.casehub.platform.api.acl.WorkerAuthorizationPolicy;
+import io.casehub.platform.api.acl.WorkerCredential;
+import io.casehub.platform.api.acl.WorkerCredentialStore;
+import io.casehub.platform.api.acl.WorkerPermissionRequest;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -46,6 +54,7 @@ class WorkerGrantOrchestratorTest {
   private AccessControlProvider aclProvider;
   private InMemoryWorkerCredentialStore credentialStore;
   private WorkerIdentityResolver identityResolver;
+  private WorkerAuthorizationPolicy autoApprovePolicy;
   private WorkerGrantOrchestrator orchestrator;
 
   @BeforeEach
@@ -53,7 +62,10 @@ class WorkerGrantOrchestratorTest {
     aclProvider = mock(AccessControlProvider.class);
     credentialStore = new InMemoryWorkerCredentialStore();
     identityResolver = new WorkerIdentityResolver();
-    orchestrator = new WorkerGrantOrchestrator(aclProvider, credentialStore, identityResolver);
+    autoApprovePolicy = new WorkerAuthorizationPolicy() {};
+    orchestrator =
+        new WorkerGrantOrchestrator(
+            aclProvider, credentialStore, identityResolver, autoApprovePolicy);
   }
 
   @Test
@@ -62,11 +74,13 @@ class WorkerGrantOrchestratorTest {
     var actions = List.of(WorkerAction.READ_CONTEXT, WorkerAction.SIGNAL_CASE);
     Instant deadline = Instant.now().plusSeconds(300);
 
-    var credential = orchestrator.grantAndMint(null, actions, caseId, "tenant-1", deadline);
+    var credential =
+        orchestrator.grantAndMint(null, actions, caseId, "tenant-1", deadline, "ns/test/v1");
 
     assertNotNull(credential);
     assertTrue(credential.actorId().startsWith("agent:worker-"));
     assertEquals(caseId, credential.caseId());
+    assertEquals("tenant-1", credential.tenancyId());
     assertEquals(Set.copyOf(actions), credential.actions());
     assertTrue(credentialStore.lookup(credential.token()).isPresent());
     verify(aclProvider).grantBatch(anyCollection());
@@ -79,7 +93,8 @@ class WorkerGrantOrchestratorTest {
     Instant deadline = Instant.now().plusSeconds(300);
 
     var credential =
-        orchestrator.grantAndMint("agent:pool-1", actions, caseId, "tenant-1", deadline);
+        orchestrator.grantAndMint(
+            "agent:pool-1", actions, caseId, "tenant-1", deadline, "ns/test/v1");
 
     assertEquals("agent:pool-1", credential.actorId());
   }
@@ -91,7 +106,7 @@ class WorkerGrantOrchestratorTest {
         List.of(WorkerAction.WRITE_CONTEXT, WorkerAction.SIGNAL_CASE, WorkerAction.SPAWN_SUB_CASE);
     Instant deadline = Instant.now().plusSeconds(300);
 
-    orchestrator.grantAndMint(null, actions, caseId, "tenant-1", deadline);
+    orchestrator.grantAndMint(null, actions, caseId, "tenant-1", deadline, "ns/test/v1");
 
     @SuppressWarnings("unchecked")
     ArgumentCaptor<Collection<AclEntryRequest>> captor = ArgumentCaptor.forClass(Collection.class);
@@ -107,7 +122,8 @@ class WorkerGrantOrchestratorTest {
     var actions = List.of(WorkerAction.READ_CONTEXT);
     Instant farFuture = Instant.now().plusSeconds(86400);
 
-    var credential = orchestrator.grantAndMint(null, actions, caseId, "tenant-1", farFuture);
+    var credential =
+        orchestrator.grantAndMint(null, actions, caseId, "tenant-1", farFuture, "ns/test/v1");
 
     long secondsUntilExpiry =
         credential.expiresAt().getEpochSecond() - Instant.now().getEpochSecond();
@@ -118,7 +134,8 @@ class WorkerGrantOrchestratorTest {
   void revokeForWorker_ephemeral_revokesAll() {
     UUID caseId = UUID.randomUUID();
     var credential =
-        orchestrator.grantAndMint(null, List.of(WorkerAction.READ_CONTEXT), caseId, "t1", null);
+        orchestrator.grantAndMint(
+            null, List.of(WorkerAction.READ_CONTEXT), caseId, "t1", null, "ns/test/v1");
 
     orchestrator.revokeForWorker(credential.token(), credential.actorId(), caseId, true);
 
@@ -134,6 +151,7 @@ class WorkerGrantOrchestratorTest {
             "t1",
             "agent:pool",
             caseId,
+            "tenant-1",
             Set.of(WorkerAction.READ_CONTEXT, WorkerAction.SIGNAL_CASE),
             Instant.now().plusSeconds(3600),
             Instant.now()));
@@ -142,6 +160,7 @@ class WorkerGrantOrchestratorTest {
             "t2",
             "agent:pool",
             caseId,
+            "tenant-1",
             Set.of(WorkerAction.READ_CONTEXT, WorkerAction.ADMIN),
             Instant.now().plusSeconds(3600),
             Instant.now()));
@@ -177,11 +196,56 @@ class WorkerGrantOrchestratorTest {
     verify(aclProvider, never()).revokeAll(anyString(), anyString());
   }
 
+  @Test
+  void grantAndMint_policyDenial_throwsAndCreatesNoGrants() {
+    WorkerAuthorizationPolicy denyPolicy =
+        new WorkerAuthorizationPolicy() {
+          @Override
+          public AuthorizationDecision evaluate(WorkerPermissionRequest request) {
+            return AuthorizationDecision.deny("ADMIN not allowed for ephemeral workers");
+          }
+        };
+    var restrictedOrchestrator =
+        new WorkerGrantOrchestrator(aclProvider, credentialStore, identityResolver, denyPolicy);
+
+    UUID caseId = UUID.randomUUID();
+    var actions = List.of(WorkerAction.ADMIN);
+
+    assertThrows(
+        WorkerAuthorizationDeniedException.class,
+        () ->
+            restrictedOrchestrator.grantAndMint(
+                null, actions, caseId, "tenant-1", null, "ns/def/v1"));
+
+    verify(aclProvider, never()).grantBatch(anyCollection());
+  }
+
+  @Test
+  void grantAndMint_storeFailure_compensatesWithRevoke() {
+    WorkerCredentialStore failingStore = mock(WorkerCredentialStore.class);
+    doThrow(new RuntimeException("store failed")).when(failingStore).store(any());
+    var compensatingOrchestrator =
+        new WorkerGrantOrchestrator(aclProvider, failingStore, identityResolver, autoApprovePolicy);
+
+    UUID caseId = UUID.randomUUID();
+    var actions = List.of(WorkerAction.READ_CONTEXT);
+
+    assertThrows(
+        RuntimeException.class,
+        () ->
+            compensatingOrchestrator.grantAndMint(
+                null, actions, caseId, "tenant-1", null, "ns/def/v1"));
+
+    verify(aclProvider).grantBatch(anyCollection());
+    verify(aclProvider).revokeBatch(anyCollection());
+  }
+
   private WorkerCredential credential(String token, String actorId, UUID caseId) {
     return new WorkerCredential(
         token,
         actorId,
         caseId,
+        "tenant-1",
         Set.of(WorkerAction.READ_CONTEXT),
         Instant.now().plusSeconds(3600),
         Instant.now());

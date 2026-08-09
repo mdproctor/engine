@@ -567,22 +567,33 @@ public class CaseContextChangedEventHandler {
       String serviceAccountId = definition.getWorkerServiceAccountId(selectedWorker.name());
       boolean needsGrants = serviceAccountId != null || binding.getPermissionIntent() != null;
       if (needsGrants) {
-        var actions =
+        java.util.List<io.casehub.platform.api.acl.WorkerAction> actions =
             binding.getPermissionIntent() != null
                 ? binding.getPermissionIntent()
-                : java.util.List.of(io.casehub.api.model.acl.WorkerAction.READ_CONTEXT);
+                : java.util.List.of(io.casehub.platform.api.acl.WorkerAction.READ_CONTEXT);
         java.time.Instant deadline =
             caseInstance.getPropagationContext() != null
                 ? caseInstance.getPropagationContext().getDeadline().orElse(null)
                 : null;
-        var credential =
-            workerGrantOrchestrator.grantAndMint(
-                serviceAccountId,
-                actions,
-                caseInstance.getUuid(),
-                caseInstance.tenancyId,
-                deadline);
-        credentialToken = credential.token();
+        String caseDefId =
+            definition.getNamespace() + "/" + definition.getName() + "/" + definition.getVersion();
+        try {
+          var credential =
+              workerGrantOrchestrator.grantAndMint(
+                  serviceAccountId,
+                  actions,
+                  caseInstance.getUuid(),
+                  caseInstance.tenancyId,
+                  deadline,
+                  caseDefId);
+          credentialToken = credential.token();
+        } catch (io.casehub.platform.api.acl.WorkerAuthorizationDeniedException e) {
+          LOG.warnf(
+              "Worker authorization denied for binding '%s' case %s: %s",
+              binding.getName(), caseInstance.getUuid(), e.reason());
+          handleAllCandidatesExhausted(caseInstance, binding.getName(), capability.name());
+          return;
+        }
       }
     }
 
@@ -877,18 +888,37 @@ public class CaseContextChangedEventHandler {
                 .filter(b -> bindingName.equals(b.getName()))
                 .findFirst()
                 .orElse(null);
-        var provActions =
+        java.util.List<io.casehub.platform.api.acl.WorkerAction> provActions =
             provBinding != null && provBinding.getPermissionIntent() != null
                 ? provBinding.getPermissionIntent()
-                : java.util.List.of(io.casehub.api.model.acl.WorkerAction.READ_CONTEXT);
+                : java.util.List.of(io.casehub.platform.api.acl.WorkerAction.READ_CONTEXT);
         java.time.Instant provDeadline =
             caseInstance.getPropagationContext() != null
                 ? caseInstance.getPropagationContext().getDeadline().orElse(null)
                 : null;
-        var provCredential =
-            workerGrantOrchestrator.grantAndMint(
-                null, provActions, caseInstance.getUuid(), caseInstance.tenancyId, provDeadline);
-        provCredentialToken = provCredential.token();
+        String provCaseDefId =
+            provDefinition.getNamespace()
+                + "/"
+                + provDefinition.getName()
+                + "/"
+                + provDefinition.getVersion();
+        try {
+          var provCredential =
+              workerGrantOrchestrator.grantAndMint(
+                  null,
+                  provActions,
+                  caseInstance.getUuid(),
+                  caseInstance.tenancyId,
+                  provDeadline,
+                  provCaseDefId);
+          provCredentialToken = provCredential.token();
+        } catch (io.casehub.platform.api.acl.WorkerAuthorizationDeniedException e) {
+          LOG.warnf(
+              "Worker authorization denied for provisioned worker binding '%s' case %s: %s",
+              bindingName, caseInstance.getUuid(), e.reason());
+          handleAllCandidatesExhausted(caseInstance, bindingName, capability.name());
+          return;
+        }
       }
 
       final ProvisionContext provisionContext =

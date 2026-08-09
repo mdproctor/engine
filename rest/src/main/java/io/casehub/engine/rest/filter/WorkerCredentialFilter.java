@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.rest.filter;
 
-import io.casehub.engine.common.spi.acl.WorkerCredentialStore;
+import io.casehub.platform.api.acl.WorkerCredentialStore;
 import jakarta.annotation.Priority;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.Priorities;

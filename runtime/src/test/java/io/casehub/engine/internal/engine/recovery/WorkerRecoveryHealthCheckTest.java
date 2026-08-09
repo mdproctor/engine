@@ -53,7 +53,7 @@ class WorkerRecoveryHealthCheckTest {
 
   private WorkerRecoveryCoordinator coordinatorWithStatus(RecoveryStatus status) {
     return new WorkerRecoveryCoordinator(
-        null, new io.casehub.engine.common.internal.acl.InMemoryWorkerCredentialStore(), null) {
+        null, new io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore(), null) {
       @Override
       public RecoveryStatus getRecoveryStatus() {
         return status;

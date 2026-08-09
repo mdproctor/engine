@@ -30,7 +30,7 @@ class WorkerRecoveryCoordinatorTest {
     var coordinator =
         new WorkerRecoveryCoordinator(
             serviceWith(() -> {}),
-            new io.casehub.engine.common.internal.acl.InMemoryWorkerCredentialStore(),
+            new io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore(),
             Duration.ofSeconds(60));
     assertThat(coordinator.getRecoveryStatus()).isEqualTo(RecoveryStatus.PENDING);
   }
@@ -40,7 +40,7 @@ class WorkerRecoveryCoordinatorTest {
     var coordinator =
         new WorkerRecoveryCoordinator(
             serviceWith(() -> {}),
-            new io.casehub.engine.common.internal.acl.InMemoryWorkerCredentialStore(),
+            new io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore(),
             Duration.ofSeconds(60));
 
     coordinator.triggerRecovery();
@@ -60,7 +60,7 @@ class WorkerRecoveryCoordinatorTest {
                 () -> {
                   throw new RuntimeException("DB down");
                 }),
-            new io.casehub.engine.common.internal.acl.InMemoryWorkerCredentialStore(),
+            new io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore(),
             Duration.ofSeconds(60));
 
     coordinator.triggerRecovery();
@@ -84,7 +84,7 @@ class WorkerRecoveryCoordinatorTest {
                     Thread.currentThread().interrupt();
                   }
                 }),
-            new io.casehub.engine.common.internal.acl.InMemoryWorkerCredentialStore(),
+            new io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore(),
             Duration.ofMillis(100));
 
     coordinator.triggerRecovery();
