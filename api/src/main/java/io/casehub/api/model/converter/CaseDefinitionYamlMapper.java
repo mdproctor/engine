@@ -594,6 +594,26 @@ public final class CaseDefinitionYamlMapper {
       def.setDecompositionStrategy(schema.getSpec().getDecompositionStrategy());
     }
 
+    // Convert planningConstraints — read from raw spec node (Duration + Integer)
+    if (specNode != null && specNode.has("planningConstraints")) {
+      JsonNode pcNode = specNode.get("planningConstraints");
+      java.time.Duration timeBudget =
+          pcNode.has("timeBudget")
+              ? java.time.Duration.parse(pcNode.get("timeBudget").asText())
+              : null;
+      Integer resourceLimit =
+          pcNode.has("resourceLimit") ? pcNode.get("resourceLimit").asInt() : null;
+      Map<String, Double> weights = new LinkedHashMap<>();
+      if (pcNode.has("weights") && pcNode.get("weights").isObject()) {
+        pcNode
+            .get("weights")
+            .fields()
+            .forEachRemaining(e -> weights.put(e.getKey(), e.getValue().asDouble()));
+      }
+      def.setPlanningConstraints(
+          new io.casehub.engine.plan.PlanningConstraints(timeBudget, resourceLimit, weights));
+    }
+
     // Convert routing strategy IDs — read from raw spec node
     if (specNode != null) {
       if (specNode.has("agentRouting")) {

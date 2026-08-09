@@ -15,12 +15,21 @@
  */
 package io.casehub.engine.plan;
 
-public interface DecompositionContext<T> {
-  T state();
+import java.time.Duration;
+import java.util.Map;
 
-  int depth();
+public record PlanningConstraints(
+    Duration timeBudget, Integer resourceLimit, Map<String, Double> weights) {
 
-  default PlanningConstraints constraints() {
-    return PlanningConstraints.unconstrained();
+  public PlanningConstraints {
+    weights = weights != null ? Map.copyOf(weights) : Map.of();
+  }
+
+  public static PlanningConstraints unconstrained() {
+    return new PlanningConstraints(null, null, Map.of());
+  }
+
+  public static PlanningConstraints of(Duration timeBudget, Integer resourceLimit) {
+    return new PlanningConstraints(timeBudget, resourceLimit, Map.of());
   }
 }

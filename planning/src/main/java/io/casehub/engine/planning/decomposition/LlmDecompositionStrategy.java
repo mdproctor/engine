@@ -97,6 +97,11 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
               var userPrompt =
                   "Goal: " + goalName + "\n\n" + capList + "\n\nContext:\n" + contextStr;
 
+              var constraintText = buildConstraintText(context.constraints());
+              if (!constraintText.isEmpty()) {
+                userPrompt = userPrompt + "\n\n" + constraintText;
+              }
+
               var agent =
                   Agent.builder()
                       .systemPrompt(SYSTEM_PROMPT)
@@ -140,5 +145,22 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
 
               return DagPlan.fromNodes(nodes);
             });
+  }
+
+  private String buildConstraintText(io.casehub.engine.plan.PlanningConstraints constraints) {
+    if (constraints.timeBudget() == null && constraints.resourceLimit() == null) {
+      return "";
+    }
+    var sb = new StringBuilder("Constraints:\n");
+    if (constraints.timeBudget() != null) {
+      long minutes = constraints.timeBudget().toMinutes();
+      sb.append("- Time budget: ").append(minutes).append(" minutes. ");
+      sb.append("Plan steps that can complete within this time.\n");
+    }
+    if (constraints.resourceLimit() != null) {
+      sb.append("- Resource limit: ").append(constraints.resourceLimit());
+      sb.append(" available agents. Prefer parallelism when resource limits allow.\n");
+    }
+    return sb.toString();
   }
 }

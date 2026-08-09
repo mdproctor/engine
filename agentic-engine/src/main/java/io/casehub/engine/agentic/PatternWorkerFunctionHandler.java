@@ -24,11 +24,11 @@ import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.engine.internal.executor.WorkerRuntimeFactory;
+import io.casehub.engine.plan.PlanningConstraints;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.util.Map;
 
 @ApplicationScoped
@@ -54,7 +54,6 @@ public class PatternWorkerFunctionHandler implements WorkerFunctionHandler {
       WorkerContext context,
       int timeoutMs,
       ExecutionMetadata metadata) {
-
     var patternFn = (PatternWorkerFunction) function;
     WorkerRuntime runtime =
         workerRuntimeFactory.create(context.caseId(), metadata.workerName(), context);
@@ -62,17 +61,27 @@ public class PatternWorkerFunctionHandler implements WorkerFunctionHandler {
     var invoker = new EngineAgentInvoker<>(runtime);
     var driver = new OrchestratedDriver<>(invoker);
 
+    int effectiveTimeoutMs = resolveTimeout(patternFn, timeoutMs);
+    ExecutionModel<Object> effectiveModel =
+        applyResourceLimit(
+            (ExecutionModel<Object>) (ExecutionModel<?>) patternFn.model(),
+            patternFn.planningConstraints());
+
     ExecutionResult result;
-    try {
-      result =
-          driver
-              .execute((ExecutionModel<Object>) (ExecutionModel<?>) patternFn.model(), inputData)
-              .await()
-              .atMost(Duration.ofMillis(timeoutMs));
-    } catch (Exception e) {
+    try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+      var future =
+          executor.submit(() -> driver.execute(effectiveModel, inputData).await().indefinitely());
+      result = future.get(effectiveTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+    } catch (java.util.concurrent.TimeoutException e) {
       driver.cancel();
       return new HandlerResult(
-          WorkerResult.failed("Pattern execution failed: " + e.getMessage()),
+          WorkerResult.expired("Pattern execution exceeded time budget"),
+          patternMetadata(patternFn));
+    } catch (Exception e) {
+      driver.cancel();
+      var cause = e instanceof java.util.concurrent.ExecutionException ? e.getCause() : e;
+      return new HandlerResult(
+          WorkerResult.failed("Pattern execution failed: " + cause.getMessage()),
           patternMetadata(patternFn));
     }
 
@@ -86,6 +95,50 @@ public class PatternWorkerFunctionHandler implements WorkerFunctionHandler {
         };
 
     return new HandlerResult(workerResult, patternMetadata(patternFn));
+  }
+
+  private int resolveTimeout(PatternWorkerFunction fn, int defaultTimeoutMs) {
+    if (fn.planningConstraints() == null || fn.planningConstraints().timeBudget() == null) {
+      return defaultTimeoutMs;
+    }
+    long budgetMs = fn.planningConstraints().timeBudget().toMillis();
+    return (int) Math.min(budgetMs, defaultTimeoutMs);
+  }
+
+  @SuppressWarnings("unchecked")
+  private <T> ExecutionModel<T> applyResourceLimit(
+      ExecutionModel<T> model, PlanningConstraints constraints) {
+    if (constraints == null || constraints.resourceLimit() == null) {
+      return model;
+    }
+    int limit = constraints.resourceLimit();
+    var original = model.routing();
+    io.casehub.blocks.agentic.routing.RoutingStrategy<T> capped =
+        ctx ->
+            original
+                .route(ctx)
+                .map(
+                    decision -> {
+                      if (decision
+                              instanceof
+                              io.casehub.blocks.agentic.routing.RoutingDecision.Selected selected
+                          && selected.agents().size() > limit) {
+                        return new io.casehub.blocks.agentic.routing.RoutingDecision.Selected(
+                            selected.agents().subList(0, limit));
+                      }
+                      return decision;
+                    });
+    return new ExecutionModel<>(
+        capped,
+        model.decomposition(),
+        model.activation(),
+        model.aggregation(),
+        model.termination(),
+        model.candidateSupplier(),
+        model.failurePolicy(),
+        model.listeners(),
+        model.task(),
+        model.patternType());
   }
 
   private Map<String, Object> patternMetadata(PatternWorkerFunction fn) {

@@ -78,6 +78,7 @@ public class CaseDefinition {
   private io.casehub.api.spi.QuorumConfig defaultQuorum;
   private ReflectionTriggerConfig reflectionTrigger;
   private MemoryRetrievalConfig memoryRetrieval;
+  private io.casehub.engine.plan.PlanningConstraints planningConstraints;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -384,6 +385,15 @@ public class CaseDefinition {
     this.memoryRetrieval = memoryRetrieval;
   }
 
+  public io.casehub.engine.plan.PlanningConstraints getPlanningConstraints() {
+    return planningConstraints;
+  }
+
+  public void setPlanningConstraints(
+      io.casehub.engine.plan.PlanningConstraints planningConstraints) {
+    this.planningConstraints = planningConstraints;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -431,6 +441,7 @@ public class CaseDefinition {
     private io.casehub.api.spi.QuorumConfig defaultQuorum;
     private ReflectionTriggerConfig reflectionTrigger;
     private MemoryRetrievalConfig memoryRetrieval;
+    private io.casehub.engine.plan.PlanningConstraints planningConstraints;
 
     private Builder() {}
 
@@ -721,6 +732,12 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder planningConstraints(
+        io.casehub.engine.plan.PlanningConstraints planningConstraints) {
+      this.planningConstraints = planningConstraints;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -813,6 +830,7 @@ public class CaseDefinition {
       caseHubDefinition.setDefaultQuorum(defaultQuorum);
       caseHubDefinition.setReflectionTrigger(reflectionTrigger);
       caseHubDefinition.setMemoryRetrieval(memoryRetrieval);
+      caseHubDefinition.setPlanningConstraints(planningConstraints);
 
       return caseHubDefinition;
     }

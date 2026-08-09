@@ -99,6 +99,55 @@ class LlmDecompositionStrategyTest {
         .isInstanceOf(AgentException.class);
   }
 
+  @Test
+  void includesConstraintsInPromptWhenPresent() {
+    var capturedPrompt = new java.util.concurrent.atomic.AtomicReference<String>();
+
+    ChatModel capturingModel =
+        new ChatModel() {
+          @Override
+          public ChatResponse doChat(ChatRequest request) {
+            var messages = request.messages();
+            for (var msg : messages) {
+              if (msg instanceof dev.langchain4j.data.message.UserMessage um) {
+                capturedPrompt.set(um.singleText());
+              }
+            }
+            return ChatResponse.builder().aiMessage(AiMessage.from(sequentialResponse())).build();
+          }
+        };
+
+    ChatModelProvider provider =
+        new ChatModelProvider() {
+          @Override
+          public ModelType type() {
+            return ModelType.ANTHROPIC;
+          }
+
+          @Override
+          public ChatModel get() {
+            return capturingModel;
+          }
+        };
+
+    var strategy = new LlmDecompositionStrategy();
+    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+
+    var constraints =
+        io.casehub.engine.plan.PlanningConstraints.of(java.time.Duration.ofMinutes(30), 3);
+    var context =
+        new GoalDecompositionContext(
+            MAPPER.createObjectNode(),
+            0,
+            List.of(new Capability("analysis", "", "", null)),
+            constraints);
+    var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
+
+    strategy.decompose(task, context).await().indefinitely();
+
+    assertThat(capturedPrompt.get()).contains("30 minutes").contains("3");
+  }
+
   private static String sequentialResponse() {
     return "{\"steps\": ["
         + "{\"id\": \"s1\", \"description\": \"Gather data\", \"capabilityName\": \"data-gathering\"},"

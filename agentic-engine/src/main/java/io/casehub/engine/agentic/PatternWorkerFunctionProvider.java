@@ -35,6 +35,19 @@ public class PatternWorkerFunctionProvider implements WorkerFunctionProvider {
     String typeName = patternNode.path("type").asText("sequence");
     PatternType patternType = PatternType.valueOf(typeName.toUpperCase());
     boolean checkpointing = patternNode.path("checkpointing").asBoolean(false);
-    return new PatternWorkerFunction(null, patternType, checkpointing);
+
+    io.casehub.engine.plan.PlanningConstraints constraints = null;
+    if (patternNode.has("constraints")) {
+      JsonNode cNode = patternNode.get("constraints");
+      java.time.Duration timeBudget =
+          cNode.has("timeBudget")
+              ? java.time.Duration.parse(cNode.get("timeBudget").asText())
+              : null;
+      Integer resourceLimit =
+          cNode.has("resourceLimit") ? cNode.get("resourceLimit").asInt() : null;
+      constraints = io.casehub.engine.plan.PlanningConstraints.of(timeBudget, resourceLimit);
+    }
+
+    return new PatternWorkerFunction(null, patternType, checkpointing, constraints);
   }
 }

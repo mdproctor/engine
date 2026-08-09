@@ -81,4 +81,28 @@ class PatternWorkerFunctionProviderTest {
     var fn = (PatternWorkerFunction) provider.create(node);
     assertThat(fn.patternType()).isEqualTo(PatternType.SEQUENCE);
   }
+
+  @Test
+  void parsesConstraintsFromPatternBlock() {
+    ObjectNode node = mapper.createObjectNode();
+    ObjectNode pattern = node.putObject("pattern");
+    pattern.put("type", "htn");
+    ObjectNode constraints = pattern.putObject("constraints");
+    constraints.put("timeBudget", "PT30M");
+    constraints.put("resourceLimit", 3);
+
+    var fn = (PatternWorkerFunction) provider.create(node);
+    assertThat(fn.planningConstraints()).isNotNull();
+    assertThat(fn.planningConstraints().timeBudget()).isEqualTo(java.time.Duration.ofMinutes(30));
+    assertThat(fn.planningConstraints().resourceLimit()).isEqualTo(3);
+  }
+
+  @Test
+  void constraintsNullWhenAbsent() {
+    ObjectNode node = mapper.createObjectNode();
+    node.putObject("pattern").put("type", "debate");
+
+    var fn = (PatternWorkerFunction) provider.create(node);
+    assertThat(fn.planningConstraints()).isNull();
+  }
 }

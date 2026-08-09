@@ -2726,4 +2726,66 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getAuthorization().get(AclAction.READ)).containsExactly("viewer");
     assertThat(def.getAuthorization().get(AclAction.WRITE)).isNull();
   }
+
+  @Test
+  void parsesPlanningConstraintsFromYaml() throws Exception {
+    var yaml =
+        """
+                   name: test
+                   namespace: io.casehub.test
+                   version: "1.0"
+                   spec:
+                     planningConstraints:
+                       timeBudget: PT30M
+                       resourceLimit: 3
+                     capabilities:
+                       - name: analysis
+                   """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getPlanningConstraints()).isNotNull();
+    assertThat(def.getPlanningConstraints().timeBudget())
+        .isEqualTo(java.time.Duration.ofMinutes(30));
+    assertThat(def.getPlanningConstraints().resourceLimit()).isEqualTo(3);
+  }
+
+  @Test
+  void planningConstraintsDefaultsToNullWhenAbsent() throws Exception {
+    var yaml =
+        """
+                   name: test
+                   namespace: io.casehub.test
+                   version: "1.0"
+                   spec:
+                     capabilities:
+                       - name: analysis
+                   """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getPlanningConstraints()).isNull();
+  }
+
+  @Test
+  void parsesPlanningConstraintsWithWeights() throws Exception {
+    var yaml =
+        """
+                   name: test
+                   namespace: io.casehub.test
+                   version: "1.0"
+                   spec:
+                     planningConstraints:
+                       timeBudget: PT1H
+                       resourceLimit: 5
+                       weights:
+                         speed: 0.8
+                         quality: 0.2
+                     capabilities:
+                       - name: analysis
+                   """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getPlanningConstraints().weights())
+        .containsEntry("speed", 0.8)
+        .containsEntry("quality", 0.2);
+  }
 }

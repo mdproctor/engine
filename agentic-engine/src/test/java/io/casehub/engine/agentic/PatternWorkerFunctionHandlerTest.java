@@ -119,4 +119,62 @@ class PatternWorkerFunctionHandlerTest {
     HandlerResult result = handler.execute(fn, Map.of(), context, 60000, metadata);
     assertThat(result.protocolMetadata()).containsEntry("patternType", "SEQUENCE");
   }
+
+  @Test
+  void timeBudgetReducesEffectiveTimeout() {
+    var slowAgent =
+        AgentRef.external(
+            "slow",
+            ctx -> {
+              try {
+                Thread.sleep(200);
+              } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+              }
+              return CompletableFuture.completedFuture(
+                  AgentResult.success(null, Map.of("done", true)));
+            });
+
+    ExecutionModel<Map<String, Object>> model =
+        Patterns.<Map<String, Object>>sequence().agents(slowAgent).build();
+
+    var constraints =
+        io.casehub.engine.plan.PlanningConstraints.of(java.time.Duration.ofMillis(50), null);
+    var fn = new PatternWorkerFunction(model, PatternType.SEQUENCE, false, constraints);
+    var context = mock(WorkerContext.class);
+    when(context.caseId()).thenReturn(UUID.randomUUID());
+    var metadata = new ExecutionMetadata("test-worker", null);
+
+    HandlerResult result = handler.execute(fn, Map.of(), context, 60000, metadata);
+    assertThat(result.result().outcome()).isNotInstanceOf(WorkerOutcome.Success.class);
+  }
+
+  @Test
+  void resourceLimitCapsAgentsPerIteration() {
+    var counter = new java.util.concurrent.atomic.AtomicInteger(0);
+    var agents =
+        java.util.stream.IntStream.range(0, 5)
+            .mapToObj(
+                i ->
+                    AgentRef.external(
+                        "agent-" + i,
+                        ctx -> {
+                          counter.incrementAndGet();
+                          return CompletableFuture.completedFuture(
+                              AgentResult.success(null, Map.of("agent", i)));
+                        }))
+            .toList();
+
+    ExecutionModel<Map<String, Object>> model =
+        Patterns.<Map<String, Object>>parallel().agents(agents.toArray(AgentRef[]::new)).build();
+
+    var constraints = io.casehub.engine.plan.PlanningConstraints.of(null, 2);
+    var fn = new PatternWorkerFunction(model, PatternType.PARALLEL, false, constraints);
+    var context = mock(WorkerContext.class);
+    when(context.caseId()).thenReturn(UUID.randomUUID());
+    var metadata = new ExecutionMetadata("test-worker", null);
+
+    handler.execute(fn, Map.of(), context, 60000, metadata);
+    assertThat(counter.get()).isLessThanOrEqualTo(2);
+  }
 }
