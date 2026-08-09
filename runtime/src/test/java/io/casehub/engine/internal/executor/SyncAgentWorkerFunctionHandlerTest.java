@@ -151,6 +151,42 @@ class SyncAgentWorkerFunctionHandlerTest {
   }
 
   @Test
+  void supports_exchange_processor() {
+    var ep =
+        new WorkerFunction.ExchangeProcessor<>(
+            String.class,
+            String.class,
+            (exchange, scope) -> WorkerResult.of(exchange.withBody("processed")));
+    assertThat(handler.supports(ep)).isTrue();
+  }
+
+  @Test
+  void executes_exchange_processor() {
+    var ep =
+        new WorkerFunction.ExchangeProcessor<>(
+            String.class,
+            String.class,
+            (exchange, scope) ->
+                WorkerResult.of(
+                    exchange.withBody("processed: " + exchange.body()).withHeader("step", "done")));
+
+    io.casehub.worker.api.Exchange<String> input =
+        io.casehub.worker.api.Exchange.of("raw-data", Map.of("correlationId", "abc"));
+
+    WorkerResult<?> result =
+        handler
+            .execute(ep, input, testContext(), 5000, new ExecutionMetadata("w1", "hash1"))
+            .result();
+
+    @SuppressWarnings("unchecked")
+    io.casehub.worker.api.Exchange<String> output =
+        (io.casehub.worker.api.Exchange<String>) result.output();
+    assertThat(output.body()).isEqualTo("processed: raw-data");
+    assertThat(output.headers()).containsEntry("correlationId", "abc");
+    assertThat(output.headers()).containsEntry("step", "done");
+  }
+
+  @Test
   void timeout_produces_expired_outcome() {
     WorkerFunction.Sync<?, ?> slowWorker =
         new WorkerFunction.Sync<>(
