@@ -305,6 +305,34 @@ $defs:
           type: number
       cbr:
         $ref: "#/$defs/Cbr"
+      channels:
+        type: array
+        description: >
+          Typed streaming channels for worker-to-worker data flow. Each channel
+          is created when its owning scope activates and closed when it terminates.
+          Workers produce/consume via Exchange records.
+        items:
+          type: object
+          required: [ name, recordType ]
+          unevaluatedProperties: false
+          properties:
+            name:
+              type: string
+              minLength: 1
+              description: "Channel name — unique within the case definition"
+            recordType:
+              type: string
+              minLength: 1
+              description: "Fully qualified Java class name for the channel record type"
+            transport:
+              type: string
+              default: in-memory
+              description: "DataChannelFactory strategy ID. Default: in-memory."
+            scope:
+              type: string
+              enum: [ COMPOUND, CASE ]
+              default: CASE
+              description: "Channel lifecycle scope. CASE (default) or COMPOUND."
       bindings:
         type: array
         description: >
@@ -679,6 +707,27 @@ $defs:
         enum: [ TRANSIENT, PERSISTENT, REINVOKED ]
         default: TRANSIENT
         description: "TRANSIENT = fire-and-forget (default). PERSISTENT = long-running virtual thread with mailbox. REINVOKED = re-invoked on each trigger with accumulated state."
+      produces:
+        type: string
+        description: "DataChannel name this binding produces to. The binding's Exchange output is streamed to this channel."
+      consumes:
+        type: string
+        description: "DataChannel name this binding consumes from. The binding receives Exchanges from this channel."
+      exchangeProjection:
+        description: "Exchange projection strategy — controls how Exchange data reaches the Blackboard."
+        oneOf:
+          - type: string
+            description: "Strategy ID (e.g. 'dual-write', 'exchange-only')"
+          - type: object
+            unevaluatedProperties: false
+            required: [ strategy ]
+            properties:
+              strategy:
+                type: string
+                description: "Strategy ID (e.g. 'jq')"
+              expression:
+                type: string
+                description: "JQ expression for custom projection (required when strategy is 'jq')"
 
   OutcomePolicy:
     type: object

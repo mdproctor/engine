@@ -44,6 +44,7 @@ public class Binding {
   private ExecutionMode executionMode;
   private List<WorkerAction> permissionIntent;
   private String exchangeProjectionStrategy;
+  private String exchangeProjectionExpression;
   private String produces;
   private String consumes;
 
@@ -166,6 +167,14 @@ public class Binding {
     return exchangeProjectionStrategy;
   }
 
+  public void setExchangeProjectionExpression(String exchangeProjectionExpression) {
+    this.exchangeProjectionExpression = exchangeProjectionExpression;
+  }
+
+  public String getExchangeProjectionExpression() {
+    return exchangeProjectionExpression;
+  }
+
   public void setProduces(String produces) {
     this.produces = produces;
   }
@@ -202,6 +211,7 @@ public class Binding {
     private ExecutionMode executionMode;
     private List<WorkerAction> permissionIntent;
     private String exchangeProjectionStrategy;
+    private String exchangeProjectionExpression;
     private String produces;
     private String consumes;
 
@@ -313,6 +323,7 @@ public class Binding {
 
     public Builder projectWith(String strategy, String expression) {
       this.exchangeProjectionStrategy = strategy;
+      this.exchangeProjectionExpression = expression;
       return this;
     }
 
@@ -374,6 +385,7 @@ public class Binding {
       b.setExecutionMode(this.executionMode);
       b.setPermissionIntent(this.permissionIntent);
       b.setExchangeProjectionStrategy(this.exchangeProjectionStrategy);
+      b.setExchangeProjectionExpression(this.exchangeProjectionExpression);
       b.setProduces(this.produces);
       b.setConsumes(this.consumes);
       return b;
