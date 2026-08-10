@@ -16,6 +16,16 @@
 package io.casehub.engine.plan;
 
 import java.util.function.Predicate;
+import org.jspecify.annotations.Nullable;
 
 public record DecompositionMethod<T>(
-    Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {}
+    @Nullable String name,
+    Predicate<T> guard,
+    DecompositionStrategy<T> strategy,
+    @Nullable String guardLabel) {
+
+  public DecompositionMethod(
+      Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {
+    this(null, guard, strategy, guardLabel);
+  }
+}
