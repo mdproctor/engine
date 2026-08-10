@@ -15,6 +15,8 @@
  */
 package io.casehub.engine.plan;
 
+import java.time.Duration;
+import java.util.Map;
 import java.util.function.Predicate;
 import org.jspecify.annotations.Nullable;
 
@@ -22,14 +24,30 @@ public record DecompositionMethod<T>(
     @Nullable String name,
     Predicate<T> guard,
     DecompositionStrategy<T> strategy,
-    @Nullable String guardLabel) {
+    @Nullable String guardLabel,
+    @Nullable Map<String, Integer> estimatedCost,
+    @Nullable Duration estimatedDuration) {
+
+  public DecompositionMethod {
+    if (estimatedCost != null) {
+      estimatedCost = Map.copyOf(estimatedCost);
+    }
+  }
+
+  public DecompositionMethod(
+      @Nullable String name,
+      Predicate<T> guard,
+      DecompositionStrategy<T> strategy,
+      @Nullable String guardLabel) {
+    this(name, guard, strategy, guardLabel, null, null);
+  }
 
   public DecompositionMethod(
       Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {
-    this(null, guard, strategy, guardLabel);
+    this(null, guard, strategy, guardLabel, null, null);
   }
 
   public DecompositionMethod(Predicate<T> guard, DecompositionStrategy<T> strategy) {
-    this(null, guard, strategy, null);
+    this(null, guard, strategy, null, null, null);
   }
 }
