@@ -17,25 +17,24 @@ package io.casehub.engine.internal.routing;
 
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.AgentGoal;
-import io.casehub.eidos.api.BehavioralSignal;
-import io.casehub.eidos.api.BehavioralSignalStore;
+import io.casehub.eidos.api.GoalOutcomeCounts;
+import io.casehub.eidos.api.GoalSignalStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.util.List;
+import java.util.Map;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @ApplicationScoped
 public class GoalAbandonmentEvaluator {
 
-  static final String GOAL_CAPABILITY_SENTINEL = "__goal__";
-
-  private final Instance<BehavioralSignalStore> signalStore;
+  private final Instance<GoalSignalStore> signalStore;
   private final int threshold;
 
   @Inject
   public GoalAbandonmentEvaluator(
-      Instance<BehavioralSignalStore> signalStore,
+      Instance<GoalSignalStore> signalStore,
       @ConfigProperty(name = "casehub.engine.goal.abandonment-threshold", defaultValue = "5")
           int threshold) {
     this.signalStore = signalStore;
@@ -43,18 +42,22 @@ public class GoalAbandonmentEvaluator {
   }
 
   public boolean isAbandoned(String agentId, String tenancyId, String goalName) {
-    if (!signalStore.isResolvable()) return false;
-    int count =
-        signalStore
-            .get()
-            .count(
-                agentId, tenancyId, GOAL_CAPABILITY_SENTINEL, goalName, BehavioralSignal.DECLINE);
-    return count >= threshold;
+    if (!signalStore.isResolvable()) {
+      return false;
+    }
+    Map<String, GoalOutcomeCounts> counts = signalStore.get().outcomeCounts(agentId, tenancyId);
+    GoalOutcomeCounts gc = counts.get(goalName);
+    int failureCount = gc != null ? gc.failureCount() : 0;
+    return failureCount >= threshold;
   }
 
   public List<AgentGoal> activeGoals(AgentDescriptor descriptor) {
-    if (!signalStore.isResolvable()) return descriptor.goals();
-    if (descriptor.goals().isEmpty()) return List.of();
+    if (!signalStore.isResolvable()) {
+      return descriptor.goals();
+    }
+    if (descriptor.goals().isEmpty()) {
+      return List.of();
+    }
     return descriptor.goals().stream()
         .filter(g -> !isAbandoned(descriptor.agentId(), descriptor.tenancyId(), g.name()))
         .toList();

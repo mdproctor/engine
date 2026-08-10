@@ -21,9 +21,10 @@ import static org.mockito.Mockito.when;
 
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.AgentGoal;
-import io.casehub.eidos.api.BehavioralSignal;
-import io.casehub.eidos.api.BehavioralSignalStore;
+import io.casehub.eidos.api.GoalOutcome;
 import io.casehub.eidos.api.GoalPriority;
+import io.casehub.eidos.api.GoalSignalStore;
+import io.casehub.eidos.api.InMemoryGoalSignalStore;
 import io.casehub.eidos.api.Visibility;
 import jakarta.enterprise.inject.Instance;
 import java.util.List;
@@ -32,14 +33,14 @@ import org.junit.jupiter.api.Test;
 
 class GoalAbandonmentEvaluatorTest {
 
-  private BehavioralSignalStore signalStore;
+  private InMemoryGoalSignalStore signalStore;
   private GoalAbandonmentEvaluator evaluator;
 
   @SuppressWarnings("unchecked")
   @BeforeEach
   void setUp() {
-    signalStore = mock(BehavioralSignalStore.class);
-    Instance<BehavioralSignalStore> storeInstance = mock(Instance.class);
+    signalStore = new InMemoryGoalSignalStore();
+    Instance<GoalSignalStore> storeInstance = mock(Instance.class);
     when(storeInstance.isResolvable()).thenReturn(true);
     when(storeInstance.get()).thenReturn(signalStore);
     evaluator = new GoalAbandonmentEvaluator(storeInstance, 5);
@@ -47,69 +48,53 @@ class GoalAbandonmentEvaluatorTest {
 
   @Test
   void belowThreshold_goalIsActive() {
-    when(signalStore.count(
-            "agent-1",
-            "tenant-1",
-            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
-            "maximize_roi",
-            BehavioralSignal.DECLINE))
-        .thenReturn(3);
-
+    for (int i = 0; i < 3; i++) {
+      signalStore.recordOutcome("agent-1", "tenant-1", "maximize_roi", GoalOutcome.FAILURE);
+    }
     assertThat(evaluator.isAbandoned("agent-1", "tenant-1", "maximize_roi")).isFalse();
   }
 
   @Test
   void atThreshold_goalIsAbandoned() {
-    when(signalStore.count(
-            "agent-1",
-            "tenant-1",
-            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
-            "maximize_roi",
-            BehavioralSignal.DECLINE))
-        .thenReturn(5);
-
+    for (int i = 0; i < 5; i++) {
+      signalStore.recordOutcome("agent-1", "tenant-1", "maximize_roi", GoalOutcome.FAILURE);
+    }
     assertThat(evaluator.isAbandoned("agent-1", "tenant-1", "maximize_roi")).isTrue();
   }
 
   @Test
   void aboveThreshold_goalIsAbandoned() {
-    when(signalStore.count(
-            "agent-1",
-            "tenant-1",
-            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
-            "maximize_roi",
-            BehavioralSignal.DECLINE))
-        .thenReturn(8);
-
+    for (int i = 0; i < 8; i++) {
+      signalStore.recordOutcome("agent-1", "tenant-1", "maximize_roi", GoalOutcome.FAILURE);
+    }
     assertThat(evaluator.isAbandoned("agent-1", "tenant-1", "maximize_roi")).isTrue();
+  }
+
+  @Test
+  void successDoesNotCountTowardAbandonment() {
+    for (int i = 0; i < 10; i++) {
+      signalStore.recordOutcome("agent-1", "tenant-1", "maximize_roi", GoalOutcome.SUCCESS);
+    }
+    assertThat(evaluator.isAbandoned("agent-1", "tenant-1", "maximize_roi")).isFalse();
   }
 
   @Test
   void noSignalStore_neverAbandoned() {
     @SuppressWarnings("unchecked")
-    Instance<BehavioralSignalStore> absent = mock(Instance.class);
+    Instance<GoalSignalStore> absent = mock(Instance.class);
     when(absent.isResolvable()).thenReturn(false);
     var noStoreEvaluator = new GoalAbandonmentEvaluator(absent, 5);
-
     assertThat(noStoreEvaluator.isAbandoned("agent-1", "tenant-1", "any")).isFalse();
   }
 
   @Test
   void activeGoals_filtersAbandoned() {
-    when(signalStore.count(
-            "agent-1",
-            "tenant-1",
-            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
-            "goal-a",
-            BehavioralSignal.DECLINE))
-        .thenReturn(2);
-    when(signalStore.count(
-            "agent-1",
-            "tenant-1",
-            GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
-            "goal-b",
-            BehavioralSignal.DECLINE))
-        .thenReturn(7);
+    for (int i = 0; i < 2; i++) {
+      signalStore.recordOutcome("agent-1", "tenant-1", "goal-a", GoalOutcome.FAILURE);
+    }
+    for (int i = 0; i < 7; i++) {
+      signalStore.recordOutcome("agent-1", "tenant-1", "goal-b", GoalOutcome.FAILURE);
+    }
 
     AgentDescriptor descriptor =
         AgentDescriptor.builder()
@@ -134,7 +119,6 @@ class GoalAbandonmentEvaluatorTest {
             .build();
 
     List<AgentGoal> active = evaluator.activeGoals(descriptor);
-
     assertThat(active).hasSize(1);
     assertThat(active.get(0).name()).isEqualTo("goal-a");
   }
@@ -148,7 +132,11 @@ class GoalAbandonmentEvaluatorTest {
             .slot("default")
             .tenancyId("tenant-1")
             .build();
-
     assertThat(evaluator.activeGoals(descriptor)).isEmpty();
+  }
+
+  @Test
+  void noOutcomes_goalIsActive() {
+    assertThat(evaluator.isAbandoned("agent-1", "tenant-1", "unknown-goal")).isFalse();
   }
 }
