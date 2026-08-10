@@ -18,4 +18,8 @@ package io.casehub.engine.plan;
 import java.util.function.Predicate;
 
 public record DecompositionMethod<T>(
-    Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {}
+    Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {
+  public DecompositionMethod(Predicate<T> guard, DecompositionStrategy<T> strategy) {
+    this(guard, strategy, null);
+  }
+}

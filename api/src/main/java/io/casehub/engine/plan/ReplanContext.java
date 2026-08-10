@@ -15,24 +15,30 @@
  */
 package io.casehub.engine.plan;
 
-import io.casehub.api.model.TaskDescriptor;
+import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
 
-public sealed interface TaskNode<T> permits TaskNode.LeafTask, TaskNode.CompoundTask {
+public record ReplanContext<T>(
+    List<CompletedStep> completedSteps,
+    FailedStep failedStep,
+    DagPlan<TaskNode.LeafTask<T>> originalPlan,
+    int replanCount) {
 
-  non-sealed interface LeafTask<T> extends TaskNode<T>, TaskDescriptor {}
+  public ReplanContext {
+    completedSteps = List.copyOf(completedSteps);
+    Objects.requireNonNull(failedStep, "failedStep required");
+  }
 
-  record CompoundTask<T>(String id, String name, List<DecompositionMethod<T>> methods)
-      implements TaskNode<T> {
-    public CompoundTask {
-      Objects.requireNonNull(id, "id");
-      Objects.requireNonNull(name, "name");
-      methods = List.copyOf(methods);
+  public record CompletedStep(String stepId, Object result, Duration elapsed) {
+    public CompletedStep {
+      Objects.requireNonNull(stepId, "stepId required");
     }
+  }
 
-    public CompoundTask(String name, List<DecompositionMethod<T>> methods) {
-      this(java.util.UUID.randomUUID().toString(), name, methods);
+  public record FailedStep(String stepId, String errorMessage, Throwable cause, int retryAttempts) {
+    public FailedStep {
+      Objects.requireNonNull(stepId, "stepId required");
     }
   }
 }

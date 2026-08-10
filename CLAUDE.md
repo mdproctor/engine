@@ -700,7 +700,11 @@ workers:
 
 **Test dependencies:** Full engine stack with `casehub-persistence-memory`, `casehub-neocortex-memory-cbr-inmem`. Test `application.properties` must exclude `io.casehub.blocks.routing.agent.CbrAgentRoutingStrategy`, `io.casehub.blocks.routing.agent.LlmAgentRoutingStrategy`, and `io.casehub.blocks.channel.summary.ThreadSummaryObserver` when `casehub-blocks` is indexed.
 
-**Future work:** #882 re-planning on failure (HTN only), #883 checkpointing via EventLog, #884 planning constraints, `ChannelAgent`/`HumanAgent` support.
+**Re-planning on failure (#882):** `FailurePolicy.ReplanPolicy` (blocks) configures plan-level recovery for HTN patterns: `maxReplans` (int), `fallbackAction` (RoutingFailureAction). `DecompositionStrategy.replan()` (engine-api) is a default method — returns failure by default; `LlmDecompositionStrategy` overrides with failure-aware prompt. `HtnExecutor` (blocks, `io.casehub.blocks.agentic.pattern`) encapsulates the decompose → run → replan loop: on step failure, builds `ReplanContext` (completed steps, failed step, original plan, replan count), calls `replan()`, runs the revised plan. `ResultCollector` listener captures agent results without modifying `ExecutionResult`. Fail-on-error termination only when `replanPolicy` is set — backward compatible. Fresh `SequentialRouting` per execution prevents stale index. `PatternWorkerFunctionHandler` detects HTN patterns (`rootTask != null`) and delegates to `HtnExecutor` with `EngineAgentInvoker`. `PatternWorkerFunction` gains nullable `rootTask` (`TaskNode<?>`) for HTN. Builder: `.maxReplans(2).replanFallback(ESCALATE)`. YAML: `pattern.replan: { maxReplans: 2, fallback: escalate }`. Refs engine#882.
+
+**`ReplanContext<T>`** (`engine-api`, `io.casehub.engine.plan`) — carries partial execution state for plan revision. Inner records: `CompletedStep` (stepId, result, elapsed), `FailedStep` (stepId, errorMessage, cause, retryAttempts). `originalPlan` (`DagPlan<LeafTask<T>>`), `replanCount` (int). Constructed by `HtnExecutor.buildReplanContext()` from `ResultCollector` listener data mapped against sorted plan nodes. Refs engine#882.
+
+**Future work:** #883 checkpointing via EventLog, `ChannelAgent`/`HumanAgent` support.
 
 ## casehub-engine-queue Module
 

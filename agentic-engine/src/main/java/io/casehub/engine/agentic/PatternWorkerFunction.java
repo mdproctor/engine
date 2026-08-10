@@ -18,6 +18,7 @@ package io.casehub.engine.agentic;
 import io.casehub.blocks.agentic.model.ExecutionModel;
 import io.casehub.blocks.agentic.model.PatternType;
 import io.casehub.engine.plan.PlanningConstraints;
+import io.casehub.engine.plan.TaskNode;
 import io.casehub.worker.api.WorkerFunction;
 import java.util.Map;
 
@@ -25,12 +26,21 @@ public record PatternWorkerFunction(
     ExecutionModel<?> model,
     PatternType patternType,
     boolean checkpointingEnabled,
-    PlanningConstraints planningConstraints)
+    PlanningConstraints planningConstraints,
+    TaskNode<?> rootTask)
     implements WorkerFunction<Map, Map> {
 
   public PatternWorkerFunction(
       ExecutionModel<?> model, PatternType patternType, boolean checkpointingEnabled) {
-    this(model, patternType, checkpointingEnabled, null);
+    this(model, patternType, checkpointingEnabled, null, null);
+  }
+
+  public PatternWorkerFunction(
+      ExecutionModel<?> model,
+      PatternType patternType,
+      boolean checkpointingEnabled,
+      PlanningConstraints planningConstraints) {
+    this(model, patternType, checkpointingEnabled, planningConstraints, null);
   }
 
   @Override

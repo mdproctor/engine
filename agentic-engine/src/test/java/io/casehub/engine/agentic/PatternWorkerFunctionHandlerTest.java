@@ -177,4 +177,126 @@ class PatternWorkerFunctionHandlerTest {
     handler.execute(fn, Map.of(), context, 60000, metadata);
     assertThat(counter.get()).isLessThanOrEqualTo(2);
   }
+
+  @Test
+  void executesHtnPatternViaHtnExecutor() {
+    var agent =
+        AgentRef.external(
+            "analyser",
+            ctx ->
+                CompletableFuture.completedFuture(
+                    AgentResult.success(null, Map.of("analysis", "done"))));
+
+    var leaf =
+        new io.casehub.blocks.agentic.decomposition.PlannedTask<>(
+            "s1", java.time.Instant.now(), "analyse", agent, null);
+    var plan =
+        io.casehub.engine.plan.DagPlan.<io.casehub.engine.plan.TaskNode.LeafTask<Object>>singleton(
+            leaf);
+
+    io.casehub.engine.plan.DecompositionStrategy<Object> decomposition =
+        (task, ctx) -> io.smallrye.mutiny.Uni.createFrom().item(plan);
+
+    var rootTask = new io.casehub.engine.plan.TaskNode.CompoundTask<>("goal", java.util.List.of());
+    var model =
+        Patterns.<Object>htn()
+            .decompose(decomposition)
+            .agents(new io.casehub.blocks.agentic.RoutingCandidate(agent, null))
+            .build();
+
+    var fn = new PatternWorkerFunction(model, PatternType.HTN, false, null, rootTask);
+    var context = mock(WorkerContext.class);
+    when(context.caseId()).thenReturn(UUID.randomUUID());
+    var metadata = new ExecutionMetadata("test-worker", null);
+
+    HandlerResult result = handler.execute(fn, Map.of(), context, 60000, metadata);
+    assertThat(result.result().outcome()).isInstanceOf(WorkerOutcome.Success.class);
+  }
+
+  @Test
+  void htnPatternWithReplanRecovery() {
+    var failAgent =
+        AgentRef.external(
+            "fail",
+            ctx -> CompletableFuture.completedFuture(AgentResult.failure(null, "transient error")));
+    var recoveryAgent =
+        AgentRef.external(
+            "recovery",
+            ctx ->
+                CompletableFuture.completedFuture(
+                    AgentResult.success(null, Map.of("recovered", true))));
+
+    var failLeaf =
+        new io.casehub.blocks.agentic.decomposition.PlannedTask<>(
+            "s1", java.time.Instant.now(), "will-fail", failAgent, null);
+    var recoveryLeaf =
+        new io.casehub.blocks.agentic.decomposition.PlannedTask<>(
+            "r1", java.time.Instant.now(), "recovery", recoveryAgent, null);
+
+    var originalPlan =
+        io.casehub.engine.plan.DagPlan.<io.casehub.engine.plan.TaskNode.LeafTask<Object>>singleton(
+            failLeaf);
+    var revisedPlan =
+        io.casehub.engine.plan.DagPlan.<io.casehub.engine.plan.TaskNode.LeafTask<Object>>singleton(
+            recoveryLeaf);
+
+    io.casehub.engine.plan.DecompositionStrategy<Object> decomposition =
+        new io.casehub.engine.plan.DecompositionStrategy<>() {
+          @Override
+          public io.smallrye.mutiny.Uni<
+                  io.casehub.engine.plan.DagPlan<io.casehub.engine.plan.TaskNode.LeafTask<Object>>>
+              decompose(
+                  io.casehub.engine.plan.TaskNode<Object> task,
+                  io.casehub.engine.plan.DecompositionContext<Object> ctx) {
+            return io.smallrye.mutiny.Uni.createFrom().item(originalPlan);
+          }
+
+          @Override
+          public io.smallrye.mutiny.Uni<
+                  io.casehub.engine.plan.DagPlan<io.casehub.engine.plan.TaskNode.LeafTask<Object>>>
+              replan(
+                  io.casehub.engine.plan.TaskNode<Object> task,
+                  io.casehub.engine.plan.DecompositionContext<Object> ctx,
+                  io.casehub.engine.plan.ReplanContext<Object> replanCtx) {
+            return io.smallrye.mutiny.Uni.createFrom().item(revisedPlan);
+          }
+        };
+
+    var rootTask = new io.casehub.engine.plan.TaskNode.CompoundTask<>("goal", java.util.List.of());
+    var failurePolicy =
+        new io.casehub.blocks.agentic.FailurePolicy(
+            io.casehub.blocks.agentic.FailurePolicy.RoutingFailureAction.FAIL,
+            io.casehub.blocks.agentic.FailurePolicy.AggregationFailureAction.FAIL,
+            io.casehub.blocks.agentic.FailurePolicy.defaults().agentRetry(),
+            new io.casehub.blocks.agentic.FailurePolicy.ReplanPolicy(
+                2, io.casehub.blocks.agentic.FailurePolicy.RoutingFailureAction.FAIL));
+
+    var model =
+        Patterns.<Object>htn()
+            .decompose(decomposition)
+            .agents(
+                new io.casehub.blocks.agentic.RoutingCandidate(failAgent, null),
+                new io.casehub.blocks.agentic.RoutingCandidate(recoveryAgent, null))
+            .build();
+    model =
+        new io.casehub.blocks.agentic.model.ExecutionModel<>(
+            model.routing(),
+            model.decomposition(),
+            model.activation(),
+            model.aggregation(),
+            model.termination(),
+            model.candidateSupplier(),
+            failurePolicy,
+            model.listeners(),
+            model.task(),
+            model.patternType());
+
+    var fn = new PatternWorkerFunction(model, PatternType.HTN, false, null, rootTask);
+    var context = mock(WorkerContext.class);
+    when(context.caseId()).thenReturn(UUID.randomUUID());
+    var metadata = new ExecutionMetadata("test-worker", null);
+
+    HandlerResult result = handler.execute(fn, Map.of(), context, 60000, metadata);
+    assertThat(result.result().outcome()).isInstanceOf(WorkerOutcome.Success.class);
+  }
 }

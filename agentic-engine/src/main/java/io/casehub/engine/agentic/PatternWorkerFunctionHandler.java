@@ -58,19 +58,21 @@ public class PatternWorkerFunctionHandler implements WorkerFunctionHandler {
     WorkerRuntime runtime =
         workerRuntimeFactory.create(context.caseId(), metadata.workerName(), context);
 
+    int effectiveTimeoutMs = resolveTimeout(patternFn, timeoutMs);
+
     var invoker = new EngineAgentInvoker<>(runtime);
     var driver = new OrchestratedDriver<>(invoker);
 
-    int effectiveTimeoutMs = resolveTimeout(patternFn, timeoutMs);
-    ExecutionModel<Object> effectiveModel =
-        applyResourceLimit(
-            (ExecutionModel<Object>) (ExecutionModel<?>) patternFn.model(),
-            patternFn.planningConstraints());
-
     ExecutionResult result;
-    try (var executor = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
+    try (var exec = java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor()) {
       var future =
-          executor.submit(() -> driver.execute(effectiveModel, inputData).await().indefinitely());
+          exec.submit(
+              () -> {
+                if (patternFn.rootTask() != null) {
+                  return executeHtn(patternFn, invoker, inputData);
+                }
+                return executeStandard(patternFn, driver, inputData);
+              });
       result = future.get(effectiveTimeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
     } catch (java.util.concurrent.TimeoutException e) {
       driver.cancel();
@@ -85,16 +87,44 @@ public class PatternWorkerFunctionHandler implements WorkerFunctionHandler {
           patternMetadata(patternFn));
     }
 
-    WorkerResult<?> workerResult =
-        switch (result) {
-          case ExecutionResult.Completed c ->
-              WorkerResult.of(c.result() instanceof Map m ? m : Map.of("result", c.result()));
-          case ExecutionResult.Failed f -> WorkerResult.failed(f.reason());
-          case ExecutionResult.Escalated e -> WorkerResult.failed("Escalated: " + e.reason());
-          case ExecutionResult.Cancelled ignored -> WorkerResult.failed("Pattern cancelled");
-        };
+    return new HandlerResult(toWorkerResult(result), patternMetadata(patternFn));
+  }
 
-    return new HandlerResult(workerResult, patternMetadata(patternFn));
+  @SuppressWarnings("unchecked")
+  private ExecutionResult executeHtn(
+      PatternWorkerFunction patternFn, EngineAgentInvoker<?> invoker, Object inputData) {
+    var htnExecutor =
+        new io.casehub.blocks.agentic.pattern.HtnExecutor<>(
+            (io.casehub.blocks.agentic.model.AgentInvoker<Object>) invoker);
+    var effectiveModel =
+        applyResourceLimit(
+            (ExecutionModel<Object>) (ExecutionModel<?>) patternFn.model(),
+            patternFn.planningConstraints());
+    return htnExecutor.execute(
+        (io.casehub.engine.plan.TaskNode<Object>) patternFn.rootTask(), effectiveModel, inputData);
+  }
+
+  @SuppressWarnings("unchecked")
+  private ExecutionResult executeStandard(
+      PatternWorkerFunction patternFn, OrchestratedDriver<?> driver, Object inputData) {
+    var effectiveModel =
+        applyResourceLimit(
+            (ExecutionModel<Object>) (ExecutionModel<?>) patternFn.model(),
+            patternFn.planningConstraints());
+    return ((OrchestratedDriver<Object>) driver)
+        .execute(effectiveModel, inputData)
+        .await()
+        .indefinitely();
+  }
+
+  private WorkerResult<?> toWorkerResult(ExecutionResult result) {
+    return switch (result) {
+      case ExecutionResult.Completed c ->
+          WorkerResult.of(c.result() instanceof Map m ? m : Map.of("result", c.result()));
+      case ExecutionResult.Failed f -> WorkerResult.failed(f.reason());
+      case ExecutionResult.Escalated e -> WorkerResult.failed("Escalated: " + e.reason());
+      case ExecutionResult.Cancelled ignored -> WorkerResult.failed("Pattern cancelled");
+    };
   }
 
   private int resolveTimeout(PatternWorkerFunction fn, int defaultTimeoutMs) {
