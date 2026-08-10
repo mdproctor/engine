@@ -99,6 +99,147 @@ class LlmDecompositionStrategyTest {
         .isInstanceOf(AgentException.class);
   }
 
+  @Test
+  void includesConstraintsInPromptWhenPresent() {
+    var capturedPrompt = new java.util.concurrent.atomic.AtomicReference<String>();
+
+    ChatModel capturingModel =
+        new ChatModel() {
+          @Override
+          public ChatResponse doChat(ChatRequest request) {
+            var messages = request.messages();
+            for (var msg : messages) {
+              if (msg instanceof dev.langchain4j.data.message.UserMessage um) {
+                capturedPrompt.set(um.singleText());
+              }
+            }
+            return ChatResponse.builder().aiMessage(AiMessage.from(sequentialResponse())).build();
+          }
+        };
+
+    ChatModelProvider provider =
+        new ChatModelProvider() {
+          @Override
+          public ModelType type() {
+            return ModelType.ANTHROPIC;
+          }
+
+          @Override
+          public ChatModel get() {
+            return capturingModel;
+          }
+        };
+
+    var strategy = new LlmDecompositionStrategy();
+    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+
+    var constraints =
+        io.casehub.engine.plan.PlanningConstraints.of(java.time.Duration.ofMinutes(30), 3);
+    var context =
+        new GoalDecompositionContext(
+            MAPPER.createObjectNode(),
+            0,
+            List.of(new Capability("analysis", "", "", null)),
+            constraints);
+    var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
+
+    strategy.decompose(task, context).await().indefinitely();
+
+    assertThat(capturedPrompt.get()).contains("30 minutes").contains("3");
+  }
+
+  @Test
+  void replanIncludesFailureContextInPrompt() {
+    var capturedPrompt = new java.util.concurrent.atomic.AtomicReference<String>();
+
+    ChatModel capturingModel =
+        new ChatModel() {
+          @Override
+          public ChatResponse doChat(ChatRequest request) {
+            var messages = request.messages();
+            for (var msg : messages) {
+              if (msg instanceof dev.langchain4j.data.message.UserMessage um) {
+                capturedPrompt.set(um.singleText());
+              }
+            }
+            return ChatResponse.builder()
+                .aiMessage(
+                    AiMessage.from(
+                        "{\"steps\": [{\"id\": \"r1\", \"description\": \"recovery step\","
+                            + " \"capabilityName\": \"analysis\"}]}"))
+                .build();
+          }
+        };
+
+    ChatModelProvider provider =
+        new ChatModelProvider() {
+          @Override
+          public ModelType type() {
+            return ModelType.ANTHROPIC;
+          }
+
+          @Override
+          public ChatModel get() {
+            return capturingModel;
+          }
+        };
+
+    var strategy = new LlmDecompositionStrategy();
+    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+
+    var completed =
+        List.of(
+            new io.casehub.engine.plan.ReplanContext.CompletedStep(
+                "s1", java.util.Map.of("result", "ok"), java.time.Duration.ofSeconds(2)));
+    var failed =
+        new io.casehub.engine.plan.ReplanContext.FailedStep("s2", "service unavailable", null, 3);
+    var replanCtx = new io.casehub.engine.plan.ReplanContext<JsonNode>(completed, failed, null, 0);
+
+    var task = new TaskNode.CompoundTask<JsonNode>("ct-1", "analyse-data", List.of());
+    var context =
+        new GoalDecompositionContext(
+            MAPPER.createObjectNode(),
+            0,
+            List.of(new Capability("analysis", "Analyse data", "", null)));
+
+    var result = strategy.replan(task, context, replanCtx).await().indefinitely();
+
+    assertThat(result.nodes()).hasSize(1);
+    var prompt = capturedPrompt.get();
+    assertThat(prompt).contains("analyse-data");
+    assertThat(prompt).contains("service unavailable");
+    assertThat(prompt).contains("Completed steps");
+    assertThat(prompt).contains("3 retries");
+  }
+
+  @Test
+  void replanFailsWhenChatModelAbsent() {
+    var strategy = new LlmDecompositionStrategy();
+    setField(strategy, "chatModelProviders", unsatisfiedInstance());
+
+    var failed = new io.casehub.engine.plan.ReplanContext.FailedStep("s1", "err", null, 0);
+    var replanCtx = new io.casehub.engine.plan.ReplanContext<JsonNode>(List.of(), failed, null, 0);
+    var task = new TaskNode.CompoundTask<JsonNode>("ct-1", "goal-1", List.of());
+    var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
+
+    assertThatThrownBy(() -> strategy.replan(task, context, replanCtx).await().indefinitely())
+        .isInstanceOf(UnsupportedOperationException.class);
+  }
+
+  @Test
+  void replanFailsOnEmptySteps() {
+    var strategy = buildWithMockChatModel("{\"steps\": []}");
+
+    var failed = new io.casehub.engine.plan.ReplanContext.FailedStep("s1", "err", null, 0);
+    var replanCtx = new io.casehub.engine.plan.ReplanContext<JsonNode>(List.of(), failed, null, 0);
+    var task = new TaskNode.CompoundTask<JsonNode>("ct-1", "goal-1", List.of());
+    var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
+
+    assertThatThrownBy(() -> strategy.replan(task, context, replanCtx).await().indefinitely())
+        .isInstanceOf(AgentException.class)
+        .hasMessageContaining("no steps");
+  }
+
   private static String sequentialResponse() {
     return "{\"steps\": ["
         + "{\"id\": \"s1\", \"description\": \"Gather data\", \"capabilityName\": \"data-gathering\"},"

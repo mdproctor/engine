@@ -54,6 +54,16 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
           + "and optional 'dependsOn' (array of step ids this step depends on). "
           + "Steps without dependsOn are entry points. "
           + "Produce a sequential plan where each step depends on the previous.";
+  private static final String REPLAN_SYSTEM_PROMPT =
+      "You are revising a plan after a step failure. The original plan had steps that "
+          + "partially executed. Some steps completed successfully; one step failed. "
+          + "Produce a revised plan that achieves the same goal using the remaining "
+          + "capabilities. Do not re-execute completed steps. "
+          + "Return a JSON object with a 'steps' array. Each step has: "
+          + "'id' (unique string), 'description' (what this step does), "
+          + "'capabilityName' (must match one of the available capabilities), "
+          + "and optional 'dependsOn' (array of step ids this step depends on). "
+          + "Produce a sequential plan where each step depends on the previous.";
 
   @Inject Instance<ChatModelProvider> chatModelProviders;
 
@@ -96,6 +106,11 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
 
               var userPrompt =
                   "Goal: " + goalName + "\n\n" + capList + "\n\nContext:\n" + contextStr;
+
+              var constraintText = buildConstraintText(context.constraints());
+              if (!constraintText.isEmpty()) {
+                userPrompt = userPrompt + "\n\n" + constraintText;
+              }
 
               var agent =
                   Agent.builder()
@@ -140,5 +155,146 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
 
               return DagPlan.fromNodes(nodes);
             });
+  }
+
+  private String buildConstraintText(io.casehub.engine.plan.PlanningConstraints constraints) {
+    if (constraints.timeBudget() == null && constraints.resourceLimit() == null) {
+      return "";
+    }
+    var sb = new StringBuilder("Constraints:\n");
+    if (constraints.timeBudget() != null) {
+      long minutes = constraints.timeBudget().toMinutes();
+      sb.append("- Time budget: ").append(minutes).append(" minutes. ");
+      sb.append("Plan steps that can complete within this time.\n");
+    }
+    if (constraints.resourceLimit() != null) {
+      sb.append("- Resource limit: ").append(constraints.resourceLimit());
+      sb.append(" available agents. Prefer parallelism when resource limits allow.\n");
+    }
+    return sb.toString();
+  }
+
+  @Override
+  public Uni<DagPlan<TaskNode.LeafTask<JsonNode>>> replan(
+      TaskNode<JsonNode> task,
+      DecompositionContext<JsonNode> context,
+      io.casehub.engine.plan.ReplanContext<JsonNode> replanContext) {
+
+    if (chatModelProviders.isUnsatisfied()) {
+      return Uni.createFrom()
+          .failure(
+              new UnsupportedOperationException(
+                  "No ChatModelProvider available for LLM re-planning"));
+    }
+
+    return Uni.createFrom()
+        .item(
+            () -> {
+              var capabilities =
+                  (context instanceof GoalDecompositionContext gdc)
+                      ? gdc.availableCapabilities()
+                      : List.<Capability>of();
+
+              var goalName =
+                  (task instanceof TaskNode.CompoundTask<JsonNode> ct) ? ct.name() : "unknown";
+
+              var userPrompt = buildReplanPrompt(goalName, capabilities, context, replanContext);
+
+              var constraintText = buildConstraintText(context.constraints());
+              if (!constraintText.isEmpty()) {
+                userPrompt = userPrompt + "\n\n" + constraintText;
+              }
+
+              var agent =
+                  Agent.builder()
+                      .systemPrompt(REPLAN_SYSTEM_PROMPT)
+                      .model(chatModelProviders.get().get())
+                      .build();
+
+              var result = agent.execute(Map.of("prompt", userPrompt));
+              var output = result.output();
+
+              JsonNode responseJson;
+              try {
+                var outputStr =
+                    output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
+                responseJson = MAPPER.readTree(outputStr);
+              } catch (Exception e) {
+                throw new AgentException("Failed to parse LLM replan response", e);
+              }
+
+              var stepsNode = responseJson.get("steps");
+              if (stepsNode == null || !stepsNode.isArray() || stepsNode.isEmpty()) {
+                throw new AgentException("LLM replan returned no steps for goal: " + goalName);
+              }
+
+              var nodes = new ArrayList<DagNode<TaskNode.LeafTask<JsonNode>>>();
+              for (var stepNode : stepsNode) {
+                var stepId =
+                    stepNode.has("id") ? stepNode.get("id").asText() : UUID.randomUUID().toString();
+                var desc = stepNode.get("description").asText();
+                var capName = stepNode.get("capabilityName").asText();
+                var dependsOn = new HashSet<String>();
+                if (stepNode.has("dependsOn") && stepNode.get("dependsOn").isArray()) {
+                  for (var dep : stepNode.get("dependsOn")) {
+                    dependsOn.add(dep.asText());
+                  }
+                }
+                var goalStep = new GoalStep(UUID.randomUUID(), desc, capName, Instant.now());
+                nodes.add(new DagNode<>(stepId, goalStep, dependsOn, JoinType.ALL_OF));
+              }
+
+              return DagPlan.fromNodes(nodes);
+            });
+  }
+
+  private String buildReplanPrompt(
+      String goalName,
+      List<Capability> capabilities,
+      DecompositionContext<JsonNode> context,
+      io.casehub.engine.plan.ReplanContext<JsonNode> replanContext) {
+
+    var sb = new StringBuilder();
+    sb.append("Goal: ").append(goalName).append("\n\n");
+
+    if (!replanContext.completedSteps().isEmpty()) {
+      sb.append("Completed steps (do not repeat these):\n");
+      for (var step : replanContext.completedSteps()) {
+        sb.append("  - ")
+            .append(step.stepId())
+            .append(": ")
+            .append(step.result())
+            .append(" (")
+            .append(step.elapsed())
+            .append(")\n");
+      }
+      sb.append("\n");
+    }
+
+    var failed = replanContext.failedStep();
+    sb.append("Failed step:\n");
+    sb.append("  - ").append(failed.stepId()).append(": ").append(failed.errorMessage());
+    if (failed.retryAttempts() > 0) {
+      sb.append(" (after ").append(failed.retryAttempts()).append(" retries)");
+    }
+    sb.append("\n\n");
+
+    sb.append("Re-plan attempt: ").append(replanContext.replanCount() + 1).append("\n\n");
+
+    var capList =
+        capabilities.stream()
+            .map(c -> c.name() + (c.description() != null ? " — " + c.description() : ""))
+            .collect(Collectors.joining("\n  - ", "Available capabilities:\n  - ", ""));
+    sb.append(capList).append("\n\n");
+
+    var contextStr = context.state() != null ? context.state().toString() : "";
+    if (contextStr.length() > 2000) {
+      contextStr = contextStr.substring(0, 2000) + "...";
+    }
+    if (!contextStr.isEmpty()) {
+      sb.append("Context:\n").append(contextStr);
+    }
+
+    return sb.toString();
   }
 }

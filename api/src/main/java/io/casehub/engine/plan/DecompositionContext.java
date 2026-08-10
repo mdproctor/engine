@@ -19,4 +19,8 @@ public interface DecompositionContext<T> {
   T state();
 
   int depth();
+
+  default PlanningConstraints constraints() {
+    return PlanningConstraints.unconstrained();
+  }
 }

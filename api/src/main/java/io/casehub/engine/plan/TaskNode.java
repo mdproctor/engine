@@ -30,5 +30,9 @@ public sealed interface TaskNode<T> permits TaskNode.LeafTask, TaskNode.Compound
       Objects.requireNonNull(name, "name");
       methods = List.copyOf(methods);
     }
+
+    public CompoundTask(String name, List<DecompositionMethod<T>> methods) {
+      this(java.util.UUID.randomUUID().toString(), name, methods);
+    }
   }
 }

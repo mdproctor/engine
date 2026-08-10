@@ -28,9 +28,18 @@ public record ExecutionMetadata(
     String workerName,
     String inputDataHash,
     String bindingName,
-    io.casehub.api.model.ExecutionMode executionMode) {
+    io.casehub.api.model.ExecutionMode executionMode,
+    String tenancyId) {
+
+  public ExecutionMetadata(
+      String workerName,
+      String inputDataHash,
+      String bindingName,
+      io.casehub.api.model.ExecutionMode executionMode) {
+    this(workerName, inputDataHash, bindingName, executionMode, null);
+  }
 
   public ExecutionMetadata(String workerName, String inputDataHash) {
-    this(workerName, inputDataHash, null, null);
+    this(workerName, inputDataHash, null, null, null);
   }
 }

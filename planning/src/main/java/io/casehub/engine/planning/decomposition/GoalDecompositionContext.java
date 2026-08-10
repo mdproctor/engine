@@ -17,16 +17,33 @@ package io.casehub.engine.planning.decomposition;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.engine.plan.DecompositionContext;
+import io.casehub.engine.plan.PlanningConstraints;
 import io.casehub.worker.api.Capability;
 import java.util.List;
 import java.util.Objects;
 
 public record GoalDecompositionContext(
-    JsonNode state, int depth, List<Capability> availableCapabilities)
+    JsonNode state,
+    int depth,
+    List<Capability> availableCapabilities,
+    PlanningConstraints planningConstraints)
     implements DecompositionContext<JsonNode> {
+
+  public GoalDecompositionContext(
+      JsonNode state, int depth, List<Capability> availableCapabilities) {
+    this(state, depth, availableCapabilities, null);
+  }
 
   public GoalDecompositionContext {
     Objects.requireNonNull(state, "state");
     availableCapabilities = List.copyOf(availableCapabilities);
+    if (planningConstraints == null) {
+      planningConstraints = PlanningConstraints.unconstrained();
+    }
+  }
+
+  @Override
+  public PlanningConstraints constraints() {
+    return planningConstraints;
   }
 }

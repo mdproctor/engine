@@ -75,4 +75,6 @@ public enum CaseHubEventType {
   AGENT_COMPLETED, // agent execution completed
   AGENT_FAILED, // agent execution failed
   ORCHESTRATION_ESCALATED, // orchestration escalated due to exhaustion or circuit breaker
+
+  PATTERN_CHECKPOINT, // pattern execution iteration checkpoint for crash recovery
 }

@@ -28,4 +28,8 @@ public record DecompositionMethod<T>(
       Predicate<T> guard, DecompositionStrategy<T> strategy, String guardLabel) {
     this(null, guard, strategy, guardLabel);
   }
+
+  public DecompositionMethod(Predicate<T> guard, DecompositionStrategy<T> strategy) {
+    this(null, guard, strategy, null);
+  }
 }
