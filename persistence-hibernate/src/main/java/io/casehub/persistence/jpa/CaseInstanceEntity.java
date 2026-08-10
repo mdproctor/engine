@@ -30,10 +30,11 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.DynamicUpdate;
+
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
-import org.hibernate.annotations.DynamicUpdate;
 
 @Entity
 @DynamicUpdate
@@ -78,4 +79,8 @@ public class CaseInstanceEntity {
       joinColumns = @JoinColumn(name = "case_instance_id"))
   @Column(name = "label")
   public Set<String> labels = new LinkedHashSet<>();
+  @Column(name = "exchange_headers", columnDefinition = "jsonb")
+  @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+  public java.util.Map<String, Object> exchangeHeaders;
+
 }

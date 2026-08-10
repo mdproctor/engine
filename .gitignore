@@ -60,3 +60,4 @@ package-lock.json
 wksp
 proj
 .mvn/maven.config
+.mvn/slot-settings.xml

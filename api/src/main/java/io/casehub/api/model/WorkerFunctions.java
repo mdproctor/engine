@@ -55,6 +55,50 @@ public final class WorkerFunctions {
         });
   }
 
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public static <T> WorkerFunction.ExchangeProcessor<T, T> exchangeSequence(
+      WorkerFunction.ExchangeProcessor<?, ?>... steps) {
+    if (steps.length == 0) {
+      throw new IllegalArgumentException("exchangeSequence requires at least one step");
+    }
+    for (int i = 0; i < steps.length - 1; i++) {
+      if (!steps[i].bodyOutputType().equals(steps[i + 1].bodyInputType())) {
+        throw new IllegalArgumentException(
+            "Type mismatch at step "
+                + i
+                + " → "
+                + (i + 1)
+                + ": "
+                + steps[i].bodyOutputType().getName()
+                + " → "
+                + steps[i + 1].bodyInputType().getName());
+      }
+    }
+    WorkerFunction.ExchangeProcessor<?, ?>[] copy = steps.clone();
+    Class<T> inType = (Class<T>) copy[0].bodyInputType();
+    return new WorkerFunction.ExchangeProcessor(
+        inType,
+        inType,
+        (java.util.function.BiFunction<
+                io.casehub.worker.api.Exchange,
+                io.casehub.worker.api.WorkerScope,
+                WorkerResult<io.casehub.worker.api.Exchange>>)
+            (exchange, scope) -> {
+              io.casehub.worker.api.Exchange current = exchange;
+              for (var step : copy) {
+                @SuppressWarnings("unchecked")
+                WorkerResult<io.casehub.worker.api.Exchange> result =
+                    (WorkerResult<io.casehub.worker.api.Exchange>)
+                        ((WorkerFunction.ExchangeProcessor) step).fn().apply(current, scope);
+                if (!(result.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Success)) {
+                  return result;
+                }
+                current = result.output();
+              }
+              return WorkerResult.of(current);
+            });
+  }
+
   /**
    * Merges two maps, with overlay keys overwriting base keys.
    *

@@ -608,6 +608,31 @@ public final class CaseDefinitionYamlMapper {
       if (specNode.has("candidateMatching")) {
         def.setCandidateMatching(specNode.get("candidateMatching").asText());
       }
+
+      // Convert channel declarations
+      if (specNode.has("channels")) {
+        final List<io.casehub.api.model.ChannelDeclaration> channelDecls =
+            new java.util.ArrayList<>();
+        for (final JsonNode chNode : specNode.get("channels")) {
+          final String chName = chNode.get("name").asText();
+          final String recordTypeName = chNode.get("recordType").asText();
+          try {
+            final Class<?> recordType = Class.forName(recordTypeName);
+            final String transport =
+                chNode.has("transport") ? chNode.get("transport").asText() : "in-memory";
+            final LifecycleScope scope =
+                chNode.has("scope")
+                    ? LifecycleScope.valueOf(chNode.get("scope").asText())
+                    : LifecycleScope.CASE;
+            channelDecls.add(
+                new io.casehub.api.model.ChannelDeclaration(chName, recordType, transport, scope));
+          } catch (final ClassNotFoundException e) {
+            throw new IllegalArgumentException(
+                "Channel '" + chName + "' has unknown recordType: " + recordTypeName, e);
+          }
+        }
+        def.setChannels(channelDecls);
+      }
     }
 
     // Convert CBR configuration — features and weights read from raw node (generated classes
@@ -936,7 +961,29 @@ public final class CaseDefinitionYamlMapper {
       builder.executionMode(ExecutionMode.valueOf(schemaBinding.getExecutionMode().value()));
     }
 
+    applyExchangeFields(schemaBinding, builder);
+
     return builder.build();
+  }
+
+  private static void applyExchangeFields(
+      final io.casehub.model.Binding schemaBinding, final Binding.Builder builder) {
+    if (schemaBinding.getProduces() != null) {
+      builder.produces(schemaBinding.getProduces());
+    }
+    if (schemaBinding.getConsumes() != null) {
+      builder.consumes(schemaBinding.getConsumes());
+    }
+    final Object ep = schemaBinding.getExchangeProjection();
+    if (ep instanceof String strategyId) {
+      builder.exchangeProjectionStrategy(strategyId);
+    } else if (ep instanceof java.util.Map<?, ?> epMap) {
+      final Object strategy = epMap.get("strategy");
+      if (strategy instanceof String strategyId) {
+        final Object expression = epMap.get("expression");
+        builder.projectWith(strategyId, expression instanceof String expr ? expr : null);
+      }
+    }
   }
 
   private static io.casehub.api.model.SubCase convertSubCase(

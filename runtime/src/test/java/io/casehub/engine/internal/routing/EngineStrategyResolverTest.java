@@ -124,6 +124,35 @@ class EngineStrategyResolverTest {
     assertEquals("identity", result.id());
   }
 
+  @Test
+  void resolvesExchangeProjectionStrategyById() {
+    var dualWrite = new io.casehub.engine.common.internal.channel.DualWriteProjection();
+    var exchangeOnly = new io.casehub.engine.common.internal.channel.ExchangeOnlyProjection();
+    var resolver = buildResolver(List.of(handle(dualWrite, true), handle(exchangeOnly, false)));
+
+    var result =
+        resolver.resolve(io.casehub.api.spi.ExchangeProjectionStrategy.class, "exchange-only");
+    assertEquals("exchange-only", result.id());
+  }
+
+  @Test
+  void resolvesExchangeProjectionStrategyDefault() {
+    var dualWrite = new io.casehub.engine.common.internal.channel.DualWriteProjection();
+    var resolver = buildResolver(List.of(handle(dualWrite, true)));
+
+    var result = resolver.resolve(io.casehub.api.spi.ExchangeProjectionStrategy.class, null);
+    assertEquals("dual-write", result.id());
+  }
+
+  @Test
+  void resolvesDataChannelFactoryDefault() {
+    var factory = new io.casehub.engine.common.internal.channel.InMemoryDataChannelFactory();
+    var resolver = buildResolver(List.of(handle(factory, true)));
+
+    var result = resolver.resolve(io.casehub.api.spi.DataChannelFactory.class, null);
+    assertEquals("in-memory", result.id());
+  }
+
   private EngineStrategyResolver buildResolver(
       List<EngineStrategyResolver.TestHandle<? extends NamedStrategy>> handles) {
     return EngineStrategyResolver.forTest(handles);

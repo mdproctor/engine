@@ -45,6 +45,7 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
     entity.waitingForWorkId = instance.getWaitingForWorkId();
     entity.actorId = instance.getActorId();
     entity.labels = new LinkedHashSet<>(instance.getLabels());
+    entity.exchangeHeaders = instance.getExchangeHeaders().isEmpty() ? null : new java.util.LinkedHashMap<>(instance.getExchangeHeaders());
     if (instance.getCaseMetaModel() != null) {
       entity.caseMetaModel =
           em.getReference(CaseMetaModelEntity.class, instance.getCaseMetaModel().getId());
@@ -72,6 +73,7 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
     entity.parentPlanItemId = instance.getParentPlanItemId();
     entity.waitingForWorkId = instance.getWaitingForWorkId();
     entity.labels = new LinkedHashSet<>(instance.getLabels());
+    entity.exchangeHeaders = instance.getExchangeHeaders().isEmpty() ? null : new java.util.LinkedHashMap<>(instance.getExchangeHeaders());
     return instance;
   }
 
@@ -241,6 +243,9 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
       instance.setCaseMetaModel(fromMetaEntity(entity.caseMetaModel));
     }
     instance.setLabels(new LinkedHashSet<>(entity.labels));
+    if (entity.exchangeHeaders != null) {
+      instance.setExchangeHeaders(new java.util.LinkedHashMap<>(entity.exchangeHeaders));
+    }
     return instance;
   }
 
