@@ -131,6 +131,45 @@ All worker functions return `WorkerResult`:
     PlannedAction.of("File SAR report", "sar.file", Map.of("accountId", "ACC-123"))))
 ```
 
+### Worker Rights and Scoped Credentials
+
+Privileged external workers (with their own service-account identity) receive case-scoped credentials and auto-managed ACL grants at dispatch time.
+
+**Declaration** — on the CaseDefinition YAML:
+
+```yaml
+workers:
+  - name: risk-agent
+    serviceAccountId: "agent:pool-risk@acme.io"
+    capabilities: [assess-risk]
+
+bindings:
+  - name: assess
+    capability: assess-risk
+    worker: risk-agent
+    permissionIntent:
+      - read-context
+      - signal-case
+      - read-event-log
+```
+
+`permissionIntent` (List of `WorkerAction`) declares what the worker needs. Default when omitted: `[read-context]` (fail-closed for writes). `serviceAccountId` is optional — when absent, the engine mints an ephemeral identity (`agent:worker-<caseId>-<shortUuid>`).
+
+**Available actions:** `read-context`, `write-context`, `signal-case`, `read-event-log`, `read-plan-items`, `spawn-sub-case`, `admin`. All map to `AclResourceType.CASE` — per-resource-type enforcement deferred.
+
+**What happens at dispatch:**
+1. `WorkerIdentityResolver` resolves or mints the actorId
+2. `WorkerGrantOrchestrator.grantAndMint()` creates ACL grants via `AccessControlProvider.grantBatch()` and stores a scoped `WorkerCredential` token
+3. Token is delivered to the worker via `ProvisionContext.workerCredentialToken` or COMMAND payload
+
+**What happens at completion:**
+- `revokeForWorker()` — revokes the credential and removes ACL grants. For shared service accounts with concurrent bindings, differential revocation ensures only unneeded grants are removed
+- Case terminal state triggers `revokeForCase()` — sweeps all surviving credentials
+
+**REST enforcement:** Workers present the token via `X-Worker-Credential` header. `WorkerCredentialFilter` validates the token and enforces structural case isolation (403 if the request targets a different case than the credential is scoped to).
+
+**Persistent credential store:** `InMemoryWorkerCredentialStore` (`@DefaultBean`) works out of the box for single-node deployments. Clustered deployments should provide a persistent `WorkerCredentialStore` implementation.
+
 ### Worker Outcome Handling
 
 `OutcomeKind` tracks semantic outcomes: `Completed`, `Declined`, `Failed`, `Expired`. `OutcomePolicy` (per-binding) maps each outcome to an `OutcomeAction`: `REROUTE` (re-dispatch to a different agent) or `FAULT` (mark case FAULTED immediately). Default: REROUTE for all outcomes, max 3 reroute attempts.
