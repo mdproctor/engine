@@ -48,7 +48,7 @@ The architecture forms a learning loop:
 
 **Experience recording** → **Relationship detection** → **Reflection synthesis** → **Goal evolution** → **Routing feedback**
 
-The engine's `WorkflowExecutionCompletedHandler` is where agents complete work. It already calls `PersonalitySignalRecorder` (JPAF cognitive function reinforcement) and `GoalFailureRecorder` (goal decline signals). A new `AgentExperienceRecorder` sits at the same call sites, constructing an `Outcome` event from the worker context — agentId, capability, result, importance — and passing it to neocortex's `ExperienceRecorder` interface.
+The engine's `WorkflowExecutionCompletedHandler` is where agents complete work. It already calls `PersonalitySignalRecorder` (JPAF cognitive function reinforcement) and `GoalOutcomeRecorder` (goal decline signals). A new `AgentExperienceRecorder` sits at the same call sites, constructing an `Outcome` event from the worker context — agentId, capability, result, importance — and passing it to neocortex's `ExperienceRecorder` interface.
 
 Relationship detection is already wired. `RelationshipObserver` watches for `ExperienceRecorded` CDI events with a `target-agent` attribute. Once the experience recorder populates that attribute from the case's binding graph, relationships track automatically.
 

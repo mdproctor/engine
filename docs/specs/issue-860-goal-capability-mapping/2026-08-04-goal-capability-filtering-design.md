@@ -5,7 +5,7 @@
 
 ## Problem
 
-`GoalFailureRecorder` records DECLINE signals for ALL agent goals on every
+`GoalOutcomeRecorder` records DECLINE signals for ALL agent goals on every
 worker failure, regardless of which capability the worker was executing.
 This makes goal abandonment equivalent to agent-level exclusion — no
 per-goal discrimination.
@@ -41,7 +41,7 @@ current behavior). This handles edge cases where the binding has no
 
 `WorkflowExecutionCompletedHandler.handleSemanticFailure()` already calls
 `extractCapabilityTag(caseInstance, worker, bindingName)` for
-`personalitySignalRecorder`. Pass the same value to `goalFailureRecorder`:
+`personalitySignalRecorder`. Pass the same value to `goalOutcomeRecorder`:
 
 ```java
 String capabilityTag = extractCapabilityTag(caseInstance, worker, bindingName);
@@ -57,7 +57,7 @@ local cache is stale.
 
 ## Test plan
 
-Update `GoalFailureRecorderTest`:
+Update `GoalOutcomeRecorderTest`:
 - Existing `decline_recordsDeclineForEachGoal` — add capabilities to goals,
   pass matching capabilityName → both recorded
 - New: goal with non-matching capability → not recorded
