@@ -59,104 +59,11 @@ class DefaultWorkerRuntimeTest {
   void setUp() {
     runtime =
         new DefaultWorkerRuntime(
-            CASE_ID, "test-task", null, java.util.Map.of(), null, null, null, null, null, null);
+            CASE_ID, "test-task", null, java.util.Map.of(), null, null, null, null);
   }
 
   @AfterEach
   void cleanup() {}
-
-  @Test
-  void createChannel_returnsChannelRef() {
-    var registry = new io.casehub.engine.common.internal.channel.DataChannelRegistry();
-    var factory = new io.casehub.engine.common.internal.channel.InMemoryDataChannelFactory();
-    var rt =
-        new DefaultWorkerRuntime(
-            CASE_ID,
-            "test-task",
-            null,
-            java.util.Map.of(),
-            null,
-            null,
-            null,
-            null,
-            registry,
-            factory);
-
-    io.casehub.worker.api.ChannelRef<String> ref = rt.createChannel("pipe", String.class);
-    assertEquals("pipe", ref.name());
-    assertEquals(String.class, ref.recordType());
-  }
-
-  @Test
-  void channel_retrievesCreatedChannel() {
-    var registry = new io.casehub.engine.common.internal.channel.DataChannelRegistry();
-    var factory = new io.casehub.engine.common.internal.channel.InMemoryDataChannelFactory();
-    var rt =
-        new DefaultWorkerRuntime(
-            CASE_ID,
-            "test-task",
-            null,
-            java.util.Map.of(),
-            null,
-            null,
-            null,
-            null,
-            registry,
-            factory);
-
-    rt.createChannel("pipe", String.class);
-    io.casehub.worker.api.DataChannel<String> ch = rt.channel("pipe");
-
-    assertNotNull(ch);
-    assertEquals(false, ch.isClosed());
-  }
-
-  @Test
-  void channel_sendReceive_throughRuntime() {
-    var registry = new io.casehub.engine.common.internal.channel.DataChannelRegistry();
-    var factory = new io.casehub.engine.common.internal.channel.InMemoryDataChannelFactory();
-    var rt =
-        new DefaultWorkerRuntime(
-            CASE_ID,
-            "test-task",
-            null,
-            java.util.Map.of(),
-            null,
-            null,
-            null,
-            null,
-            registry,
-            factory);
-
-    rt.createChannel("data", String.class);
-    io.casehub.worker.api.DataChannel<String> ch = rt.channel("data");
-    ch.send(io.casehub.worker.api.Exchange.of("hello"));
-    io.casehub.worker.api.Exchange<String> received = ch.receive();
-
-    assertEquals("hello", received.body());
-  }
-
-  @Test
-  void execute_exchangeProcessor_tier1() {
-    var rt =
-        new DefaultWorkerRuntime(
-            CASE_ID, "test-task", null, java.util.Map.of(), null, null, null, null, null, null);
-
-    var fn =
-        new io.casehub.worker.api.WorkerFunction.ExchangeProcessor<>(
-            String.class,
-            String.class,
-            (exchange, scope) ->
-                io.casehub.worker.api.WorkerResult.of(
-                    exchange.withBody("processed: " + exchange.body())));
-
-    var input = io.casehub.worker.api.Exchange.of("raw");
-    io.casehub.worker.api.WorkerResult<?> result = rt.execute(fn, input);
-
-    @SuppressWarnings("unchecked")
-    var output = (io.casehub.worker.api.Exchange<String>) result.output();
-    assertEquals("processed: raw", output.body());
-  }
 
   @Test
   void caseId_returnsConstructorValue() {
@@ -261,8 +168,6 @@ class DefaultWorkerRuntimeTest {
             caseHubRuntime,
             registry,
             emptyCache,
-            null,
-            null,
             null);
     UUID result = rt.spawnCase("child", Map.of("key", "value"));
     assertEquals(childId, result);
@@ -274,7 +179,7 @@ class DefaultWorkerRuntimeTest {
 
     var rt =
         new DefaultWorkerRuntime(
-            CASE_ID, "test-task", null, java.util.Map.of(), null, registry, null, null, null, null);
+            CASE_ID, "test-task", null, java.util.Map.of(), null, registry, null, null);
     assertThrows(IllegalArgumentException.class, () -> rt.spawnCase("unknown", Map.of()));
   }
 
@@ -293,7 +198,7 @@ class DefaultWorkerRuntimeTest {
 
     var rt =
         new DefaultWorkerRuntime(
-            CASE_ID, "test-task", null, java.util.Map.of(), null, null, cache, tracker, null, null);
+            CASE_ID, "test-task", null, java.util.Map.of(), null, null, cache, tracker);
     CaseContext result = rt.awaitCase(childId, Duration.ofSeconds(5));
     assertNotNull(result);
   }
@@ -312,7 +217,7 @@ class DefaultWorkerRuntimeTest {
 
     var rt =
         new DefaultWorkerRuntime(
-            CASE_ID, "test-task", null, java.util.Map.of(), null, null, cache, tracker, null, null);
+            CASE_ID, "test-task", null, java.util.Map.of(), null, null, cache, tracker);
     CaseTerminatedException ex =
         assertThrows(
             CaseTerminatedException.class, () -> rt.awaitCase(childId, Duration.ofSeconds(5)));

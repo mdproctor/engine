@@ -98,7 +98,6 @@ public class WorkflowExecutionCompletedHandler {
 
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
   @Inject ContextOutputApplier contextOutputApplier;
-  @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
 
   @Inject
   jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
@@ -154,15 +153,8 @@ public class WorkflowExecutionCompletedHandler {
       final String bindingName = event.bindingName();
       final Instant now = Instant.now();
 
-      final Map<String, Object> effectiveOutput;
-      if (worker.function() instanceof io.casehub.worker.api.ExchangeAwareFunction<?, ?>) {
-        effectiveOutput = applyExchangeProjection(caseInstance, rawOutput, bindingName);
-      } else {
-        effectiveOutput = rawOutput;
-      }
-
       JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
-      JsonNode diff = contextOutputApplier.apply(caseInstance, effectiveOutput, bindingName);
+      JsonNode diff = contextOutputApplier.apply(caseInstance, rawOutput, bindingName);
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), "COMPLETED");
       }
@@ -657,34 +649,6 @@ public class WorkflowExecutionCompletedHandler {
       protocolMetadata.forEach((key, value) -> metadata.set(key, OBJECT_MAPPER.valueToTree(value)));
     }
     return metadata;
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> applyExchangeProjection(
-      CaseInstance caseInstance, Map<String, Object> rawOutput, String bindingName) {
-    Object body = rawOutput.get("body");
-    Map<String, Object> headers =
-        rawOutput.containsKey("headers")
-            ? (Map<String, Object>) rawOutput.get("headers")
-            : Map.of();
-
-    io.casehub.worker.api.Exchange<?> exchange =
-        new io.casehub.worker.api.Exchange<>(body, headers, Map.of());
-
-    if (!headers.isEmpty()) {
-      caseInstance.mergeExchangeHeaders(headers);
-    }
-
-    Binding binding = findBindingByName(caseInstance, bindingName);
-    String strategyId = binding != null ? binding.getExchangeProjectionStrategy() : null;
-    io.casehub.api.spi.ExchangeProjectionStrategy strategy =
-        strategyResolver.resolve(io.casehub.api.spi.ExchangeProjectionStrategy.class, strategyId);
-
-    String expression = binding != null ? binding.getExchangeProjectionExpression() : null;
-    return strategy.project(
-        exchange,
-        new io.casehub.api.spi.ExchangeProjectionStrategy.ProjectionContext(
-            bindingName, expression));
   }
 
   @SuppressWarnings("unchecked")

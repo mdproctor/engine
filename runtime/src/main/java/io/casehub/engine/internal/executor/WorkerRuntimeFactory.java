@@ -31,23 +31,17 @@ public class WorkerRuntimeFactory {
   private final CaseDefinitionRegistry definitionRegistry;
   private final CaseInstanceCache caseInstanceCache;
   private final CaseCompletionTracker caseCompletionTracker;
-  private final io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry;
-  private final io.casehub.api.spi.DataChannelFactory defaultChannelFactory;
 
   @Inject
   public WorkerRuntimeFactory(
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry definitionRegistry,
       CaseInstanceCache caseInstanceCache,
-      CaseCompletionTracker caseCompletionTracker,
-      io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
-      io.casehub.api.spi.DataChannelFactory defaultChannelFactory) {
+      CaseCompletionTracker caseCompletionTracker) {
     this.caseHubRuntime = caseHubRuntime;
     this.definitionRegistry = definitionRegistry;
     this.caseInstanceCache = caseInstanceCache;
     this.caseCompletionTracker = caseCompletionTracker;
-    this.channelRegistry = channelRegistry;
-    this.defaultChannelFactory = defaultChannelFactory;
   }
 
   public WorkerRuntime create(
@@ -68,8 +62,6 @@ public class WorkerRuntimeFactory {
         caseHubRuntime,
         definitionRegistry,
         caseInstanceCache,
-        caseCompletionTracker,
-        channelRegistry,
-        defaultChannelFactory);
+        caseCompletionTracker);
   }
 }

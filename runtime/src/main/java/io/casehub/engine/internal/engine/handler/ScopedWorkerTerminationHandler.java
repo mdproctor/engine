@@ -30,7 +30,6 @@ public class ScopedWorkerTerminationHandler {
   private static final Logger LOG = Logger.getLogger(ScopedWorkerTerminationHandler.class);
 
   @Inject ScopedWorkerRegistry scopedWorkerRegistry;
-  @Inject io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry;
 
   @ConsumeEvent(EventBusAddresses.COMPOUND_COMPLETED)
   @io.smallrye.common.annotation.RunOnVirtualThread
@@ -41,9 +40,8 @@ public class ScopedWorkerTerminationHandler {
     }
 
     scopedWorkerRegistry.terminateByScope(event.caseId(), event.compoundId(), scopedBindings);
-    dataChannelRegistry.closeByScope(event.caseId(), event.compoundId());
     LOG.debugf(
-        "Terminated scoped workers and channels for compound '%s' case %s",
+        "Terminated scoped workers for compound '%s' case %s",
         event.compoundName(), event.caseId());
   }
 }

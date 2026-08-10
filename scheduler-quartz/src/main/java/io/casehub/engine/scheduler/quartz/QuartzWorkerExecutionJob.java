@@ -157,14 +157,6 @@ class QuartzWorkerExecutionJob implements Job {
           eventLog.getMetadata().has("contextBridgeType")
               ? eventLog.getMetadata().get("contextBridgeType").asText(null)
               : null;
-      final boolean isExchangeAware =
-          worker.function() instanceof io.casehub.worker.api.ExchangeAwareFunction<?, ?>;
-      if (isExchangeAware) {
-        bridgeTypeName =
-            ((io.casehub.worker.api.ExchangeAwareFunction<?, ?>) worker.function())
-                .bodyInputType()
-                .getName();
-      }
       io.casehub.api.context.ContextBridge<?> bridge =
           bridgeResolver.resolveByTypeName(bridgeTypeName);
 
@@ -174,10 +166,6 @@ class QuartzWorkerExecutionJob implements Job {
             bridgeResolver.initialise(bridge, instance.getCaseContext(), eventLog.getPayload());
       } else {
         typedInput = bridgeResolver.deserialise(bridge, eventLog.getPayload());
-      }
-
-      if (isExchangeAware) {
-        typedInput = io.casehub.worker.api.Exchange.of(typedInput, instance.getExchangeHeaders());
       }
 
       Map<String, Object> inputDataForContext =

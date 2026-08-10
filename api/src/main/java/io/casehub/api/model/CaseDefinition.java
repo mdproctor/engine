@@ -78,7 +78,6 @@ public class CaseDefinition {
   private io.casehub.api.spi.QuorumConfig defaultQuorum;
   private ReflectionTriggerConfig reflectionTrigger;
   private MemoryRetrievalConfig memoryRetrieval;
-  private List<ChannelDeclaration> channels = List.of();
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -385,14 +384,6 @@ public class CaseDefinition {
     this.memoryRetrieval = memoryRetrieval;
   }
 
-  public List<ChannelDeclaration> getChannels() {
-    return channels;
-  }
-
-  public void setChannels(List<ChannelDeclaration> channels) {
-    this.channels = channels != null ? List.copyOf(channels) : List.of();
-  }
-
   public static Builder builder() {
     return new Builder();
   }
@@ -440,7 +431,6 @@ public class CaseDefinition {
     private io.casehub.api.spi.QuorumConfig defaultQuorum;
     private ReflectionTriggerConfig reflectionTrigger;
     private MemoryRetrievalConfig memoryRetrieval;
-    private List<ChannelDeclaration> channels = new java.util.ArrayList<>();
 
     private Builder() {}
 
@@ -731,21 +721,6 @@ public class CaseDefinition {
       return this;
     }
 
-    public Builder channel(String name, Class<?> recordType) {
-      this.channels.add(new ChannelDeclaration(name, recordType, null, null));
-      return this;
-    }
-
-    public Builder channel(String name, Class<?> recordType, String transport) {
-      this.channels.add(new ChannelDeclaration(name, recordType, transport, null));
-      return this;
-    }
-
-    public Builder channel(ChannelDeclaration channel) {
-      this.channels.add(channel);
-      return this;
-    }
-
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -787,7 +762,6 @@ public class CaseDefinition {
       caseHubDefinition.setCbrConfig(cbrConfig);
       caseHubDefinition.setDefaultWorkerBridge(defaultWorkerBridge);
       caseHubDefinition.setContextStoreFactory(contextStoreFactory);
-      caseHubDefinition.setChannels(channels);
 
       Set<String> signalNames = new HashSet<>();
       for (SignalType<?> s : signals) {

@@ -752,32 +752,6 @@ Refs engine#730.
 
 The engine supports orchestration at four tiers: **Tier 1 (Execution)** — `WorkerRuntime` for in-worker function composition, no durability; **Tier 2 (Simple plan)** — `SequentialPlanningStrategy` selects one binding at a time with natural durability from PlanItem state; **Tier 3 (Complex plan, future)** — `WorkflowPlanningStrategy` backed by Serverless Workflow for durable branching/compensation; **Tier 4 (Multi-case, future)** — blocks patterns for cross-case coordination. Tiers 2-3 share the `PlanningStrategy.select()` seam. `PlanningStrategyLoopControl` injects `Instance<PlanningStrategy>` and resolves by ID from `CaseDefinition.getPlanningStrategy()` (nullable String, defaults to `"default"`). `SequentialPlanningStrategy` (`blackboard/control/`, id=`"sequential"`) returns the first PENDING binding; halts on non-COMPLETED terminal states (FAULTED, REJECTED, OBSOLETE, CANCELLED). `CaseDefinitionYamlMapper` maps `planningStrategy:` and `sequence:` YAML keys — sequence uses two-pass resolution (build all workers, then resolve step references via `WorkerFunctions.sequence()`).
 
-## Exchange and DataChannel Infrastructure
-
-Three worker data coordination patterns: Blackboard (CaseContext, existing), DataExchange (discrete payload handoff), DataChannel (continuous streaming pipe). Exchange and DataChannel are additive — workers that don't use them work exactly as before. Refs engine#633.
-
-**Foundation tier (`casehub-worker-api`):** `Exchange<T>` (immutable data envelope: body + headers + properties), `ExchangeAwareFunction<T,R>` (engine detection interface), `WorkerFunction.ExchangeProcessor<T,R>` (new variant), `DataChannel<T>` (typed streaming interface), `ChannelRef<T>` (serializable channel reference), `ChannelClosedException`. `WorkerScope` gains default `channel(name)`, `channel(ChannelRef)`, `createChannel(name, type)` methods.
-
-**Engine-api SPIs:** `ExchangeProjectionStrategy extends NamedStrategy` — `Map<String, Object> project(Exchange<?>, ProjectionContext)`. Returns projected values (pure function, no context mutation). `ProjectionContext(bindingName, expression)`. `DataChannelFactory extends NamedStrategy` — `create(name, recordType, caseId)`. `ChannelDeclaration` record on `CaseDefinition`.
-
-**Engine-common implementations (`internal/channel/`):**
-- `InMemoryDataChannel<T>` — bounded `ArrayBlockingQueue`, virtual-thread-safe send/receive, close semantics
-- `InMemoryDataChannelFactory` — `@DefaultBean @ApplicationScoped`, id `"in-memory"`, default buffer 1024
-- `DataChannelRegistry` — `@ApplicationScoped`, `ConcurrentHashMap<ChannelKey, ChannelEntry>`. `getOrCreate()` (idempotent, type-mismatch rejection), `get()` (lookup only). Three teardown scopes: `closeByCase()` (terminal state backstop), `closeByExecution()` (ad-hoc channel cleanup), `closeByScope()` (compound completion)
-- `ExchangeSerializer` — `@ApplicationScoped`, Exchange ↔ EventLog metadata round-trip via `BridgeResolver.resolveByType(bodyType)`
-- `DualWriteProjection` (`@DefaultBean`, id `"dual-write"`) — body → Map, headers not projected
-- `ExchangeOnlyProjection` (id `"exchange-only"`) — returns empty Map (Exchange threading only)
-- `FullProjection` (id `"full"`) — body + headers namespaced to `_exchange.<binding>.headers`
-- `CustomJqProjection` (id `"jq"`) — JQ expression against `{body, headers}` input
-
-**Binding fields:** `exchangeProjectionStrategy` (String, strategy ID), `exchangeProjectionExpression` (String, JQ expression for `"jq"` strategy), `produces` (String, output channel name), `consumes` (String, input channel name). Builder: `.exchangeOnly()`, `.dualWrite()`, `.projectWith(strategy, expression)`, `.produces(name)`, `.consumes(name)`.
-
-**YAML schema:** `channels:` on spec block (name, recordType, transport, scope). `produces:`, `consumes:`, `exchangeProjection:` (string ID or `{strategy, expression}` object) on bindings.
-
-**Tier 2 handler integration:** `QuartzWorkerExecutionJob` overrides bridge type to `bodyInputType()` for ExchangeAwareFunction, wraps deserialized input in Exchange with `CaseInstance.exchangeHeaders`. `WorkflowExecutionCompletedHandler` detects Exchange output via `instanceof ExchangeAwareFunction`, applies `ExchangeProjectionStrategy`, merges headers into `CaseInstance.exchangeHeaders`. `CaseStatusChangedHandler` calls `dataChannelRegistry.closeByCase()` on terminal state. `ScopedWorkerTerminationHandler` calls `closeByScope()` on compound completion. `SyncAgentWorkerFunctionHandler` supports `ExchangeProcessor` alongside `Sync` and `AgentWorkerFunction`.
-
-**`DefaultWorkerRuntime` Tier 1:** `channel(name)` resolves from `DataChannelRegistry`. `createChannel(name, type)` creates via registry, tracks for execution-scoped cleanup via `taskId`. `execute()` handles `ExchangeProcessor` for in-worker composition.
-
 ## Worker Outcome Handling
 
 Workers declare semantic outcomes via `WorkerResult`: `Success` (default), `Declined(reason)`, `Failed(reason)`, `Expired(reason)`. The engine handles non-success outcomes via `OutcomePolicy` on the `Binding`:

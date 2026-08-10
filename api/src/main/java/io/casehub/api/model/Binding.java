@@ -43,10 +43,6 @@ public class Binding {
   private Participation participation;
   private ExecutionMode executionMode;
   private List<WorkerAction> permissionIntent;
-  private String exchangeProjectionStrategy;
-  private String exchangeProjectionExpression;
-  private String produces;
-  private String consumes;
 
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
@@ -159,38 +155,6 @@ public class Binding {
     return permissionIntent;
   }
 
-  public void setExchangeProjectionStrategy(String exchangeProjectionStrategy) {
-    this.exchangeProjectionStrategy = exchangeProjectionStrategy;
-  }
-
-  public String getExchangeProjectionStrategy() {
-    return exchangeProjectionStrategy;
-  }
-
-  public void setExchangeProjectionExpression(String exchangeProjectionExpression) {
-    this.exchangeProjectionExpression = exchangeProjectionExpression;
-  }
-
-  public String getExchangeProjectionExpression() {
-    return exchangeProjectionExpression;
-  }
-
-  public void setProduces(String produces) {
-    this.produces = produces;
-  }
-
-  public String getProduces() {
-    return produces;
-  }
-
-  public void setConsumes(String consumes) {
-    this.consumes = consumes;
-  }
-
-  public String getConsumes() {
-    return consumes;
-  }
-
   public static Builder builder() {
     return new Builder();
   }
@@ -210,10 +174,6 @@ public class Binding {
     private Participation participation;
     private ExecutionMode executionMode;
     private List<WorkerAction> permissionIntent;
-    private String exchangeProjectionStrategy;
-    private String exchangeProjectionExpression;
-    private String produces;
-    private String consumes;
 
     private Builder() {}
 
@@ -306,37 +266,6 @@ public class Binding {
       return this;
     }
 
-    public Builder exchangeProjectionStrategy(String strategy) {
-      this.exchangeProjectionStrategy = strategy;
-      return this;
-    }
-
-    public Builder exchangeOnly() {
-      this.exchangeProjectionStrategy = "exchange-only";
-      return this;
-    }
-
-    public Builder dualWrite() {
-      this.exchangeProjectionStrategy = "dual-write";
-      return this;
-    }
-
-    public Builder projectWith(String strategy, String expression) {
-      this.exchangeProjectionStrategy = strategy;
-      this.exchangeProjectionExpression = expression;
-      return this;
-    }
-
-    public Builder produces(String channelName) {
-      this.produces = channelName;
-      return this;
-    }
-
-    public Builder consumes(String channelName) {
-      this.consumes = channelName;
-      return this;
-    }
-
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -384,10 +313,6 @@ public class Binding {
       b.setParticipation(this.participation);
       b.setExecutionMode(this.executionMode);
       b.setPermissionIntent(this.permissionIntent);
-      b.setExchangeProjectionStrategy(this.exchangeProjectionStrategy);
-      b.setExchangeProjectionExpression(this.exchangeProjectionExpression);
-      b.setProduces(this.produces);
-      b.setConsumes(this.consumes);
       return b;
     }
   }
