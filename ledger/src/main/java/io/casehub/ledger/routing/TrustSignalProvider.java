@@ -65,6 +65,11 @@ public class TrustSignalProvider implements RoutingSignalProvider {
       return null;
     }
 
+    return doEvaluate(context, eligible);
+  }
+
+  @jakarta.transaction.Transactional(jakarta.transaction.Transactional.TxType.REQUIRES_NEW)
+  RoutingSignal doEvaluate(AgentRoutingContext context, List<AgentCandidate> eligible) {
     TrustRoutingPolicy policy = policyProvider.forCapability(context.capabilityName());
     List<ClassifiedCandidate> classified =
         classifier.classify(eligible, context.capabilityName(), policy, source);
