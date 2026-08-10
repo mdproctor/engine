@@ -115,6 +115,43 @@ class RoutingPromptAssemblerTest {
         .isEqualTo("high-priority\n\nlow-priority\n\nno-priority");
   }
 
+  @Test
+  void budget_fitsTwoOfThree_thirdDropped() {
+    RoutingPromptSection s1 = (ctx, eligible) -> "aaaa"; // 4 chars
+    RoutingPromptSection s2 = (ctx, eligible) -> "bbbb"; // 4 chars
+    RoutingPromptSection s3 = (ctx, eligible) -> "cccc"; // 4 chars
+    var assembler = new RoutingPromptAssembler(List.of(s1, s2, s3));
+    // "aaaa\n\nbbbb" = 10 chars; adding "\n\ncccc" = 16; budget 12 drops s3
+    assertThat(assembler.assemble(context(), candidates(), 12)).isEqualTo("aaaa\n\nbbbb");
+  }
+
+  @Test
+  void budget_fitsNone_returnsNull() {
+    RoutingPromptSection s1 = (ctx, eligible) -> "too long for budget";
+    var assembler = new RoutingPromptAssembler(List.of(s1));
+    assertThat(assembler.assemble(context(), candidates(), 5)).isNull();
+  }
+
+  @Test
+  void budget_middleSkipped_lastFits() {
+    RoutingPromptSection s1 = (ctx, eligible) -> "aa"; // 2 chars
+    RoutingPromptSection s2 = (ctx, eligible) -> "bbbbbbbb"; // 8 chars — too big
+    RoutingPromptSection s3 = (ctx, eligible) -> "cc"; // 2 chars
+    var assembler = new RoutingPromptAssembler(List.of(s1, s2, s3));
+    // "aa" = 2; adding "\n\nbbbbbbbb" = 12 > 8 budget; skip s2
+    // "aa" = 2; adding "\n\ncc" = 6 <= 8; include s3
+    assertThat(assembler.assemble(context(), candidates(), 8)).isEqualTo("aa\n\ncc");
+  }
+
+  @Test
+  void budget_maxValue_behavesLikeNoBudget() {
+    RoutingPromptSection s1 = (ctx, eligible) -> "section-1";
+    RoutingPromptSection s2 = (ctx, eligible) -> "section-2";
+    var assembler = new RoutingPromptAssembler(List.of(s1, s2));
+    assertThat(assembler.assemble(context(), candidates(), Integer.MAX_VALUE))
+        .isEqualTo("section-1\n\nsection-2");
+  }
+
   private static AgentRoutingContext context() {
     return new AgentRoutingContext(
         UUID.randomUUID(), "analysis", NullNode.instance, "test-tenant", List.of(), null, null);

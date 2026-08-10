@@ -63,11 +63,22 @@ public class RoutingPromptAssembler {
    * @return the assembled prompt string, or {@code null} if no section contributed content
    */
   public @Nullable String assemble(AgentRoutingContext context, List<AgentCandidate> eligible) {
+    return assemble(context, eligible, Integer.MAX_VALUE);
+  }
+
+  public @Nullable String assemble(
+      AgentRoutingContext context, List<AgentCandidate> eligible, int maxBudgetChars) {
     var sb = new StringBuilder();
     for (var section : sections) {
       try {
         String rendered = section.render(context, eligible);
         if (rendered != null && !rendered.isBlank()) {
+          if (sb.length() + rendered.length() + 2 > maxBudgetChars) {
+            LOG.debugf(
+                "Budget exceeded (%d/%d chars) — dropping section: %s",
+                sb.length(), maxBudgetChars, section.getClass().getName());
+            continue;
+          }
           if (!sb.isEmpty()) sb.append("\n\n");
           sb.append(rendered);
         }
