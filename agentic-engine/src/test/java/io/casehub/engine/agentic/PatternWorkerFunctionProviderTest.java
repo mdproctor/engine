@@ -105,4 +105,19 @@ class PatternWorkerFunctionProviderTest {
     var fn = (PatternWorkerFunction) provider.create(node);
     assertThat(fn.planningConstraints()).isNull();
   }
+
+  @Test
+  void parsesCostBudgetsFromPatternConstraints() {
+    ObjectNode node = mapper.createObjectNode();
+    ObjectNode pattern = node.putObject("pattern");
+    pattern.put("type", "debate");
+    ObjectNode constraints = pattern.putObject("constraints");
+    constraints.put("timeBudget", "PT15M");
+    ObjectNode costs = constraints.putObject("costBudgets");
+    costs.put("tokens", 3000);
+
+    var fn = (PatternWorkerFunction) provider.create(node);
+    assertThat(fn.planningConstraints()).isNotNull();
+    assertThat(fn.planningConstraints().costBudgets()).containsEntry("tokens", 3000);
+  }
 }

@@ -19,17 +19,25 @@ import java.time.Duration;
 import java.util.Map;
 
 public record PlanningConstraints(
-    Duration timeBudget, Integer resourceLimit, Map<String, Double> weights) {
+    Duration timeBudget,
+    Integer resourceLimit,
+    Map<String, Double> weights,
+    Map<String, Integer> costBudgets) {
 
   public PlanningConstraints {
     weights = weights != null ? Map.copyOf(weights) : Map.of();
+    costBudgets = costBudgets != null ? Map.copyOf(costBudgets) : Map.of();
   }
 
   public static PlanningConstraints unconstrained() {
-    return new PlanningConstraints(null, null, Map.of());
+    return new PlanningConstraints(null, null, Map.of(), Map.of());
   }
 
   public static PlanningConstraints of(Duration timeBudget, Integer resourceLimit) {
-    return new PlanningConstraints(timeBudget, resourceLimit, Map.of());
+    return new PlanningConstraints(timeBudget, resourceLimit, Map.of(), Map.of());
+  }
+
+  public boolean hasHardConstraints() {
+    return timeBudget != null || resourceLimit != null || !costBudgets.isEmpty();
   }
 }

@@ -45,7 +45,16 @@ public class PatternWorkerFunctionProvider implements WorkerFunctionProvider {
               : null;
       Integer resourceLimit =
           cNode.has("resourceLimit") ? cNode.get("resourceLimit").asInt() : null;
-      constraints = io.casehub.engine.plan.PlanningConstraints.of(timeBudget, resourceLimit);
+      java.util.Map<String, Integer> costBudgets = new java.util.LinkedHashMap<>();
+      if (cNode.has("costBudgets") && cNode.get("costBudgets").isObject()) {
+        cNode
+            .get("costBudgets")
+            .fields()
+            .forEachRemaining(e -> costBudgets.put(e.getKey(), e.getValue().asInt()));
+      }
+      constraints =
+          new io.casehub.engine.plan.PlanningConstraints(
+              timeBudget, resourceLimit, java.util.Map.of(), costBudgets);
     }
 
     return new PatternWorkerFunction(null, patternType, checkpointing, constraints);

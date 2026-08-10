@@ -170,7 +170,32 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
       }
     }
 
-    if (validNodes.isEmpty()) return;
+    if (validNodes.isEmpty()) {
+      if (definition.getPlanningConstraints() != null
+          && definition.getPlanningConstraints().hasHardConstraints()) {
+        var infeasibleLog = new EventLog();
+        infeasibleLog.setCaseId(instance.getUuid());
+        infeasibleLog.setEventType(CaseHubEventType.CONSTRAINTS_INFEASIBLE);
+        infeasibleLog.setStreamType(EventStreamType.CASE);
+        infeasibleLog.setTimestamp(Instant.now());
+        var infeasibleMeta = OBJECT_MAPPER.createObjectNode();
+        infeasibleMeta.put("goalName", goal.name());
+        infeasibleMeta.put("strategyId", definition.getDecompositionStrategy());
+        var pc = definition.getPlanningConstraints();
+        if (pc.timeBudget() != null) {
+          infeasibleMeta.put("timeBudget", pc.timeBudget().toString());
+        }
+        if (pc.resourceLimit() != null) {
+          infeasibleMeta.put("resourceLimit", pc.resourceLimit());
+        }
+        if (!pc.costBudgets().isEmpty()) {
+          infeasibleMeta.set("costBudgets", OBJECT_MAPPER.valueToTree(pc.costBudgets()));
+        }
+        infeasibleLog.setMetadata(infeasibleMeta);
+        eventLogRepository.append(infeasibleLog, instance.tenancyId);
+      }
+      return;
+    }
 
     if (!isLinearChain(validNodes)) {
       LOG.warnf(

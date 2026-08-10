@@ -46,4 +46,13 @@ class GoalDecompositionContextTest {
     var ctx = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
     assertThat(ctx.constraints()).isEqualTo(PlanningConstraints.unconstrained());
   }
+
+  @Test
+  void costBudgetsThreadedThroughConstraints() {
+    var constraints =
+        new PlanningConstraints(
+            Duration.ofMinutes(30), 3, java.util.Map.of(), java.util.Map.of("tokens", 5000));
+    var ctx = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of(), constraints);
+    assertThat(ctx.constraints().costBudgets()).containsEntry("tokens", 5000);
+  }
 }

@@ -149,6 +149,196 @@ class LlmDecompositionStrategyTest {
   }
 
   @Test
+  void includesCostBudgetsInPromptWhenPresent() {
+    var capturedPrompt = new java.util.concurrent.atomic.AtomicReference<String>();
+
+    ChatModel capturingModel =
+        new ChatModel() {
+          @Override
+          public ChatResponse doChat(ChatRequest request) {
+            for (var msg : request.messages()) {
+              if (msg instanceof dev.langchain4j.data.message.UserMessage um) {
+                capturedPrompt.set(um.singleText());
+              }
+            }
+            return ChatResponse.builder().aiMessage(AiMessage.from(sequentialResponse())).build();
+          }
+        };
+
+    ChatModelProvider provider =
+        new ChatModelProvider() {
+          @Override
+          public ModelType type() {
+            return ModelType.ANTHROPIC;
+          }
+
+          @Override
+          public ChatModel get() {
+            return capturingModel;
+          }
+        };
+
+    var strategy = new LlmDecompositionStrategy();
+    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+
+    var constraints =
+        new io.casehub.engine.plan.PlanningConstraints(
+            null, null, java.util.Map.of(), java.util.Map.of("tokens", 5000, "apiCalls", 10));
+    var context =
+        new GoalDecompositionContext(
+            MAPPER.createObjectNode(),
+            0,
+            List.of(new Capability("analysis", "", "", null)),
+            constraints);
+    var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
+
+    strategy.decompose(task, context).await().indefinitely();
+
+    assertThat(capturedPrompt.get()).contains("5000").contains("apiCalls");
+  }
+
+  @Test
+  void includesWeightsInPromptWhenPresent() {
+    var capturedPrompt = new java.util.concurrent.atomic.AtomicReference<String>();
+
+    ChatModel capturingModel =
+        new ChatModel() {
+          @Override
+          public ChatResponse doChat(ChatRequest request) {
+            for (var msg : request.messages()) {
+              if (msg instanceof dev.langchain4j.data.message.UserMessage um) {
+                capturedPrompt.set(um.singleText());
+              }
+            }
+            return ChatResponse.builder().aiMessage(AiMessage.from(sequentialResponse())).build();
+          }
+        };
+
+    ChatModelProvider provider =
+        new ChatModelProvider() {
+          @Override
+          public ModelType type() {
+            return ModelType.ANTHROPIC;
+          }
+
+          @Override
+          public ChatModel get() {
+            return capturingModel;
+          }
+        };
+
+    var strategy = new LlmDecompositionStrategy();
+    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+
+    var constraints =
+        new io.casehub.engine.plan.PlanningConstraints(
+            null, null, java.util.Map.of("speed", 0.8, "quality", 0.2), java.util.Map.of());
+    var context =
+        new GoalDecompositionContext(
+            MAPPER.createObjectNode(),
+            0,
+            List.of(new Capability("analysis", "", "", null)),
+            constraints);
+    var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
+
+    strategy.decompose(task, context).await().indefinitely();
+
+    assertThat(capturedPrompt.get()).contains("speed").contains("0.8").contains("quality");
+  }
+
+  @Test
+  void rendersCostBudgetsOnlyWithNoTimeBudgetOrResourceLimit() {
+    var capturedPrompt = new java.util.concurrent.atomic.AtomicReference<String>();
+
+    ChatModel capturingModel =
+        new ChatModel() {
+          @Override
+          public ChatResponse doChat(ChatRequest request) {
+            for (var msg : request.messages()) {
+              if (msg instanceof dev.langchain4j.data.message.UserMessage um) {
+                capturedPrompt.set(um.singleText());
+              }
+            }
+            return ChatResponse.builder().aiMessage(AiMessage.from(sequentialResponse())).build();
+          }
+        };
+
+    ChatModelProvider provider =
+        new ChatModelProvider() {
+          @Override
+          public ModelType type() {
+            return ModelType.ANTHROPIC;
+          }
+
+          @Override
+          public ChatModel get() {
+            return capturingModel;
+          }
+        };
+
+    var strategy = new LlmDecompositionStrategy();
+    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+
+    var constraints =
+        new io.casehub.engine.plan.PlanningConstraints(
+            null, null, java.util.Map.of(), java.util.Map.of("tokens", 3000));
+    var context =
+        new GoalDecompositionContext(
+            MAPPER.createObjectNode(),
+            0,
+            List.of(new Capability("analysis", "", "", null)),
+            constraints);
+    var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
+
+    strategy.decompose(task, context).await().indefinitely();
+
+    assertThat(capturedPrompt.get()).contains("3000").contains("Constraints:");
+  }
+
+  @Test
+  void omitsConstraintTextWhenUnconstrained() {
+    var capturedPrompt = new java.util.concurrent.atomic.AtomicReference<String>();
+
+    ChatModel capturingModel =
+        new ChatModel() {
+          @Override
+          public ChatResponse doChat(ChatRequest request) {
+            for (var msg : request.messages()) {
+              if (msg instanceof dev.langchain4j.data.message.UserMessage um) {
+                capturedPrompt.set(um.singleText());
+              }
+            }
+            return ChatResponse.builder().aiMessage(AiMessage.from(sequentialResponse())).build();
+          }
+        };
+
+    ChatModelProvider provider =
+        new ChatModelProvider() {
+          @Override
+          public ModelType type() {
+            return ModelType.ANTHROPIC;
+          }
+
+          @Override
+          public ChatModel get() {
+            return capturingModel;
+          }
+        };
+
+    var strategy = new LlmDecompositionStrategy();
+    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+
+    var context =
+        new GoalDecompositionContext(
+            MAPPER.createObjectNode(), 0, List.of(new Capability("analysis", "", "", null)));
+    var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
+
+    strategy.decompose(task, context).await().indefinitely();
+
+    assertThat(capturedPrompt.get()).doesNotContain("Constraints:");
+  }
+
+  @Test
   void replanIncludesFailureContextInPrompt() {
     var capturedPrompt = new java.util.concurrent.atomic.AtomicReference<String>();
 

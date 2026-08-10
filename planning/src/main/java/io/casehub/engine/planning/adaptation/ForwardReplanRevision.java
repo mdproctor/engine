@@ -85,6 +85,14 @@ public class ForwardReplanRevision implements PlanRevisionStrategy {
                       + contextStr
                       + "\n\nProduce the remaining steps as a JSON 'steps' array.";
 
+              var planningConstraints = adaptCtx.definition().getPlanningConstraints();
+              if (planningConstraints != null) {
+                var constraintText = buildConstraintText(planningConstraints);
+                if (!constraintText.isEmpty()) {
+                  userPrompt = userPrompt + "\n\n" + constraintText;
+                }
+              }
+
               var agent =
                   Agent.builder()
                       .systemPrompt(SYSTEM_PROMPT)
@@ -151,5 +159,41 @@ public class ForwardReplanRevision implements PlanRevisionStrategy {
     if (context == null) return "{}";
     var str = context.toString();
     return str.length() > 2000 ? str.substring(0, 2000) + "..." : str;
+  }
+
+  private String buildConstraintText(io.casehub.engine.plan.PlanningConstraints constraints) {
+    if (constraints.timeBudget() == null
+        && constraints.resourceLimit() == null
+        && constraints.costBudgets().isEmpty()
+        && constraints.weights().isEmpty()) {
+      return "";
+    }
+    var sb = new StringBuilder("Constraints:\n");
+    if (constraints.timeBudget() != null) {
+      long minutes = constraints.timeBudget().toMinutes();
+      sb.append("- Time budget: ").append(minutes).append(" minutes. ");
+      sb.append("Plan steps that can complete within this time.\n");
+    }
+    if (constraints.resourceLimit() != null) {
+      sb.append("- Resource limit: ").append(constraints.resourceLimit());
+      sb.append(" available agents. Prefer parallelism when resource limits allow.\n");
+    }
+    for (var entry : constraints.costBudgets().entrySet()) {
+      var key = entry.getKey();
+      var label = Character.toUpperCase(key.charAt(0)) + key.substring(1);
+      sb.append("- ").append(label).append(" budget: ").append(entry.getValue());
+      sb.append(". Plan steps that stay within this ").append(key).append(" budget.\n");
+    }
+    if (!constraints.weights().isEmpty()) {
+      sb.append("- Priority weights: ");
+      var entries =
+          constraints.weights().entrySet().stream()
+              .map(e -> e.getKey() + "=" + e.getValue())
+              .collect(java.util.stream.Collectors.joining(", "));
+      sb.append(entries);
+      sb.append(". Prioritize steps aligned with higher-weighted dimensions. ");
+      sb.append("If constraints force trade-offs, keep steps serving high-weight priorities.\n");
+    }
+    return sb.toString();
   }
 }

@@ -610,8 +610,16 @@ public final class CaseDefinitionYamlMapper {
             .fields()
             .forEachRemaining(e -> weights.put(e.getKey(), e.getValue().asDouble()));
       }
+      Map<String, Integer> costBudgets = new LinkedHashMap<>();
+      if (pcNode.has("costBudgets") && pcNode.get("costBudgets").isObject()) {
+        pcNode
+            .get("costBudgets")
+            .fields()
+            .forEachRemaining(e -> costBudgets.put(e.getKey(), e.getValue().asInt()));
+      }
       def.setPlanningConstraints(
-          new io.casehub.engine.plan.PlanningConstraints(timeBudget, resourceLimit, weights));
+          new io.casehub.engine.plan.PlanningConstraints(
+              timeBudget, resourceLimit, weights, costBudgets));
     }
 
     // Convert routing strategy IDs — read from raw spec node

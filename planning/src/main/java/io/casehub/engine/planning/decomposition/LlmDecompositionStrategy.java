@@ -158,7 +158,10 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
   }
 
   private String buildConstraintText(io.casehub.engine.plan.PlanningConstraints constraints) {
-    if (constraints.timeBudget() == null && constraints.resourceLimit() == null) {
+    if (constraints.timeBudget() == null
+        && constraints.resourceLimit() == null
+        && constraints.costBudgets().isEmpty()
+        && constraints.weights().isEmpty()) {
       return "";
     }
     var sb = new StringBuilder("Constraints:\n");
@@ -170,6 +173,22 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
     if (constraints.resourceLimit() != null) {
       sb.append("- Resource limit: ").append(constraints.resourceLimit());
       sb.append(" available agents. Prefer parallelism when resource limits allow.\n");
+    }
+    for (var entry : constraints.costBudgets().entrySet()) {
+      var key = entry.getKey();
+      var label = Character.toUpperCase(key.charAt(0)) + key.substring(1);
+      sb.append("- ").append(label).append(" budget: ").append(entry.getValue());
+      sb.append(". Plan steps that stay within this ").append(key).append(" budget.\n");
+    }
+    if (!constraints.weights().isEmpty()) {
+      sb.append("- Priority weights: ");
+      var entries =
+          constraints.weights().entrySet().stream()
+              .map(e -> e.getKey() + "=" + e.getValue())
+              .collect(java.util.stream.Collectors.joining(", "));
+      sb.append(entries);
+      sb.append(". Prioritize steps aligned with higher-weighted dimensions. ");
+      sb.append("If constraints force trade-offs, keep steps serving high-weight priorities.\n");
     }
     return sb.toString();
   }

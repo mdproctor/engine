@@ -2788,4 +2788,46 @@ class CaseDefinitionYamlMapperTest {
         .containsEntry("speed", 0.8)
         .containsEntry("quality", 0.2);
   }
+
+  @Test
+  void parsesCostBudgetsFromPlanningConstraints() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  planningConstraints:
+                    timeBudget: PT30M
+                    resourceLimit: 3
+                    costBudgets:
+                      tokens: 5000
+                      apiCalls: 10
+                  capabilities:
+                    - name: analysis
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getPlanningConstraints().costBudgets())
+        .containsEntry("tokens", 5000)
+        .containsEntry("apiCalls", 10);
+  }
+
+  @Test
+  void costBudgetsEmptyWhenNotSpecified() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  planningConstraints:
+                    timeBudget: PT30M
+                  capabilities:
+                    - name: analysis
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getPlanningConstraints().costBudgets()).isEmpty();
+  }
 }
