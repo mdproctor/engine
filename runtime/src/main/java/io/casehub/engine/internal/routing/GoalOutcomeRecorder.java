@@ -17,8 +17,8 @@ package io.casehub.engine.internal.routing;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.eidos.api.AgentDescriptor;
-import io.casehub.eidos.api.BehavioralSignal;
-import io.casehub.eidos.api.BehavioralSignalStore;
+import io.casehub.eidos.api.GoalOutcome;
+import io.casehub.eidos.api.GoalSignalStore;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.worker.api.WorkerOutcome;
@@ -29,18 +29,28 @@ import java.util.Optional;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-public class GoalFailureRecorder {
+public class GoalOutcomeRecorder {
 
-  private static final Logger LOG = Logger.getLogger(GoalFailureRecorder.class);
+  private static final Logger LOG = Logger.getLogger(GoalOutcomeRecorder.class);
 
-  private final Instance<BehavioralSignalStore> signalStore;
+  private final Instance<GoalSignalStore> signalStore;
   private final CaseDefinitionRegistry registry;
 
   @Inject
-  public GoalFailureRecorder(
-      Instance<BehavioralSignalStore> signalStore, CaseDefinitionRegistry registry) {
+  public GoalOutcomeRecorder(
+      Instance<GoalSignalStore> signalStore, CaseDefinitionRegistry registry) {
     this.signalStore = signalStore;
     this.registry = registry;
+  }
+
+  private static GoalOutcome mapOutcome(WorkerOutcome<?> outcome) {
+    return switch (outcome) {
+      case WorkerOutcome.Success<?> s -> GoalOutcome.SUCCESS;
+      case WorkerOutcome.Completed<?> c -> GoalOutcome.SUCCESS;
+      case WorkerOutcome.Declined<?> d -> GoalOutcome.FAILURE;
+      case WorkerOutcome.Failed<?> f -> GoalOutcome.FAILURE;
+      case WorkerOutcome.Expired<?> e -> GoalOutcome.FAILURE;
+    };
   }
 
   public void record(
@@ -51,7 +61,7 @@ public class GoalFailureRecorder {
     if (!signalStore.isResolvable()) {
       return;
     }
-    if (outcome instanceof WorkerOutcome.Success) {
+    if (capabilityName == null) {
       return;
     }
 
@@ -72,26 +82,18 @@ public class GoalFailureRecorder {
       return;
     }
 
+    GoalOutcome goalOutcome = mapOutcome(outcome);
     String agentId = descriptor.agentId();
     String tenancyId = caseInstance.tenancyId;
 
     for (var goal : descriptor.goals()) {
-      if (capabilityName != null
-          && !goal.capabilities().isEmpty()
-          && !goal.capabilities().contains(capabilityName)) {
+      if (!goal.capabilities().isEmpty() && !goal.capabilities().contains(capabilityName)) {
         continue;
       }
-      signalStore
-          .get()
-          .record(
-              agentId,
-              tenancyId,
-              GoalAbandonmentEvaluator.GOAL_CAPABILITY_SENTINEL,
-              goal.name(),
-              BehavioralSignal.DECLINE);
+      signalStore.get().recordOutcome(agentId, tenancyId, goal.name(), goalOutcome);
       LOG.debugf(
-          "Goal failure recorded: agent=%s goal=%s capability=%s",
-          agentId, goal.name(), capabilityName);
+          "Goal outcome recorded: agent=%s goal=%s outcome=%s capability=%s",
+          agentId, goal.name(), goalOutcome, capabilityName);
     }
   }
 }

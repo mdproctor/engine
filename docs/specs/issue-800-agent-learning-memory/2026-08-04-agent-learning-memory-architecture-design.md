@@ -41,7 +41,7 @@ Routing & Planning (engine, next dispatch)
 
 ### Phase 1 — Experience Recording (engine → neocortex)
 
-`WorkflowExecutionCompletedHandler` calls `AgentExperienceRecorder.record()` at both the success and failure call sites (same positions as `PersonalitySignalRecorder` and `GoalFailureRecorder`). The recorder constructs an `Outcome` event (the `ExperienceEvent` sealed subtype for results) from the worker context:
+`WorkflowExecutionCompletedHandler` calls `AgentExperienceRecorder.record()` at both the success and failure call sites (same positions as `PersonalitySignalRecorder` and `GoalOutcomeRecorder`). The recorder constructs an `Outcome` event (the `ExperienceEvent` sealed subtype for results) from the worker context:
 
 - `agentId` — from worker name (resolved via `CaseDefinition.agentDescriptorFor()`)
 - `tenantId` — mapped from `caseInstance.tenancyId` (naming bridge: engine uses `tenancyId`, neocortex uses `tenantId`)
@@ -356,7 +356,7 @@ Consumes reflection output to evolve goals over time.
 | `PersonalityWeightedRetrieval` | neocortex memory-api | Disposition-weighted memory re-ranking |
 | `PersonalityTransitionSchema` | neocortex memory-api | CBR schema for personality evolution cases |
 | `PersonalitySignalRecorder` | engine runtime | Pattern template for AgentExperienceRecorder |
-| `GoalFailureRecorder` | engine runtime | Pattern template + co-located call site |
+| `GoalOutcomeRecorder` | engine runtime | Pattern template + co-located call site |
 | `ExperienceSignalProvider` | engine runtime (id="experience") | Evolves to incorporate agent-level memory signals |
 | `GoalSignalProvider` | engine runtime (id="goal") | Evolves to use `GoalLifecycleStore.effectiveGoals()` |
 | `AgentGoalCompletionMarker` | engine runtime | Co-located at handler call site, marks goals as met |

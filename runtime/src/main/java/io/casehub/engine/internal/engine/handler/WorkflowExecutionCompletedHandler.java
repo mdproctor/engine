@@ -53,7 +53,7 @@ import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
 import io.casehub.engine.internal.routing.BehavioralComplianceRecorder;
-import io.casehub.engine.internal.routing.GoalFailureRecorder;
+import io.casehub.engine.internal.routing.GoalOutcomeRecorder;
 import io.casehub.engine.internal.routing.PersonalitySignalRecorder;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -91,7 +91,7 @@ public class WorkflowExecutionCompletedHandler {
   @Inject CaseInstanceRepository caseInstanceRepository;
   @Inject io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
   @Inject PersonalitySignalRecorder personalitySignalRecorder;
-  @Inject GoalFailureRecorder goalFailureRecorder;
+  @Inject GoalOutcomeRecorder goalOutcomeRecorder;
   @Inject BehavioralComplianceRecorder behavioralComplianceRecorder;
   @Inject io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker;
   @Inject io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder;
@@ -160,6 +160,11 @@ public class WorkflowExecutionCompletedHandler {
       }
       recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
       agentGoalCompletionMarker.markGoalsCompleted(caseInstance, worker.name());
+      goalOutcomeRecorder.record(
+          caseInstance,
+          worker.name(),
+          extractCapabilityTag(caseInstance, worker, bindingName),
+          event.outcome());
       fireOutcomeRecorder(
           caseInstance,
           worker,
@@ -375,7 +380,7 @@ public class WorkflowExecutionCompletedHandler {
         caseInstance.getCaseContext().snapshot().asJsonNode());
     String capabilityTag = extractCapabilityTag(caseInstance, worker, bindingName);
     personalitySignalRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
-    goalFailureRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
+    goalOutcomeRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
     agentExperienceRecorder.record(
         caseInstance, worker.name(), capabilityTag, event.outcome(), bindingName);
     behavioralComplianceRecorder.record(
