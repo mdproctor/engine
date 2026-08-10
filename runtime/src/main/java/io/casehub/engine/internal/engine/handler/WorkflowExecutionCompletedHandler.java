@@ -54,6 +54,7 @@ import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.context.EpisodicLayerUpdater;
 import io.casehub.engine.internal.routing.BehavioralComplianceRecorder;
 import io.casehub.engine.internal.routing.GoalOutcomeRecorder;
+import io.casehub.engine.internal.routing.GoalRevisionEvaluator;
 import io.casehub.engine.internal.routing.PersonalitySignalRecorder;
 import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -79,6 +80,8 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class WorkflowExecutionCompletedHandler {
 
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
   @Inject EventBus eventBus;
   @Inject Event<CaseLifecycleEvent> lifecycleEvents;
   @Inject Event<WorkerDecisionEvent> workerDecisionEvents;
@@ -95,7 +98,7 @@ public class WorkflowExecutionCompletedHandler {
   @Inject BehavioralComplianceRecorder behavioralComplianceRecorder;
   @Inject io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker;
   @Inject io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder;
-
+  @Inject GoalRevisionEvaluator goalRevisionEvaluator;
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
   @Inject ContextOutputApplier contextOutputApplier;
 
@@ -103,8 +106,16 @@ public class WorkflowExecutionCompletedHandler {
   jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
       outcomeRecorder;
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
+  private static Long extractDurationMs(WorkflowExecutionCompleted event) {
+    if (event.protocolMetadata() == null) {
+      return null;
+    }
+    Object duration = event.protocolMetadata().get("executionDurationMs");
+    if (duration instanceof Number n) {
+      return n.longValue();
+    }
+    return null;
+  }
 
   @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED)
   @RunOnVirtualThread
@@ -161,6 +172,11 @@ public class WorkflowExecutionCompletedHandler {
       recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
       agentGoalCompletionMarker.markGoalsCompleted(caseInstance, worker.name());
       goalOutcomeRecorder.record(
+          caseInstance,
+          worker.name(),
+          extractCapabilityTag(caseInstance, worker, bindingName),
+          event.outcome());
+      goalRevisionEvaluator.record(
           caseInstance,
           worker.name(),
           extractCapabilityTag(caseInstance, worker, bindingName),
@@ -381,6 +397,7 @@ public class WorkflowExecutionCompletedHandler {
     String capabilityTag = extractCapabilityTag(caseInstance, worker, bindingName);
     personalitySignalRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
     goalOutcomeRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
+    goalRevisionEvaluator.record(caseInstance, worker.name(), capabilityTag, event.outcome());
     agentExperienceRecorder.record(
         caseInstance, worker.name(), capabilityTag, event.outcome(), bindingName);
     behavioralComplianceRecorder.record(
@@ -751,9 +768,13 @@ public class WorkflowExecutionCompletedHandler {
       String bindingName,
       io.casehub.api.spi.routing.RoutingOutcome outcome,
       JsonNode contextSnapshot) {
-    if (outcomeRecorder.isUnsatisfied()) return;
+    if (outcomeRecorder.isUnsatisfied()) {
+      return;
+    }
     String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
-    if (capabilityName == null) return;
+    if (capabilityName == null) {
+      return;
+    }
     var ctx =
         new AgentRoutingContext(
             caseInstance.getUuid(),
@@ -775,16 +796,5 @@ public class WorkflowExecutionCompletedHandler {
                     "Outcome recording failed for caseId=%s worker=%s",
                     caseInstance.getUuid(),
                     worker.name()));
-  }
-
-  private static Long extractDurationMs(WorkflowExecutionCompleted event) {
-    if (event.protocolMetadata() == null) {
-      return null;
-    }
-    Object duration = event.protocolMetadata().get("executionDurationMs");
-    if (duration instanceof Number n) {
-      return n.longValue();
-    }
-    return null;
   }
 }
