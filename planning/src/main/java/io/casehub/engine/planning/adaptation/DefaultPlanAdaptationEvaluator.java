@@ -79,7 +79,7 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
   private final CaseInstanceRepository caseInstanceRepository;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final StrategyResolver strategyResolver;
-  private final Instance<?> agentMemoryRetriever;
+  private final Instance<Object> agentMemoryRetriever;
   private final Semaphore semaphore;
   private final long timeoutMs;
   private final ConcurrentHashMap<String, ReentrantLock> compoundLocks = new ConcurrentHashMap<>();
@@ -92,7 +92,7 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
       CaseInstanceRepository caseInstanceRepository,
       CaseDefinitionRegistry caseDefinitionRegistry,
       StrategyResolver strategyResolver,
-      Instance<?> agentMemoryRetriever,
+      Instance<Object> agentMemoryRetriever,
       @ConfigProperty(name = "casehub.engine.adaptation.max-concurrent", defaultValue = "3")
           int maxConcurrent,
       @ConfigProperty(name = "casehub.engine.decomposition.timeout-ms", defaultValue = "30000")
