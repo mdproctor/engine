@@ -219,7 +219,8 @@ public class GoalRevisionEvaluator {
       try {
         GoalRevisionContext context =
             new GoalRevisionContext(agentId, tenancyId, finalGoals, counts, definition);
-        GoalRevisionProposal proposal = strategy.revise(context).await().indefinitely();
+        GoalRevisionProposal proposal =
+            strategy.revise(context).await().atMost(java.time.Duration.ofSeconds(30));
         if (proposal != null && !proposal.revisions().isEmpty()) {
           finalGoals = mergeDescriptions(finalGoals, proposal);
         }

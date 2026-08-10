@@ -24,6 +24,7 @@ import io.casehub.api.model.ReflectionTriggerConfig;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.internal.routing.GoalFormationEvaluator;
 import io.casehub.neocortex.memory.experience.ExperienceEvent;
 import io.casehub.neocortex.memory.experience.ExperienceRecorder;
 import io.casehub.neocortex.memory.experience.Outcome;
@@ -96,7 +97,9 @@ class AgentExperienceRecorderTest {
     when(reflInstance.isResolvable()).thenReturn(true);
     when(reflInstance.get()).thenReturn(orchestrator);
 
-    recorder = new AgentExperienceRecorder(expInstance, reflInstance, registry);
+    GoalFormationEvaluator goalFormationEvaluator = mock(GoalFormationEvaluator.class);
+    recorder =
+        new AgentExperienceRecorder(expInstance, reflInstance, registry, goalFormationEvaluator);
   }
 
   @Test
@@ -196,7 +199,9 @@ class AgentExperienceRecorderTest {
     Instance<ReflectionOrchestrator> reflInstance = mock(Instance.class);
     when(reflInstance.isResolvable()).thenReturn(false);
 
-    var noopRecorder = new AgentExperienceRecorder(unavailable, reflInstance, registry);
+    GoalFormationEvaluator goalFormationEvaluator = mock(GoalFormationEvaluator.class);
+    var noopRecorder =
+        new AgentExperienceRecorder(unavailable, reflInstance, registry, goalFormationEvaluator);
     noopRecorder.record(createInstance(), "agent-1", "cap", new WorkerOutcome.Success<>(null), "b");
     assertThat(recorded).isEmpty();
   }

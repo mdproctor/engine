@@ -18,6 +18,7 @@ package io.casehub.engine.internal.memory;
 import io.casehub.api.model.ReflectionTriggerConfig;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.internal.routing.GoalFormationEvaluator;
 import io.casehub.neocortex.memory.experience.ExperienceRecorder;
 import io.casehub.neocortex.memory.experience.Outcome;
 import io.casehub.neocortex.memory.reflection.ReflectionOrchestrator;
@@ -26,6 +27,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +41,7 @@ public class AgentExperienceRecorder {
   private final Instance<ExperienceRecorder> experienceRecorder;
   private final Instance<ReflectionOrchestrator> reflectionOrchestrator;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final GoalFormationEvaluator goalFormationEvaluator;
   private final ConcurrentHashMap<String, ReflectionState> reflectionStates =
       new ConcurrentHashMap<>();
 
@@ -46,10 +49,12 @@ public class AgentExperienceRecorder {
   public AgentExperienceRecorder(
       Instance<ExperienceRecorder> experienceRecorder,
       Instance<ReflectionOrchestrator> reflectionOrchestrator,
-      CaseDefinitionRegistry caseDefinitionRegistry) {
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      GoalFormationEvaluator goalFormationEvaluator) {
     this.experienceRecorder = experienceRecorder;
     this.reflectionOrchestrator = reflectionOrchestrator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.goalFormationEvaluator = goalFormationEvaluator;
   }
 
   public void record(
@@ -138,10 +143,15 @@ public class AgentExperienceRecorder {
       Thread.startVirtualThread(
           () -> {
             try {
-              reflectionOrchestrator
-                  .get()
-                  .reflect(
-                      workerName, caseInstance.tenancyId, sinceFinal, config.maxSourceMemories());
+              List<String> insights =
+                  reflectionOrchestrator
+                      .get()
+                      .reflect(
+                          workerName,
+                          caseInstance.tenancyId,
+                          sinceFinal,
+                          config.maxSourceMemories());
+              goalFormationEvaluator.evaluate(workerName, caseInstance, insights);
             } catch (Exception e) {
               LOG.warnf(e, "Reflection failed for agent %s", workerName);
             }

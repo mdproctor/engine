@@ -491,6 +491,22 @@ JPAF (arXiv:2601.10025) personality adaptation via `DispositionSignalStore` acti
 
 **Eidos SPIs used:** `GoalSignalStore` (records `GoalOutcome.SUCCESS`/`FAILURE` per goal, `outcomeCounts()`, `decay()`, `clear()`). `GoalEvolution` (evaluates `AgentDescriptor` + counts → `GoalEvolutionResult`: `Evolved(newGoals, promotedGoals, demotedGoals)` | `Dampened(decayFactor)` | `Unchanged`). `InMemoryGoalSignalStore` (`@DefaultBean`). `DefaultGoalEvolution` — threshold-based: promotes SECONDARY goals above 80% success rate, demotes PRIMARY above 70% failure rate. `AgentGoal.toBuilder()` for copy-with-modify. Refs engine#806.
 
+## Goal Formation
+
+`GoalFormationEvaluator` (`runtime/internal/routing/`, `@ApplicationScoped`) — enables agents to discover new goals from reflection insights. Called from `AgentExperienceRecorder` after `ReflectionOrchestrator.reflect()` returns insights on the same virtual thread. Uses `Instance<>` injection with `isResolvable()` guards for `AgentRegistry` and `CaseMemoryStore` — transparent no-op when dependencies absent. Guard rails: enabled config check, cooldown per agent (`ConcurrentHashMap<String, Instant>`), capacity enforcement (max 10 goals), empty insights check, AgentDescriptor lookup via `CaseDefinition.agentDescriptorFor()`. Spawns virtual thread for strategy delegation, validation, and registration. Config: `casehub.engine.goal.formation.enabled` (default false), `casehub.engine.goal.formation.auto-approve` (default true), `casehub.engine.goal.formation.strategy` (default `"llm"`), `casehub.engine.goal.formation.max-new-per-reflection` (default 2), `casehub.engine.goal.formation.cooldown-minutes` (default 60), `casehub.engine.goal.formation.max-memories` (default 20). Refs engine#805, engine#808.
+
+`GoalFormationStrategy` (`api/spi/routing/`, extends `NamedStrategy`) — SPI for goal discovery. `propose(GoalFormationContext) → Uni<GoalFormationProposal>`. `GoalFormationContext` carries `agentId`, `tenancyId`, `reflectionInsights`, `existingGoals`, `recentMemories` (from `CaseMemoryStore`), `remainingCapacity`, `definition`. `GoalFormationProposal` returns `List<ProposedGoal>` with `name`, `description`, `suggestedPriority` (nullable, defaults to SECONDARY), `formationReason`. Refs engine#805.
+
+`LlmGoalFormationStrategy` (`runtime/internal/routing/`, `@ApplicationScoped`, id=`"llm"`) — LLM-backed `GoalFormationStrategy`. Uses `Agent.builder()` with `ChatModelProvider` to prompt for new goal discovery. Includes existing goals, reflection insights, and recent memories in prompt context. Transparent failure when `ChatModelProvider` absent. Refs engine#805.
+
+**Validation:** Name ≤100 chars, description ≤500 chars, no duplicate names against existing goals. Per-goal error isolation — invalid proposals skipped, valid ones registered. New goals always `PUBLIC` visibility, empty capabilities list, default `SECONDARY` priority.
+
+**Approval gate:** `auto-approve=true` (default) registers goals immediately via `AgentRegistry.register()` and writes `GOAL_FORMED` EventLog. `auto-approve=false` writes `GOAL_PROPOSED` EventLog only — production safety without committing to an approval UX.
+
+**Event types:** `GOAL_FORMED` (registered), `GOAL_PROPOSED` (not registered). EventLog metadata: `agentId`, `formedGoals[]`, `previousGoalCount`, `newGoalCount`, `insightCount`, `memoryCount`, `strategyId`, `approved`.
+
+**EngineStrategyResolver:** `GoalFormationStrategy` and `GoalRevisionStrategy` are registered via explicit `@Any Instance<>` constructor parameters (engine#805) — required for Quarkus ARC build-time discovery.
+
 ## Repeatable Compound
 
 `PlanItemDefinition.Compound` gains `repeatable` (boolean, builder). Repeatable compound lifecycle is tracked via `PlanItemExecutionState` CAS transitions. Refs engine#482. Stage-based repeatability infrastructure (StageResetOutcomesCleaner, StageActivatedEvent, resetForRepetition) was removed in the Stage retirement (blocks#60 Phase 3C.3).
