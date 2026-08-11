@@ -194,8 +194,8 @@ class QuartzWorkerExecutionJob implements Job {
               memories);
 
       ExecutionMetadata metadata =
-          new ExecutionMetadata(workerId, inputDataHash, bindingName, executionMode,
-                          instance.tenancyId);
+          new ExecutionMetadata(
+              workerId, inputDataHash, bindingName, executionMode, instance.tenancyId);
 
       io.casehub.engine.common.internal.executor.HandlerResult handlerResult =
           workerExecutor.execute(
