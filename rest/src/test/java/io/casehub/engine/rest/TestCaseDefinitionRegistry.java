@@ -18,7 +18,6 @@ package io.casehub.engine.rest;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
@@ -41,8 +40,8 @@ public class TestCaseDefinitionRegistry implements CaseDefinitionRegistry {
   }
 
   @Override
-  public Uni<CaseMetaModel> registerCaseDefinition(CaseDefinition model) {
-    return Uni.createFrom().nullItem();
+  public CaseMetaModel registerCaseDefinition(CaseDefinition model) {
+    return null;
   }
 
   @Override

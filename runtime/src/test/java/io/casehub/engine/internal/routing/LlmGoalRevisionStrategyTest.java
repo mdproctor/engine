@@ -49,7 +49,7 @@ class LlmGoalRevisionStrategyTest {
     LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
 
     GoalRevisionContext context = buildContext();
-    GoalRevisionProposal proposal = strategy.revise(context).await().indefinitely();
+    GoalRevisionProposal proposal = strategy.revise(context);
 
     assertThat(proposal.revisions()).hasSize(1);
     assertThat(proposal.revisions().get(0).goalName()).isEqualTo("g1");
@@ -62,7 +62,7 @@ class LlmGoalRevisionStrategyTest {
     String jsonResponse = "{\"revisions\": [], \"rationale\": \"all goals are well-described\"}";
     LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
 
-    GoalRevisionProposal proposal = strategy.revise(buildContext()).await().indefinitely();
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
     assertThat(proposal.revisions()).isEmpty();
   }
 
@@ -72,7 +72,7 @@ class LlmGoalRevisionStrategyTest {
         "{\"revisions\": [{\"goalName\": \"g1\", \"revisedDescription\": null, \"revisionReason\": \"no change needed\"}], \"rationale\": \"ok\"}";
     LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
 
-    GoalRevisionProposal proposal = strategy.revise(buildContext()).await().indefinitely();
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
     assertThat(proposal.revisions().get(0).revisedDescription()).isNull();
   }
 
@@ -84,7 +84,7 @@ class LlmGoalRevisionStrategyTest {
     LlmGoalRevisionStrategy strategy = new LlmGoalRevisionStrategy(absent);
 
     try {
-      strategy.revise(buildContext()).await().indefinitely();
+      strategy.revise(buildContext());
       fail("Expected failure");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(UnsupportedOperationException.class);
@@ -96,7 +96,7 @@ class LlmGoalRevisionStrategyTest {
     LlmGoalRevisionStrategy strategy = strategyWithResponse("not json");
 
     try {
-      strategy.revise(buildContext()).await().indefinitely();
+      strategy.revise(buildContext());
       fail("Expected failure");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(AgentException.class);

@@ -17,7 +17,6 @@ package io.casehub.engine.common.spi.scheduler;
 
 import io.casehub.engine.common.internal.scheduler.JobIdentifier;
 import io.casehub.engine.common.internal.scheduler.ScheduledJobRequest;
-import io.smallrye.mutiny.Uni;
 
 /**
  * Scheduler abstraction for managing delayed and recurring job execution.
@@ -42,34 +41,33 @@ public interface JobScheduler {
    * implementation-defined (may throw exception or replace existing job).
    *
    * @param request job configuration including schedule, data, and job class
-   * @return Uni that completes when job is scheduled
    * @throws RuntimeException if scheduling fails
    */
-  Uni<Void> schedule(ScheduledJobRequest request);
+  void schedule(ScheduledJobRequest request);
 
-  Uni<Void> schedule(ScheduledJobRequest.Builder builder);
+  void schedule(ScheduledJobRequest.Builder builder);
 
   /**
    * Cancel a specific scheduled job.
    *
    * @param jobId unique job identifier
-   * @return Uni containing true if job was cancelled, false if job did not exist
+   * @return true if job was cancelled, false if job did not exist
    */
-  Uni<Boolean> cancel(JobIdentifier jobId);
+  boolean cancel(JobIdentifier jobId);
 
   /**
    * Cancel all jobs in a group.
    *
    * @param groupName job group name
-   * @return Uni containing count of cancelled jobs
+   * @return count of cancelled jobs
    */
-  Uni<Integer> cancelGroup(String groupName);
+  int cancelGroup(String groupName);
 
   /**
    * Check if a job exists in the scheduler.
    *
    * @param jobId unique job identifier
-   * @return Uni containing true if job exists, false otherwise
+   * @return true if job exists, false otherwise
    */
-  Uni<Boolean> exists(JobIdentifier jobId);
+  boolean exists(JobIdentifier jobId);
 }

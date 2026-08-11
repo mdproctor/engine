@@ -211,14 +211,11 @@ public class MilestoneActivatedEventHandler {
     jobData.put("caseId", caseInstance.getUuid().toString());
     jobData.put("milestoneName", milestone.getName());
 
-    scheduler
-        .schedule(
-            ScheduledJobRequest.builder()
-                .jobId(jobId)
-                .schedule(new FixedAtSchedule(slaDeadline.toEpochMilli()))
-                .data(jobData))
-        .await()
-        .indefinitely();
+    scheduler.schedule(
+        ScheduledJobRequest.builder()
+            .jobId(jobId)
+            .schedule(new FixedAtSchedule(slaDeadline.toEpochMilli()))
+            .data(jobData));
 
     LOG.infof("Scheduled SLA timeout job for milestone=%s at %s", milestone.getName(), slaDeadline);
   }

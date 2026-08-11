@@ -34,13 +34,7 @@ class CaseMetaModelDefinitionPopulationTest {
     CaseDefinition def =
         CaseDefinition.builder().namespace("test-def-pop").name("def-pop").version("1.0.0").build();
 
-    CaseMetaModel model =
-        registry
-            .registerCaseDefinition(def)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    CaseMetaModel model = registry.registerCaseDefinition(def);
 
     JsonNode definition = model.getDefinition();
     assertThat(definition).isNotNull();
@@ -59,13 +53,7 @@ class CaseMetaModelDefinitionPopulationTest {
             .version("1.0.0")
             .build();
 
-    CaseMetaModel model =
-        registry
-            .registerCaseDefinition(def)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    CaseMetaModel model = registry.registerCaseDefinition(def);
 
     JsonNode definition = model.getDefinition();
     assertThat(definition).isNotNull();

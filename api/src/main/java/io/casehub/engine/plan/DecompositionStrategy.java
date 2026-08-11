@@ -16,15 +16,13 @@
 package io.casehub.engine.plan;
 
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 
 public interface DecompositionStrategy<T> extends NamedStrategy {
-  Uni<DagPlan<TaskNode.LeafTask<T>>> decompose(TaskNode<T> task, DecompositionContext<T> context);
+  DagPlan<TaskNode.LeafTask<T>> decompose(TaskNode<T> task, DecompositionContext<T> context);
 
-  default Uni<DagPlan<TaskNode.LeafTask<T>>> replan(
+  default DagPlan<TaskNode.LeafTask<T>> replan(
       TaskNode<T> task, DecompositionContext<T> context, ReplanContext<T> replanContext) {
-    return Uni.createFrom()
-        .failure(new UnsupportedOperationException("Re-planning not supported by " + id()));
+    throw new UnsupportedOperationException("Re-planning not supported by " + id());
   }
 
   @Override

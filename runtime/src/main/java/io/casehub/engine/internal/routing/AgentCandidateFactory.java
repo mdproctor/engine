@@ -86,10 +86,8 @@ public class AgentCandidateFactory {
 
     // Step 2: Delegate matching
     final List<MatchedWorker> matched =
-        matchingStrategy
-            .match(new CandidateMatchingContext(capabilityName, workers, caseDefinition))
-            .await()
-            .indefinitely();
+        matchingStrategy.match(
+            new CandidateMatchingContext(capabilityName, workers, caseDefinition));
 
     // Step 3: Health probe + candidate construction
     final List<AgentCandidate> candidates = new ArrayList<>();

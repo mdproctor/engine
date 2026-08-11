@@ -36,7 +36,6 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.neocortex.memory.CaseMemoryStore;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.util.ArrayList;
 import java.util.List;
@@ -184,8 +183,7 @@ class GoalFormationEvaluatorTest {
         new GoalFormationProposal.ProposedGoal(
             "new-goal", "A new goal", GoalPriority.SECONDARY, "from insight");
     when(strategy.propose(any()))
-        .thenReturn(
-            Uni.createFrom().item(new GoalFormationProposal(List.of(proposed), "rationale")));
+        .thenReturn(new GoalFormationProposal(List.of(proposed), "rationale"));
 
     CountDownLatch latch = new CountDownLatch(1);
     doAnswer(
@@ -237,8 +235,7 @@ class GoalFormationEvaluatorTest {
         new GoalFormationProposal.ProposedGoal(
             "new-goal", "A new goal", GoalPriority.SECONDARY, "from insight");
     when(strategy.propose(any()))
-        .thenReturn(
-            Uni.createFrom().item(new GoalFormationProposal(List.of(proposed), "rationale")));
+        .thenReturn(new GoalFormationProposal(List.of(proposed), "rationale"));
 
     CountDownLatch latch = new CountDownLatch(1);
     doAnswer(
@@ -263,8 +260,7 @@ class GoalFormationEvaluatorTest {
     var proposed =
         new GoalFormationProposal.ProposedGoal("new-goal", "A new goal", null, "from insight");
     when(strategy.propose(any()))
-        .thenReturn(
-            Uni.createFrom().item(new GoalFormationProposal(List.of(proposed), "rationale")));
+        .thenReturn(new GoalFormationProposal(List.of(proposed), "rationale"));
 
     CountDownLatch latch = new CountDownLatch(1);
     doAnswer(
@@ -296,8 +292,7 @@ class GoalFormationEvaluatorTest {
     var proposed =
         new GoalFormationProposal.ProposedGoal(longName, "desc", GoalPriority.SECONDARY, "reason");
     when(strategy.propose(any()))
-        .thenReturn(
-            Uni.createFrom().item(new GoalFormationProposal(List.of(proposed), "rationale")));
+        .thenReturn(new GoalFormationProposal(List.of(proposed), "rationale"));
 
     evaluator.evaluate("worker-1", instance, List.of("insight"));
     Thread.sleep(300);
@@ -313,8 +308,7 @@ class GoalFormationEvaluatorTest {
         new GoalFormationProposal.ProposedGoal(
             "existing-goal", "duplicate", GoalPriority.SECONDARY, "reason");
     when(strategy.propose(any()))
-        .thenReturn(
-            Uni.createFrom().item(new GoalFormationProposal(List.of(proposed), "rationale")));
+        .thenReturn(new GoalFormationProposal(List.of(proposed), "rationale"));
 
     evaluator.evaluate("worker-1", instance, List.of("insight"));
     Thread.sleep(300);
@@ -332,8 +326,7 @@ class GoalFormationEvaluatorTest {
           new GoalFormationProposal.ProposedGoal(
               "goal-" + i, "desc " + i, GoalPriority.SECONDARY, "reason"));
     }
-    when(strategy.propose(any()))
-        .thenReturn(Uni.createFrom().item(new GoalFormationProposal(proposed, "rationale")));
+    when(strategy.propose(any())).thenReturn(new GoalFormationProposal(proposed, "rationale"));
 
     CountDownLatch latch = new CountDownLatch(1);
     doAnswer(
@@ -364,8 +357,7 @@ class GoalFormationEvaluatorTest {
         new GoalFormationProposal.ProposedGoal(
             "valid-goal", "A valid goal", GoalPriority.SECONDARY, "reason");
     when(strategy.propose(any()))
-        .thenReturn(
-            Uni.createFrom().item(new GoalFormationProposal(List.of(invalid, valid), "rationale")));
+        .thenReturn(new GoalFormationProposal(List.of(invalid, valid), "rationale"));
 
     CountDownLatch latch = new CountDownLatch(1);
     doAnswer(
@@ -425,8 +417,7 @@ class GoalFormationEvaluatorTest {
         new GoalFormationProposal.ProposedGoal(
             "new-goal", "desc", GoalPriority.SECONDARY, "reason");
     when(strategy.propose(any()))
-        .thenReturn(
-            Uni.createFrom().item(new GoalFormationProposal(List.of(proposed), "rationale")));
+        .thenReturn(new GoalFormationProposal(List.of(proposed), "rationale"));
 
     CountDownLatch latch = new CountDownLatch(1);
     doAnswer(

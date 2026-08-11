@@ -16,7 +16,6 @@
 package io.casehub.api.spi;
 
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 import java.util.UUID;
 
 /**
@@ -26,5 +25,5 @@ import java.util.UUID;
  * from the {@code correlationResolver} field on {@link io.casehub.api.model.InboundSignalMapping}.
  */
 public interface CaseCorrelationResolver extends NamedStrategy {
-  Uni<UUID> resolve(String correlationValue, String tenancyId);
+  UUID resolve(String correlationValue, String tenancyId);
 }

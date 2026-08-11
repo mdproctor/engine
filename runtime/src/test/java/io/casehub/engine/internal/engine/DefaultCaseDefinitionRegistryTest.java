@@ -41,13 +41,7 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0")
             .build();
 
-    CaseMetaModel registered =
-        registry
-            .registerCaseDefinition(def)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    CaseMetaModel registered = registry.registerCaseDefinition(def);
 
     assertThat(registered).isNotNull();
 
@@ -81,21 +75,9 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0")
             .build();
 
-    CaseMetaModel first =
-        registry
-            .registerCaseDefinition(def)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    CaseMetaModel first = registry.registerCaseDefinition(def);
 
-    CaseMetaModel second =
-        registry
-            .registerCaseDefinition(def)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    CaseMetaModel second = registry.registerCaseDefinition(def);
 
     assertThat(second).isNotNull();
     assertThat(second.getNamespace()).isEqualTo("test-ns-reg2");
@@ -118,21 +100,9 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0")
             .build();
 
-    CaseMetaModel firstResult =
-        registry
-            .registerCaseDefinition(first)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    CaseMetaModel firstResult = registry.registerCaseDefinition(first);
 
-    CaseMetaModel secondResult =
-        registry
-            .registerCaseDefinition(second)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    CaseMetaModel secondResult = registry.registerCaseDefinition(second);
 
     assertThat(secondResult).isNotNull();
     assertThat(secondResult.getName()).isEqualTo(firstResult.getName());
@@ -151,13 +121,7 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0")
             .build();
 
-    CaseMetaModel registered =
-        registry
-            .registerCaseDefinition(def)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    CaseMetaModel registered = registry.registerCaseDefinition(def);
 
     Optional<CaseMetaModel> found = registry.findByIdentity("test-find-id", "findable-case", "1.0");
 
@@ -183,12 +147,7 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0")
             .build();
 
-    registry
-        .registerCaseDefinition(def)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(def);
 
     Optional<CaseDefinition> found = registry.findByName("findable-by-name");
 
@@ -219,18 +178,8 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0")
             .build();
 
-    registry
-        .registerCaseDefinition(def1)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
-    registry
-        .registerCaseDefinition(def2)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(def1);
+    registry.registerCaseDefinition(def2);
 
     assertThatThrownBy(() -> registry.findByName("ambiguous-case"))
         .isInstanceOf(IllegalArgumentException.class)
@@ -248,12 +197,7 @@ class DefaultCaseDefinitionRegistryTest {
             .type(Path.of("exact-type-test", "specific"))
             .build();
 
-    registry
-        .registerCaseDefinition(def)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(def);
 
     List<CaseDefinition> result = registry.findByType(Path.of("exact-type-test", "specific"));
     assertThat(result).hasSize(1);
@@ -269,12 +213,7 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0.0")
             .type(Path.of("ancestor-type-test", "child"))
             .build();
-    registry
-        .registerCaseDefinition(def)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(def);
 
     List<CaseDefinition> result = registry.findByType(Path.of("ancestor-type-test"));
     assertThat(result).hasSize(1);
@@ -290,12 +229,7 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0.0")
             .type(Path.of("compliance-test", "auditable"))
             .build();
-    registry
-        .registerCaseDefinition(def)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(def);
 
     List<CaseDefinition> result = registry.findByType(Path.of("nomatch-query-path"));
     assertThat(result).isEmpty();
@@ -309,12 +243,7 @@ class DefaultCaseDefinitionRegistryTest {
             .name("untyped-case")
             .version("1.0.0")
             .build();
-    registry
-        .registerCaseDefinition(def)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(def);
 
     List<CaseDefinition> result = registry.findByType(Path.of("notype-query-path"));
     assertThat(result).isEmpty();
@@ -329,12 +258,7 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0.0")
             .label(Path.of("exact-label-test", "high"))
             .build();
-    registry
-        .registerCaseDefinition(def)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(def);
 
     List<CaseDefinition> result = registry.findByLabel(Path.of("exact-label-test", "high"));
     assertThat(result).hasSize(1);
@@ -349,12 +273,7 @@ class DefaultCaseDefinitionRegistryTest {
             .version("1.0.0")
             .label(Path.of("ancestor-label-test", "high"))
             .build();
-    registry
-        .registerCaseDefinition(def)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(def);
 
     List<CaseDefinition> result = registry.findByLabel(Path.of("ancestor-label-test"));
     assertThat(result).hasSize(1);

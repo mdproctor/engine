@@ -35,7 +35,6 @@ import io.casehub.engine.common.internal.model.PendingActionGate;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -74,20 +73,20 @@ public class ActionGateRejectedHandler {
 
   // blocking=true: workerStatusListener.onWorkerCompleted() may do I/O in consumer impls
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_REJECTED, blocking = true)
-  public Uni<Void> onActionGateRejected(final ActionGateRejectedEvent event) {
+  public void onActionGateRejected(final ActionGateRejectedEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {
       LOG.warnf(
           "CaseInstance not in cache for gate rejection: caseId=%s gateId=%d — discarding",
           event.caseId(), event.gateId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     if (isTerminal(instance.getState())) {
       LOG.warnf(
           "Gate rejected on terminated case (state=%s): caseId=%s gateId=%d — discarding",
           instance.getState(), event.caseId(), event.gateId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     final PendingActionGate gate = instance.getPendingActionGate();
@@ -96,7 +95,7 @@ public class ActionGateRejectedHandler {
           "PendingActionGate mismatch or absent: caseId=%s expected gateId=%d actual=%s"
               + " — discarding",
           event.caseId(), event.gateId(), gate != null ? gate.gateId() : "null");
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     // Capture context snapshot BEFORE gate clearance and signal writes — consistent with
@@ -136,18 +135,17 @@ public class ActionGateRejectedHandler {
               List.of(),
               null,
               null);
-      outcomeRecorder
-          .get()
-          .record(ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_REJECTED, null)
-          .subscribe()
-          .with(
-              ignored -> {},
-              err ->
-                  LOG.warnf(
-                      err,
-                      "Outcome recording failed for gate-rejected caseId=%s worker=%s",
-                      instance.getUuid(),
-                      gate.workerId()));
+      try {
+        outcomeRecorder
+            .get()
+            .record(ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_REJECTED, null);
+      } catch (Exception err) {
+        LOG.warnf(
+            err,
+            "Outcome recording failed for gate-rejected caseId=%s worker=%s",
+            instance.getUuid(),
+            gate.workerId());
+      }
     }
 
     // Fire CONTEXT_CHANGED immediately — gate is already cleared and signal written
@@ -164,27 +162,20 @@ public class ActionGateRejectedHandler {
         new ActionGateWorkerFaultedEvent(
             instance.getUuid(), instance.tenancyId, gate.workerId(), gate.idempotency()));
 
-    // EventLog write is best-effort and fire-and-forget — failures are logged, not propagated
-    writeResolutionEventLog(instance, gate)
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.warnf(
-                    t,
-                    "ACTION_GATE_REJECTED EventLog write failed: caseId=%s gateId=%d — gate"
-                        + " resolution still applied",
-                    instance.getUuid(),
-                    gate.gateId()))
-        .onFailure()
-        .recoverWithNull()
-        .subscribe()
-        .asCompletionStage();
-
-    return Uni.createFrom().voidItem();
+    // EventLog write is best-effort — failures are logged, not propagated
+    try {
+      writeResolutionEventLog(instance, gate);
+    } catch (Exception t) {
+      LOG.warnf(
+          t,
+          "ACTION_GATE_REJECTED EventLog write failed: caseId=%s gateId=%d — gate"
+              + " resolution still applied",
+          instance.getUuid(),
+          gate.gateId());
+    }
   }
 
-  private Uni<Void> writeResolutionEventLog(
-      final CaseInstance instance, final PendingActionGate gate) {
+  private void writeResolutionEventLog(final CaseInstance instance, final PendingActionGate gate) {
     final EventLog log = new EventLog();
     log.setCaseId(instance.getUuid());
     log.setWorkerId(gate.workerId());
@@ -192,7 +183,6 @@ public class ActionGateRejectedHandler {
     log.setTimestamp(Instant.now());
     log.setEventType(CaseHubEventType.ACTION_GATE_REJECTED);
     eventLogRepository.append(log, instance.tenancyId);
-    return Uni.createFrom().voidItem();
   }
 
   private static boolean isTerminal(final CaseStatus state) {

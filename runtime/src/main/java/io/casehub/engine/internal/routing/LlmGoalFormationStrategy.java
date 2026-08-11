@@ -27,7 +27,6 @@ import io.casehub.api.spi.routing.GoalFormationStrategy;
 import io.casehub.eidos.api.AgentGoal;
 import io.casehub.eidos.api.GoalPriority;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -55,43 +54,35 @@ public class LlmGoalFormationStrategy implements GoalFormationStrategy {
   }
 
   @Override
-  public Uni<GoalFormationProposal> propose(GoalFormationContext context) {
+  public GoalFormationProposal propose(GoalFormationContext context) {
     if (chatModelProviders.isUnsatisfied()) {
-      return Uni.createFrom()
-          .failure(
-              new UnsupportedOperationException(
-                  "No ChatModelProvider available for goal formation"));
+      throw new UnsupportedOperationException("No ChatModelProvider available for goal formation");
     }
 
-    return Uni.createFrom()
-        .item(
-            () -> {
-              String userPrompt = buildPrompt(context);
-              Agent agent =
-                  Agent.builder()
-                      .systemPrompt(
-                          "You are a goal discovery analyst. Given an agent's recent reflection "
-                              + "insights, its current goals, and relevant memories, identify new goals "
-                              + "the agent should pursue. Only propose goals that represent genuinely new "
-                              + "objectives — not refinements of existing goals. Each goal must be "
-                              + "specific, actionable, and distinct from existing goals. "
-                              + "Respond with JSON only.")
-                      .model(chatModelProviders.get().get())
-                      .build();
+    String userPrompt = buildPrompt(context);
+    Agent agent =
+        Agent.builder()
+            .systemPrompt(
+                "You are a goal discovery analyst. Given an agent's recent reflection "
+                    + "insights, its current goals, and relevant memories, identify new goals "
+                    + "the agent should pursue. Only propose goals that represent genuinely new "
+                    + "objectives — not refinements of existing goals. Each goal must be "
+                    + "specific, actionable, and distinct from existing goals. "
+                    + "Respond with JSON only.")
+            .model(chatModelProviders.get().get())
+            .build();
 
-              WorkerResult result = agent.execute(Map.of("prompt", userPrompt));
-              Object output = result.output();
+    WorkerResult result = agent.execute(Map.of("prompt", userPrompt));
+    Object output = result.output();
 
-              String outputStr;
-              try {
-                outputStr =
-                    output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
-              } catch (Exception e) {
-                throw new AgentException("Failed to serialize LLM response", e);
-              }
+    String outputStr;
+    try {
+      outputStr = output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
+    } catch (Exception e) {
+      throw new AgentException("Failed to serialize LLM response", e);
+    }
 
-              return parseResponse(outputStr);
-            });
+    return parseResponse(outputStr);
   }
 
   private String buildPrompt(GoalFormationContext context) {

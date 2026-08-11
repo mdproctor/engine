@@ -18,6 +18,7 @@ package io.casehub.engine.internal.engine.handler;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -36,7 +37,6 @@ import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Event;
 import java.lang.reflect.Field;
@@ -122,8 +122,7 @@ class MilestoneActivatedEventHandlerTest {
     Instant futureDeadline = Instant.now().plus(Duration.ofHours(2));
 
     setMilestoneActive(caseInstance, "review-complete");
-    when(scheduler.schedule(any(ScheduledJobRequest.Builder.class)))
-        .thenReturn(Uni.createFrom().voidItem());
+    doNothing().when(scheduler).schedule(any(ScheduledJobRequest.Builder.class));
 
     MilestoneActivatedEvent event =
         new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, futureDeadline);

@@ -88,12 +88,7 @@ class CbrConfigRegistrationValidationTest {
 
     logRecords.clear(); // Clear any startup logs
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     String formattedMessage =
         logRecords.isEmpty()
@@ -126,12 +121,7 @@ class CbrConfigRegistrationValidationTest {
 
     logRecords.clear(); // Clear any startup logs
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     String formattedMessage =
         logRecords.isEmpty()
@@ -162,12 +152,7 @@ class CbrConfigRegistrationValidationTest {
             .cbrConfig(cbrConfig)
             .build();
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     assertThat(logRecords).noneMatch(r -> r.getMessage().contains("CbrConfig"));
   }
@@ -191,12 +176,7 @@ class CbrConfigRegistrationValidationTest {
             .episodicMemory("test-domain", ".entityId")
             .build();
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     assertThat(logRecords).noneMatch(r -> r.getMessage().contains("CbrConfig"));
   }

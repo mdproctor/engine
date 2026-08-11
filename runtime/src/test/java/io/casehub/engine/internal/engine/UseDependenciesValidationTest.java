@@ -16,14 +16,15 @@
 package io.casehub.engine.internal.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.Use;
+import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.quarkus.test.junit.QuarkusTest;
 import io.quarkus.test.junit.QuarkusTestProfile;
 import io.quarkus.test.junit.TestProfile;
-import io.smallrye.mutiny.helpers.test.UniAssertSubscriber;
 import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.Set;
@@ -59,14 +60,7 @@ class UseDependenciesValidationTest {
     definition.setUse(use);
 
     // Should fail with clear error message
-    UniAssertSubscriber<Object> subscriber =
-        registry
-            .registerCaseDefinition(definition)
-            .subscribe()
-            .withSubscriber(UniAssertSubscriber.create());
-
-    subscriber.awaitFailure();
-    assertThat(subscriber.getFailure())
+    assertThatThrownBy(() -> registry.registerCaseDefinition(definition))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("Secret 'nonexistent-secret' declared in use.secrets not found");
   }
@@ -80,14 +74,7 @@ class UseDependenciesValidationTest {
     definition.setUse(use);
 
     // Should fail with clear error message
-    UniAssertSubscriber<Object> subscriber =
-        registry
-            .registerCaseDefinition(definition)
-            .subscribe()
-            .withSubscriber(UniAssertSubscriber.create());
-
-    subscriber.awaitFailure();
-    assertThat(subscriber.getFailure())
+    assertThatThrownBy(() -> registry.registerCaseDefinition(definition))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("ConfigMap 'nonexistent-config' declared in use.configMaps not found")
         .hasMessageContaining("ConfigMap not found: nonexistent-config");
@@ -103,14 +90,8 @@ class UseDependenciesValidationTest {
     definition.setUse(use);
 
     // Should succeed
-    UniAssertSubscriber<Object> subscriber =
-        registry
-            .registerCaseDefinition(definition)
-            .subscribe()
-            .withSubscriber(UniAssertSubscriber.create());
-
-    subscriber.awaitItem();
-    assertThat(subscriber.getItem()).isNotNull();
+    CaseMetaModel result = registry.registerCaseDefinition(definition);
+    assertThat(result).isNotNull();
   }
 
   @Test
@@ -119,14 +100,8 @@ class UseDependenciesValidationTest {
     // No use section - should be fine
 
     // Should succeed
-    UniAssertSubscriber<Object> subscriber =
-        registry
-            .registerCaseDefinition(definition)
-            .subscribe()
-            .withSubscriber(UniAssertSubscriber.create());
-
-    subscriber.awaitItem();
-    assertThat(subscriber.getItem()).isNotNull();
+    CaseMetaModel result = registry.registerCaseDefinition(definition);
+    assertThat(result).isNotNull();
   }
 
   @Test
@@ -138,13 +113,7 @@ class UseDependenciesValidationTest {
     definition.setUse(use);
 
     // Should succeed
-    UniAssertSubscriber<Object> subscriber =
-        registry
-            .registerCaseDefinition(definition)
-            .subscribe()
-            .withSubscriber(UniAssertSubscriber.create());
-
-    subscriber.awaitItem();
-    assertThat(subscriber.getItem()).isNotNull();
+    CaseMetaModel result = registry.registerCaseDefinition(definition);
+    assertThat(result).isNotNull();
   }
 }

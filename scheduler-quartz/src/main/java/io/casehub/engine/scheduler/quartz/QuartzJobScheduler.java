@@ -27,8 +27,6 @@ import io.casehub.engine.common.internal.scheduler.ScheduleStrategy.DelaySchedul
 import io.casehub.engine.common.internal.scheduler.ScheduleStrategy.FixedAtSchedule;
 import io.casehub.engine.common.internal.scheduler.ScheduledJobRequest;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.unchecked.Unchecked;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
@@ -60,31 +58,20 @@ public class QuartzJobScheduler implements JobScheduler {
   @Inject Scheduler quartz;
 
   @Override
-  public Uni<Void> schedule(ScheduledJobRequest request) {
-    return Uni.createFrom()
-        .item(
-            Unchecked.supplier(
-                () -> {
-                  // Resolve jobClass if not set - check triggerType in data
-                  ScheduledJobRequest resolvedRequest = resolveJobClass(request);
+  public void schedule(
+      ScheduledJobRequest request) { // Resolve jobClass if not set - check triggerType in data
+    ScheduledJobRequest resolvedRequest = resolveJobClass(request);
 
-                  JobKey jobKey = toQuartzJobKey(resolvedRequest.getJobId());
-                  JobDetail job = toQuartzJob(resolvedRequest, jobKey);
-                  Trigger trigger = toQuartzTrigger(resolvedRequest, jobKey);
+    JobKey jobKey = toQuartzJobKey(resolvedRequest.getJobId());
+    JobDetail job = toQuartzJob(resolvedRequest, jobKey);
+    Trigger trigger = toQuartzTrigger(resolvedRequest, jobKey);
 
-                  try {
-                    scheduleOrReplaceJob(job, trigger);
-                    LOG.debugf(
-                        "Scheduled job: %s with schedule: %s",
-                        jobKey, resolvedRequest.getSchedule());
-                  } catch (SchedulerException e) {
-                    throw new RuntimeException(
-                        "Failed to schedule job: " + resolvedRequest.getJobId(), e);
-                  }
-
-                  return null;
-                }))
-        .replaceWithVoid();
+    try {
+      scheduleOrReplaceJob(job, trigger);
+      LOG.debugf("Scheduled job: %s with schedule: %s", jobKey, resolvedRequest.getSchedule());
+    } catch (SchedulerException e) {
+      throw new RuntimeException("Failed to schedule job: " + resolvedRequest.getJobId(), e);
+    }
   }
 
   private void scheduleOrReplaceJob(JobDetail job, Trigger trigger) throws SchedulerException {
@@ -108,9 +95,9 @@ public class QuartzJobScheduler implements JobScheduler {
   }
 
   @Override
-  public Uni<Void> schedule(ScheduledJobRequest.Builder builder) {
+  public void schedule(ScheduledJobRequest.Builder builder) {
     // Build request without jobClass - let resolveJobClass determine it based on data
-    return schedule(builder.build());
+    schedule(builder.build());
   }
 
   /**
@@ -156,65 +143,50 @@ public class QuartzJobScheduler implements JobScheduler {
   }
 
   @Override
-  public Uni<Boolean> cancel(JobIdentifier jobId) {
-    return Uni.createFrom()
-        .item(
-            Unchecked.supplier(
-                () -> {
-                  try {
-                    JobKey jobKey = toQuartzJobKey(jobId);
-                    boolean deleted = quartz.deleteJob(jobKey);
+  public boolean cancel(JobIdentifier jobId) {
+    try {
+      JobKey jobKey = toQuartzJobKey(jobId);
+      boolean deleted = quartz.deleteJob(jobKey);
 
-                    if (deleted) {
-                      LOG.debugf("Cancelled job: %s", jobId);
-                    } else {
-                      LOG.debugf("Job not found for cancellation: %s", jobId);
-                    }
+      if (deleted) {
+        LOG.debugf("Cancelled job: %s", jobId);
+      } else {
+        LOG.debugf("Job not found for cancellation: %s", jobId);
+      }
 
-                    return deleted;
-                  } catch (SchedulerException e) {
-                    throw new RuntimeException("Failed to cancel job: " + jobId, e);
-                  }
-                }));
+      return deleted;
+    } catch (SchedulerException e) {
+      throw new RuntimeException("Failed to cancel job: " + jobId, e);
+    }
   }
 
   @Override
-  public Uni<Integer> cancelGroup(String groupName) {
-    return Uni.createFrom()
-        .item(
-            Unchecked.supplier(
-                () -> {
-                  try {
-                    GroupMatcher<JobKey> matcher = GroupMatcher.jobGroupEquals(groupName);
-                    Set<JobKey> jobKeys = quartz.getJobKeys(matcher);
+  public int cancelGroup(String groupName) {
+    try {
+      GroupMatcher<JobKey> matcher = GroupMatcher.jobGroupEquals(groupName);
+      Set<JobKey> jobKeys = quartz.getJobKeys(matcher);
 
-                    if (!jobKeys.isEmpty()) {
-                      quartz.deleteJobs(new ArrayList<>(jobKeys));
-                      LOG.debugf("Cancelled %d jobs in group: %s", jobKeys.size(), groupName);
-                    } else {
-                      LOG.debugf("No jobs found in group: %s", groupName);
-                    }
+      if (!jobKeys.isEmpty()) {
+        quartz.deleteJobs(new ArrayList<>(jobKeys));
+        LOG.debugf("Cancelled %d jobs in group: %s", jobKeys.size(), groupName);
+      } else {
+        LOG.debugf("No jobs found in group: %s", groupName);
+      }
 
-                    return jobKeys.size();
-                  } catch (SchedulerException e) {
-                    throw new RuntimeException("Failed to cancel group: " + groupName, e);
-                  }
-                }));
+      return jobKeys.size();
+    } catch (SchedulerException e) {
+      throw new RuntimeException("Failed to cancel group: " + groupName, e);
+    }
   }
 
   @Override
-  public Uni<Boolean> exists(JobIdentifier jobId) {
-    return Uni.createFrom()
-        .item(
-            Unchecked.supplier(
-                () -> {
-                  try {
-                    JobKey jobKey = toQuartzJobKey(jobId);
-                    return quartz.checkExists(jobKey);
-                  } catch (SchedulerException e) {
-                    throw new RuntimeException("Failed to check job existence: " + jobId, e);
-                  }
-                }));
+  public boolean exists(JobIdentifier jobId) {
+    try {
+      JobKey jobKey = toQuartzJobKey(jobId);
+      return quartz.checkExists(jobKey);
+    } catch (SchedulerException e) {
+      throw new RuntimeException("Failed to check job existence: " + jobId, e);
+    }
   }
 
   private JobKey toQuartzJobKey(JobIdentifier jobId) {

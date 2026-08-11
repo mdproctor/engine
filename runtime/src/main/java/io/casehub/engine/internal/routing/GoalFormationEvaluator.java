@@ -183,8 +183,7 @@ public class GoalFormationEvaluator {
       GoalFormationContext context =
           new GoalFormationContext(
               agentId, tenancyId, insights, descriptor.goals(), memories, remaining, definition);
-      GoalFormationProposal proposal =
-          strategy.propose(context).await().atMost(Duration.ofSeconds(30));
+      GoalFormationProposal proposal = strategy.propose(context);
       if (proposal == null || proposal.goals().isEmpty()) {
         return;
       }

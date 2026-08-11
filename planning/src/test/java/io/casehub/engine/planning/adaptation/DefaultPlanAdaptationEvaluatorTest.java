@@ -49,7 +49,6 @@ import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.platform.api.routing.StrategyResolver;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.Optional;
@@ -181,7 +180,7 @@ class DefaultPlanAdaptationEvaluatorTest {
                 new PlanStepDescriptor("new-1", "deep analyse", "cap-c"),
                 new PlanStepDescriptor("new-2", "report", "cap-d")),
             "context changed");
-    when(revision.revise(any())).thenReturn(Uni.createFrom().item(revisedPlan));
+    when(revision.revise(any())).thenReturn(revisedPlan);
     when(strategyResolver.resolve(PlanRevisionStrategy.class, "forward-replan"))
         .thenReturn(revision);
 
@@ -259,10 +258,8 @@ class DefaultPlanAdaptationEvaluatorTest {
         .thenAnswer(
             inv -> {
               adaptationCount.incrementAndGet();
-              return Uni.createFrom()
-                  .item(
-                      new RevisedPlan(
-                          List.of(new PlanStepDescriptor("new-1", "step", "cap-d")), "reason"));
+              return new RevisedPlan(
+                  List.of(new PlanStepDescriptor("new-1", "step", "cap-d")), "reason");
             });
     when(strategyResolver.resolve(PlanRevisionStrategy.class, "forward-replan"))
         .thenReturn(revision);
@@ -287,8 +284,7 @@ class DefaultPlanAdaptationEvaluatorTest {
     when(strategyResolver.resolve(AdaptationTrigger.class, "every-step")).thenReturn(trigger);
 
     var revision = mock(PlanRevisionStrategy.class);
-    when(revision.revise(any()))
-        .thenReturn(Uni.createFrom().failure(new RuntimeException("LLM timeout")));
+    when(revision.revise(any())).thenThrow(new RuntimeException("LLM timeout"));
     when(strategyResolver.resolve(PlanRevisionStrategy.class, "forward-replan"))
         .thenReturn(revision);
 
@@ -331,9 +327,7 @@ class DefaultPlanAdaptationEvaluatorTest {
     var revisionCaptor = ArgumentCaptor.forClass(RevisionContext.class);
     var revision = mock(PlanRevisionStrategy.class);
     when(revision.revise(revisionCaptor.capture()))
-        .thenReturn(
-            Uni.createFrom()
-                .item(new RevisedPlan(List.of(new PlanStepDescriptor("n1", "s", "cap-d")), null)));
+        .thenReturn(new RevisedPlan(List.of(new PlanStepDescriptor("n1", "s", "cap-d")), null));
     when(strategyResolver.resolve(PlanRevisionStrategy.class, "forward-replan"))
         .thenReturn(revision);
 
@@ -357,9 +351,7 @@ class DefaultPlanAdaptationEvaluatorTest {
     var revisionCaptor = ArgumentCaptor.forClass(RevisionContext.class);
     var revision = mock(PlanRevisionStrategy.class);
     when(revision.revise(revisionCaptor.capture()))
-        .thenReturn(
-            Uni.createFrom()
-                .item(new RevisedPlan(List.of(new PlanStepDescriptor("n1", "s", "cap-d")), null)));
+        .thenReturn(new RevisedPlan(List.of(new PlanStepDescriptor("n1", "s", "cap-d")), null));
     when(strategyResolver.resolve(PlanRevisionStrategy.class, "forward-replan"))
         .thenReturn(revision);
 
@@ -470,8 +462,7 @@ class DefaultPlanAdaptationEvaluatorTest {
     when(strategyResolver.resolve(AdaptationTrigger.class, "every-step")).thenReturn(trigger);
 
     var revision = mock(PlanRevisionStrategy.class);
-    when(revision.revise(any()))
-        .thenReturn(Uni.createFrom().item(new RevisedPlan(newSteps, "revised")));
+    when(revision.revise(any())).thenReturn(new RevisedPlan(newSteps, "revised"));
     when(strategyResolver.resolve(PlanRevisionStrategy.class, "forward-replan"))
         .thenReturn(revision);
   }

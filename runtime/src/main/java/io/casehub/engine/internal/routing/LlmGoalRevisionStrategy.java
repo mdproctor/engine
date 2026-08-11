@@ -26,7 +26,6 @@ import io.casehub.api.spi.routing.GoalRevisionStrategy;
 import io.casehub.eidos.api.AgentGoal;
 import io.casehub.eidos.api.GoalOutcomeCounts;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -54,41 +53,33 @@ public class LlmGoalRevisionStrategy implements GoalRevisionStrategy {
   }
 
   @Override
-  public Uni<GoalRevisionProposal> revise(GoalRevisionContext context) {
+  public GoalRevisionProposal revise(GoalRevisionContext context) {
     if (chatModelProviders.isUnsatisfied()) {
-      return Uni.createFrom()
-          .failure(
-              new UnsupportedOperationException(
-                  "No ChatModelProvider available for goal revision"));
+      throw new UnsupportedOperationException("No ChatModelProvider available for goal revision");
     }
 
-    return Uni.createFrom()
-        .item(
-            () -> {
-              String userPrompt = buildPrompt(context);
-              Agent agent =
-                  Agent.builder()
-                      .systemPrompt(
-                          "You are a goal effectiveness analyst. Given an agent's goals and their "
-                              + "performance metrics, evaluate whether any goal descriptions should be refined to "
-                              + "better capture what the agent accomplishes. Only propose changes when a description "
-                              + "is meaningfully misaligned with observed outcomes. Respond with JSON only.")
-                      .model(chatModelProviders.get().get())
-                      .build();
+    String userPrompt = buildPrompt(context);
+    Agent agent =
+        Agent.builder()
+            .systemPrompt(
+                "You are a goal effectiveness analyst. Given an agent's goals and their "
+                    + "performance metrics, evaluate whether any goal descriptions should be refined to "
+                    + "better capture what the agent accomplishes. Only propose changes when a description "
+                    + "is meaningfully misaligned with observed outcomes. Respond with JSON only.")
+            .model(chatModelProviders.get().get())
+            .build();
 
-              WorkerResult result = agent.execute(Map.of("prompt", userPrompt));
-              Object output = result.output();
+    WorkerResult result = agent.execute(Map.of("prompt", userPrompt));
+    Object output = result.output();
 
-              String outputStr;
-              try {
-                outputStr =
-                    output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
-              } catch (Exception e) {
-                throw new AgentException("Failed to serialize LLM response", e);
-              }
+    String outputStr;
+    try {
+      outputStr = output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
+    } catch (Exception e) {
+      throw new AgentException("Failed to serialize LLM response", e);
+    }
 
-              return parseResponse(outputStr);
-            });
+    return parseResponse(outputStr);
   }
 
   private String buildPrompt(GoalRevisionContext context) {

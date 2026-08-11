@@ -166,7 +166,7 @@ public class MilestoneCompletedEventHandler {
     JobIdentifier jobId =
         JobIdentifier.of("milestone-" + milestone.getName(), "case-" + caseInstance.getUuid());
 
-    boolean deleted = scheduler.cancel(jobId).await().indefinitely();
+    boolean deleted = scheduler.cancel(jobId);
     if (deleted) {
       LOG.infof(
           "Cancelled SLA timeout job for case=%s milestone=%s",

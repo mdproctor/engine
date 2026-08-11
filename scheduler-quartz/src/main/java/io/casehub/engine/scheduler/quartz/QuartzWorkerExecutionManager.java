@@ -37,7 +37,6 @@ import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -230,7 +229,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
    * @param worker worker to execute
    * @return Uni that completes when scheduled
    */
-  public Uni<Void> scheduleScheduledTrigger(
+  public void scheduleScheduledTrigger(
       UUID caseId, Binding binding, ScheduleTrigger trigger, Worker worker) {
     try {
       JobKey jobKey = createTriggerJobKey(caseId, binding.getName());
@@ -241,9 +240,8 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
       LOG.infof(
           "Scheduled unconditional trigger: case=%s, binding=%s, trigger=%s",
           caseId, binding.getName(), trigger);
-      return Uni.createFrom().voidItem();
     } catch (SchedulerException e) {
-      return Uni.createFrom().failure(e);
+      throw new RuntimeException("Failed to schedule scheduled trigger", e);
     }
   }
 
@@ -258,7 +256,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
    * @param worker worker to execute
    * @return Uni that completes when scheduled
    */
-  public Uni<Void> scheduleConditionalTrigger(
+  public void scheduleConditionalTrigger(
       UUID caseId, Binding binding, ScheduleTrigger trigger, Worker worker) {
     try {
       JobKey jobKey = createTriggerJobKey(caseId, binding.getName());
@@ -269,9 +267,8 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
       LOG.infof(
           "Scheduled conditional trigger: case=%s, binding=%s, trigger=%s",
           caseId, binding.getName(), trigger);
-      return Uni.createFrom().voidItem();
     } catch (SchedulerException e) {
-      return Uni.createFrom().failure(e);
+      throw new RuntimeException("Failed to schedule conditional trigger", e);
     }
   }
 
@@ -284,7 +281,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
    * @param bindingName binding name
    * @return Uni with true if trigger was deleted
    */
-  public Uni<Boolean> cancelScheduledTrigger(UUID caseId, String bindingName) {
+  public boolean cancelScheduledTrigger(UUID caseId, String bindingName) {
     try {
       JobKey jobKey = createTriggerJobKey(caseId, bindingName);
       boolean deleted = scheduler.deleteJob(jobKey);
@@ -293,9 +290,9 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
       } else {
         LOG.debugf("No trigger found to cancel: case=%s, binding=%s", caseId, bindingName);
       }
-      return Uni.createFrom().item(deleted);
+      return deleted;
     } catch (SchedulerException e) {
-      return Uni.createFrom().failure(e);
+      throw new RuntimeException("Failed to cancel scheduled trigger", e);
     }
   }
 
@@ -307,7 +304,7 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
    * @param caseId case UUID
    * @return Uni with count of cancelled triggers
    */
-  public Uni<Integer> cancelAllScheduledTriggers(UUID caseId) {
+  public int cancelAllScheduledTriggers(UUID caseId) {
     try {
       String groupName = "case-" + caseId;
       Set<JobKey> jobKeys = scheduler.getJobKeys(GroupMatcher.groupEquals(groupName));
@@ -322,9 +319,9 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
       } else {
         LOG.debugf("No scheduled triggers to cancel for case %s", caseId);
       }
-      return Uni.createFrom().item(count);
+      return count;
     } catch (SchedulerException e) {
-      return Uni.createFrom().failure(e);
+      throw new RuntimeException("Failed to cancel all scheduled triggers", e);
     }
   }
 

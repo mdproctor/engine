@@ -53,7 +53,6 @@ import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -249,7 +248,7 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
 
     RevisedPlan revisedPlan;
     try {
-      revisedPlan = revision.revise(revisionContext).await().atMost(Duration.ofMillis(timeoutMs));
+      revisedPlan = revision.revise(revisionContext);
     } catch (Exception e) {
       LOG.warnf(
           e,

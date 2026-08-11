@@ -19,7 +19,6 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Set;
@@ -47,10 +46,9 @@ public class CbrCacheEvictionHandler {
   }
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
-  public Uni<Void> onCaseStatusChanged(CaseStatusChanged event) {
+  public void onCaseStatusChanged(CaseStatusChanged event) {
     if (TERMINAL_STATUSES.contains(event.newStatus())) {
       cbrRetrievalService.evict(event.instance().getUuid());
     }
-    return Uni.createFrom().voidItem();
   }
 }

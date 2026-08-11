@@ -108,7 +108,7 @@ class ForwardReplanRevisionTest {
             java.util.List.of(new io.casehub.worker.api.Capability("analysis", "", "", null)),
             java.util.List.of());
 
-    revision.revise(context).await().indefinitely();
+    revision.revise(context);
 
     org.assertj.core.api.Assertions.assertThat(capturedPrompt.get())
         .contains("30 minutes")

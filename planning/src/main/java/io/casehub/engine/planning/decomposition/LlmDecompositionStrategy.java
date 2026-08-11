@@ -27,7 +27,6 @@ import io.casehub.engine.plan.DecompositionStrategy;
 import io.casehub.engine.plan.JoinType;
 import io.casehub.engine.plan.TaskNode;
 import io.casehub.worker.api.Capability;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -73,88 +72,78 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
   }
 
   @Override
-  public Uni<DagPlan<TaskNode.LeafTask<JsonNode>>> decompose(
+  public DagPlan<TaskNode.LeafTask<JsonNode>> decompose(
       TaskNode<JsonNode> task, DecompositionContext<JsonNode> context) {
 
     if (chatModelProviders.isUnsatisfied()) {
-      return Uni.createFrom()
-          .failure(
-              new UnsupportedOperationException(
-                  "No ChatModelProvider available for LLM decomposition"));
+      throw new UnsupportedOperationException(
+          "No ChatModelProvider available for LLM decomposition");
     }
 
-    return Uni.createFrom()
-        .item(
-            () -> {
-              var capabilities =
-                  (context instanceof GoalDecompositionContext gdc)
-                      ? gdc.availableCapabilities()
-                      : List.<Capability>of();
+    {
+      var capabilities =
+          (context instanceof GoalDecompositionContext gdc)
+              ? gdc.availableCapabilities()
+              : List.<Capability>of();
 
-              var goalName =
-                  (task instanceof TaskNode.CompoundTask<JsonNode> ct) ? ct.name() : "unknown";
+      var goalName = (task instanceof TaskNode.CompoundTask<JsonNode> ct) ? ct.name() : "unknown";
 
-              var capList =
-                  capabilities.stream()
-                      .map(c -> c.name() + (c.description() != null ? " — " + c.description() : ""))
-                      .collect(Collectors.joining("\n  - ", "Available capabilities:\n  - ", ""));
+      var capList =
+          capabilities.stream()
+              .map(c -> c.name() + (c.description() != null ? " — " + c.description() : ""))
+              .collect(Collectors.joining("\n  - ", "Available capabilities:\n  - ", ""));
 
-              var contextStr = context.state().toString();
-              if (contextStr.length() > 2000) {
-                contextStr = contextStr.substring(0, 2000) + "...";
-              }
+      var contextStr = context.state().toString();
+      if (contextStr.length() > 2000) {
+        contextStr = contextStr.substring(0, 2000) + "...";
+      }
 
-              var userPrompt =
-                  "Goal: " + goalName + "\n\n" + capList + "\n\nContext:\n" + contextStr;
+      var userPrompt = "Goal: " + goalName + "\n\n" + capList + "\n\nContext:\n" + contextStr;
 
-              var constraintText = buildConstraintText(context.constraints());
-              if (!constraintText.isEmpty()) {
-                userPrompt = userPrompt + "\n\n" + constraintText;
-              }
+      var constraintText = buildConstraintText(context.constraints());
+      if (!constraintText.isEmpty()) {
+        userPrompt = userPrompt + "\n\n" + constraintText;
+      }
 
-              var agent =
-                  Agent.builder()
-                      .systemPrompt(SYSTEM_PROMPT)
-                      .model(chatModelProviders.get().get())
-                      .build();
+      var agent =
+          Agent.builder().systemPrompt(SYSTEM_PROMPT).model(chatModelProviders.get().get()).build();
 
-              var result = agent.execute(Map.of("prompt", userPrompt));
-              var output = result.output();
+      var result = agent.execute(Map.of("prompt", userPrompt));
+      var output = result.output();
 
-              JsonNode responseJson;
-              try {
-                var outputStr =
-                    output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
-                responseJson = MAPPER.readTree(outputStr);
-              } catch (Exception e) {
-                throw new AgentException("Failed to parse LLM decomposition response", e);
-              }
+      JsonNode responseJson;
+      try {
+        var outputStr =
+            output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
+        responseJson = MAPPER.readTree(outputStr);
+      } catch (Exception e) {
+        throw new AgentException("Failed to parse LLM decomposition response", e);
+      }
 
-              var stepsNode = responseJson.get("steps");
-              if (stepsNode == null || !stepsNode.isArray() || stepsNode.isEmpty()) {
-                throw new AgentException(
-                    "LLM decomposition returned no steps for goal: " + goalName);
-              }
+      var stepsNode = responseJson.get("steps");
+      if (stepsNode == null || !stepsNode.isArray() || stepsNode.isEmpty()) {
+        throw new AgentException("LLM decomposition returned no steps for goal: " + goalName);
+      }
 
-              var nodes = new ArrayList<DagNode<TaskNode.LeafTask<JsonNode>>>();
-              for (var stepNode : stepsNode) {
-                var stepId =
-                    stepNode.has("id") ? stepNode.get("id").asText() : UUID.randomUUID().toString();
-                var desc = stepNode.get("description").asText();
-                var capName = stepNode.get("capabilityName").asText();
-                var dependsOn = new HashSet<String>();
-                if (stepNode.has("dependsOn") && stepNode.get("dependsOn").isArray()) {
-                  for (var dep : stepNode.get("dependsOn")) {
-                    dependsOn.add(dep.asText());
-                  }
-                }
+      var nodes = new ArrayList<DagNode<TaskNode.LeafTask<JsonNode>>>();
+      for (var stepNode : stepsNode) {
+        var stepId =
+            stepNode.has("id") ? stepNode.get("id").asText() : UUID.randomUUID().toString();
+        var desc = stepNode.get("description").asText();
+        var capName = stepNode.get("capabilityName").asText();
+        var dependsOn = new HashSet<String>();
+        if (stepNode.has("dependsOn") && stepNode.get("dependsOn").isArray()) {
+          for (var dep : stepNode.get("dependsOn")) {
+            dependsOn.add(dep.asText());
+          }
+        }
 
-                var goalStep = new GoalStep(UUID.randomUUID(), desc, capName, Instant.now());
-                nodes.add(new DagNode<>(stepId, goalStep, dependsOn, JoinType.ALL_OF));
-              }
+        var goalStep = new GoalStep(UUID.randomUUID(), desc, capName, Instant.now());
+        nodes.add(new DagNode<>(stepId, goalStep, dependsOn, JoinType.ALL_OF));
+      }
 
-              return DagPlan.fromNodes(nodes);
-            });
+      return DagPlan.fromNodes(nodes);
+    }
   }
 
   private String buildConstraintText(io.casehub.engine.plan.PlanningConstraints constraints) {
@@ -194,77 +183,71 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
   }
 
   @Override
-  public Uni<DagPlan<TaskNode.LeafTask<JsonNode>>> replan(
+  public DagPlan<TaskNode.LeafTask<JsonNode>> replan(
       TaskNode<JsonNode> task,
       DecompositionContext<JsonNode> context,
       io.casehub.engine.plan.ReplanContext<JsonNode> replanContext) {
 
     if (chatModelProviders.isUnsatisfied()) {
-      return Uni.createFrom()
-          .failure(
-              new UnsupportedOperationException(
-                  "No ChatModelProvider available for LLM re-planning"));
+      throw new UnsupportedOperationException("No ChatModelProvider available for LLM re-planning");
     }
 
-    return Uni.createFrom()
-        .item(
-            () -> {
-              var capabilities =
-                  (context instanceof GoalDecompositionContext gdc)
-                      ? gdc.availableCapabilities()
-                      : List.<Capability>of();
+    {
+      var capabilities =
+          (context instanceof GoalDecompositionContext gdc)
+              ? gdc.availableCapabilities()
+              : List.<Capability>of();
 
-              var goalName =
-                  (task instanceof TaskNode.CompoundTask<JsonNode> ct) ? ct.name() : "unknown";
+      var goalName = (task instanceof TaskNode.CompoundTask<JsonNode> ct) ? ct.name() : "unknown";
 
-              var userPrompt = buildReplanPrompt(goalName, capabilities, context, replanContext);
+      var userPrompt = buildReplanPrompt(goalName, capabilities, context, replanContext);
 
-              var constraintText = buildConstraintText(context.constraints());
-              if (!constraintText.isEmpty()) {
-                userPrompt = userPrompt + "\n\n" + constraintText;
-              }
+      var constraintText = buildConstraintText(context.constraints());
+      if (!constraintText.isEmpty()) {
+        userPrompt = userPrompt + "\n\n" + constraintText;
+      }
 
-              var agent =
-                  Agent.builder()
-                      .systemPrompt(REPLAN_SYSTEM_PROMPT)
-                      .model(chatModelProviders.get().get())
-                      .build();
+      var agent =
+          Agent.builder()
+              .systemPrompt(REPLAN_SYSTEM_PROMPT)
+              .model(chatModelProviders.get().get())
+              .build();
 
-              var result = agent.execute(Map.of("prompt", userPrompt));
-              var output = result.output();
+      var result = agent.execute(Map.of("prompt", userPrompt));
+      var output = result.output();
 
-              JsonNode responseJson;
-              try {
-                var outputStr =
-                    output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
-                responseJson = MAPPER.readTree(outputStr);
-              } catch (Exception e) {
-                throw new AgentException("Failed to parse LLM replan response", e);
-              }
+      JsonNode responseJson;
+      try {
+        var outputStr =
+            output instanceof Map ? MAPPER.writeValueAsString(output) : output.toString();
+        responseJson = MAPPER.readTree(outputStr);
+      } catch (Exception e) {
+        throw new AgentException("Failed to parse LLM replan response", e);
+      }
 
-              var stepsNode = responseJson.get("steps");
-              if (stepsNode == null || !stepsNode.isArray() || stepsNode.isEmpty()) {
-                throw new AgentException("LLM replan returned no steps for goal: " + goalName);
-              }
+      var stepsNode = responseJson.get("steps");
+      if (stepsNode == null || !stepsNode.isArray() || stepsNode.isEmpty()) {
+        throw new AgentException("LLM replan returned no steps for goal: " + goalName);
+      }
 
-              var nodes = new ArrayList<DagNode<TaskNode.LeafTask<JsonNode>>>();
-              for (var stepNode : stepsNode) {
-                var stepId =
-                    stepNode.has("id") ? stepNode.get("id").asText() : UUID.randomUUID().toString();
-                var desc = stepNode.get("description").asText();
-                var capName = stepNode.get("capabilityName").asText();
-                var dependsOn = new HashSet<String>();
-                if (stepNode.has("dependsOn") && stepNode.get("dependsOn").isArray()) {
-                  for (var dep : stepNode.get("dependsOn")) {
-                    dependsOn.add(dep.asText());
-                  }
-                }
-                var goalStep = new GoalStep(UUID.randomUUID(), desc, capName, Instant.now());
-                nodes.add(new DagNode<>(stepId, goalStep, dependsOn, JoinType.ALL_OF));
-              }
+      var nodes = new ArrayList<DagNode<TaskNode.LeafTask<JsonNode>>>();
+      for (var stepNode : stepsNode) {
+        var stepId =
+            stepNode.has("id") ? stepNode.get("id").asText() : UUID.randomUUID().toString();
+        var desc = stepNode.get("description").asText();
+        var capName = stepNode.get("capabilityName").asText();
+        var dependsOn = new HashSet<String>();
+        if (stepNode.has("dependsOn") && stepNode.get("dependsOn").isArray()) {
+          for (var dep : stepNode.get("dependsOn")) {
+            dependsOn.add(dep.asText());
+          }
+        }
+        var goalStep = new GoalStep(UUID.randomUUID(), desc, capName, Instant.now());
+        nodes.add(new DagNode<>(stepId, goalStep, dependsOn, JoinType.ALL_OF));
+      }
 
-              return DagPlan.fromNodes(nodes);
-            });
+      return DagPlan.fromNodes(nodes);
+    }
   }
 
   private String buildReplanPrompt(

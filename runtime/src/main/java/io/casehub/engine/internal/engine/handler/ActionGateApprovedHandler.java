@@ -29,7 +29,6 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Worker;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -63,13 +62,13 @@ public class ActionGateApprovedHandler {
   @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
 
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_APPROVED)
-  public Uni<Void> onActionGateApproved(final ActionGateApprovedEvent event) {
+  public void onActionGateApproved(final ActionGateApprovedEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {
       LOG.warnf(
           "CaseInstance not in cache for gate approval: caseId=%s gateId=%d — discarding",
           event.caseId(), event.gateId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     // Terminal state guard — case terminated while gate was pending
@@ -78,7 +77,7 @@ public class ActionGateApprovedHandler {
           "Gate approved on terminated case (state=%s): caseId=%s gateId=%d — discarding",
           instance.getState(), event.caseId(), event.gateId());
       instance.setPendingActionGate(null); // clear in-memory
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     final PendingActionGate gate = instance.getPendingActionGate();
@@ -86,7 +85,7 @@ public class ActionGateApprovedHandler {
       LOG.warnf(
           "PendingActionGate mismatch or absent: caseId=%s expected gateId=%d actual=%s — discarding",
           event.caseId(), event.gateId(), gate != null ? gate.gateId() : "null");
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     // Validate and deserialise typed resolution if resolutionTypeName is declared
@@ -105,7 +104,7 @@ public class ActionGateApprovedHandler {
             event.gateId(),
             event.resolutionTypeName());
         instance.setPendingActionGate(null);
-        return Uni.createFrom().voidItem();
+        return;
       }
     }
 
@@ -124,7 +123,8 @@ public class ActionGateApprovedHandler {
     instance.setPendingActionGate(null);
 
     // Write compliance EventLog entry, then re-fire the completion event
-    return writeResolutionEventLog(instance, gate).invoke(() -> refireCompletion(instance, gate));
+    writeResolutionEventLog(instance, gate);
+    refireCompletion(instance, gate);
   }
 
   private void refireCompletion(final CaseInstance instance, final PendingActionGate gate) {
@@ -155,8 +155,7 @@ public class ActionGateApprovedHandler {
         .orElse(null);
   }
 
-  private Uni<Void> writeResolutionEventLog(
-      final CaseInstance instance, final PendingActionGate gate) {
+  private void writeResolutionEventLog(final CaseInstance instance, final PendingActionGate gate) {
     final EventLog log = new EventLog();
     log.setCaseId(instance.getUuid());
     log.setWorkerId(gate.workerId());
@@ -164,7 +163,6 @@ public class ActionGateApprovedHandler {
     log.setTimestamp(Instant.now());
     log.setEventType(CaseHubEventType.ACTION_GATE_APPROVED);
     eventLogRepository.append(log, instance.tenancyId);
-    return Uni.createFrom().voidItem();
   }
 
   private static boolean isTerminal(final CaseStatus state) {

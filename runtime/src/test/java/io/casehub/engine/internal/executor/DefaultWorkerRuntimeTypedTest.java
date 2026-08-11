@@ -73,7 +73,7 @@ class DefaultWorkerRuntimeTypedTest {
     CaseDefinitionRegistry registry =
         new CaseDefinitionRegistry() {
           @Override
-          public io.smallrye.mutiny.Uni<CaseMetaModel> registerCaseDefinition(CaseDefinition d) {
+          public CaseMetaModel registerCaseDefinition(CaseDefinition d) {
             return null;
           }
 

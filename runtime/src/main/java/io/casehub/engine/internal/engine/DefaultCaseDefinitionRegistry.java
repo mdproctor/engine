@@ -46,7 +46,6 @@ import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.path.Path;
 import io.casehub.worker.api.Worker;
 import io.quarkus.runtime.StartupEvent;
-import io.smallrye.mutiny.Uni;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -168,12 +167,12 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
   }
 
   @Override
-  public Uni<CaseMetaModel> registerCaseDefinition(CaseDefinition model) {
+  public CaseMetaModel registerCaseDefinition(CaseDefinition model) {
     try {
-      return Uni.createFrom().item(registerCaseDefinitionBlocking(model));
+      return registerCaseDefinitionBlocking(model);
     } catch (IllegalArgumentException e) {
       LOG.errorf("Case definition '%s' rejected: %s", model.getName(), e.getMessage());
-      return Uni.createFrom().failure(e);
+      throw e;
     }
   }
 

@@ -17,7 +17,6 @@ package io.casehub.engine.internal.routing;
 
 import io.casehub.api.spi.CaseCorrelationResolver;
 import io.quarkus.arc.DefaultBean;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 
@@ -36,18 +35,15 @@ public class UuidCorrelationResolver implements CaseCorrelationResolver {
   }
 
   @Override
-  public Uni<UUID> resolve(String correlationValue, String tenancyId) {
+  public UUID resolve(String correlationValue, String tenancyId) {
     if (correlationValue == null) {
-      return Uni.createFrom()
-          .failure(new IllegalArgumentException("Correlation value must not be null"));
+      throw new IllegalArgumentException("Correlation value must not be null");
     }
     try {
-      return Uni.createFrom().item(UUID.fromString(correlationValue.trim()));
+      return UUID.fromString(correlationValue.trim());
     } catch (IllegalArgumentException e) {
-      return Uni.createFrom()
-          .failure(
-              new IllegalArgumentException(
-                  "Correlation value is not a valid UUID: " + correlationValue, e));
+      throw new IllegalArgumentException(
+          "Correlation value is not a valid UUID: " + correlationValue, e);
     }
   }
 }

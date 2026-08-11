@@ -131,11 +131,7 @@ public class InboundSignalBridge {
     CaseCorrelationResolver resolver =
         strategyResolver.resolve(
             CaseCorrelationResolver.class, entry.mapping().correlationResolver());
-    UUID caseId =
-        resolver
-            .resolve(correlationValue, message.tenancyId())
-            .await()
-            .atMost(java.time.Duration.ofSeconds(10));
+    UUID caseId = resolver.resolve(correlationValue, message.tenancyId());
 
     JsonNode payloadJson = evaluateJq(composite, entry.mapping().payload());
 

@@ -16,16 +16,12 @@
 package io.casehub.api.spi.routing;
 
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 
 /**
  * Selects which implementation(s) handle a capability when multiple bindings target the same
  * capability. Symmetric to {@link AgentRoutingStrategy} which selects which worker instance handles
  * a task.
- *
- * <p>Returns {@link Uni} per protocol PP-20260529-9f9627 — implementations may perform blocking I/O
- * (trust lookups, external classification).
  *
  * <p>Refs casehubio/engine#476.
  */

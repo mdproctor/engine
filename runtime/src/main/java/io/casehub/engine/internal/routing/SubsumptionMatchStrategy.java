@@ -24,7 +24,6 @@ import io.casehub.eidos.api.VocabularyRegistry;
 import io.casehub.worker.api.Worker;
 import io.quarkus.arc.DefaultBean;
 import io.quarkus.arc.Unremovable;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
@@ -48,30 +47,26 @@ public class SubsumptionMatchStrategy implements CandidateMatchingStrategy {
   }
 
   @Override
-  public Uni<List<MatchedWorker>> match(CandidateMatchingContext context) {
-    return Uni.createFrom()
-        .item(
-            () -> {
-              List<MatchedWorker> matched = new ArrayList<>();
-              for (Worker worker : context.workers()) {
-                if (worker.capabilityNames().contains(context.capabilityName())) {
-                  matched.add(MatchedWorker.exact(worker));
-                  continue;
-                }
-                AgentDescriptor descriptor =
-                    context.caseDefinition() != null
-                        ? context.caseDefinition().agentDescriptorFor(worker.name()).orElse(null)
-                        : null;
-                if (descriptor != null && !descriptor.capabilities().isEmpty()) {
-                  var resolved =
-                      CapabilityResolver.resolve(
-                          descriptor.capabilities(), context.capabilityName(), vocabularyRegistry);
-                  if (resolved != null) {
-                    matched.add(new MatchedWorker(worker, resolved.degree()));
-                  }
-                }
-              }
-              return List.copyOf(matched);
-            });
+  public List<MatchedWorker> match(CandidateMatchingContext context) {
+    List<MatchedWorker> matched = new ArrayList<>();
+    for (Worker worker : context.workers()) {
+      if (worker.capabilityNames().contains(context.capabilityName())) {
+        matched.add(MatchedWorker.exact(worker));
+        continue;
+      }
+      AgentDescriptor descriptor =
+          context.caseDefinition() != null
+              ? context.caseDefinition().agentDescriptorFor(worker.name()).orElse(null)
+              : null;
+      if (descriptor != null && !descriptor.capabilities().isEmpty()) {
+        var resolved =
+            CapabilityResolver.resolve(
+                descriptor.capabilities(), context.capabilityName(), vocabularyRegistry);
+        if (resolved != null) {
+          matched.add(new MatchedWorker(worker, resolved.degree()));
+        }
+      }
+    }
+    return List.copyOf(matched);
   }
 }

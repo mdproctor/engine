@@ -35,7 +35,6 @@ import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.platform.api.routing.StrategyResolver;
-import io.smallrye.mutiny.Uni;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -93,8 +92,7 @@ class InboundSignalBridgeTest {
     var uuidResolver = mock(CaseCorrelationResolver.class);
     when(strategyResolver.resolve(eq(CaseCorrelationResolver.class), any()))
         .thenReturn(uuidResolver);
-    when(uuidResolver.resolve(eq(caseId.toString()), eq("tenant1")))
-        .thenReturn(Uni.createFrom().item(caseId));
+    when(uuidResolver.resolve(eq(caseId.toString()), eq("tenant1"))).thenReturn(caseId);
 
     when(jqEvaluator.eval(eq(".metadata.caseRef"), any(JsonNode.class)))
         .thenReturn(

@@ -16,11 +16,10 @@
 package io.casehub.engine.plan.adaptation;
 
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 
 public interface PlanRevisionStrategy extends NamedStrategy {
 
-  Uni<RevisedPlan> revise(RevisionContext context);
+  RevisedPlan revise(RevisionContext context);
 
   @Override
   default String id() {

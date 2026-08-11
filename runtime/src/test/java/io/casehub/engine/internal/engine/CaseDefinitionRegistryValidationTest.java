@@ -29,7 +29,6 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.worker.api.Capability;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -65,9 +64,7 @@ class CaseDefinitionRegistryValidationTest {
 
     final var ex =
         assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                registry.registerCaseDefinition(definition).await().atMost(Duration.ofSeconds(5)));
+            IllegalArgumentException.class, () -> registry.registerCaseDefinition(definition));
     assertTrue(ex.getMessage().contains("Invalid JQ expression"));
   }
 
@@ -90,9 +87,7 @@ class CaseDefinitionRegistryValidationTest {
 
     final var ex =
         assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                registry.registerCaseDefinition(definition).await().atMost(Duration.ofSeconds(5)));
+            IllegalArgumentException.class, () -> registry.registerCaseDefinition(definition));
     assertTrue(ex.getMessage().contains("Invalid JQ expression"));
   }
 
@@ -114,9 +109,7 @@ class CaseDefinitionRegistryValidationTest {
 
     final var ex =
         assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                registry.registerCaseDefinition(definition).await().atMost(Duration.ofSeconds(5)));
+            IllegalArgumentException.class, () -> registry.registerCaseDefinition(definition));
     assertTrue(ex.getMessage().contains("Invalid JQ expression"));
   }
 
@@ -137,9 +130,7 @@ class CaseDefinitionRegistryValidationTest {
 
     final var ex =
         assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                registry.registerCaseDefinition(definition).await().atMost(Duration.ofSeconds(5)));
+            IllegalArgumentException.class, () -> registry.registerCaseDefinition(definition));
     assertTrue(ex.getMessage().contains("Invalid JQ expression"));
   }
 }

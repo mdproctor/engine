@@ -15,7 +15,6 @@
  */
 package io.casehub.api.spi.routing;
 
-import io.smallrye.mutiny.Uni;
 import java.time.Duration;
 import org.jspecify.annotations.Nullable;
 
@@ -51,9 +50,8 @@ public interface RoutingOutcomeRecorder {
    * @param outcome the routing outcome
    * @param executionDuration wall-clock duration of the worker execution; nullable when the engine
    *     does not track dispatch timestamps or for gate outcomes
-   * @return a Uni completing when the record is persisted
    */
-  Uni<Void> record(
+  void record(
       AgentRoutingContext context,
       String workerId,
       String bindingName,

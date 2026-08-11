@@ -44,7 +44,6 @@ import io.casehub.neocortex.memory.cbr.FeatureValue;
 import io.casehub.neocortex.memory.cbr.PlanCbrCase;
 import io.casehub.neocortex.memory.cbr.ScoredCbrCase;
 import io.casehub.worker.api.Capability;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.inject.Instance;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -549,9 +548,9 @@ class CbrCaseRetainObserverTest {
     }
 
     @Override
-    public Uni<io.casehub.engine.common.internal.model.CaseMetaModel> registerCaseDefinition(
+    public io.casehub.engine.common.internal.model.CaseMetaModel registerCaseDefinition(
         CaseDefinition model) {
-      return Uni.createFrom().nullItem();
+      return null;
     }
 
     @Override

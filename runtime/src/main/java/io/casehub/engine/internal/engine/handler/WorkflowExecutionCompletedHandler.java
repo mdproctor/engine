@@ -784,17 +784,14 @@ public class WorkflowExecutionCompletedHandler {
             List.of(),
             null,
             null);
-    outcomeRecorder
-        .get()
-        .record(ctx, worker.name(), bindingName, outcome, null)
-        .subscribe()
-        .with(
-            ignored -> {},
-            err ->
-                LOG.warnf(
-                    err,
-                    "Outcome recording failed for caseId=%s worker=%s",
-                    caseInstance.getUuid(),
-                    worker.name()));
+    try {
+      outcomeRecorder.get().record(ctx, worker.name(), bindingName, outcome, null);
+    } catch (Exception err) {
+      LOG.warnf(
+          err,
+          "Outcome recording failed for caseId=%s worker=%s",
+          caseInstance.getUuid(),
+          worker.name());
+    }
   }
 }

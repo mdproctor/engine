@@ -43,7 +43,6 @@ import io.casehub.engine.plan.PlanningConstraints;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -121,8 +120,7 @@ class DefaultGoalDecomposerTest {
             UUID.randomUUID(), "do something", "nonexistent-capability", java.time.Instant.now());
     @SuppressWarnings("unchecked")
     DecompositionStrategy<JsonNode> strategy = mock(DecompositionStrategy.class);
-    when(strategy.decompose(any(), any()))
-        .thenReturn(Uni.createFrom().item(DagPlan.singleton(stepWithUnknownCap)));
+    when(strategy.decompose(any(), any())).thenReturn(DagPlan.singleton(stepWithUnknownCap));
     when(strategyResolver.resolve(any(), anyString())).thenReturn(strategy);
 
     when(abandonmentEvaluator.activeGoals(any())).thenReturn(List.of(goal));
@@ -185,8 +183,7 @@ class DefaultGoalDecomposerTest {
             UUID.randomUUID(), "do something", "nonexistent-capability", java.time.Instant.now());
     @SuppressWarnings("unchecked")
     DecompositionStrategy<JsonNode> strategy = mock(DecompositionStrategy.class);
-    when(strategy.decompose(any(), any()))
-        .thenReturn(Uni.createFrom().item(DagPlan.singleton(stepWithUnknownCap)));
+    when(strategy.decompose(any(), any())).thenReturn(DagPlan.singleton(stepWithUnknownCap));
     when(strategyResolver.resolve(any(), anyString())).thenReturn(strategy);
 
     when(abandonmentEvaluator.activeGoals(any())).thenReturn(List.of(goal));

@@ -33,27 +33,27 @@ class UuidCorrelationResolverTest {
   @Test
   void resolves_valid_uuid() {
     UUID expected = UUID.randomUUID();
-    UUID result = resolver.resolve(expected.toString(), "tenant1").await().indefinitely();
+    UUID result = resolver.resolve(expected.toString(), "tenant1");
     assertThat(result).isEqualTo(expected);
   }
 
   @Test
   void resolves_uuid_with_whitespace() {
     UUID expected = UUID.randomUUID();
-    UUID result = resolver.resolve("  " + expected + "  ", "tenant1").await().indefinitely();
+    UUID result = resolver.resolve("  " + expected + "  ", "tenant1");
     assertThat(result).isEqualTo(expected);
   }
 
   @Test
   void rejects_invalid_uuid() {
-    assertThatThrownBy(() -> resolver.resolve("not-a-uuid", "tenant1").await().indefinitely())
+    assertThatThrownBy(() -> resolver.resolve("not-a-uuid", "tenant1"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("not a valid UUID");
   }
 
   @Test
   void rejects_null_value() {
-    assertThatThrownBy(() -> resolver.resolve(null, "tenant1").await().indefinitely())
+    assertThatThrownBy(() -> resolver.resolve(null, "tenant1"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("must not be null");
   }

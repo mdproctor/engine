@@ -18,7 +18,6 @@ package io.casehub.engine.common.spi;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.platform.api.path.Path;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 import java.util.Optional;
 
@@ -54,10 +53,10 @@ public interface CaseDefinitionRegistry {
    * definition with the same namespace/name/version already exists, returns the existing metadata.
    *
    * @param model the case definition to register
-   * @return Uni containing the persisted CaseMetaModel
-   * @throws IllegalArgumentException if validation fails (wrapped in Uni.failure)
+   * @return the persisted CaseMetaModel
+   * @throws IllegalArgumentException if validation fails
    */
-  Uni<CaseMetaModel> registerCaseDefinition(CaseDefinition model);
+  CaseMetaModel registerCaseDefinition(CaseDefinition model);
 
   /**
    * Retrieve a case definition by its metadata.

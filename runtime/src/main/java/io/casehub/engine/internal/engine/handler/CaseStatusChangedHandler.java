@@ -40,7 +40,6 @@ import io.casehub.engine.internal.engine.CaseCompletionTracker;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -81,7 +80,7 @@ public class CaseStatusChangedHandler {
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
-  public Uni<Void> onCaseStatusChangedHandler(CaseStatusChanged event) {
+  public void onCaseStatusChangedHandler(CaseStatusChanged event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.instance();
     final CaseStatus newState = CaseStatus.valueOf(event.newStatus());
@@ -92,7 +91,7 @@ public class CaseStatusChangedHandler {
         LOG.infof(
             "Ignoring duplicate terminal transition for caseId=%s — already %s, rejecting %s",
             caseInstance.getUuid(), caseInstance.getState(), newState);
-        return Uni.createFrom().voidItem();
+        return;
       }
     } else {
       caseInstance.setState(newState);
@@ -148,71 +147,61 @@ public class CaseStatusChangedHandler {
         mctx.close();
       }
     }
-    return Uni.createFrom()
-        .voidItem()
-        .invoke(
-            () -> {
-              // Notify outcome observers on terminal state — CBR Retain step. Refs engine#477.
-              // Called before event bus publishes so observer failures don't block downstream
-              // events.
-              if (isTerminalState(newState)) {
-                fireOutcomeObservers(
-                    caseInstance, newState, event.satisfiedGoalName(), event.satisfiedGoalKind());
-              }
-              // Fire-and-forget: downstream event bus consumers (CASE_COMPLETED, CASE_FAULTED,
-              // CONTEXT_CHANGED) do not need to complete before this handler returns.
-              // Wrapped in try-catch: codec may not be registered in unit test contexts
-              // where the handler is called directly without the full event bus setup.
-              String eventBusAddress = resolveStateAsString(newState);
-              if (eventBusAddress != null) {
-                try {
-                  eventBus.publish(eventBusAddress, caseInstance);
-                } catch (Exception e) {
-                  LOG.warnf(
-                      e,
-                      "Event bus publish failed for %s caseId=%s — non-fatal",
-                      eventBusAddress,
-                      caseInstance.getUuid());
-                }
-              }
-              // On resume (SUSPENDED → RUNNING), re-evaluate the context so eligible workers fire.
-              if (newState == CaseStatus.RUNNING) {
-                eventBus.publish(
-                    EventBusAddresses.CONTEXT_CHANGED,
-                    new CaseContextChangedEvent(
-                        caseInstance, caseInstance.getCaseContext().snapshot(), null));
-              }
-            })
-        .chain(
-            () -> {
-              // Await CDI event delivery so @ObservesAsync observers run before this handler's
-              // Uni completes. Failure is logged and recovered — observer errors must not fail
-              // case completion (engine#393).
-              return Uni.createFrom()
-                  .completionStage(
-                      () ->
-                          lifecycleEvents.fireAsync(
-                              CaseLifecycleEvent.of(
-                                  caseInstance,
-                                  resolveCommandType(newState),
-                                  resolveEventType(newState),
-                                  null,
-                                  "System",
-                                  traceId,
-                                  event.satisfiedGoalName(),
-                                  event.satisfiedGoalKind())))
-                  .onFailure()
-                  .recoverWithItem(
-                      t -> {
-                        LOG.warnf(
-                            t,
-                            "CaseLifecycleEvent observer failed for caseId=%s event=%s",
-                            caseInstance.getUuid(),
-                            resolveEventType(newState));
-                        return null;
-                      })
-                  .replaceWithVoid();
-            });
+    // Notify outcome observers on terminal state — CBR Retain step. Refs engine#477.
+    // Called before event bus publishes so observer failures don't block downstream events.
+    if (isTerminalState(newState)) {
+      fireOutcomeObservers(
+          caseInstance, newState, event.satisfiedGoalName(), event.satisfiedGoalKind());
+    }
+
+    // Fire-and-forget: downstream event bus consumers (CASE_COMPLETED, CASE_FAULTED,
+    // CONTEXT_CHANGED) do not need to complete before this handler returns.
+    // Wrapped in try-catch: codec may not be registered in unit test contexts
+    // where the handler is called directly without the full event bus setup.
+    String eventBusAddress = resolveStateAsString(newState);
+    if (eventBusAddress != null) {
+      try {
+        eventBus.publish(eventBusAddress, caseInstance);
+      } catch (Exception e) {
+        LOG.warnf(
+            e,
+            "Event bus publish failed for %s caseId=%s — non-fatal",
+            eventBusAddress,
+            caseInstance.getUuid());
+      }
+    }
+
+    // On resume (SUSPENDED → RUNNING), re-evaluate the context so eligible workers fire.
+    if (newState == CaseStatus.RUNNING) {
+      eventBus.publish(
+          EventBusAddresses.CONTEXT_CHANGED,
+          new CaseContextChangedEvent(
+              caseInstance, caseInstance.getCaseContext().snapshot(), null));
+    }
+
+    // Await CDI event delivery so @ObservesAsync observers run before this handler completes.
+    // Failure is logged and recovered — observer errors must not fail case completion (engine#393).
+    try {
+      lifecycleEvents
+          .fireAsync(
+              CaseLifecycleEvent.of(
+                  caseInstance,
+                  resolveCommandType(newState),
+                  resolveEventType(newState),
+                  null,
+                  "System",
+                  traceId,
+                  event.satisfiedGoalName(),
+                  event.satisfiedGoalKind()))
+          .toCompletableFuture()
+          .join();
+    } catch (Exception t) {
+      LOG.warnf(
+          t,
+          "CaseLifecycleEvent observer failed for caseId=%s event=%s",
+          caseInstance.getUuid(),
+          resolveEventType(newState));
+    }
   }
 
   private void fireOutcomeObservers(

@@ -35,7 +35,6 @@ import io.casehub.engine.common.internal.model.PendingActionGate;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -67,20 +66,20 @@ public class ActionGateExpiredHandler {
 
   // blocking=true: workerStatusListener.onWorkerCompleted() may do I/O in consumer impls
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_EXPIRED, blocking = true)
-  public Uni<Void> onActionGateExpired(final ActionGateExpiredEvent event) {
+  public void onActionGateExpired(final ActionGateExpiredEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {
       LOG.warnf(
           "CaseInstance not in cache for gate expiry: caseId=%s gateId=%d — discarding",
           event.caseId(), event.gateId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     if (isTerminal(instance.getState())) {
       LOG.warnf(
           "Gate expired on terminated case (state=%s): caseId=%s gateId=%d — discarding",
           instance.getState(), event.caseId(), event.gateId());
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     final PendingActionGate gate = instance.getPendingActionGate();
@@ -89,7 +88,7 @@ public class ActionGateExpiredHandler {
           "PendingActionGate mismatch or absent: caseId=%s expected gateId=%d actual=%s"
               + " — discarding",
           event.caseId(), event.gateId(), gate != null ? gate.gateId() : "null");
-      return Uni.createFrom().voidItem();
+      return;
     }
 
     // Capture context snapshot BEFORE gate clearance and signal writes — consistent with
@@ -122,18 +121,17 @@ public class ActionGateExpiredHandler {
               List.of(),
               null,
               null);
-      outcomeRecorder
-          .get()
-          .record(ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_EXPIRED, null)
-          .subscribe()
-          .with(
-              ignored -> {},
-              err ->
-                  LOG.warnf(
-                      err,
-                      "Outcome recording failed for gate-expired caseId=%s worker=%s",
-                      instance.getUuid(),
-                      gate.workerId()));
+      try {
+        outcomeRecorder
+            .get()
+            .record(ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_EXPIRED, null);
+      } catch (Exception err) {
+        LOG.warnf(
+            err,
+            "Outcome recording failed for gate-expired caseId=%s worker=%s",
+            instance.getUuid(),
+            gate.workerId());
+      }
     }
 
     eventBus.publish(
@@ -149,26 +147,19 @@ public class ActionGateExpiredHandler {
             instance.getUuid(), instance.tenancyId, gate.workerId(), gate.idempotency()));
 
     // EventLog write is best-effort — failures are logged, not propagated
-    writeResolutionEventLog(instance, gate)
-        .onFailure()
-        .invoke(
-            t ->
-                LOG.warnf(
-                    t,
-                    "ACTION_GATE_EXPIRED EventLog write failed: caseId=%s gateId=%d"
-                        + " — gate resolution still applied",
-                    instance.getUuid(),
-                    gate.gateId()))
-        .onFailure()
-        .recoverWithNull()
-        .subscribe()
-        .asCompletionStage();
-
-    return Uni.createFrom().voidItem();
+    try {
+      writeResolutionEventLog(instance, gate);
+    } catch (Exception t) {
+      LOG.warnf(
+          t,
+          "ACTION_GATE_EXPIRED EventLog write failed: caseId=%s gateId=%d"
+              + " — gate resolution still applied",
+          instance.getUuid(),
+          gate.gateId());
+    }
   }
 
-  private Uni<Void> writeResolutionEventLog(
-      final CaseInstance instance, final PendingActionGate gate) {
+  private void writeResolutionEventLog(final CaseInstance instance, final PendingActionGate gate) {
     final EventLog log = new EventLog();
     log.setCaseId(instance.getUuid());
     log.setWorkerId(gate.workerId());
@@ -176,7 +167,6 @@ public class ActionGateExpiredHandler {
     log.setTimestamp(Instant.now());
     log.setEventType(CaseHubEventType.ACTION_GATE_EXPIRED);
     eventLogRepository.append(log, instance.tenancyId);
-    return Uni.createFrom().voidItem();
   }
 
   private static boolean isTerminal(final CaseStatus state) {

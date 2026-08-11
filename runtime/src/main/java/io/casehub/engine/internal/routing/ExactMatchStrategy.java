@@ -19,7 +19,6 @@ import io.casehub.api.spi.routing.CandidateMatchingContext;
 import io.casehub.api.spi.routing.CandidateMatchingStrategy;
 import io.casehub.api.spi.routing.MatchedWorker;
 import io.quarkus.arc.Unremovable;
-import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
@@ -33,13 +32,10 @@ public class ExactMatchStrategy implements CandidateMatchingStrategy {
   }
 
   @Override
-  public Uni<List<MatchedWorker>> match(CandidateMatchingContext context) {
-    return Uni.createFrom()
-        .item(
-            () ->
-                context.workers().stream()
-                    .filter(w -> w.capabilityNames().contains(context.capabilityName()))
-                    .map(MatchedWorker::exact)
-                    .toList());
+  public List<MatchedWorker> match(CandidateMatchingContext context) {
+    return context.workers().stream()
+        .filter(w -> w.capabilityNames().contains(context.capabilityName()))
+        .map(MatchedWorker::exact)
+        .toList();
   }
 }

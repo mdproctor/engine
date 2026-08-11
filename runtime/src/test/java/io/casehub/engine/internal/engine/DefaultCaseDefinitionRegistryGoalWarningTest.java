@@ -92,16 +92,9 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
             .completion(GoalExpression.allOf(referencedGoal), null)
             .build();
 
-    assertThatThrownBy(
-            () ->
-                registry
-                    .registerCaseDefinition(definition)
-                    .subscribe()
-                    .asCompletionStage()
-                    .toCompletableFuture()
-                    .join())
-        .hasRootCauseInstanceOf(IllegalArgumentException.class)
-        .hasRootCauseMessage(
+    assertThatThrownBy(() -> registry.registerCaseDefinition(definition))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage(
             "Goal 'orphan-goal' is not referenced in any completion expression. "
                 + "Goals must drive case completion — use Milestone for non-terminal checkpoints.");
   }
@@ -119,15 +112,8 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
             .completion("(.done == true)")
             .build();
 
-    assertThatThrownBy(
-            () ->
-                registry
-                    .registerCaseDefinition(definition)
-                    .subscribe()
-                    .asCompletionStage()
-                    .toCompletableFuture()
-                    .join())
-        .hasRootCauseInstanceOf(IllegalArgumentException.class);
+    assertThatThrownBy(() -> registry.registerCaseDefinition(definition))
+        .isInstanceOf(IllegalArgumentException.class);
   }
 
   @Test
@@ -135,13 +121,7 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
     var definition =
         CaseDefinition.builder().namespace("test").name("no-goal-test").version("1.0").build();
 
-    var result =
-        registry
-            .registerCaseDefinition(definition)
-            .subscribe()
-            .asCompletionStage()
-            .toCompletableFuture()
-            .join();
+    var result = registry.registerCaseDefinition(definition);
 
     assertThat(result).isNotNull();
   }
@@ -162,16 +142,9 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
             .completion(GoalExpression.allOf(referencedGoal), null)
             .build();
 
-    assertThatThrownBy(
-            () ->
-                registry
-                    .registerCaseDefinition(definition)
-                    .subscribe()
-                    .asCompletionStage()
-                    .toCompletableFuture()
-                    .join())
-        .hasRootCauseInstanceOf(IllegalArgumentException.class)
-        .hasRootCauseMessage(
+    assertThatThrownBy(() -> registry.registerCaseDefinition(definition))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage(
             "Goal 'forgotten' is not referenced in any completion expression. "
                 + "Goals must drive case completion — use Milestone for non-terminal checkpoints.");
   }
@@ -194,12 +167,7 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
             .completion(GoalExpression.allOf(successGoal), null)
             .build();
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     assertThat(logRecords).noneMatch(r -> r.getMessage().contains("success-goal"));
   }
@@ -222,12 +190,7 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
             .completion(null, GoalExpression.allOf(failureGoal))
             .build();
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     assertThat(logRecords).noneMatch(r -> r.getMessage().contains("failure-goal"));
   }
@@ -250,12 +213,7 @@ class DefaultCaseDefinitionRegistryGoalWarningTest {
             .completion(GoalExpression.allOf(sharedGoal), GoalExpression.allOf(sharedGoal))
             .build();
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     assertThat(logRecords).noneMatch(r -> r.getMessage().contains("not referenced"));
     assertThat(logRecords)

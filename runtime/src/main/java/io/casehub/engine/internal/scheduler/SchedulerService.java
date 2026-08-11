@@ -143,10 +143,7 @@ public class SchedulerService {
     Map<String, Object> jobData = createJobData(caseId, binding, worker);
     jobData.put("triggerType", "unconditional");
 
-    scheduler
-        .schedule(ScheduledJobRequest.builder().jobId(jobId).schedule(schedule).data(jobData))
-        .await()
-        .indefinitely();
+    scheduler.schedule(ScheduledJobRequest.builder().jobId(jobId).schedule(schedule).data(jobData));
     LOG.infof(
         "Scheduled unconditional trigger: case=%s, binding=%s, trigger=%s",
         caseId, binding.getName(), trigger);
@@ -160,10 +157,7 @@ public class SchedulerService {
     Map<String, Object> jobData = createJobData(caseId, binding, worker);
     jobData.put("triggerType", "conditional");
 
-    scheduler
-        .schedule(ScheduledJobRequest.builder().jobId(jobId).schedule(schedule).data(jobData))
-        .await()
-        .indefinitely();
+    scheduler.schedule(ScheduledJobRequest.builder().jobId(jobId).schedule(schedule).data(jobData));
     LOG.infof(
         "Scheduled conditional trigger: case=%s, binding=%s, trigger=%s, condition=%s",
         caseId, binding.getName(), trigger, binding.getWhen());
@@ -172,7 +166,7 @@ public class SchedulerService {
   public void cancelAllTriggers(UUID caseId) {
     String groupName = "case-" + caseId;
 
-    int count = scheduler.cancelGroup(groupName).await().indefinitely();
+    int count = scheduler.cancelGroup(groupName);
     if (count > 0) {
       LOG.infof("Cancelled %d scheduled triggers for case %s", count, caseId);
     } else {
@@ -183,7 +177,7 @@ public class SchedulerService {
   public void cancelTrigger(UUID caseId, String bindingName) {
     JobIdentifier jobId = createJobIdentifier(caseId, bindingName);
 
-    boolean deleted = scheduler.cancel(jobId).await().indefinitely();
+    boolean deleted = scheduler.cancel(jobId);
     if (deleted) {
       LOG.infof("Cancelled scheduled trigger: case=%s, binding=%s", caseId, bindingName);
     } else {

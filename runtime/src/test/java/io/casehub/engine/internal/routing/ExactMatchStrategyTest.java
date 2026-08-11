@@ -38,7 +38,7 @@ class ExactMatchStrategyTest {
     Worker w1 = Worker.builder().name("w1").capabilityName("cap-a").noFunction().build();
     Worker w2 = Worker.builder().name("w2").capabilityName("cap-b").noFunction().build();
     var ctx = new CandidateMatchingContext("cap-a", List.of(w1, w2), null);
-    List<MatchedWorker> result = strategy.match(ctx).await().indefinitely();
+    List<MatchedWorker> result = strategy.match(ctx);
     assertThat(result).hasSize(1);
     assertThat(result.get(0).worker().name()).isEqualTo("w1");
     assertThat(result.get(0).matchDegree()).isInstanceOf(MatchDegree.Exact.class);
@@ -48,7 +48,7 @@ class ExactMatchStrategyTest {
   void noMatchReturnsEmpty() {
     Worker w1 = Worker.builder().name("w1").capabilityName("cap-b").noFunction().build();
     var ctx = new CandidateMatchingContext("cap-a", List.of(w1), null);
-    List<MatchedWorker> result = strategy.match(ctx).await().indefinitely();
+    List<MatchedWorker> result = strategy.match(ctx);
     assertThat(result).isEmpty();
   }
 
@@ -62,7 +62,7 @@ class ExactMatchStrategyTest {
             .noFunction()
             .build();
     var ctx = new CandidateMatchingContext("cap-b", List.of(w1), null);
-    List<MatchedWorker> result = strategy.match(ctx).await().indefinitely();
+    List<MatchedWorker> result = strategy.match(ctx);
     assertThat(result).hasSize(1);
   }
 }

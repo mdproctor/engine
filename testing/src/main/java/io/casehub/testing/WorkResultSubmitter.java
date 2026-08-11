@@ -21,7 +21,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.worker.api.Worker;
-import io.smallrye.mutiny.Uni;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -49,7 +48,7 @@ public class WorkResultSubmitter {
 
   @Inject EventBus eventBus;
 
-  public Uni<Void> complete(UUID caseId, String workerId, Map<String, Object> output) {
+  public void complete(UUID caseId, String workerId, Map<String, Object> output) {
     CaseInstance instance = caseInstanceRepository.findByUuid(caseId);
     var definition = caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
     Worker worker =
@@ -64,6 +63,5 @@ public class WorkResultSubmitter {
     eventBus.publish(
         EventBusAddresses.WORKER_EXECUTION_FINISHED,
         WorkflowExecutionCompleted.approved(instance, worker, idempotency, output, null));
-    return Uni.createFrom().voidItem();
   }
 }

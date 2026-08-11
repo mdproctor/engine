@@ -52,7 +52,7 @@ class LlmDecompositionStrategyTest {
         new TaskNode.CompoundTask<JsonNode>(
             "comprehensive-analysis", "comprehensive-analysis", List.of());
 
-    var plan = strategy.decompose(task, context).await().indefinitely();
+    var plan = strategy.decompose(task, context);
 
     assertThat(plan.nodes()).hasSize(3);
     var sorted = plan.topologicalSort();
@@ -74,7 +74,7 @@ class LlmDecompositionStrategyTest {
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
     var task = new TaskNode.CompoundTask<JsonNode>("goal-1", "goal-1", List.of());
 
-    assertThatThrownBy(() -> strategy.decompose(task, context).await().indefinitely())
+    assertThatThrownBy(() -> strategy.decompose(task, context))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
@@ -84,7 +84,7 @@ class LlmDecompositionStrategyTest {
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
     var task = new TaskNode.CompoundTask<JsonNode>("goal-1", "goal-1", List.of());
 
-    assertThatThrownBy(() -> strategy.decompose(task, context).await().indefinitely())
+    assertThatThrownBy(() -> strategy.decompose(task, context))
         .isInstanceOf(AgentException.class)
         .hasMessageContaining("no steps");
   }
@@ -95,8 +95,7 @@ class LlmDecompositionStrategyTest {
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
     var task = new TaskNode.CompoundTask<JsonNode>("goal-1", "goal-1", List.of());
 
-    assertThatThrownBy(() -> strategy.decompose(task, context).await().indefinitely())
-        .isInstanceOf(AgentException.class);
+    assertThatThrownBy(() -> strategy.decompose(task, context)).isInstanceOf(AgentException.class);
   }
 
   @Test
@@ -143,7 +142,7 @@ class LlmDecompositionStrategyTest {
             constraints);
     var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
 
-    strategy.decompose(task, context).await().indefinitely();
+    strategy.decompose(task, context);
 
     assertThat(capturedPrompt.get()).contains("30 minutes").contains("3");
   }
@@ -192,7 +191,7 @@ class LlmDecompositionStrategyTest {
             constraints);
     var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
 
-    strategy.decompose(task, context).await().indefinitely();
+    strategy.decompose(task, context);
 
     assertThat(capturedPrompt.get()).contains("5000").contains("apiCalls");
   }
@@ -241,7 +240,7 @@ class LlmDecompositionStrategyTest {
             constraints);
     var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
 
-    strategy.decompose(task, context).await().indefinitely();
+    strategy.decompose(task, context);
 
     assertThat(capturedPrompt.get()).contains("speed").contains("0.8").contains("quality");
   }
@@ -290,7 +289,7 @@ class LlmDecompositionStrategyTest {
             constraints);
     var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
 
-    strategy.decompose(task, context).await().indefinitely();
+    strategy.decompose(task, context);
 
     assertThat(capturedPrompt.get()).contains("3000").contains("Constraints:");
   }
@@ -333,7 +332,7 @@ class LlmDecompositionStrategyTest {
             MAPPER.createObjectNode(), 0, List.of(new Capability("analysis", "", "", null)));
     var task = new TaskNode.CompoundTask<JsonNode>("research", "research", List.of());
 
-    strategy.decompose(task, context).await().indefinitely();
+    strategy.decompose(task, context);
 
     assertThat(capturedPrompt.get()).doesNotContain("Constraints:");
   }
@@ -392,7 +391,7 @@ class LlmDecompositionStrategyTest {
             0,
             List.of(new Capability("analysis", "Analyse data", "", null)));
 
-    var result = strategy.replan(task, context, replanCtx).await().indefinitely();
+    var result = strategy.replan(task, context, replanCtx);
 
     assertThat(result.nodes()).hasSize(1);
     var prompt = capturedPrompt.get();
@@ -412,7 +411,7 @@ class LlmDecompositionStrategyTest {
     var task = new TaskNode.CompoundTask<JsonNode>("ct-1", "goal-1", List.of());
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
 
-    assertThatThrownBy(() -> strategy.replan(task, context, replanCtx).await().indefinitely())
+    assertThatThrownBy(() -> strategy.replan(task, context, replanCtx))
         .isInstanceOf(UnsupportedOperationException.class);
   }
 
@@ -425,7 +424,7 @@ class LlmDecompositionStrategyTest {
     var task = new TaskNode.CompoundTask<JsonNode>("ct-1", "goal-1", List.of());
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
 
-    assertThatThrownBy(() -> strategy.replan(task, context, replanCtx).await().indefinitely())
+    assertThatThrownBy(() -> strategy.replan(task, context, replanCtx))
         .isInstanceOf(AgentException.class)
         .hasMessageContaining("no steps");
   }

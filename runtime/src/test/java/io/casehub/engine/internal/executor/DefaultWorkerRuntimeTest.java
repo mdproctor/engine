@@ -38,7 +38,6 @@ import io.casehub.engine.internal.engine.CaseCompletionTracker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerOutcome;
 import io.casehub.worker.api.WorkerResult;
-import io.smallrye.mutiny.Uni;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
@@ -235,7 +234,7 @@ class DefaultWorkerRuntimeTest {
     }
 
     @Override
-    public Uni<CaseMetaModel> registerCaseDefinition(CaseDefinition model) {
+    public CaseMetaModel registerCaseDefinition(CaseDefinition model) {
       return null;
     }
 

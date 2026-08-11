@@ -92,12 +92,7 @@ class CaseDefinitionVocabularyValidationTest {
 
     RecordingVocabularyRegistry.setResolveResult(null);
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     assertThat(logRecords)
         .anyMatch(
@@ -118,12 +113,7 @@ class CaseDefinitionVocabularyValidationTest {
 
     RecordingVocabularyRegistry.setResolveResult(null);
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     assertThat(logRecords)
         .anyMatch(
@@ -145,12 +135,7 @@ class CaseDefinitionVocabularyValidationTest {
 
     RecordingVocabularyRegistry.setResolveResult(Optional.of(new MockVocabularyTerm()));
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     assertThat(logRecords).noneMatch(r -> r.getMessage().contains("unresolvable"));
   }
@@ -171,12 +156,7 @@ class CaseDefinitionVocabularyValidationTest {
     // When RecordingVocabularyRegistry returns empty, it should warn
     RecordingVocabularyRegistry.setResolveResult(null);
 
-    registry
-        .registerCaseDefinition(definition)
-        .subscribe()
-        .asCompletionStage()
-        .toCompletableFuture()
-        .join();
+    registry.registerCaseDefinition(definition);
 
     // With RecordingVocabularyRegistry active, we should get warnings
     assertThat(logRecords).anyMatch(r -> r.getMessage().contains("unresolvable"));

@@ -116,7 +116,7 @@ class CbrRetrievalCachingTest {
     // Evict via terminal status event
     CaseStatusChanged event =
         new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.COMPLETED.name());
-    evictionHandler.onCaseStatusChanged(event).await().indefinitely();
+    evictionHandler.onCaseStatusChanged(event);
 
     assertEquals(0, service.cacheSize(), "cache should be empty after eviction");
 
@@ -134,7 +134,7 @@ class CbrRetrievalCachingTest {
     service.retrieve(def, instance);
     CaseStatusChanged event =
         new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.FAULTED.name());
-    evictionHandler.onCaseStatusChanged(event).await().indefinitely();
+    evictionHandler.onCaseStatusChanged(event);
 
     assertEquals(0, service.cacheSize());
   }
@@ -148,7 +148,7 @@ class CbrRetrievalCachingTest {
     service.retrieve(def, instance);
     CaseStatusChanged event =
         new CaseStatusChanged(instance, CaseStatus.RUNNING.name(), CaseStatus.CANCELLED.name());
-    evictionHandler.onCaseStatusChanged(event).await().indefinitely();
+    evictionHandler.onCaseStatusChanged(event);
 
     assertEquals(0, service.cacheSize());
   }
@@ -162,7 +162,7 @@ class CbrRetrievalCachingTest {
     service.retrieve(def, instance);
     CaseStatusChanged event =
         new CaseStatusChanged(instance, CaseStatus.STARTING.name(), CaseStatus.RUNNING.name());
-    evictionHandler.onCaseStatusChanged(event).await().indefinitely();
+    evictionHandler.onCaseStatusChanged(event);
 
     assertEquals(1, service.cacheSize(), "non-terminal status should not evict");
     assertEquals(1, cbrStore.callCount());

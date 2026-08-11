@@ -16,10 +16,9 @@
 package io.casehub.api.spi.routing;
 
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 
 public interface GoalFormationStrategy extends NamedStrategy {
-  Uni<GoalFormationProposal> propose(GoalFormationContext context);
+  GoalFormationProposal propose(GoalFormationContext context);
 
   @Override
   default String id() {

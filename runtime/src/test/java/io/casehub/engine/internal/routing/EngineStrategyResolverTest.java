@@ -54,12 +54,11 @@ class EngineStrategyResolverTest {
     }
 
     @Override
-    public io.smallrye.mutiny.Uni<
-            io.casehub.engine.plan.DagPlan<io.casehub.engine.plan.TaskNode.LeafTask<Object>>>
+    public io.casehub.engine.plan.DagPlan<io.casehub.engine.plan.TaskNode.LeafTask<Object>>
         decompose(
             io.casehub.engine.plan.TaskNode<Object> task,
             io.casehub.engine.plan.DecompositionContext<Object> context) {
-      return io.smallrye.mutiny.Uni.createFrom().nullItem();
+      return null;
     }
   }
 

@@ -16,10 +16,9 @@
 package io.casehub.api.spi.routing;
 
 import io.casehub.platform.api.routing.NamedStrategy;
-import io.smallrye.mutiny.Uni;
 
 public interface GoalRevisionStrategy extends NamedStrategy {
-  Uni<GoalRevisionProposal> revise(GoalRevisionContext context);
+  GoalRevisionProposal revise(GoalRevisionContext context);
 
   @Override
   default String id() {

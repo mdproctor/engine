@@ -49,7 +49,7 @@ class LlmGoalFormationStrategyTest {
         "{\"goals\": [{\"name\": \"optimize-reviews\", \"description\": \"Optimize code review turnaround\", \"suggestedPriority\": \"SECONDARY\", \"formationReason\": \"Pattern of delayed reviews observed\"}], \"rationale\": \"Review bottleneck detected\"}";
     LlmGoalFormationStrategy strategy = strategyWithResponse(json);
 
-    GoalFormationProposal proposal = strategy.propose(buildContext()).await().indefinitely();
+    GoalFormationProposal proposal = strategy.propose(buildContext());
     assertThat(proposal.goals()).hasSize(1);
     assertThat(proposal.goals().get(0).name()).isEqualTo("optimize-reviews");
     assertThat(proposal.goals().get(0).formationReason())
@@ -62,7 +62,7 @@ class LlmGoalFormationStrategyTest {
     String json = "{\"goals\": [], \"rationale\": \"No new goals needed\"}";
     LlmGoalFormationStrategy strategy = strategyWithResponse(json);
 
-    GoalFormationProposal proposal = strategy.propose(buildContext()).await().indefinitely();
+    GoalFormationProposal proposal = strategy.propose(buildContext());
     assertThat(proposal.goals()).isEmpty();
     assertThat(proposal.rationale()).isEqualTo("No new goals needed");
   }
@@ -73,7 +73,7 @@ class LlmGoalFormationStrategyTest {
         "{\"goals\": [{\"name\": \"g1\", \"description\": \"desc\", \"suggestedPriority\": null, \"formationReason\": \"reason\"}], \"rationale\": \"ok\"}";
     LlmGoalFormationStrategy strategy = strategyWithResponse(json);
 
-    GoalFormationProposal proposal = strategy.propose(buildContext()).await().indefinitely();
+    GoalFormationProposal proposal = strategy.propose(buildContext());
     assertThat(proposal.goals().get(0).suggestedPriority()).isNull();
   }
 
@@ -85,7 +85,7 @@ class LlmGoalFormationStrategyTest {
     LlmGoalFormationStrategy strategy = new LlmGoalFormationStrategy(absent);
 
     try {
-      strategy.propose(buildContext()).await().indefinitely();
+      strategy.propose(buildContext());
       fail("Expected failure");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(UnsupportedOperationException.class);
@@ -97,7 +97,7 @@ class LlmGoalFormationStrategyTest {
     LlmGoalFormationStrategy strategy = strategyWithResponse("not json");
 
     try {
-      strategy.propose(buildContext()).await().indefinitely();
+      strategy.propose(buildContext());
       fail("Expected failure");
     } catch (Exception e) {
       assertThat(e).isInstanceOf(AgentException.class);

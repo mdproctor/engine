@@ -42,7 +42,6 @@ import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -146,11 +145,7 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
 
     DagPlan<TaskNode.LeafTask<JsonNode>> plan;
     try {
-      plan =
-          strategy
-              .decompose(compoundTask, decompositionContext)
-              .await()
-              .atMost(Duration.ofMillis(timeoutMs));
+      plan = strategy.decompose(compoundTask, decompositionContext);
     } catch (Exception e) {
       LOG.warnf(
           "Decomposition timed out or failed for goal=%s — graceful degradation", goal.name());

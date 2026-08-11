@@ -19,7 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.platform.api.routing.NamedStrategy;
 import io.casehub.worker.api.Worker;
-import io.smallrye.mutiny.Uni;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -35,8 +34,8 @@ class CandidateMatchingStrategyContractTest {
           }
 
           @Override
-          public Uni<List<MatchedWorker>> match(CandidateMatchingContext context) {
-            return Uni.createFrom().item(List.of());
+          public List<MatchedWorker> match(CandidateMatchingContext context) {
+            return List.of();
           }
         };
     assertThat(strategy).isInstanceOf(NamedStrategy.class);
