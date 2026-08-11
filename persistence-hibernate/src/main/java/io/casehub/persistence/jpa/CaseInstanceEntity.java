@@ -78,4 +78,8 @@ public class CaseInstanceEntity {
       joinColumns = @JoinColumn(name = "case_instance_id"))
   @Column(name = "label")
   public Set<String> labels = new LinkedHashSet<>();
+
+  @Column(name = "exchange_headers", columnDefinition = "jsonb")
+  @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
+  public java.util.Map<String, Object> exchangeHeaders;
 }

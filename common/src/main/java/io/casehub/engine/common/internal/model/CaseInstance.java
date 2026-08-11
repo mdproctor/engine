@@ -168,6 +168,22 @@ public class CaseInstance {
   }
 
   private Set<String> labels = new LinkedHashSet<>();
+  private java.util.Map<String, Object> exchangeHeaders = new java.util.LinkedHashMap<>();
+
+  public java.util.Map<String, Object> getExchangeHeaders() {
+    return exchangeHeaders;
+  }
+
+  public void setExchangeHeaders(java.util.Map<String, Object> exchangeHeaders) {
+    this.exchangeHeaders =
+        exchangeHeaders != null ? exchangeHeaders : new java.util.LinkedHashMap<>();
+  }
+
+  public void mergeExchangeHeaders(java.util.Map<String, Object> incoming) {
+    if (incoming != null && !incoming.isEmpty()) {
+      this.exchangeHeaders.putAll(incoming);
+    }
+  }
 
   public Set<String> getLabels() {
     return labels;

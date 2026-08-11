@@ -78,6 +78,7 @@ public class CaseStatusChangedHandler {
   @Inject io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
   @Inject ContextOutputApplier contextOutputApplier;
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
+  @Inject io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry;
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public void onCaseStatusChangedHandler(CaseStatusChanged event) {
@@ -142,6 +143,7 @@ public class CaseStatusChangedHandler {
       }
       schedulerService.cancelAllTriggers(caseInstance.getUuid());
       scopedWorkerRegistry.terminateByCase(caseInstance.getUuid());
+      dataChannelRegistry.closeByCase(caseInstance.getUuid());
       contextOutputApplier.evict(caseInstance.getUuid());
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();

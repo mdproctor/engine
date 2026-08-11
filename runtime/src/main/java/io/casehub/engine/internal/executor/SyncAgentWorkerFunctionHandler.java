@@ -57,7 +57,9 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
 
   @Override
   public boolean supports(WorkerFunction<?, ?> function) {
-    return function instanceof WorkerFunction.Sync || function instanceof AgentWorkerFunction;
+    return function instanceof WorkerFunction.Sync
+        || function instanceof AgentWorkerFunction
+        || function instanceof io.casehub.worker.api.ExchangeAwareFunction;
   }
 
   @SuppressWarnings("unchecked")
@@ -120,6 +122,14 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
           }
           case AgentWorkerFunction agent ->
               input -> agent.agent().execute((java.util.Map<String, Object>) input);
+          case WorkerFunction.ExchangeProcessor<?, ?> ep -> {
+            @SuppressWarnings("unchecked")
+            var biFn =
+                (java.util.function.BiFunction<
+                        Object, io.casehub.worker.api.WorkerScope, WorkerResult<?>>)
+                    (java.util.function.BiFunction) ep.fn();
+            yield input -> biFn.apply(input, runtime);
+          }
           default ->
               throw new UnsupportedOperationException(
                   "Unsupported: " + function.getClass().getName());

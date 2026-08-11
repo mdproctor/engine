@@ -72,6 +72,8 @@ public class EngineStrategyResolver implements StrategyResolver {
       @Any Instance<io.casehub.engine.plan.DecompositionStrategy<?>> decompositionStrategies,
       @Any Instance<io.casehub.api.spi.routing.GoalFormationStrategy> goalFormationStrategies,
       @Any Instance<io.casehub.api.spi.routing.GoalRevisionStrategy> goalRevisionStrategies,
+      @Any Instance<io.casehub.api.spi.ExchangeProjectionStrategy> projectionStrategies,
+      @Any Instance<io.casehub.api.spi.DataChannelFactory> channelFactories,
       @Any Instance<NamedStrategy> allStrategies) {
     this();
     registerStrategies(agentStrategies);
@@ -86,6 +88,8 @@ public class EngineStrategyResolver implements StrategyResolver {
     registerStrategies(decompositionStrategies);
     registerStrategies(goalFormationStrategies);
     registerStrategies(goalRevisionStrategies);
+    registerStrategies(projectionStrategies);
+    registerStrategies(channelFactories);
     registerRemainingStrategies(allStrategies);
 
     org.jboss.logging.Logger.getLogger(EngineStrategyResolver.class)
