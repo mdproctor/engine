@@ -25,7 +25,6 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ai.AgentException;
 import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.api.model.ai.ModelType;
@@ -134,7 +133,6 @@ class LlmGoalRevisionStrategyTest {
         List.of(
             new AgentGoal(
                 "g1", "original desc", GoalPriority.PRIMARY, Visibility.PUBLIC, List.of())),
-        Map.of("g1", new GoalOutcomeCounts(8, 2)),
-        mock(CaseDefinition.class));
+        Map.of("g1", new GoalOutcomeCounts(8, 2)));
   }
 }

@@ -15,7 +15,6 @@
  */
 package io.casehub.api.spi.routing;
 
-import io.casehub.api.model.CaseDefinition;
 import io.casehub.eidos.api.AgentGoal;
 import io.casehub.eidos.api.GoalOutcomeCounts;
 import java.util.List;
@@ -26,8 +25,7 @@ public record GoalRevisionContext(
     String agentId,
     String tenancyId,
     List<AgentGoal> goals,
-    Map<String, GoalOutcomeCounts> counts,
-    CaseDefinition definition) {
+    Map<String, GoalOutcomeCounts> counts) {
   public GoalRevisionContext {
     Objects.requireNonNull(agentId, "agentId must not be null");
     Objects.requireNonNull(tenancyId, "tenancyId must not be null");

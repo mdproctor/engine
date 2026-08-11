@@ -218,7 +218,7 @@ public class GoalRevisionEvaluator {
     if (strategy != null) {
       try {
         GoalRevisionContext context =
-            new GoalRevisionContext(agentId, tenancyId, finalGoals, counts, definition);
+            new GoalRevisionContext(agentId, tenancyId, finalGoals, counts);
         GoalRevisionProposal proposal = strategy.revise(context);
         if (proposal != null && !proposal.revisions().isEmpty()) {
           finalGoals = mergeDescriptions(finalGoals, proposal);

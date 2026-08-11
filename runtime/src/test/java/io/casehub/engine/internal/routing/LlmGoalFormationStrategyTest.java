@@ -25,7 +25,6 @@ import dev.langchain4j.data.message.AiMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
-import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.RetrievedMemory;
 import io.casehub.api.model.ai.AgentException;
 import io.casehub.api.model.ai.ChatModelProvider;
@@ -138,7 +137,6 @@ class LlmGoalFormationStrategyTest {
         List.of(
             new RetrievedMemory(
                 "mem-1", "Past review took 3 days", "reflection", Instant.now(), Map.of())),
-        9,
-        mock(CaseDefinition.class));
+        9);
   }
 }

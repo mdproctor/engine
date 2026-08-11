@@ -15,7 +15,6 @@
  */
 package io.casehub.api.spi.routing;
 
-import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.RetrievedMemory;
 import io.casehub.eidos.api.AgentGoal;
 import java.util.List;
@@ -27,8 +26,7 @@ public record GoalFormationContext(
     List<String> reflectionInsights,
     List<AgentGoal> existingGoals,
     List<RetrievedMemory> recentMemories,
-    int remainingCapacity,
-    CaseDefinition definition) {
+    int remainingCapacity) {
   public GoalFormationContext {
     Objects.requireNonNull(agentId, "agentId must not be null");
     Objects.requireNonNull(tenancyId, "tenancyId must not be null");
