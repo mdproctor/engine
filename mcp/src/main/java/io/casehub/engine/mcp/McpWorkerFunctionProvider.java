@@ -36,6 +36,8 @@ public class McpWorkerFunctionProvider implements WorkerFunctionProvider {
 
   private static final Logger LOG = Logger.getLogger(McpWorkerFunctionProvider.class);
 
+  @jakarta.inject.Inject McpEndpointRegistry endpointRegistry;
+
   @Override
   public boolean handles(final JsonNode rawWorkerNode) {
     return rawWorkerNode.has("mcp");
@@ -78,6 +80,7 @@ public class McpWorkerFunctionProvider implements WorkerFunctionProvider {
                 .outputSchema(".")
                 .build();
         final McpWorkerFunction function = new McpWorkerFunction(transport, tool.name());
+        endpointRegistry.register(workerName, transport);
         discovered.add(new DiscoveredWorker(workerName, capability, function));
       }
       return discovered;

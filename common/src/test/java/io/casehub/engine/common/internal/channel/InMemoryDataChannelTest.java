@@ -243,4 +243,31 @@ class InMemoryDataChannelTest {
 
     assertThat(caughtException.get()).isInstanceOf(ChannelClosedException.class);
   }
+
+  @Test
+  void sendTimesOutWhenConfigured() throws Exception {
+    DataChannel<String> channel = new InMemoryDataChannel<>("test", 1, 200);
+    channel.send(Exchange.of("fill"));
+
+    long start = System.nanoTime();
+    assertThatThrownBy(() -> channel.send(Exchange.of("blocked")))
+        .isInstanceOf(ChannelClosedException.class)
+        .hasMessageContaining("timed out");
+    long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+    assertThat(elapsed).isBetween(150L, 2000L);
+  }
+
+  @Test
+  void sendWithZeroTimeoutBlocksIndefinitelyUntilSpace() throws Exception {
+    DataChannel<String> channel = new InMemoryDataChannel<>("test", 1, 0);
+    channel.send(Exchange.of("fill"));
+
+    Thread producer = Thread.ofVirtual().start(() -> channel.send(Exchange.of("second")));
+    Thread.sleep(100);
+    Exchange<String> received = channel.receive();
+    producer.join(2000);
+
+    assertThat(received.body()).isEqualTo("fill");
+    assertThat(channel.receive().body()).isEqualTo("second");
+  }
 }

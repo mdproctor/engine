@@ -126,8 +126,16 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
   }
 
   @Override
+  public boolean supportsRecovery() {
+    return backends.stream().anyMatch(WorkerExecutionManager::supportsRecovery);
+  }
+
+  @Override
   public void schedulePersistedEvent(EventLog scheduledEventLog) {
     if (backends.isEmpty()) {
+      LOG.warnf(
+          "No backends available for schedulePersistedEvent — event %d may be lost",
+          scheduledEventLog.id);
       return;
     }
     String capabilityName = null;
@@ -136,17 +144,27 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
         && scheduledEventLog.getMetadata().has("capabilityName")) {
       capabilityName = scheduledEventLog.getMetadata().get("capabilityName").asText();
     }
-    if (capabilityName != null) {
+    if (capabilityName == null) {
+      LOG.warnf(
+          "EventLog %d has no capabilityName in metadata — cannot route for recovery",
+          scheduledEventLog.id);
       for (WorkerExecutionManager backend : backends) {
-        if (backend.supports(capabilityName, tenancyId)) {
+        if (backend.supportsRecovery()) {
           backend.schedulePersistedEvent(scheduledEventLog);
           return;
         }
       }
-      LOG.warnf(
-          "No backend supports capability '%s' for schedulePersistedEvent — event may be lost",
-          capabilityName);
+      return;
     }
+    for (WorkerExecutionManager backend : backends) {
+      if (backend.supports(capabilityName, tenancyId)) {
+        backend.schedulePersistedEvent(scheduledEventLog);
+        return;
+      }
+    }
+    LOG.warnf(
+        "No backend supports capability '%s' for schedulePersistedEvent — event %d may be lost",
+        capabilityName, scheduledEventLog.id);
   }
 
   @Override

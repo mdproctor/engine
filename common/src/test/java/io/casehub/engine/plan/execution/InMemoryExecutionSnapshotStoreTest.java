@@ -83,6 +83,24 @@ class InMemoryExecutionSnapshotStoreTest {
   }
 
   @Test
+  void ttlSweepEvictsExpiredEntries() {
+    var shortTtlStore = new InMemoryExecutionSnapshotStore(Duration.ZERO, Duration.ZERO);
+    UUID caseId = UUID.randomUUID();
+    shortTtlStore.storeDecomposition(
+        caseId, new DecompositionSnapshot(new LeafTaskSnapshot("l1", null, null), Instant.now()));
+
+    assertThat(shortTtlStore.size()).isEqualTo(1);
+
+    // Storing to another case triggers a sweep — the first entry should be evicted
+    UUID caseId2 = UUID.randomUUID();
+    shortTtlStore.storeDecomposition(
+        caseId2, new DecompositionSnapshot(new LeafTaskSnapshot("l2", null, null), Instant.now()));
+
+    // The sweep runs on store, so caseId should be gone (TTL=0 means immediately expired)
+    assertThat(shortTtlStore.getDecomposition(caseId, "t")).isEmpty();
+  }
+
+  @Test
   void storeOverwritesPreviousSnapshot() {
     UUID caseId = UUID.randomUUID();
     var first = new DagPlanSnapshot(Map.of(), Instant.now());

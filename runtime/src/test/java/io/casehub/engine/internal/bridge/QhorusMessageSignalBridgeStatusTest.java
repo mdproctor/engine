@@ -112,6 +112,125 @@ class QhorusMessageSignalBridgeStatusTest {
   }
 
   @Test
+  void statusMessage_withPathologyPrefix_signalsAsPathologyAlert() {
+    UUID caseId = UUID.randomUUID();
+    UUID channelId = UUID.randomUUID();
+    String channelName = CaseChannel.channelName(caseId, "work");
+    Instant occurredAt = Instant.now();
+
+    MessageReceivedEvent event =
+        new MessageReceivedEvent(
+            null,
+            channelName,
+            channelId,
+            "test-tenancy",
+            MessageType.STATUS,
+            "watchdog-1",
+            null,
+            null,
+            null,
+            occurredAt,
+            "LOOP_DETECTED: agent-X repeated task 5 times",
+            null);
+
+    bridge.onMessage(event);
+
+    ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Object> valueCaptor = ArgumentCaptor.forClass(Object.class);
+    verify(runtime)
+        .signal(
+            eq(caseId),
+            keyCaptor.capture(),
+            valueCaptor.capture(),
+            eq(channelId.toString()),
+            eq(null));
+
+    assertThat(keyCaptor.getValue()).isEqualTo("pathologyAlert");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> payload = (Map<String, Object>) valueCaptor.getValue();
+    assertThat(payload).containsEntry("conditionType", "LOOP_DETECTED");
+    assertThat(payload).containsEntry("detail", "LOOP_DETECTED: agent-X repeated task 5 times");
+    assertThat(payload).containsEntry("from", "watchdog-1");
+    assertThat(payload).containsEntry("timestamp", occurredAt);
+  }
+
+  @Test
+  void statusMessage_withEchoChamberPrefix_signalsAsPathologyAlert() {
+    UUID caseId = UUID.randomUUID();
+    UUID channelId = UUID.randomUUID();
+    String channelName = CaseChannel.channelName(caseId, "work");
+
+    MessageReceivedEvent event =
+        new MessageReceivedEvent(
+            null,
+            channelName,
+            channelId,
+            "test-tenancy",
+            MessageType.STATUS,
+            "watchdog-1",
+            null,
+            null,
+            null,
+            Instant.now(),
+            "ECHO_CHAMBER: agents A and B are agreeing without progress",
+            null);
+
+    bridge.onMessage(event);
+
+    ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+    ArgumentCaptor<Object> valueCaptor = ArgumentCaptor.forClass(Object.class);
+    verify(runtime)
+        .signal(
+            eq(caseId),
+            keyCaptor.capture(),
+            valueCaptor.capture(),
+            eq(channelId.toString()),
+            eq(null));
+
+    assertThat(keyCaptor.getValue()).isEqualTo("pathologyAlert");
+
+    @SuppressWarnings("unchecked")
+    Map<String, Object> payload = (Map<String, Object>) valueCaptor.getValue();
+    assertThat(payload).containsEntry("conditionType", "ECHO_CHAMBER");
+  }
+
+  @Test
+  void statusMessage_withoutPathologyPrefix_signalsAsNormalStatus() {
+    UUID caseId = UUID.randomUUID();
+    UUID channelId = UUID.randomUUID();
+    String channelName = CaseChannel.channelName(caseId, "work");
+
+    MessageReceivedEvent event =
+        new MessageReceivedEvent(
+            null,
+            channelName,
+            channelId,
+            "test-tenancy",
+            MessageType.STATUS,
+            "agent-1",
+            null,
+            null,
+            null,
+            Instant.now(),
+            "Processing step 3 of 5",
+            null);
+
+    bridge.onMessage(event);
+
+    ArgumentCaptor<String> keyCaptor = ArgumentCaptor.forClass(String.class);
+    verify(runtime)
+        .signal(
+            eq(caseId),
+            keyCaptor.capture(),
+            org.mockito.ArgumentMatchers.any(),
+            eq(channelId.toString()),
+            eq(null));
+
+    assertThat(keyCaptor.getValue()).isEqualTo("statusReport");
+  }
+
+  @Test
   void statusOnNonCaseChannel_isIgnored() {
     MessageReceivedEvent event =
         new MessageReceivedEvent(

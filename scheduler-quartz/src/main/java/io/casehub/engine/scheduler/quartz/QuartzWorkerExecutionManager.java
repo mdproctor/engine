@@ -119,6 +119,11 @@ public class QuartzWorkerExecutionManager implements WorkerExecutionManager {
   }
 
   @Override
+  public boolean supportsRecovery() {
+    return true;
+  }
+
+  @Override
   public void schedulePersistedEvent(EventLog scheduledEventLog) {
     String caseId = scheduledEventLog.getCaseId().toString();
     String workerId = scheduledEventLog.getWorkerId();

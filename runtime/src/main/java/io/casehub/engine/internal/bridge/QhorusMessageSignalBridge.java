@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.PathologyCondition;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -68,6 +69,9 @@ public class QhorusMessageSignalBridge {
   /** Context path written by this bridge for channel messages. */
   public static final String SIGNAL_PATH = "channelMessage";
 
+  /** Context path written by this bridge for coordination pathology alerts. */
+  public static final String PATHOLOGY_ALERT_PATH = "pathologyAlert";
+
   private static final Logger LOG = Logger.getLogger(QhorusMessageSignalBridge.class);
   private static final Duration TIMEOUT = Duration.ofSeconds(5);
 
@@ -111,6 +115,12 @@ public class QhorusMessageSignalBridge {
   }
 
   private void handleStatusUpdate(UUID caseId, MessageReceivedEvent event) {
+    PathologyCondition condition = PathologyCondition.fromContent(event.content());
+    if (condition != null) {
+      handlePathologyAlert(caseId, event, condition);
+      return;
+    }
+
     LOG.debugf(
         "STATUS update on case %s from channel '%s' (sender=%s)",
         caseId, event.channelName(), event.senderId());
@@ -122,6 +132,24 @@ public class QhorusMessageSignalBridge {
 
     runtime.signal(
         caseId, "statusReport", statusPayload, event.channelId().toString(), event.correlationId());
+  }
+
+  private void handlePathologyAlert(
+      UUID caseId, MessageReceivedEvent event, PathologyCondition condition) {
+    LOG.infof("Pathology alert %s on case %s from '%s'", condition, caseId, event.senderId());
+
+    Map<String, Object> alertPayload = new HashMap<>();
+    alertPayload.put("conditionType", condition.name());
+    alertPayload.put("detail", event.content());
+    alertPayload.put("from", event.senderId());
+    alertPayload.put("timestamp", event.occurredAt());
+
+    runtime.signal(
+        caseId,
+        PATHOLOGY_ALERT_PATH,
+        alertPayload,
+        event.channelId().toString(),
+        event.correlationId());
   }
 
   private boolean handleWorkerOutcome(UUID caseId, MessageReceivedEvent event) {

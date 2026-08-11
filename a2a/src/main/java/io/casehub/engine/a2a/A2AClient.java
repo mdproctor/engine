@@ -174,6 +174,33 @@ public class A2AClient implements AutoCloseable {
     // JDK 21 HttpClient has no explicit close
   }
 
+  public boolean checkHealth() {
+    try {
+      return fetchAgentCard() != null;
+    } catch (Exception e) {
+      return false;
+    }
+  }
+
+  public AgentCard fetchAgentCard() {
+    try {
+      HttpRequest.Builder builder =
+          HttpRequest.newBuilder()
+              .uri(URI.create(endpoint + ".well-known/agent.json"))
+              .GET()
+              .timeout(java.time.Duration.ofSeconds(5));
+      applyAuth(builder);
+      HttpResponse<String> response =
+          httpClient.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+      if (response.statusCode() >= 200 && response.statusCode() < 300) {
+        return AgentCard.parse(response.body());
+      }
+      return null;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+
   public void cancelTask(final String taskId) {
     try {
       final ObjectNode root = MAPPER.createObjectNode();

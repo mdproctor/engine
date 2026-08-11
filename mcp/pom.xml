@@ -31,6 +31,12 @@
             <version>${project.version}</version>
         </dependency>
 
+        <!-- Eidos API: CapabilityHealth SPI for MCP health probing -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-eidos-api</artifactId>
+        </dependency>
+
         <!-- MCP SDK: McpSyncClient, transports, protocol types -->
         <dependency>
             <groupId>io.modelcontextprotocol.sdk</groupId>

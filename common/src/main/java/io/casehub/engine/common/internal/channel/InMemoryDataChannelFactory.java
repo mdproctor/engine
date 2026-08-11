@@ -19,7 +19,9 @@ import io.casehub.api.spi.DataChannelFactory;
 import io.casehub.worker.api.DataChannel;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
+import java.util.Optional;
 import java.util.UUID;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 @DefaultBean
 @ApplicationScoped
@@ -27,9 +29,13 @@ public class InMemoryDataChannelFactory implements DataChannelFactory {
 
   private static final int DEFAULT_BUFFER_SIZE = 1024;
 
+  @ConfigProperty(name = "casehub.engine.channel.send-timeout-ms")
+  Optional<Long> sendTimeoutMs;
+
   @Override
   public <T> DataChannel<T> create(String name, Class<T> recordType, UUID caseId) {
-    return new InMemoryDataChannel<>(name, DEFAULT_BUFFER_SIZE);
+    long timeout = sendTimeoutMs != null ? sendTimeoutMs.orElse(0L) : 0L;
+    return new InMemoryDataChannel<>(name, DEFAULT_BUFFER_SIZE, timeout);
   }
 
   @Override

@@ -111,6 +111,9 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
     final io.casehub.api.engine.WorkerRuntime runtime =
         workerRuntimeFactory.create(context.caseId(), metadata.workerName(), context, accState);
 
+    final java.util.concurrent.atomic.AtomicReference<io.casehub.api.model.ai.TokenUsage>
+        tokenUsageRef = new java.util.concurrent.atomic.AtomicReference<>();
+
     java.util.function.Function<Object, WorkerResult<?>> fn =
         switch (function) {
           case WorkerFunction.Sync<?, ?> sync -> {
@@ -121,7 +124,12 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
             yield input -> biFn.apply(input, runtime);
           }
           case AgentWorkerFunction agent ->
-              input -> agent.agent().execute((java.util.Map<String, Object>) input);
+              input -> {
+                var agentResponse =
+                    agent.agent().executeDetailed((java.util.Map<String, Object>) input);
+                tokenUsageRef.set(agentResponse.tokenUsage());
+                return agentResponse.result();
+              };
           case WorkerFunction.ExchangeProcessor<?, ?> ep -> {
             @SuppressWarnings("unchecked")
             var biFn =
@@ -160,6 +168,15 @@ public class SyncAgentWorkerFunctionHandler implements WorkerFunctionHandler {
                           .accumulatedState()
                           .set(output));
         }
+      }
+      io.casehub.api.model.ai.TokenUsage tokenUsage = tokenUsageRef.get();
+      if (tokenUsage != null) {
+        return new HandlerResult(
+            result,
+            java.util.Map.of(
+                "inputTokens", tokenUsage.inputTokens(),
+                "outputTokens", tokenUsage.outputTokens(),
+                "totalTokens", tokenUsage.totalTokens()));
       }
       return new HandlerResult(result);
     } catch (java.util.concurrent.TimeoutException e) {

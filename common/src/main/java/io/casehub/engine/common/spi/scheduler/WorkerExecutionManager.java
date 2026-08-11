@@ -93,7 +93,14 @@ public interface WorkerExecutionManager {
     submit(eventLogId, instance, worker, capability, inputData);
   }
 
-  default void schedulePersistedEvent(EventLog scheduledEventLog) {}
+  default boolean supportsRecovery() {
+    return false;
+  }
+
+  default void schedulePersistedEvent(EventLog scheduledEventLog) {
+    throw new UnsupportedOperationException(
+        getClass().getName() + " does not implement schedulePersistedEvent — recovery gap");
+  }
 
   int getActiveWorkCount(String workerId);
 

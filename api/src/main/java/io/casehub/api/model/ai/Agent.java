@@ -77,6 +77,15 @@ public final class Agent {
    * PlannedAction)}.
    */
   public WorkerResult<Map<String, Object>> execute(Map<String, Object> input) {
+    return executeDetailed(input).result();
+  }
+
+  /**
+   * Executes this agent and returns an {@link AgentResponse} containing both the {@link
+   * WorkerResult} and {@link TokenUsage} from the LLM call. Token usage is null when the model does
+   * not report it.
+   */
+  public AgentResponse executeDetailed(Map<String, Object> input) {
     JsonNode inputNode = MAPPER.convertValue(input, JsonNode.class);
     JsonNode transformed = inputTransformer.apply(inputNode);
 
@@ -115,14 +124,23 @@ public final class Agent {
     Map<String, Object> output =
         MAPPER.convertValue(outputTransformer.apply(responseJson), MAP_TYPE);
 
+    WorkerResult<Map<String, Object>> workerResult;
     if (plannedActionExtractor != null) {
       PlannedAction action = plannedActionExtractor.apply(output);
-      if (action != null) {
-        return WorkerResult.of(output, action);
-      }
+      workerResult = action != null ? WorkerResult.of(output, action) : WorkerResult.of(output);
+    } else {
+      workerResult = WorkerResult.of(output);
     }
 
-    return WorkerResult.of(output);
+    dev.langchain4j.model.output.TokenUsage lc4jUsage = response.tokenUsage();
+    TokenUsage tokenUsage =
+        lc4jUsage != null
+            ? new TokenUsage(
+                lc4jUsage.inputTokenCount() != null ? lc4jUsage.inputTokenCount() : 0,
+                lc4jUsage.outputTokenCount() != null ? lc4jUsage.outputTokenCount() : 0)
+            : null;
+
+    return new AgentResponse(workerResult, tokenUsage);
   }
 
   private ResponseFormat buildResponseFormat() {

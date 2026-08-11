@@ -26,11 +26,17 @@ public final class InMemoryDataChannel<T> implements DataChannel<T> {
 
   private final String name;
   private final BlockingQueue<Exchange<T>> queue;
+  private final long sendTimeoutMs;
   private volatile boolean closed;
 
   public InMemoryDataChannel(String name, int capacity) {
+    this(name, capacity, 0);
+  }
+
+  public InMemoryDataChannel(String name, int capacity, long sendTimeoutMs) {
     this.name = name;
     this.queue = new ArrayBlockingQueue<>(capacity);
+    this.sendTimeoutMs = sendTimeoutMs;
   }
 
   @Override
@@ -38,6 +44,8 @@ public final class InMemoryDataChannel<T> implements DataChannel<T> {
     if (closed) {
       throw new ChannelClosedException(name);
     }
+    long deadline =
+        sendTimeoutMs > 0 ? System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(sendTimeoutMs) : 0;
     try {
       while (!closed) {
         if (queue.offer(exchange, 100, TimeUnit.MILLISECONDS)) {
@@ -46,6 +54,9 @@ public final class InMemoryDataChannel<T> implements DataChannel<T> {
             throw new ChannelClosedException(name);
           }
           return;
+        }
+        if (deadline > 0 && System.nanoTime() >= deadline) {
+          throw new ChannelClosedException(name + " send timed out after " + sendTimeoutMs + "ms");
         }
       }
       throw new ChannelClosedException(name);

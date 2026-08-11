@@ -44,6 +44,23 @@ class AgentTest {
     };
   }
 
+  private ChatModel fixedResponseModelWithTokens(
+      String jsonResponse, int inputTokens, int outputTokens) {
+    return new ChatModel() {
+      @Override
+      public ChatResponse doChat(ChatRequest request) {
+        return ChatResponse.builder()
+            .aiMessage(AiMessage.from(jsonResponse))
+            .metadata(
+                dev.langchain4j.model.chat.response.ChatResponseMetadata.builder()
+                    .tokenUsage(
+                        new dev.langchain4j.model.output.TokenUsage(inputTokens, outputTokens))
+                    .build())
+            .build();
+      }
+    };
+  }
+
   @Test
   void executesModelAndAppliesOutputSchema() {
     ChatModel model = fixedResponseModel("{\"value\": 42, \"extra\": \"ignored\"}");
@@ -362,5 +379,56 @@ class AgentTest {
     io.casehub.worker.api.WorkerOutcome.Success<Map<String, Object>> success =
         (io.casehub.worker.api.WorkerOutcome.Success<Map<String, Object>>) result.outcome();
     assertThat(success.plannedAction()).isNull();
+  }
+
+  @Test
+  void executeDetailedCapturesTokenUsage() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("You are helpful.")
+            .inputProjection(".")
+            .outputProjection(".")
+            .model(fixedResponseModelWithTokens("{\"result\": \"ok\"}", 150, 42))
+            .build();
+
+    AgentResponse response = agent.executeDetailed(Map.of("key", "value"));
+
+    assertThat(response.result().output()).containsEntry("result", "ok");
+    assertThat(response.tokenUsage()).isNotNull();
+    assertThat(response.tokenUsage().inputTokens()).isEqualTo(150);
+    assertThat(response.tokenUsage().outputTokens()).isEqualTo(42);
+    assertThat(response.tokenUsage().totalTokens()).isEqualTo(192);
+  }
+
+  @Test
+  void executeDetailedReturnsNullTokenUsageWhenModelDoesNotReportIt() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("You are helpful.")
+            .inputProjection(".")
+            .outputProjection(".")
+            .model(fixedResponseModel("{\"result\": \"ok\"}"))
+            .build();
+
+    AgentResponse response = agent.executeDetailed(Map.of("key", "value"));
+
+    assertThat(response.result().output()).containsEntry("result", "ok");
+    assertThat(response.tokenUsage()).isNull();
+  }
+
+  @Test
+  void executeDelegatesToExecuteDetailed() {
+    Agent agent =
+        Agent.builder()
+            .systemPrompt("You are helpful.")
+            .inputProjection(".")
+            .outputProjection(".")
+            .model(fixedResponseModelWithTokens("{\"result\": \"ok\"}", 100, 50))
+            .build();
+
+    io.casehub.worker.api.WorkerResult<Map<String, Object>> result =
+        agent.execute(Map.of("key", "value"));
+
+    assertThat(result.output()).containsEntry("result", "ok");
   }
 }
