@@ -1,0 +1,5 @@
+io.casehub.api.model.ai.openai.OpenAiChatModelProvider
+io.casehub.api.model.ai.ollama.OllamaChatModelProvider
+io.casehub.api.model.ai.anthropic.AnthropicChatModelProvider
+io.casehub.api.model.ai.mistral.MistralAiChatModelProvider
+io.casehub.api.model.ai.gemini.GoogleAiGeminiChatModelProvider

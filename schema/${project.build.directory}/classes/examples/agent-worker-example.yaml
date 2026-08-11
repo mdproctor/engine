@@ -1,0 +1,56 @@
+dsl: "0.1.0"
+namespace: example
+name: sentiment-analysis
+version: "1.0.0"
+title: "AI-Powered Sentiment Analysis"
+
+spec:
+  capabilities:
+    - name: analyzeSentiment
+      description: "Analyze text sentiment"
+      inputProjection: "{ text: .text }"
+      outputProjection: "{ sentiment: .sentiment, status: \"analyzed\" }"
+
+  workers:
+    - name: sentiment-analyzer
+      description: "AI-powered sentiment analysis worker"
+      capabilities:
+        - analyzeSentiment
+      agent:
+        systemPrompt: |
+          You are a sentiment analyzer. Analyze the input text and classify it as:
+          - POSITIVE: for positive sentiment
+          - NEGATIVE: for negative sentiment
+          - NEUTRAL: for neutral sentiment
+
+          Return only JSON with a single field "sentiment".
+        inputProjection: "{ text: .text }"
+        outputProjection: "{ sentiment: .sentiment }"
+        model:
+          openai:
+            apiKey: "your-openai-api-key-here"
+            modelName: "gpt-4"
+            temperature: 0.3
+            maxTokens: 100
+      executionPolicy:
+        timeoutMs: 60000
+        retries:
+          maxAttempts: 3
+          delayMs: 1000
+
+  bindings:
+    - name: trigger-analysis
+      capability: analyzeSentiment
+      on:
+        contextChange:
+          filter: ".status == \"pending\""
+
+  goals:
+    - name: analysisComplete
+      condition: ".status == \"analyzed\""
+      kind: success
+
+  completion:
+    success:
+      allOf:
+        - analysisComplete
