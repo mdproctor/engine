@@ -17,13 +17,15 @@ package io.casehub.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.acl.EngineWorkerActions;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.acl.WorkerIdentity;
 import io.casehub.engine.internal.acl.WorkerIdentityResolver;
 import io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclAction;
-import io.casehub.platform.api.acl.WorkerAction;
+import io.casehub.platform.api.acl.AclResourceType;
+import io.casehub.platform.api.acl.ResourceId;
 import io.casehub.platform.api.acl.WorkerCredential;
 import io.casehub.platform.api.acl.WorkerCredentialStore;
 import io.quarkus.test.junit.QuarkusTest;
@@ -45,7 +47,8 @@ class WorkerRightsIntegrationTest {
   @BeforeEach
   void cleanStore() {
     if (credentialStore instanceof InMemoryWorkerCredentialStore mem) {
-      mem.revokeByCase(UUID.fromString("00000000-0000-0000-0000-000000000000"));
+      mem.revokeByResource(
+          new ResourceId(AclResourceType.CASE, "00000000-0000-0000-0000-000000000000"));
     }
   }
 
@@ -56,7 +59,7 @@ class WorkerRightsIntegrationTest {
     WorkerCredential credential =
         orchestrator.grantAndMint(
             "agent:test-pool",
-            List.of(WorkerAction.READ_CONTEXT, WorkerAction.SIGNAL_CASE),
+            List.of(EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.SIGNAL_CASE),
             caseId,
             "test-tenant",
             Instant.now().plusSeconds(300),
@@ -64,9 +67,11 @@ class WorkerRightsIntegrationTest {
 
     assertThat(credential).isNotNull();
     assertThat(credential.actorId()).isEqualTo("agent:test-pool");
-    assertThat(credential.caseId()).isEqualTo(caseId);
+    assertThat(credential.resourceId())
+        .isEqualTo(new ResourceId(AclResourceType.CASE, caseId.toString()));
     assertThat(credential.actions())
-        .containsExactlyInAnyOrder(WorkerAction.READ_CONTEXT, WorkerAction.SIGNAL_CASE);
+        .containsExactlyInAnyOrder(
+            EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.SIGNAL_CASE);
 
     assertThat(credentialStore.lookup(credential.token())).isPresent();
 
@@ -84,7 +89,12 @@ class WorkerRightsIntegrationTest {
 
     WorkerCredential credential =
         orchestrator.grantAndMint(
-            null, List.of(WorkerAction.READ_CONTEXT), caseId, "test-tenant", null, "ns/test/v1");
+            null,
+            List.of(EngineWorkerActions.READ_CONTEXT),
+            caseId,
+            "test-tenant",
+            null,
+            "ns/test/v1");
 
     String actorId = credential.actorId();
     assertThat(credentialStore.lookup(credential.token())).isPresent();
@@ -102,10 +112,20 @@ class WorkerRightsIntegrationTest {
 
     WorkerCredential c1 =
         orchestrator.grantAndMint(
-            null, List.of(WorkerAction.READ_CONTEXT), caseId, "test-tenant", null, "ns/test/v1");
+            null,
+            List.of(EngineWorkerActions.READ_CONTEXT),
+            caseId,
+            "test-tenant",
+            null,
+            "ns/test/v1");
     WorkerCredential c2 =
         orchestrator.grantAndMint(
-            null, List.of(WorkerAction.READ_CONTEXT), caseId, "test-tenant", null, "ns/test/v1");
+            null,
+            List.of(EngineWorkerActions.READ_CONTEXT),
+            caseId,
+            "test-tenant",
+            null,
+            "ns/test/v1");
 
     assertThat(credentialStore.lookup(c1.token())).isPresent();
     assertThat(credentialStore.lookup(c2.token())).isPresent();
@@ -145,7 +165,7 @@ class WorkerRightsIntegrationTest {
     WorkerCredential c1 =
         orchestrator.grantAndMint(
             actorId,
-            List.of(WorkerAction.READ_CONTEXT, WorkerAction.SIGNAL_CASE),
+            List.of(EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.SIGNAL_CASE),
             caseId,
             "test-tenant",
             null,
@@ -153,7 +173,7 @@ class WorkerRightsIntegrationTest {
     WorkerCredential c2 =
         orchestrator.grantAndMint(
             actorId,
-            List.of(WorkerAction.READ_CONTEXT, WorkerAction.ADMIN),
+            List.of(EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.ADMIN),
             caseId,
             "test-tenant",
             null,

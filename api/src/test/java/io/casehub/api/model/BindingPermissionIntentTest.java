@@ -18,7 +18,7 @@ package io.casehub.api.model;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
-import io.casehub.platform.api.acl.WorkerAction;
+import io.casehub.api.acl.EngineWorkerActions;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -31,11 +31,12 @@ class BindingPermissionIntentTest {
             .name("b1")
             .capability(io.casehub.worker.api.Capability.of("cap1", ".", "."))
             .on(new ContextChangeTrigger(".ready"))
-            .permissionIntent(List.of(WorkerAction.READ_CONTEXT, WorkerAction.SIGNAL_CASE))
+            .permissionIntent(
+                List.of(EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.SIGNAL_CASE))
             .build();
 
     assertEquals(
-        List.of(WorkerAction.READ_CONTEXT, WorkerAction.SIGNAL_CASE),
+        List.of(EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.SIGNAL_CASE),
         binding.getPermissionIntent());
   }
 

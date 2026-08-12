@@ -570,7 +570,7 @@ public class CaseContextChangedEventHandler {
         java.util.List<io.casehub.platform.api.acl.WorkerAction> actions =
             binding.getPermissionIntent() != null
                 ? binding.getPermissionIntent()
-                : java.util.List.of(io.casehub.platform.api.acl.WorkerAction.READ_CONTEXT);
+                : java.util.List.of(io.casehub.api.acl.EngineWorkerActions.READ_CONTEXT);
         java.time.Instant deadline =
             caseInstance.getPropagationContext() != null
                 ? caseInstance.getPropagationContext().getDeadline().orElse(null)
@@ -891,7 +891,7 @@ public class CaseContextChangedEventHandler {
         java.util.List<io.casehub.platform.api.acl.WorkerAction> provActions =
             provBinding != null && provBinding.getPermissionIntent() != null
                 ? provBinding.getPermissionIntent()
-                : java.util.List.of(io.casehub.platform.api.acl.WorkerAction.READ_CONTEXT);
+                : java.util.List.of(io.casehub.api.acl.EngineWorkerActions.READ_CONTEXT);
         java.time.Instant provDeadline =
             caseInstance.getPropagationContext() != null
                 ? caseInstance.getPropagationContext().getDeadline().orElse(null)
