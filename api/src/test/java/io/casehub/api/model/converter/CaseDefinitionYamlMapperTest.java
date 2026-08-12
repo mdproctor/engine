@@ -2541,6 +2541,45 @@ class CaseDefinitionYamlMapperTest {
         .hasMessageContaining("resolutionType class not found");
   }
 
+  @Test
+  void load_permissionIntent_parsesKebabCaseActions() throws IOException {
+    String yaml =
+        """
+                namespace: test
+                name: PermissionIntent Case
+                version: 1.0.0
+                spec:
+                  capabilities:
+                    - name: risk-check
+                      inputProjection: "."
+                      outputProjection: "."
+                  workers:
+                    - name: risk-worker
+                      capabilities:
+                        - risk-check
+                  bindings:
+                    - name: assess-risk
+                      capability: risk-check
+                      on:
+                        contextChange:
+                          filter: ".ready"
+                      permissionIntent:
+                        - read-context
+                        - signal-case
+                """;
+
+    InputStream is = new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8));
+    CaseDefinition def = CaseDefinitionYamlMapper.load(is);
+
+    assertThat(def.getBindings()).hasSize(1);
+    Binding binding = def.getBindings().get(0);
+    assertThat(binding.getPermissionIntent())
+        .isNotNull()
+        .containsExactly(
+            io.casehub.api.acl.EngineWorkerActions.READ_CONTEXT,
+            io.casehub.api.acl.EngineWorkerActions.SIGNAL_CASE);
+  }
+
   /** Stub registry that records all create() calls for assertion. */
   private static final class RecordingRegistry implements ExpressionEngineRegistry {
     final List<String> langs = new ArrayList<>();

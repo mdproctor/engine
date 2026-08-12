@@ -1020,6 +1020,14 @@ public final class CaseDefinitionYamlMapper {
       builder.executionMode(ExecutionMode.valueOf(schemaBinding.getExecutionMode().value()));
     }
 
+    if (schemaBinding.getPermissionIntent() != null
+        && !schemaBinding.getPermissionIntent().isEmpty()) {
+      builder.permissionIntent(
+          schemaBinding.getPermissionIntent().stream()
+              .map(io.casehub.api.acl.EngineWorkerActions::fromKebabCase)
+              .toList());
+    }
+
     applyExchangeFields(schemaBinding, builder);
 
     return builder.build();
