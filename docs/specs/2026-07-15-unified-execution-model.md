@@ -1437,7 +1437,7 @@ For workflow-shaped pattern builders (`sequence()`, `parallel()`, `loop()`,
 
 Runtime-adaptive pattern implementations:
 - `LlmSelectedRouting` — supervisor (needs ChatModel)
-- `GoalOrientedDecomposition` — GOAP (needs agent I/O declarations)
+- `CapabilityDependencyDecomposition` — GOAP (needs agent I/O declarations)
 - `DispositionAwareRouting` — Belbin/DISC personality matching (needs eidos)
 - `ConvergenceCheck` — debate (needs judge agent or metric)
 - Agent dispatch for non-External variants (WorkerAgent -> WorkerExecutionManager,
