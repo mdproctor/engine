@@ -24,8 +24,20 @@ import org.junit.jupiter.api.Test;
 
 class A2AWorkerFunctionProviderTest {
 
-  private final A2AWorkerFunctionProvider provider = new A2AWorkerFunctionProvider();
+  private final A2AWorkerFunctionProvider provider = createProvider();
   private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
+
+  private static A2AWorkerFunctionProvider createProvider() {
+    var p = new A2AWorkerFunctionProvider();
+    try {
+      var field = A2AWorkerFunctionProvider.class.getDeclaredField("endpointRegistry");
+      field.setAccessible(true);
+      field.set(p, new A2AEndpointRegistry());
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException(e);
+    }
+    return p;
+  }
 
   @Test
   void handlesReturnsTrueForA2aBlock() throws Exception {
