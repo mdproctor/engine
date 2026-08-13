@@ -72,7 +72,7 @@ the existing `workItem.callerRef` manual assignment, before `workItem.persist()`
 
 - `HumanTaskScheduleEvent` — already carries `HumanTaskTarget target` (scope included after step 2)
 - `WorkItemLifecycleAdapter` — scope is read by work's expiry service, not the adapter
-- `WorkItemTemplateService.instantiate()` — scope is set on the returned `WorkItem` directly
+- `WorkItemTemplateService.instantiate()` — scope is set on the returned `WorkItemEntity` directly
 
 ## YAML example
 

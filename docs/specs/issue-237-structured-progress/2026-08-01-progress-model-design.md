@@ -530,7 +530,7 @@ public class ProgressInstanceEntity extends PanacheEntityBase {
 }
 ```
 
-`@Version` provides optimistic concurrency control — concurrent updates to the same instance produce `OptimisticLockException`, matching `WorkItem` and `WorkItemSpawnGroup` patterns.
+`@Version` provides optimistic concurrency control — concurrent updates to the same instance produce `OptimisticLockException`, matching `WorkItemEntity` and `WorkItemSpawnGroup` patterns.
 
 `state` and `definition` use `@JdbcTypeCode(SqlTypes.JSON)` for PostgreSQL `jsonb`; H2 `MODE=PostgreSQL` maps it to `TEXT`.
 

@@ -21,7 +21,7 @@ casehub-work-api is adopted as its replacement.
 * `casehub-work-api` already uses `Work`-prefixed names — adopting them
   directly eliminates any translation layer between casehub-engine and the
   shared SPI
-* `WorkItem` has well-understood human-inbox connotations (Jira, Azure DevOps)
+* `WorkItemEntity` has well-understood human-inbox connotations (Jira, Azure DevOps)
   and should remain scoped to that specialisation
 * `Task` is unambiguous at the sub-step level and should stay there
 * The naming must work for both automated-agent and human-worker scenarios
@@ -29,9 +29,9 @@ casehub-work-api is adopted as its replacement.
 
 ## Considered Options
 
-* **Option A — `Work` + `WorkItem` + `Task`**: three-level hierarchy, aligned
+* **Option A — `Work` + `WorkItemEntity` + `Task`**: three-level hierarchy, aligned
   with casehub-work-api
-* **Option B — Unified `WorkItem`**: everything is a WorkItem; automated tasks
+* **Option B — Unified `WorkItemEntity`**: everything is a WorkItem; automated tasks
   are `AutomatedWorkItem`, human tasks are `HumanWorkItem`
 * **Option C — Introduce `TaskBroker`**: use the working name from #121;
   accept mismatch with casehub-work-api
@@ -48,7 +48,7 @@ non-overlapping meaning.
   with no port required — the shared SPI is the implementation
 * casehub-core's `WorkerSelectionStrategy` maps directly to casehub-work-api's
   `WorkerSelectionStrategy` — same interface, aligned name
-* `WorkItem` retains its human-inbox specialisation in the WorkItems module
+* `WorkItemEntity` retains its human-inbox specialisation in the WorkItems module
 * `Task` is reserved for sub-steps within a `Work` unit — unambiguous scope
 * Clean architecture from day one; no legacy name surfaces in casehub-engine
 
@@ -61,14 +61,14 @@ non-overlapping meaning.
 
 ## Pros and Cons of the Options
 
-### Option A — `Work` + `WorkItem` + `Task`
+### Option A — `Work` + `WorkItemEntity` + `Task`
 
 * ✅ Zero translation layer against casehub-work-api
-* ✅ `WorkItem` retains its precise human-inbox meaning
+* ✅ `WorkItemEntity` retains its precise human-inbox meaning
 * ✅ `Task` is unambiguous at sub-step level
 * ❌ `Work` as a top-level noun needs explicit documentation
 
-### Option B — Unified `WorkItem`
+### Option B — Unified `WorkItemEntity`
 
 * ✅ Single concept for everything assignable
 * ❌ Conflicts with established tooling connotations

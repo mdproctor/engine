@@ -38,4 +38,4 @@ The SPI (`ClaimSlaPolicy`) is defined in `quarkus-work-api`. Four implementation
 - Applications needing approach B (regulated hard deadlines) inject `SingleBudgetPolicy` as an `@Alternative`.
 - Applications needing approach C (phase clocks + total cap) inject `PhaseClockPolicy`.
 - Per-task-type policies can be implemented as custom `@Alternative` beans with qualifier injection.
-- The data model on `WorkItem` tracks `accumulatedUnclaimedSeconds` and `lastReturnedToPoolAt` to support continuation calculation across claim cycles.
+- The data model on `WorkItemEntity` tracks `accumulatedUnclaimedSeconds` and `lastReturnedToPoolAt` to support continuation calculation across claim cycles.

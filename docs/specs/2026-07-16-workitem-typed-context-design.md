@@ -348,7 +348,7 @@ On WorkItem creation:
 - `HumanTaskScheduleHandler` reads `payloadTypeName` and `resolutionTypeName`
   from `HumanTaskScheduleEvent`
 - Sets them on `WorkItemCreateRequest.Builder`
-- The work repo persists them on the `WorkItem` entity
+- The work repo persists them on the `WorkItemEntity` entity
 
 On WorkItem completion:
 - `WorkItemSpiAdapter.toRef()` maps the entity's `payloadTypeName` and

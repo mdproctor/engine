@@ -16,7 +16,7 @@ Keeping it inside WorkItems would force both to depend on WorkItems to get it.
 * CaseHub and Qhorus need command/event ledgers, hash chains, and trust scores
   without depending on WorkItems
 * Each ecosystem extension should own only what is specific to it
-* The `WorkItem` concept is WorkItems-specific; the ledger pattern is not
+* The `WorkItemEntity` concept is WorkItems-specific; the ledger pattern is not
 
 ## Considered Options
 

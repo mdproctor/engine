@@ -29,7 +29,7 @@ Platform convention (validated by CaseDefinition as first adopter; #653 tracks s
 
 Types use `implements` semantics (multi-valued) — a case definition can implement multiple behavioral contracts across orthogonal dimensions. Each `Path` provides vertical hierarchy (sub-typing via `isAncestorOf`); the set provides horizontal breadth.
 
-First adopter: `CaseDefinition` (this issue). Second adopter: `WorkItem`/`WorkItemTemplate` (deferred — casehub-work issue).
+First adopter: `CaseDefinition` (this issue). Second adopter: `WorkItemEntity`/`WorkItemTemplate` (deferred — casehub-work issue).
 
 ## Design
 
@@ -178,10 +178,10 @@ Issue #652 should be updated to reflect this design.
 
 ## Deferred
 
-- **casehub-work types/labels adoption (#653):** Add `types: Set<Path>` to `WorkItemTemplate` and `WorkItem` — second adopter of the platform convention.
+- **casehub-work types/labels adoption (#653):** Add `types: Set<Path>` to `WorkItemTemplate` and `WorkItemEntity` — second adopter of the platform convention.
 - **CaseMetaModel persistence (#654):** The `CaseMetaModel` entity has a `JsonNode definition` column, but `DefaultCaseDefinitionRegistry.registerCaseDefinition()` never populates it — it is always null. Types and labels exist only in the in-memory `CaseDefinition` held in the registry's `ConcurrentHashMap`, rebuilt from YAML on every application restart. Populating the `definition` column during registration (for DB-level querying) is a separate concern.
 - **Vocabulary validation (#655):** Types and labels are free-form `Path` values. Vocabulary enforcement against `LabelVocabulary` or an engine-level `TypeVocabulary` is a separate concern.
-- **Instance-level types and labels (#656):** Types and labels on `CaseDefinition` are design-time only. Instance-level labels on `CaseInstance` (e.g. engine-assigned at runtime) are a separate concern, analogous to `WorkItemLabel` on `WorkItem`.
+- **Instance-level types and labels (#656):** Types and labels on `CaseDefinition` are design-time only. Instance-level labels on `CaseInstance` (e.g. engine-assigned at runtime) are a separate concern, analogous to `WorkItemLabelEntity` on `WorkItemEntity`.
 
 ## Files Changed
 

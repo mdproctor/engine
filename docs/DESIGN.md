@@ -184,7 +184,7 @@ A `Binding` with a `HumanTaskTarget` routes to a human WorkItem in casehub-work 
 
 **Engine wiring:**
 - `CaseContextChangedEventHandler` detects `binding.target() instanceof HumanTaskTarget`, evaluates `inputMapping` against `CaseContext`, and publishes `HumanTaskScheduleEvent` on `casehub.humantask.schedule`
-- `HumanTaskScheduleHandler` (work-adapter, `@ConsumeEvent(blocking=true)`) looks up the `PlanItem` by binding name via `CasePlanModel.getPlanItemByBindingName()`, marks it `DELEGATED` (control passed to human actor — not `RUNNING`, which is reserved for Quartz-executed CapabilityTarget workers), creates a `WorkItem` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}` and `scope = target.scope()`
+- `HumanTaskScheduleHandler` (work-adapter, `@ConsumeEvent(blocking=true)`) looks up the `PlanItem` by binding name via `CasePlanModel.getPlanItemByBindingName()`, marks it `DELEGATED` (control passed to human actor — not `RUNNING`, which is reserved for Quartz-executed CapabilityTarget workers), creates a `WorkItemEntity` via `WorkItemService` with `callerRef = case:{caseId}/pi:{planItemId}` and `scope = target.scope()`
 - `WorkItemLifecycleAdapter`: on any terminal WorkItem event (uses `status.isTerminal()` — ESCALATED is pre-filtered for context signal handling), evaluates `outputMapping` and fires `CONTEXT_CHANGED`. Terminal mapping: COMPLETED→markCompleted, REJECTED→markRejected, FAULTED→markFaulted, EXPIRED→markFaulted, OBSOLETE→markObsolete, CANCELLED→markCancelled. Also observes `WorkItemGroupLifecycleEvent` for M-of-N SpawnGroup outcomes.
 
 **Data flow:**

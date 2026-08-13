@@ -7,7 +7,7 @@
 observes `WorkItemLifecycleEvent`, parses `callerRef` (`case:{caseId}/pi:{planItemId}`), marks
 the `PlanItem`, and fires `CONTEXT_CHANGED` (8 tests passing). Refs casehubio/work#136.
 
-The **outbound** path is missing: nothing in the engine creates a casehub-work `WorkItem` when a
+The **outbound** path is missing: nothing in the engine creates a casehub-work `WorkItemEntity` when a
 human-task binding activates. This spec covers the full design for both directions, including
 `outputMapping` round-trip.
 
