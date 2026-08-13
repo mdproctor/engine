@@ -226,11 +226,15 @@ Non-generic, Jackson-serializable snapshot types for REST serialization of HTN/D
 **REST endpoints (`PlanResource`):** `GET /api/v1/cases/{caseId}/plan/model` (live CasePlanModel), `/definitions` (PlanItemDefinition hierarchy), `/decomposition` (captured HTN tree), `/dag` (captured DagPlan), `/dag/result` (captured DagResult). All `@RunOnVirtualThread` with ACL enforcement. Returns snapshot types directly — Jackson `@JsonTypeInfo` discriminators match blocks-ui TypeScript contracts.
 ## Goal Decomposition
 
-`GoalDecomposer` (`common/spi/`, SPI interface) — pre-dispatch goal decomposition at case start. `DefaultGoalDecomposer` (`planning/decomposition/`, `@ApplicationScoped`) maps active `AgentGoal`s to `CompoundTask` inputs, calls the resolved `DecompositionStrategy`, validates the result, and materializes it as compound `PlanItemDefinition`s via `registerDefinition()`. Injected into `CaseStartedEventHandler` via `Instance<GoalDecomposer>` — transparent no-op when planning module absent. Refs engine#802.
+`GoalDecomposer` (`common/spi/`, SPI interface) — pre-dispatch goal decomposition at case start. `DefaultGoalDecomposer` (`planning/decomposition/`, `@ApplicationScoped`) maps active `AgentGoal`s to `CompoundTask` inputs, calls the resolved `DecompositionStrategy`, validates the result, and materializes it as compound `PlanItemDefinition`s via `registerDefinition()`. Injected into `CaseStartedEventHandler` via `Instance<GoalDecomposer>` — transparent no-op when planning module absent. Resolves `GoalStep.capabilityName()` → `Binding.getName()` via `CaseDefinition.findBindingsByCapability()`, and resolves `ExecutorRef` via `BindingExecutorResolver.resolve()`. Refs engine#802, engine#110.
 
 **Activation:** `CaseDefinition.decompositionStrategy` (nullable String, YAML: `decompositionStrategy:`) selects the strategy by ID. When null, no decomposition runs.
 
-**v1 constraints:** Plans must be linear chains (sequential only). Parallel branches rejected at validation. Single strategy per case definition.
+**v1 constraints:** Plans must be linear chains (sequential only). Parallel branches rejected at validation. Single strategy per case definition. One binding per capability — when multiple bindings target the same capability, the first in `CaseDefinition.getBindings()` declaration order is selected (logged warning). Case definitions using LLM decomposition should not have mutually-exclusive trigger conditions across bindings targeting the same capability. The proper fix (capability-level scoping on Compound via `scopedCapabilities: Set<String>`) is deferred until a concrete multi-binding use case materializes.
+
+`BindingExecutorResolver` (`common/internal/routing/`) — static utility resolving `Binding` → `ExecutorRef`. Shared between `PlanningStrategyLoopControl` (dispatch-time resolution) and `DefaultGoalDecomposer` (decomposition-time resolution). `ForwardReplanRevision` (plan adaptation) should use it for coherent resolution. Refs engine#110.
+
+`CaseDefinition.findBindingsByCapability(String)` — reverse lookup returning all `Binding`s whose `CapabilityTarget` matches the given capability name, in declaration order. Refs engine#110.
 
 **`LlmDecompositionStrategy`** (`planning/decomposition/`, `@ApplicationScoped`, id=`"llm"`) — LLM-backed `DecompositionStrategy<JsonNode>`. Prompts `ChatModel` (via `Instance<ChatModelProvider>`) with goal description + available capabilities, parses structured JSON response into `DagPlan<LeafTask<JsonNode>>`. Transparent no-op when `ChatModelProvider` absent.
 

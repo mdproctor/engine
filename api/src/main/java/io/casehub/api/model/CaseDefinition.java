@@ -149,6 +149,15 @@ public class CaseDefinition {
     return bindings;
   }
 
+  public java.util.List<Binding> findBindingsByCapability(String capabilityName) {
+    return bindings.stream()
+        .filter(
+            b ->
+                b.target() instanceof CapabilityTarget ct
+                    && ct.capability().name().equals(capabilityName))
+        .toList();
+  }
+
   public List<Milestone> getMilestones() {
     return milestones;
   }
