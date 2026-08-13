@@ -24,11 +24,11 @@ import io.casehub.platform.api.preferences.SettingsScope;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
+import io.casehub.work.api.WorkItem;
 import io.casehub.work.api.WorkItemCreateRequest;
+import io.casehub.work.api.spi.WorkItemStore;
 import io.casehub.work.api.spi.WorkloadProvider;
 import io.casehub.work.memory.InMemoryWorkItemStore;
-import io.casehub.work.runtime.model.WorkItemEntity;
-import io.casehub.work.api.spi.WorkItemStore;
 import io.casehub.work.runtime.service.TenantContextRunner;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.annotation.Priority;
@@ -163,7 +163,7 @@ class InboundWorkItemBridgeTest {
 
     bridge.onMessage(commandEvent("tenant-a"));
 
-    final List<WorkItemEntity> items = workItemStore.scanAll();
+    final List<WorkItem> items = workItemStore.scanAll();
     assertThat(items).hasSize(1);
     assertThat(items.get(0).title()).isEqualTo("Test WorkItem");
   }
