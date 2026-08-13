@@ -28,7 +28,7 @@ import io.casehub.work.api.WorkItemCreateRequest;
 import io.casehub.work.api.spi.WorkloadProvider;
 import io.casehub.work.memory.InMemoryWorkItemStore;
 import io.casehub.work.runtime.model.WorkItemEntity;
-import io.casehub.work.runtime.repository.WorkItemStore;
+import io.casehub.work.api.spi.WorkItemStore;
 import io.casehub.work.runtime.service.TenantContextRunner;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.annotation.Priority;
