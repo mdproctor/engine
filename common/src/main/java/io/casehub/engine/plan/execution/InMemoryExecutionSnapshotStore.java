@@ -60,10 +60,10 @@ public class InMemoryExecutionSnapshotStore implements ExecutionSnapshotStore {
 
   @Override
   public void storeDecomposition(UUID caseId, DecompositionSnapshot snapshot) {
+    maybeSweep();
     CaseSnapshots cs = entries.computeIfAbsent(caseId, k -> new CaseSnapshots());
     cs.decomposition.set(snapshot);
     cs.touch();
-    maybeSweep();
   }
 
   @Override
@@ -77,10 +77,10 @@ public class InMemoryExecutionSnapshotStore implements ExecutionSnapshotStore {
 
   @Override
   public void storeDagPlan(UUID caseId, DagPlanSnapshot snapshot) {
+    maybeSweep();
     CaseSnapshots cs = entries.computeIfAbsent(caseId, k -> new CaseSnapshots());
     cs.dagPlan.set(snapshot);
     cs.touch();
-    maybeSweep();
   }
 
   @Override
@@ -94,10 +94,10 @@ public class InMemoryExecutionSnapshotStore implements ExecutionSnapshotStore {
 
   @Override
   public void storeDagResult(UUID caseId, DagResultSnapshot snapshot) {
+    maybeSweep();
     CaseSnapshots cs = entries.computeIfAbsent(caseId, k -> new CaseSnapshots());
     cs.dagResult.set(snapshot);
     cs.touch();
-    maybeSweep();
   }
 
   @Override
