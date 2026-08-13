@@ -20,9 +20,6 @@ import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.ExtensionTarget;
-import io.casehub.api.model.HumanTaskTarget;
-import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.spi.routing.ImplementationCandidate;
 import io.casehub.api.spi.routing.ImplementationRoutingContext;
@@ -31,10 +28,11 @@ import io.casehub.api.spi.routing.ImplementationSelection;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.casehub.worker.api.Worker;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -43,7 +41,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class PlanningStrategyLoopControl implements LoopControl {
@@ -286,35 +283,18 @@ public class PlanningStrategyLoopControl implements LoopControl {
 
   private io.casehub.api.model.ExecutorRef resolveExecutor(
       Binding binding, PlanExecutionContext ctx) {
-    return switch (binding.target()) {
-      case null -> io.casehub.api.model.ExecutorRef.of("unknown");
-      case io.casehub.api.model.CapabilityTarget ct -> {
-        String capName = ct.capability().name();
-        List<Worker> matching =
-            ctx.definition().getWorkers().stream()
-                .filter(w -> w.capabilityNames() != null && w.capabilityNames().contains(capName))
-                .toList();
-        if (matching.size() > 1) {
-          LOG.warnf(
-              "Capability '%s' matched %d workers — only '%s' will be tracked for PlanItem completion. "
-                  + "Workers [%s] will fire but their completion events will be silently ignored, "
-                  + "leaving their PlanItems RUNNING indefinitely. "
-                  + "Multi-worker fan-out requires per-worker PlanItems (casehubio/engine#82).",
-              capName,
-              matching.size(),
-              matching.get(0).name(),
-              matching.stream()
-                  .skip(1)
-                  .map(Worker::name)
-                  .collect(java.util.stream.Collectors.joining(", ")));
-        }
-        yield matching.isEmpty()
-            ? io.casehub.api.model.ExecutorRef.of(capName)
-            : io.casehub.api.model.ExecutorRef.fromWorker(matching.get(0));
+      var resolved = io.casehub.engine.common.internal.routing.BindingExecutorResolver.resolve(binding, ctx.definition());
+      if (binding.target() instanceof CapabilityTarget ct) {
+          String capName = ct.capability().name();
+          long matchCount = ctx.definition().getWorkers().stream()
+                               .filter(w -> w.capabilityNames() != null && w.capabilityNames().contains(capName))
+                               .count();
+          if (matchCount > 1) {
+              LOG.warnf(
+                      "Capability '%s' matched %d workers — only '%s' will be tracked for PlanItem completion. "
+                      + "Multi-worker fan-out requires per-worker PlanItems (casehubio/engine#82).",
+                      capName, matchCount, resolved.name());
+          }
       }
-      case SubCaseTarget st -> io.casehub.api.model.ExecutorRef.of("unknown");
-      case HumanTaskTarget ht -> io.casehub.api.model.ExecutorRef.of("unknown");
-      case ExtensionTarget et -> io.casehub.api.model.ExecutorRef.of("unknown");
-    };
-  }
+      return resolved;}
 }

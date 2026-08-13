@@ -28,6 +28,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.TargetType;
+import io.casehub.engine.common.internal.routing.BindingExecutorResolver;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.internal.routing.EngineStrategyResolver;
@@ -46,9 +47,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -66,6 +65,11 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
 
   @ConfigProperty(name = "casehub.engine.decomposition.timeout-ms", defaultValue = "30000")
   long timeoutMs;
+
+  private record ResolvedStep(
+      DagNode<TaskNode.LeafTask<JsonNode>> node,
+      GoalStep step,
+      io.casehub.api.model.Binding binding) {}
 
   @Override
   @SuppressWarnings("unchecked")
@@ -85,9 +89,6 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
             strategyResolver.resolve(
                 DecompositionStrategy.class, definition.getDecompositionStrategy());
 
-    var capabilityNames =
-        definition.getCapabilities().stream().map(c -> c.name()).collect(Collectors.toSet());
-
     var casePlanModel = blackboardRegistry.getOrCreate(instance.getUuid(), instance.tenancyId);
 
     var scopedBindings = new ConcurrentHashMap<String, String>();
@@ -104,14 +105,7 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
       for (var goal : activeGoals) {
         try {
           decomposeGoal(
-              instance,
-              definition,
-              context,
-              strategy,
-              goal,
-              capabilityNames,
-              casePlanModel,
-              scopedBindings);
+              instance, definition, context, strategy, goal, casePlanModel, scopedBindings);
         } catch (Exception e) {
           LOG.warnf(
               e,
@@ -129,7 +123,6 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
       MutableCaseContext context,
       DecompositionStrategy<JsonNode> strategy,
       AgentGoal goal,
-      Set<String> capabilityNames,
       io.casehub.engine.planning.plan.CasePlanModel casePlanModel,
       ConcurrentHashMap<String, String> scopedBindings) {
 
@@ -152,20 +145,28 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
       return;
     }
 
-    var validNodes = new ArrayList<DagNode<TaskNode.LeafTask<JsonNode>>>();
+    var resolvedSteps = new ArrayList<ResolvedStep>();
     var skipped = new ArrayList<String>();
     for (var node : plan.nodes().values()) {
-      if (node.task() instanceof GoalStep step && capabilityNames.contains(step.capabilityName())) {
-        validNodes.add(node);
-      } else if (node.task() instanceof GoalStep step) {
+      if (!(node.task() instanceof GoalStep step)) continue;
+      var bindings = definition.findBindingsByCapability(step.capabilityName());
+      if (bindings.isEmpty()) {
         skipped.add(step.capabilityName());
         LOG.warnf(
-            "Decomposition step references unknown capability '%s' — skipped",
+            "Decomposition step references capability '%s' with no binding — skipped",
             step.capabilityName());
+        continue;
       }
+      if (bindings.size() > 1) {
+        LOG.warnf(
+            "Capability '%s' has %d bindings — using first ('%s'). "
+                + "v1 limitation: one binding per capability in decomposed plans.",
+            step.capabilityName(), bindings.size(), bindings.get(0).getName());
+      }
+      resolvedSteps.add(new ResolvedStep(node, step, bindings.get(0)));
     }
 
-    if (validNodes.isEmpty()) {
+    if (resolvedSteps.isEmpty()) {
       if (definition.getPlanningConstraints() != null
           && definition.getPlanningConstraints().hasHardConstraints()) {
         var infeasibleLog = new EventLog();
@@ -192,57 +193,58 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
       return;
     }
 
-    if (!isLinearChain(validNodes)) {
+    var nodeList = resolvedSteps.stream().map(ResolvedStep::node).toList();
+    if (!isLinearChain(nodeList)) {
       LOG.warnf(
           "Decomposition produced non-linear plan for goal=%s — v1 supports sequential only",
           goal.name());
       return;
     }
 
-    var availableBindings = new ArrayList<DagNode<TaskNode.LeafTask<JsonNode>>>();
-    for (var node : validNodes) {
-      var step = (GoalStep) node.task();
-      var existing = scopedBindings.putIfAbsent(step.capabilityName(), goal.name());
+    var availableSteps = new ArrayList<ResolvedStep>();
+    for (var resolved : resolvedSteps) {
+      var existing = scopedBindings.putIfAbsent(resolved.binding().getName(), goal.name());
       if (existing != null && !existing.equals(goal.name())) {
         LOG.warnf(
             "Binding '%s' already scoped by goal '%s' — excluded from '%s'",
-            step.capabilityName(), existing, goal.name());
+            resolved.binding().getName(), existing, goal.name());
       } else {
-        availableBindings.add(node);
+        availableSteps.add(resolved);
       }
     }
 
-    if (availableBindings.isEmpty()) return;
+    if (availableSteps.isEmpty()) return;
 
     var compoundBuilder =
         PlanItemDefinition.Compound.builder(goal.name())
             .completion(CompletionSemantics.all())
             .dispatchMode(DispatchMode.CHOREOGRAPHED);
 
-    for (int i = 0; i < availableBindings.size(); i++) {
-      var step = (GoalStep) availableBindings.get(i).task();
+    for (int i = 0; i < availableSteps.size(); i++) {
+      var resolved = availableSteps.get(i);
       var primitiveId = goal.name() + "-step-" + i;
+      var executor = BindingExecutorResolver.resolve(resolved.binding(), definition);
       compoundBuilder.child(
-          new PlanItemDefinition.Primitive(primitiveId, step.description(), null, null));
-      compoundBuilder.binding(step.capabilityName());
+          new PlanItemDefinition.Primitive(
+              primitiveId, resolved.step().description(), executor, null));
+      compoundBuilder.binding(resolved.binding().getName());
     }
 
     var compound = compoundBuilder.build();
     casePlanModel.registerDefinition(compound);
 
-    for (int i = 0; i < availableBindings.size(); i++) {
-      var step = (GoalStep) availableBindings.get(i).task();
+    for (var resolved : availableSteps) {
       planItemStore.save(
           PlanItemSaveRequest.primitive(
               instance.getUuid(),
-              step.id(),
-              step.capabilityName(),
+              resolved.step().id(),
+              resolved.binding().getName(),
               TaskStatus.PENDING,
               Instant.now(),
               TargetType.CAPABILITY,
               null,
               instance.tenancyId,
-              step.description(),
+              resolved.step().description(),
               null,
               null),
           instance.tenancyId);
@@ -256,7 +258,7 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
     var meta = OBJECT_MAPPER.createObjectNode();
     meta.put("goalName", goal.name());
     meta.put("strategyId", definition.getDecompositionStrategy());
-    meta.put("stepCount", availableBindings.size());
+    meta.put("stepCount", availableSteps.size());
     if (!skipped.isEmpty()) {
       meta.set("skippedSteps", OBJECT_MAPPER.valueToTree(skipped));
     }
