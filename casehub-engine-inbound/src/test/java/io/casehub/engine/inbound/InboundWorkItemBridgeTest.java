@@ -165,7 +165,7 @@ class InboundWorkItemBridgeTest {
 
     final List<WorkItemEntity> items = workItemStore.scanAll();
     assertThat(items).hasSize(1);
-    assertThat(items.get(0).title).isEqualTo("Test WorkItem");
+    assertThat(items.get(0).title()).isEqualTo("Test WorkItem");
   }
 
   @Test
@@ -175,7 +175,7 @@ class InboundWorkItemBridgeTest {
     bridge.onMessage(commandEvent("tenant-a"));
 
     assertThat(workItemStore.scanAll())
-        .extracting(wi -> wi.createdBy)
+        .extracting(wi -> wi.createdBy())
         .containsExactly("casehub-engine-inbound");
   }
 
