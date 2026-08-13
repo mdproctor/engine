@@ -17,7 +17,7 @@ package io.casehub.engine.rest.filter;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.platform.api.acl.AclResourceType;
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.platform.api.acl.ResourceId;
 import jakarta.ws.rs.container.ContainerRequestContext;
 import jakarta.ws.rs.core.Response;
@@ -41,7 +41,7 @@ class CaseScopeExtractorTest {
     Optional<ResourceId> result = extractor.extractResourceId(ctx);
 
     assertThat(result).isPresent();
-    assertThat(result.get().type()).isEqualTo(AclResourceType.CASE);
+    assertThat(result.get().type()).isEqualTo(EngineResourceTypes.CASE);
     assertThat(result.get().id()).isEqualTo(caseId.toString());
   }
 

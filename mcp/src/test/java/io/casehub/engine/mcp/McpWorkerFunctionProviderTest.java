@@ -38,12 +38,21 @@ class McpWorkerFunctionProviderTest {
   private McpWorkerFunctionProvider createProvider(List<Tool> tools) {
     mockClient = mock(McpSyncClient.class);
     when(mockClient.listTools()).thenReturn(new ListToolsResult(tools, null, null));
-    return new McpWorkerFunctionProvider() {
-      @Override
-      McpSyncClient createDiscoveryClient(final McpTransport transport) {
-        return mockClient;
-      }
-    };
+    var provider =
+        new McpWorkerFunctionProvider() {
+          @Override
+          McpSyncClient createDiscoveryClient(final McpTransport transport) {
+            return mockClient;
+          }
+        };
+    try {
+      var field = McpWorkerFunctionProvider.class.getDeclaredField("endpointRegistry");
+      field.setAccessible(true);
+      field.set(provider, new McpEndpointRegistry());
+    } catch (ReflectiveOperationException e) {
+      throw new RuntimeException(e);
+    }
+    return provider;
   }
 
   @Test
