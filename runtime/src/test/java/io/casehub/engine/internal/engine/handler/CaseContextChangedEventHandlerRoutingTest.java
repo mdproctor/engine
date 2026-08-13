@@ -390,8 +390,7 @@ class CaseContextChangedEventHandlerRoutingTest {
                 "test-token",
                 "agent:test",
                 new io.casehub.platform.api.acl.ResourceId(
-                    io.casehub.platform.api.acl.AclResourceType.CASE,
-                    caseInstance.getUuid().toString()),
+                    io.casehub.api.acl.EngineResourceTypes.CASE, caseInstance.getUuid().toString()),
                 caseInstance.tenancyId,
                 java.util.Set.of(),
                 java.time.Instant.now().plusSeconds(3600),

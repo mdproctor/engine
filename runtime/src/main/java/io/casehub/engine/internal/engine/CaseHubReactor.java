@@ -17,6 +17,7 @@ package io.casehub.engine.internal.engine;
 
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
 
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.MutableCaseContext;
@@ -53,7 +54,6 @@ import io.casehub.neocortex.memory.MemoryQuery;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.acl.AclEntryRequest;
-import io.casehub.platform.api.acl.AclResourceType;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -147,7 +147,7 @@ class CaseHubReactor {
 
     Map<AclAction, List<String>> authorization = definition.getAuthorization();
     if (authorization != null && !authorization.isEmpty()) {
-      String resourceId = AclResourceType.CASE + ":" + instance.getUuid();
+      String resourceId = EngineResourceTypes.CASE + ":" + instance.getUuid();
       List<AclEntryRequest> requests = new ArrayList<>();
       for (var entry : authorization.entrySet()) {
         for (String group : entry.getValue()) {

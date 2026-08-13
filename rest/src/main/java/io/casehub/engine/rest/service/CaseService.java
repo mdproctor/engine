@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.rest.service;
 
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
@@ -23,7 +24,6 @@ import io.casehub.engine.rest.exception.EntityNotFoundException;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AccessDeniedException;
 import io.casehub.platform.api.acl.AclAction;
-import io.casehub.platform.api.acl.AclResourceType;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -88,7 +88,7 @@ public class CaseService {
       throw new EntityNotFoundException("Case not found: " + caseId);
     }
     String actorId = currentPrincipal.actorId();
-    String resourceId = AclResourceType.CASE + ":" + caseId;
+    String resourceId = EngineResourceTypes.CASE + ":" + caseId;
     if (!accessControlProvider.canAccess(actorId, resourceId, action)) {
       LOG.warnf("ACL denied: actor=%s resource=%s action=%s", actorId, resourceId, action);
       throw new AccessDeniedException(actorId, resourceId, action);

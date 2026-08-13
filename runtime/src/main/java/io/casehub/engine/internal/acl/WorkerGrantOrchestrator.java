@@ -16,9 +16,9 @@
 package io.casehub.engine.internal.acl;
 
 import io.casehub.api.acl.EngineAuthorizationContext;
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclEntryRequest;
-import io.casehub.platform.api.acl.AclResourceType;
 import io.casehub.platform.api.acl.AuthorizationDecision;
 import io.casehub.platform.api.acl.ResourceId;
 import io.casehub.platform.api.acl.WorkerAction;
@@ -75,7 +75,7 @@ public class WorkerGrantOrchestrator {
     var permissionRequest =
         new WorkerPermissionRequest(
             identity.actorId(),
-            AclResourceType.CASE,
+            EngineResourceTypes.CASE,
             Set.copyOf(actions),
             new EngineAuthorizationContext(caseDefinitionId),
             tenancyId);
@@ -93,7 +93,7 @@ public class WorkerGrantOrchestrator {
     Instant maxExpiry = Instant.now().plus(MAX_CREDENTIAL_TTL);
     Instant expiry = deadline != null && deadline.isBefore(maxExpiry) ? deadline : maxExpiry;
 
-    var resourceId = new ResourceId(AclResourceType.CASE, caseId.toString());
+    var resourceId = new ResourceId(EngineResourceTypes.CASE, caseId.toString());
     List<AclEntryRequest> requests =
         dedupedActions.stream()
             .map(a -> new AclEntryRequest(identity.actorId(), resourceId.toString(), a, expiry))
@@ -124,7 +124,7 @@ public class WorkerGrantOrchestrator {
   }
 
   public void revokeForWorker(String token, String actorId, UUID caseId, boolean ephemeral) {
-    var resourceId = new ResourceId(AclResourceType.CASE, caseId.toString());
+    var resourceId = new ResourceId(EngineResourceTypes.CASE, caseId.toString());
     var revoked = credentialStore.lookup(token);
     credentialStore.revoke(token);
 
@@ -163,7 +163,7 @@ public class WorkerGrantOrchestrator {
   }
 
   public void revokeForCase(UUID caseId) {
-    var resourceId = new ResourceId(AclResourceType.CASE, caseId.toString());
+    var resourceId = new ResourceId(EngineResourceTypes.CASE, caseId.toString());
     var revoked = credentialStore.revokeByResource(resourceId);
     for (var credential : revoked) {
       accessControlProvider.revokeAll(credential.actorId(), resourceId.toString());

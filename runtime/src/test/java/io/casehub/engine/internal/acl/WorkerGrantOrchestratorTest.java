@@ -28,12 +28,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.api.acl.EngineWorkerActions;
 import io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.acl.AclEntryRequest;
-import io.casehub.platform.api.acl.AclResourceType;
 import io.casehub.platform.api.acl.AuthorizationDecision;
 import io.casehub.platform.api.acl.ResourceId;
 import io.casehub.platform.api.acl.WorkerAuthorizationDeniedException;
@@ -81,7 +81,8 @@ class WorkerGrantOrchestratorTest {
 
     assertNotNull(credential);
     assertTrue(credential.actorId().startsWith("agent:worker-"));
-    assertEquals(new ResourceId(AclResourceType.CASE, caseId.toString()), credential.resourceId());
+    assertEquals(
+        new ResourceId(EngineResourceTypes.CASE, caseId.toString()), credential.resourceId());
     assertEquals("tenant-1", credential.tenancyId());
     assertEquals(Set.copyOf(actions), credential.actions());
     assertTrue(credentialStore.lookup(credential.token()).isPresent());
@@ -155,7 +156,7 @@ class WorkerGrantOrchestratorTest {
         new WorkerCredential(
             "t1",
             "agent:pool",
-            new ResourceId(AclResourceType.CASE, caseId.toString()),
+            new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
             "tenant-1",
             Set.of(EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.SIGNAL_CASE),
             Instant.now().plusSeconds(3600),
@@ -164,7 +165,7 @@ class WorkerGrantOrchestratorTest {
         new WorkerCredential(
             "t2",
             "agent:pool",
-            new ResourceId(AclResourceType.CASE, caseId.toString()),
+            new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
             "tenant-1",
             Set.of(EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.ADMIN),
             Instant.now().plusSeconds(3600),
@@ -249,7 +250,7 @@ class WorkerGrantOrchestratorTest {
     return new WorkerCredential(
         token,
         actorId,
-        new ResourceId(AclResourceType.CASE, caseId.toString()),
+        new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
         "tenant-1",
         Set.of(EngineWorkerActions.READ_CONTEXT),
         Instant.now().plusSeconds(3600),

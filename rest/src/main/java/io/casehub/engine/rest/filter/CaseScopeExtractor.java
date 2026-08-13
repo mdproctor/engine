@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.rest.filter;
 
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.platform.acl.worker.WorkerScopeExtractor;
-import io.casehub.platform.api.acl.AclResourceType;
 import io.casehub.platform.api.acl.ResourceId;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.container.ContainerRequestContext;
@@ -33,7 +33,7 @@ public class CaseScopeExtractor implements WorkerScopeExtractor {
   public Optional<ResourceId> extractResourceId(ContainerRequestContext ctx) {
     Matcher matcher = CASE_ID_PATTERN.matcher(ctx.getUriInfo().getPath());
     if (matcher.find()) {
-      return Optional.of(new ResourceId(AclResourceType.CASE, matcher.group(1)));
+      return Optional.of(new ResourceId(EngineResourceTypes.CASE, matcher.group(1)));
     }
     return Optional.empty();
   }

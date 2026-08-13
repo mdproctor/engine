@@ -17,6 +17,7 @@ package io.casehub.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.api.acl.EngineWorkerActions;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.acl.WorkerIdentity;
@@ -24,7 +25,6 @@ import io.casehub.engine.internal.acl.WorkerIdentityResolver;
 import io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclAction;
-import io.casehub.platform.api.acl.AclResourceType;
 import io.casehub.platform.api.acl.ResourceId;
 import io.casehub.platform.api.acl.WorkerCredential;
 import io.casehub.platform.api.acl.WorkerCredentialStore;
@@ -48,7 +48,7 @@ class WorkerRightsIntegrationTest {
   void cleanStore() {
     if (credentialStore instanceof InMemoryWorkerCredentialStore mem) {
       mem.revokeByResource(
-          new ResourceId(AclResourceType.CASE, "00000000-0000-0000-0000-000000000000"));
+          new ResourceId(EngineResourceTypes.CASE, "00000000-0000-0000-0000-000000000000"));
     }
   }
 
@@ -68,7 +68,7 @@ class WorkerRightsIntegrationTest {
     assertThat(credential).isNotNull();
     assertThat(credential.actorId()).isEqualTo("agent:test-pool");
     assertThat(credential.resourceId())
-        .isEqualTo(new ResourceId(AclResourceType.CASE, caseId.toString()));
+        .isEqualTo(new ResourceId(EngineResourceTypes.CASE, caseId.toString()));
     assertThat(credential.actions())
         .containsExactlyInAnyOrder(
             EngineWorkerActions.READ_CONTEXT, EngineWorkerActions.SIGNAL_CASE);
