@@ -15,11 +15,13 @@
  */
 package io.casehub.api.engine;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.marshaller.YamlMapper;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.converter.CaseDefinitionYamlMapper;
 import io.casehub.api.spi.WorkerFunctionProviderRegistry;
+import io.casehub.platform.api.yaml.YamlMerger;
 import jakarta.inject.Inject;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,9 +33,12 @@ import java.io.InputStream;
  * automatically; all registered expression languages are supported. Outside CDI (tests, tooling),
  * the no-arg constructor path falls back to JQ-only parsing.
  *
- * <p>Subclasses that need to add programmatic workers (backed by CDI-injected services) override
- * {@link #augment(CaseDefinition)} instead of {@code getDefinition()}. The hook is called once,
- * inside the double-checked lock, between YAML loading and caching.
+ * <p>Supports YAML overlay composition: a base YAML is loaded first, then an optional overlay YAML
+ * is deep-merged on top via {@link YamlMerger}. The overlay can be specified explicitly via the
+ * two-arg constructor, or discovered by convention ({@code -overrides} suffix in the same
+ * directory). After merging, {@link #augment(CaseDefinition)} runs for programmatic modifications.
+ *
+ * <p>Resolution order: base YAML → overlay YAML (explicit or convention) → augment().
  */
 public class YamlCaseHub extends CaseHub {
 
@@ -44,10 +49,16 @@ public class YamlCaseHub extends CaseHub {
   @Inject WorkerFunctionProviderRegistry workerFunctionProviderRegistry;
 
   private final String path;
+  private final String overlayPath;
   private volatile CaseDefinition definition;
 
   public YamlCaseHub(final String path) {
+    this(path, null);
+  }
+
+  public YamlCaseHub(final String path, final String overlayPath) {
     this.path = path;
+    this.overlayPath = overlayPath;
   }
 
   @Override
@@ -55,17 +66,18 @@ public class YamlCaseHub extends CaseHub {
     if (definition == null) {
       synchronized (this) {
         if (definition == null) {
-          try (InputStream is =
-              Thread.currentThread().getContextClassLoader().getResourceAsStream(path)) {
-            if (is == null) {
-              throw new IllegalStateException("Resource " + path + " not found on classpath");
-            }
+          try {
+            JsonNode base = loadYamlAsJsonNode(path);
+            JsonNode overlay = resolveOverlay();
+            JsonNode merged = (overlay != null) ? YamlMerger.merge(base, overlay) : base;
             CaseDefinition loaded =
                 CaseDefinitionYamlMapper.load(
-                    is, objectMapper, expressionEngineRegistry, workerFunctionProviderRegistry);
+                    merged, objectMapper, expressionEngineRegistry, workerFunctionProviderRegistry);
             augment(loaded);
             definition = loaded;
-          } catch (IOException e) {
+          } catch (RuntimeException e) {
+            throw e;
+          } catch (Exception e) {
             throw new RuntimeException("Failed to load CaseHub definition from " + path, e);
           }
         }
@@ -84,4 +96,44 @@ public class YamlCaseHub extends CaseHub {
    * @param definition the loaded definition to augment
    */
   protected void augment(CaseDefinition definition) {}
+
+  private JsonNode resolveOverlay() {
+    if (overlayPath != null) {
+      return loadYamlAsJsonNode(overlayPath);
+    }
+    String conventionPath = deriveConventionPath(path);
+    InputStream is =
+        Thread.currentThread().getContextClassLoader().getResourceAsStream(conventionPath);
+    if (is != null) {
+      try {
+        return objectMapper.readTree(is);
+      } catch (IOException e) {
+        throw new RuntimeException("Failed to load overlay from " + conventionPath, e);
+      } finally {
+        try {
+          is.close();
+        } catch (IOException ignored) {
+        }
+      }
+    }
+    return null;
+  }
+
+  private JsonNode loadYamlAsJsonNode(String resourcePath) {
+    try (InputStream is =
+        Thread.currentThread().getContextClassLoader().getResourceAsStream(resourcePath)) {
+      if (is == null) {
+        throw new IllegalStateException("Resource " + resourcePath + " not found on classpath");
+      }
+      return objectMapper.readTree(is);
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to read YAML from " + resourcePath, e);
+    }
+  }
+
+  static String deriveConventionPath(String basePath) {
+    int dot = basePath.lastIndexOf('.');
+    if (dot < 0) return basePath + "-overrides";
+    return basePath.substring(0, dot) + "-overrides" + basePath.substring(dot);
+  }
 }

@@ -1,0 +1,9 @@
+spec:
+  bindings:
+    - name: review-trigger
+      on:
+        contextChange:
+          filter: '.needsReview == true and .priority == "high"'
+  goals:
+    - name: escalated
+      condition: '.escalated == true'
