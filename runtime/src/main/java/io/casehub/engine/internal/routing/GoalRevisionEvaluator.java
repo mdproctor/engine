@@ -18,6 +18,7 @@ package io.casehub.engine.internal.routing;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ReflectionTriggerConfig;
 import io.casehub.api.model.event.CaseHubEventType;
+import io.casehub.api.spi.routing.GoalRevisionAction;
 import io.casehub.api.spi.routing.GoalRevisionContext;
 import io.casehub.api.spi.routing.GoalRevisionProposal;
 import io.casehub.api.spi.routing.GoalRevisionStrategy;
@@ -42,8 +43,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
@@ -213,6 +216,11 @@ public class GoalRevisionEvaluator {
       CaseDefinition definition) {
 
     List<AgentGoal> finalGoals = evolved.newGoals();
+    Set<String> actualGoalNames =
+        finalGoals.stream().map(AgentGoal::name).collect(Collectors.toSet());
+    List<String> abandonedGoals = List.of();
+    List<String> completedGoals = List.of();
+    List<Map<String, String>> descriptionRevisions = List.of();
 
     GoalRevisionStrategy strategy = resolveStrategy();
     if (strategy != null) {
@@ -221,7 +229,34 @@ public class GoalRevisionEvaluator {
             new GoalRevisionContext(agentId, tenancyId, finalGoals, counts);
         GoalRevisionProposal proposal = strategy.revise(context);
         if (proposal != null && !proposal.revisions().isEmpty()) {
-          finalGoals = mergeDescriptions(finalGoals, proposal);
+          abandonedGoals =
+              proposal.revisions().stream()
+                  .filter(r -> r.action() == GoalRevisionAction.ABANDON)
+                  .map(GoalRevisionProposal.RevisedGoal::goalName)
+                  .filter(actualGoalNames::contains)
+                  .toList();
+          completedGoals =
+              proposal.revisions().stream()
+                  .filter(r -> r.action() == GoalRevisionAction.COMPLETE)
+                  .map(GoalRevisionProposal.RevisedGoal::goalName)
+                  .filter(actualGoalNames::contains)
+                  .toList();
+          finalGoals = applyRevisions(finalGoals, proposal);
+          Set<String> survivingNames =
+              finalGoals.stream().map(AgentGoal::name).collect(Collectors.toSet());
+          List<Map<String, String>> revDescs = new ArrayList<>();
+          for (var revision : proposal.revisions()) {
+            if (revision.action() == GoalRevisionAction.REVISE
+                && revision.revisedDescription() != null
+                && survivingNames.contains(revision.goalName())) {
+              revDescs.add(
+                  Map.of(
+                      "goalName", revision.goalName(),
+                      "newDescription", revision.revisedDescription(),
+                      "reason", revision.revisionReason()));
+            }
+          }
+          descriptionRevisions = revDescs;
         }
       } catch (Exception e) {
         LOG.warnf(e, "GoalRevisionStrategy failed for agent %s, applying priority-only", agentId);
@@ -232,36 +267,41 @@ public class GoalRevisionEvaluator {
     agentRegistry.get().register(updated);
     goalSignalStore.get().clear(agentId, tenancyId);
 
-    writeAuditLog(agentId, tenancyId, evolved, counts);
+    writeAuditLog(
+        agentId, tenancyId, evolved, counts, abandonedGoals, completedGoals, descriptionRevisions);
   }
 
-  private List<AgentGoal> mergeDescriptions(List<AgentGoal> goals, GoalRevisionProposal proposal) {
-    Map<String, String> descriptionsByGoal = new HashMap<>();
+  private List<AgentGoal> applyRevisions(List<AgentGoal> goals, GoalRevisionProposal proposal) {
+    Map<String, GoalRevisionProposal.RevisedGoal> revisionsByGoal = new HashMap<>();
     for (var revision : proposal.revisions()) {
-      if (revision.revisedDescription() != null) {
-        descriptionsByGoal.put(revision.goalName(), revision.revisedDescription());
-      }
+      revisionsByGoal.put(revision.goalName(), revision);
     }
-    if (descriptionsByGoal.isEmpty()) {
+    if (revisionsByGoal.isEmpty()) {
       return goals;
     }
 
-    List<AgentGoal> merged = new ArrayList<>();
+    List<AgentGoal> result = new ArrayList<>();
     for (AgentGoal goal : goals) {
-      String newDesc = descriptionsByGoal.get(goal.name());
-      if (newDesc != null) {
-        try {
-          merged.add(goal.toBuilder().description(newDesc).build());
-        } catch (Exception e) {
-          LOG.warnf(
-              "Invalid description for goal %s, keeping original: %s", goal.name(), e.getMessage());
-          merged.add(goal);
+      var revision = revisionsByGoal.get(goal.name());
+      if (revision == null) {
+        result.add(goal);
+        continue;
+      }
+      switch (revision.action()) {
+        case REVISE -> {
+          try {
+            result.add(goal.toBuilder().description(revision.revisedDescription()).build());
+          } catch (Exception e) {
+            LOG.warnf(
+                "Invalid description for goal %s, keeping original: %s",
+                goal.name(), e.getMessage());
+            result.add(goal);
+          }
         }
-      } else {
-        merged.add(goal);
+        case ABANDON, COMPLETE -> {}
       }
     }
-    return merged;
+    return result;
   }
 
   private GoalRevisionStrategy resolveStrategy() {
@@ -276,7 +316,10 @@ public class GoalRevisionEvaluator {
       String agentId,
       String tenancyId,
       GoalEvolutionResult.Evolved evolved,
-      Map<String, GoalOutcomeCounts> counts) {
+      Map<String, GoalOutcomeCounts> counts,
+      List<String> abandonedGoals,
+      List<String> completedGoals,
+      List<Map<String, String>> descriptionRevisions) {
     try {
       com.fasterxml.jackson.databind.ObjectMapper mapper =
           new com.fasterxml.jackson.databind.ObjectMapper();
@@ -285,8 +328,16 @@ public class GoalRevisionEvaluator {
       metadata.put("evolutionResult", "EVOLVED");
       metadata.put("promotedGoals", evolved.promotedGoals());
       metadata.put("demotedGoals", evolved.demotedGoals());
+      metadata.put("abandonedGoals", abandonedGoals);
+      metadata.put("completedGoals", completedGoals);
+      metadata.put("descriptionRevisions", descriptionRevisions);
       metadata.put(
-          "totalGoalsRevised", evolved.promotedGoals().size() + evolved.demotedGoals().size());
+          "totalGoalsAffected",
+          evolved.promotedGoals().size()
+              + evolved.demotedGoals().size()
+              + abandonedGoals.size()
+              + completedGoals.size()
+              + descriptionRevisions.size());
       metadata.put("totalGoalsEvaluated", evolved.newGoals().size());
 
       EventLog eventLog = new EventLog();

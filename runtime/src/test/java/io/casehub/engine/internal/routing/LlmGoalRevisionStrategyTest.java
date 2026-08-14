@@ -28,6 +28,7 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import io.casehub.api.model.ai.AgentException;
 import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.api.model.ai.ModelType;
+import io.casehub.api.spi.routing.GoalRevisionAction;
 import io.casehub.api.spi.routing.GoalRevisionContext;
 import io.casehub.api.spi.routing.GoalRevisionProposal;
 import io.casehub.eidos.api.AgentGoal;
@@ -37,6 +38,7 @@ import io.casehub.eidos.api.Visibility;
 import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
 class LlmGoalRevisionStrategyTest {
@@ -44,14 +46,15 @@ class LlmGoalRevisionStrategyTest {
   @Test
   void producesProposalFromLlmResponse() {
     String jsonResponse =
-        "{\"revisions\": [{\"goalName\": \"g1\", \"revisedDescription\": \"better desc\", \"revisionReason\": \"aligned with outcomes\"}], \"rationale\": \"test\"}";
+        "{\"revisions\": [{\"goalName\": \"g1\", \"revisedDescription\": \"better desc\", "
+            + "\"revisionReason\": \"aligned with outcomes\"}], \"rationale\": \"test\"}";
     LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
 
-    GoalRevisionContext context = buildContext();
-    GoalRevisionProposal proposal = strategy.revise(context);
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
 
     assertThat(proposal.revisions()).hasSize(1);
     assertThat(proposal.revisions().get(0).goalName()).isEqualTo("g1");
+    assertThat(proposal.revisions().get(0).action()).isEqualTo(GoalRevisionAction.REVISE);
     assertThat(proposal.revisions().get(0).revisedDescription()).isEqualTo("better desc");
     assertThat(proposal.rationale()).isEqualTo("test");
   }
@@ -66,13 +69,144 @@ class LlmGoalRevisionStrategyTest {
   }
 
   @Test
-  void nullDescriptionAllowed() {
+  void parsesReviseAction() {
     String jsonResponse =
-        "{\"revisions\": [{\"goalName\": \"g1\", \"revisedDescription\": null, \"revisionReason\": \"no change needed\"}], \"rationale\": \"ok\"}";
+        "{\"revisions\": [{\"goalName\": \"g1\", \"action\": \"REVISE\", "
+            + "\"revisedDescription\": \"better desc\", \"revisionReason\": \"aligned\"}], "
+            + "\"rationale\": \"test\"}";
+    LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
+
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
+    assertThat(proposal.revisions().get(0).action()).isEqualTo(GoalRevisionAction.REVISE);
+    assertThat(proposal.revisions().get(0).revisedDescription()).isEqualTo("better desc");
+  }
+
+  @Test
+  void parsesAbandonAction() {
+    String jsonResponse =
+        "{\"revisions\": [{\"goalName\": \"g1\", \"action\": \"ABANDON\", "
+            + "\"revisedDescription\": null, \"revisionReason\": \"unachievable\"}], "
+            + "\"rationale\": \"test\"}";
+    LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
+
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
+    assertThat(proposal.revisions().get(0).action()).isEqualTo(GoalRevisionAction.ABANDON);
+    assertThat(proposal.revisions().get(0).revisedDescription()).isNull();
+  }
+
+  @Test
+  void parsesCompleteAction() {
+    String jsonResponse =
+        "{\"revisions\": [{\"goalName\": \"g1\", \"action\": \"COMPLETE\", "
+            + "\"revisedDescription\": null, \"revisionReason\": \"achieved\"}], "
+            + "\"rationale\": \"test\"}";
+    LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
+
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
+    assertThat(proposal.revisions().get(0).action()).isEqualTo(GoalRevisionAction.COMPLETE);
+  }
+
+  @Test
+  void missingActionDefaultsToRevise() {
+    String jsonResponse =
+        "{\"revisions\": [{\"goalName\": \"g1\", \"revisedDescription\": \"new\", "
+            + "\"revisionReason\": \"updated\"}], \"rationale\": \"test\"}";
+    LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
+
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
+    assertThat(proposal.revisions().get(0).action()).isEqualTo(GoalRevisionAction.REVISE);
+  }
+
+  @Test
+  void invalidActionDefaultsToRevise() {
+    String jsonResponse =
+        "{\"revisions\": [{\"goalName\": \"g1\", \"action\": \"REMOVE\", "
+            + "\"revisedDescription\": \"new\", \"revisionReason\": \"updated\"}], "
+            + "\"rationale\": \"test\"}";
+    LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
+
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
+    assertThat(proposal.revisions().get(0).action()).isEqualTo(GoalRevisionAction.REVISE);
+  }
+
+  @Test
+  void invalidActionWithNullDescriptionSkipsEntry() {
+    String jsonResponse =
+        "{\"revisions\": [{\"goalName\": \"g1\", \"action\": \"DROP\", "
+            + "\"revisedDescription\": null, \"revisionReason\": \"not needed\"}], "
+            + "\"rationale\": \"test\"}";
+    LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
+
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
+    assertThat(proposal.revisions()).isEmpty();
+  }
+
+  @Test
+  void malformedRevisionEntrySkippedNotFatal() {
+    String jsonResponse =
+        "{\"revisions\": ["
+            + "{\"goalName\": \"g1\", \"action\": \"ABANDON\", \"revisedDescription\": null, \"revisionReason\": \"drop\"},"
+            + "{\"revisionReason\": \"missing goalName\"}"
+            + "], \"rationale\": \"test\"}";
+    LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
+
+    GoalRevisionProposal proposal = strategy.revise(buildContext());
+    assertThat(proposal.revisions()).hasSize(1);
+    assertThat(proposal.revisions().get(0).goalName()).isEqualTo("g1");
+  }
+
+  @Test
+  void abandonWithNullDescriptionAllowed() {
+    String jsonResponse =
+        "{\"revisions\": [{\"goalName\": \"g1\", \"action\": \"ABANDON\", "
+            + "\"revisedDescription\": null, \"revisionReason\": \"no longer relevant\"}], "
+            + "\"rationale\": \"ok\"}";
     LlmGoalRevisionStrategy strategy = strategyWithResponse(jsonResponse);
 
     GoalRevisionProposal proposal = strategy.revise(buildContext());
     assertThat(proposal.revisions().get(0).revisedDescription()).isNull();
+    assertThat(proposal.revisions().get(0).action()).isEqualTo(GoalRevisionAction.ABANDON);
+  }
+
+  @Test
+  void systemPromptIncludesActionVocabulary() {
+    String jsonResponse = "{\"revisions\": [], \"rationale\": \"ok\"}";
+    ChatModel chatModel = mock(ChatModel.class);
+
+    AtomicReference<ChatRequest> capturedRequest = new AtomicReference<>();
+    when(chatModel.chat(any(ChatRequest.class)))
+        .thenAnswer(
+            inv -> {
+              capturedRequest.set(inv.getArgument(0));
+              return ChatResponse.builder().aiMessage(AiMessage.from(jsonResponse)).build();
+            });
+
+    ChatModelProvider provider =
+        new ChatModelProvider() {
+          @Override
+          public ModelType type() {
+            return ModelType.OPENAI;
+          }
+
+          @Override
+          public ChatModel get() {
+            return chatModel;
+          }
+        };
+    @SuppressWarnings("unchecked")
+    Instance<ChatModelProvider> instance = mock(Instance.class);
+    when(instance.isUnsatisfied()).thenReturn(false);
+    when(instance.get()).thenReturn(provider);
+    LlmGoalRevisionStrategy strategy = new LlmGoalRevisionStrategy(instance);
+
+    strategy.revise(buildContext());
+
+    String systemPrompt =
+        ((dev.langchain4j.data.message.SystemMessage) capturedRequest.get().messages().get(0))
+            .text();
+    assertThat(systemPrompt).contains("ABANDON");
+    assertThat(systemPrompt).contains("COMPLETE");
+    assertThat(systemPrompt).contains("REVISE");
   }
 
   @Test

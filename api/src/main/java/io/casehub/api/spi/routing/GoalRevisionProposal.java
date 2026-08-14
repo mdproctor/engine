@@ -24,10 +24,18 @@ public record GoalRevisionProposal(List<RevisedGoal> revisions, String rationale
     revisions = List.copyOf(revisions);
   }
 
-  public record RevisedGoal(String goalName, String revisedDescription, String revisionReason) {
+  public record RevisedGoal(
+      String goalName,
+      GoalRevisionAction action,
+      String revisedDescription,
+      String revisionReason) {
     public RevisedGoal {
       Objects.requireNonNull(goalName, "goalName must not be null");
+      Objects.requireNonNull(action, "action must not be null");
       Objects.requireNonNull(revisionReason, "revisionReason must not be null");
+      if (action == GoalRevisionAction.REVISE && revisedDescription == null) {
+        throw new IllegalArgumentException("revisedDescription is required for REVISE action");
+      }
     }
   }
 }

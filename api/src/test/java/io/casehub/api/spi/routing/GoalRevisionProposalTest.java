@@ -26,12 +26,72 @@ import org.junit.jupiter.api.Test;
 class GoalRevisionProposalTest {
 
   @Test
-  void constructsWithValidData() {
-    var revision = new GoalRevisionProposal.RevisedGoal("g1", "new desc", "better fit");
+  void constructsWithReviseAction() {
+    var revision =
+        new GoalRevisionProposal.RevisedGoal(
+            "g1", GoalRevisionAction.REVISE, "new desc", "better fit");
     var proposal = new GoalRevisionProposal(List.of(revision), "test rationale");
     assertEquals(1, proposal.revisions().size());
     assertEquals("g1", proposal.revisions().get(0).goalName());
+    assertEquals(GoalRevisionAction.REVISE, proposal.revisions().get(0).action());
     assertEquals("new desc", proposal.revisions().get(0).revisedDescription());
+  }
+
+  @Test
+  void reviseActionRequiresDescription() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            new GoalRevisionProposal.RevisedGoal("g1", GoalRevisionAction.REVISE, null, "reason"));
+  }
+
+  @Test
+  void abandonActionAllowsNullDescription() {
+    var revision =
+        new GoalRevisionProposal.RevisedGoal(
+            "g1", GoalRevisionAction.ABANDON, null, "no longer relevant");
+    assertNull(revision.revisedDescription());
+    assertEquals(GoalRevisionAction.ABANDON, revision.action());
+  }
+
+  @Test
+  void completeActionAllowsNullDescription() {
+    var revision =
+        new GoalRevisionProposal.RevisedGoal(
+            "g1", GoalRevisionAction.COMPLETE, null, "goal achieved");
+    assertNull(revision.revisedDescription());
+    assertEquals(GoalRevisionAction.COMPLETE, revision.action());
+  }
+
+  @Test
+  void abandonActionAcceptsInformationalDescription() {
+    var revision =
+        new GoalRevisionProposal.RevisedGoal(
+            "g1", GoalRevisionAction.ABANDON, "was trying X", "unachievable");
+    assertEquals("was trying X", revision.revisedDescription());
+  }
+
+  @Test
+  void nullActionThrows() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new GoalRevisionProposal.RevisedGoal("g1", null, "desc", "reason"));
+  }
+
+  @Test
+  void nullGoalNameThrows() {
+    assertThrows(
+        NullPointerException.class,
+        () ->
+            new GoalRevisionProposal.RevisedGoal(
+                null, GoalRevisionAction.REVISE, "desc", "reason"));
+  }
+
+  @Test
+  void nullRevisionReasonThrows() {
+    assertThrows(
+        NullPointerException.class,
+        () -> new GoalRevisionProposal.RevisedGoal("g1", GoalRevisionAction.REVISE, "desc", null));
   }
 
   @Test
@@ -39,31 +99,17 @@ class GoalRevisionProposalTest {
     var proposal = new GoalRevisionProposal(List.of(), "rationale");
     assertThrows(
         UnsupportedOperationException.class,
-        () -> proposal.revisions().add(new GoalRevisionProposal.RevisedGoal("g1", null, "reason")));
+        () ->
+            proposal
+                .revisions()
+                .add(
+                    new GoalRevisionProposal.RevisedGoal(
+                        "g1", GoalRevisionAction.ABANDON, null, "reason")));
   }
 
   @Test
   void nullRevisionsThrows() {
     assertThrows(NullPointerException.class, () -> new GoalRevisionProposal(null, "rationale"));
-  }
-
-  @Test
-  void nullGoalNameThrows() {
-    assertThrows(
-        NullPointerException.class,
-        () -> new GoalRevisionProposal.RevisedGoal(null, "desc", "reason"));
-  }
-
-  @Test
-  void nullRevisionReasonThrows() {
-    assertThrows(
-        NullPointerException.class, () -> new GoalRevisionProposal.RevisedGoal("g1", "desc", null));
-  }
-
-  @Test
-  void nullDescriptionAllowed() {
-    var revision = new GoalRevisionProposal.RevisedGoal("g1", null, "no change needed");
-    assertNull(revision.revisedDescription());
   }
 
   @Test

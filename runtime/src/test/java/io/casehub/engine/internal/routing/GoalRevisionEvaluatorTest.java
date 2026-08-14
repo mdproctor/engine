@@ -24,6 +24,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.spi.routing.GoalRevisionAction;
+import io.casehub.api.spi.routing.GoalRevisionProposal;
+import io.casehub.api.spi.routing.GoalRevisionStrategy;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.AgentGoal;
 import io.casehub.eidos.api.AgentRegistry;
@@ -336,5 +339,201 @@ class GoalRevisionEvaluatorTest {
     CaseMetaModel meta = new CaseMetaModel();
     instance.setCaseMetaModel(meta);
     return instance;
+  }
+
+  private void setupStrategyReturning(GoalRevisionProposal proposal) {
+    GoalRevisionStrategy strategy = mock(GoalRevisionStrategy.class);
+    when(strategy.revise(any())).thenReturn(proposal);
+    when(strategyResolver.resolve(GoalRevisionStrategy.class, "llm")).thenReturn(strategy);
+  }
+
+  @Test
+  void abandonActionRemovesGoalFromDescriptor() throws Exception {
+    CaseInstance instance = buildCaseInstance("tenant-1");
+    AgentGoal g1 = goal("g1", GoalPriority.SECONDARY);
+    AgentGoal g2 = goal("g2", GoalPriority.PRIMARY);
+    setupDefinition(instance, "worker-1", g1, g2);
+
+    for (int i = 0; i < 9; i++) {
+      goalSignalStore.recordOutcome("agent-1", "tenant-1", "g1", GoalOutcome.SUCCESS);
+    }
+    goalSignalStore.recordOutcome("agent-1", "tenant-1", "g1", GoalOutcome.FAILURE);
+    goalSignalStore.recordOutcome("agent-1", "tenant-1", "g2", GoalOutcome.SUCCESS);
+
+    AgentDescriptor current = descriptorWithGoals(g1, g2);
+    when(agentRegistry.findById("agent-1", "tenant-1")).thenReturn(Optional.of(current));
+
+    GoalRevisionProposal proposal =
+        new GoalRevisionProposal(
+            List.of(
+                new GoalRevisionProposal.RevisedGoal(
+                    "g2", GoalRevisionAction.ABANDON, null, "no longer relevant")),
+            "dropping g2");
+    setupStrategyReturning(proposal);
+
+    CountDownLatch latch = new CountDownLatch(1);
+    doAnswer(
+            inv -> {
+              registeredDescriptors.add(inv.getArgument(0));
+              latch.countDown();
+              return null;
+            })
+        .when(agentRegistry)
+        .register(any());
+
+    for (int i = 0; i < 3; i++) {
+      evaluator.record(instance, "worker-1", "cap-x", WorkerOutcome.success());
+    }
+
+    assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    AgentDescriptor registered = registeredDescriptors.get(0);
+    assertThat(registered.goals()).hasSize(1);
+    assertThat(registered.goals().get(0).name()).isEqualTo("g1");
+  }
+
+  @Test
+  void completeActionRemovesGoalFromDescriptor() throws Exception {
+    CaseInstance instance = buildCaseInstance("tenant-1");
+    AgentGoal g1 = goal("g1", GoalPriority.SECONDARY);
+    AgentGoal g2 = goal("g2", GoalPriority.PRIMARY);
+    setupDefinition(instance, "worker-1", g1, g2);
+
+    for (int i = 0; i < 9; i++) {
+      goalSignalStore.recordOutcome("agent-1", "tenant-1", "g1", GoalOutcome.SUCCESS);
+    }
+    goalSignalStore.recordOutcome("agent-1", "tenant-1", "g1", GoalOutcome.FAILURE);
+    goalSignalStore.recordOutcome("agent-1", "tenant-1", "g2", GoalOutcome.SUCCESS);
+
+    AgentDescriptor current = descriptorWithGoals(g1, g2);
+    when(agentRegistry.findById("agent-1", "tenant-1")).thenReturn(Optional.of(current));
+
+    GoalRevisionProposal proposal =
+        new GoalRevisionProposal(
+            List.of(
+                new GoalRevisionProposal.RevisedGoal(
+                    "g2", GoalRevisionAction.COMPLETE, null, "goal achieved")),
+            "completing g2");
+    setupStrategyReturning(proposal);
+
+    CountDownLatch latch = new CountDownLatch(1);
+    doAnswer(
+            inv -> {
+              registeredDescriptors.add(inv.getArgument(0));
+              latch.countDown();
+              return null;
+            })
+        .when(agentRegistry)
+        .register(any());
+
+    for (int i = 0; i < 3; i++) {
+      evaluator.record(instance, "worker-1", "cap-x", WorkerOutcome.success());
+    }
+
+    assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    AgentDescriptor registered = registeredDescriptors.get(0);
+    assertThat(registered.goals()).hasSize(1);
+    assertThat(registered.goals().get(0).name()).isEqualTo("g1");
+  }
+
+  @Test
+  void mixedActionsAppliedCorrectly() throws Exception {
+    CaseInstance instance = buildCaseInstance("tenant-1");
+    AgentGoal g1 = goal("g1", GoalPriority.SECONDARY);
+    AgentGoal g2 = goal("g2", GoalPriority.PRIMARY);
+    AgentGoal g3 = goal("g3", GoalPriority.SECONDARY);
+    setupDefinition(instance, "worker-1", g1, g2, g3);
+
+    for (int i = 0; i < 9; i++) {
+      goalSignalStore.recordOutcome("agent-1", "tenant-1", "g1", GoalOutcome.SUCCESS);
+    }
+    goalSignalStore.recordOutcome("agent-1", "tenant-1", "g1", GoalOutcome.FAILURE);
+
+    AgentDescriptor current = descriptorWithGoals(g1, g2, g3);
+    when(agentRegistry.findById("agent-1", "tenant-1")).thenReturn(Optional.of(current));
+
+    GoalRevisionProposal proposal =
+        new GoalRevisionProposal(
+            List.of(
+                new GoalRevisionProposal.RevisedGoal(
+                    "g1", GoalRevisionAction.REVISE, "updated desc", "refined"),
+                new GoalRevisionProposal.RevisedGoal(
+                    "g2", GoalRevisionAction.ABANDON, null, "unachievable"),
+                new GoalRevisionProposal.RevisedGoal(
+                    "g3", GoalRevisionAction.COMPLETE, null, "achieved")),
+            "mixed actions");
+    setupStrategyReturning(proposal);
+
+    CountDownLatch latch = new CountDownLatch(1);
+    doAnswer(
+            inv -> {
+              registeredDescriptors.add(inv.getArgument(0));
+              latch.countDown();
+              return null;
+            })
+        .when(agentRegistry)
+        .register(any());
+
+    for (int i = 0; i < 3; i++) {
+      evaluator.record(instance, "worker-1", "cap-x", WorkerOutcome.success());
+    }
+
+    assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    AgentDescriptor registered = registeredDescriptors.get(0);
+    assertThat(registered.goals()).hasSize(1);
+    assertThat(registered.goals().get(0).name()).isEqualTo("g1");
+    assertThat(registered.goals().get(0).description()).isEqualTo("updated desc");
+  }
+
+  @Test
+  void auditLogContainsAbandonedAndCompletedGoals() throws Exception {
+    CaseInstance instance = buildCaseInstance("tenant-1");
+    AgentGoal g1 = goal("g1", GoalPriority.SECONDARY);
+    AgentGoal g2 = goal("g2", GoalPriority.PRIMARY);
+    setupDefinition(instance, "worker-1", g1, g2);
+
+    for (int i = 0; i < 9; i++) {
+      goalSignalStore.recordOutcome("agent-1", "tenant-1", "g1", GoalOutcome.SUCCESS);
+    }
+    goalSignalStore.recordOutcome("agent-1", "tenant-1", "g1", GoalOutcome.FAILURE);
+
+    AgentDescriptor current = descriptorWithGoals(g1, g2);
+    when(agentRegistry.findById("agent-1", "tenant-1")).thenReturn(Optional.of(current));
+
+    GoalRevisionProposal proposal =
+        new GoalRevisionProposal(
+            List.of(
+                new GoalRevisionProposal.RevisedGoal(
+                    "g1", GoalRevisionAction.REVISE, "updated", "refined"),
+                new GoalRevisionProposal.RevisedGoal(
+                    "g2", GoalRevisionAction.ABANDON, null, "unachievable")),
+            "test");
+    setupStrategyReturning(proposal);
+
+    CountDownLatch latch = new CountDownLatch(1);
+    doAnswer(
+            inv -> {
+              registeredDescriptors.add(inv.getArgument(0));
+              latch.countDown();
+              return null;
+            })
+        .when(agentRegistry)
+        .register(any());
+
+    org.mockito.ArgumentCaptor<EventLog> logCaptor =
+        org.mockito.ArgumentCaptor.forClass(EventLog.class);
+
+    for (int i = 0; i < 3; i++) {
+      evaluator.record(instance, "worker-1", "cap-x", WorkerOutcome.success());
+    }
+
+    assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    Thread.sleep(200);
+    verify(eventLogRepository).append(logCaptor.capture(), any());
+
+    com.fasterxml.jackson.databind.JsonNode payload = logCaptor.getValue().getPayload();
+    assertThat(payload.get("abandonedGoals").toString()).contains("g2");
+    assertThat(payload.get("completedGoals").size()).isZero();
+    assertThat(payload.get("descriptionRevisions").size()).isEqualTo(1);
+    assertThat(payload.get("totalGoalsAffected").asInt()).isGreaterThan(0);
   }
 }

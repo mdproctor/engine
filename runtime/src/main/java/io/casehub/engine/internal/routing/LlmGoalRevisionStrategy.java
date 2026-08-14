@@ -20,6 +20,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.ai.AgentException;
 import io.casehub.api.model.ai.ChatModelProvider;
+import io.casehub.api.spi.routing.GoalRevisionAction;
 import io.casehub.api.spi.routing.GoalRevisionContext;
 import io.casehub.api.spi.routing.GoalRevisionProposal;
 import io.casehub.api.spi.routing.GoalRevisionStrategy;
@@ -63,9 +64,14 @@ public class LlmGoalRevisionStrategy implements GoalRevisionStrategy {
         Agent.builder()
             .systemPrompt(
                 "You are a goal effectiveness analyst. Given an agent's goals and their "
-                    + "performance metrics, evaluate whether any goal descriptions should be refined to "
-                    + "better capture what the agent accomplishes. Only propose changes when a description "
-                    + "is meaningfully misaligned with observed outcomes. Respond with JSON only.")
+                    + "performance metrics, evaluate each goal and recommend one of three actions:\n"
+                    + "- REVISE: refine the goal description to better capture what the agent "
+                    + "accomplishes. Only when meaningfully misaligned with observed outcomes.\n"
+                    + "- ABANDON: drop the goal entirely. Only when the goal is unachievable or "
+                    + "no longer relevant based on persistent failure patterns.\n"
+                    + "- COMPLETE: mark the goal as achieved. Only when the goal has been "
+                    + "consistently met and keeping it adds no further value.\n"
+                    + "Respond with JSON only.")
             .model(chatModelProviders.get().get())
             .build();
 
@@ -100,32 +106,57 @@ public class LlmGoalRevisionStrategy implements GoalRevisionStrategy {
     }
 
     sb.append("\nRespond with JSON: {\"revisions\": [{\"goalName\": \"...\", ")
+        .append("\"action\": \"REVISE|ABANDON|COMPLETE\", ")
         .append("\"revisedDescription\": \"...\"|null, \"revisionReason\": \"...\"}], ")
         .append("\"rationale\": \"...\"}");
     return sb.toString();
   }
 
   private GoalRevisionProposal parseResponse(String response) {
+    JsonNode root;
     try {
-      JsonNode root = MAPPER.readTree(response);
-      JsonNode revisionsNode = root.get("revisions");
-      String rationale = root.has("rationale") ? root.get("rationale").asText() : "";
+      root = MAPPER.readTree(response);
+    } catch (Exception e) {
+      throw new AgentException("Failed to parse LLM goal revision response", e);
+    }
+    JsonNode revisionsNode = root.get("revisions");
+    String rationale = root.has("rationale") ? root.get("rationale").asText() : "";
 
-      List<GoalRevisionProposal.RevisedGoal> revisions = new ArrayList<>();
-      if (revisionsNode != null && revisionsNode.isArray()) {
-        for (JsonNode node : revisionsNode) {
+    List<GoalRevisionProposal.RevisedGoal> revisions = new ArrayList<>();
+    if (revisionsNode != null && revisionsNode.isArray()) {
+      for (JsonNode node : revisionsNode) {
+        try {
           String goalName = node.get("goalName").asText();
+          GoalRevisionAction action = parseAction(node);
           String desc =
               node.has("revisedDescription") && !node.get("revisedDescription").isNull()
                   ? node.get("revisedDescription").asText()
                   : null;
+          if (action == GoalRevisionAction.REVISE && desc == null) {
+            LOG.debugf(
+                "Skipping revision for goal %s: action defaulted to REVISE "
+                    + "but description is null",
+                goalName);
+            continue;
+          }
           String reason = node.get("revisionReason").asText();
-          revisions.add(new GoalRevisionProposal.RevisedGoal(goalName, desc, reason));
+          revisions.add(new GoalRevisionProposal.RevisedGoal(goalName, action, desc, reason));
+        } catch (Exception e) {
+          LOG.debugf("Skipping malformed revision entry: %s", e.getMessage());
         }
       }
-      return new GoalRevisionProposal(revisions, rationale);
-    } catch (Exception e) {
-      throw new AgentException("Failed to parse LLM goal revision response", e);
+    }
+    return new GoalRevisionProposal(revisions, rationale);
+  }
+
+  private GoalRevisionAction parseAction(JsonNode node) {
+    if (!node.has("action") || node.get("action").isNull()) {
+      return GoalRevisionAction.REVISE;
+    }
+    try {
+      return GoalRevisionAction.valueOf(node.get("action").asText().toUpperCase());
+    } catch (IllegalArgumentException e) {
+      return GoalRevisionAction.REVISE;
     }
   }
 }
