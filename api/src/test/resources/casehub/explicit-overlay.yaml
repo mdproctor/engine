@@ -1,0 +1,5 @@
+spec:
+  capabilities:
+    - name: extra-cap
+      inputProjection: "."
+      outputProjection: "."

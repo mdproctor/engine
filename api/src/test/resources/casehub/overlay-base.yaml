@@ -1,0 +1,26 @@
+dsl: "0.1"
+version: "1.0.0"
+name: overlay-test
+namespace: test
+spec:
+  capabilities:
+    - name: process
+      inputProjection: "."
+      outputProjection: "."
+    - name: review
+      inputProjection: "."
+      outputProjection: "."
+  bindings:
+    - name: trigger
+      capability: process
+      on:
+        contextChange:
+          filter: '.ready == true'
+    - name: review-trigger
+      capability: review
+      on:
+        contextChange:
+          filter: '.needsReview == true'
+  goals:
+    - name: done
+      condition: '.completed == true'
