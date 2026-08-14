@@ -181,21 +181,51 @@ public final class CaseDefinitionYamlMapper {
     if (yamlStream == null) {
       throw new IllegalArgumentException("InputStream cannot be null");
     }
-    // Read bytes once so we can parse both as JsonNode (for free-form fields) and typed schema
-    // model
     final byte[] bytes = yamlStream.readAllBytes();
     final JsonNode rawNode = objectMapper.readTree(bytes);
-    // Disable FAIL_ON_UNKNOWN_PROPERTIES so free-form schema fields (e.g. semanticData with
-    // additionalProperties:true) are silently ignored by the generated empty schema class.
+    final ObjectMapper lenient = createLenientMapper(objectMapper);
+    final io.casehub.model.CaseDefinition schema =
+        lenient.readValue(bytes, io.casehub.model.CaseDefinition.class);
+    return convertToApiModel(schema, rawNode, objectMapper, registry, providerRegistry);
+  }
+
+  /**
+   * Loads a CaseDefinition from a pre-merged JsonNode. For use with the YAML overlay/merge pipeline
+   * where base and overlay documents have already been merged via YamlMerger.
+   *
+   * @param mergedNode pre-merged JsonNode containing the complete case definition
+   * @param objectMapper ObjectMapper for type conversion
+   * @param registry ExpressionEngineRegistry (nullable — falls back to JQ-only)
+   * @param providerRegistry WorkerFunctionProviderRegistry (nullable — falls back to no-op)
+   * @return API model CaseDefinition
+   */
+  public static CaseDefinition load(
+      final JsonNode mergedNode,
+      final ObjectMapper objectMapper,
+      final ExpressionEngineRegistry registry,
+      final WorkerFunctionProviderRegistry providerRegistry) {
+    if (mergedNode == null) {
+      throw new IllegalArgumentException("JsonNode cannot be null");
+    }
+    final ObjectMapper lenient = createLenientMapper(objectMapper);
+    final io.casehub.model.CaseDefinition schema =
+        lenient.convertValue(mergedNode, io.casehub.model.CaseDefinition.class);
+    return convertToApiModel(
+        schema,
+        mergedNode,
+        objectMapper,
+        registry != null ? registry : JQ_ONLY,
+        providerRegistry != null ? providerRegistry : EMPTY_PROVIDERS);
+  }
+
+  private static ObjectMapper createLenientMapper(final ObjectMapper source) {
     final ObjectMapper lenient =
-        objectMapper
+        source
             .copy()
             .disable(
                 com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
     lenient.addHandler(UnknownPropertyWarningHandler.INSTANCE);
-    final io.casehub.model.CaseDefinition schema =
-        lenient.readValue(bytes, io.casehub.model.CaseDefinition.class);
-    return convertToApiModel(schema, rawNode, objectMapper, registry, providerRegistry);
+    return lenient;
   }
 
   /**
