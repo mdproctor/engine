@@ -17,8 +17,8 @@ package io.casehub.actorstate;
 
 import io.casehub.platform.api.actor.ActorStateAccumulator;
 import io.casehub.platform.api.actor.ActorStateContributor;
-import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.api.WorkItemQuery;
+import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.api.spi.WorkItemStore;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -58,11 +58,11 @@ public class WorkActorStateContributor implements ActorStateContributor {
     items.forEach(
         wi ->
             acc.workItem(
-                wi.id,
-                wi.title,
-                wi.status != null ? wi.status.name() : null,
+                wi.id(),
+                wi.title(),
+                wi.status() != null ? wi.status().name() : null,
                 null,
-                parseCaseId(wi.callerRef)));
+                parseCaseId(wi.callerRef())));
   }
 
   /** Extracts the caseId from a callerRef in format {@code case:{uuid}/pi:{planItemId}}. */

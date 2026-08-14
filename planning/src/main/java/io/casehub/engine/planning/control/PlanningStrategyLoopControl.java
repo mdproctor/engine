@@ -31,8 +31,6 @@ import io.casehub.engine.planning.registry.BlackboardRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,6 +39,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class PlanningStrategyLoopControl implements LoopControl {
@@ -283,18 +282,22 @@ public class PlanningStrategyLoopControl implements LoopControl {
 
   private io.casehub.api.model.ExecutorRef resolveExecutor(
       Binding binding, PlanExecutionContext ctx) {
-      var resolved = io.casehub.engine.common.internal.routing.BindingExecutorResolver.resolve(binding, ctx.definition());
-      if (binding.target() instanceof CapabilityTarget ct) {
-          String capName = ct.capability().name();
-          long matchCount = ctx.definition().getWorkers().stream()
-                               .filter(w -> w.capabilityNames() != null && w.capabilityNames().contains(capName))
-                               .count();
-          if (matchCount > 1) {
-              LOG.warnf(
-                      "Capability '%s' matched %d workers — only '%s' will be tracked for PlanItem completion. "
-                      + "Multi-worker fan-out requires per-worker PlanItems (casehubio/engine#82).",
-                      capName, matchCount, resolved.name());
-          }
+    var resolved =
+        io.casehub.engine.common.internal.routing.BindingExecutorResolver.resolve(
+            binding, ctx.definition());
+    if (binding.target() instanceof CapabilityTarget ct) {
+      String capName = ct.capability().name();
+      long matchCount =
+          ctx.definition().getWorkers().stream()
+              .filter(w -> w.capabilityNames() != null && w.capabilityNames().contains(capName))
+              .count();
+      if (matchCount > 1) {
+        LOG.warnf(
+            "Capability '%s' matched %d workers — only '%s' will be tracked for PlanItem completion. "
+                + "Multi-worker fan-out requires per-worker PlanItems (casehubio/engine#82).",
+            capName, matchCount, resolved.name());
       }
-      return resolved;}
+    }
+    return resolved;
+  }
 }
