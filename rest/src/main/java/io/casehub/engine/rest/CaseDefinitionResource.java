@@ -49,6 +49,7 @@ public class CaseDefinitionResource {
   @Inject CaseMetaModelRepository metaModelRepository;
   @Inject CaseDefinitionRegistry definitionRegistry;
   @Inject CurrentPrincipal currentPrincipal;
+  @Inject io.casehub.platform.api.acl.AccessControlProvider accessControlProvider;
 
   @GET
   @RunOnVirtualThread
@@ -66,10 +67,24 @@ public class CaseDefinitionResource {
       @QueryParam("size") @DefaultValue("20") @Min(1) @Max(100) int size) {
     var query = CaseDefinitionQuery.builder().page(page - 1).size(size).build();
     String tenancyId = currentPrincipal.tenancyId();
+    String actorId = currentPrincipal.actorId();
     var metaModels = metaModelRepository.query(query, tenancyId);
-    var definitions = metaModels.stream().map(definitionRegistry::getCaseDefinition).toList();
-    long total = metaModelRepository.count(query, tenancyId);
-    int totalPages = (int) Math.ceil((double) total / size);
+    var definitions =
+        metaModels.stream()
+            .filter(
+                mm ->
+                    accessControlProvider.canAccess(
+                        actorId,
+                        io.casehub.api.acl.EngineResourceTypes.CASE_DEFINITION
+                            + ":"
+                            + mm.getNamespace()
+                            + "/"
+                            + mm.getName(),
+                        io.casehub.platform.api.acl.AclAction.READ))
+            .map(definitionRegistry::getCaseDefinition)
+            .toList();
+    long total = definitions.size();
+    int totalPages = Math.max(1, (int) Math.ceil((double) total / size));
     return new PagedResponse<>(definitions, page, size, total, totalPages);
   }
 

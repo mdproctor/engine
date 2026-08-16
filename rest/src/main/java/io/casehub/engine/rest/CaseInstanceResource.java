@@ -90,6 +90,7 @@ public class CaseInstanceResource {
   @Inject PlanItemStore planItemStore;
   @Inject CaseDefinitionRegistry definitionRegistry;
   @Inject ExpressionEngineRegistry expressionEngineRegistry;
+  @Inject io.casehub.platform.api.acl.AccessControlProvider accessControlProvider;
 
   @GET
   @RunOnVirtualThread
@@ -115,12 +116,19 @@ public class CaseInstanceResource {
             .size(size)
             .build();
     String tenancyId = currentPrincipal.tenancyId();
+    String actorId = currentPrincipal.actorId();
     var items =
         instanceRepository.query(query, tenancyId).stream()
+            .filter(
+                ci ->
+                    accessControlProvider.canAccess(
+                        actorId,
+                        io.casehub.api.acl.EngineResourceTypes.CASE + ":" + ci.getUuid(),
+                        io.casehub.platform.api.acl.AclAction.READ))
             .map(CaseInstanceResponse::from)
             .toList();
-    long total = instanceRepository.count(query, tenancyId);
-    int totalPages = (int) Math.ceil((double) total / size);
+    long total = items.size();
+    int totalPages = Math.max(1, (int) Math.ceil((double) total / size));
     return new PagedResponse<>(items, page, size, total, totalPages);
   }
 
