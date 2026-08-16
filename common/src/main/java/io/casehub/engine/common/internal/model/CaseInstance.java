@@ -168,6 +168,7 @@ public class CaseInstance {
   }
 
   private Set<String> labels = new LinkedHashSet<>();
+  private Set<String> types = new LinkedHashSet<>();
   private java.util.Map<String, Object> exchangeHeaders = new java.util.LinkedHashMap<>();
 
   public java.util.Map<String, Object> getExchangeHeaders() {
@@ -191,5 +192,13 @@ public class CaseInstance {
 
   public void setLabels(Set<String> labels) {
     this.labels = labels;
+  }
+
+  public Set<String> getTypes() {
+    return types;
+  }
+
+  public void setTypes(Set<String> types) {
+    this.types = types;
   }
 }
