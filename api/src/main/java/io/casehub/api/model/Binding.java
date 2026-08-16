@@ -240,6 +240,12 @@ public class Binding {
       return this;
     }
 
+    /** Sets a {@link SignalTarget} from a payload map. */
+    public Builder signal(Map<String, Object> payload) {
+      this.target = new SignalTarget(payload);
+      return this;
+    }
+
     /** Sets any {@link BindingTarget} directly. */
     public Builder target(BindingTarget target) {
       this.target = target;
@@ -361,6 +367,12 @@ public class Binding {
       if (on instanceof ScopeActivatedTrigger && ls == LifecycleScope.BINDING) {
         throw new IllegalArgumentException(
             "ScopeActivatedTrigger requires COMPOUND or CASE scope, got BINDING");
+      }
+      if (target instanceof SignalTarget && ls != LifecycleScope.BINDING) {
+        throw new IllegalArgumentException("SignalTarget requires BINDING scope, got " + ls);
+      }
+      if (target instanceof SignalTarget && p == Participation.COMPANION) {
+        throw new IllegalArgumentException("SignalTarget cannot use COMPANION participation");
       }
       if (ls == LifecycleScope.CASE && p != Participation.COMPANION) {
         throw new IllegalArgumentException("CASE scope requires COMPANION participation, got " + p);

@@ -1,0 +1,15 @@
+spec:
+  capabilities:
+    - name: check-status
+      inputSchema: "."
+  workers:
+    - name: status-checker
+      capabilities: [check-status]
+  bindings:
+    - name: periodic-check
+      on:
+        schedule:
+          cron: "0 0 * * *"
+      signal:
+        statusCheck:
+          triggered: true

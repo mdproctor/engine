@@ -15,11 +15,13 @@
  */
 package io.casehub.engine.internal.scheduler;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.ScheduleTrigger;
+import io.casehub.api.model.SignalTarget;
 import io.casehub.api.model.SubCaseTarget;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.scheduler.JobIdentifier;
@@ -65,6 +67,7 @@ import org.jboss.logging.Logger;
 public class SchedulerService {
 
   private static final Logger LOG = Logger.getLogger(SchedulerService.class);
+  private static final ObjectMapper SIGNAL_MAPPER = new ObjectMapper();
 
   @Inject JobScheduler scheduler;
 
@@ -98,40 +101,29 @@ public class SchedulerService {
         continue;
       }
 
-      CapabilityTarget ct =
-          switch (binding.target()) {
-            case CapabilityTarget cap -> cap;
-            case SubCaseTarget st -> {
-              LOG.warnf(
-                  "Schedule binding '%s' has non-capability target — skipping", binding.getName());
-              yield null;
-            }
-            case io.casehub.api.model.HumanTaskTarget ht -> {
-              LOG.warnf(
-                  "Schedule binding '%s' has non-capability target — skipping", binding.getName());
-              yield null;
-            }
-            case ExtensionTarget et -> {
-              LOG.warnf(
-                  "Schedule binding '%s' has non-capability target — skipping", binding.getName());
-              yield null;
-            }
-          };
-      if (ct == null) {
-        continue;
-      }
-      Worker worker = findWorkerForCapability(definition, ct.capability());
-      if (worker == null) {
-        LOG.warnf(
-            "No worker found for capability '%s' in binding '%s', skipping",
-            ct.capability().name(), binding.getName());
-        continue;
-      }
-
-      if (binding.getWhen() != null) {
-        scheduleConditionalWorker(caseInstance.getUuid(), binding, trigger, worker);
-      } else {
-        scheduleWorker(caseInstance.getUuid(), binding, trigger, worker);
+      switch (binding.target()) {
+        case io.casehub.api.model.SignalTarget st ->
+            scheduleSignal(caseInstance.getUuid(), binding, trigger, st);
+        case CapabilityTarget ct -> {
+          Worker worker = findWorkerForCapability(definition, ct.capability());
+          if (worker == null) {
+            LOG.warnf(
+                "No worker found for capability '%s' in binding '%s', skipping",
+                ct.capability().name(), binding.getName());
+            continue;
+          }
+          if (binding.getWhen() != null) {
+            scheduleConditionalWorker(caseInstance.getUuid(), binding, trigger, worker);
+          } else {
+            scheduleWorker(caseInstance.getUuid(), binding, trigger, worker);
+          }
+        }
+        case SubCaseTarget st ->
+            LOG.warnf("Schedule binding '%s' has SubCase target — skipping", binding.getName());
+        case io.casehub.api.model.HumanTaskTarget ht ->
+            LOG.warnf("Schedule binding '%s' has HumanTask target — skipping", binding.getName());
+        case ExtensionTarget et ->
+            LOG.warnf("Schedule binding '%s' has Extension target — skipping", binding.getName());
       }
     }
   }
@@ -161,6 +153,31 @@ public class SchedulerService {
     LOG.infof(
         "Scheduled conditional trigger: case=%s, binding=%s, trigger=%s, condition=%s",
         caseId, binding.getName(), trigger, binding.getWhen());
+  }
+
+  private void scheduleSignal(
+      UUID caseId, Binding binding, ScheduleTrigger trigger, SignalTarget st) {
+    JobIdentifier jobId = createJobIdentifier(caseId, binding.getName());
+    ScheduleStrategy schedule = toScheduleStrategy(trigger);
+    Map<String, Object> data = new HashMap<>();
+    data.put("caseId", caseId.toString());
+    data.put("bindingName", binding.getName());
+    data.put("triggerType", "signal");
+    try {
+      data.put(
+          "signalPayload",
+          SIGNAL_MAPPER.writeValueAsString(SIGNAL_MAPPER.valueToTree(st.payload())));
+    } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+      throw new IllegalStateException("Failed to serialize signal payload", e);
+    }
+    if (binding.getWhen() != null) {
+      data.put("hasCondition", "true");
+    }
+
+    scheduler.schedule(ScheduledJobRequest.builder().jobId(jobId).schedule(schedule).data(data));
+    LOG.infof(
+        "Scheduled signal trigger: case=%s, binding=%s, trigger=%s",
+        caseId, binding.getName(), trigger);
   }
 
   public void cancelAllTriggers(UUID caseId) {
@@ -214,6 +231,9 @@ public class SchedulerService {
       case io.casehub.api.model.HumanTaskTarget ignored ->
           throw new IllegalStateException(
               "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
+      case io.casehub.api.model.SignalTarget ignored ->
+          throw new IllegalStateException(
+              "createJobData called with SignalTarget binding '" + binding.getName() + "'");
       case ExtensionTarget ignored ->
           throw new IllegalStateException(
               "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");

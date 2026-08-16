@@ -57,10 +57,11 @@ Cases are defined declaratively: namespace, name, version, capabilities, workers
 - `capability` — routes to a worker by capability match
 - `subCase` — spawns a child case (with `SubCaseCompletionStrategy` and `SubCaseMapping`)
 - `humanTask` — creates a WorkItem in casehub-work (inline or template mode). Supports `scope`, `inputMapping`/`outputMapping` (JQ), `candidateGroups`, `candidateUsers`, `expiresIn`, `outcomes`
+- `signal` — engine-internal context mutation. Writes a static payload to the case context and publishes `CONTEXT_CHANGED`. No worker dispatch. Use for case-level SLA deadlines, escalation flags, phase transitions. `LifecycleScope.BINDING` only
 
 **Binding fields:** `inputSchemaOverride` overrides the capability's default input schema for this binding only. `contextWrite` is a JQ expression whose result is merged into case context after the worker completes. `outcomePolicy` controls REROUTE vs FAULT behavior on worker DECLINED/FAILED/EXPIRED outcomes. `lifecycleScope` governs worker lifetime.
 
-**Trigger types:** `contextChange` (with optional `filter` and binding-level `when` guard), `schedule`/`timer`, `scopeActivated` (fires when a compound scope becomes ACTIVE).
+**Trigger types:** `contextChange` (with optional `filter` and binding-level `when` guard), `schedule` (YAML: `every:` for one-shot ISO-8601 duration, `cron:` for periodic Quartz expression), `scopeActivated` (fires when a compound scope becomes ACTIVE).
 
 ### CaseCompletion
 
@@ -402,6 +403,31 @@ Cases are configured via `CaseDefinition.yaml`. Key configuration blocks:
 - `humanTaskRouting:` — strategy ID for human task candidate enrichment
 - `cognitiveDemand:` — per-capability cognitive function demand profile
 - `episodicMemory:` — domain, entityId (JQ), and recent count for episodic memory injection
+
+#### Case-Level SLA Example
+
+A timer-triggered signal binding that writes an SLA expiry flag to case context, enabling a failure goal:
+
+```yaml
+spec:
+  goals:
+    - name: review-timed-out
+      when: ".caseSla.expired == true"
+  completion:
+    failure:
+      anyOf: [review-timed-out]
+  bindings:
+    - name: case-timeout
+      on:
+        schedule:
+          every: PT48H
+      when: ".caseSla.expired == null"
+      signal:
+        caseSla:
+          expired: true
+```
+
+The `when` guard prevents re-firing after the first write. The `signal:` payload is static — written as-is to the case context. The `schedule:` trigger supports `every:` (ISO-8601 duration, one-shot) and `cron:` (Quartz expression, periodic).
 
 ### JQ Expression Evaluation
 

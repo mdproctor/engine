@@ -485,8 +485,15 @@ public final class CaseDefinitionYamlMapper {
 
     // Convert bindings
     if (schema.getSpec() != null && schema.getSpec().getBindings() != null) {
-      for (io.casehub.model.Binding sr : schema.getSpec().getBindings()) {
-        final Binding binding = convertBinding(sr, capabilityMap, registry, expressionLang);
+      JsonNode specNode = rawNode.has("spec") ? rawNode.get("spec") : rawNode;
+      JsonNode bindingsNode = specNode.get("bindings");
+      List<io.casehub.model.Binding> schemaBindings = schema.getSpec().getBindings();
+      for (int i = 0; i < schemaBindings.size(); i++) {
+        JsonNode rawBindingNode =
+            bindingsNode != null && i < bindingsNode.size() ? bindingsNode.get(i) : null;
+        final Binding binding =
+            convertBinding(
+                schemaBindings.get(i), rawBindingNode, capabilityMap, registry, expressionLang);
         def.getBindings().add(binding);
       }
     }
@@ -926,6 +933,7 @@ public final class CaseDefinitionYamlMapper {
 
   private static Binding convertBinding(
       final io.casehub.model.Binding schemaBinding,
+      final JsonNode rawBindingNode,
       final Map<String, Capability> capabilityMap,
       final ExpressionEngineRegistry registry,
       final String expressionLang) {
@@ -960,9 +968,20 @@ public final class CaseDefinitionYamlMapper {
             "Binding '" + schemaBinding.getName() + "' has invalid humanTask: " + e.getMessage(),
             e);
       }
+    } else if (schemaBinding.getSignal() != null) {
+      JsonNode signalNode = rawBindingNode != null ? rawBindingNode.get("signal") : null;
+      if (signalNode == null || signalNode.isEmpty()) {
+        throw new IllegalArgumentException(
+            "Binding '" + schemaBinding.getName() + "' signal payload must not be empty");
+      }
+      @SuppressWarnings("unchecked")
+      Map<String, Object> signalPayload = MAPPER.convertValue(signalNode, Map.class);
+      builder.signal(signalPayload);
     } else {
       throw new IllegalArgumentException(
-          "Binding '" + schemaBinding.getName() + "' must have capability, subCase, or humanTask");
+          "Binding '"
+              + schemaBinding.getName()
+              + "' must have capability, subCase, humanTask, or signal");
     }
 
     if (schemaBinding.getWhen() != null) {
@@ -1113,10 +1132,21 @@ public final class CaseDefinitionYamlMapper {
       return new io.casehub.api.model.ScopeActivatedTrigger();
     }
 
-    // TODO: Add support for CloudEventTrigger and ScheduleTrigger
+    if (schemaTrigger.getSchedule() != null) {
+      io.casehub.model.ScheduleTrigger st = schemaTrigger.getSchedule();
+      if (st.getCron() != null) {
+        return io.casehub.api.model.ScheduleTrigger.cron(st.getCron());
+      } else if (st.getEvery() != null) {
+        return io.casehub.api.model.ScheduleTrigger.delay(java.time.Duration.parse(st.getEvery()));
+      } else {
+        throw new IllegalArgumentException(
+            "ScheduleTrigger must have either 'cron' or 'every' set");
+      }
+    }
+
     throw new UnsupportedOperationException(
-        "Only ContextChangeTrigger and ScopeActivatedTrigger are currently supported. "
-            + "CloudEventTrigger and ScheduleTrigger conversion not yet implemented.");
+        "Only ContextChangeTrigger, ScopeActivatedTrigger, and ScheduleTrigger are currently"
+            + " supported. CloudEventTrigger conversion not yet implemented.");
   }
 
   private static GoalExpression convertGoalExpression(

@@ -658,6 +658,7 @@ $defs:
       - required: [ capability ]
       - required: [ subCase ]
       - required: [ humanTask ]
+      - required: [ signal ]
     properties:
       name: { type: string }
       "on": { $ref: "#/$defs/Trigger" }
@@ -665,6 +666,10 @@ $defs:
       capability: { type: string }
       subCase: { $ref: "#/$defs/SubCase" }
       humanTask: { $ref: "#/$defs/HumanTask" }
+      signal:
+        type: object
+        additionalProperties: true
+        description: "Context signal payload. Written to the case context when the binding fires. No worker dispatch."
       conflictResolverStrategy:
         type: string
         enum: [ LAST_WRITER_WINS, FIRST_WRITER_WINS, FAIL, DEEP_MERGE ]

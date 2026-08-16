@@ -123,6 +123,8 @@ public class QuartzJobScheduler implements JobScheduler {
       jobClass = ConditionalScheduledTriggerJob.class;
     } else if ("unconditional".equals(triggerType)) {
       jobClass = ScheduledTriggerJob.class;
+    } else if ("signal".equals(triggerType)) {
+      jobClass = ScheduledSignalJob.class;
     } else if (triggerType == null) {
       // No triggerType specified - assume milestone SLA timeout
       jobClass = MilestoneSLATimeoutJob.class;

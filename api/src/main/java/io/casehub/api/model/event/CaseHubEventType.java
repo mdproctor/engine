@@ -78,4 +78,6 @@ public enum CaseHubEventType {
   ORCHESTRATION_ESCALATED, // orchestration escalated due to exhaustion or circuit breaker
 
   PATTERN_CHECKPOINT, // pattern execution iteration checkpoint for crash recovery
+
+  CONTEXT_SIGNAL_APPLIED, // SignalTarget payload written to case context
 }

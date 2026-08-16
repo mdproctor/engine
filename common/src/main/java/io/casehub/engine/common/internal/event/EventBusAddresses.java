@@ -108,4 +108,6 @@ public final class EventBusAddresses {
   public static final String COMPOUND_COMPLETED = "casehub.planning.compound.completed";
 
   public static final String COMPOUND_ACTIVATED = "casehub.planning.compound.activated";
+
+  public static final String CONTEXT_SIGNAL = "casehub.context.signal";
 }

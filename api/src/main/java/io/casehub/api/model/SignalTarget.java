@@ -15,14 +15,15 @@
  */
 package io.casehub.api.model;
 
-/**
- * Sealed discriminator for what a {@link Binding} targets.
- *
- * <p>Permits: {@link CapabilityTarget}, {@link SubCaseTarget}, {@link HumanTaskTarget}, {@link
- * ExtensionTarget}.
- *
- * <p>All dispatch sites use exhaustive switch pattern matching (Java 21), which provides
- * compile-time guarantee that all sealed permits are handled.
- */
-public sealed interface BindingTarget
-    permits CapabilityTarget, SubCaseTarget, HumanTaskTarget, SignalTarget, ExtensionTarget {}
+import java.util.Map;
+import java.util.Objects;
+
+public record SignalTarget(Map<String, Object> payload) implements BindingTarget {
+  public SignalTarget {
+    Objects.requireNonNull(payload, "payload must not be null");
+    if (payload.isEmpty()) {
+      throw new IllegalArgumentException("SignalTarget payload must not be empty");
+    }
+    payload = Map.copyOf(payload);
+  }
+}

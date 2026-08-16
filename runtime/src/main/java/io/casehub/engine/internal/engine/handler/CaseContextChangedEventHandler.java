@@ -363,6 +363,11 @@ public class CaseContextChangedEventHandler {
       case HumanTaskTarget ht ->
           publishHumanTaskSchedule(
               caseInstance, caseDefinition, binding, ht, experiences, activationSnapshot);
+      case io.casehub.api.model.SignalTarget st ->
+          eventBus.publish(
+              EventBusAddresses.CONTEXT_SIGNAL,
+              new io.casehub.engine.common.internal.event.ContextSignalEvent(
+                  caseInstance, binding.getName(), st.payload()));
       case ExtensionTarget et ->
           LOG.warnf(
               "No handler for ExtensionTarget %s on binding '%s'",

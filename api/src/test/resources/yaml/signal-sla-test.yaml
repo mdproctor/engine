@@ -1,0 +1,31 @@
+spec:
+  capabilities:
+    - name: review-code
+      inputSchema: "."
+  goals:
+    - name: review-complete
+      when: ".reviewResult != null"
+    - name: review-timed-out
+      when: ".caseSla.expired == true"
+  completion:
+    success:
+      allOf: [review-complete]
+    failure:
+      anyOf: [review-timed-out]
+  workers:
+    - name: code-reviewer
+      capabilities: [review-code]
+  bindings:
+    - name: do-review
+      on:
+        contextChange:
+          filter: ".reviewRequest != null"
+      capability: review-code
+    - name: case-timeout
+      on:
+        schedule:
+          every: PT48H
+      when: ".caseSla.expired == null"
+      signal:
+        caseSla:
+          expired: true
