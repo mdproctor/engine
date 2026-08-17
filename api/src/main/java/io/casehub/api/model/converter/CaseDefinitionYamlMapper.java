@@ -50,6 +50,7 @@ import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.StandardGoalKind;
 import io.casehub.api.model.WorkerFunctions;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.model.evaluator.TypedMvelExpressionEvaluator;
 import io.casehub.api.spi.WorkerFunctionProviderRegistry;
 import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.expression.CompiledExpression;
@@ -261,15 +262,30 @@ public final class CaseDefinitionYamlMapper {
       final ObjectMapper objectMapper,
       final ExpressionEngineRegistry registry,
       final WorkerFunctionProviderRegistry providerRegistry) {
+    Class<?> contextClass = null;
+    if (schema.getContextType() != null) {
+      try {
+        contextClass = Class.forName(schema.getContextType());
+      } catch (ClassNotFoundException e) {
+        throw new IllegalArgumentException(
+            "contextType class not found: " + schema.getContextType(), e);
+      }
+    }
+
     final String expressionLang;
-    if (rawNode.has("expressionLang")) {
+    if (rawNode.has("expressionLang") && schema.getExpressionLang() != null) {
       expressionLang = schema.getExpressionLang();
-    } else if (schema.getContextType() != null) {
+    } else if (contextClass != null) {
       expressionLang = "mvel";
     } else {
       expressionLang = JQExpressionEvaluator.TYPE;
     }
     registry.assertLanguageSupported(expressionLang);
+
+    final ExpressionEngineRegistry effectiveRegistry =
+        contextClass != null && "mvel".equals(expressionLang)
+            ? new TypedMvelRegistry(registry, contextClass)
+            : registry;
 
     final CaseDefinition def =
         new CaseDefinition(schema.getNamespace(), schema.getName(), schema.getVersion());
@@ -279,14 +295,8 @@ public final class CaseDefinitionYamlMapper {
       def.setSummary(schema.getSummary());
     }
 
-    if (schema.getContextType() != null) {
-      try {
-        final Class<?> contextClass = Class.forName(schema.getContextType());
-        def.setDefaultWorkerBridge(new JacksonPojoBridge<>(contextClass));
-      } catch (ClassNotFoundException e) {
-        throw new IllegalArgumentException(
-            "contextType class not found: " + schema.getContextType(), e);
-      }
+    if (contextClass != null) {
+      def.setDefaultWorkerBridge(new JacksonPojoBridge<>(contextClass));
     }
 
     // semanticData — free-form object; read directly from raw JsonNode to avoid empty generated
@@ -538,7 +548,11 @@ public final class CaseDefinitionYamlMapper {
             bindingsNode != null && i < bindingsNode.size() ? bindingsNode.get(i) : null;
         final Binding binding =
             convertBinding(
-                schemaBindings.get(i), rawBindingNode, capabilityMap, registry, expressionLang);
+                schemaBindings.get(i),
+                rawBindingNode,
+                capabilityMap,
+                effectiveRegistry,
+                expressionLang);
         def.getBindings().add(binding);
       }
     }
@@ -549,10 +563,11 @@ public final class CaseDefinitionYamlMapper {
         final Milestone.Builder milestoneBuilder =
             Milestone.builder()
                 .name(sm.getName())
-                .completionCriteria(registry.create(sm.getCondition(), expressionLang));
+                .completionCriteria(effectiveRegistry.create(sm.getCondition(), expressionLang));
 
         if (sm.getEntryCriteria() != null) {
-          milestoneBuilder.entryCriteria(registry.create(sm.getEntryCriteria(), expressionLang));
+          milestoneBuilder.entryCriteria(
+              effectiveRegistry.create(sm.getEntryCriteria(), expressionLang));
         }
 
         if (sm.getSlaDuration() != null) {
@@ -596,7 +611,7 @@ public final class CaseDefinitionYamlMapper {
         final Goal goal =
             new Goal(
                 sg.getName(),
-                registry.create(sg.getCondition(), expressionLang),
+                effectiveRegistry.create(sg.getCondition(), expressionLang),
                 sg.getKind() != null ? sg.getKind() : "success");
         goal.setDescription(sg.getDescription());
         goalMap.put(sg.getName(), goal);
@@ -1513,6 +1528,60 @@ public final class CaseDefinitionYamlMapper {
       };
     } catch (JsonQueryException e) {
       throw new IllegalArgumentException("Invalid JQ expression: " + expression, e);
+    }
+  }
+
+  /**
+   * Wraps a registry to produce {@link TypedMvelExpressionEvaluator} for MVEL expressions when a
+   * contextType is declared.
+   */
+  private static final class TypedMvelRegistry implements ExpressionEngineRegistry {
+    private final ExpressionEngineRegistry delegate;
+    private final Class<?> contextClass;
+
+    TypedMvelRegistry(ExpressionEngineRegistry delegate, Class<?> contextClass) {
+      this.delegate = delegate;
+      this.contextClass = contextClass;
+    }
+
+    @Override
+    public ExpressionEvaluator create(String expression, String expressionLang) {
+      delegate.create(expression, expressionLang);
+      if ("mvel".equals(expressionLang)) {
+        return new TypedMvelExpressionEvaluator(expression, contextClass);
+      }
+      return delegate.create(expression, expressionLang);
+    }
+
+    @Override
+    public void assertLanguageSupported(String expressionLang) {
+      delegate.assertLanguageSupported(expressionLang);
+    }
+
+    @Override
+    public boolean evaluate(ExpressionEvaluator evaluator, CaseContext context) {
+      return delegate.evaluate(evaluator, context);
+    }
+
+    @Override
+    public boolean evaluate(ExpressionEvaluator evaluator, JsonNode asNode) {
+      return delegate.evaluate(evaluator, asNode);
+    }
+
+    @Override
+    public void validate(ExpressionEvaluator evaluator) {
+      delegate.validate(evaluator);
+    }
+
+    @Override
+    public java.util.List<JsonNode> transform(ExpressionEvaluator evaluator, JsonNode input) {
+      return delegate.transform(evaluator, input);
+    }
+
+    @Override
+    public java.util.Optional<String> extractString(
+        ExpressionEvaluator evaluator, CaseContext context) {
+      return delegate.extractString(evaluator, context);
     }
   }
 }
