@@ -414,28 +414,12 @@ class DefaultWorkerSpiImplementationsTest {
   void noOpCapabilityHealth_probe_returnsReady() {
     var health = new NoOpCapabilityHealth();
     var descriptor =
-        new AgentDescriptor(
-            "agent-1",
-            "Test",
-            "1.0",
-            "openai",
-            "gpt-4",
-            "4-turbo",
-            null,
-            null,
-            null,
-            null,
-            null,
-            "review",
-            List.of(),
-            null,
-            null,
-            null,
-            "casehubio",
-            null,
-            List.of(),
-            List.of(),
-            List.of());
+        AgentDescriptor.builder()
+            .agentId("agent-1")
+            .name("Test")
+            .slot("review")
+            .tenancyId("casehubio")
+            .build();
     CapabilityStatus status = health.probe(descriptor, "code-review", ProbeContext.of(null));
     assertThat(status).isInstanceOf(CapabilityStatus.Ready.class);
   }

@@ -16,20 +16,26 @@
 package io.casehub.engine.internal.routing;
 
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.model.SubCaseTarget;
 import io.casehub.eidos.api.AgentCapability;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.BehavioralExpectations;
 import io.casehub.eidos.api.BehavioralSignal;
 import io.casehub.eidos.api.BehavioralSignalStore;
 import io.casehub.eidos.api.ComplianceDimension;
+import io.casehub.eidos.api.VocabularyRegistry;
 import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.worker.api.WorkerOutcome;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.UUID;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -39,12 +45,19 @@ public class BehavioralComplianceRecorder {
 
   private final Instance<BehavioralSignalStore> signalStore;
   private final CaseDefinitionRegistry registry;
+  private final Instance<PlanItemStore> planItemStore;
+  private final VocabularyRegistry vocabularyRegistry;
 
   @Inject
   public BehavioralComplianceRecorder(
-      Instance<BehavioralSignalStore> signalStore, CaseDefinitionRegistry registry) {
+      Instance<BehavioralSignalStore> signalStore,
+      CaseDefinitionRegistry registry,
+      Instance<PlanItemStore> planItemStore,
+      VocabularyRegistry vocabularyRegistry) {
     this.signalStore = signalStore;
     this.registry = registry;
+    this.planItemStore = planItemStore;
+    this.vocabularyRegistry = vocabularyRegistry;
   }
 
   public void record(
@@ -75,6 +88,9 @@ public class BehavioralComplianceRecorder {
 
     recordLatency(agentId, tenancyId, capabilityName, descriptor, executionDurationMs);
     recordAttestation(agentId, tenancyId, capabilityName, outcome);
+    recordDelegation(
+        agentId, tenancyId, capabilityName, descriptor, definition, caseInstance.getUuid());
+    recordEscalation(agentId, tenancyId, capabilityName, descriptor, outcome);
   }
 
   private void recordLatency(
@@ -120,6 +136,60 @@ public class BehavioralComplianceRecorder {
         .record(agentId, tenancyId, capabilityName, ComplianceDimension.ATTESTATION_RATE, signal);
     LOG.debugf(
         "Attestation %s: agent=%s capability=%s outcome=%s",
+        signal, agentId, capabilityName, outcome.getClass().getSimpleName());
+  }
+
+  private void recordDelegation(
+      String agentId,
+      String tenancyId,
+      String capabilityName,
+      AgentDescriptor descriptor,
+      CaseDefinition definition,
+      UUID caseId) {
+    if (!BehavioralExpectations.delegationExpected(descriptor.disposition())) {
+      return;
+    }
+    boolean hasDecomposition =
+        definition.getDecompositionStrategy() != null
+            || definition.getBindings().stream().anyMatch(b -> b.target() instanceof SubCaseTarget);
+    if (!hasDecomposition) {
+      return;
+    }
+    if (!planItemStore.isResolvable()) {
+      return;
+    }
+    List<PlanItemRecord> items = planItemStore.get().findByCaseId(caseId, tenancyId);
+    boolean delegated = items.stream().anyMatch(r -> r.parentCompoundId() != null);
+    BehavioralSignal signal = delegated ? BehavioralSignal.COMPLIANT : BehavioralSignal.VIOLATED;
+    signalStore
+        .get()
+        .record(agentId, tenancyId, capabilityName, ComplianceDimension.DELEGATION, signal);
+    LOG.debugf(
+        "Delegation %s: agent=%s capability=%s delegated=%s",
+        signal, agentId, capabilityName, delegated);
+  }
+
+  private void recordEscalation(
+      String agentId,
+      String tenancyId,
+      String capabilityName,
+      AgentDescriptor descriptor,
+      WorkerOutcome<?> outcome) {
+    if (!BehavioralExpectations.escalationExpected(descriptor, vocabularyRegistry)) {
+      return;
+    }
+    if (outcome instanceof WorkerOutcome.Failed || outcome instanceof WorkerOutcome.Expired) {
+      return;
+    }
+    boolean escalated =
+        (outcome instanceof WorkerOutcome.Success<?> s && s.plannedAction() != null)
+            || outcome instanceof WorkerOutcome.Declined;
+    BehavioralSignal signal = escalated ? BehavioralSignal.COMPLIANT : BehavioralSignal.VIOLATED;
+    signalStore
+        .get()
+        .record(agentId, tenancyId, capabilityName, ComplianceDimension.ESCALATION, signal);
+    LOG.debugf(
+        "Escalation %s: agent=%s capability=%s outcome=%s",
         signal, agentId, capabilityName, outcome.getClass().getSimpleName());
   }
 }

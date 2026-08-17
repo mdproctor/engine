@@ -66,28 +66,12 @@ import org.junit.jupiter.api.Test;
 class DefaultWorkOrchestratorTest {
 
   private static final AgentDescriptor AGENT_DESCRIPTOR =
-      new AgentDescriptor(
-          "agent-1",
-          "TestAgent",
-          "1.0",
-          "openai",
-          "gpt-4",
-          "4-turbo",
-          null,
-          null,
-          null,
-          null,
-          null,
-          "review",
-          List.of(),
-          null,
-          null,
-          null,
-          "casehubio",
-          null,
-          List.of(),
-          List.of(),
-          List.of());
+      AgentDescriptor.builder()
+          .agentId("agent-1")
+          .name("TestAgent")
+          .slot("review")
+          .tenancyId("casehubio")
+          .build();
   private AgentRoutingStrategy agentRoutingStrategy;
   private WorkerExecutionManager executionManager;
   private CapabilityHealth capabilityHealth;
