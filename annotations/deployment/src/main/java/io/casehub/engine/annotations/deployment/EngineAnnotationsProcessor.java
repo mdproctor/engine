@@ -75,6 +75,8 @@ public class EngineAnnotationsProcessor {
       DotName.createSimple("io.casehub.engine.annotations.Customize");
   private static final DotName SYSTEM_PROMPT =
       DotName.createSimple("io.casehub.engine.annotations.SystemPrompt");
+  private static final DotName CAPABILITY =
+      DotName.createSimple("io.casehub.engine.annotations.Capability");
 
   @BuildStep
   @Record(ExecutionTime.RUNTIME_INIT)
@@ -156,6 +158,7 @@ public class EngineAnnotationsProcessor {
         new ArrayList<>();
     List<io.casehub.engine.annotations.runtime.CustomizerDescriptor> customizers =
         new ArrayList<>();
+    List<String> standaloneCapabilities = new ArrayList<>();
 
     for (MethodInfo method : caseClass.methods()) {
       AnnotationInstance workerAnn = method.annotation(WORKER);
@@ -205,6 +208,15 @@ public class EngineAnnotationsProcessor {
                 targetBinding.isEmpty() ? null : targetBinding,
                 caseClass.name().toString()));
       }
+
+      AnnotationInstance capAnn = method.annotation(CAPABILITY);
+      if (capAnn != null && workerAnn == null) {
+        String capName =
+            capAnn.value("name") != null && !capAnn.value("name").asString().isEmpty()
+                ? capAnn.value("name").asString()
+                : method.name();
+        standaloneCapabilities.add(capName);
+      }
     }
 
     for (GoalDescriptor gd : goals) {
@@ -237,7 +249,7 @@ public class EngineAnnotationsProcessor {
         goalToEffectKeys.isEmpty() ? null : goalToEffectKeys,
         completions.isEmpty() ? null : completions,
         customizers.isEmpty() ? null : customizers,
-        null);
+        standaloneCapabilities.isEmpty() ? null : standaloneCapabilities);
   }
 
   private void processWorkerMethod(

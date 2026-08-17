@@ -69,7 +69,32 @@ public class CaseDefinitionRecorder {
           name -> Capability.builder().name(name).inputSchema(".").outputSchema(".").build());
 
       var workerBuilder = Worker.builder().name(wd.name()).capabilityName(wd.capabilityName());
-      if (wd.params() != null && !wd.params().isEmpty() && descriptor.implClassName() != null) {
+      if (wd.systemPrompt() != null) {
+        try {
+          var chatModelProvider =
+              io.quarkus.arc.Arc.container()
+                  .instance(io.casehub.api.model.ai.ChatModelProvider.class);
+          if (chatModelProvider.isAvailable()) {
+            var agent =
+                io.casehub.api.model.ai.Agent.builder()
+                    .systemPrompt(wd.systemPrompt())
+                    .model(chatModelProvider.get().get())
+                    .build();
+            workerBuilder.function(new io.casehub.api.model.AgentWorkerFunction(agent));
+          } else {
+            workerBuilder.noFunction();
+          }
+        } catch (Exception e) {
+          LOG.warn(
+              "ChatModelProvider unavailable for @SystemPrompt worker '"
+                  + wd.name()
+                  + "': "
+                  + e.getMessage());
+          workerBuilder.noFunction();
+        }
+      } else if (wd.params() != null
+          && !wd.params().isEmpty()
+          && descriptor.implClassName() != null) {
         workerBuilder.function(
             AnnotationWorkerFunction.create(
                 descriptor.implClassName(),
@@ -109,6 +134,13 @@ public class CaseDefinitionRecorder {
       }
 
       bindings.add(bindingBuilder.build());
+    }
+
+    if (descriptor.standaloneCapabilities() != null) {
+      for (String capName : descriptor.standaloneCapabilities()) {
+        capabilityMap.computeIfAbsent(
+            capName, n -> Capability.builder().name(n).inputSchema(".").outputSchema(".").build());
+      }
     }
 
     builder.capabilities(new ArrayList<>(capabilityMap.values()));
