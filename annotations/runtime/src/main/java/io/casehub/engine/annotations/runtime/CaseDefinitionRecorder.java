@@ -20,6 +20,7 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
+import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.ScheduleTrigger;
@@ -35,9 +36,12 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import org.jboss.logging.Logger;
 
 @Recorder
 public class CaseDefinitionRecorder {
+
+  private static final Logger LOG = Logger.getLogger(CaseDefinitionRecorder.class);
 
   public RuntimeValue<CaseDefinition> createCaseDefinition(CaseDescriptor descriptor) {
     var builder =
@@ -161,6 +165,50 @@ public class CaseDefinitionRecorder {
     if (descriptor.goalToEffectKeys() != null) {
       for (var entry : descriptor.goalToEffectKeys().entrySet()) {
         builder.goalToEffectKey(entry.getKey(), new HashSet<>(entry.getValue()));
+      }
+    }
+
+    if (descriptor.completions() != null
+        && !descriptor.completions().isEmpty()
+        && descriptor.implClassName() != null) {
+      try {
+        Class<?> implClass =
+            Thread.currentThread().getContextClassLoader().loadClass(descriptor.implClassName());
+        Object instance = implClass.getDeclaredConstructor().newInstance();
+
+        var completionBuilder = GoalBasedCompletion.<GoalKind>builder();
+        for (CompletionDescriptor cd : descriptor.completions()) {
+          java.lang.reflect.Method method = implClass.getMethod(cd.methodName());
+          io.casehub.api.model.GoalExpression expression =
+              (io.casehub.api.model.GoalExpression) method.invoke(instance);
+
+          GoalKind kind =
+              switch (cd.kind().toLowerCase()) {
+                case "success" -> StandardGoalKind.SUCCESS;
+                case "failure" -> StandardGoalKind.FAILURE;
+                default -> GoalKind.of(cd.kind().toLowerCase(), CaseStatus.COMPLETED);
+              };
+          completionBuilder.goal(kind, expression);
+        }
+        builder.completion(completionBuilder.build());
+      } catch (Exception e) {
+        LOG.warn("Failed to wire @Completion: " + e.getMessage());
+      }
+    }
+
+    if (descriptor.customizers() != null) {
+      for (CustomizerDescriptor cd : descriptor.customizers()) {
+        if (cd.targetBinding() == null) {
+          try {
+            Class<?> iface =
+                Thread.currentThread().getContextClassLoader().loadClass(cd.interfaceName());
+            java.lang.reflect.Method customizer =
+                iface.getMethod(cd.methodName(), CaseDefinition.Builder.class);
+            customizer.invoke(null, builder);
+          } catch (Exception e) {
+            LOG.warn("Failed to apply @Customize: " + e.getMessage());
+          }
+        }
       }
     }
 

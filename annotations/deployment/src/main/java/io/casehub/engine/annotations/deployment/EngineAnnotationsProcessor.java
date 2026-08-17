@@ -69,9 +69,15 @@ public class EngineAnnotationsProcessor {
   private static final DotName SOFT_DEPENDENCY =
       DotName.createSimple("io.casehub.engine.annotations.SoftDependency");
   private static final DotName PARAM = DotName.createSimple("io.casehub.engine.annotations.Param");
+  private static final DotName COMPLETION =
+      DotName.createSimple("io.casehub.engine.annotations.Completion");
+  private static final DotName CUSTOMIZE =
+      DotName.createSimple("io.casehub.engine.annotations.Customize");
+  private static final DotName SYSTEM_PROMPT =
+      DotName.createSimple("io.casehub.engine.annotations.SystemPrompt");
 
   @BuildStep
-  @Record(ExecutionTime.STATIC_INIT)
+  @Record(ExecutionTime.RUNTIME_INIT)
   void generateCaseDefinitions(
       CombinedIndexBuildItem indexBuildItem,
       CaseDefinitionRecorder recorder,
@@ -89,6 +95,7 @@ public class EngineAnnotationsProcessor {
           SyntheticBeanBuildItem.configure(CaseDefinition.class)
               .scope(ApplicationScoped.class)
               .unremovable()
+              .setRuntimeInit()
               .runtimeValue(runtimeValue)
               .done());
     }
@@ -145,12 +152,31 @@ public class EngineAnnotationsProcessor {
     List<MilestoneDescriptor> milestones = new ArrayList<>();
     List<GoapActionDescriptor> goapActions = new ArrayList<>();
     Map<String, List<String>> goalToEffectKeys = new HashMap<>();
+    List<io.casehub.engine.annotations.runtime.CompletionDescriptor> completions =
+        new ArrayList<>();
+    List<io.casehub.engine.annotations.runtime.CustomizerDescriptor> customizers =
+        new ArrayList<>();
 
     for (MethodInfo method : caseClass.methods()) {
       AnnotationInstance workerAnn = method.annotation(WORKER);
       if (workerAnn != null) {
         processWorkerMethod(
             method, workerAnn, index, planning, workers, bindings, goapActions, goalToEffectKeys);
+
+        AnnotationInstance systemPromptAnn = method.annotation(SYSTEM_PROMPT);
+        if (systemPromptAnn != null) {
+          workers.set(
+              workers.size() - 1,
+              new WorkerDescriptor(
+                  workers.get(workers.size() - 1).name(),
+                  workers.get(workers.size() - 1).capabilityName(),
+                  workers.get(workers.size() - 1).description(),
+                  workers.get(workers.size() - 1).methodName(),
+                  workers.get(workers.size() - 1).params(),
+                  workers.get(workers.size() - 1).returnTypeName(),
+                  workers.get(workers.size() - 1).effectKey(),
+                  systemPromptAnn.value().asString()));
+        }
       }
 
       AnnotationInstance goalAnn = method.annotation(GOAL);
@@ -161,6 +187,23 @@ public class EngineAnnotationsProcessor {
       AnnotationInstance milestoneAnn = method.annotation(MILESTONE);
       if (milestoneAnn != null) {
         processMilestoneMethod(method, milestoneAnn, index, milestones);
+      }
+
+      AnnotationInstance completionAnn = method.annotation(COMPLETION);
+      if (completionAnn != null) {
+        String kind = stringValueOrDefault(completionAnn, index, "kind", "SUCCESS");
+        completions.add(
+            new io.casehub.engine.annotations.runtime.CompletionDescriptor(method.name(), kind));
+      }
+
+      AnnotationInstance customizeAnn = method.annotation(CUSTOMIZE);
+      if (customizeAnn != null) {
+        String targetBinding = stringValueOrDefault(customizeAnn, index, "value", "");
+        customizers.add(
+            new io.casehub.engine.annotations.runtime.CustomizerDescriptor(
+                method.name(),
+                targetBinding.isEmpty() ? null : targetBinding,
+                caseClass.name().toString()));
       }
     }
 
@@ -192,8 +235,8 @@ public class EngineAnnotationsProcessor {
         milestones,
         goapActions.isEmpty() ? null : goapActions,
         goalToEffectKeys.isEmpty() ? null : goalToEffectKeys,
-        null,
-        null,
+        completions.isEmpty() ? null : completions,
+        customizers.isEmpty() ? null : customizers,
         null);
   }
 
