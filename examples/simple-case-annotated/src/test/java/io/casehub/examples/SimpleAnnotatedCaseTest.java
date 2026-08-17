@@ -31,47 +31,71 @@ class SimpleAnnotatedCaseTest {
           .withApplicationRoot(
               root ->
                   root.addClasses(
-                      SimpleAnnotatedCase.class, SimpleAnnotatedCase.ProcessedDocument.class));
+                      SimpleAnnotatedCase.class,
+                      SimpleAnnotatedCase.IdentityResult.class,
+                      SimpleAnnotatedCase.ComplianceResult.class,
+                      SimpleAnnotatedCase.Account.class));
 
   @Inject CaseDefinition definition;
 
   @Test
   void namespace_and_name() {
-    assertThat(definition.getNamespace()).isEqualTo("example");
-    assertThat(definition.getName()).isEqualTo("Simple Document Processing");
+    assertThat(definition.getNamespace()).isEqualTo("banking");
+    assertThat(definition.getName()).isEqualTo("CustomerOnboarding");
     assertThat(definition.getVersion()).isEqualTo("1.0.0");
   }
 
   @Test
-  void worker_generated() {
-    assertThat(definition.getWorkers()).hasSize(1);
-    assertThat(definition.getWorkers().get(0).name()).isEqualTo("process");
-    assertThat(definition.getWorkers().get(0).capabilityNames()).contains("processDocument");
+  void title_from_annotation_and_customize() {
+    assertThat(definition.getTitle()).isEqualTo("Customer Onboarding — New Account");
   }
 
   @Test
-  void capability_generated() {
-    assertThat(definition.getCapabilities()).hasSize(1);
-    assertThat(definition.getCapabilities().get(0).name()).isEqualTo("processDocument");
+  void summary_from_annotation() {
+    assertThat(definition.getSummary()).contains("bank account");
   }
 
   @Test
-  void binding_with_context_change_trigger() {
-    assertThat(definition.getBindings()).hasSize(1);
-    assertThat(definition.getBindings().get(0).getName()).isEqualTo("process");
+  void three_workers_with_descriptions() {
+    assertThat(definition.getWorkers()).hasSize(3);
+    assertThat(definition.getWorkers().stream().map(w -> w.name()).toList())
+        .containsExactlyInAnyOrder("verifyIdentity", "checkCompliance", "provisionAccount");
+    assertThat(
+            definition.getWorkers().stream()
+                .filter(w -> w.name().equals("verifyIdentity"))
+                .findFirst()
+                .get()
+                .description())
+        .contains("identity documents");
   }
 
   @Test
-  void goal_generated() {
+  void bindings_with_when_guards() {
+    var complianceBinding =
+        definition.getBindings().stream()
+            .filter(b -> b.getName().equals("checkCompliance"))
+            .findFirst();
+    assertThat(complianceBinding).isPresent();
+    assertThat(complianceBinding.get().getWhen()).isNotNull();
+  }
+
+  @Test
+  void goal_for_account_opening() {
     assertThat(definition.getGoals()).hasSize(1);
-    assertThat(definition.getGoals().get(0).getName()).isEqualTo("done");
-    assertThat(definition.getGoals().get(0).getDescription())
-        .isEqualTo("Document processing complete");
+    assertThat(definition.getGoals().get(0).getName()).isEqualTo("accountOpened");
+    assertThat(definition.getGoals().get(0).getDescription()).contains("Account opened");
   }
 
   @Test
-  void milestone_generated() {
+  void milestone_for_identity_verification() {
     assertThat(definition.getMilestones()).hasSize(1);
-    assertThat(definition.getMilestones().get(0).getName()).isEqualTo("documentProcessed");
+    assertThat(definition.getMilestones().get(0).getName()).isEqualTo("identityVerified");
+  }
+
+  @Test
+  void three_capabilities() {
+    assertThat(definition.getCapabilities()).hasSize(3);
+    assertThat(definition.getCapabilities().stream().map(c -> c.name()).toList())
+        .containsExactlyInAnyOrder("verifyIdentity", "complianceCheck", "provisionAccount");
   }
 }

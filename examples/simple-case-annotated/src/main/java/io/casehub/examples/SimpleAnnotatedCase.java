@@ -15,28 +15,58 @@
  */
 package io.casehub.examples;
 
+import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.annotations.Bind;
 import io.casehub.engine.annotations.Case;
+import io.casehub.engine.annotations.Customize;
 import io.casehub.engine.annotations.Goal;
 import io.casehub.engine.annotations.Milestone;
 import io.casehub.engine.annotations.Worker;
 
-@Case(namespace = "example", name = "Simple Document Processing", version = "1.0.0")
+@Case(
+    namespace = "banking",
+    name = "CustomerOnboarding",
+    version = "1.0.0",
+    title = "Customer Onboarding",
+    summary =
+        "Opens a new bank account — verifies identity, runs compliance checks, provisions the account")
 public interface SimpleAnnotatedCase {
 
-  @Worker(capability = "processDocument")
-  @Bind(contextChange = ".status == 'processing'")
-  default ProcessedDocument process(String documentId, String status) {
-    return new ProcessedDocument(documentId, "Processed content for " + documentId, "processed");
+  @Worker(capability = "verifyIdentity", description = "Verifies customer identity documents")
+  @Bind(contextChange = ".application != null")
+  default IdentityResult verifyIdentity(String application) {
+    return new IdentityResult(true, "ID-" + application.hashCode());
+  }
+
+  @Worker(capability = "complianceCheck", description = "Runs KYC/AML compliance screening")
+  @Bind(contextChange = ".identityResult != null", when = ".identityResult.verified == true")
+  default ComplianceResult checkCompliance(IdentityResult identityResult) {
+    return new ComplianceResult("PASS", identityResult.referenceId());
+  }
+
+  @Worker(capability = "provisionAccount")
+  @Bind(contextChange = ".complianceResult != null", when = ".complianceResult.status == 'PASS'")
+  default Account provisionAccount(ComplianceResult complianceResult) {
+    return new Account("ACC-" + complianceResult.referenceId(), "ACTIVE");
   }
 
   @Milestone(
-      name = "documentProcessed",
-      completionCriteria = ".processedDocument.status == 'processed'")
-  default void documentProcessed() {}
+      name = "identityVerified",
+      completionCriteria = ".identityResult.verified == true",
+      entryCriteria = ".application != null")
+  default void identityVerified() {}
 
-  @Goal(value = "Document processing complete", condition = ".processedDocument != null")
-  default void done() {}
+  @Goal(value = "Account opened successfully", condition = ".account != null")
+  default void accountOpened() {}
 
-  record ProcessedDocument(String id, String content, String status) {}
+  @Customize
+  static void customize(CaseDefinition.Builder builder) {
+    builder.title("Customer Onboarding — New Account");
+  }
+
+  record IdentityResult(boolean verified, String referenceId) {}
+
+  record ComplianceResult(String status, String referenceId) {}
+
+  record Account(String accountId, String status) {}
 }

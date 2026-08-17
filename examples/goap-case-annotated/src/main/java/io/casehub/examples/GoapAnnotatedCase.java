@@ -15,40 +15,61 @@
  */
 package io.casehub.examples;
 
+import io.casehub.api.model.GoalExpression;
 import io.casehub.engine.annotations.Case;
+import io.casehub.engine.annotations.Completion;
+import io.casehub.engine.annotations.Effect;
 import io.casehub.engine.annotations.Goal;
+import io.casehub.engine.annotations.Param;
 import io.casehub.engine.annotations.PlanningMode;
+import io.casehub.engine.annotations.SoftDependency;
 import io.casehub.engine.annotations.Worker;
 import java.util.List;
 
 @Case(
-    namespace = "example",
-    name = "GOAP Document Review",
+    namespace = "legal",
+    name = "ContractReview",
     version = "1.0.0",
+    title = "Contract Review",
     planning = PlanningMode.GOAP)
 public interface GoapAnnotatedCase {
 
-  @Worker(capability = "analyse", cost = 0.2)
-  default AnalysisResult analyse(String document) {
-    return new AnalysisResult("Summary of: " + document);
+  @Worker(
+      capability = "analyse",
+      cost = 0.2,
+      benefit = 0.1,
+      description = "Analyses contract structure and key terms")
+  default AnalysisResult analyse(String contract) {
+    return new AnalysisResult("Summary of: " + contract, "standard");
   }
 
   @Worker(capability = "extractClauses", cost = 0.3)
-  default ClauseList extract(String document, AnalysisResult analysis) {
-    return new ClauseList(List.of("clause1", "clause2"));
+  default ClauseList extractClauses(String contract, AnalysisResult analysisResult) {
+    return new ClauseList(List.of("Limitation of liability", "Indemnification", "Termination"));
   }
 
   @Worker(capability = "assessRisk", cost = 0.5)
-  default RiskAssessment assess(AnalysisResult analysis, ClauseList clauses) {
-    return new RiskAssessment("LOW");
+  @Effect("riskAssessment")
+  default RiskReport assessRisk(
+      AnalysisResult analysisResult,
+      ClauseList clauseList,
+      @SoftDependency PriorReview priorReview,
+      @Param("jurisdiction") String jurisdiction) {
+    String prior = priorReview != null ? priorReview.notes() : "none";
+    return new RiskReport("LOW", jurisdiction, prior);
   }
 
   @Goal(value = "Risk assessment completed", condition = ".riskAssessment != null")
-  default void done() {}
+  @Completion
+  default GoalExpression reviewComplete() {
+    return GoalExpression.goal("reviewComplete");
+  }
 
-  record AnalysisResult(String summary) {}
+  record AnalysisResult(String summary, String contractType) {}
 
   record ClauseList(List<String> clauses) {}
 
-  record RiskAssessment(String level) {}
+  record RiskReport(String level, String jurisdiction, String priorContext) {}
+
+  record PriorReview(String notes) {}
 }

@@ -34,7 +34,8 @@ class GoapAnnotatedCaseTest {
                       GoapAnnotatedCase.class,
                       GoapAnnotatedCase.AnalysisResult.class,
                       GoapAnnotatedCase.ClauseList.class,
-                      GoapAnnotatedCase.RiskAssessment.class));
+                      GoapAnnotatedCase.RiskReport.class,
+                      GoapAnnotatedCase.PriorReview.class));
 
   @Inject CaseDefinition definition;
 
@@ -44,28 +45,23 @@ class GoapAnnotatedCaseTest {
   }
 
   @Test
-  void three_workers() {
+  void three_workers_with_legal_domain() {
     assertThat(definition.getWorkers()).hasSize(3);
     assertThat(definition.getWorkers())
         .extracting(w -> w.name())
-        .containsExactlyInAnyOrder("analyse", "extract", "assess");
-  }
-
-  @Test
-  void three_capabilities() {
-    assertThat(definition.getCapabilities()).hasSize(3);
-    assertThat(definition.getCapabilities())
-        .extracting(c -> c.name())
         .containsExactlyInAnyOrder("analyse", "extractClauses", "assessRisk");
   }
 
   @Test
-  void auto_generated_bindings() {
-    assertThat(definition.getBindings()).hasSize(3);
+  void worker_descriptions() {
+    var analyse =
+        definition.getWorkers().stream().filter(w -> w.name().equals("analyse")).findFirst();
+    assertThat(analyse).isPresent();
+    assertThat(analyse.get().description()).contains("contract structure");
   }
 
   @Test
-  void goap_actions_inferred() {
+  void goap_actions_with_cost_and_benefit() {
     assertThat(definition.getGoapActions()).hasSize(3);
 
     var analyseAction =
@@ -74,29 +70,45 @@ class GoapAnnotatedCaseTest {
     assertThat(analyseAction.get().preconditions()).isEmpty();
     assertThat(analyseAction.get().effects()).containsKey("analysisResult");
     assertThat(analyseAction.get().cost()).isEqualTo(0.2);
+    assertThat(analyseAction.get().benefit()).isEqualTo(0.1);
+  }
 
-    var extractAction =
-        definition.getGoapActions().stream().filter(a -> a.name().equals("extract")).findFirst();
-    assertThat(extractAction).isPresent();
-    assertThat(extractAction.get().preconditions()).containsKey("analysisResult");
-    assertThat(extractAction.get().effects()).containsKey("clauseList");
-
+  @Test
+  void effect_annotation_overrides_inferred_key() {
     var assessAction =
-        definition.getGoapActions().stream().filter(a -> a.name().equals("assess")).findFirst();
+        definition.getGoapActions().stream().filter(a -> a.name().equals("assessRisk")).findFirst();
+    assertThat(assessAction).isPresent();
+    assertThat(assessAction.get().effects()).containsKey("riskAssessment");
+    assertThat(assessAction.get().effects()).doesNotContainKey("riskReport");
+  }
+
+  @Test
+  void soft_dependency_excluded_from_hard_preconditions() {
+    var assessAction =
+        definition.getGoapActions().stream().filter(a -> a.name().equals("assessRisk")).findFirst();
     assertThat(assessAction).isPresent();
     assertThat(assessAction.get().preconditions()).containsKeys("analysisResult", "clauseList");
-    assertThat(assessAction.get().effects()).containsKey("riskAssessment");
+    assertThat(assessAction.get().preconditions()).doesNotContainKey("priorReview");
+    assertThat(assessAction.get().softPreconditions()).containsKey("priorReview");
   }
 
   @Test
-  void goal_to_effect_keys_populated() {
+  void param_excluded_from_goap_inference() {
+    var assessAction =
+        definition.getGoapActions().stream().filter(a -> a.name().equals("assessRisk")).findFirst();
+    assertThat(assessAction).isPresent();
+    assertThat(assessAction.get().preconditions()).doesNotContainKey("jurisdiction");
+    assertThat(assessAction.get().softPreconditions()).doesNotContainKey("jurisdiction");
+  }
+
+  @Test
+  void goal_to_effect_keys_from_condition() {
     assertThat(definition.getGoalToEffectKeys()).isNotEmpty();
-    assertThat(definition.getGoalToEffectKeys().get("done")).contains("riskAssessment");
+    assertThat(definition.getGoalToEffectKeys().get("reviewComplete")).contains("riskAssessment");
   }
 
   @Test
-  void goal_generated() {
-    assertThat(definition.getGoals()).hasSize(1);
-    assertThat(definition.getGoals().get(0).getName()).isEqualTo("done");
+  void completion_wired_from_default_method() {
+    assertThat(definition.getCompletion()).isNotNull();
   }
 }
