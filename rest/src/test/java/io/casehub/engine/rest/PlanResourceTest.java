@@ -98,6 +98,7 @@ class PlanResourceTest {
 
     snapshotStore.storeDagPlan(
         caseId,
+        "test-tenant",
         new DagPlanSnapshot(
             Map.of(
                 "n1",
@@ -107,6 +108,7 @@ class PlanResourceTest {
 
     snapshotStore.storeDagResult(
         caseId,
+        "test-tenant",
         new DagResultSnapshot(
             Map.of("n1", new NodeStateSnapshot("Completed", null)),
             Map.of(),
@@ -139,6 +141,7 @@ class PlanResourceTest {
 
     snapshotStore.storeDagResult(
         caseId,
+        "test-tenant",
         new DagResultSnapshot(
             Map.of("n1", new NodeStateSnapshot("Failed", "timeout")),
             Map.of(),
@@ -161,6 +164,7 @@ class PlanResourceTest {
 
     snapshotStore.storeDagPlan(
         caseId,
+        "test-tenant",
         new DagPlanSnapshot(
             Map.of(
                 "n1",
@@ -183,6 +187,7 @@ class PlanResourceTest {
 
     snapshotStore.storeDagPlan(
         caseId,
+        "test-tenant",
         new DagPlanSnapshot(
             Map.of(
                 "n1", new DagNodeSnapshot("n1", "t1", "Task A", "w1", Set.of(), JoinType.ALL_OF)),

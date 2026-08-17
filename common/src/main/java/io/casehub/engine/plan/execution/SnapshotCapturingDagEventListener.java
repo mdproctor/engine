@@ -28,15 +28,17 @@ import java.util.concurrent.ConcurrentHashMap;
 public class SnapshotCapturingDagEventListener<T, R> implements DagEventListener<T, R> {
 
   private final UUID caseId;
+  private final String tenancyId;
   private final ExecutionSnapshotStore store;
   private final Map<String, Instant> dispatchTimes = new ConcurrentHashMap<>();
   private final Map<String, Long> nodeDurations = new ConcurrentHashMap<>();
 
   public SnapshotCapturingDagEventListener(
-      UUID caseId, ExecutionSnapshotStore store, DagPlan<T> plan) {
+      UUID caseId, String tenancyId, ExecutionSnapshotStore store, DagPlan<T> plan) {
     this.caseId = caseId;
+    this.tenancyId = tenancyId;
     this.store = store;
-    store.storeDagPlan(caseId, DagPlanSnapshot.from(plan, Instant.now()));
+    store.storeDagPlan(caseId, tenancyId, DagPlanSnapshot.from(plan, Instant.now()));
   }
 
   @Override
@@ -57,7 +59,8 @@ public class SnapshotCapturingDagEventListener<T, R> implements DagEventListener
   @Override
   public void onExecutionComplete(DagResult<R> result) {
     Map<String, Long> durations = nodeDurations.isEmpty() ? null : Map.copyOf(nodeDurations);
-    store.storeDagResult(caseId, DagResultSnapshot.from(result, Instant.now(), durations));
+    store.storeDagResult(
+        caseId, tenancyId, DagResultSnapshot.from(result, Instant.now(), durations));
   }
 
   private void recordDuration(String nodeId) {

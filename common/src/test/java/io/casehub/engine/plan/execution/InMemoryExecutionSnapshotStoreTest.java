@@ -36,7 +36,7 @@ class InMemoryExecutionSnapshotStoreTest {
     var snapshot =
         new DecompositionSnapshot(new LeafTaskSnapshot("l1", "desc", null), Instant.now());
 
-    store.storeDecomposition(caseId, snapshot);
+    store.storeDecomposition(caseId, "t", snapshot);
 
     assertThat(store.getDecomposition(caseId, "tenant-1")).contains(snapshot);
   }
@@ -46,7 +46,7 @@ class InMemoryExecutionSnapshotStoreTest {
     UUID caseId = UUID.randomUUID();
     var snapshot = new DagPlanSnapshot(Map.of(), Instant.now());
 
-    store.storeDagPlan(caseId, snapshot);
+    store.storeDagPlan(caseId, "t", snapshot);
 
     assertThat(store.getDagPlan(caseId, "tenant-1")).contains(snapshot);
   }
@@ -57,7 +57,7 @@ class InMemoryExecutionSnapshotStoreTest {
     var snapshot =
         new DagResultSnapshot(Map.of(), Map.of(), true, Duration.ofSeconds(1), Instant.now());
 
-    store.storeDagResult(caseId, snapshot);
+    store.storeDagResult(caseId, "t", snapshot);
 
     assertThat(store.getDagResult(caseId, "tenant-1")).contains(snapshot);
   }
@@ -66,8 +66,10 @@ class InMemoryExecutionSnapshotStoreTest {
   void evictRemovesAllSnapshots() {
     UUID caseId = UUID.randomUUID();
     store.storeDecomposition(
-        caseId, new DecompositionSnapshot(new LeafTaskSnapshot("l1", null, null), Instant.now()));
-    store.storeDagPlan(caseId, new DagPlanSnapshot(Map.of(), Instant.now()));
+        caseId,
+        "t",
+        new DecompositionSnapshot(new LeafTaskSnapshot("l1", null, null), Instant.now()));
+    store.storeDagPlan(caseId, "t", new DagPlanSnapshot(Map.of(), Instant.now()));
 
     store.evict(caseId);
 
@@ -87,14 +89,18 @@ class InMemoryExecutionSnapshotStoreTest {
     var shortTtlStore = new InMemoryExecutionSnapshotStore(Duration.ZERO, Duration.ZERO);
     UUID caseId = UUID.randomUUID();
     shortTtlStore.storeDecomposition(
-        caseId, new DecompositionSnapshot(new LeafTaskSnapshot("l1", null, null), Instant.now()));
+        caseId,
+        "t",
+        new DecompositionSnapshot(new LeafTaskSnapshot("l1", null, null), Instant.now()));
 
     assertThat(shortTtlStore.size()).isEqualTo(1);
 
     // Storing to another case triggers a sweep — the first entry should be evicted
     UUID caseId2 = UUID.randomUUID();
     shortTtlStore.storeDecomposition(
-        caseId2, new DecompositionSnapshot(new LeafTaskSnapshot("l2", null, null), Instant.now()));
+        caseId2,
+        "t",
+        new DecompositionSnapshot(new LeafTaskSnapshot("l2", null, null), Instant.now()));
 
     // The sweep runs on store, so caseId should be gone (TTL=0 means immediately expired)
     assertThat(shortTtlStore.getDecomposition(caseId, "t")).isEmpty();
@@ -117,8 +123,8 @@ class InMemoryExecutionSnapshotStoreTest {
                     io.casehub.engine.plan.JoinType.ALL_OF)),
             Instant.now());
 
-    store.storeDagPlan(caseId, first);
-    store.storeDagPlan(caseId, second);
+    store.storeDagPlan(caseId, "t", first);
+    store.storeDagPlan(caseId, "t", second);
 
     assertThat(store.getDagPlan(caseId, "t")).contains(second);
     assertThat(store.getDagPlan(caseId, "t").get().nodes()).hasSize(1);

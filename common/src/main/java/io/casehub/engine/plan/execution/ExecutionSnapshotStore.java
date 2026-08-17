@@ -22,15 +22,15 @@ import java.util.UUID;
 
 public interface ExecutionSnapshotStore {
 
-  void storeDecomposition(UUID caseId, DecompositionSnapshot snapshot);
+  void storeDecomposition(UUID caseId, String tenancyId, DecompositionSnapshot snapshot);
 
   Optional<DecompositionSnapshot> getDecomposition(UUID caseId, String tenancyId);
 
-  void storeDagPlan(UUID caseId, DagPlanSnapshot snapshot);
+  void storeDagPlan(UUID caseId, String tenancyId, DagPlanSnapshot snapshot);
 
   Optional<DagPlanSnapshot> getDagPlan(UUID caseId, String tenancyId);
 
-  void storeDagResult(UUID caseId, DagResultSnapshot snapshot);
+  void storeDagResult(UUID caseId, String tenancyId, DagResultSnapshot snapshot);
 
   Optional<DagResultSnapshot> getDagResult(UUID caseId, String tenancyId);
 

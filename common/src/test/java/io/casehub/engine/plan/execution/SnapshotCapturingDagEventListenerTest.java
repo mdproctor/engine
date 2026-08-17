@@ -33,7 +33,7 @@ class SnapshotCapturingDagEventListenerTest {
     UUID caseId = UUID.randomUUID();
     var plan = DagPlan.singleton("node-0", "task");
 
-    new SnapshotCapturingDagEventListener<>(caseId, store, plan);
+    new SnapshotCapturingDagEventListener<>(caseId, "t", store, plan);
 
     assertThat(store.getDagPlan(caseId, "t")).isPresent();
     assertThat(store.getDagPlan(caseId, "t").get().nodes()).hasSize(1);
@@ -44,7 +44,7 @@ class SnapshotCapturingDagEventListenerTest {
     var store = new InMemoryExecutionSnapshotStore();
     UUID caseId = UUID.randomUUID();
     var plan = DagPlan.singleton("node-0", "task");
-    var listener = new SnapshotCapturingDagEventListener<String, String>(caseId, store, plan);
+    var listener = new SnapshotCapturingDagEventListener<String, String>(caseId, "t", store, plan);
 
     var result =
         new DagResult<>(
