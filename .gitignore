@@ -64,3 +64,4 @@ proj
 .mvn/maven.config
 .mvn/slot-settings.xml
 .build/
+.build
