@@ -112,6 +112,7 @@
         <module>rest</module>
         <module>graphql</module>
         <module>examples/typed-context</module>
+        <module>annotations</module>
     </modules>
 
     <repositories>
