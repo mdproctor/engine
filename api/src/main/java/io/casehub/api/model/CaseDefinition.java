@@ -81,6 +81,8 @@ public class CaseDefinition {
   private AdaptationConfig adaptationConfig;
   private io.casehub.engine.plan.PlanningConstraints planningConstraints;
   private List<ChannelDeclaration> channels = List.of();
+  private List<io.casehub.engine.plan.goap.GoapAction> goapActions;
+  private Map<String, Set<String>> goalToEffectKeys;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -421,6 +423,22 @@ public class CaseDefinition {
     this.channels = channels != null ? List.copyOf(channels) : List.of();
   }
 
+  public List<io.casehub.engine.plan.goap.GoapAction> getGoapActions() {
+    return goapActions != null ? goapActions : List.of();
+  }
+
+  public void setGoapActions(List<io.casehub.engine.plan.goap.GoapAction> goapActions) {
+    this.goapActions = goapActions != null ? List.copyOf(goapActions) : null;
+  }
+
+  public Map<String, Set<String>> getGoalToEffectKeys() {
+    return goalToEffectKeys != null ? goalToEffectKeys : Map.of();
+  }
+
+  public void setGoalToEffectKeys(Map<String, Set<String>> goalToEffectKeys) {
+    this.goalToEffectKeys = goalToEffectKeys;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -471,6 +489,8 @@ public class CaseDefinition {
     private AdaptationConfig adaptationConfig;
     private io.casehub.engine.plan.PlanningConstraints planningConstraints;
     private List<ChannelDeclaration> channels = new java.util.ArrayList<>();
+    private List<io.casehub.engine.plan.goap.GoapAction> goapActions;
+    private Map<String, Set<String>> goalToEffectKeys = new java.util.HashMap<>();
 
     private Builder() {}
 
@@ -787,6 +807,16 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder goapActions(List<io.casehub.engine.plan.goap.GoapAction> goapActions) {
+      this.goapActions = goapActions;
+      return this;
+    }
+
+    public Builder goalToEffectKey(String goalName, Set<String> effectKeys) {
+      this.goalToEffectKeys.put(goalName, Set.copyOf(effectKeys));
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -830,6 +860,10 @@ public class CaseDefinition {
       caseHubDefinition.setContextStoreFactory(contextStoreFactory);
       caseHubDefinition.setAdaptationConfig(adaptationConfig);
       caseHubDefinition.setChannels(channels);
+      caseHubDefinition.setGoapActions(this.goapActions);
+      if (!this.goalToEffectKeys.isEmpty()) {
+        caseHubDefinition.setGoalToEffectKeys(Map.copyOf(this.goalToEffectKeys));
+      }
 
       Set<String> signalNames = new HashSet<>();
       for (SignalType<?> s : signals) {
