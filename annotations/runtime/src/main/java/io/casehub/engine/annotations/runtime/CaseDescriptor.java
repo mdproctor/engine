@@ -25,9 +25,14 @@ public record CaseDescriptor(
     String title,
     String summary,
     String planningStrategy,
+    String implClassName,
+    String interfaceName,
     List<WorkerDescriptor> workers,
     List<BindingDescriptor> bindings,
     List<GoalDescriptor> goals,
     List<MilestoneDescriptor> milestones,
     List<GoapActionDescriptor> goapActions,
-    Map<String, List<String>> goalToEffectKeys) {}
+    Map<String, List<String>> goalToEffectKeys,
+    List<CompletionDescriptor> completions,
+    List<CustomizerDescriptor> customizers,
+    List<String> standaloneCapabilities) {}

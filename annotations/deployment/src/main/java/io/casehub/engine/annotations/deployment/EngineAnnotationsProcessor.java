@@ -54,6 +54,8 @@ public class EngineAnnotationsProcessor {
   private static final DotName WORKER =
       DotName.createSimple("io.casehub.engine.annotations.Worker");
   private static final DotName BIND = DotName.createSimple("io.casehub.engine.annotations.Bind");
+  private static final DotName BINDINGS =
+      DotName.createSimple("io.casehub.engine.annotations.Bindings");
   private static final DotName GOAL = DotName.createSimple("io.casehub.engine.annotations.Goal");
   private static final DotName MILESTONE =
       DotName.createSimple("io.casehub.engine.annotations.Milestone");
@@ -138,12 +140,17 @@ public class EngineAnnotationsProcessor {
         title,
         summary,
         planningStrategy,
+        null,
+        caseClass.name().toString(),
         workers,
         bindings,
         goals,
         milestones,
         goapActions.isEmpty() ? null : goapActions,
-        goalToEffectKeys.isEmpty() ? null : goalToEffectKeys);
+        goalToEffectKeys.isEmpty() ? null : goalToEffectKeys,
+        null,
+        null,
+        null);
   }
 
   private void processWorkerMethod(
@@ -159,11 +166,15 @@ public class EngineAnnotationsProcessor {
     String capabilityName = resolveCapabilityName(workerAnn, method, index);
     String description = stringValueOrDefault(workerAnn, index, "description", "");
 
-    workers.add(new WorkerDescriptor(method.name(), capabilityName, description));
+    workers.add(
+        new WorkerDescriptor(
+            method.name(), capabilityName, description, method.name(), null, null, null, null));
 
-    AnnotationInstance bindAnn = method.annotation(BIND);
-    if (bindAnn != null) {
-      bindings.add(processBindAnnotation(method, bindAnn, capabilityName, index));
+    List<AnnotationInstance> bindAnns = collectBindAnnotations(method);
+    if (!bindAnns.isEmpty()) {
+      for (AnnotationInstance bindAnn : bindAnns) {
+        bindings.add(processBindAnnotation(method, bindAnn, capabilityName, index));
+      }
     } else if (planning == PlanningMode.GOAP || planning == PlanningMode.ADAPTIVE) {
       bindings.add(
           new BindingDescriptor(method.name(), capabilityName, "contextChange", "true", null));
@@ -271,6 +282,22 @@ public class EngineAnnotationsProcessor {
     }
 
     return new GoapActionDescriptor(name, preconditions, effects, cost, benefit, softPreconditions);
+  }
+
+  private List<AnnotationInstance> collectBindAnnotations(MethodInfo method) {
+    List<AnnotationInstance> result = new ArrayList<>();
+    AnnotationInstance single = method.annotation(BIND);
+    if (single != null) {
+      result.add(single);
+    }
+    AnnotationInstance container = method.annotation(BINDINGS);
+    if (container != null) {
+      result.clear();
+      for (AnnotationInstance nested : container.value().asNestedArray()) {
+        result.add(nested);
+      }
+    }
+    return result;
   }
 
   private String resolveCapabilityName(
