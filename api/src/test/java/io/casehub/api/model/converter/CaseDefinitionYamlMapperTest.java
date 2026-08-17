@@ -22,6 +22,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.JacksonPojoBridge;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.Binding;
@@ -1847,6 +1848,102 @@ class CaseDefinitionYamlMapperTest {
                     r -> null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("unknown-lang");
+  }
+
+  // ── contextType tests ──────────────────────────────────────────────────────
+
+  public static class TestContextPojo {
+    public String name;
+    public int value;
+  }
+
+  @Test
+  void contextType_setsBridgeToJacksonPojo() throws IOException {
+    final String yaml =
+        """
+                            namespace: test
+                            name: Typed Case
+                            version: 1.0.0
+                            contextType: io.casehub.api.model.converter.CaseDefinitionYamlMapperTest$TestContextPojo
+                            spec:
+                              capabilities:
+                                - name: cap-a
+                              bindings:
+                                - name: b1
+                                  on:
+                                    contextChange:
+                                      filter: "name != null"
+                                  capability: cap-a
+                            """;
+
+    final RecordingRegistry registry = new RecordingRegistry();
+    final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+            mapper,
+            registry,
+            r -> null);
+
+    assertThat(def.getDefaultWorkerBridge()).isInstanceOf(JacksonPojoBridge.class);
+    assertThat(def.getDefaultWorkerBridge().contextType()).isEqualTo(TestContextPojo.class);
+  }
+
+  @Test
+  void contextType_unknownClass_throwsAtParseTime() {
+    final String yaml =
+        """
+                            namespace: test
+                            name: Bad Type
+                            version: 1.0.0
+                            contextType: com.nonexistent.NoSuchClass
+                            spec:
+                              bindings: []
+                            """;
+
+    final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    assertThatThrownBy(
+            () ->
+                CaseDefinitionYamlMapper.load(
+                    new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+                    mapper,
+                    new RecordingRegistry(),
+                    r -> null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("not found");
+  }
+
+  @Test
+  void contextType_absent_noBridgeSet() throws IOException {
+    final String yaml =
+        """
+                            namespace: test
+                            name: No Type
+                            version: 1.0.0
+                            spec:
+                              capabilities:
+                                - name: cap-a
+                              bindings:
+                                - name: b1
+                                  on:
+                                    contextChange:
+                                      filter: ".x == 1"
+                                  capability: cap-a
+                            """;
+
+    final RecordingRegistry registry = new RecordingRegistry();
+    final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    CaseDefinition def =
+        CaseDefinitionYamlMapper.load(
+            new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+            mapper,
+            registry,
+            r -> null);
+
+    assertThat(def.getDefaultWorkerBridge()).isNull();
   }
 
   @Test
