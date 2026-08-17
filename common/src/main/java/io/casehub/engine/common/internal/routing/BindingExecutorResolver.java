@@ -47,6 +47,7 @@ public final class BindingExecutorResolver {
       case HumanTaskTarget ht -> ExecutorRef.of("unknown");
       case SignalTarget st -> ExecutorRef.of("signal");
       case ExtensionTarget et -> ExecutorRef.of("unknown");
+      default -> ExecutorRef.of("unknown");
     };
   }
 }
