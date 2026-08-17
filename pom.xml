@@ -112,6 +112,8 @@
         <module>rest</module>
         <module>graphql</module>
         <module>examples/typed-context</module>
+        <module>examples/simple-case-annotated</module>
+        <module>examples/goap-case-annotated</module>
         <module>annotations</module>
     </modules>
 
