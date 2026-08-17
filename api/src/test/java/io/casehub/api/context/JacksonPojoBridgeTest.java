@@ -82,4 +82,25 @@ class JacksonPojoBridgeTest {
     assertThat(node.get("name").asText()).isEqualTo("test");
     assertThat(node.get("value").asInt()).isEqualTo(99);
   }
+
+  record TimedPojo(String name, java.time.Instant createdAt) {}
+
+  @Test
+  void roundTripWithInstantField() {
+    var bridge = new JacksonPojoBridge<>(TimedPojo.class);
+    var pojo = new TimedPojo("test", java.time.Instant.parse("2026-01-01T00:00:00Z"));
+    var json = bridge.serialise(pojo);
+    TimedPojo result = bridge.deserialise(json);
+    assertThat(result.createdAt()).isEqualTo(pojo.createdAt());
+  }
+
+  @Test
+  void roundTripWithLocalDateField() {
+    record DatedPojo(String name, java.time.LocalDate date) {}
+    var bridge = new JacksonPojoBridge<>(DatedPojo.class);
+    var pojo = new DatedPojo("test", java.time.LocalDate.of(2026, 8, 17));
+    var json = bridge.serialise(pojo);
+    DatedPojo result = bridge.deserialise(json);
+    assertThat(result.date()).isEqualTo(pojo.date());
+  }
 }
