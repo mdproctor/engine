@@ -28,7 +28,12 @@ import java.util.Set;
  * <p><b>Null behaviour:</b> {@code put(key, null)} on an absent key is a no-op — the key is not
  * added. This differs from the poc's {@code HibernateCaseFile} which stored null entries directly.
  * Use {@code contains(key)} to test presence.
+ *
+ * @deprecated Use {@code contextType} in YAML case definitions instead. When declared, {@link
+ *     io.casehub.api.context.JacksonPojoBridge JacksonPojoBridge&lt;T&gt;} is auto-constructed and
+ *     workers receive typed POJOs directly via {@code WorkerFunction<T, R>}.
  */
+@Deprecated(forRemoval = true)
 public class MapCaseFile extends CaseContextImpl {
 
   public MapCaseFile() {}
