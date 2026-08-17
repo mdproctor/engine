@@ -474,6 +474,34 @@ class BehavioralComplianceRecorderTest {
   }
 
   @Test
+  void escalationViolated_completedOutcome() {
+    UUID caseUuid = UUID.randomUUID();
+    when(caseInstance.getUuid()).thenReturn(caseUuid);
+
+    try (MockedStatic<BehavioralExpectations> expectations =
+        org.mockito.Mockito.mockStatic(BehavioralExpectations.class)) {
+      expectations.when(() -> BehavioralExpectations.delegationExpected(any())).thenReturn(false);
+      expectations
+          .when(
+              () ->
+                  BehavioralExpectations.escalationExpected(
+                      any(AgentDescriptor.class), any(VocabularyRegistry.class)))
+          .thenReturn(true);
+      expectations.when(() -> BehavioralExpectations.latencyBound(any())).thenCallRealMethod();
+
+      recorder.record(caseInstance, "worker-1", "analysis", WorkerOutcome.completed(), null);
+    }
+
+    verify(signalStore)
+        .record(
+            eq("agent-1"),
+            eq("tenant-1"),
+            eq("analysis"),
+            eq(ComplianceDimension.ESCALATION),
+            eq(BehavioralSignal.VIOLATED));
+  }
+
+  @Test
   void escalationNotExpected_skips() {
     UUID caseUuid = UUID.randomUUID();
     when(caseInstance.getUuid()).thenReturn(caseUuid);
