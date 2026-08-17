@@ -34,6 +34,14 @@ properties:
       Expression language for all condition expressions in this definition.
       Must match the type() of a registered ExpressionEngine that overrides create().
       Defaults to "jq". Constraint: expressionLang == ExpressionEvaluator.type() == ExpressionEngine.type().
+  contextType:
+    type: string
+    title: ContextType
+    minLength: 1
+    maxLength: 512
+    description: >
+      Fully-qualified Java class name for typed POJO context. When declared,
+      JacksonPojoBridge<T> is auto-constructed and expressionLang defaults to "mvel".
   namespace:
     type: string
     pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$

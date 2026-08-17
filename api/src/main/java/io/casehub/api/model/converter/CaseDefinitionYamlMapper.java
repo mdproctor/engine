@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.context.JacksonPojoBridge;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.AllOfGoalExpression;
@@ -272,6 +273,16 @@ public final class CaseDefinitionYamlMapper {
     def.setTitle(schema.getTitle());
     if (schema.getSummary() != null) {
       def.setSummary(schema.getSummary());
+    }
+
+    if (schema.getContextType() != null) {
+      try {
+        final Class<?> contextClass = Class.forName(schema.getContextType());
+        def.setDefaultWorkerBridge(new JacksonPojoBridge<>(contextClass));
+      } catch (ClassNotFoundException e) {
+        throw new IllegalArgumentException(
+            "contextType class not found: " + schema.getContextType(), e);
+      }
     }
 
     // semanticData — free-form object; read directly from raw JsonNode to avoid empty generated
