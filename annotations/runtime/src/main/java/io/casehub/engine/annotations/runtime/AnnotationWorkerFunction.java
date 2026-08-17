@@ -40,6 +40,9 @@ public final class AnnotationWorkerFunction {
         Map.class,
         Map.class,
         (input, scope) -> {
+          if (scope != null) {
+            WorkerScopeProducer.setCurrent(scope);
+          }
           try {
             Class<?> implClass =
                 Thread.currentThread().getContextClassLoader().loadClass(implClassName);
@@ -65,6 +68,8 @@ public final class AnnotationWorkerFunction {
             return WorkerResult.of(output);
           } catch (Exception e) {
             return WorkerResult.failed("Annotation worker invocation failed: " + e.getMessage());
+          } finally {
+            WorkerScopeProducer.clearCurrent();
           }
         });
   }
