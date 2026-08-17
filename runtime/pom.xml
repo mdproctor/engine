@@ -99,6 +99,10 @@
             <groupId>io.casehub</groupId>
             <artifactId>casehub-platform-callback</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-expression</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>io.quarkus</groupId>
