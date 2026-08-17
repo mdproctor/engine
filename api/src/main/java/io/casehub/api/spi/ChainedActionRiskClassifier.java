@@ -65,7 +65,7 @@ public class ChainedActionRiskClassifier implements ActionRiskClassifier {
     try {
       return StreamSupport.stream(classifiers.spliterator(), false)
           .map(c -> c.classify(action, context))
-          .reduce((RiskDecision) new Autonomous(), this::mostRestrictive);
+          .reduce((RiskDecision) new Autonomous(), ChainedActionRiskClassifier::mostRestrictive);
     } catch (final Exception e) {
       LOG.errorf(
           e,
@@ -78,13 +78,17 @@ public class ChainedActionRiskClassifier implements ActionRiskClassifier {
     }
   }
 
-  RiskDecision mostRestrictive(final RiskDecision a, final RiskDecision b) {
-    if (!(b instanceof GateRequired gb)) return a;
-    if (!(a instanceof GateRequired ga)) return b;
+  public static RiskDecision mostRestrictive(final RiskDecision a, final RiskDecision b) {
+    if (!(b instanceof GateRequired gb)) {
+      return a;
+    }
+    if (!(a instanceof GateRequired ga)) {
+      return b;
+    }
     return narrower(ga, gb);
   }
 
-  private GateRequired narrower(final GateRequired a, final GateRequired b) {
+  private static GateRequired narrower(final GateRequired a, final GateRequired b) {
     final boolean aHasQuorum = a.quorum() != null;
     final boolean bHasQuorum = b.quorum() != null;
     if (aHasQuorum != bHasQuorum) {
@@ -115,8 +119,10 @@ public class ChainedActionRiskClassifier implements ActionRiskClassifier {
     return a;
   }
 
-  private int candidateSetSize(final CandidateSetStrategy strategy) {
-    if (strategy == null) return Integer.MAX_VALUE;
+  private static int candidateSetSize(final CandidateSetStrategy strategy) {
+    if (strategy == null) {
+      return Integer.MAX_VALUE;
+    }
     if (strategy instanceof StaticSetStrategy staticStrategy) {
       return staticStrategy.values().size();
     }

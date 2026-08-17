@@ -16,6 +16,7 @@
 package io.casehub.api.spi;
 
 import io.casehub.api.model.ProvisionContext;
+import io.casehub.platform.api.mcp.CallbackEligible;
 import io.casehub.worker.api.Worker;
 import java.util.Set;
 
@@ -29,6 +30,7 @@ import java.util.Set;
  * <p>Implementations are CDI beans ({@code @ApplicationScoped}). The default no-op throws {@link
  * ProvisioningException} to signal misconfiguration.
  */
+@CallbackEligible(name = "worker-provisioner")
 public interface WorkerProvisioner {
 
   /**

@@ -7,21 +7,21 @@
 
 The engine's `casehub-engine-work-adapter` module depends on `casehub-work` (full runtime) when it should depend on `casehub-work-api` only. This violates the platform's three-tier module convention: adapter modules should depend on API/SPI modules, not runtime implementations.
 
-Seven production files import runtime types: `WorkItemService`, `WorkItemTemplateService`, `WorkItemStore`, `WorkItem`, `WorkItemTemplate`, `WorkItemLifecycleEvent`, and `OutcomeCodecs`. (`WorkAdapterPlanItemEntity` has a javadoc mention but no import.) The `casehub-work-api` SPI surface (`WorkItemCreator`, `WorkItemLifecycle`, `WorkItemEvent`, `WorkItemRef`, `WorkLifecycleEvent`) already covers every operation the adapter performs.
+Seven production files import runtime types: `WorkItemService`, `WorkItemTemplateService`, `WorkItemStore`, `WorkItemEntity`, `WorkItemTemplate`, `WorkItemLifecycleEvent`, and `OutcomeCodecs`. (`WorkAdapterPlanItemEntity` has a javadoc mention but no import.) The `casehub-work-api` SPI surface (`WorkItemCreator`, `WorkItemLifecycle`, `WorkItemEvent`, `WorkItemRef`, `WorkLifecycleEvent`) already covers every operation the adapter performs.
 
 ## Scope
 
 Two issues, one branch, two commits:
 
-1. **#579 — Event observation migration:** Replace `event.source()` → `WorkItem` casts with `WorkItemEvent` typed accessors in the observer and all internal helper methods. Method signatures (`apply()` on appliers) keep `WorkItem` parameters in this commit — they change atomically in commit 2.
+1. **#579 — Event observation migration:** Replace `event.source()` → `WorkItemEntity` casts with `WorkItemEvent` typed accessors in the observer and all internal helper methods. Method signatures (`apply()` on appliers) keep `WorkItemEntity` parameters in this commit — they change atomically in commit 2.
 
-2. **#578 — Dependency migration:** Replace `WorkItemService`/`WorkItemStore`/`WorkItemTemplateService` injections with `WorkItemCreator`/`WorkItemLifecycle`. Switch CDI observer from `WorkItemLifecycleEvent` (runtime) to `WorkLifecycleEvent` (api). Change `apply()` signatures from `WorkItem` to `WorkItemRef`. Change internal helper method signatures from `WorkItemLifecycleEvent` to `WorkItemEvent`. Change pom dependency from `casehub-work` to `casehub-work-api`.
+2. **#578 — Dependency migration:** Replace `WorkItemService`/`WorkItemStore`/`WorkItemTemplateService` injections with `WorkItemCreator`/`WorkItemLifecycle`. Switch CDI observer from `WorkItemLifecycleEvent` (runtime) to `WorkLifecycleEvent` (api). Change `apply()` signatures from `WorkItemEntity` to `WorkItemRef`. Change internal helper method signatures from `WorkItemLifecycleEvent` to `WorkItemEvent`. Change pom dependency from `casehub-work` to `casehub-work-api`.
 
 ## Design
 
 ### Event Observation (#579)
 
-`WorkItemLifecycleAdapter` currently observes `WorkItemLifecycleEvent` (runtime) and casts `event.source()` to `WorkItem` (runtime entity) to access fields like `callerRef`, `id`, `candidateGroups`, `assigneeId`, `resolution`.
+`WorkItemLifecycleAdapter` currently observes `WorkItemLifecycleEvent` (runtime) and casts `event.source()` to `WorkItemEntity` (runtime entity) to access fields like `callerRef`, `id`, `candidateGroups`, `assigneeId`, `resolution`.
 
 `WorkItemLifecycleEvent` already implements `WorkItemEvent` (api interface), which exposes all these fields as typed accessors: `callerRef()`, `workItemId()`, `candidateGroups()`, `assigneeId()`, `resolution()`, `status()`, `outcome()`.
 
@@ -40,12 +40,12 @@ public void onWorkItemLifecycle(@ObservesAsync WorkItemLifecycleEvent event) {
 }
 ```
 
-Commit 1 replaces `source()` → `WorkItem` casts with `WorkItemEvent` typed accessors in the main observer and all four internal helper methods (`handleEscalation`, `handleSuspension`, `handlePossibleResume`, `routeGate`). Field mapping for `handleEscalation` (the most complex):
+Commit 1 replaces `source()` → `WorkItemEntity` casts with `WorkItemEvent` typed accessors in the main observer and all four internal helper methods (`handleEscalation`, `handleSuspension`, `handlePossibleResume`, `routeGate`). Field mapping for `handleEscalation` (the most complex):
 - `workItem.callerRef` → `event.callerRef()`
 - `workItem.candidateGroups` → `event.candidateGroups()`
 - `workItem.id` → `event.workItemId()`
 
-`apply()` signatures on `PlanItemCompletionApplier` and `ActionGateCompletionApplier` keep `WorkItem` in commit 1. The observer constructs a `WorkItemRef` from event accessors at each call site to pass to `apply()` — this avoids breaking `HumanTaskRecoveryService` which still calls `apply()` with a `WorkItem` from `workItemService.findByCallerRef()` until commit 2 migrates it.
+`apply()` signatures on `PlanItemCompletionApplier` and `ActionGateCompletionApplier` keep `WorkItemEntity` in commit 1. The observer constructs a `WorkItemRef` from event accessors at each call site to pass to `apply()` — this avoids breaking `HumanTaskRecoveryService` which still calls `apply()` with a `WorkItemEntity` from `workItemService.findByCallerRef()` until commit 2 migrates it.
 
 **Commit 2 observer change — api-only types:**
 
@@ -68,7 +68,7 @@ CDI delivers `WorkItemLifecycleEvent` (the concrete class fired at runtime). The
 | `handleEscalation()` | `(WorkItemLifecycleEvent)` | `(WorkItemEvent)` |
 | `handleSuspension()` | `(WorkItemLifecycleEvent)` | `(WorkItemEvent)` |
 | `handlePossibleResume()` | `(WorkItemLifecycleEvent)` | `(WorkItemEvent)` |
-| `routeGate()` | called with `WorkItem` fields | called with `WorkItemEvent` accessors |
+| `routeGate()` | called with `WorkItemEntity` fields | called with `WorkItemEvent` accessors |
 
 Fields accessed change from entity field access (`workItem.resolution`) to record accessors (`ref.resolution()`).
 
@@ -108,13 +108,13 @@ Production dependency changes from `casehub-work` to `casehub-work-api`. Test de
 
 ### CLAUDE.md Update
 
-The `casehub-work-adapter` section updates references from runtime types to API types: `WorkItemService` → `WorkItemCreator`, `WorkItemTemplateService` → eliminated, `WorkItem` → `WorkItemRef`, `WorkItemLifecycleEvent` → `WorkLifecycleEvent`/`WorkItemEvent`, `OutcomeCodecs` → eliminated.
+The `casehub-work-adapter` section updates references from runtime types to API types: `WorkItemService` → `WorkItemCreator`, `WorkItemTemplateService` → eliminated, `WorkItemEntity` → `WorkItemRef`, `WorkItemLifecycleEvent` → `WorkLifecycleEvent`/`WorkItemEvent`, `OutcomeCodecs` → eliminated.
 
 ## Commit Strategy
 
-1. **Commit 1 (Refs #579):** Replace all `source()` → `WorkItem` casts with `WorkItemEvent` typed accessors in the observer and helper methods. `apply()` signatures keep `WorkItem` — callers construct `WorkItemRef` at call sites where needed. Observer type stays `WorkItemLifecycleEvent`. Compiles and tests independently.
+1. **Commit 1 (Refs #579):** Replace all `source()` → `WorkItemEntity` casts with `WorkItemEvent` typed accessors in the observer and helper methods. `apply()` signatures keep `WorkItemEntity` — callers construct `WorkItemRef` at call sites where needed. Observer type stays `WorkItemLifecycleEvent`. Compiles and tests independently.
 
-2. **Commit 2 (Closes #578, Closes #579):** Switch observer to `WorkLifecycleEvent`. Change `apply()` signatures from `WorkItem` to `WorkItemRef`. Change helper method signatures from `WorkItemLifecycleEvent` to `WorkItemEvent`. Replace all runtime service/store injections with API SPIs. Rewrite template mode. Change pom. Update tests. Update CLAUDE.md.
+2. **Commit 2 (Closes #578, Closes #579):** Switch observer to `WorkLifecycleEvent`. Change `apply()` signatures from `WorkItemEntity` to `WorkItemRef`. Change helper method signatures from `WorkItemLifecycleEvent` to `WorkItemEvent`. Replace all runtime service/store injections with API SPIs. Rewrite template mode. Change pom. Update tests. Update CLAUDE.md.
 
 ## Files Changed
 
@@ -124,12 +124,12 @@ The `casehub-work-adapter` section updates references from runtime types to API 
 
 ### Commit 2 — #578
 - `WorkItemLifecycleAdapter.java` — observer type `WorkItemLifecycleEvent` → `WorkLifecycleEvent`; helper methods `WorkItemLifecycleEvent` → `WorkItemEvent`
-- `PlanItemCompletionApplier.java` — `WorkItem` → `WorkItemRef` parameter
-- `ActionGateCompletionApplier.java` — `WorkItem` → `WorkItemRef` parameter
+- `PlanItemCompletionApplier.java` — `WorkItemEntity` → `WorkItemRef` parameter
+- `ActionGateCompletionApplier.java` — `WorkItemEntity` → `WorkItemRef` parameter
 - `HumanTaskScheduleHandler.java` — `WorkItemService`/`WorkItemTemplateService` → `WorkItemCreator`; rewrite template mode with UUID validation retained
 - `ActionGateWorkItemHandler.java` — `WorkItemService` → `WorkItemCreator`
 - `ActionGateCancelledHandler.java` — `WorkItemStore`/`WorkItemService` → `WorkItemCreator`/`WorkItemLifecycle`
-- `HumanTaskRecoveryService.java` — `WorkItemService` → `WorkItemCreator`; `WorkItem` → `WorkItemRef`
+- `HumanTaskRecoveryService.java` — `WorkItemService` → `WorkItemCreator`; `WorkItemEntity` → `WorkItemRef`
 - `work-adapter/pom.xml` — `casehub-work` → `casehub-work-api`
 - `HumanTaskScheduleHandlerTest.java` — update wiring
 - `WorkItemLifecycleAdapterTest.java` — update for `WorkLifecycleEvent` observer type
@@ -144,7 +144,7 @@ Adversarial review completed 2026-06-29. Seven findings — all addressed:
 
 | ID | Finding | Resolution |
 |----|---------|------------|
-| R1-01 | Commit 1 breaks compilation: `apply()` signature change orphans `HumanTaskRecoveryService` | Fixed: `apply()` signatures stay `WorkItem` in commit 1, change atomically in commit 2 |
+| R1-01 | Commit 1 breaks compilation: `apply()` signature change orphans `HumanTaskRecoveryService` | Fixed: `apply()` signatures stay `WorkItemEntity` in commit 1, change atomically in commit 2 |
 | R1-02 | Template mode tenancyId precedence inverted by request-wins merge | Accepted as intentional: engine context should override template defaults; documented explicitly |
 | R1-03 | Template mode UUID validation and error handling not addressed | Fixed: UUID parse try-catch retained in handler, separate from SPI exception handling |
 | R1-04 | Internal helper method signature changes omitted | Fixed: four helper methods enumerated in commit 2 file list |

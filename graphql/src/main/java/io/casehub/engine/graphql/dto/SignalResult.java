@@ -13,15 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.spi.routing;
+package io.casehub.engine.graphql.dto;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import io.casehub.platform.api.routing.NamedStrategy;
-import java.util.Set;
+import java.util.UUID;
+import org.eclipse.microprofile.graphql.Type;
 
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
-@JsonSubTypes({@JsonSubTypes.Type(value = StaticSetStrategy.class, name = "static")})
-public interface CandidateSetStrategy extends NamedStrategy {
-  Set<String> evaluate(CandidateSetContext context);
-}
+@Type("SignalResult")
+public record SignalResult(UUID caseId, boolean accepted) {}

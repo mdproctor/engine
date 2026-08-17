@@ -15,6 +15,8 @@
  */
 package io.casehub.api.spi;
 
+import com.fasterxml.jackson.annotation.JsonSubTypes;
+import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
 import io.casehub.worker.api.PlannedAction;
 import java.time.Duration;
@@ -30,6 +32,11 @@ import org.jspecify.annotations.Nullable;
  * WorkItem. If the engine-adapter is absent the case stalls — see {@code
  * ActionGateDeploymentHealthCheck}.
  */
+@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "@type")
+@JsonSubTypes({
+  @JsonSubTypes.Type(value = RiskDecision.Autonomous.class, name = "autonomous"),
+  @JsonSubTypes.Type(value = RiskDecision.GateRequired.class, name = "gate-required")
+})
 public sealed interface RiskDecision permits RiskDecision.Autonomous, RiskDecision.GateRequired {
 
   record Autonomous() implements RiskDecision {}

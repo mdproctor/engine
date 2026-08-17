@@ -1,0 +1,41 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.engine.graphql.dto;
+
+import io.casehub.api.model.event.CaseEventLogRecord;
+import io.casehub.platform.graphql.scalar.Json;
+import java.time.Instant;
+import java.util.Map;
+import org.eclipse.microprofile.graphql.Type;
+
+@Type("EventLogEntry")
+public record EventLogEntry(String eventType, String streamType, Instant timestamp, Json payload) {
+
+  public static EventLogEntry from(CaseEventLogRecord record) {
+    Map<String, Object> payloadMap = null;
+    if (record.payload() != null) {
+      var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+      payloadMap =
+          mapper.convertValue(
+              record.payload(), new com.fasterxml.jackson.core.type.TypeReference<>() {});
+    }
+    return new EventLogEntry(
+        record.eventType() != null ? record.eventType().name() : null,
+        record.streamType() != null ? record.streamType().name() : null,
+        record.timestamp(),
+        payloadMap != null ? Json.of(payloadMap) : null);
+  }
+}

@@ -54,9 +54,7 @@ docs/superpowers/
 /.quarkus/cli/plugins/
 # TLS Certificates
 .certs/
-.claude
 .claude/
-.worktrees
 .worktrees/
 package-lock.json
 wksp

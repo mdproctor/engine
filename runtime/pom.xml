@@ -91,6 +91,14 @@
             <artifactId>casehub-platform</artifactId>
             <scope>compile</scope>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-callback-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-callback</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>io.quarkus</groupId>
