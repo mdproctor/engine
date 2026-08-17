@@ -1947,6 +1947,69 @@ class CaseDefinitionYamlMapperTest {
   }
 
   @Test
+  void contextType_present_infersExpressionLangMvel() throws IOException {
+    final String yaml =
+        """
+                            namespace: test
+                            name: Typed Infer
+                            version: 1.0.0
+                            contextType: io.casehub.api.model.converter.CaseDefinitionYamlMapperTest$TestContextPojo
+                            spec:
+                              capabilities:
+                                - name: cap-a
+                              bindings:
+                                - name: b1
+                                  on:
+                                    contextChange:
+                                      filter: "name != null"
+                                  capability: cap-a
+                            """;
+
+    final RecordingRegistry registry = new RecordingRegistry();
+    final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    CaseDefinitionYamlMapper.load(
+        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+        mapper,
+        registry,
+        r -> null);
+
+    assertThat(registry.langs).containsOnly("mvel");
+  }
+
+  @Test
+  void contextType_withExplicitJq_usesJq() throws IOException {
+    final String yaml =
+        """
+                            namespace: test
+                            name: Typed Explicit JQ
+                            version: 1.0.0
+                            contextType: io.casehub.api.model.converter.CaseDefinitionYamlMapperTest$TestContextPojo
+                            expressionLang: jq
+                            spec:
+                              capabilities:
+                                - name: cap-a
+                              bindings:
+                                - name: b1
+                                  on:
+                                    contextChange:
+                                      filter: ".name != null"
+                                  capability: cap-a
+                            """;
+
+    final RecordingRegistry registry = new RecordingRegistry();
+    final ObjectMapper mapper = new ObjectMapper(new YAMLFactory());
+
+    CaseDefinitionYamlMapper.load(
+        new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)),
+        mapper,
+        registry,
+        r -> null);
+
+    assertThat(registry.langs).containsOnly("jq");
+  }
+
+  @Test
   void parseSemanticData() throws IOException {
     String yaml =
         """

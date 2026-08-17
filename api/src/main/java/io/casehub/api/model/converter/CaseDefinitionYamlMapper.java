@@ -261,10 +261,14 @@ public final class CaseDefinitionYamlMapper {
       final ObjectMapper objectMapper,
       final ExpressionEngineRegistry registry,
       final WorkerFunctionProviderRegistry providerRegistry) {
-    final String expressionLang =
-        schema.getExpressionLang() != null
-            ? schema.getExpressionLang()
-            : JQExpressionEvaluator.TYPE;
+    final String expressionLang;
+    if (rawNode.has("expressionLang")) {
+      expressionLang = schema.getExpressionLang();
+    } else if (schema.getContextType() != null) {
+      expressionLang = "mvel";
+    } else {
+      expressionLang = JQExpressionEvaluator.TYPE;
+    }
     registry.assertLanguageSupported(expressionLang);
 
     final CaseDefinition def =
