@@ -22,7 +22,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class JacksonPojoBridge<T> implements ContextBridge<T> {
 
   private static final ObjectMapper MAPPER =
-      new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+      new ObjectMapper()
+          .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+          .findAndRegisterModules();
   private final Class<T> targetClass;
 
   public JacksonPojoBridge(Class<T> targetClass) {
