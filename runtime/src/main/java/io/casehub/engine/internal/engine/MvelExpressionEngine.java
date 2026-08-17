@@ -19,7 +19,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
+import io.casehub.api.context.JacksonPojoBridge;
 import io.casehub.api.engine.ExpressionEngine;
+import io.casehub.api.model.evaluator.TypedMvelExpressionEvaluator;
 import io.casehub.platform.api.expression.CompiledExpression;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.platform.api.expression.MvelExpressionEvaluator;
@@ -55,9 +57,18 @@ public class MvelExpressionEngine implements ExpressionEngine {
     if (evaluator == null) {
       return true;
     }
-    final String expr = ((MvelExpressionEvaluator) evaluator).expression();
+    final String expr = expressionFrom(evaluator);
     if (expr == null || expr.isBlank()) {
       return true;
+    }
+
+    if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
+      final Object pojo = deserializeToPojo(context, typed.contextClass());
+      final CompiledExpression<Object, Boolean> compiled =
+          (CompiledExpression<Object, Boolean>)
+              platformMvel.compile(expr, typed.contextClass(), Boolean.class);
+      final Boolean result = compiled.eval(pojo);
+      return result != null && result;
     }
 
     final JsonNode workingJson = context.layer(ContextLayer.WORKING).asJsonNode();
@@ -75,7 +86,7 @@ public class MvelExpressionEngine implements ExpressionEngine {
     if (evaluator == null) {
       return;
     }
-    final String expr = ((MvelExpressionEvaluator) evaluator).expression();
+    final String expr = expressionFrom(evaluator);
     if (expr == null || expr.isBlank()) {
       return;
     }
@@ -93,18 +104,27 @@ public class MvelExpressionEngine implements ExpressionEngine {
   }
 
   @Override
+  @SuppressWarnings("unchecked")
   public Optional<String> extractString(
       final ExpressionEvaluator evaluator, final CaseContext context) {
     if (evaluator == null) {
       return Optional.empty();
     }
-    final String expr = ((MvelExpressionEvaluator) evaluator).expression();
+    final String expr = expressionFrom(evaluator);
     if (expr == null || expr.isBlank()) {
       return Optional.empty();
     }
 
+    if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
+      final Object pojo = deserializeToPojo(context, typed.contextClass());
+      final CompiledExpression<Object, Object> compiled =
+          (CompiledExpression<Object, Object>)
+              platformMvel.compile(expr, typed.contextClass(), Object.class);
+      final Object result = compiled.eval(pojo);
+      return result != null ? Optional.of(result.toString()) : Optional.empty();
+    }
+
     final JsonNode workingJson = context.layer(ContextLayer.WORKING).asJsonNode();
-    @SuppressWarnings("unchecked")
     final Map<String, Object> contextMap = MAPPER.convertValue(workingJson, Map.class);
 
     final CompiledExpression<Map<String, Object>, Object> compiled =
@@ -131,5 +151,17 @@ public class MvelExpressionEngine implements ExpressionEngine {
   @Override
   public void validate(final String expression) {
     platformMvel.validate(expression);
+  }
+
+  private static String expressionFrom(final ExpressionEvaluator evaluator) {
+    if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
+      return typed.expression();
+    }
+    return ((MvelExpressionEvaluator) evaluator).expression();
+  }
+
+  private static <T> T deserializeToPojo(final CaseContext context, final Class<T> contextClass) {
+    final JsonNode workingJson = context.layer(ContextLayer.WORKING).asJsonNode();
+    return new JacksonPojoBridge<>(contextClass).deserialise(workingJson);
   }
 }

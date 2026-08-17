@@ -16,10 +16,12 @@
 package io.casehub.engine.internal.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
+import io.casehub.api.model.evaluator.TypedMvelExpressionEvaluator;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.platform.api.expression.MvelExpressionEvaluator;
 import org.junit.jupiter.api.BeforeEach;
@@ -51,6 +53,8 @@ class MvelExpressionEngineTest {
     assertThat(evaluator).isInstanceOf(MvelExpressionEvaluator.class);
     assertThat(evaluator.type()).isEqualTo("mvel");
   }
+
+  // ── evaluate (untyped — Map context) ──────────────────────────────────────
 
   @Test
   void evaluate_simpleComparison_returnsTrue() throws Exception {
@@ -100,5 +104,113 @@ class MvelExpressionEngineTest {
 
     assertThat(engine.evaluate(new MvelExpressionEvaluator("status == \"active\""), context))
         .isTrue();
+  }
+
+  // ── evaluate (typed — POJO context via TypedMvelExpressionEvaluator) ──────
+
+  @Test
+  void evaluate_typed_nestedPropertyAccess() throws Exception {
+    JsonNode node = mapper.readTree("{\"transaction\": {\"amount\": 200, \"currency\": \"USD\"}}");
+    CaseContext context = new CaseContextImpl(node);
+
+    assertThat(
+            engine.evaluate(
+                new TypedMvelExpressionEvaluator(
+                    "transaction.amount > 100", TestTransactionCase.class),
+                context))
+        .isTrue();
+  }
+
+  @Test
+  void evaluate_typed_nestedPropertyFalse() throws Exception {
+    JsonNode node = mapper.readTree("{\"transaction\": {\"amount\": 50}}");
+    CaseContext context = new CaseContextImpl(node);
+
+    assertThat(
+            engine.evaluate(
+                new TypedMvelExpressionEvaluator(
+                    "transaction.amount > 100", TestTransactionCase.class),
+                context))
+        .isFalse();
+  }
+
+  @Test
+  void evaluate_typed_nestedStringAccess() throws Exception {
+    JsonNode node =
+        mapper.readTree(
+            "{\"transaction\": {\"amount\": 200, \"currency\": \"USD\"}, \"status\": \"active\"}");
+    CaseContext context = new CaseContextImpl(node);
+
+    assertThat(
+            engine.evaluate(
+                new TypedMvelExpressionEvaluator(
+                    "transaction.currency == \"USD\" && status == \"active\"",
+                    TestTransactionCase.class),
+                context))
+        .isTrue();
+  }
+
+  // ── validate ──────────────────────────────────────────────────────────────
+
+  @Test
+  void validate_nullEvaluator_noException() {
+    engine.validate((io.casehub.platform.api.expression.ExpressionEvaluator) null);
+  }
+
+  @Test
+  void validate_blankExpression_noException() {
+    engine.validate(new MvelExpressionEvaluator("   "));
+  }
+
+  @Test
+  void validate_validExpression_noException() {
+    engine.validate(new MvelExpressionEvaluator("amount > 100"));
+  }
+
+  @Test
+  void validate_emptyString_delegatesToPlatform() {
+    assertThatThrownBy(() -> engine.validate("")).isInstanceOf(Exception.class);
+  }
+
+  // ── extractString ─────────────────────────────────────────────────────────
+
+  @Test
+  void extractString_nullEvaluator_returnsEmpty() {
+    CaseContext context = new CaseContextImpl(mapper.createObjectNode());
+
+    assertThat(engine.extractString(null, context)).isEmpty();
+  }
+
+  @Test
+  void extractString_blankExpression_returnsEmpty() {
+    CaseContext context = new CaseContextImpl(mapper.createObjectNode());
+
+    assertThat(engine.extractString(new MvelExpressionEvaluator("   "), context)).isEmpty();
+  }
+
+  @Test
+  void extractString_returnsStringValue() throws Exception {
+    JsonNode node = mapper.readTree("{\"name\": \"Alice\"}");
+    CaseContext context = new CaseContextImpl(node);
+
+    assertThat(engine.extractString(new MvelExpressionEvaluator("name"), context))
+        .hasValue("Alice");
+  }
+
+  @Test
+  void extractString_returnsNumericAsString() throws Exception {
+    JsonNode node = mapper.readTree("{\"count\": 42}");
+    CaseContext context = new CaseContextImpl(node);
+
+    assertThat(engine.extractString(new MvelExpressionEvaluator("count"), context)).hasValue("42");
+  }
+
+  // ── compile delegation ────────────────────────────────────────────────────
+
+  @Test
+  void compile_delegatesToPlatform() {
+    var compiled = engine.compile("amount > 100", java.util.Map.class, Boolean.class);
+    assertThat(compiled).isNotNull();
+    assertThat(compiled.type()).isEqualTo("mvel");
   }
 }
