@@ -44,27 +44,14 @@ public final class AgentCardBridge {
                 .toList()
             : List.of();
 
-    return new AgentDescriptor(
-        workerName,
-        card.name() != null ? card.name() : workerName,
-        card.version(),
-        card.provider(),
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        capabilities,
-        null,
-        null,
-        null,
-        tenancyId,
-        card.description(),
-        null,
-        List.of(),
-        List.of());
+    return AgentDescriptor.builder()
+        .agentId(workerName)
+        .name(card.name() != null ? card.name() : workerName)
+        .version(card.version())
+        .provider(card.provider())
+        .capabilities(capabilities)
+        .tenancyId(tenancyId)
+        .briefing(card.description())
+        .build();
   }
 }
