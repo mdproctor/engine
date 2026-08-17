@@ -25,11 +25,16 @@ import io.casehub.engine.annotations.runtime.GoapActionDescriptor;
 import io.casehub.engine.annotations.runtime.MilestoneDescriptor;
 import io.casehub.engine.annotations.runtime.WorkerDescriptor;
 import io.quarkus.arc.deployment.SyntheticBeanBuildItem;
+import io.quarkus.deployment.GeneratedClassGizmoAdaptor;
 import io.quarkus.deployment.annotations.BuildProducer;
 import io.quarkus.deployment.annotations.BuildStep;
 import io.quarkus.deployment.annotations.ExecutionTime;
 import io.quarkus.deployment.annotations.Record;
 import io.quarkus.deployment.builditem.CombinedIndexBuildItem;
+import io.quarkus.deployment.builditem.GeneratedClassBuildItem;
+import io.quarkus.gizmo.ClassCreator;
+import io.quarkus.gizmo.MethodCreator;
+import io.quarkus.gizmo.MethodDescriptor;
 import io.quarkus.runtime.RuntimeValue;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
@@ -89,6 +94,32 @@ public class EngineAnnotationsProcessor {
     }
   }
 
+  @BuildStep
+  void generateCaseImplementations(
+      CombinedIndexBuildItem indexBuildItem,
+      BuildProducer<GeneratedClassBuildItem> generatedClasses) {
+
+    IndexView index = indexBuildItem.getIndex();
+
+    for (AnnotationInstance caseAnn : index.getAnnotations(CASE)) {
+      ClassInfo caseClass = caseAnn.target().asClass();
+      String implClassName = caseClass.name().toString() + "_CaseHubImpl";
+
+      try (ClassCreator creator =
+          ClassCreator.builder()
+              .classOutput(new GeneratedClassGizmoAdaptor(generatedClasses, true))
+              .className(implClassName)
+              .interfaces(caseClass.name().toString())
+              .build()) {
+
+        try (MethodCreator ctor = creator.getMethodCreator("<init>", void.class)) {
+          ctor.invokeSpecialMethod(MethodDescriptor.ofConstructor(Object.class), ctor.getThis());
+          ctor.returnVoid();
+        }
+      }
+    }
+  }
+
   private CaseDescriptor buildDescriptor(
       AnnotationInstance caseAnn, ClassInfo caseClass, IndexView index) {
 
@@ -144,6 +175,8 @@ public class EngineAnnotationsProcessor {
       }
     }
 
+    String implClassName = caseClass.name().toString() + "_CaseHubImpl";
+
     return new CaseDescriptor(
         namespace,
         name,
@@ -151,7 +184,7 @@ public class EngineAnnotationsProcessor {
         title,
         summary,
         planningStrategy,
-        null,
+        implClassName,
         caseClass.name().toString(),
         workers,
         bindings,
@@ -177,9 +210,40 @@ public class EngineAnnotationsProcessor {
     String capabilityName = resolveCapabilityName(workerAnn, method, index);
     String description = stringValueOrDefault(workerAnn, index, "description", "");
 
+    List<io.casehub.engine.annotations.runtime.WorkerParamDescriptor> params = new ArrayList<>();
+    for (MethodParameterInfo param : method.parameters()) {
+      Type paramType = param.type();
+      if (paramType.name().toString().equals("io.casehub.worker.api.WorkerScope")) continue;
+      String paramName = param.name() != null ? param.name() : "arg" + params.size();
+      AnnotationInstance paramAnn = param.annotation(PARAM);
+      String contextKey = paramAnn != null ? paramAnn.value().asString() : paramName;
+      params.add(
+          new io.casehub.engine.annotations.runtime.WorkerParamDescriptor(
+              paramName, contextKey, paramType.name().toString()));
+    }
+
+    String returnTypeName = null;
+    String effectKey = null;
+    Type returnType = method.returnType();
+    if (returnType.kind() != Type.Kind.VOID) {
+      returnTypeName = returnType.name().toString();
+      AnnotationInstance effectAnn = method.annotation(EFFECT);
+      effectKey =
+          effectAnn != null
+              ? effectAnn.value().asString()
+              : lowerCamelCase(returnType.name().local());
+    }
+
     workers.add(
         new WorkerDescriptor(
-            method.name(), capabilityName, description, method.name(), null, null, null, null));
+            method.name(),
+            capabilityName,
+            description,
+            method.name(),
+            params.isEmpty() ? null : params,
+            returnTypeName,
+            effectKey,
+            null));
 
     List<AnnotationInstance> bindAnns = collectBindAnnotations(method);
     if (!bindAnns.isEmpty()) {

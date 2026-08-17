@@ -64,8 +64,18 @@ public class CaseDefinitionRecorder {
           wd.capabilityName(),
           name -> Capability.builder().name(name).inputSchema(".").outputSchema(".").build());
 
-      var workerBuilder =
-          Worker.builder().name(wd.name()).capabilityName(wd.capabilityName()).noFunction();
+      var workerBuilder = Worker.builder().name(wd.name()).capabilityName(wd.capabilityName());
+      if (wd.params() != null && !wd.params().isEmpty() && descriptor.implClassName() != null) {
+        workerBuilder.function(
+            AnnotationWorkerFunction.create(
+                descriptor.implClassName(),
+                wd.methodName(),
+                wd.params(),
+                wd.returnTypeName(),
+                wd.effectKey()));
+      } else {
+        workerBuilder.noFunction();
+      }
       if (wd.description() != null && !wd.description().isEmpty()) {
         workerBuilder.description(wd.description());
       }
