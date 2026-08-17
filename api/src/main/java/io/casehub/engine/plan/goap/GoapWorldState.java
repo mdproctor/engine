@@ -17,6 +17,7 @@ package io.casehub.engine.plan.goap;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Immutable boolean world state for GOAP planning.
@@ -42,5 +43,9 @@ public record GoapWorldState(Map<String, Boolean> conditions) {
 
   public boolean satisfies(String goalCondition) {
     return get(goalCondition);
+  }
+
+  public boolean satisfiesAll(Set<String> goalConditions) {
+    return goalConditions.stream().allMatch(this::satisfies);
   }
 }

@@ -24,11 +24,29 @@ import java.util.Map;
  * Applying an action produces a new world state with the action's effects merged in.
  */
 public record GoapAction(
-    String name, Map<String, Boolean> preconditions, Map<String, Boolean> effects, int cost) {
+    String name,
+    Map<String, Boolean> preconditions,
+    Map<String, Boolean> effects,
+    double cost,
+    double benefit,
+    Map<String, Boolean> softPreconditions) {
 
   public GoapAction {
     preconditions = Map.copyOf(preconditions);
     effects = Map.copyOf(effects);
+    softPreconditions = Map.copyOf(softPreconditions);
+    if (cost < 0.0 || cost > 1.0) throw new IllegalArgumentException("cost must be in [0.0, 1.0]");
+    if (benefit < 0.0 || benefit > 1.0)
+      throw new IllegalArgumentException("benefit must be in [0.0, 1.0]");
+  }
+
+  public GoapAction(
+      String name, Map<String, Boolean> preconditions, Map<String, Boolean> effects, double cost) {
+    this(name, preconditions, effects, cost, 0.0, Map.of());
+  }
+
+  public double effectiveCost() {
+    return cost * (1.0 - benefit);
   }
 
   public boolean isApplicable(GoapWorldState state) {

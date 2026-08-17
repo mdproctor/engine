@@ -42,20 +42,25 @@ public class GoapPlanner {
    */
   public List<GoapAction> plan(
       GoapWorldState initial, String goalCondition, List<GoapAction> actions) {
-    if (initial.satisfies(goalCondition)) return List.of();
+    return plan(initial, Set.of(goalCondition), actions);
+  }
 
-    record Node(GoapWorldState state, List<GoapAction> plan, int cost) {}
+  public List<GoapAction> plan(
+      GoapWorldState initial, Set<String> goalConditions, List<GoapAction> actions) {
+    if (goalConditions.isEmpty() || initial.satisfiesAll(goalConditions)) return List.of();
+
+    record Node(GoapWorldState state, List<GoapAction> plan, double cost) {}
 
     PriorityQueue<Node> open =
         new PriorityQueue<>(
-            Comparator.comparingInt(n -> n.cost() + heuristic(n.state(), goalCondition)));
-    open.add(new Node(initial, List.of(), 0));
+            Comparator.comparingDouble(n -> n.cost() + heuristic(n.state(), goalConditions)));
+    open.add(new Node(initial, List.of(), 0.0));
 
     Set<Map<String, Boolean>> visited = new HashSet<>();
 
     while (!open.isEmpty()) {
       Node current = open.poll();
-      if (current.state().satisfies(goalCondition)) return current.plan();
+      if (current.state().satisfiesAll(goalConditions)) return current.plan();
       if (!visited.add(current.state().conditions())) continue;
 
       for (GoapAction action : actions) {
@@ -63,14 +68,24 @@ public class GoapPlanner {
           GoapWorldState next = action.applyTo(current.state());
           List<GoapAction> newPlan = new ArrayList<>(current.plan());
           newPlan.add(action);
-          open.add(new Node(next, newPlan, current.cost() + action.cost()));
+          double softPenalty = softPenalty(action, current.state());
+          open.add(new Node(next, newPlan, current.cost() + action.effectiveCost() + softPenalty));
         }
       }
     }
     return List.of();
   }
 
-  private int heuristic(GoapWorldState state, String goalCondition) {
-    return state.satisfies(goalCondition) ? 0 : 1;
+  private double softPenalty(GoapAction action, GoapWorldState state) {
+    long unsatisfied =
+        action.softPreconditions().entrySet().stream()
+            .filter(e -> state.get(e.getKey()) != e.getValue())
+            .count();
+    if (unsatisfied == 0) return 0.0;
+    return Math.max(0.5 * action.cost(), 0.1);
+  }
+
+  private double heuristic(GoapWorldState state, Set<String> goalConditions) {
+    return goalConditions.stream().filter(c -> !state.satisfies(c)).count();
   }
 }
