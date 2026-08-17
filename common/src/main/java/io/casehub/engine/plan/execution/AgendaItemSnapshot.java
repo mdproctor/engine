@@ -16,4 +16,10 @@
 package io.casehub.engine.plan.execution;
 
 public record AgendaItemSnapshot(
-    String planItemId, String bindingName, String status, String description) {}
+    String planItemId, String bindingName, String status, String description, String targetType) {
+
+  public AgendaItemSnapshot(
+      String planItemId, String bindingName, String status, String description) {
+    this(planItemId, bindingName, status, description, null);
+  }
+}

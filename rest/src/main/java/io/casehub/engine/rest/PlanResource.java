@@ -15,6 +15,8 @@
  */
 package io.casehub.engine.rest;
 
+import io.casehub.api.model.CaseDefinition;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.plan.execution.CasePlanModelSnapshot;
 import io.casehub.engine.plan.execution.CasePlanModelSnapshotProvider;
 import io.casehub.engine.plan.execution.DagResultSnapshot;
@@ -22,6 +24,7 @@ import io.casehub.engine.plan.execution.ExecutionSnapshotStore;
 import io.casehub.engine.plan.snapshot.DagPlanSnapshot;
 import io.casehub.engine.plan.snapshot.DecompositionSnapshot;
 import io.casehub.engine.plan.snapshot.PlanItemDefinitionSnapshot;
+import io.casehub.engine.rest.dto.ExecutionStateSnapshot;
 import io.casehub.engine.rest.dto.ProblemDetail;
 import io.casehub.engine.rest.exception.EntityNotFoundException;
 import io.casehub.engine.rest.service.CaseService;
@@ -53,6 +56,7 @@ public class PlanResource {
   @Inject CasePlanModelSnapshotProvider planModelProvider;
   @Inject ExecutionSnapshotStore snapshotStore;
   @Inject CurrentPrincipal currentPrincipal;
+  @Inject CaseDefinitionRegistry definitionRegistry;
 
   @GET
   @Path("/model")
@@ -128,5 +132,32 @@ public class PlanResource {
         .getDagResult(caseId, currentPrincipal.tenancyId())
         .orElseThrow(
             () -> new EntityNotFoundException("No DAG result snapshot for case: " + caseId));
+  }
+
+  @GET
+  @Path("/state")
+  @RunOnVirtualThread
+  @Operation(summary = "Get composed execution state snapshot")
+  @APIResponse(responseCode = "200", description = "Execution state snapshot")
+  @APIResponse(
+      responseCode = "404",
+      description = "No execution state for this case",
+      content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
+  public ExecutionStateSnapshot getExecutionState(@PathParam("caseId") UUID caseId) {
+    var instance = caseService.requireCaseAccess(caseId, AclAction.READ);
+    String tenancyId = currentPrincipal.tenancyId();
+    var planModel = planModelProvider.getSnapshot(caseId, tenancyId);
+    var dagPlan = snapshotStore.getDagPlan(caseId, tenancyId);
+    var dagResult = snapshotStore.getDagResult(caseId, tenancyId);
+    if (planModel.isEmpty() && dagPlan.isEmpty() && dagResult.isEmpty()) {
+      throw new EntityNotFoundException("No execution state for case: " + caseId);
+    }
+    CaseDefinition definition = null;
+    try {
+      definition = definitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+    } catch (Exception ignored) {
+    }
+    return ExecutionStateSnapshot.compose(
+        caseId, planModel.orElse(null), dagPlan.orElse(null), dagResult.orElse(null), definition);
   }
 }

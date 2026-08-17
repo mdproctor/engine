@@ -381,6 +381,12 @@ Opt-in JAX-RS module — add to classpath to expose REST endpoints. All endpoint
 | `GET` | `/api/v1/case-definitions` | List all registered case definitions (paginated) |
 | `GET` | `/api/v1/case-definitions/{ns}/{name}` | Get definitions by namespace and name |
 | `GET` | `/api/v1/case-definitions/{ns}/{name}/{version}` | Get definition by exact key |
+| `GET` | `/api/v1/cases/{caseId}/plan/model` | Live case plan model snapshot |
+| `GET` | `/api/v1/cases/{caseId}/plan/definitions` | Plan item definition hierarchy |
+| `GET` | `/api/v1/cases/{caseId}/plan/decomposition` | Captured HTN decomposition tree |
+| `GET` | `/api/v1/cases/{caseId}/plan/dag` | Captured DAG plan snapshot |
+| `GET` | `/api/v1/cases/{caseId}/plan/dag/result` | Captured DAG execution result |
+| `GET` | `/api/v1/cases/{caseId}/plan/state` | Composed execution state for orchestration workbench |
 | `GET` | `/actors/{actorId}/state` | Unified actor workload view (from actor-state module) |
 
 ### Error Handling

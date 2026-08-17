@@ -26,9 +26,24 @@ public record DagResultSnapshot(
     Map<String, Object> completedResults,
     boolean allSucceeded,
     Duration elapsed,
-    Instant timestamp) {
+    Instant timestamp,
+    Map<String, Long> nodeDurationsMs) {
+
+  public DagResultSnapshot(
+      Map<String, NodeStateSnapshot> nodeStates,
+      Map<String, Object> completedResults,
+      boolean allSucceeded,
+      Duration elapsed,
+      Instant timestamp) {
+    this(nodeStates, completedResults, allSucceeded, elapsed, timestamp, null);
+  }
 
   public static DagResultSnapshot from(DagResult<?> result, Instant timestamp) {
+    return from(result, timestamp, null);
+  }
+
+  public static DagResultSnapshot from(
+      DagResult<?> result, Instant timestamp, Map<String, Long> nodeDurationsMs) {
     Map<String, NodeStateSnapshot> states = new LinkedHashMap<>();
     for (var entry : result.nodeStates().entrySet()) {
       states.put(entry.getKey(), NodeStateSnapshot.from(entry.getValue()));
@@ -42,6 +57,7 @@ public record DagResultSnapshot(
         Map.copyOf(completed),
         result.allSucceeded(),
         result.elapsed(),
-        timestamp);
+        timestamp,
+        nodeDurationsMs);
   }
 }

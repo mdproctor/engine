@@ -19,13 +19,18 @@ import io.casehub.engine.plan.DagEventListener;
 import io.casehub.engine.plan.DagPlan;
 import io.casehub.engine.plan.DagResult;
 import io.casehub.engine.plan.snapshot.DagPlanSnapshot;
+import java.time.Duration;
 import java.time.Instant;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class SnapshotCapturingDagEventListener<T, R> implements DagEventListener<T, R> {
 
   private final UUID caseId;
   private final ExecutionSnapshotStore store;
+  private final Map<String, Instant> dispatchTimes = new ConcurrentHashMap<>();
+  private final Map<String, Long> nodeDurations = new ConcurrentHashMap<>();
 
   public SnapshotCapturingDagEventListener(
       UUID caseId, ExecutionSnapshotStore store, DagPlan<T> plan) {
@@ -35,7 +40,30 @@ public class SnapshotCapturingDagEventListener<T, R> implements DagEventListener
   }
 
   @Override
+  public void onNodeDispatched(String nodeId, T task) {
+    dispatchTimes.put(nodeId, Instant.now());
+  }
+
+  @Override
+  public void onNodeCompleted(String nodeId, T task, R result) {
+    recordDuration(nodeId);
+  }
+
+  @Override
+  public void onNodeFailed(String nodeId, T task, String reason, Throwable cause) {
+    recordDuration(nodeId);
+  }
+
+  @Override
   public void onExecutionComplete(DagResult<R> result) {
-    store.storeDagResult(caseId, DagResultSnapshot.from(result, Instant.now()));
+    Map<String, Long> durations = nodeDurations.isEmpty() ? null : Map.copyOf(nodeDurations);
+    store.storeDagResult(caseId, DagResultSnapshot.from(result, Instant.now(), durations));
+  }
+
+  private void recordDuration(String nodeId) {
+    Instant start = dispatchTimes.get(nodeId);
+    if (start != null) {
+      nodeDurations.put(nodeId, Duration.between(start, Instant.now()).toMillis());
+    }
   }
 }

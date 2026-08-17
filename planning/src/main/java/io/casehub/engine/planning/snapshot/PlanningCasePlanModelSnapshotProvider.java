@@ -15,6 +15,12 @@
  */
 package io.casehub.engine.planning.snapshot;
 
+import io.casehub.api.model.BindingTarget;
+import io.casehub.api.model.CapabilityTarget;
+import io.casehub.api.model.ExtensionTarget;
+import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.SignalTarget;
+import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.plan.execution.AgendaItemSnapshot;
@@ -64,7 +70,8 @@ public class PlanningCasePlanModelSnapshotProvider implements CasePlanModelSnaps
                                   item.id(),
                                   item.getBindingName(),
                                   item.getStatus().name(),
-                                  item.getDescription()))
+                                  item.getDescription(),
+                                  mapTargetType(item.getTarget())))
                       .toList();
 
               var subCases =
@@ -161,5 +168,18 @@ public class PlanningCasePlanModelSnapshotProvider implements CasePlanModelSnaps
     Map<String, String> result = new LinkedHashMap<>();
     bindings.forEach((k, v) -> result.put(k, v.name()));
     return Map.copyOf(result);
+  }
+
+  private static String mapTargetType(BindingTarget target) {
+    if (target == null) {
+      return "WORKER";
+    }
+    return switch (target) {
+      case CapabilityTarget c -> "WORKER";
+      case HumanTaskTarget h -> "HUMAN";
+      case SubCaseTarget s -> "COMPOSED";
+      case SignalTarget sg -> "WORKER";
+      case ExtensionTarget e -> "EXTERNAL";
+    };
   }
 }
