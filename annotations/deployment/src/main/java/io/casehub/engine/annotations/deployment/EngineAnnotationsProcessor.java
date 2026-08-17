@@ -133,6 +133,17 @@ public class EngineAnnotationsProcessor {
       }
     }
 
+    for (GoalDescriptor gd : goals) {
+      if (gd.condition() != null) {
+        java.util.Set<String> effectKeys =
+            io.casehub.engine.annotations.runtime.GoalConditionParser.parseEffectKeys(
+                gd.condition());
+        if (!effectKeys.isEmpty()) {
+          goalToEffectKeys.put(gd.name(), new ArrayList<>(effectKeys));
+        }
+      }
+    }
+
     return new CaseDescriptor(
         namespace,
         name,

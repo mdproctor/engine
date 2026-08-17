@@ -89,6 +89,12 @@ class GoapAnnotatedCaseTest {
   }
 
   @Test
+  void goal_to_effect_keys_populated() {
+    assertThat(definition.getGoalToEffectKeys()).isNotEmpty();
+    assertThat(definition.getGoalToEffectKeys().get("done")).contains("riskAssessment");
+  }
+
+  @Test
   void goal_generated() {
     assertThat(definition.getGoals()).hasSize(1);
     assertThat(definition.getGoals().get(0).getName()).isEqualTo("done");
