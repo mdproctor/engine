@@ -1,0 +1,4 @@
+name: casehub-engine-annotations
+description: Annotation-driven case definition model for CaseHub engine
+metadata:
+  status: preview
