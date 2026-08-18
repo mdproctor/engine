@@ -190,6 +190,19 @@ properties:
   spec:
     $ref: "#/$defs/CaseDefinitionSpec"
 $defs:
+  ExpressionOrOverride:
+    description: >
+      Expression string or per-expression language override map.
+      Plain string uses the definition-level expressionLang.
+      Map syntax overrides: { jq: ".expr" } or { mvel: "expr" }.
+    oneOf:
+      - type: string
+      - type: object
+        minProperties: 1
+        maxProperties: 1
+        additionalProperties:
+          type: string
+
   Use:
     type: object
     description: >
@@ -670,7 +683,9 @@ $defs:
     properties:
       name: { type: string }
       "on": { $ref: "#/$defs/Trigger" }
-      when: { type: string, description: "JQ over context and/or event" }
+      when:
+        $ref: "#/$defs/ExpressionOrOverride"
+        description: "Expression over context and/or event — string or {lang: expr} override"
       capability: { type: string }
       subCase: { $ref: "#/$defs/SubCase" }
       humanTask: { $ref: "#/$defs/HumanTask" }
@@ -783,8 +798,8 @@ $defs:
         default: success
         description: "Goal kind label — built-in kinds are 'success' and 'failure'; domains may define custom kinds"
       condition:
-        type: string
-        description: "JQ predicate over CaseContext"
+        $ref: "#/$defs/ExpressionOrOverride"
+        description: "Predicate over CaseContext — string or {lang: expr} override"
 
   CaseCompletion:
     type: object
@@ -795,8 +810,8 @@ $defs:
       'status' field.
     properties:
       doneWhen:
-        type: string
-        description: "Optional JQ predicate over CaseContext as an override/shortcut"
+        $ref: "#/$defs/ExpressionOrOverride"
+        description: "Optional predicate over CaseContext — string or {lang: expr} override. Default language is always JQ regardless of definition-level expressionLang."
     additionalProperties:
       $ref: "#/$defs/GoalExpression"
 
@@ -806,8 +821,8 @@ $defs:
     unevaluatedProperties: false
     properties:
       filter:
-        type: string
-        description: "JQ predicate over { context, event } where event is a synthetic ContextChanged envelope"
+        $ref: "#/$defs/ExpressionOrOverride"
+        description: "Predicate over { context, event } — string or {lang: expr} override"
       listenLayer:
         type: string
         description: "Optional layer name; if set, binding only re-evaluates when this layer changes"
@@ -890,12 +905,12 @@ $defs:
         title: MilestoneDescription
         description: "What this milestone represents"
       condition:
-        type: string
+        $ref: "#/$defs/ExpressionOrOverride"
         title: MilestoneCondition
-        description: "JQ expression — true means milestone is reached"
+        description: "Expression — true means milestone is reached. String or {lang: expr} override"
       entryCriteria:
-        type: string
-        description: "JQ predicate — milestone becomes ACTIVE when true (default: always true)"
+        $ref: "#/$defs/ExpressionOrOverride"
+        description: "Predicate — milestone becomes ACTIVE when true. String or {lang: expr} override"
       slaDuration:
         type: string
         description: "ISO-8601 duration for SLA deadline (e.g. PT2H, PT24H). Must be positive if present."

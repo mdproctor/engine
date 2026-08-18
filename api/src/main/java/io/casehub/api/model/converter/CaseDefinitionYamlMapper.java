@@ -559,15 +559,27 @@ public final class CaseDefinitionYamlMapper {
 
     // Convert milestones
     if (schema.getSpec() != null && schema.getSpec().getMilestones() != null) {
-      for (io.casehub.model.Milestone sm : schema.getSpec().getMilestones()) {
+      final JsonNode milestonesNode =
+          rawNode.has("spec") && rawNode.get("spec").has("milestones")
+              ? rawNode.get("spec").get("milestones")
+              : null;
+      final List<io.casehub.model.Milestone> schemaMilestones = schema.getSpec().getMilestones();
+      for (int mi = 0; mi < schemaMilestones.size(); mi++) {
+        final io.casehub.model.Milestone sm = schemaMilestones.get(mi);
+        final JsonNode rawMs =
+            milestonesNode != null && mi < milestonesNode.size() ? milestonesNode.get(mi) : null;
         final Milestone.Builder milestoneBuilder =
             Milestone.builder()
                 .name(sm.getName())
-                .completionCriteria(effectiveRegistry.create(sm.getCondition(), expressionLang));
+                .completionCriteria(
+                    resolveExpression(
+                        rawMs != null ? rawMs.get("condition") : null,
+                        effectiveRegistry,
+                        expressionLang));
 
-        if (sm.getEntryCriteria() != null) {
+        if (rawMs != null && rawMs.has("entryCriteria")) {
           milestoneBuilder.entryCriteria(
-              effectiveRegistry.create(sm.getEntryCriteria(), expressionLang));
+              resolveExpression(rawMs.get("entryCriteria"), effectiveRegistry, expressionLang));
         }
 
         if (sm.getSlaDuration() != null) {
@@ -606,12 +618,23 @@ public final class CaseDefinitionYamlMapper {
 
     // Convert goals
     final Map<String, Goal> goalMap = new LinkedHashMap<>();
+    final JsonNode goalsNode =
+        rawNode.has("spec") && rawNode.get("spec").has("goals")
+            ? rawNode.get("spec").get("goals")
+            : null;
     if (schema.getSpec() != null && schema.getSpec().getGoals() != null) {
-      for (io.casehub.model.Goal sg : schema.getSpec().getGoals()) {
+      final List<io.casehub.model.Goal> schemaGoals = schema.getSpec().getGoals();
+      for (int gi = 0; gi < schemaGoals.size(); gi++) {
+        final io.casehub.model.Goal sg = schemaGoals.get(gi);
+        final JsonNode rawGoal =
+            goalsNode != null && gi < goalsNode.size() ? goalsNode.get(gi) : null;
         final Goal goal =
             new Goal(
                 sg.getName(),
-                effectiveRegistry.create(sg.getCondition(), expressionLang),
+                resolveExpression(
+                    rawGoal != null ? rawGoal.get("condition") : null,
+                    effectiveRegistry,
+                    expressionLang),
                 sg.getKind() != null ? sg.getKind() : "success");
         goal.setDescription(sg.getDescription());
         goalMap.put(sg.getName(), goal);
@@ -623,8 +646,8 @@ public final class CaseDefinitionYamlMapper {
     final JsonNode specNode = rawNode.get("spec");
     final JsonNode completionNode = specNode != null ? specNode.get("completion") : null;
     if (completionNode != null && completionNode.isObject()) {
-      String doneWhen =
-          completionNode.has("doneWhen") ? completionNode.get("doneWhen").asText() : null;
+      final JsonNode doneWhenNode =
+          completionNode.has("doneWhen") ? completionNode.get("doneWhen") : null;
       var gbc = GoalBasedCompletion.builder();
       boolean hasGoalEntries = false;
       var fields = completionNode.fields();
@@ -639,13 +662,15 @@ public final class CaseDefinitionYamlMapper {
         GoalExpression expr = parseGoalExpressionFromNode(entry.getValue(), goalMap);
         gbc.goal(kind, expr);
       }
-      if (doneWhen != null && hasGoalEntries) {
+      if (doneWhenNode != null && hasGoalEntries) {
         throw new IllegalArgumentException(
             "Completion block cannot mix 'doneWhen' with goal kind entries"
                 + " — use one completion mechanism per definition");
       }
-      if (doneWhen != null) {
-        def.setCompletion(new PredicateBasedCompletion(new JQExpressionEvaluator(doneWhen)));
+      if (doneWhenNode != null) {
+        def.setCompletion(
+            new PredicateBasedCompletion(
+                resolveExpression(doneWhenNode, effectiveRegistry, JQExpressionEvaluator.TYPE)));
       } else if (hasGoalEntries) {
         def.setCompletion(gbc.build());
       }
@@ -991,6 +1016,32 @@ public final class CaseDefinitionYamlMapper {
     return def;
   }
 
+  static ExpressionEvaluator resolveExpression(
+      final JsonNode rawValue, final ExpressionEngineRegistry registry, final String defaultLang) {
+    if (rawValue == null || rawValue.isNull()) {
+      return null;
+    }
+    if (rawValue.isTextual()) {
+      return registry.create(rawValue.asText(), defaultLang);
+    }
+    if (rawValue.isObject()) {
+      if (rawValue.size() != 1) {
+        throw new IllegalArgumentException(
+            "Expression override must be a single-key map {lang: expr}, got "
+                + rawValue.size()
+                + " keys");
+      }
+      var entry = rawValue.fields().next();
+      String lang = entry.getKey();
+      String expr = entry.getValue().asText();
+      registry.assertLanguageSupported(lang);
+      return registry.create(expr, lang);
+    }
+    throw new IllegalArgumentException(
+        "Expression must be a string or single-key map {lang: expr}, got: "
+            + rawValue.getNodeType());
+  }
+
   private static Binding convertBinding(
       final io.casehub.model.Binding schemaBinding,
       final JsonNode rawBindingNode,
@@ -1002,7 +1053,11 @@ public final class CaseDefinitionYamlMapper {
     }
 
     final io.casehub.api.model.Trigger trigger =
-        convertTrigger(schemaBinding.getOn(), registry, expressionLang);
+        convertTrigger(
+            schemaBinding.getOn(),
+            rawBindingNode != null ? rawBindingNode.get("on") : null,
+            registry,
+            expressionLang);
 
     final Binding.Builder builder = Binding.builder().name(schemaBinding.getName()).on(trigger);
 
@@ -1044,8 +1099,8 @@ public final class CaseDefinitionYamlMapper {
               + "' must have capability, subCase, humanTask, or signal");
     }
 
-    if (schemaBinding.getWhen() != null) {
-      builder.when(registry.create(schemaBinding.getWhen(), expressionLang));
+    if (rawBindingNode != null && rawBindingNode.has("when")) {
+      builder.when(resolveExpression(rawBindingNode.get("when"), registry, expressionLang));
     }
 
     if (schemaBinding.getConflictResolverStrategy() != null) {
@@ -1175,6 +1230,7 @@ public final class CaseDefinitionYamlMapper {
 
   private static io.casehub.api.model.Trigger convertTrigger(
       final io.casehub.model.Trigger schemaTrigger,
+      final JsonNode rawTriggerNode,
       final ExpressionEngineRegistry registry,
       final String expressionLang) {
     if (schemaTrigger == null) {
@@ -1182,10 +1238,11 @@ public final class CaseDefinitionYamlMapper {
     }
 
     if (schemaTrigger.getContextChange() != null) {
-      final String filter = schemaTrigger.getContextChange().getFilter();
+      final JsonNode ctxNode = rawTriggerNode != null ? rawTriggerNode.get("contextChange") : null;
+      final JsonNode filterNode = ctxNode != null ? ctxNode.get("filter") : null;
       final String listenLayer = schemaTrigger.getContextChange().getListenLayer();
       return new io.casehub.api.model.ContextChangeTrigger(
-          filter != null ? registry.create(filter, expressionLang) : null, listenLayer);
+          resolveExpression(filterNode, registry, expressionLang), listenLayer);
     }
 
     if (schemaTrigger.getScopeActivated() != null) {
