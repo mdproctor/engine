@@ -158,7 +158,7 @@ Consider a case where Worker A succeeds but produces output that doesn't satisfy
 
 #### Issue 2: GOAP as a Decomposition Strategy
 
-**What:** Wire the existing `GoapPlanner` as a `DecompositionStrategy` (id=`"goap"`) that produces a full `DagPlan<LeafTask>` from A* search over the precondition/effect graph.
+**What:** Wire the existing `GoapPlanner` as a `DecompositionStrategy` (id=`"goap"`) that produces a full `DagPlan<LeafTask>` from A* search over the precondition/effect graph. Enhance the planner with backward pruning, forward simulation, ternary world state, and dynamic cost computation.
 
 **Why this matters:** The `GoapPlanner` currently operates only at dispatch time — it selects the next single action from eligible bindings. It cannot produce a complete plan upfront because it is not connected to the `DecompositionStrategy` SPI. This means:
 - When `LlmDecompositionStrategy` is unavailable (no `ChatModelProvider`), there is no decomposition at all — cases fall back to choreography.
@@ -169,6 +169,10 @@ Consider a case where Worker A succeeds but produces output that doesn't satisfy
 - `GoapDecompositionStrategy` implements `DecompositionStrategy<JsonNode>`. It builds `GoapAction` instances from bindings with declared capabilities, evaluates the goal conditions from `CaseDefinition.goalToEffectKeys`, runs `GoapPlanner.plan()`, and maps the resulting action sequence to a `DagPlan<LeafTask<JsonNode>>`.
 - Uses the same `GoapAction` construction as `GoapPlanningStrategy` — preconditions from method parameters (annotations) or explicit declarations, effects from return types or `@Effect`.
 - Returns `Uni.createFrom().item(plan)` — synchronous, no LLM call.
+- **Backward pruning:** Before A* runs, work backward from the goal and remove actions that cannot contribute to reaching it. Shrinks the branching factor for case definitions with many bindings.
+- **Forward simulation:** After finding a plan, simulate execution forward and strip actions whose effects are already satisfied by earlier actions. Each redundant action removed saves a real worker execution.
+- **Ternary world state:** Extend `GoapWorldState` to support TRUE/FALSE/UNKNOWN. When a condition is UNKNOWN, generate plans for both values; only evaluate the condition at runtime if the plans differ. Enables planning under partial observability without full contingent planning.
+- **Dynamic cost computation:** `GoapAction` gains an optional `CostFunction` evaluated against the current case context at planning time. In the annotations module: `@Cost`-annotated methods. In YAML: JQ expressions. Static costs remain the default when no dynamic cost is declared. Issue #10 (Learned Costs from CBR) layers on top as a reliability adjustment factor.
 
 **What it enables:** Portfolio strategy (#6), dynamic decomposition depth (#9), learned action costs (#10), and contingent planning (#11) all build on GOAP being available as a decomposition strategy.
 
@@ -493,7 +497,14 @@ We already have this via the annotations module: `@Effect` for explicit effect k
 
 **Dynamic cost computation.** `@Action(costMethod = "computeCost")` points to a method `(WorldState) → ZeroToOne` evaluated at planning time. Costs can depend on current blackboard state, other executed actions, and environment.
 
-We have static `cost` on `GoapAction` and no equivalent of `@Cost` methods. However, Issue #10 (Learned Action Costs from CBR) addresses this more powerfully — costs learned from actual execution history are more accurate than developer-estimated dynamic costs. The CBR approach subsumes hand-written cost methods for production systems. That said, the developer-authored `@Cost` pattern is useful for domain-specific cost logic that CBR can't learn (e.g., regulatory cost of an action). Consider adding `@Cost` support to the annotations module as a refinement of Issue #10.
+We have static `cost` on `GoapAction` and no equivalent of `@Cost` methods. Dynamic costs and CBR-learned costs are complementary, not substitutes:
+
+- **Dynamic costs** see the *current* context — input data size, cache state, rate limit quotas, regulatory jurisdiction. CBR can't capture these because they vary per invocation, not per historical pattern.
+- **CBR-learned costs** (Issue #10) see *historical performance* — average duration, success rate, reliability trends. Dynamic cost methods can't capture these because they require execution history.
+
+The natural layering: dynamic costs as the planning-time base computation, CBR as a learned adjustment factor. When both are available: `effectiveCost = dynamicCost(context) × cbrReliabilityFactor`.
+
+**Recommendation:** Add dynamic cost computation to Issue #2 (GOAP as DecompositionStrategy). In the annotations module: `@Cost`-annotated method taking context and returning a cost. In the YAML/builder path: JQ expression evaluated against the working layer at planning time. Issue #10 then layers learned costs on top — the planner's cost model becomes: static (declared) → dynamic (context-evaluated) → learned (CBR-adjusted), each layer enriching the previous.
 
 **Tool replan decorators.** `replanAlways()`, `replanWhen(predicate)`, `replanAndAdd(blackboardObject)` wrap tools with explicit replan triggers. When an LLM tool call returns, the decorator can force replanning based on the result.
 
