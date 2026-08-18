@@ -16,7 +16,7 @@ The unified execution model migration is done — all eight phases. But the inte
 
 ## The GOAP realisation
 
-When I sat down to build `CapabilityDependencyDecomposition`, the classical AI planner for the agentic orchestration layer, I expected to need a new capability schema. GOAP needs actions with preconditions and effects — what an agent consumes and what it produces. I assumed eidos didn't have that yet.
+When I sat down to build `GoalOrientedDecomposition`, the classical AI planner for the agentic orchestration layer, I expected to need a new capability schema. GOAP needs actions with preconditions and effects — what an agent consumes and what it produces. I assumed eidos didn't have that yet.
 
 It did. `AgentCapability` already carries `inputTypes` and `outputTypes` — string lists declaring what data types an agent consumes and produces. They were there for documentation and matching. But they're also a complete action specification for backward-chaining.
 

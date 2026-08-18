@@ -18,6 +18,7 @@ package io.casehub.engine.common.internal.model;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseStatus;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -200,5 +201,15 @@ public class CaseInstance {
 
   public void setTypes(Set<String> types) {
     this.types = types;
+  }
+
+  private Instant createdAt;
+
+  public Instant getCreatedAt() {
+    return createdAt;
+  }
+
+  public void setCreatedAt(Instant createdAt) {
+    this.createdAt = createdAt;
   }
 }

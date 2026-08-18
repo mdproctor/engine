@@ -54,6 +54,7 @@ public class JpaCrossTenantCaseInstanceRepository extends TenantAwareRepository
     instance.setParentCaseId(entity.parentCaseId);
     instance.setParentPlanItemId(entity.parentPlanItemId);
     instance.setWaitingForWorkId(entity.waitingForWorkId);
+    instance.setCreatedAt(entity.createdAt);
     if (entity.caseMetaModel != null) {
       CaseMetaModel m = new CaseMetaModel();
       m.id = entity.caseMetaModel.id;

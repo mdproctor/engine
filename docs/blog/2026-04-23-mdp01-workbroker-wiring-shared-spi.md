@@ -12,7 +12,7 @@ excerpt: "Wiring WorkBroker into casehub-engine reveals two undocumented quarkus
 
 quarkus-work-api landed. We spent the session wiring it in.
 
-The first thing to resolve was naming. casehub-core had `TaskBroker` — a concrete class that routed work to workers, handled idempotency, and checked poison pills. The shared SPI coming from treblereel's quarkus-work-core uses `WorkBroker`. The names aren't synonyms: `Work` is the generalised assignable unit, `WorkItemEntity` is Work with human inbox semantics, and `Task` belongs at the sub-step level — inside a unit of Work. I filed ADR-0003 to close this and retire `TaskBroker` as a name. Future code uses `WorkBroker`.
+The first thing to resolve was naming. casehub-core had `TaskBroker` — a concrete class that routed work to workers, handled idempotency, and checked poison pills. The shared SPI coming from treblereel's quarkus-work-core uses `WorkBroker`. The names aren't synonyms: `Work` is the generalised assignable unit, `WorkItem` is Work with human inbox semantics, and `Task` belongs at the sub-step level — inside a unit of Work. I filed ADR-0003 to close this and retire `TaskBroker` as a name. Future code uses `WorkBroker`.
 
 That settled, we had two integration points: the choreography path and the orchestration path.
 

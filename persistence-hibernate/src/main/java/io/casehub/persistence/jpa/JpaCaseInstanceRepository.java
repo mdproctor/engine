@@ -23,6 +23,8 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.query.CaseInstanceQuery;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.UUID;
@@ -44,6 +46,9 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
     entity.parentPlanItemId = instance.getParentPlanItemId();
     entity.waitingForWorkId = instance.getWaitingForWorkId();
     entity.actorId = instance.getActorId();
+    entity.createdAt =
+        (instance.getCreatedAt() != null ? instance.getCreatedAt() : Instant.now())
+            .truncatedTo(ChronoUnit.MICROS);
     entity.labels = new LinkedHashSet<>(instance.getLabels());
     entity.types = new LinkedHashSet<>(instance.getTypes());
     entity.exchangeHeaders =
@@ -247,6 +252,7 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
     instance.setParentPlanItemId(entity.parentPlanItemId);
     instance.setWaitingForWorkId(entity.waitingForWorkId);
     instance.setActorId(entity.actorId);
+    instance.setCreatedAt(entity.createdAt);
     if (entity.caseMetaModel != null) {
       instance.setCaseMetaModel(fromMetaEntity(entity.caseMetaModel));
     }

@@ -59,6 +59,7 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
@@ -250,6 +251,7 @@ class CaseHubReactor {
     instance.setPropagationContext(propagationContext);
     instance.setParentCaseId(parentCaseId);
     instance.setActorId(currentPrincipal.actorId());
+    instance.setCreatedAt(Instant.now());
 
     caseInstanceCache.put(instance);
     return caseInstanceRepository.save(instance, currentPrincipal.tenancyId());

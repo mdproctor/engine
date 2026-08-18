@@ -1,0 +1,1 @@
+ALTER TABLE case_instance ADD COLUMN created_at TIMESTAMP NOT NULL DEFAULT NOW();

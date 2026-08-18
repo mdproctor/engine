@@ -30,6 +30,7 @@ import jakarta.persistence.Index;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.Instant;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import java.util.UUID;
@@ -71,6 +72,9 @@ public class CaseInstanceEntity {
 
   @Column(name = "actor_id", nullable = true, length = 255)
   public String actorId;
+
+  @Column(name = "created_at", nullable = false, updatable = false)
+  public Instant createdAt;
 
   @ElementCollection(fetch = FetchType.EAGER)
   @CollectionTable(

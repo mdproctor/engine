@@ -21,6 +21,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.query.CaseInstanceQuery;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -124,5 +125,27 @@ public abstract class CaseInstanceRepositoryContractTest {
     CaseInstance found = repository().findByUuid(instance.getUuid(), tenancyId());
     assertThat(found).isNotNull();
     assertThat(found.getActorId()).isNull();
+  }
+
+  @Test
+  void createdAt_roundTrip_preservesValue() {
+    CaseMetaModel meta = new CaseMetaModel();
+    meta.setNamespace("ns");
+    meta.setName("case-a");
+    meta.setVersion("1.0");
+
+    CaseInstance instance = new CaseInstance();
+    instance.setUuid(UUID.randomUUID());
+    instance.setCaseMetaModel(meta);
+    instance.setState(CaseStatus.RUNNING);
+    instance.setCreatedAt(Instant.parse("2026-06-15T10:30:00Z"));
+    instance.tenancyId = tenancyId();
+
+    CaseInstance saved = repository().save(instance, tenancyId());
+    assertThat(saved.getCreatedAt()).isEqualTo(Instant.parse("2026-06-15T10:30:00Z"));
+
+    CaseInstance found = repository().findByUuid(saved.getUuid(), tenancyId());
+    assertThat(found).isNotNull();
+    assertThat(found.getCreatedAt()).isEqualTo(Instant.parse("2026-06-15T10:30:00Z"));
   }
 }
