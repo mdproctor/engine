@@ -231,6 +231,84 @@ class MvelExpressionEngineTest {
 
   // ── compile delegation ────────────────────────────────────────────────────
 
+  // ── POJO cache (#926) ─────────────────────────────────────────────────────
+
+  @Test
+  void evaluate_typed_sameContextVersion_cachesPojoAcrossCalls() throws Exception {
+    JsonNode node = mapper.readTree("{\"transaction\": {\"amount\": 200}}");
+    CaseContext context = new CaseContextImpl(node);
+    TypedMvelExpressionEvaluator eval =
+        new TypedMvelExpressionEvaluator("transaction.amount > 100", TestTransactionCase.class);
+
+    engine.evaluate(eval, context);
+    Object firstPojo = engine.cachedPojoForTesting();
+    assertThat(firstPojo).isNotNull();
+
+    engine.evaluate(eval, context);
+    Object secondPojo = engine.cachedPojoForTesting();
+    assertThat(secondPojo).isSameAs(firstPojo);
+  }
+
+  @Test
+  void evaluate_typed_versionChange_invalidatesCache() throws Exception {
+    JsonNode node = mapper.readTree("{\"transaction\": {\"amount\": 200}}");
+    CaseContext context = new CaseContextImpl(node);
+    TypedMvelExpressionEvaluator eval =
+        new TypedMvelExpressionEvaluator("transaction.amount > 100", TestTransactionCase.class);
+
+    engine.evaluate(eval, context);
+    Object firstPojo = engine.cachedPojoForTesting();
+
+    context.set("status", "changed");
+
+    engine.evaluate(eval, context);
+    Object secondPojo = engine.cachedPojoForTesting();
+    assertThat(secondPojo).isNotSameAs(firstPojo);
+  }
+
+  @Test
+  void evaluate_typed_differentContext_invalidatesCache() throws Exception {
+    JsonNode node1 = mapper.readTree("{\"transaction\": {\"amount\": 200}}");
+    CaseContext ctx1 = new CaseContextImpl(node1);
+    JsonNode node2 = mapper.readTree("{\"transaction\": {\"amount\": 300}}");
+    CaseContext ctx2 = new CaseContextImpl(node2);
+    TypedMvelExpressionEvaluator eval =
+        new TypedMvelExpressionEvaluator("transaction.amount > 100", TestTransactionCase.class);
+
+    engine.evaluate(eval, ctx1);
+    Object firstPojo = engine.cachedPojoForTesting();
+
+    engine.evaluate(eval, ctx2);
+    Object secondPojo = engine.cachedPojoForTesting();
+    assertThat(secondPojo).isNotSameAs(firstPojo);
+  }
+
+  @Test
+  void evaluate_untyped_doesNotPopulateCache() throws Exception {
+    JsonNode node = mapper.readTree("{\"amount\": 200}");
+    CaseContext context = new CaseContextImpl(node);
+
+    engine.evaluate(new MvelExpressionEvaluator("amount > 100"), context);
+    assertThat(engine.cachedPojoForTesting()).isNull();
+  }
+
+  @Test
+  void extractString_typed_usesCache() throws Exception {
+    JsonNode node = mapper.readTree("{\"transaction\": {\"amount\": 200, \"currency\": \"USD\"}}");
+    CaseContext context = new CaseContextImpl(node);
+    TypedMvelExpressionEvaluator boolEval =
+        new TypedMvelExpressionEvaluator("transaction.amount > 100", TestTransactionCase.class);
+    TypedMvelExpressionEvaluator strEval =
+        new TypedMvelExpressionEvaluator("transaction.currency", TestTransactionCase.class);
+
+    engine.evaluate(boolEval, context);
+    Object pojoAfterEval = engine.cachedPojoForTesting();
+
+    engine.extractString(strEval, context);
+    Object pojoAfterExtract = engine.cachedPojoForTesting();
+    assertThat(pojoAfterExtract).isSameAs(pojoAfterEval);
+  }
+
   @Test
   void compile_delegatesToPlatform() {
     var compiled = engine.compile("amount > 100", java.util.Map.class, Boolean.class);

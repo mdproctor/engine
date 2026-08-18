@@ -37,7 +37,11 @@ public class MvelExpressionEngine implements ExpressionEngine {
   private static final Logger LOG = Logger.getLogger(MvelExpressionEngine.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
+  private record CachedPojo(
+      CaseContext context, long version, Class<?> contextClass, Object pojo) {}
+
   private final io.casehub.platform.expression.MvelExpressionEngine platformMvel;
+  private volatile CachedPojo cachedPojo;
 
   @Inject
   MvelExpressionEngine(io.casehub.platform.expression.MvelExpressionEngine platformMvel) {
@@ -66,7 +70,7 @@ public class MvelExpressionEngine implements ExpressionEngine {
 
     try {
       if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
-        final Object pojo = deserializeToPojo(context, typed.contextClass());
+        final Object pojo = resolveTypedPojo(context, typed.contextClass());
         final CompiledExpression<Object, Boolean> compiled =
             (CompiledExpression<Object, Boolean>)
                 platformMvel.compile(expr, typed.contextClass(), Boolean.class);
@@ -124,7 +128,7 @@ public class MvelExpressionEngine implements ExpressionEngine {
 
     try {
       if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
-        final Object pojo = deserializeToPojo(context, typed.contextClass());
+        final Object pojo = resolveTypedPojo(context, typed.contextClass());
         final CompiledExpression<Object, Object> compiled =
             (CompiledExpression<Object, Object>)
                 platformMvel.compile(expr, typed.contextClass(), Object.class);
@@ -171,6 +175,24 @@ public class MvelExpressionEngine implements ExpressionEngine {
       return typed.expression();
     }
     return ((MvelExpressionEvaluator) evaluator).expression();
+  }
+
+  private Object resolveTypedPojo(final CaseContext context, final Class<?> contextClass) {
+    final CachedPojo cached = this.cachedPojo;
+    if (cached != null
+        && cached.context == context
+        && cached.version == context.getVersion()
+        && cached.contextClass == contextClass) {
+      return cached.pojo;
+    }
+    final Object pojo = deserializeToPojo(context, contextClass);
+    this.cachedPojo = new CachedPojo(context, context.getVersion(), contextClass, pojo);
+    return pojo;
+  }
+
+  Object cachedPojoForTesting() {
+    final CachedPojo cached = this.cachedPojo;
+    return cached != null ? cached.pojo : null;
   }
 
   private static <T> T deserializeToPojo(final CaseContext context, final Class<T> contextClass) {
