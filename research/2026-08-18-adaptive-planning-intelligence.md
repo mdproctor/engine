@@ -173,6 +173,9 @@ Consider a case where Worker A succeeds but produces output that doesn't satisfy
 - **Forward simulation:** After finding a plan, simulate execution forward and strip actions whose effects are already satisfied by earlier actions. Each redundant action removed saves a real worker execution.
 - **Ternary world state:** Extend `GoapWorldState` to support TRUE/FALSE/UNKNOWN. When a condition is UNKNOWN, generate plans for both values; only evaluate the condition at runtime if the plans differ. Enables planning under partial observability without full contingent planning.
 - **Dynamic cost computation:** `GoapAction` gains an optional `CostFunction` evaluated against the current case context at planning time. In the annotations module: `@Cost`-annotated methods. In YAML: JQ expressions. Static costs remain the default when no dynamic cost is declared. Issue #10 (Learned Costs from CBR) layers on top as a reliability adjustment factor.
+- **Iteration safety ceiling:** Cap A* search at a configurable maximum (default 10,000 iterations) to prevent runaway planning on large or cyclic action spaces. Return empty plan on exhaustion — the portfolio strategy (#6) escalates to LLM.
+- **Action blacklisting:** When replanning after a failure, exclude the failed action from the search space. Prevents the planner from reproducing the same plan that just failed. Complements the existing `excludedAgents` mechanism at the routing layer — this operates at the planning layer.
+- **Admissible heuristic:** Use count of unsatisfied goal conditions as the A* heuristic (admissible — never overestimates). Verify the existing `GoapPlanner` heuristic is admissible; if not, replace it.
 
 **What it enables:** Portfolio strategy (#6), dynamic decomposition depth (#9), learned action costs (#10), and contingent planning (#11) all build on GOAP being available as a decomposition strategy.
 
@@ -547,7 +550,9 @@ Our epic covers everything Embabel does and significantly more. Two minor enhanc
 
 3. **Per-binding replan hints** → refine Issue #4 (Progress-Gated Trigger). Let individual bindings declare `replanAfter: always | conditional | never` to give the trigger per-action signal strength alongside the global divergence measurement.
 
-None require new issues. All strengthen existing issues — #1 is the most impactful.
+None require new issues. All strengthen existing issues — #1 and #4 (dynamic costs) are the most impactful.
+
+Additionally folded into Issue #2: iteration safety ceiling (10k default), action blacklisting on failure (planning-layer complement to routing-layer `excludedAgents`), and admissible heuristic verification.
 
 ### Broader Comparison
 
