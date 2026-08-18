@@ -29,10 +29,12 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.Optional;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class MvelExpressionEngine implements ExpressionEngine {
 
+  private static final Logger LOG = Logger.getLogger(MvelExpressionEngine.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final io.casehub.platform.expression.MvelExpressionEngine platformMvel;
@@ -62,23 +64,28 @@ public class MvelExpressionEngine implements ExpressionEngine {
       return true;
     }
 
-    if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
-      final Object pojo = deserializeToPojo(context, typed.contextClass());
-      final CompiledExpression<Object, Boolean> compiled =
-          (CompiledExpression<Object, Boolean>)
-              platformMvel.compile(expr, typed.contextClass(), Boolean.class);
-      final Boolean result = compiled.eval(pojo);
+    try {
+      if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
+        final Object pojo = deserializeToPojo(context, typed.contextClass());
+        final CompiledExpression<Object, Boolean> compiled =
+            (CompiledExpression<Object, Boolean>)
+                platformMvel.compile(expr, typed.contextClass(), Boolean.class);
+        final Boolean result = compiled.eval(pojo);
+        return result != null && result;
+      }
+
+      final JsonNode workingJson = context.layer(ContextLayer.WORKING).asJsonNode();
+      final Map<String, Object> contextMap = MAPPER.convertValue(workingJson, Map.class);
+
+      final CompiledExpression<Map<String, Object>, Boolean> compiled =
+          platformMvel.compile(
+              expr, (Class<Map<String, Object>>) (Class<?>) Map.class, Boolean.class);
+      final Boolean result = compiled.eval(contextMap);
       return result != null && result;
+    } catch (Exception e) {
+      LOG.warnf("MVEL evaluation failed for '%s': %s", expr, e.getMessage());
+      return false;
     }
-
-    final JsonNode workingJson = context.layer(ContextLayer.WORKING).asJsonNode();
-    final Map<String, Object> contextMap = MAPPER.convertValue(workingJson, Map.class);
-
-    final CompiledExpression<Map<String, Object>, Boolean> compiled =
-        platformMvel.compile(
-            expr, (Class<Map<String, Object>>) (Class<?>) Map.class, Boolean.class);
-    final Boolean result = compiled.eval(contextMap);
-    return result != null && result;
   }
 
   @Override
@@ -115,22 +122,28 @@ public class MvelExpressionEngine implements ExpressionEngine {
       return Optional.empty();
     }
 
-    if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
-      final Object pojo = deserializeToPojo(context, typed.contextClass());
-      final CompiledExpression<Object, Object> compiled =
-          (CompiledExpression<Object, Object>)
-              platformMvel.compile(expr, typed.contextClass(), Object.class);
-      final Object result = compiled.eval(pojo);
+    try {
+      if (evaluator instanceof TypedMvelExpressionEvaluator typed) {
+        final Object pojo = deserializeToPojo(context, typed.contextClass());
+        final CompiledExpression<Object, Object> compiled =
+            (CompiledExpression<Object, Object>)
+                platformMvel.compile(expr, typed.contextClass(), Object.class);
+        final Object result = compiled.eval(pojo);
+        return result != null ? Optional.of(result.toString()) : Optional.empty();
+      }
+
+      final JsonNode workingJson = context.layer(ContextLayer.WORKING).asJsonNode();
+      final Map<String, Object> contextMap = MAPPER.convertValue(workingJson, Map.class);
+
+      final CompiledExpression<Map<String, Object>, Object> compiled =
+          platformMvel.compile(
+              expr, (Class<Map<String, Object>>) (Class<?>) Map.class, Object.class);
+      final Object result = compiled.eval(contextMap);
       return result != null ? Optional.of(result.toString()) : Optional.empty();
+    } catch (Exception e) {
+      LOG.warnf("MVEL extractString failed for '%s': %s", expr, e.getMessage());
+      return Optional.empty();
     }
-
-    final JsonNode workingJson = context.layer(ContextLayer.WORKING).asJsonNode();
-    final Map<String, Object> contextMap = MAPPER.convertValue(workingJson, Map.class);
-
-    final CompiledExpression<Map<String, Object>, Object> compiled =
-        platformMvel.compile(expr, (Class<Map<String, Object>>) (Class<?>) Map.class, Object.class);
-    final Object result = compiled.eval(contextMap);
-    return result != null ? Optional.of(result.toString()) : Optional.empty();
   }
 
   @Override
