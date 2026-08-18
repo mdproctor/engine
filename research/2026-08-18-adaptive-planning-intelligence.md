@@ -475,7 +475,11 @@ Embabel (Rod Johnson, Spring Boot/Kotlin, v1.5 GA) is the closest comparable GOA
 
 ### What Embabel Has (verified against source at `/Users/mdproctor/claude/embabel-agent`)
 
-**A* GOAP planner with dual optimization.** `AStarGoapPlanner` uses backward planning (removes actions not contributing to goal) and forward simulation (removes redundant actions). 10,000 iteration safety ceiling. Admissible heuristic: count of unsatisfied goal conditions. `OptimizingGoapPlanner.prune()` removes actions not used in any valid plan. Our `GoapPlanner` does forward search with soft preconditions — comparable in capability, different optimization approach. No gap.
+**A* GOAP planner with dual optimization.** `AStarGoapPlanner` uses backward planning (removes actions not contributing to goal) and forward simulation (removes redundant actions). 10,000 iteration safety ceiling. Admissible heuristic: count of unsatisfied goal conditions. `OptimizingGoapPlanner.prune()` removes actions not used in any valid plan. Our `GoapPlanner` does forward-only A* search with soft preconditions — it lacks both optimizations.
+
+This is a genuine gap. Backward pruning matters because case definitions can have 30+ bindings, many irrelevant to the current goal — pruning shrinks the search space before A* runs. Forward simulation matters because each redundant action in our system is a real worker execution consuming time, tokens, and agent capacity — not just a wasted animation frame as in game AI. Both optimizations produce *better* plans (shorter, no redundant steps) and scale better on larger action spaces.
+
+**Recommendation:** Add backward pruning and forward simulation as enhancements to Issue #2 (GOAP as DecompositionStrategy). The planner we wire into the decomposition pipeline should include these optimizations from the start.
 
 **Ternary world state.** `ConditionWorldState` uses TRUE/FALSE/UNKNOWN with lazy evaluation. When a condition is UNKNOWN, the `OptimizingGoapPlanner` generates all possible world states (condition true and false), plans for each, and only evaluates the condition at runtime if the two plans differ. This avoids unnecessary condition evaluation when the outcome doesn't affect the plan.
 
@@ -526,11 +530,13 @@ We have this via `SubCaseMapping` — sub-cases get projected input and write ou
 
 Our epic covers everything Embabel does and significantly more. Two minor enhancements worth folding into existing issues:
 
-1. **Ternary world state with lazy evaluation** → refine Issue #2 (GOAP Decomposition). Allows planning under partial observability without the full weight of Issue #11 (Contingent Planning). Useful for cases where some context values are populated asynchronously.
+1. **Backward pruning and forward simulation** → enhance Issue #2 (GOAP Decomposition). Backward pruning removes actions that cannot contribute to the goal before A* search, shrinking the branching factor. Forward simulation strips redundant actions from the produced plan. Both matter more for case management (large action spaces, expensive actions) than for game AI. The GOAP decomposition strategy should include these from the start.
 
-2. **Per-binding replan hints** → refine Issue #4 (Progress-Gated Trigger). Let individual bindings declare `replanAfter: always | conditional | never` to give the trigger per-action signal strength alongside the global divergence measurement.
+2. **Ternary world state with lazy evaluation** → refine Issue #2 (GOAP Decomposition). Allows planning under partial observability without the full weight of Issue #11 (Contingent Planning). Useful for cases where some context values are populated asynchronously.
 
-Neither requires a new issue. Both are small additions that strengthen existing issues.
+3. **Per-binding replan hints** → refine Issue #4 (Progress-Gated Trigger). Let individual bindings declare `replanAfter: always | conditional | never` to give the trigger per-action signal strength alongside the global divergence measurement.
+
+None require new issues. All strengthen existing issues — #1 is the most impactful.
 
 ### Broader Comparison
 
