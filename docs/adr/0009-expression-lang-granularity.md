@@ -1,7 +1,7 @@
 # 0009 — expressionLang granularity: per-definition vs per-expression
 
 Date: 2026-06-09
-Status: Accepted
+Status: Superseded (per-expression override added by #925)
 
 ## Context and Problem Statement
 
@@ -71,3 +71,13 @@ in the Java DSL; the YAML syntax concern is a separate future schema design.
 * engine#289 — ExpressionEvaluatorFactory SPI implementation
 * Protocol PP-20260609-3c86d1 — expressionLang three-way invariant
 * CNCF Serverless Workflow 1.0 spec — `expressionLang` field
+
+## Superseded by #925
+
+The original decision chose per-definition granularity. Engine#925 adds per-expression
+override via YAML map syntax (`when: { jq: ".expr" }`), implementing Option B from this
+ADR. The definition-level `expressionLang` remains the default — per-expression is additive.
+
+The CNCF SW 1.0 divergence concern is accepted: CNCF SW 1.0 defines `expressionLang` at
+the workflow level, but casehub's typed-POJO context model (`contextType` + MVEL inference)
+creates a concrete need for mixed-language definitions that CNCF SW 1.0 does not address.
