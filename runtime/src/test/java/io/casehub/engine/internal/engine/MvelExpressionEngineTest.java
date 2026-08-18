@@ -166,6 +166,17 @@ class MvelExpressionEngineTest {
   }
 
   @Test
+  void evaluate_typed_partialDeserialization_cachesPojo() throws Exception {
+    JsonNode node = mapper.readTree("{\"incompatible\": \"data\"}");
+    CaseContext context = new CaseContextImpl(node);
+
+    engine.evaluate(
+        new TypedMvelExpressionEvaluator("transaction.amount > 100", TestTransactionCase.class),
+        context);
+    assertThat(engine.cachedPojoForTesting()).isNotNull().isInstanceOf(TestTransactionCase.class);
+  }
+
+  @Test
   void evaluate_untyped_invalidExpression_returnsFalse() throws Exception {
     JsonNode node = mapper.readTree("{\"amount\": 200}");
     CaseContext context = new CaseContextImpl(node);

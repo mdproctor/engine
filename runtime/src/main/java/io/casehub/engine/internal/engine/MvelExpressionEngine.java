@@ -195,8 +195,14 @@ public class MvelExpressionEngine implements ExpressionEngine {
     return cached != null ? cached.pojo : null;
   }
 
+  private static final java.util.concurrent.ConcurrentHashMap<Class<?>, JacksonPojoBridge<?>>
+      BRIDGE_CACHE = new java.util.concurrent.ConcurrentHashMap<>();
+
+  @SuppressWarnings("unchecked")
   private static <T> T deserializeToPojo(final CaseContext context, final Class<T> contextClass) {
     final JsonNode workingJson = context.layer(ContextLayer.WORKING).asJsonNode();
-    return new JacksonPojoBridge<>(contextClass).deserialise(workingJson);
+    final JacksonPojoBridge<T> bridge =
+        (JacksonPojoBridge<T>) BRIDGE_CACHE.computeIfAbsent(contextClass, JacksonPojoBridge::new);
+    return bridge.deserialise(workingJson);
   }
 }

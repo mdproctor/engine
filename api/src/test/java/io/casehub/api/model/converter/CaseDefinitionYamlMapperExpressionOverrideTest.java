@@ -151,6 +151,14 @@ class CaseDefinitionYamlMapperExpressionOverrideTest {
         .isInstanceOf(IllegalArgumentException.class);
   }
 
+  @Test
+  void resolveExpression_numericNode_throws() throws Exception {
+    JsonNode node = JSON.readTree("42");
+    assertThatThrownBy(() -> CaseDefinitionYamlMapper.resolveExpression(node, registry, "jq"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessageContaining("NUMBER");
+  }
+
   // --- YAML round-trip tests ---
 
   private CaseDefinition loadYaml(String yaml) throws IOException {
@@ -240,6 +248,25 @@ class CaseDefinitionYamlMapperExpressionOverrideTest {
         """);
     Milestone ms = def.getMilestones().getFirst();
     assertThat(ms.getCompletionCriteria().type()).isEqualTo("jq");
+  }
+
+  @Test
+  void load_milestoneEntryCriteria_mapOverride() throws IOException {
+    CaseDefinition def =
+        loadYaml(
+            """
+                                      name: entry-criteria-override-test
+                                      version: "1.0"
+                                      expressionLang: mvel
+                                      spec:
+                                        milestones:
+                                          - name: guarded-milestone
+                                            condition: "progress > 50"
+                                            entryCriteria: { jq: ".ready == true" }
+                                      """);
+    Milestone ms = def.getMilestones().getFirst();
+    assertThat(ms.getCompletionCriteria().type()).isEqualTo("mvel");
+    assertThat(ms.getEntryCriteria().type()).isEqualTo("jq");
   }
 
   @Test
