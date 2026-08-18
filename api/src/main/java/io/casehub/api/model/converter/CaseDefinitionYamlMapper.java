@@ -1546,11 +1546,11 @@ public final class CaseDefinitionYamlMapper {
 
     @Override
     public ExpressionEvaluator create(String expression, String expressionLang) {
-      delegate.create(expression, expressionLang);
+      final ExpressionEvaluator delegateResult = delegate.create(expression, expressionLang);
       if ("mvel".equals(expressionLang)) {
         return new TypedMvelExpressionEvaluator(expression, contextClass);
       }
-      return delegate.create(expression, expressionLang);
+      return delegateResult;
     }
 
     @Override

@@ -150,6 +150,30 @@ class MvelExpressionEngineTest {
         .isTrue();
   }
 
+  // ── error resilience ───────────────────────────────────────────────────────
+
+  @Test
+  void evaluate_typed_deserializationFailure_returnsFalse() throws Exception {
+    JsonNode node = mapper.readTree("{\"incompatible\": \"data\"}");
+    CaseContext context = new CaseContextImpl(node);
+
+    assertThat(
+            engine.evaluate(
+                new TypedMvelExpressionEvaluator(
+                    "transaction.amount > 100", TestTransactionCase.class),
+                context))
+        .isFalse();
+  }
+
+  @Test
+  void evaluate_untyped_invalidExpression_returnsFalse() throws Exception {
+    JsonNode node = mapper.readTree("{\"amount\": 200}");
+    CaseContext context = new CaseContextImpl(node);
+
+    assertThat(engine.evaluate(new MvelExpressionEvaluator("nonexistent.deep.path > 100"), context))
+        .isFalse();
+  }
+
   // ── validate ──────────────────────────────────────────────────────────────
 
   @Test
