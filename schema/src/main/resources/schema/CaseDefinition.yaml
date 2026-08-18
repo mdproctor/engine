@@ -847,8 +847,8 @@ $defs:
             type: string
             description: "Optional exact match on CloudEvent subject"
           filter:
-            type: string
-            description: "JQ predicate over { context, event } where event is the CloudEvent envelope"
+            $ref: "#/$defs/ExpressionOrOverride"
+            description: "Predicate over { context, event } — string or {lang: expr} override"
         additionalProperties: false
 
   ExecutionPolicy:
