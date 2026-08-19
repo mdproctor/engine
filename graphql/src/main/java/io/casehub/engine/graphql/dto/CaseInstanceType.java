@@ -18,30 +18,29 @@ package io.casehub.engine.graphql.dto;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import org.eclipse.microprofile.graphql.Type;
-
 import java.time.Instant;
 import java.util.UUID;
+import org.eclipse.microprofile.graphql.Type;
 
 @Type("CaseInstance")
 public record CaseInstanceType(
-        UUID caseId,
-        CaseStatus status,
-        String namespace,
-        String name,
-        String version,
-        Instant createdAt,
-        String actorId) {
+    UUID caseId,
+    CaseStatus status,
+    String namespace,
+    String name,
+    String version,
+    Instant createdAt,
+    String actorId) {
 
-    public static CaseInstanceType from(CaseInstance instance) {
-        CaseMetaModel meta = instance.getCaseMetaModel();
-        return new CaseInstanceType(
-                instance.getUuid(),
-                instance.getState(),
-                meta.getNamespace(),
-                meta.getName(),
-                meta.getVersion(),
-                instance.getCreatedAt(),
-                instance.getActorId());
-    }
+  public static CaseInstanceType from(CaseInstance instance) {
+    CaseMetaModel meta = instance.getCaseMetaModel();
+    return new CaseInstanceType(
+        instance.getUuid(),
+        instance.getState(),
+        meta.getNamespace(),
+        meta.getName(),
+        meta.getVersion(),
+        instance.getCreatedAt(),
+        instance.getActorId());
+  }
 }

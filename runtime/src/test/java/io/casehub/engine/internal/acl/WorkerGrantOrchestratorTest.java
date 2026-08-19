@@ -193,13 +193,13 @@ class WorkerGrantOrchestratorTest {
 
     assertTrue(credentialStore.lookup("t1").isEmpty());
     assertTrue(credentialStore.lookup("t2").isEmpty());
-    verify(aclProvider, times(2)).revokeAll(anyString(), anyString());
+    verify(aclProvider, times(2)).revokeAll(anyString(), any(ResourceId.class));
   }
 
   @Test
   void revokeForCase_emptyStore_noOp() {
     orchestrator.revokeForCase(UUID.randomUUID());
-    verify(aclProvider, never()).revokeAll(anyString(), anyString());
+    verify(aclProvider, never()).revokeAll(anyString(), any(ResourceId.class));
   }
 
   @Test

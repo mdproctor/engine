@@ -123,7 +123,8 @@ public class CaseInstanceResource {
                 ci ->
                     accessControlProvider.canAccess(
                         actorId,
-                        io.casehub.api.acl.EngineResourceTypes.CASE + ":" + ci.getUuid(),
+                        new io.casehub.platform.api.acl.ResourceId(
+                            io.casehub.api.acl.EngineResourceTypes.CASE, ci.getUuid().toString()),
                         io.casehub.platform.api.acl.AclAction.READ))
             .map(CaseInstanceResponse::from)
             .toList();

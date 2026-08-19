@@ -96,7 +96,7 @@ public class WorkerGrantOrchestrator {
     var resourceId = new ResourceId(EngineResourceTypes.CASE, caseId.toString());
     List<AclEntryRequest> requests =
         dedupedActions.stream()
-            .map(a -> new AclEntryRequest(identity.actorId(), resourceId.toString(), a, expiry))
+            .map(a -> new AclEntryRequest(identity.actorId(), resourceId, a, expiry))
             .toList();
     accessControlProvider.grantBatch(requests);
 
@@ -153,7 +153,7 @@ public class WorkerGrantOrchestrator {
     if (!revokedActions.isEmpty()) {
       List<AclEntryRequest> requests =
           revokedActions.stream()
-              .map(a -> new AclEntryRequest(actorId, resourceId.toString(), a, null))
+              .map(a -> new AclEntryRequest(actorId, resourceId, a, null))
               .toList();
       accessControlProvider.revokeBatch(requests);
     }
@@ -166,7 +166,7 @@ public class WorkerGrantOrchestrator {
     var resourceId = new ResourceId(EngineResourceTypes.CASE, caseId.toString());
     var revoked = credentialStore.revokeByResource(resourceId);
     for (var credential : revoked) {
-      accessControlProvider.revokeAll(credential.actorId(), resourceId.toString());
+      accessControlProvider.revokeAll(credential.actorId(), resourceId);
     }
     if (!revoked.isEmpty()) {
       LOG.infof(

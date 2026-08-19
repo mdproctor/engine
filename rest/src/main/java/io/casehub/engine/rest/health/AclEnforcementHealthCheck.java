@@ -16,6 +16,7 @@
 package io.casehub.engine.rest.health;
 
 import io.casehub.platform.api.acl.AccessControlProvider;
+import io.casehub.platform.api.acl.ResourceId;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -30,7 +31,9 @@ public class AclEnforcementHealthCheck {
   @Inject AccessControlProvider accessControlProvider;
 
   void onStart(@Observes StartupEvent ev) {
-    boolean isDefaultImpl = accessControlProvider.canAccess("__probe__", "__probe__", null);
+    boolean isDefaultImpl =
+        accessControlProvider.canAccess(
+            "__probe__", new ResourceId("__probe__", "__probe__"), null);
     if (!isDefaultImpl) {
       LOG.warn(
           "ACL enforcement is active (provider: "

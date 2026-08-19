@@ -54,6 +54,7 @@ import io.casehub.neocortex.memory.MemoryQuery;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.acl.AclEntryRequest;
+import io.casehub.platform.api.acl.ResourceId;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -148,7 +149,8 @@ class CaseHubReactor {
 
     Map<AclAction, List<String>> authorization = definition.getAuthorization();
     if (authorization != null && !authorization.isEmpty()) {
-      String resourceId = EngineResourceTypes.CASE + ":" + instance.getUuid();
+      ResourceId resourceId =
+          new ResourceId(EngineResourceTypes.CASE, instance.getUuid().toString());
       List<AclEntryRequest> requests = new ArrayList<>();
       for (var entry : authorization.entrySet()) {
         for (String group : entry.getValue()) {

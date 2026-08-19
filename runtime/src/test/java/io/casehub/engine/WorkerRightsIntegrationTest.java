@@ -75,10 +75,18 @@ class WorkerRightsIntegrationTest {
 
     assertThat(credentialStore.lookup(credential.token())).isPresent();
 
-    assertThat(accessControl.canAccess("agent:test-pool", "case:" + caseId, AclAction.READ))
+    assertThat(
+            accessControl.canAccess(
+                "agent:test-pool",
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.READ))
         .as("Worker should have READ grant")
         .isTrue();
-    assertThat(accessControl.canAccess("agent:test-pool", "case:" + caseId, AclAction.WRITE))
+    assertThat(
+            accessControl.canAccess(
+                "agent:test-pool",
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.WRITE))
         .as("Worker should have WRITE grant (from SIGNAL_CASE)")
         .isTrue();
   }
@@ -98,12 +106,22 @@ class WorkerRightsIntegrationTest {
 
     String actorId = credential.actorId();
     assertThat(credentialStore.lookup(credential.token())).isPresent();
-    assertThat(accessControl.canAccess(actorId, "case:" + caseId, AclAction.READ)).isTrue();
+    assertThat(
+            accessControl.canAccess(
+                actorId,
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.READ))
+        .isTrue();
 
     orchestrator.revokeForWorker(credential.token(), actorId, caseId, true);
 
     assertThat(credentialStore.lookup(credential.token())).isEmpty();
-    assertThat(accessControl.canAccess(actorId, "case:" + caseId, AclAction.READ)).isFalse();
+    assertThat(
+            accessControl.canAccess(
+                actorId,
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.READ))
+        .isFalse();
   }
 
   @Test
@@ -183,7 +201,11 @@ class WorkerRightsIntegrationTest {
 
     assertThat(credentialStore.lookup(c1.token())).isEmpty();
     assertThat(credentialStore.lookup(c2.token())).isPresent();
-    assertThat(accessControl.canAccess(actorId, "case:" + caseId, AclAction.READ))
+    assertThat(
+            accessControl.canAccess(
+                actorId,
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.READ))
         .as("READ still needed by c2")
         .isTrue();
   }

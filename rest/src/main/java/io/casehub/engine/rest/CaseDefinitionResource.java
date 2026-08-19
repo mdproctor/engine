@@ -75,11 +75,9 @@ public class CaseDefinitionResource {
                 mm ->
                     accessControlProvider.canAccess(
                         actorId,
-                        io.casehub.api.acl.EngineResourceTypes.CASE_DEFINITION
-                            + ":"
-                            + mm.getNamespace()
-                            + "/"
-                            + mm.getName(),
+                        new io.casehub.platform.api.acl.ResourceId(
+                            io.casehub.api.acl.EngineResourceTypes.CASE_DEFINITION,
+                            mm.getNamespace() + "/" + mm.getName()),
                         io.casehub.platform.api.acl.AclAction.READ))
             .map(definitionRegistry::getCaseDefinition)
             .toList();

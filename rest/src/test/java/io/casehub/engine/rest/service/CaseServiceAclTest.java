@@ -18,6 +18,7 @@ package io.casehub.engine.rest.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
@@ -25,6 +26,7 @@ import io.casehub.engine.rest.exception.EntityNotFoundException;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AccessDeniedException;
 import io.casehub.platform.api.acl.AclAction;
+import io.casehub.platform.api.acl.ResourceId;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import java.util.Set;
 import java.util.UUID;
@@ -71,7 +73,7 @@ class CaseServiceAclTest {
     caseService.accessControlProvider =
         new AccessControlProvider() {
           @Override
-          public boolean canAccess(String actorId, String resourceId, AclAction action) {
+          public boolean canAccess(String actorId, ResourceId resourceId, AclAction action) {
             return aclAllowed;
           }
         };
@@ -121,17 +123,18 @@ class CaseServiceAclTest {
 
   @Test
   void requireCaseAccess_checksCorrectResourceId() {
-    final String[] capturedResourceId = {null};
+    final ResourceId[] capturedResourceId = {null};
     caseService.accessControlProvider =
         new AccessControlProvider() {
           @Override
-          public boolean canAccess(String actorId, String resourceId, AclAction action) {
+          public boolean canAccess(String actorId, ResourceId resourceId, AclAction action) {
             capturedResourceId[0] = resourceId;
             return true;
           }
         };
 
     caseService.requireCaseAccess(caseId, AclAction.ADMIN);
-    assertThat(capturedResourceId[0]).isEqualTo("case:" + caseId);
+    assertThat(capturedResourceId[0])
+        .isEqualTo(new ResourceId(EngineResourceTypes.CASE, caseId.toString()));
   }
 }

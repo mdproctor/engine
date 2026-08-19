@@ -20,34 +20,33 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import org.eclipse.microprofile.openapi.annotations.media.Schema;
-
 import java.time.Instant;
 import java.util.UUID;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
 
 @Schema(description = "Case instance status and metadata")
 public record CaseInstanceResponse(
-        @Schema(description = "Case instance UUID", required = true) @NotNull UUID caseId,
-        @Schema(description = "Current case status", required = true, example = "RUNNING") @NotNull
+    @Schema(description = "Case instance UUID", required = true) @NotNull UUID caseId,
+    @Schema(description = "Current case status", required = true, example = "RUNNING") @NotNull
         CaseStatus status,
-        @Schema(description = "Case namespace", required = true, example = "acme") @NotBlank
+    @Schema(description = "Case namespace", required = true, example = "acme") @NotBlank
         String namespace,
-        @Schema(description = "Case name", required = true, example = "Order Processing") @NotBlank
+    @Schema(description = "Case name", required = true, example = "Order Processing") @NotBlank
         String name,
-        @Schema(description = "Case version", required = true, example = "1.0.0") @NotBlank
+    @Schema(description = "Case version", required = true, example = "1.0.0") @NotBlank
         String version,
-        @Schema(description = "Case creation timestamp", required = true) @NotNull Instant createdAt,
-        @Schema(description = "Actor who created this case instance") String actorId) {
+    @Schema(description = "Case creation timestamp", required = true) @NotNull Instant createdAt,
+    @Schema(description = "Actor who created this case instance") String actorId) {
 
-    public static CaseInstanceResponse from(CaseInstance instance) {
-        CaseMetaModel meta = instance.getCaseMetaModel();
-        return new CaseInstanceResponse(
-                instance.getUuid(),
-                instance.getState(),
-                meta.getNamespace(),
-                meta.getName(),
-                meta.getVersion(),
-                instance.getCreatedAt(),
-                instance.getActorId());
-    }
+  public static CaseInstanceResponse from(CaseInstance instance) {
+    CaseMetaModel meta = instance.getCaseMetaModel();
+    return new CaseInstanceResponse(
+        instance.getUuid(),
+        instance.getState(),
+        meta.getNamespace(),
+        meta.getName(),
+        meta.getVersion(),
+        instance.getCreatedAt(),
+        instance.getActorId());
+  }
 }

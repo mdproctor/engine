@@ -21,6 +21,7 @@ import io.casehub.engine.rest.dto.ProblemDetail;
 import io.casehub.engine.rest.exception.AccessDeniedExceptionMapper;
 import io.casehub.platform.api.acl.AccessDeniedException;
 import io.casehub.platform.api.acl.AclAction;
+import io.casehub.platform.api.acl.ResourceId;
 import jakarta.ws.rs.core.Response;
 import org.junit.jupiter.api.Test;
 
@@ -29,7 +30,7 @@ class AccessDeniedMapperTest {
   @Test
   void mapper_returns403_withGenericBody() {
     var mapper = new AccessDeniedExceptionMapper();
-    var ex = new AccessDeniedException("alice", "case:abc-123", AclAction.READ);
+    var ex = new AccessDeniedException("alice", new ResourceId("case", "abc-123"), AclAction.READ);
     Response response = mapper.toResponse(ex);
 
     assertThat(response.getStatus()).isEqualTo(403);
@@ -42,7 +43,7 @@ class AccessDeniedMapperTest {
   @Test
   void mapper_returns403_forAdminAction() {
     var mapper = new AccessDeniedExceptionMapper();
-    var ex = new AccessDeniedException("bob", "case:xyz-789", AclAction.ADMIN);
+    var ex = new AccessDeniedException("bob", new ResourceId("case", "xyz-789"), AclAction.ADMIN);
     Response response = mapper.toResponse(ex);
 
     assertThat(response.getStatus()).isEqualTo(403);

@@ -17,11 +17,13 @@ package io.casehub.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.api.engine.CaseHub;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclAction;
+import io.casehub.platform.api.acl.ResourceId;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -44,24 +46,47 @@ class AuthorizationGrantIntegrationTest {
   void authorizationGrantsCreatedOnCaseStart() {
     UUID caseId = caseHubBean.startCase(Map.of("status", "pending"));
 
-    assertThat(accessControl.canAccess("group:case-manager", "case:" + caseId, AclAction.READ))
+    assertThat(
+            accessControl.canAccess(
+                "group:case-manager",
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.READ))
         .as("case-manager group should have READ grant")
         .isTrue();
-    assertThat(accessControl.canAccess("group:auditor", "case:" + caseId, AclAction.READ))
+    assertThat(
+            accessControl.canAccess(
+                "group:auditor",
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.READ))
         .as("auditor group should have READ grant")
         .isTrue();
-    assertThat(accessControl.canAccess("group:case-manager", "case:" + caseId, AclAction.WRITE))
+    assertThat(
+            accessControl.canAccess(
+                "group:case-manager",
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.WRITE))
         .as("case-manager group should have WRITE grant")
         .isTrue();
-    assertThat(accessControl.canAccess("group:supervisor", "case:" + caseId, AclAction.ADMIN))
+    assertThat(
+            accessControl.canAccess(
+                "group:supervisor",
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.ADMIN))
         .as("supervisor group should have ADMIN grant")
         .isTrue();
-    assertThat(accessControl.canAccess("group:case-worker", "case:" + caseId, AclAction.CLAIM))
+    assertThat(
+            accessControl.canAccess(
+                "group:case-worker",
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.CLAIM))
         .as("case-worker group should have CLAIM grant")
         .isTrue();
 
     assertThat(
-            accessControl.canAccess(currentPrincipal.actorId(), "case:" + caseId, AclAction.ADMIN))
+            accessControl.canAccess(
+                currentPrincipal.actorId(),
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.ADMIN))
         .as("case creator should have automatic ADMIN grant")
         .isTrue();
   }
@@ -70,7 +95,11 @@ class AuthorizationGrantIntegrationTest {
   void noGrantsCreatedWhenAuthorizationAbsent() {
     UUID caseId = noAuthCaseHubBean.startCase(Map.of("status", "pending"));
 
-    assertThat(accessControl.canAccess("group:anyone", "case:" + caseId, AclAction.READ))
+    assertThat(
+            accessControl.canAccess(
+                "group:anyone",
+                new ResourceId(EngineResourceTypes.CASE, caseId.toString()),
+                AclAction.READ))
         .as("no grants should exist when authorization is absent")
         .isFalse();
   }
