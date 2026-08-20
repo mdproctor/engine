@@ -1,1 +1,1 @@
-# Design Journal — issue-696-multi-level-recovery
+# Design Journal — issue-946-quartzworkerjob-visibility

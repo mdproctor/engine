@@ -56,7 +56,7 @@ import org.quartz.JobExecutionContext;
  */
 @SuppressWarnings("unchecked")
 @ApplicationScoped
-class QuartzWorkerExecutionJob implements Job {
+public class QuartzWorkerExecutionJob implements Job {
 
   private static final Logger LOG = Logger.getLogger(QuartzWorkerExecutionJob.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
