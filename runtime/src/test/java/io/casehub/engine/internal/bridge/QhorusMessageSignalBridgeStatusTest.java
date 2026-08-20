@@ -80,6 +80,7 @@ class QhorusMessageSignalBridgeStatusTest {
             "corr-456",
             occurredAt,
             "Processing document 3 of 10",
+            null,
             null);
 
     bridge.onMessage(event);
@@ -131,6 +132,7 @@ class QhorusMessageSignalBridgeStatusTest {
             null,
             occurredAt,
             "LOOP_DETECTED: agent-X repeated task 5 times",
+            null,
             null);
 
     bridge.onMessage(event);
@@ -174,6 +176,7 @@ class QhorusMessageSignalBridgeStatusTest {
             null,
             Instant.now(),
             "ECHO_CHAMBER: agents A and B are agreeing without progress",
+            null,
             null);
 
     bridge.onMessage(event);
@@ -214,6 +217,7 @@ class QhorusMessageSignalBridgeStatusTest {
             null,
             Instant.now(),
             "Processing step 3 of 5",
+            null,
             null);
 
     bridge.onMessage(event);
@@ -245,6 +249,7 @@ class QhorusMessageSignalBridgeStatusTest {
             "corr-123",
             Instant.now(),
             "status content",
+            null,
             null);
 
     bridge.onMessage(event);

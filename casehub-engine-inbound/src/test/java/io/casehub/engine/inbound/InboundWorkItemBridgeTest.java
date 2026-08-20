@@ -148,6 +148,7 @@ class InboundWorkItemBridgeTest {
         "corr-id-1",
         Instant.now(),
         "{\"msg\":\"hello\"}",
+        null,
         null);
   }
 
@@ -242,6 +243,7 @@ class InboundWorkItemBridgeTest {
             "corr-a",
             Instant.now(),
             "{}",
+            null,
             null);
     final MessageReceivedEvent channelB =
         new MessageReceivedEvent(
@@ -256,6 +258,7 @@ class InboundWorkItemBridgeTest {
             "corr-b",
             Instant.now(),
             "{}",
+            null,
             null);
 
     bridge.onMessage(channelA);
