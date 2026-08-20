@@ -74,18 +74,22 @@ class QuartzRetryService {
   private final QuartzWorkerSchedulerService schedulerService;
   private final EventBus eventBus;
 
+  private final io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
+
   @Inject
   QuartzRetryService(
       EventLogRepository eventLogRepository,
       WorkerExecutionRecoveryService recoveryService,
       CaseDefinitionRegistry caseDefinitionRegistry,
       QuartzWorkerSchedulerService schedulerService,
-      EventBus eventBus) {
+      EventBus eventBus,
+      io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator) {
     this.eventLogRepository = eventLogRepository;
     this.recoveryService = recoveryService;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.schedulerService = schedulerService;
     this.eventBus = eventBus;
+    this.recoveryCoordinator = recoveryCoordinator;
   }
 
   void handleFailure(WorkerRetryContext ctx, String errorMessage) {
@@ -118,6 +122,20 @@ class QuartzRetryService {
         LOG.warnf(
             "Worker %s exhausted all %d retry attempts for case %s: %s",
             ctx.workerId(), retryPolicy.maxAttempts(), ctx.caseId(), exhaust.reason());
+        var recoveryCtx =
+            new io.casehub.engine.common.spi.recovery.RecoveryContext(
+                ctx.caseId(),
+                ctx.tenancyId(),
+                ctx.bindingName(),
+                ctx.workerId(),
+                null,
+                null,
+                null,
+                (int) failureCount,
+                null);
+        if (recoveryCoordinator.handleFailure(recoveryCtx)) {
+          return;
+        }
         RetryState retryState = buildRetryState(ctx);
         eventBus.publish(
             EventBusAddresses.WORKER_RETRIES_EXHAUSTED,

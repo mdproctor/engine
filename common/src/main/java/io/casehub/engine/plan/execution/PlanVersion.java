@@ -13,17 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.engine.plan.execution;
 
-import io.casehub.api.model.TaskStatus;
+import io.casehub.engine.plan.snapshot.PlanVersionDelta;
+import io.casehub.engine.plan.snapshot.PlanVersionTrigger;
+import java.time.Instant;
 import java.util.UUID;
 
-public interface PlanAdaptationEvaluator {
-
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
-
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
-  }
-}
+public record PlanVersion(
+    int version,
+    UUID caseId,
+    Instant timestamp,
+    PlanVersionTrigger trigger,
+    CasePlanModelSnapshot snapshot,
+    PlanVersionDelta delta) {}

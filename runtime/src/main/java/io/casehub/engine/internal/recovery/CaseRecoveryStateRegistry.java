@@ -13,17 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.engine.internal.recovery;
 
-import io.casehub.api.model.TaskStatus;
+import io.casehub.engine.common.spi.recovery.CaseRecoveryState;
+import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
-public interface PlanAdaptationEvaluator {
+@ApplicationScoped
+public class CaseRecoveryStateRegistry {
 
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
+  private final ConcurrentHashMap<UUID, CaseRecoveryState> states = new ConcurrentHashMap<>();
 
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
+  public CaseRecoveryState getOrCreate(UUID caseId) {
+    return states.computeIfAbsent(caseId, k -> new CaseRecoveryState());
+  }
+
+  public void evict(UUID caseId) {
+    states.remove(caseId);
   }
 }

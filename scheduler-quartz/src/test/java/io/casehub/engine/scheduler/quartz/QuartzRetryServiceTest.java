@@ -69,6 +69,7 @@ class QuartzRetryServiceTest {
   @Mock CaseDefinitionRegistry caseDefinitionRegistry;
   @Mock QuartzWorkerSchedulerService schedulerService;
   @Mock EventBus eventBus;
+  @Mock io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
 
   private QuartzRetryService retryService;
   private final UUID caseId = UUID.randomUUID();
@@ -99,7 +100,8 @@ class QuartzRetryServiceTest {
             recoveryService,
             caseDefinitionRegistry,
             schedulerService,
-            eventBus);
+            eventBus,
+            recoveryCoordinator);
   }
 
   @Test

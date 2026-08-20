@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.api.model;
 
-import io.casehub.api.model.TaskStatus;
-import java.util.UUID;
+public record RecoveryPolicy(
+    int maxRetries,
+    int maxRerouteAttempts,
+    String classifierId,
+    String revisionStrategyId,
+    String replanStrategyId,
+    boolean enabled) {
+  public static final RecoveryPolicy DEFAULT =
+      new RecoveryPolicy(3, 3, "heuristic", "forward-replan", "llm", true);
 
-public interface PlanAdaptationEvaluator {
-
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
-
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
-  }
+  public static final RecoveryPolicy DISABLED =
+      new RecoveryPolicy(0, 0, "heuristic", "forward-replan", "llm", false);
 }

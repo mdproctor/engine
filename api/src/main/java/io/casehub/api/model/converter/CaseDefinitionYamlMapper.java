@@ -41,9 +41,14 @@ import io.casehub.api.model.MemoryRetrievalConfig;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
+import io.casehub.api.model.OutcomeType;
 import io.casehub.api.model.Participation;
 import io.casehub.api.model.PredicateBasedCompletion;
+import io.casehub.api.model.RecoveryLevel;
+import io.casehub.api.model.RecoveryOverride;
+import io.casehub.api.model.RecoveryPolicy;
 import io.casehub.api.model.ReflectionTriggerConfig;
+import io.casehub.api.model.SideEffectClassification;
 import io.casehub.api.model.SignalType;
 import io.casehub.api.model.SingleGoalExpression;
 import io.casehub.api.model.SlaStartFrom;
@@ -1013,6 +1018,21 @@ public final class CaseDefinitionYamlMapper {
       }
     }
 
+    // recoveryPolicy — per-case recovery configuration
+    if (specNode != null && specNode.has("recoveryPolicy")) {
+      JsonNode rp = specNode.get("recoveryPolicy");
+      def.setRecoveryPolicy(
+          new RecoveryPolicy(
+              rp.has("maxRetries") ? rp.get("maxRetries").asInt() : 3,
+              rp.has("maxRerouteAttempts") ? rp.get("maxRerouteAttempts").asInt() : 3,
+              rp.has("classifierId") ? rp.get("classifierId").asText() : "heuristic",
+              rp.has("revisionStrategyId")
+                  ? rp.get("revisionStrategyId").asText()
+                  : "forward-replan",
+              rp.has("replanStrategyId") ? rp.get("replanStrategyId").asText() : "llm",
+              !rp.has("enabled") || rp.get("enabled").asBoolean()));
+    }
+
     return def;
   }
 
@@ -1163,6 +1183,27 @@ public final class CaseDefinitionYamlMapper {
     }
 
     applyExchangeFields(schemaBinding, builder);
+
+    if (rawBindingNode != null && rawBindingNode.has("sideEffectClassification")) {
+      builder.sideEffectClassification(
+          SideEffectClassification.valueOf(
+              rawBindingNode.get("sideEffectClassification").asText()));
+    }
+
+    if (rawBindingNode != null && rawBindingNode.has("recoveryOverride")) {
+      JsonNode ro = rawBindingNode.get("recoveryOverride");
+      java.util.Set<OutcomeType> skipFor = new java.util.HashSet<>();
+      if (ro.has("skipRecoveryFor")) {
+        ro.get("skipRecoveryFor").forEach(n -> skipFor.add(OutcomeType.valueOf(n.asText())));
+      }
+      builder.recoveryOverride(
+          new RecoveryOverride(
+              ro.has("maxRetries") ? ro.get("maxRetries").asInt() : null,
+              ro.has("maxRerouteAttempts") ? ro.get("maxRerouteAttempts").asInt() : null,
+              ro.has("maxLevel") ? RecoveryLevel.valueOf(ro.get("maxLevel").asText()) : null,
+              ro.has("skipRecovery") && ro.get("skipRecovery").asBoolean(),
+              skipFor));
+    }
 
     return builder.build();
   }

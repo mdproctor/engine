@@ -13,17 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.engine.common.spi.recovery;
 
-import io.casehub.api.model.TaskStatus;
-import java.util.UUID;
-
-public interface PlanAdaptationEvaluator {
-
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
-
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
-  }
+public interface RecoveryCoordinator {
+  boolean handleFailure(RecoveryContext context);
 }

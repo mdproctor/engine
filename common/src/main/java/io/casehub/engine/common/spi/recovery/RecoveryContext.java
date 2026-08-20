@@ -13,17 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.engine.common.spi.recovery;
 
-import io.casehub.api.model.TaskStatus;
+import io.casehub.worker.api.FailureClass;
+import io.casehub.worker.api.WorkerOutcome;
 import java.util.UUID;
 
-public interface PlanAdaptationEvaluator {
-
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
-
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
-  }
-}
+public record RecoveryContext(
+    UUID caseId,
+    String tenancyId,
+    String bindingName,
+    String workerName,
+    String capabilityName,
+    WorkerOutcome<?> outcome,
+    FailureClass hint,
+    int attemptCount,
+    UUID planItemId) {}

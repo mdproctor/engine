@@ -80,4 +80,7 @@ public enum CaseHubEventType {
   PATTERN_CHECKPOINT, // pattern execution iteration checkpoint for crash recovery
 
   CONTEXT_SIGNAL_APPLIED, // SignalTarget payload written to case context
+
+  RECOVERY_ESCALATED, // recovery coordinator escalated failure to Level 2 (local patch)
+  RECOVERY_REPLAN, // recovery coordinator escalated failure to Level 3 (full replan)
 }

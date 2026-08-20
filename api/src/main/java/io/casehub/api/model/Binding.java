@@ -47,6 +47,8 @@ public class Binding {
   private String exchangeProjectionExpression;
   private String produces;
   private String consumes;
+  private RecoveryOverride recoveryOverride;
+  private SideEffectClassification sideEffectClassification;
 
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
@@ -191,6 +193,24 @@ public class Binding {
     return consumes;
   }
 
+  public RecoveryOverride getRecoveryOverride() {
+    return recoveryOverride;
+  }
+
+  public void setRecoveryOverride(RecoveryOverride recoveryOverride) {
+    this.recoveryOverride = recoveryOverride;
+  }
+
+  public SideEffectClassification getSideEffectClassification() {
+    return sideEffectClassification != null
+        ? sideEffectClassification
+        : SideEffectClassification.UNKNOWN;
+  }
+
+  public void setSideEffectClassification(SideEffectClassification sideEffectClassification) {
+    this.sideEffectClassification = sideEffectClassification;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -214,6 +234,8 @@ public class Binding {
     private String exchangeProjectionExpression;
     private String produces;
     private String consumes;
+    private RecoveryOverride recoveryOverride;
+    private SideEffectClassification sideEffectClassification;
 
     private Builder() {}
 
@@ -343,6 +365,16 @@ public class Binding {
       return this;
     }
 
+    public Builder recoveryOverride(RecoveryOverride recoveryOverride) {
+      this.recoveryOverride = recoveryOverride;
+      return this;
+    }
+
+    public Builder sideEffectClassification(SideEffectClassification sideEffectClassification) {
+      this.sideEffectClassification = sideEffectClassification;
+      return this;
+    }
+
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -400,6 +432,8 @@ public class Binding {
       b.setExchangeProjectionExpression(this.exchangeProjectionExpression);
       b.setProduces(this.produces);
       b.setConsumes(this.consumes);
+      b.setRecoveryOverride(this.recoveryOverride);
+      b.setSideEffectClassification(this.sideEffectClassification);
       return b;
     }
   }

@@ -102,6 +102,7 @@ public class WorkflowExecutionCompletedHandler {
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
   @Inject ContextOutputApplier contextOutputApplier;
   @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
+  @Inject io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
 
   @Inject
   jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
@@ -489,6 +490,28 @@ public class WorkflowExecutionCompletedHandler {
     final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
     eventLogRepository.append(eventLog, caseInstance.tenancyId);
+
+    if (disposition == OutcomeDisposition.EXHAUSTED) {
+      io.casehub.worker.api.FailureClass hint =
+          event.outcome() instanceof WorkerOutcome.Failed<?> f ? f.hint() : null;
+      var recoveryCtx =
+          new io.casehub.engine.common.spi.recovery.RecoveryContext(
+              caseInstance.getUuid(),
+              caseInstance.tenancyId,
+              bindingName,
+              worker.name(),
+              capabilityName,
+              event.outcome(),
+              hint,
+              attempts,
+              null);
+      if (recoveryCoordinator.handleFailure(recoveryCtx)) {
+        workerStatusListener.onWorkerCompleted(
+            worker.name(),
+            WorkResult.failed(event.idempotency(), worker.name(), caseInstance.getUuid()));
+        return;
+      }
+    }
 
     final WorkResult workResult =
         switch (event.outcome()) {

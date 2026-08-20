@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.engine.common.spi.recovery;
 
-import io.casehub.api.model.TaskStatus;
+import io.casehub.engine.plan.execution.PlanVersion;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
-public interface PlanAdaptationEvaluator {
+public interface PlanVersionStore {
+  void store(PlanVersion version, String tenancyId);
 
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
+  List<PlanVersion> getHistory(UUID caseId, String tenancyId);
 
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
-  }
+  Optional<PlanVersion> getVersion(UUID caseId, int version, String tenancyId);
+
+  Optional<PlanVersion> getLatest(UUID caseId, String tenancyId);
+
+  void evict(UUID caseId);
 }

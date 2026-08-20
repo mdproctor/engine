@@ -13,17 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.engine.plan.snapshot;
 
-import io.casehub.api.model.TaskStatus;
-import java.util.UUID;
+import java.util.List;
+import java.util.Map;
 
-public interface PlanAdaptationEvaluator {
-
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
-
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
+public record PlanVersionDelta(
+    List<String> materializedStepIds,
+    List<String> obsoletedStepIds,
+    List<String> affectedCompoundIds,
+    Map<String, Object> metadata) {
+  public PlanVersionDelta {
+    materializedStepIds = List.copyOf(materializedStepIds);
+    obsoletedStepIds = List.copyOf(obsoletedStepIds);
+    affectedCompoundIds = List.copyOf(affectedCompoundIds);
+    metadata = metadata != null ? Map.copyOf(metadata) : Map.of();
   }
 }

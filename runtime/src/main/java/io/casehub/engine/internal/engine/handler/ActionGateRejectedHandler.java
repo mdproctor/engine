@@ -68,6 +68,7 @@ public class ActionGateRejectedHandler {
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
+  @Inject io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
 
   @Inject jakarta.enterprise.inject.Instance<RoutingOutcomeRecorder> outcomeRecorder;
 
@@ -146,6 +147,25 @@ public class ActionGateRejectedHandler {
             instance.getUuid(),
             gate.workerId());
       }
+    }
+
+    // Try recovery before faulting — gate rejection is a Level 2 recovery trigger.
+    var recoveryCtx =
+        new io.casehub.engine.common.spi.recovery.RecoveryContext(
+            instance.getUuid(),
+            instance.tenancyId,
+            gate.bindingName(),
+            gate.workerId(),
+            gate.capabilityName(),
+            null,
+            io.casehub.worker.api.FailureClass.REASONING,
+            1,
+            null);
+    if (recoveryCoordinator.handleFailure(recoveryCtx)) {
+      LOG.infof(
+          "Gate rejection triggered Level 2 recovery for caseId=%s worker=%s",
+          instance.getUuid(), gate.workerId());
+      return;
     }
 
     // Fire CONTEXT_CHANGED immediately — gate is already cleared and signal written

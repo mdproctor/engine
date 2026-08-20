@@ -13,17 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.api.spi.recovery;
 
-import io.casehub.api.model.TaskStatus;
-import java.util.UUID;
+import io.casehub.api.model.RecoveryLevel;
+import io.casehub.platform.api.routing.NamedStrategy;
 
-public interface PlanAdaptationEvaluator {
+public interface ErrorClassifier extends NamedStrategy {
+  RecoveryLevel classify(ErrorClassificationContext context);
 
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
-
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
+  @Override
+  default String id() {
+    return "heuristic";
   }
 }

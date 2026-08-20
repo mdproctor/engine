@@ -83,6 +83,7 @@ public class CaseDefinition {
   private List<ChannelDeclaration> channels = List.of();
   private List<io.casehub.engine.plan.goap.GoapAction> goapActions;
   private Map<String, Set<String>> goalToEffectKeys;
+  private RecoveryPolicy recoveryPolicy;
 
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
@@ -439,6 +440,14 @@ public class CaseDefinition {
     this.goalToEffectKeys = goalToEffectKeys;
   }
 
+  public RecoveryPolicy getRecoveryPolicy() {
+    return recoveryPolicy;
+  }
+
+  public void setRecoveryPolicy(RecoveryPolicy recoveryPolicy) {
+    this.recoveryPolicy = recoveryPolicy;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -491,6 +500,7 @@ public class CaseDefinition {
     private List<ChannelDeclaration> channels = new java.util.ArrayList<>();
     private List<io.casehub.engine.plan.goap.GoapAction> goapActions;
     private Map<String, Set<String>> goalToEffectKeys = new java.util.HashMap<>();
+    private RecoveryPolicy recoveryPolicy;
 
     private Builder() {}
 
@@ -817,6 +827,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder recoveryPolicy(RecoveryPolicy recoveryPolicy) {
+      this.recoveryPolicy = recoveryPolicy;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -916,6 +931,7 @@ public class CaseDefinition {
       caseHubDefinition.setReflectionTrigger(reflectionTrigger);
       caseHubDefinition.setMemoryRetrieval(memoryRetrieval);
       caseHubDefinition.setPlanningConstraints(planningConstraints);
+      caseHubDefinition.setRecoveryPolicy(recoveryPolicy);
 
       return caseHubDefinition;
     }

@@ -79,6 +79,8 @@ public class CaseStatusChangedHandler {
   @Inject ContextOutputApplier contextOutputApplier;
   @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
   @Inject io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry;
+  @Inject io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry recoveryStateRegistry;
+  @Inject io.casehub.engine.common.spi.recovery.CompoundLockRegistry compoundLockRegistry;
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public void onCaseStatusChangedHandler(CaseStatusChanged event) {
@@ -145,6 +147,8 @@ public class CaseStatusChangedHandler {
       scopedWorkerRegistry.terminateByCase(caseInstance.getUuid());
       dataChannelRegistry.closeByCase(caseInstance.getUuid());
       contextOutputApplier.evict(caseInstance.getUuid());
+      recoveryStateRegistry.evict(caseInstance.getUuid());
+      compoundLockRegistry.cleanForCase(caseInstance.getUuid());
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();
       }

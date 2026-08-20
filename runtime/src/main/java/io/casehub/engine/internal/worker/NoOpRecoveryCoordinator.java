@@ -13,17 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.engine.internal.worker;
 
-import io.casehub.api.model.TaskStatus;
-import java.util.UUID;
+import io.casehub.engine.common.spi.recovery.RecoveryContext;
+import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
+import io.quarkus.arc.DefaultBean;
+import jakarta.enterprise.context.ApplicationScoped;
 
-public interface PlanAdaptationEvaluator {
-
-  void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus);
-
-  default String findCompoundForBinding(java.util.UUID caseId, String bindingName) {
-    return null;
+@DefaultBean
+@ApplicationScoped
+public class NoOpRecoveryCoordinator implements RecoveryCoordinator {
+  @Override
+  public boolean handleFailure(RecoveryContext context) {
+    return false;
   }
 }

@@ -1,0 +1,27 @@
+namespace: test
+name: recovery-yaml
+version: "1.0"
+spec:
+  recoveryPolicy:
+    maxRetries: 5
+    maxRerouteAttempts: 4
+    classifierId: heuristic
+    enabled: true
+  capabilities:
+    - name: process
+      inputProjection: "."
+  workers:
+    - name: processor
+      capabilities: [process]
+  bindings:
+    - name: process-binding
+      capability: process
+      on:
+        contextChange:
+          filter: '.ready == true'
+      sideEffectClassification: NON_IDEMPOTENT
+      recoveryOverride:
+        maxRetries: 2
+        maxLevel: REASONING
+        skipRecovery: false
+        skipRecoveryFor: [EXPIRED]
