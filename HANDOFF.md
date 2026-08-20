@@ -1,34 +1,18 @@
-# HANDOFF — Slot 69 / engine#833 ACL Engine Integration
+# HANDOFF — engine#696 Multi-Level Recovery Protocol
 
-**Branch:** `issue-833-acl-engine-integration`
-**Date:** 2026-08-03
-**Epic:** casehubio/engine#833 — All 3 batches implemented, ready to land
+**Branch:** `issue-696-multi-level-recovery`
+**Date:** 2026-08-20
 
-## What was done
+## Last Session
 
-All three batches of the ACL engine integration epic are complete:
+Completed all three work batches for the multi-level recovery protocol.
 
-- **Batch 1** (platform#220): actorId on CaseInstance, PropagationContext identity wiring
-- **Batch 2** (engine#768): CaseService.requireCaseAccess(), 10 REST endpoints wired, AccessDeniedExceptionMapper sanitized
-- **Batch 3** (platform#221): Worker rights model — WorkerAction enum, WorkerCredentialStore SPI, WorkerGrantOrchestrator, WorkerCredentialFilter (REST structural isolation), token threading through dispatch/completion/revocation, code reviewed and all findings fixed
+**Batch 1 (foundation):** RecoveryLevel, RecoveryPolicy, ErrorClassifier SPI, RecoveryCoordinator SPI, PlanVersionStore, DefaultErrorClassifier.
 
-## Phase A complete — ready to land
+**Batch 2 (coordinator + wiring):** DefaultRecoveryCoordinator with three-level escalation, pipeline integration at both exhaustion points (handleSemanticFailure + QuartzRetryService), YAML parsing, CaseRecoveryStateRegistry, EngineStrategyResolver registration, terminal-state eviction. SideEffectClassification for retry safety (#947).
 
-Branch pushed to origin. `.phase-a-complete` marker written. Run `work-slot merge` from the main engine repo to land.
+**Batch 3 (production readiness):** JPA PlanVersionStore (#948) with PlanVersionEntity, Flyway V1.11.0 migration, and 8 tests covering CRUD, tenant isolation, and trigger serialization round-trip. Jackson `@JsonTypeInfo`/`@JsonSubTypes` annotations on PlanVersionTrigger for JSONB serialization. Integration test (#949) verifying end-to-end recovery pipeline: worker decline → reroute exhaustion → recovery coordinator intercepts → Level 3 replan with RECOVERY_REPLAN EventLog and plan version stored. Added NoOpGoalDecomposer and NoOpPlanAdaptationEvaluator `@DefaultBean` implementations for CDI satisfaction when planning module is absent. Fixed pre-existing qhorus-api MessageReceivedEvent constructor breakage (added `topic` parameter) across 4 test files.
 
-## What's left before merge
+## Immediate Next Step
 
-- YAML mapper support for `permissionIntent` and `serviceAccountId` (deferred — `CaseDefinitionYamlMapper` changes, straightforward follow-on)
-- Close engine#833, engine#768, platform#220, platform#221 after merge
-
-## Commits on this branch
-
-30 commits across 3 batches. Key implementation commits:
-- `c6cd30ee` feat(#221): WorkerAction, WorkerCredential, WorkerCredentialStore foundation types
-- `f43f1c9e` feat(#221): permissionIntent on Binding, workerServiceAccountIds on CaseDefinition
-- `c1042efd` feat(#221): WorkerIdentityResolver and WorkerGrantOrchestrator
-- `a1094db8` feat(#221): token threading through dispatch/completion/revocation
-- `d8c73847` feat(#221): WorkerCredentialFilter for REST structural isolation
-- `59ef3cbd` feat(#221): wire grant orchestration into dispatch and provisioning handlers
-- `58b8c1c1` fix(#221): code review fixes — expiry filter, token logging, UUID parsing, grant TTL
-- `ca407e20` docs(#221): worker rights YAML example — loan approval scenario
+All tasks in the `.plan` are complete. Run `work end` to close the branch.
