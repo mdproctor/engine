@@ -63,3 +63,5 @@ proj
 .mvn/slot-settings.xml
 .build/
 .build
+.worktrees
+.claude
