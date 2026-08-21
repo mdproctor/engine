@@ -97,9 +97,14 @@ class AgentExperienceRecorderTest {
     when(reflInstance.isResolvable()).thenReturn(true);
     when(reflInstance.get()).thenReturn(orchestrator);
 
+    Instance<io.casehub.neocortex.memory.CaseMemoryStore> memoryStoreInstance =
+        mock(Instance.class);
+    when(memoryStoreInstance.isResolvable()).thenReturn(false);
+
     GoalFormationEvaluator goalFormationEvaluator = mock(GoalFormationEvaluator.class);
     recorder =
-        new AgentExperienceRecorder(expInstance, reflInstance, registry, goalFormationEvaluator);
+        new AgentExperienceRecorder(
+            expInstance, reflInstance, registry, goalFormationEvaluator, memoryStoreInstance);
   }
 
   @Test
@@ -201,7 +206,8 @@ class AgentExperienceRecorderTest {
 
     GoalFormationEvaluator goalFormationEvaluator = mock(GoalFormationEvaluator.class);
     var noopRecorder =
-        new AgentExperienceRecorder(unavailable, reflInstance, registry, goalFormationEvaluator);
+        new AgentExperienceRecorder(
+            unavailable, reflInstance, registry, goalFormationEvaluator, mock(Instance.class));
     noopRecorder.record(createInstance(), "agent-1", "cap", new WorkerOutcome.Success<>(null), "b");
     assertThat(recorded).isEmpty();
   }

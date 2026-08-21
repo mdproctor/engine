@@ -38,23 +38,36 @@ public class AgentExperienceRecorder {
 
   private static final Logger LOG = Logger.getLogger(AgentExperienceRecorder.class);
 
+  private static final io.casehub.neocortex.memory.MemoryDomain WORKER_REASONING_DOMAIN =
+      new io.casehub.neocortex.memory.MemoryDomain("worker-reasoning");
+  private static final int DEFAULT_MAX_REASONING_LENGTH = 4096;
+  private static final String TRUNCATION_MARKER = "\n[...truncated...]\n";
+
   private final Instance<ExperienceRecorder> experienceRecorder;
   private final Instance<ReflectionOrchestrator> reflectionOrchestrator;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final GoalFormationEvaluator goalFormationEvaluator;
+  private final Instance<io.casehub.neocortex.memory.CaseMemoryStore> caseMemoryStore;
   private final ConcurrentHashMap<String, ReflectionState> reflectionStates =
       new ConcurrentHashMap<>();
+
+  @org.eclipse.microprofile.config.inject.ConfigProperty(
+      name = "casehub.reasoning.enabled",
+      defaultValue = "true")
+  boolean reasoningEnabled;
 
   @Inject
   public AgentExperienceRecorder(
       Instance<ExperienceRecorder> experienceRecorder,
       Instance<ReflectionOrchestrator> reflectionOrchestrator,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      GoalFormationEvaluator goalFormationEvaluator) {
+      GoalFormationEvaluator goalFormationEvaluator,
+      Instance<io.casehub.neocortex.memory.CaseMemoryStore> caseMemoryStore) {
     this.experienceRecorder = experienceRecorder;
     this.reflectionOrchestrator = reflectionOrchestrator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.goalFormationEvaluator = goalFormationEvaluator;
+    this.caseMemoryStore = caseMemoryStore;
   }
 
   public void record(
@@ -63,7 +76,9 @@ public class AgentExperienceRecorder {
       String capabilityName,
       WorkerOutcome<?> outcome,
       String bindingName) {
-    if (!experienceRecorder.isResolvable()) return;
+    if (!experienceRecorder.isResolvable()) {
+      return;
+    }
 
     ReflectionTriggerConfig config = lookupConfig(caseInstance);
     double importance = resolveImportance(outcome, config);
@@ -92,6 +107,77 @@ public class AgentExperienceRecorder {
     evaluateReflectionTrigger(caseInstance, workerName, importance, config);
   }
 
+  public void storeReasoning(
+      CaseInstance caseInstance,
+      String workerName,
+      String capabilityName,
+      WorkerOutcome<?> outcome,
+      String reasoning,
+      String bindingName) {
+
+    if (!reasoningEnabled
+        || !caseMemoryStore.isResolvable()
+        || reasoning == null
+        || reasoning.isBlank()) {
+      return;
+    }
+
+    String truncated = truncateReasoning(reasoning);
+    String outcomeKind = outcomeKindName(outcome);
+    java.util.HashMap<String, String> attributes =
+        new java.util.HashMap<>(
+            Map.of(
+                "workerName", workerName,
+                "capability", capabilityName,
+                "bindingName", bindingName,
+                "outcome", outcomeKind));
+    if (truncated.length() < reasoning.length()) {
+      attributes.put("truncated", "true");
+    }
+
+    ReflectionTriggerConfig config = lookupConfig(caseInstance);
+    double importance = resolveImportance(outcome, config);
+
+    io.casehub.neocortex.memory.MemoryInput input =
+        new io.casehub.neocortex.memory.MemoryInput(
+            "case:" + caseInstance.getUuid(),
+            WORKER_REASONING_DOMAIN,
+            caseInstance.tenancyId,
+            caseInstance.getUuid().toString(),
+            truncated,
+            Map.copyOf(attributes),
+            importance);
+
+    Thread.startVirtualThread(
+        () -> {
+          try {
+            caseMemoryStore.get().store(input);
+          } catch (Exception e) {
+            LOG.warnf(
+                e,
+                "Reasoning trace storage failed for case=%s worker=%s — non-critical",
+                caseInstance.getUuid(),
+                workerName);
+          }
+        });
+  }
+
+  String truncateReasoning(String reasoning) {
+    if (reasoning.length() <= DEFAULT_MAX_REASONING_LENGTH) {
+      return reasoning;
+    }
+    int headLen = DEFAULT_MAX_REASONING_LENGTH / 3;
+    if (headLen > 0 && Character.isHighSurrogate(reasoning.charAt(headLen - 1))) {
+      headLen--;
+    }
+    int tailLen = DEFAULT_MAX_REASONING_LENGTH - headLen - TRUNCATION_MARKER.length();
+    int tailStart = reasoning.length() - tailLen;
+    if (tailStart < reasoning.length() && Character.isLowSurrogate(reasoning.charAt(tailStart))) {
+      tailStart++;
+    }
+    return reasoning.substring(0, headLen) + TRUNCATION_MARKER + reasoning.substring(tailStart);
+  }
+
   private ReflectionTriggerConfig lookupConfig(CaseInstance caseInstance) {
     try {
       var def = caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
@@ -115,7 +201,9 @@ public class AgentExperienceRecorder {
       String workerName,
       double importance,
       ReflectionTriggerConfig config) {
-    if (config == null || !config.enabled() || !reflectionOrchestrator.isResolvable()) return;
+    if (config == null || !config.enabled() || !reflectionOrchestrator.isResolvable()) {
+      return;
+    }
 
     String key = workerName + "|" + caseInstance.tenancyId;
     var shouldReflect = new boolean[] {false};
@@ -124,7 +212,9 @@ public class AgentExperienceRecorder {
     reflectionStates.compute(
         key,
         (k, state) -> {
-          if (state == null) state = new ReflectionState();
+          if (state == null) {
+            state = new ReflectionState();
+          }
           state.outcomeCount++;
           state.cumulativeImportance += importance;
           if (state.outcomeCount >= config.maxUnreflectedOutcomes()
@@ -169,7 +259,7 @@ public class AgentExperienceRecorder {
     };
   }
 
-  private static String outcomeKindName(WorkerOutcome<?> outcome) {
+  static String outcomeKindName(WorkerOutcome<?> outcome) {
     return switch (outcome) {
       case WorkerOutcome.Success<?> s -> "SUCCESS";
       case WorkerOutcome.Completed<?> c -> "COMPLETED";
