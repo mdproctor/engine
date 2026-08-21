@@ -86,4 +86,6 @@ public enum CaseHubEventType {
 
   RECOVERY_ESCALATED, // recovery coordinator escalated failure to Level 2 (local patch)
   RECOVERY_REPLAN, // recovery coordinator escalated failure to Level 3 (full replan)
+
+  REACT_CYCLE, // one reason-act-observe cycle within a ReAct worker execution
 }

@@ -851,6 +851,54 @@ workers:
 
 **Future work:** #841 WorkerDiscoveryProvider SPI, #844 MCP discovery federation, MCP resources/prompts (v1 is tools-only), MCP sampling.
 
+## casehub-engine-react Module
+
+Optional module for ReAct (reason-act-observe) worker execution with per-cycle EventLog auditability. Activated by adding `casehub-engine-react` to the consumer's classpath. Directory: `react/`. Refs engine#114.
+
+**Architecture:** `ReActWorkerFunctionHandler` manages the multi-turn LLM tool-use loop. `Agent` stays single-shot — the handler calls `ChatModel.chat()` per cycle, manages the message list, dispatches tool calls via two paths (engine Workers or local functions), and publishes per-cycle `REACT_CYCLE` events via the Vert.x event bus. Runs on a virtual thread with `Future.get()` timeout enforcement.
+
+**Core types (all in `io.casehub.engine.react`):**
+- `ToolSource` — sealed interface: `WorkerTool(Capability, String workerName)` | `LocalTool(String name, String description, Function<Map, Map> fn, Map<String, Object> parameterSchema)`. WorkerTool dispatches via `WorkerRuntime.execute(workerName, args)`. LocalTool calls the function directly.
+- `ReActWorkerFunction` — record implementing `WorkerFunction<Map, Map>`: `model` (ChatModel), `systemPrompt`, `tools` (List<ToolSource>), `maxCycles` (default 20).
+- `ReActWorkerFunctionProvider` — `@ApplicationScoped`, implements `WorkerFunctionProvider`. Detects `react:` YAML blocks on worker definitions.
+- `ReActWorkerFunctionHandler` — `@ApplicationScoped`, implements `WorkerFunctionHandler`. Core tool-use loop with hallucination guard, cancellation check, per-cycle event publishing, token aggregation.
+- `ReActCycleEventHandler` — `@ConsumeEvent @RunOnVirtualThread`, writes `REACT_CYCLE` EventLog entries.
+- `ToolSpecificationBuilder` — converts `ToolSource` to LangChain4j `ToolSpecification`. Module-internal (LangChain4j tool types never leak to engine-api).
+- `ReActCycleEvent` — event bus payload: `caseId`, `workerName`, `tenancyId`, `cycleIndex`, `reasoningText`, `toolCalls`, `tokenUsage`.
+- `ToolCallRecord` — per-tool-call record: `name`, `args`, `output`, `sourceType`, `duration`.
+
+**EventLog metadata schema (REACT_CYCLE):**
+```json
+{
+  "cycleIndex": 0,
+  "reasoningText": "I should search for...",
+  "toolCalls": [{"toolName": "web-search", "toolArgs": {...}, "toolResult": {...}, "toolSource": "worker", "durationMs": 1450}],
+  "tokenUsage": {"inputTokens": 1240, "outputTokens": 89}
+}
+```
+
+**HandlerResult protocolMetadata:** `reactCycleCount`, `reactToolsUsed`, `reactTotalDurationMs`, `reactTotalInputTokens`, `reactTotalOutputTokens`. Merged into WORKER_EXECUTION_COMPLETED by `WorkflowExecutionCompletedHandler`.
+
+**Error handling:** Hallucinated tool name → error message to LLM (not NPE). Tool failure → error result message, LLM decides next step. Max cycles → `WorkerResult.expired()`. Timeout → `Future.get()` cancellation. LLM failure → `WorkerResult.failed()`.
+
+**YAML schema:**
+```yaml
+workers:
+  - name: research-analyst
+    capabilities: [web-search, document-retrieval, summarise]
+    react:
+      maxCycles: 15
+    agent:
+      model: anthropic
+      modelName: claude-sonnet-4-20250514
+      systemPrompt: |
+        You are a research analyst. Use the available tools.
+```
+
+**Compile dependencies:** `casehub-engine-common`, `casehub-engine-api`, `casehub-worker-api`, `casehub-engine` (runtime, for `WorkerRuntimeFactory`), `dev.langchain4j:langchain4j`, `quarkus-arc`, `quarkus-virtual-threads`, `quarkus-vertx`.
+
+**Test dependencies:** Full engine stack with `casehub-persistence-memory`, Mockito.
+
 ## casehub-blocks-engine-adapter Module (relocated)
 
 Relocated to `casehub-blocks-engine-adapter` in the casehub-blocks repo (`engine-adapter/` directory, `io.casehub.engine.agentic` package). Runs casehub-blocks agentic patterns inside the engine's WorkerFunctionHandler pipeline. Consumers add `casehub-blocks-engine-adapter` to their classpath for `pattern:` YAML support. See blocks' CLAUDE.md for module documentation. Refs engine#900.

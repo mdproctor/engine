@@ -111,4 +111,6 @@ public final class EventBusAddresses {
 
   public static final String CONTEXT_SIGNAL = "casehub.context.signal";
   public static final String EXPECTATION_VIOLATED = "casehub.expectation.violated";
+
+  public static final String REACT_CYCLE = "casehub.react.cycle";
 }
