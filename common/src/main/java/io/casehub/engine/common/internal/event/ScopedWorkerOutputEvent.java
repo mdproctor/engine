@@ -20,8 +20,16 @@ import java.util.Map;
 import java.util.UUID;
 
 public record ScopedWorkerOutputEvent(
-    CaseInstance caseInstance,
-    String workerName,
-    Map<String, Object> output,
-    String bindingName,
-    UUID signalId) {}
+        CaseInstance caseInstance,
+        String workerName,
+        Map<String, Object> output,
+        String bindingName,
+        UUID signalId,
+        String reasoning) {
+
+    public ScopedWorkerOutputEvent(
+            CaseInstance caseInstance, String workerName,
+            Map<String, Object> output, String bindingName, UUID signalId) {
+        this(caseInstance, workerName, output, bindingName, signalId, null);
+    }
+}
