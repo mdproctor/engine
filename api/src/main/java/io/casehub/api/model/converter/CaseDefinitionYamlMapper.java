@@ -978,13 +978,24 @@ public final class CaseDefinitionYamlMapper {
         domainsNode.forEach(n -> domainSet.add(n.asText()));
         domains = Set.copyOf(domainSet);
       }
+      Set<String> caseScopedDomains = Set.of();
+      JsonNode caseScopedNode = memRetrievalNode.get("caseScopedDomains");
+      if (caseScopedNode != null && caseScopedNode.isArray()) {
+        var csSet = new java.util.LinkedHashSet<String>();
+        caseScopedNode.forEach(n -> csSet.add(n.asText()));
+        caseScopedDomains = Set.copyOf(csSet);
+      }
+      int maxCaseMemories = memRetrievalNode.has("maxCaseMemories")
+          ? memRetrievalNode.get("maxCaseMemories").asInt() : 0;
       def.setMemoryRetrieval(
           new MemoryRetrievalConfig(
               memRetrievalNode.has("enabled") && memRetrievalNode.get("enabled").asBoolean(),
               memRetrievalNode.has("maxMemories")
                   ? memRetrievalNode.get("maxMemories").asInt()
                   : 10,
-              domains));
+              domains,
+              caseScopedDomains,
+              maxCaseMemories));
     }
 
     // adaptation — per-case plan adaptation configuration
