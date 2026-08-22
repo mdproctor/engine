@@ -18,34 +18,37 @@ package io.casehub.api.model;
 import java.util.Set;
 
 public record MemoryRetrievalConfig(
-        boolean enabled,
-        int maxMemories,
-        Set<String> domains,
-        Set<String> caseScopedDomains,
-        int maxCaseMemories) {
+    boolean enabled,
+    int maxMemories,
+    Set<String> domains,
+    Set<String> caseScopedDomains,
+    int maxCaseMemories) {
 
-    private static final org.jboss.logging.Logger LOG =
-            org.jboss.logging.Logger.getLogger(MemoryRetrievalConfig.class);
+  private static final org.jboss.logging.Logger LOG =
+      org.jboss.logging.Logger.getLogger(MemoryRetrievalConfig.class);
 
-    public MemoryRetrievalConfig {
-        if (maxMemories < 1) {throw new IllegalArgumentException("maxMemories must be >= 1");}
-        domains           = domains == null ? Set.of() : Set.copyOf(domains);
-        caseScopedDomains = caseScopedDomains == null ? Set.of() : Set.copyOf(caseScopedDomains);
-        if (maxCaseMemories < 0) {throw new IllegalArgumentException("maxCaseMemories must be >= 0");}
-        if (!caseScopedDomains.isEmpty() && maxCaseMemories == 0) {
-            LOG.warnf(
-                    "caseScopedDomains configured %s but maxCaseMemories=0 — "
-                    + "case-scoped retrieval is effectively disabled",
-                    caseScopedDomains);
-        }
+  public MemoryRetrievalConfig {
+    if (maxMemories < 1) {
+      throw new IllegalArgumentException("maxMemories must be >= 1");
     }
-
-    public MemoryRetrievalConfig(boolean enabled, int maxMemories, Set<String> domains) {
-        this(enabled, maxMemories, domains, Set.of(), 0);
+    domains = domains == null ? Set.of() : Set.copyOf(domains);
+    caseScopedDomains = caseScopedDomains == null ? Set.of() : Set.copyOf(caseScopedDomains);
+    if (maxCaseMemories < 0) {
+      throw new IllegalArgumentException("maxCaseMemories must be >= 0");
     }
-
-    public static MemoryRetrievalConfig defaults() {
-        return new MemoryRetrievalConfig(
-                false, 10, Set.of("experience", "reflection"), Set.of(), 0);
+    if (!caseScopedDomains.isEmpty() && maxCaseMemories == 0) {
+      LOG.warnf(
+          "caseScopedDomains configured %s but maxCaseMemories=0 — "
+              + "case-scoped retrieval is effectively disabled",
+          caseScopedDomains);
     }
+  }
+
+  public MemoryRetrievalConfig(boolean enabled, int maxMemories, Set<String> domains) {
+    this(enabled, maxMemories, domains, Set.of(), 0);
+  }
+
+  public static MemoryRetrievalConfig defaults() {
+    return new MemoryRetrievalConfig(false, 10, Set.of("experience", "reflection"), Set.of(), 0);
+  }
 }

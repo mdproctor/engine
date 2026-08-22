@@ -22,113 +22,105 @@ import java.util.Map;
 import java.util.UUID;
 
 public record WorkflowExecutionCompleted(
-        CaseInstance caseInstance,
-        Worker worker,
-        String idempotency,
-        Map<String, Object> output,
-        String bindingName,
-        WorkerOutcome outcome,
-        UUID signalId,
-        String workerCredentialToken,
-        io.casehub.api.model.ExecutorRef executorRef,
-        Map<String, Object> protocolMetadata,
-        String reasoning) {
+    CaseInstance caseInstance,
+    Worker worker,
+    String idempotency,
+    Map<String, Object> output,
+    String bindingName,
+    WorkerOutcome outcome,
+    UUID signalId,
+    String workerCredentialToken,
+    io.casehub.api.model.ExecutorRef executorRef,
+    Map<String, Object> protocolMetadata,
+    String reasoning) {
 
-    /**
-     * Convenience constructor for non-awaiting worker completions (no protocol metadata).
-     */
-    public WorkflowExecutionCompleted(
-            CaseInstance caseInstance,
-            Worker worker,
-            String idempotency,
-            Map<String, Object> output,
-            String bindingName,
-            WorkerOutcome outcome) {
-        this(
-                caseInstance,
-                worker,
-                idempotency,
-                output,
-                bindingName,
-                outcome,
-                null,
-                null,
-                null,
-                Map.of(),
-                null);
-    }
+  /** Convenience constructor for non-awaiting worker completions (no protocol metadata). */
+  public WorkflowExecutionCompleted(
+      CaseInstance caseInstance,
+      Worker worker,
+      String idempotency,
+      Map<String, Object> output,
+      String bindingName,
+      WorkerOutcome outcome) {
+    this(
+        caseInstance,
+        worker,
+        idempotency,
+        output,
+        bindingName,
+        outcome,
+        null,
+        null,
+        null,
+        Map.of(),
+        null);
+  }
 
-    /**
-     * Convenience constructor with signalId but no credential token.
-     */
-    public WorkflowExecutionCompleted(
-            CaseInstance caseInstance,
-            Worker worker,
-            String idempotency,
-            Map<String, Object> output,
-            String bindingName,
-            WorkerOutcome outcome,
-            UUID signalId) {
-        this(
-                caseInstance,
-                worker,
-                idempotency,
-                output,
-                bindingName,
-                outcome,
-                signalId,
-                null,
-                null,
-                Map.of(),
-                null);
-    }
+  /** Convenience constructor with signalId but no credential token. */
+  public WorkflowExecutionCompleted(
+      CaseInstance caseInstance,
+      Worker worker,
+      String idempotency,
+      Map<String, Object> output,
+      String bindingName,
+      WorkerOutcome outcome,
+      UUID signalId) {
+    this(
+        caseInstance,
+        worker,
+        idempotency,
+        output,
+        bindingName,
+        outcome,
+        signalId,
+        null,
+        null,
+        Map.of(),
+        null);
+  }
 
-    /**
-     * Convenience constructor with signalId and protocol metadata.
-     */
-    public WorkflowExecutionCompleted(
-            CaseInstance caseInstance,
-            Worker worker,
-            String idempotency,
-            Map<String, Object> output,
-            String bindingName,
-            WorkerOutcome outcome,
-            UUID signalId,
-            Map<String, Object> protocolMetadata) {
-        this(
-                caseInstance,
-                worker,
-                idempotency,
-                output,
-                bindingName,
-                outcome,
-                signalId,
-                null,
-                null,
-                protocolMetadata,
-                null);
-    }
+  /** Convenience constructor with signalId and protocol metadata. */
+  public WorkflowExecutionCompleted(
+      CaseInstance caseInstance,
+      Worker worker,
+      String idempotency,
+      Map<String, Object> output,
+      String bindingName,
+      WorkerOutcome outcome,
+      UUID signalId,
+      Map<String, Object> protocolMetadata) {
+    this(
+        caseInstance,
+        worker,
+        idempotency,
+        output,
+        bindingName,
+        outcome,
+        signalId,
+        null,
+        null,
+        protocolMetadata,
+        null);
+  }
 
-    /**
-     * Convenience constructor for the gate-re-fire path.
-     */
-    public static WorkflowExecutionCompleted approved(
-            final CaseInstance caseInstance,
-            final Worker worker,
-            final String idempotency,
-            final Map<String, Object> output,
-            final String bindingName) {
-        return new WorkflowExecutionCompleted(
-                caseInstance,
-                worker,
-                idempotency,
-                output,
-                bindingName,
-                WorkerOutcome.success(),
-                null,
-                null,
-                null,
-                Map.of(),
-                null);
-    }
+  /** Convenience constructor for the gate-re-fire path. */
+  public static WorkflowExecutionCompleted approved(
+      final CaseInstance caseInstance,
+      final Worker worker,
+      final String idempotency,
+      final Map<String, Object> output,
+      final String bindingName) {
+    return new WorkflowExecutionCompleted(
+        caseInstance,
+        worker,
+        idempotency,
+        output,
+        bindingName,
+        WorkerOutcome.success(),
+        null,
+        null,
+        null,
+        Map.of(),
+        null);
+  }
 }

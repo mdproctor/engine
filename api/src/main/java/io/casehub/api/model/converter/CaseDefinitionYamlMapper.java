@@ -985,8 +985,10 @@ public final class CaseDefinitionYamlMapper {
         caseScopedNode.forEach(n -> csSet.add(n.asText()));
         caseScopedDomains = Set.copyOf(csSet);
       }
-      int maxCaseMemories = memRetrievalNode.has("maxCaseMemories")
-          ? memRetrievalNode.get("maxCaseMemories").asInt() : 0;
+      int maxCaseMemories =
+          memRetrievalNode.has("maxCaseMemories")
+              ? memRetrievalNode.get("maxCaseMemories").asInt()
+              : 0;
       def.setMemoryRetrieval(
           new MemoryRetrievalConfig(
               memRetrievalNode.has("enabled") && memRetrievalNode.get("enabled").asBoolean(),
