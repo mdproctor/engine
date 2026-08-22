@@ -149,7 +149,7 @@ public class WorkerScheduleEventHandler {
 
       java.util.List<io.casehub.api.model.RetrievedMemory> memories =
           agentMemoryRetriever.retrieve(
-              worker.name(), instance.tenancyId, capability.name(), definition);
+              worker.name(), instance.tenancyId, instance.getUuid(), capability.name(), definition);
 
       EventLog eventLog =
           buildEventLog(

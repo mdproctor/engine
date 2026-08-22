@@ -44,11 +44,19 @@ public class AgentMemoryRetriever {
   }
 
   public List<RetrievedMemory> retrieve(
-      String workerName, String tenantId, String capabilityName, CaseDefinition caseDefinition) {
-    if (!caseMemoryStore.isResolvable()) return List.of();
+      String workerName,
+      String tenantId,
+      java.util.UUID caseId,
+      String capabilityName,
+      CaseDefinition caseDefinition) {
+    if (!caseMemoryStore.isResolvable()) {
+      return List.of();
+    }
 
     MemoryRetrievalConfig config = caseDefinition.getMemoryRetrieval();
-    if (config == null || !config.enabled()) return List.of();
+    if (config == null || !config.enabled()) {
+      return List.of();
+    }
 
     try {
       Set<String> domains =
@@ -67,8 +75,29 @@ public class AgentMemoryRetriever {
         perDomainResults.add(memories);
       }
 
-      List<RetrievedMemory> merged = interleaveRoundRobin(perDomainResults, config.maxMemories());
-      return List.copyOf(merged);
+      List<RetrievedMemory> agentMemories =
+          interleaveRoundRobin(perDomainResults, config.maxMemories());
+
+      if (caseId != null && !config.caseScopedDomains().isEmpty() && config.maxCaseMemories() > 0) {
+        int caseBudget = config.maxCaseMemories();
+        int perCaseDomainLimit = Math.max(1, caseBudget / config.caseScopedDomains().size());
+        List<List<Memory>> caseDomainResults = new ArrayList<>();
+        for (String domain : config.caseScopedDomains()) {
+          List<Memory> memories =
+              store.query(
+                  MemoryQuery.forEntity("case:" + caseId, new MemoryDomain(domain), tenantId)
+                      .withQuestion(capabilityName)
+                      .withLimit(perCaseDomainLimit)
+                      .withOrder(MemoryOrder.SALIENCE));
+          caseDomainResults.add(memories);
+        }
+        List<RetrievedMemory> caseMemories = interleaveRoundRobin(caseDomainResults, caseBudget);
+        List<RetrievedMemory> merged = new ArrayList<>(agentMemories);
+        merged.addAll(caseMemories);
+        return List.copyOf(merged);
+      }
+
+      return List.copyOf(agentMemories);
     } catch (Exception e) {
       LOG.warnf(e, "Failed to retrieve memories for agent %s", workerName);
       return List.of();

@@ -53,7 +53,7 @@ class AgentMemoryRetrieverTest {
   @Test
   void returnsEmptyWhenDisabled() {
     var def = CaseDefinition.builder().namespace("ns").name("test").version("1.0").build();
-    var result = retriever.retrieve("agent-1", "tenant-1", "analysis", def);
+    var result = retriever.retrieve("agent-1", "tenant-1", null, "analysis", def);
     assertThat(result).isEmpty();
   }
 
@@ -80,7 +80,7 @@ class AgentMemoryRetrieverTest {
                 new MemoryRetrievalConfig(true, 10, Set.of("experience", "reflection")))
             .build();
 
-    var result = retriever.retrieve("agent-1", "tenant-1", "analysis", def);
+    var result = retriever.retrieve("agent-1", "tenant-1", null, "analysis", def);
     assertThat(result).hasSize(2);
     assertThat(result.stream().map(RetrievedMemory::domain))
         .containsExactlyInAnyOrder("experience", "reflection");
@@ -102,7 +102,7 @@ class AgentMemoryRetrieverTest {
             .memoryRetrieval(new MemoryRetrievalConfig(true, 5, Set.of("experience")))
             .build();
 
-    var result = retriever.retrieve("agent-1", "tenant-1", "cap", def);
+    var result = retriever.retrieve("agent-1", "tenant-1", null, "cap", def);
     assertThat(result).hasSize(5);
   }
 
@@ -136,7 +136,7 @@ class AgentMemoryRetrieverTest {
             .memoryRetrieval(new MemoryRetrievalConfig(true, 6, Set.of("experience", "reflection")))
             .build();
 
-    var result = retriever.retrieve("agent-1", "tenant-1", "cap", def);
+    var result = retriever.retrieve("agent-1", "tenant-1", null, "cap", def);
     assertThat(result).hasSize(6);
     assertThat(result.get(0).domain()).isNotEqualTo(result.get(1).domain());
   }
@@ -156,7 +156,7 @@ class AgentMemoryRetrieverTest {
             .memoryRetrieval(MemoryRetrievalConfig.defaults())
             .build();
 
-    var result = noopRetriever.retrieve("agent-1", "tenant-1", "cap", def);
+    var result = noopRetriever.retrieve("agent-1", "tenant-1", null, "cap", def);
     assertThat(result).isEmpty();
   }
 
@@ -172,7 +172,7 @@ class AgentMemoryRetrieverTest {
             .memoryRetrieval(new MemoryRetrievalConfig(true, 10, Set.of("experience")))
             .build();
 
-    var result = retriever.retrieve("agent-1", "tenant-1", "cap", def);
+    var result = retriever.retrieve("agent-1", "tenant-1", null, "cap", def);
     assertThat(result).isEmpty();
   }
 
