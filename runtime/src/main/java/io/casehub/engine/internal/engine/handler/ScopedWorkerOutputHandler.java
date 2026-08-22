@@ -46,6 +46,7 @@ public class ScopedWorkerOutputHandler {
   @Inject ContextOutputApplier contextOutputApplier;
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
+  @Inject io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder;
 
   @ConsumeEvent(value = EventBusAddresses.SCOPED_WORKER_OUTPUT)
   @RunOnVirtualThread
@@ -61,6 +62,16 @@ public class ScopedWorkerOutputHandler {
         return;
       }
 
+      if (event.reasoning() != null) {
+        agentExperienceRecorder.storeReasoning(
+            caseInstance,
+            event.workerName(),
+            null,
+            new io.casehub.worker.api.WorkerOutcome.Success<>(null),
+            event.reasoning(),
+            event.bindingName());
+      }
+
       JsonNode diff = contextOutputApplier.apply(caseInstance, event.output(), event.bindingName());
       if (diff == null) {
         return;
@@ -68,7 +79,12 @@ public class ScopedWorkerOutputHandler {
 
       EventLog eventLog =
           buildEventLog(
-              caseInstance, event.workerName(), event.output(), event.bindingName(), diff);
+              caseInstance,
+              event.workerName(),
+              event.output(),
+              event.bindingName(),
+              diff,
+              event.reasoning());
       eventLogRepository.append(eventLog, caseInstance.tenancyId);
 
       eventBus.publish(
@@ -89,7 +105,8 @@ public class ScopedWorkerOutputHandler {
       String workerName,
       Map<String, Object> output,
       String bindingName,
-      JsonNode contextDiff) {
+      JsonNode contextDiff,
+      String reasoning) {
     EventLog eventLog = new EventLog();
     eventLog.setCaseId(caseInstance.getUuid());
     eventLog.setWorkerId(workerName);
@@ -109,6 +126,9 @@ public class ScopedWorkerOutputHandler {
       if (!keys.isEmpty()) {
         metadata.set("producedKeys", keys);
       }
+    }
+    if (reasoning != null) {
+      metadata.put("reasoning", reasoning);
     }
     eventLog.setMetadata(metadata);
     return eventLog;

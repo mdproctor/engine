@@ -15,8 +15,6 @@
  */
 package io.casehub.engine.scheduler.quartz;
 
-import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseDefinition;
@@ -40,11 +38,14 @@ import io.vertx.core.Vertx;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.util.List;
-import java.util.Map;
 import org.jboss.logging.Logger;
 import org.quartz.Job;
 import org.quartz.JobExecutionContext;
+
+import java.util.List;
+import java.util.Map;
+
+import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
 
 /**
  * Thin Quartz adapter — resolves context, delegates execution to {@link WorkerExecutor}, and
@@ -225,7 +226,7 @@ public class QuartzWorkerExecutionJob implements Job {
       }
       if (output != null && !output.equals(workerResult.output())) {
         @SuppressWarnings({"unchecked", "rawtypes"})
-        var replaced = new io.casehub.worker.api.WorkerResult(output, workerResult.outcome());
+        var replaced = new io.casehub.worker.api.WorkerResult(output, workerResult.outcome(), workerResult.reasoning());
         workerResult = replaced;
       }
       onSuccess(
@@ -251,32 +252,35 @@ public class QuartzWorkerExecutionJob implements Job {
       java.util.UUID signalId,
       io.casehub.api.model.ExecutionMode executionMode,
       Map<String, Object> protocolMetadata) {
-    if (executionMode != null && executionMode != io.casehub.api.model.ExecutionMode.TRANSIENT) {
-      if (workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Success) {
-        Map<String, Object> output = toMap(workerResult.output());
-        if (output != null && !output.isEmpty()) {
-          eventBus.publish(
-              io.casehub.engine.common.internal.event.EventBusAddresses.SCOPED_WORKER_OUTPUT,
-              new io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent(
-                  instance, worker.name(), output, bindingName, signalId));
-        }
-        LOG.debugf("Scoped worker %s returned Success — interim output published", bindingName);
-        return;
+      if (executionMode != null && executionMode != io.casehub.api.model.ExecutionMode.TRANSIENT) {
+          if (workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Success) {
+              Map<String, Object> output = toMap(workerResult.output());
+              if (output != null && !output.isEmpty()) {
+                  eventBus.publish(
+                          io.casehub.engine.common.internal.event.EventBusAddresses.SCOPED_WORKER_OUTPUT,
+                          new io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent(
+                                  instance, worker.name(), output, bindingName, signalId,
+                                  workerResult.reasoning()));
+              }
+              LOG.debugf("Scoped worker %s returned Success — interim output published", bindingName);
+              return;
+          }
       }
-    }
-    Map<String, Object> output = toMap(workerResult.output());
-    eventBus.publish(
-        WORKER_EXECUTION_FINISHED,
-        new WorkflowExecutionCompleted(
-            instance,
-            worker,
-            inputDataHash,
-            output,
-            bindingName,
-            workerResult.outcome(),
-            signalId,
-            protocolMetadata));
-  }
+      Map<String, Object> output = toMap(workerResult.output());
+      eventBus.publish(
+              WORKER_EXECUTION_FINISHED,
+              new WorkflowExecutionCompleted(
+                      instance,
+                      worker,
+                      inputDataHash,
+                      output,
+                      bindingName,
+                      workerResult.outcome(),
+                      signalId,
+                      null,
+                      null,
+                      protocolMetadata,
+                      workerResult.reasoning()));}
 
   private void onFailure(WorkerRetryContext retryCtx, Throwable failure) {
     LOG.errorf(
