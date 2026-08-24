@@ -28,7 +28,7 @@ Thread `resolutionType` from the classifier's `GateRequired` decision through th
 |------|-------|------|-----------|
 | `RiskDecision.GateRequired` | `@Nullable Class<?> resolutionType` | Class | API-level — classifier declares the expected type |
 | `PendingActionGate` | `@Nullable Class<?> resolutionType` | Class | In-memory record on CaseInstance, holds the class directly |
-| `ActionGateScheduleEvent` | `@Nullable String resolutionTypeName` | String | Event transport to work repo engine-adapter |
+| `ActionGateScheduleRequest` | `@Nullable String resolutionTypeName` | String | Event transport to work repo engine-adapter |
 | `ActionGateApprovedEvent` | `@Nullable String resolutionTypeName` | String | Event transport back from work repo |
 
 `Class<?>` at API boundaries where the classifier knows the type at compile time. `String` at event transport boundaries (events must be serializable across module boundaries).

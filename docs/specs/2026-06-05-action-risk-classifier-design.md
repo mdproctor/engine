@@ -346,7 +346,7 @@ serialized via Jackson). No migration needed — schema is `drop-and-create`.
 1. Write `ACTION_GATE_PENDING` EventLog entry (`EventStreamType.CASE`) — the compliance audit record.
    See §7 for exact payload structure.
 2. Populate `PendingActionGate` on `CaseInstance`; save.
-3. Publish `ActionGateScheduleEvent` to event bus.
+3. Publish `ActionGateScheduleRequest` to event bus.
 4. **Do not** apply output to case context.
 5. **Do not** fire `CONTEXT_CHANGED`.
 6. **Do not** call `workerStatusListener` — the worker is not yet done.
@@ -420,7 +420,7 @@ this issue.
 - candidateGroups, expiresAt (from `expiresIn`), scope: from `GateRequired`.
 - payload: full `PlannedAction` + `reversible` serialized as JSON (human sees what the agent
   proposed, including the description and actionType — not just the context map).
-- Tenancy: `ActionGateScheduleEvent` carries `tenancyId`. The handler establishes tenant context
+- Tenancy: `ActionGateScheduleRequest` carries `tenancyId`. The handler establishes tenant context
   via the same `@Transactional` boundary pattern as `HumanTaskScheduleHandler`.
 
 **`WorkItemLifecycleAdapter.onWorkItemLifecycle()` restructured:**
@@ -636,7 +636,7 @@ ACTION_GATE_CANCELLED  = "action-gate.cancelled"
 ### 13. Deployment constraint and startup warning
 
 Returning `GateRequired` requires `casehub-work-adapter` on the classpath. If absent,
-`ActionGateScheduleEvent` fires with no handler — the case stalls. The default classifier always
+`ActionGateScheduleRequest` fires with no handler — the case stalls. The default classifier always
 returns `Autonomous`, so deployments without work-adapter are not broken by default.
 
 **Startup warning:** A `@Singleton @Startup` observer in the engine runtime checks:
@@ -667,7 +667,7 @@ returns `Autonomous`, so deployments without work-adapter are not broken by defa
 Gate wiring test — inner `@Alternative @Priority(1) @ApplicationScoped` classifier that records
 `classify()` calls, returns a static `GateRequired`. Verify:
 - `classify()` was called with the enriched `PlannedAction` (workerId and caseId non-null)
-- `ActionGateScheduleEvent` was published
+- `ActionGateScheduleRequest` was published
 - `pendingActionGate` is set on the case
 - No `CONTEXT_CHANGED` was published
 

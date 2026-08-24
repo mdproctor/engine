@@ -39,7 +39,7 @@ public record QuorumConfig(
 
 Uses the existing `io.casehub.api.model.OnThresholdReached` enum (KEEP, CANCEL). The work-api enum adds SUSPEND; this is a work-tier mechanism not exposed in the governance layer. The adapter maps between the two enums.
 
-Added as `@Nullable QuorumConfig quorum` on `RiskDecision.GateRequired`. Null = single-approver (backward compatible). The full `GateRequired` record already flows through `ActionGateScheduleEvent` — no event changes needed.
+Added as `@Nullable QuorumConfig quorum` on `RiskDecision.GateRequired`. Null = single-approver (backward compatible). The full `GateRequired` record already flows through `ActionGateScheduleRequest` — no event changes needed.
 
 No `assignmentStrategy` on `QuorumConfig` — that's a work-tier mechanism detail. The adapter picks a sensible default ("pool").
 
