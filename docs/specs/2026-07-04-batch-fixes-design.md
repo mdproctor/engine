@@ -41,7 +41,7 @@ Evaluate the strategy upstream, carry resolved groups in the event, remove routi
 
 ### Changes
 
-**`ActionGateScheduleEvent`** (common) — Add `resolvedCandidateGroups` field:
+**`ActionGateScheduleRequest`** (common) — Add `resolvedCandidateGroups` field:
 
 ```java
 public record ActionGateScheduleEvent(

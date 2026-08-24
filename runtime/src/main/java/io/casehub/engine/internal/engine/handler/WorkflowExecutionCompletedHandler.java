@@ -35,7 +35,6 @@ import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.CandidateSetContext;
-import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
@@ -45,6 +44,7 @@ import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
+import io.casehub.engine.common.spi.ActionGateScheduleRequest;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
@@ -115,6 +115,10 @@ public class WorkflowExecutionCompletedHandler {
   @Inject
   jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
       outcomeRecorder;
+
+  @Inject
+  jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.ActionGateScheduler>
+      actionGateScheduler;
 
   private static Long extractDurationMs(WorkflowExecutionCompleted event) {
     if (event.protocolMetadata() == null) {
@@ -690,6 +694,13 @@ public class WorkflowExecutionCompletedHandler {
     final String bindingName = event.bindingName();
     final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
+    if (!actionGateScheduler.isResolvable()) {
+      LOG.warnf(
+          "No ActionGateScheduler on classpath — skipping gate for caseId=%s",
+          caseInstance.getUuid());
+      return;
+    }
+
     Set<String> resolvedGroups;
     if (gate.candidateGroups() != null) {
       JsonNode contextNode = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
@@ -724,16 +735,17 @@ public class WorkflowExecutionCompletedHandler {
             gate.resolutionType()));
     caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
 
-    eventBus.publish(
-        EventBusAddresses.ACTION_GATE_SCHEDULE,
-        new ActionGateScheduleEvent(
-            caseInstance.getUuid(),
-            caseInstance.tenancyId,
-            gateEventLog.id,
-            plannedAction,
-            gate,
-            resolvedGroups,
-            gate.resolutionType() != null ? gate.resolutionType().getName() : null));
+    actionGateScheduler
+        .get()
+        .schedule(
+            new ActionGateScheduleRequest(
+                caseInstance.getUuid(),
+                caseInstance.tenancyId,
+                gateEventLog.id,
+                plannedAction,
+                gate,
+                resolvedGroups,
+                gate.resolutionType() != null ? gate.resolutionType().getName() : null));
 
     lifecycleEvents
         .fireAsync(

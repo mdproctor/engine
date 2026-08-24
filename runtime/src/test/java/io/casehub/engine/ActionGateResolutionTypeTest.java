@@ -19,8 +19,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
-import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.model.PendingActionGate;
+import io.casehub.engine.common.spi.ActionGateScheduleRequest;
 import io.casehub.worker.api.PlannedAction;
 import java.util.Map;
 import java.util.Set;
@@ -63,7 +63,7 @@ class ActionGateResolutionTypeTest {
   @Test
   void actionGateScheduleEvent_carries_resolutionTypeName() {
     var event =
-        new ActionGateScheduleEvent(
+        new ActionGateScheduleRequest(
             UUID.randomUUID(),
             "tenant1",
             1L,

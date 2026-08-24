@@ -13,19 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.internal.event;
+package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.RiskDecision;
-import io.casehub.worker.api.PlannedAction;
-import java.util.Set;
-import java.util.UUID;
-import org.jspecify.annotations.Nullable;
+import io.casehub.engine.common.spi.ActionGateScheduleRequest;
+import io.casehub.engine.common.spi.ActionGateScheduler;
+import io.quarkus.arc.DefaultBean;
+import jakarta.enterprise.context.ApplicationScoped;
 
-public record ActionGateScheduleEvent(
-    UUID caseId,
-    String tenancyId,
-    long gateId,
-    PlannedAction plannedAction,
-    RiskDecision.GateRequired gateRequired,
-    Set<String> resolvedCandidateGroups,
-    @Nullable String resolutionTypeName) {}
+@DefaultBean
+@ApplicationScoped
+public class NoOpActionGateScheduler implements ActionGateScheduler {
+
+  @Override
+  public void schedule(ActionGateScheduleRequest request) {
+    // intentional no-op — no work integration configured
+  }
+}
