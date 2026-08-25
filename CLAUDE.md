@@ -931,6 +931,36 @@ workers:
 
 **Test dependencies:** Full engine stack with `casehub-persistence-memory`, Mockito.
 
+## casehub-engine-work-cloudevent Module
+
+Optional CloudEvent bridge for distributed HumanTask and ActionGate dispatch. Activated by adding `casehub-engine-work-cloudevent` to the consumer's classpath. Directory: `work-cloudevent/`. Mutually exclusive with `casehub-work-engine-adapter`. Refs engine#972.
+
+**Architecture:** Implements `HumanTaskScheduler` and `ActionGateScheduler` SPIs via CloudEvent emission (`io.casehub.work.workitem.create`). Inbound lifecycle CloudEvents (`completed`, `rejected`, `faulted`, `expired`, `escalated`, `suspended`, `resumed`) are consumed by `WorkItemLifecycleCloudEventConsumer` which delegates to shared `PlanItemCompletionApplier` and `GateCompletionApplier` (planning module). Transport-agnostic — CDI `Event<CloudEvent>` emission/consumption; a Quarkus messaging connector bridges to the wire (Kafka, AMQP, HTTP).
+
+**Core types (all in `io.casehub.engine.work.cloudevent`):**
+- `CloudEventHumanTaskScheduler` — `@ApplicationScoped`, implements `HumanTaskScheduler`. Maps `HumanTaskScheduleRequest` fields to CloudEvent data (title, candidateGroups, candidateUsers, payload, callerRef, scope, expiresAt, outcomes, scores, experiences). PlanItem lifecycle: validates DISPATCHING, persists DELEGATED via `PlanItemStore`, marks `markDelegated()`. Template vs inline mode via `HumanTaskTarget.isTemplateMode()`.
+- `CloudEventActionGateScheduler` — `@ApplicationScoped`, implements `ActionGateScheduler`. Maps gate fields (reason, candidateGroups, PlannedAction, expiresIn, scope, resolutionType) to CloudEvent data. Quorum gates log warning and skip (work-side multi-instance CloudEvent not yet supported).
+- `WorkItemLifecycleCloudEventConsumer` — `@ApplicationScoped`, `@ObservesAsync CloudEvent`. Pure transport adapter: parses `callerRef` via `CallerRefParser`, routes PlanItem path to `PlanItemCompletionApplier`, gate path to `GateCompletionApplier`. Maps CloudEvent types to `TaskStatus`.
+- `WorkIntegrationConflictDetector` — `@Observes @Priority(1) StartupEvent`. Fails fast when both co-located (`casehub-work-engine-adapter`) and distributed (`casehub-engine-work-cloudevent`) modules are on the classpath.
+
+**Shared completion infrastructure (planning module, `io.casehub.engine.planning.completion`):**
+- `PlanItemCompletionApplier` — `@ApplicationScoped`. Full PlanItem completion: lookup via `BlackboardRegistry`, resolution validation via `BridgeResolver`, status transition, JQ output mapping with `ConflictResolver`, CDI event publishing (`PlanItemStateChangedEvent`, `PlanItemObsoleteEvent`), `CONTEXT_CHANGED`. Accepts `TaskStatus` — callers map from external types.
+- `GateCompletionApplier` — `@ApplicationScoped`. Routes `TaskStatus` to event bus addresses: COMPLETED→`ACTION_GATE_APPROVED`, REJECTED/CANCELLED→`ACTION_GATE_REJECTED`, FAULTED→`ACTION_GATE_EXPIRED`.
+
+**CallerRef encoding** (`common/spi/CallerRefParser`): PlanItem `case:{caseId}/pi:{planItemId}`, Gate `case:{caseId}/gate:{gateId}`. Sealed `CallerRef` with `PlanItemRef` and `GateRef` permits.
+
+**ActionGateScheduler SPI** (`common/spi/`): `ActionGateScheduler.schedule(ActionGateScheduleRequest)`. Symmetric with `HumanTaskScheduler`. `NoOpActionGateScheduler` (`@DefaultBean`, runtime). `WorkflowExecutionCompletedHandler.handleGate()` uses `Instance<ActionGateScheduler>` instead of event bus publish.
+
+**Compile dependencies:** `casehub-engine-common`, `casehub-engine-planning`, `casehub-work-api`, `io.cloudevents:cloudevents-core`, `quarkus-arc`, `quarkus-vertx`.
+
+**Test dependencies:** Full engine stack with `casehub-persistence-memory`, Mockito.
+
+**Build and test:**
+```bash
+mvn install -DskipTests -q          # install deps to local repo first
+TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl work-cloudevent
+```
+
 ## casehub-blocks-engine-adapter Module (relocated)
 
 Relocated to `casehub-blocks-engine-adapter` in the casehub-blocks repo (`engine-adapter/` directory, `io.casehub.engine.agentic` package). Runs casehub-blocks agentic patterns inside the engine's WorkerFunctionHandler pipeline. Consumers add `casehub-blocks-engine-adapter` to their classpath for `pattern:` YAML support. See blocks' CLAUDE.md for module documentation. Refs engine#900.
