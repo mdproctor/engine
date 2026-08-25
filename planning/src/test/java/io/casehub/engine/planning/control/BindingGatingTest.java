@@ -424,6 +424,64 @@ class BindingGatingTest {
   }
 
   @Test
+  void free_floating_humanTask_duplicate_dispatch_prevention() {
+    Binding b = mock(Binding.class);
+    when(b.getName()).thenReturn("assign-specialist");
+    when(b.target()).thenReturn(HumanTaskTarget.inline().title("Resolve ticket").build());
+
+    List<Binding> firstResult = loopControl.select(ctx, List.of(b));
+    assertThat(firstResult.stream().map(Binding::getName))
+        .as("first select must dispatch the humanTask binding")
+        .contains("assign-specialist");
+
+    assertThat(plan().getPlanItemByBindingName("assign-specialist"))
+        .as("PlanItem must exist after first dispatch")
+        .isPresent();
+
+    List<Binding> secondResult = loopControl.select(ctx, List.of(b));
+    assertThat(secondResult.stream().map(Binding::getName))
+        .as("second select must NOT re-dispatch — PlanItem already DISPATCHING")
+        .doesNotContain("assign-specialist");
+  }
+
+  @Test
+  void concurrent_select_for_same_humanTask_produces_single_dispatch() throws Exception {
+    Binding b = mock(Binding.class);
+    when(b.getName()).thenReturn("assign-specialist");
+    when(b.target()).thenReturn(HumanTaskTarget.inline().title("Resolve ticket").build());
+
+    int threads = 10;
+    java.util.concurrent.CyclicBarrier barrier = new java.util.concurrent.CyclicBarrier(threads);
+    java.util.concurrent.atomic.AtomicInteger dispatchCount =
+        new java.util.concurrent.atomic.AtomicInteger();
+
+    java.util.concurrent.ExecutorService executor =
+        java.util.concurrent.Executors.newFixedThreadPool(threads);
+    java.util.List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
+    for (int i = 0; i < threads; i++) {
+      futures.add(
+          executor.submit(
+              () -> {
+                try {
+                  barrier.await();
+                } catch (Exception e) {
+                  throw new RuntimeException(e);
+                }
+                List<Binding> result = loopControl.select(ctx, List.of(b));
+                dispatchCount.addAndGet(result.size());
+              }));
+    }
+    for (var f : futures) {
+      f.get(5, java.util.concurrent.TimeUnit.SECONDS);
+    }
+    executor.shutdown();
+
+    assertThat(dispatchCount.get())
+        .as("exactly one dispatch across %d concurrent select() calls", threads)
+        .isEqualTo(1);
+  }
+
+  @Test
   void duplicate_dispatch_prevention_for_humanTaskTarget() {
     var compound =
         PlanItemDefinition.Compound.builder("intake").id("comp-1").binding("ht-b").build();
