@@ -94,11 +94,27 @@ public class Milestone {
   private static final ExpressionEvaluator DEFAULT_ENTRY_CRITERIA =
       new LambdaExpressionEvaluator(ctx -> true);
 
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Unique milestone name within the definition.")
   private final String name;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "JQ predicate — milestone activates when this becomes true.")
   private final ExpressionEvaluator entryCriteria;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "JQ predicate — milestone completes when this becomes true after activation.")
   private final ExpressionEvaluator completionCriteria;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "SLA duration — ISO-8601 format. Fires timeout when exceeded.")
   private final Duration slaDuration;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "When the SLA clock starts. Default: MILESTONE_ACTIVATED.")
   private final SlaStartFrom slaStartFrom;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription("Human-readable milestone description.")
   private String description;
 
   public Milestone(

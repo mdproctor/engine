@@ -901,8 +901,8 @@ public class CaseContextChangedEventHandler {
     final ExpressionEvaluator effectiveProjection =
         inputProjectionOverride != null
             ? inputProjectionOverride
-            : (capability.inputSchema() != null
-                ? new JQExpressionEvaluator(capability.inputSchema())
+            : (capability.inputProjection() != null
+                ? new JQExpressionEvaluator(capability.inputProjection())
                 : null);
     final Map<String, Object> inputData =
         transformAsMap(

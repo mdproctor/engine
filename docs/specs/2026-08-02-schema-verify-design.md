@@ -139,6 +139,6 @@ Add `SchemaValidationTest` to the schema module that:
 ## Out of Scope
 
 - TypeScript type generation from the schema (blocks-ui#103 Phase 0 — depends on this)
-- Worker legacy fields (`inputSchema`/`outputSchema` on hand-written Worker) — deprecated, not removed
+- Worker legacy fields (`inputProjection`/`outputProjection` on hand-written Worker) — deprecated, not removed
 - Compound (PlanItemDefinition.Compound) YAML support — DSL-only, not YAML-expressible
 - Plugin-specific schema validation (validating `agent:` block structure) — handled at runtime by providers

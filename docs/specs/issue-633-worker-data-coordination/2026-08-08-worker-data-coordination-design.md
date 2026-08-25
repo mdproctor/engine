@@ -532,7 +532,7 @@ This ensures that a bad JQ expression in `CustomJqProjection` cannot discard a s
 
 - `conflictResolverStrategy` — applies to projected body under DualWrite/Full. ExchangeOnly bypasses.
 - `producedKeys` — documents keys produced (Exchange headers for audit when ExchangeOnly).
-- `outputSchema` (capability output projection) — applied to Exchange body before projection strategy. Headers pass through.
+- `outputProjection` (capability output projection) — applied to Exchange body before projection strategy. Headers pass through.
 
 ### Strategy × ConflictResolver composition
 

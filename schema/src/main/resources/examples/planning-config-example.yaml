@@ -1,0 +1,163 @@
+##
+## Example: Planning & Adaptation Configuration
+##
+## Demonstrates the expanded CaseDefinitionSpec fields for GOAP planning,
+## adaptation, monitoring, recovery, reflection, and humanTask routing
+## constraints.
+##
+
+dsl: "1.0.0"
+namespace: casehub-examples
+name: planning-config
+version: "1.0.0"
+
+spec:
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: investigate
+      description: "Investigate the incoming data"
+      inputProjection: ".caseData"
+    - name: verify
+      description: "Verify investigation results"
+      inputProjection: ".investigation"
+    - name: approve
+      description: "Human approval of verified results"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  workers:
+    - name: investigator
+      capabilities: [ investigate ]
+    - name: verifier
+      capabilities: [ verify ]
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  bindings:
+    - name: investigate-trigger
+      capability: investigate
+      on:
+        contextChange:
+          filter: ".caseData != null"
+    - name: verify-trigger
+      capability: verify
+      on:
+        contextChange:
+          filter: ".investigation != null"
+    - name: approve-trigger
+      humanTask:
+        title: "Approve investigation"
+        candidateGroups: [ senior-reviewers ]
+      on:
+        contextChange:
+          filter: ".verified == true"
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: approved
+      condition: ".approved == true"
+  completion:
+    success:
+      allOf: [ approved ]
+
+  ## ─── Planning Strategy ────────────────────────────────────────────
+  planningStrategy: sequential
+  decompositionStrategy: goap
+  maxDecompositionDepth: 4
+
+  ## ─── GOAP Actions ─────────────────────────────────────────────────
+  goapActions:
+    - name: investigate
+      effects:
+        investigated: true
+      cost: 1.0
+    - name: verify
+      preconditions:
+        investigated: true
+      effects:
+        verified: true
+      cost: 2.0
+      softPreconditions:
+        cacheWarmed: true
+
+  ## ─── Adaptation ───────────────────────────────────────────────────
+  adaptation:
+    trigger: progress
+    optimization: forward-replan
+    threshold: 0.3
+    metaReasoner: cost-ceiling
+    repair: goap-repair
+    contingencyThreshold: 0.15
+  maxAdaptations: 5
+
+  ## ─── Planning Constraints ─────────────────────────────────────────
+  planningConstraints:
+    timeBudget: PT30M
+    resourceLimit: 5
+    weights:
+      speed: 0.7
+      cost: 0.3
+    costBudgets:
+      tokens: 50000
+
+  ## ─── Monitoring ───────────────────────────────────────────────────
+  monitoring:
+    enabled: true
+    perCompletionThreshold: 0.4
+    windowSize: 3
+
+  ## ─── Recovery ─────────────────────────────────────────────────────
+  recoveryPolicy:
+    maxRetries: 3
+    maxRerouteAttempts: 2
+    classifierId: heuristic
+    enabled: true
+
+  ## ─── Portfolio ────────────────────────────────────────────────────
+  portfolioConfig:
+    delegates: [ goap, llm ]
+    timeouts:
+      goap: 1000
+      llm: 30000
+
+  ## ─── Reflection ───────────────────────────────────────────────────
+  reflection:
+    enabled: true
+    importanceThreshold: 5.0
+    maxUnreflectedOutcomes: 10
+    maxSourceMemories: 20
+    importanceWeights:
+      SUCCESS: 0.3
+      FAILED: 0.8
+      DECLINED: 0.6
+
+  ## ─── Memory Retrieval ─────────────────────────────────────────────
+  memoryRetrieval:
+    enabled: true
+    maxMemories: 10
+    domains: [ investigation, verification ]
+
+  ## ─── Worker Service Accounts ──────────────────────────────────────
+  workerServiceAccountIds:
+    investigator: sa-investigator-prod
+    verifier: sa-verifier-prod
+
+  ## ─── Default Quorum ───────────────────────────────────────────────
+  defaultQuorum:
+    instances: 3
+    required: 2
+    onThresholdReached: KEEP
+    allowSameAssignee: false
+
+  ## ─── HumanTask Routing Constraints ────────────────────────────────
+  humanTaskContextConstraints:
+    - when: ".priority == \"high\""
+      effect:
+        preferGroups: [ senior-reviewers ]
+      weight: 0.9
+    - when: ".region == \"eu\""
+      effect:
+        excludeGroups: [ us-only-team ]
+
+  humanTaskWorkloadConstraint:
+    maxActiveTaskCount: 5
+    loadBalanceWeight: 0.7

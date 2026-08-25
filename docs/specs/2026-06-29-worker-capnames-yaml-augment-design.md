@@ -11,8 +11,8 @@ Two related design gaps:
 
 The engine matches workers to bindings by capability name. Every production usage of
 `worker.capabilities()` either extracts names (`.stream().map(Capability::name)`) or
-does name matching (`.stream().anyMatch(c -> c.name().equals(...))`). The `inputSchema`
-and `outputSchema` on worker capabilities are never read — schemas come from the
+does name matching (`.stream().anyMatch(c -> c.name().equals(...))`). The `inputProjection`
+and `outputProjection` on worker capabilities are never read — schemas come from the
 binding's `CapabilityTarget`, not the worker.
 
 This forces consumers to create redundant `Capability` instances (via a duplicated
@@ -58,7 +58,7 @@ Builder methods:
 | `capabilities(List<Capability> c)` | `capabilityNames(Collection<String> names)` |
 | `capability(Capability c)` | `capabilityName(String name)` |
 
-The compact constructor validates `capabilityNames` is non-null and copies it
+The compact constructor validates `capabilities` is non-null and copies it
 to an unmodifiable set via `Set.copyOf()` (deduplicates, rejects null elements).
 
 **TestWorkerBuilder** (casehub-worker-testing, same repo): `sync()` changes from

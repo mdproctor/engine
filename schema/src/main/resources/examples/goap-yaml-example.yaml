@@ -1,0 +1,76 @@
+##
+## Example: GOAP Worker Shorthand
+##
+## Demonstrates per-worker GOAP annotation fields (cost, effect,
+## softDependency) that construct GoapAction objects at definition
+## build time. Equivalent to declaring goapActions at spec level.
+##
+
+dsl: "1.0.0"
+namespace: casehub-examples
+name: goap-workers
+version: "1.0.0"
+
+spec:
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: scan
+      description: "OCR scan of document images"
+      inputProjection: ".document"
+    - name: classify
+      description: "Classify document type and extract metadata"
+      inputProjection: ".scanned"
+    - name: verify
+      description: "Verify extracted data against external sources"
+      inputProjection: ".classified"
+
+  ## ─── Workers with GOAP annotations ────────────────────────────────
+  workers:
+    - name: scanner
+      capabilities: [ scan ]
+      cost: 1.0
+      effect:
+        scanned: true
+
+    - name: classifier
+      capabilities: [ classify ]
+      cost: 2.0
+      effect:
+        classified: true
+      softDependency:
+        - cacheWarmed
+
+    - name: verifier
+      capabilities: [ verify ]
+      cost: 3.5
+      effect:
+        verified: true
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  bindings:
+    - name: scan-trigger
+      capability: scan
+      on:
+        contextChange:
+          filter: ".document != null and .scanned == null"
+    - name: classify-trigger
+      capability: classify
+      on:
+        contextChange:
+          filter: ".scanned == true and .classified == null"
+    - name: verify-trigger
+      capability: verify
+      on:
+        contextChange:
+          filter: ".classified == true and .verified == null"
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: all-verified
+      condition: ".verified == true"
+  completion:
+    success:
+      allOf: [ all-verified ]
+
+  decompositionStrategy: goap

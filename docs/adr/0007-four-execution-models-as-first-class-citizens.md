@@ -154,9 +154,9 @@ Critically: Quarkus Flow treats `AgenticScope` as a first-class citizen by imple
 | langchain4j-agentic | casehub-engine |
 |---|---|
 | `AgenticScope` (shared mutable state) | `CaseContext` (shared blackboard) |
-| `outputKey` / `TypedKey<T>` | capability `outputSchema` JQ keys |
-| Agent preconditions (`@V("key")` params) | capability `inputSchema` JQ expressions |
-| Agent postconditions (`outputKey`) | capability `outputSchema` keys |
+| `outputKey` / `TypedKey<T>` | capability `outputProjection` JQ keys |
+| Agent preconditions (`@V("key")` params) | capability `inputProjection` JQ expressions |
+| Agent postconditions (`outputKey`) | capability `outputProjection` keys |
 | `Planner.nextAction(PlanningContext)` | `LoopControl.select(PlanExecutionContext, bindings)` |
 | `GoalOrientedPlanner` dependency graph | binding evaluator execution graph |
 | `Goal` (desired output keys) | `Goal` expression |

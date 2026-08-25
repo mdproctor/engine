@@ -41,7 +41,7 @@ The `call: casehub:dispatch` step is handled by `CasehubCallableTaskBuilder`, re
 
 The design for this was reviewed three times before implementation started — not as methodology, but because each round uncovered something that would have been expensive to fix later.
 
-The first review caught that `WorkRequest.input` was being silently ignored by `WorkOrchestrator.doSubmit()`. The spec had a YAML `input:` parameter that did nothing. The data flow model was wrong: the spec implied data passed step-to-step through the workflow, but the implementation always re-evaluated from the case context via `inputSchema`. That's actually the right design — the case context is the bus — but the spec hadn't made that explicit. The `input:` parameter was removed and the data flow section was written.
+The first review caught that `WorkRequest.input` was being silently ignored by `WorkOrchestrator.doSubmit()`. The spec had a YAML `input:` parameter that did nothing. The data flow model was wrong: the spec implied data passed step-to-step through the workflow, but the implementation always re-evaluated from the case context via `inputProjection`. That's actually the right design — the case context is the bus — but the spec hadn't made that explicit. The `input:` parameter was removed and the data flow section was written.
 
 The second review caught that `WorkOrchestrator` couldn't go in `api/spi/` as originally planned. It takes `CaseInstance` as a parameter. `CaseInstance` is in `casehub-engine-common/internal/`. Putting the interface in `api/spi/` would create a circular dependency: `api` ← `common` ← `api`. So it went in `common/spi/`, alongside the persistence SPIs.
 

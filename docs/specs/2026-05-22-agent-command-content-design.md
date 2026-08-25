@@ -55,7 +55,7 @@ to `Agent`'s API.
 
 ### No-transformer case
 
-If `inputSchema`/`outputSchema` was never set, the transformer should be identity:
+If `inputProjection`/`outputProjection` was never set, the transformer should be identity:
 `UnaryOperator.identity()`. `AgentBuilder.build()` defaults to identity when null.
 
 ### Testing

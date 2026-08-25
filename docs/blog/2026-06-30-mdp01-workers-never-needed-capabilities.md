@@ -35,7 +35,7 @@ We traced every production usage of `worker.capabilities()` across the engine. S
 w.capabilities().stream().anyMatch(c -> c.name().equals(capabilityName))
 ```
 
-The `inputSchema` and `outputSchema` on worker capabilities are never read. Schemas come from the binding's `CapabilityTarget`, not the worker. Workers carry `List<Capability>` purely as name labels.
+The `inputProjection` and `outputProjection` on worker capabilities are never read. Schemas come from the binding's `CapabilityTarget`, not the worker. Workers carry `List<Capability>` purely as name labels.
 
 This is a design over-specification baked in from the beginning. Workers don't declare *schemas* — they declare *support* for a capability. The right type is `Set<String>`, not `List<Capability>`.
 

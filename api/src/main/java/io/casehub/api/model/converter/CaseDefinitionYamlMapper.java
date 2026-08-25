@@ -334,7 +334,9 @@ public final class CaseDefinitionYamlMapper {
 
     if (contextClass != null) {
       def.setDefaultWorkerBridge(new JacksonPojoBridge<>(contextClass));
+      def.setContextType(schema.getContextType());
     }
+    def.setExpressionLang(expressionLang);
 
     // semanticData — free-form object; read directly from raw JsonNode to avoid empty generated
     // class
@@ -433,7 +435,7 @@ public final class CaseDefinitionYamlMapper {
                 : null;
         ExpressionEvaluator inputEval =
             resolveExpression(rawInputNode, effectiveRegistry, expressionLang);
-        if (inputEval == null) inputEval = new JQExpressionEvaluator(cap.inputSchema());
+        if (inputEval == null) inputEval = new JQExpressionEvaluator(cap.inputProjection());
 
         JsonNode rawOutputNode =
             rawCap != null
@@ -443,7 +445,7 @@ public final class CaseDefinitionYamlMapper {
                 : null;
         ExpressionEvaluator outputEval =
             resolveExpression(rawOutputNode, effectiveRegistry, expressionLang);
-        if (outputEval == null) outputEval = new JQExpressionEvaluator(cap.outputSchema());
+        if (outputEval == null) outputEval = new JQExpressionEvaluator(cap.outputProjection());
 
         capTargetMap.put(sc.getName(), new CapabilityTarget(cap, inputEval, outputEval));
 
@@ -586,7 +588,7 @@ public final class CaseDefinitionYamlMapper {
           final Worker updatedWorker =
               Worker.builder()
                   .name(worker.name())
-                  .capabilityNames(worker.capabilityNames())
+                  .capabilityNames(worker.capabilities())
                   .function(sequenceFunc)
                   .executionPolicy(worker.executionPolicy())
                   .description(worker.description())
@@ -598,6 +600,42 @@ public final class CaseDefinitionYamlMapper {
 
       // Add all to definition
       def.getWorkers().addAll(builtWorkers.values());
+
+      // Per-worker GOAP shorthand: cost, effect, softDependency → GoapAction
+      var workerGoapActions = new java.util.ArrayList<io.casehub.engine.plan.goap.GoapAction>();
+      for (int wi = 0; rawWorkers != null && wi < rawWorkers.size(); wi++) {
+        JsonNode rawW = rawWorkers.get(wi);
+        if (rawW == null) continue;
+        boolean hasEffect = rawW.has("effect") && rawW.get("effect").isObject();
+        boolean hasCost = rawW.has("cost");
+        boolean hasSoftDep = rawW.has("softDependency") && rawW.get("softDependency").isArray();
+        if (hasEffect || hasCost) {
+          String capName =
+              schema.getSpec().getWorkers().get(wi).getCapabilities() != null
+                      && !schema.getSpec().getWorkers().get(wi).getCapabilities().isEmpty()
+                  ? schema.getSpec().getWorkers().get(wi).getCapabilities().get(0)
+                  : schema.getSpec().getWorkers().get(wi).getName();
+          Map<String, Boolean> effects = parseBooleanMap(rawW.get("effect"));
+          double cost = rawW.has("cost") ? rawW.get("cost").asDouble() : 1.0;
+          Map<String, Boolean> softPrec = Map.of();
+          if (hasSoftDep) {
+            var sp = new java.util.LinkedHashMap<String, Boolean>();
+            rawW.get("softDependency").forEach(e -> sp.put(e.asText(), true));
+            softPrec = Map.copyOf(sp);
+          }
+          workerGoapActions.add(
+              new io.casehub.engine.plan.goap.GoapAction(
+                  capName, Map.of(), effects, cost, 0, softPrec));
+        }
+      }
+      if (!workerGoapActions.isEmpty()) {
+        var existing =
+            def.getGoapActions() != null
+                ? new java.util.ArrayList<>(def.getGoapActions())
+                : new java.util.ArrayList<io.casehub.engine.plan.goap.GoapAction>();
+        existing.addAll(workerGoapActions);
+        def.setGoapActions(existing);
+      }
     }
 
     // Convert bindings
@@ -1170,6 +1208,97 @@ public final class CaseDefinitionYamlMapper {
               delegates.isEmpty() ? null : delegates, timeouts.isEmpty() ? null : timeouts));
     }
 
+    // goapActions — spec-level GOAP action declarations
+    final JsonNode goapNode = specNode != null ? specNode.get("goapActions") : null;
+    if (goapNode != null && goapNode.isArray()) {
+      var actions = new java.util.ArrayList<io.casehub.engine.plan.goap.GoapAction>();
+      for (JsonNode actionNode : goapNode) {
+        String actionName = actionNode.has("name") ? actionNode.get("name").asText() : null;
+        Map<String, Boolean> preconditions = parseBooleanMap(actionNode.get("preconditions"));
+        Map<String, Boolean> effects = parseBooleanMap(actionNode.get("effects"));
+        double cost = actionNode.has("cost") ? actionNode.get("cost").asDouble() : 1.0;
+        double benefit = actionNode.has("benefit") ? actionNode.get("benefit").asDouble() : 0;
+        Map<String, Boolean> softPreconditions =
+            parseBooleanMap(actionNode.get("softPreconditions"));
+        actions.add(
+            new io.casehub.engine.plan.goap.GoapAction(
+                actionName, preconditions, effects, cost, benefit, softPreconditions));
+      }
+      var merged =
+          def.getGoapActions() != null
+              ? new java.util.ArrayList<>(def.getGoapActions())
+              : new java.util.ArrayList<io.casehub.engine.plan.goap.GoapAction>();
+      merged.addAll(actions);
+      def.setGoapActions(merged);
+    }
+
+    // goalToEffectKeys — maps goal names to sets of GOAP effect keys
+    final JsonNode gtekNode = specNode != null ? specNode.get("goalToEffectKeys") : null;
+    if (gtekNode != null && gtekNode.isObject()) {
+      var goalToEffects = new java.util.LinkedHashMap<String, Set<String>>();
+      gtekNode
+          .fields()
+          .forEachRemaining(
+              e -> {
+                var keys = new java.util.LinkedHashSet<String>();
+                if (e.getValue().isArray()) {
+                  e.getValue().forEach(v -> keys.add(v.asText()));
+                }
+                goalToEffects.put(e.getKey(), Set.copyOf(keys));
+              });
+      def.setGoalToEffectKeys(Map.copyOf(goalToEffects));
+    }
+
+    // workerServiceAccountIds — map of worker name to service account ID
+    final JsonNode wsaiNode = specNode != null ? specNode.get("workerServiceAccountIds") : null;
+    if (wsaiNode != null && wsaiNode.isObject()) {
+      var ids = new LinkedHashMap<String, String>();
+      wsaiNode.fields().forEachRemaining(e -> ids.put(e.getKey(), e.getValue().asText()));
+      def.setWorkerServiceAccountIds(Map.copyOf(ids));
+    }
+
+    // humanTaskWorkloadConstraint — workload-based candidate filtering
+    final JsonNode wlcNode = specNode != null ? specNode.get("humanTaskWorkloadConstraint") : null;
+    if (wlcNode != null && wlcNode.isObject()) {
+      var builder = io.casehub.api.model.routing.WorkloadConstraint.builder();
+      if (wlcNode.has("maxActiveTaskCount")) {
+        builder.maxActiveTaskCount(wlcNode.get("maxActiveTaskCount").asInt());
+      }
+      if (wlcNode.has("loadBalanceWeight")) {
+        builder.loadBalanceWeight(wlcNode.get("loadBalanceWeight").asDouble());
+      }
+      def.setHumanTaskWorkloadConstraint(builder.build());
+    }
+
+    // humanTaskContextConstraints — declarative candidate filtering and scoring
+    final JsonNode htccNode = specNode != null ? specNode.get("humanTaskContextConstraints") : null;
+    if (htccNode != null && htccNode.isArray()) {
+      var constraints = new java.util.ArrayList<io.casehub.api.model.routing.ContextConstraint>();
+      for (JsonNode constraintNode : htccNode) {
+        var ccBuilder = io.casehub.api.model.routing.ContextConstraint.builder();
+        if (constraintNode.has("when")) {
+          ccBuilder.when(resolveExpression(constraintNode.get("when"), registry, expressionLang));
+        }
+        if (constraintNode.has("weight")) {
+          ccBuilder.weight(constraintNode.get("weight").asDouble());
+        }
+        JsonNode effectNode = constraintNode.get("effect");
+        if (effectNode != null && effectNode.isObject()) {
+          if (effectNode.has("preferGroups") || effectNode.has("preferUsers")) {
+            Set<String> groups = parseStringSet(effectNode.get("preferGroups"));
+            Set<String> users = parseStringSet(effectNode.get("preferUsers"));
+            ccBuilder.prefer(groups, users);
+          } else if (effectNode.has("excludeGroups") || effectNode.has("excludeUsers")) {
+            Set<String> groups = parseStringSet(effectNode.get("excludeGroups"));
+            Set<String> users = parseStringSet(effectNode.get("excludeUsers"));
+            ccBuilder.exclude(groups, users);
+          }
+        }
+        constraints.add(ccBuilder.build());
+      }
+      def.setHumanTaskContextConstraints(constraints);
+    }
+
     return def;
   }
 
@@ -1197,6 +1326,24 @@ public final class CaseDefinitionYamlMapper {
     throw new IllegalArgumentException(
         "Expression must be a string or single-key map {lang: expr}, got: "
             + rawValue.getNodeType());
+  }
+
+  private static Map<String, Boolean> parseBooleanMap(JsonNode node) {
+    if (node == null || !node.isObject()) {
+      return Map.of();
+    }
+    var map = new java.util.LinkedHashMap<String, Boolean>();
+    node.fields().forEachRemaining(e -> map.put(e.getKey(), e.getValue().asBoolean()));
+    return Map.copyOf(map);
+  }
+
+  private static Set<String> parseStringSet(JsonNode node) {
+    if (node == null || !node.isArray()) {
+      return Set.of();
+    }
+    var set = new java.util.LinkedHashSet<String>();
+    node.forEach(e -> set.add(e.asText()));
+    return Set.copyOf(set);
   }
 
   private static CompiledExpression<Map<String, Object>, Boolean> toCompiledBooleanExpression(

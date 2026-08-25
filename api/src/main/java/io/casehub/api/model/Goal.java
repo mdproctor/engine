@@ -55,9 +55,19 @@ import java.util.function.Predicate;
  */
 public class Goal {
 
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Unique goal name within the definition.")
   private final String name;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "JQ predicate over the CaseContext — goal is reached when this evaluates to true.")
   private final ExpressionEvaluator condition;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Goal kind label — built-in: \"success\", \"failure\". Custom kinds require explicit status.")
   private final String kind;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription("Human-readable goal description.")
   private String description;
 
   public Goal(String name, ExpressionEvaluator condition, String kind) {

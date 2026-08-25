@@ -14,7 +14,7 @@ Same pattern with `WorkerResult`. The old version had `plannedAction` as a nulla
 
 Three things bit us during the migration that the old mutable classes silently accepted:
 
-**Null schemas.** The old `Capability` accepted `null` for `inputSchema` and `outputSchema`. Dozens of tests used `new Capability("cap", null, null)` as a throwaway. The record's compact constructor calls `Objects.requireNonNull` — every one of those tests failed at runtime, not at compile time. The fix is trivial (`Capability.of("cap", "{}", "{}"`), but the failure mode is disorienting: a `NullPointerException` deep in a record constructor, with no compile-time warning.
+**Null schemas.** The old `Capability` accepted `null` for `inputProjection` and `outputProjection`. Dozens of tests used `new Capability("cap", null, null)` as a throwaway. The record's compact constructor calls `Objects.requireNonNull` — every one of those tests failed at runtime, not at compile time. The fix is trivial (`Capability.of("cap", "{}", "{}"`), but the failure mode is disorienting: a `NullPointerException` deep in a record constructor, with no compile-time warning.
 
 **Zero retries.** The old `RetryPolicy` accepted `maxAttempts = 0` as the no-retry idiom. The platform-api version validates `maxAttempts >= 1` — zero is semantically invalid. `ExecutionPolicy.noRetry()` is the replacement. The particularly nasty part: because `@QuarkusTest` classes share a container, one bean constructing `RetryPolicy(0, ...)` crashes every test in the module. The stack trace points at a CDI bean's `getDefinition()` method, not at the specific `RetryPolicy` call.
 

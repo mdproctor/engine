@@ -17,7 +17,7 @@ rights model that controls what they can do on a case. The engine currently has 
 4. Revoke grants on worker completion or case termination
 5. Declare needed permissions in the case definition
 
-In-process workers are architecturally sandboxed by `inputSchema`/`outputSchema` and
+In-process workers are architecturally sandboxed by `inputProjection`/`outputProjection` and
 `WorkerRuntime` — they don't need ACL. Identity-inheriting external workers are covered by
 Batch 2 REST enforcement. This spec addresses the third isolation level: **privileged external
 workers** with their own service-account identity and elevated grants.

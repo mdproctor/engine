@@ -184,7 +184,7 @@ Multiple workers can target the same endpoint with different skills — they sha
 
 No special handling. The engine's existing pipeline covers it:
 
-1. `inputSchema` (JQ on working layer) → produces input `Map`
+1. `inputProjection` (JQ on working layer) → produces input `Map`
 2. `A2AWorkerFunctionHandler` wraps the `Map` as A2A task content (JSON message part)
 3. A2A response artifacts are unwrapped back to a `Map`
 4. `outputProjection` (if declared on the capability) applies on the way back

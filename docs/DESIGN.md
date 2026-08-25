@@ -261,7 +261,7 @@ Serverless Workflow execution via `io.serverlessworkflow.api.types.Workflow`. Th
 
 ### Function
 
-Java function with signature `Function<Map<String, Object>, Map<String, Object>>`. The function receives input data derived from the CaseContext via the capability's `inputSchema` and returns output data that is merged back via the `outputSchema`.
+Java function with signature `Function<Map<String, Object>, Map<String, Object>>`. The function receives input data derived from the CaseContext via the capability's `inputProjection` and returns output data that is merged back via the `outputProjection`.
 
 ### Agent
 
