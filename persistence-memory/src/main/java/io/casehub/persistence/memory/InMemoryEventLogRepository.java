@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
  */
 @Alternative
 @ApplicationScoped
-public class InMemoryEventLogRepository
+public class InMemoryEventLogRepository implements io.casehub.engine.common.spi.Resettable
     implements EventLogRepository, CrossTenantEventLogRepository {
 
   private final AtomicLong idSeq = new AtomicLong(0);
@@ -333,4 +333,10 @@ public class InMemoryEventLogRepository
       rwLock.readLock().unlock();
     }
   }
+
+    @Override
+    public void reset() {
+        store.clear();
+        idSeq.set(0);
+    }
 }

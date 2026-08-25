@@ -32,7 +32,7 @@ import java.util.stream.Collectors;
  */
 @Alternative
 @ApplicationScoped
-public class InMemoryPlanItemStore implements PlanItemStore {
+public class InMemoryPlanItemStore implements io.casehub.engine.common.spi.Resettable implements PlanItemStore {
 
   private final ConcurrentHashMap<String, PlanItemRecord> records = new ConcurrentHashMap<>();
 
@@ -118,4 +118,9 @@ public class InMemoryPlanItemStore implements PlanItemStore {
         .filter(r -> r.status() == TaskStatus.DELEGATED)
         .collect(Collectors.toList());
   }
+
+    @Override
+    public void reset() {
+        store.clear();
+    }
 }

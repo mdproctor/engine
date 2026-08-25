@@ -44,7 +44,7 @@ import org.jboss.logging.Logger;
  * separate concern. See casehubio/engine#274.
  */
 @ApplicationScoped
-public class BlackboardRegistry {
+public class BlackboardRegistry implements io.casehub.engine.common.spi.Resettable {
 
   private static final Logger LOG = Logger.getLogger(BlackboardRegistry.class);
 
@@ -156,5 +156,11 @@ public class BlackboardRegistry {
    */
   public void evict(UUID caseId) {
     entries.remove(caseId);
+  }
+
+  @Override
+  public void reset() {
+    entries.clear();
+    LOG.info("BlackboardRegistry reset — all case plan models cleared");
   }
 }
