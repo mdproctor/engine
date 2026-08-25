@@ -32,7 +32,8 @@ import java.util.stream.Collectors;
  */
 @Alternative
 @ApplicationScoped
-public class InMemoryPlanItemStore implements io.casehub.engine.common.spi.Resettable implements PlanItemStore {
+public class InMemoryPlanItemStore
+    implements PlanItemStore, io.casehub.engine.common.spi.Resettable {
 
   private final ConcurrentHashMap<String, PlanItemRecord> records = new ConcurrentHashMap<>();
 
@@ -119,8 +120,8 @@ public class InMemoryPlanItemStore implements io.casehub.engine.common.spi.Reset
         .collect(Collectors.toList());
   }
 
-    @Override
-    public void reset() {
-        store.clear();
-    }
+  @Override
+  public void reset() {
+    records.clear();
+  }
 }

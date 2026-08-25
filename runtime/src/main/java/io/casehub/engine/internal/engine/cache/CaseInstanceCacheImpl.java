@@ -24,7 +24,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @ApplicationScoped
-public class CaseInstanceCacheImpl implements io.casehub.engine.common.spi.Resettable implements CaseInstanceCache {
+public class CaseInstanceCacheImpl
+    implements CaseInstanceCache, io.casehub.engine.common.spi.Resettable {
 
   private final Map<UUID, CaseInstance> cache = new ConcurrentHashMap<>();
 
@@ -49,8 +50,8 @@ public class CaseInstanceCacheImpl implements io.casehub.engine.common.spi.Reset
     return List.copyOf(cache.values());
   }
 
-    @Override
-    public void reset() {
-        cache.clear();
-    }
+  @Override
+  public void reset() {
+    cache.clear();
+  }
 }

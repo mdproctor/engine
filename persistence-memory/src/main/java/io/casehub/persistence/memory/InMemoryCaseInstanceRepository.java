@@ -38,8 +38,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  */
 @Alternative
 @ApplicationScoped
-public class InMemoryCaseInstanceRepository implements io.casehub.engine.common.spi.Resettable
-    implements CaseInstanceRepository, CrossTenantCaseInstanceRepository {
+public class InMemoryCaseInstanceRepository
+    implements CaseInstanceRepository,
+        CrossTenantCaseInstanceRepository,
+        io.casehub.engine.common.spi.Resettable {
 
   private final AtomicLong idSeq = new AtomicLong(0);
   private final ConcurrentHashMap<UUID, CaseInstance> store = new ConcurrentHashMap<>();
@@ -219,9 +221,9 @@ public class InMemoryCaseInstanceRepository implements io.casehub.engine.common.
     }
   }
 
-    @Override
-    public void reset() {
-        store.clear();
-        idSeq.set(0);
-    }
+  @Override
+  public void reset() {
+    store.clear();
+    idSeq.set(0);
+  }
 }
