@@ -213,7 +213,7 @@ public class PlanItemCompletionApplier {
 
   private void applyOutputMapping(
       PlanItem item, @Nullable String resolution, CaseInstance instance) {
-    if (instance.getCaseContext() == null || item.getTarget() == null || resolution == null) {
+    if (instance.getCaseContext() == null || item.getTarget() == null) {
       return;
     }
     if (!(item.getTarget() instanceof HumanTaskTarget ht)) {
@@ -230,7 +230,8 @@ public class PlanItemCompletionApplier {
       return;
     }
     try {
-      JsonNode resolutionNode = MAPPER.readTree(resolution);
+      JsonNode resolutionNode =
+          resolution != null ? MAPPER.readTree(resolution) : MAPPER.createObjectNode();
       ValidationResult vr = jqEvaluator.eval(jq.expression(), resolutionNode);
       if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
         LOG.warnf(

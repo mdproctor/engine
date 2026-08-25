@@ -22,13 +22,17 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.WritableLayer;
+import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
+import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
@@ -39,6 +43,7 @@ import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Event;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -201,6 +206,31 @@ class PlanItemCompletionApplierTest {
     applier.applyResume(CASE_ID, PLAN_ITEM_ID);
 
     verify(item, never()).markResumed();
+  }
+
+  @Test
+  void null_resolution_evaluates_outputMapping_against_empty_object() {
+    HumanTaskTarget target =
+        HumanTaskTarget.inline()
+            .title("Resolve ticket")
+            .outputMapping("{ status: \"RESOLVED\" }")
+            .build();
+    PlanItem item = mockPlanItem(TaskStatus.DELEGATED);
+    when(item.getTarget()).thenReturn(target);
+    CaseInstance instance = mockCaseInstance();
+
+    ObjectMapper mapper = new ObjectMapper();
+    ValidationResult vr = mock(ValidationResult.class);
+    when(vr.ok()).thenReturn(true);
+    when(vr.output()).thenReturn(List.of(mapper.createObjectNode().put("status", "RESOLVED")));
+    when(applier.jqEvaluator.eval(eq("{ status: \"RESOLVED\" }"), any(JsonNode.class)))
+        .thenReturn(vr);
+
+    applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.COMPLETED, null, null);
+
+    verify(item).markCompleted();
+    verify(instance.getCaseContext()).set(eq("status"), eq("RESOLVED"));
+    verify(eventBus).publish(eq("casehub.context.changed"), any(CaseContextChangedEvent.class));
   }
 
   private PlanItem mockPlanItem(TaskStatus status) {
