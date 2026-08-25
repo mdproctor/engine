@@ -91,7 +91,7 @@ Events that carry `UUID caseId` but no tenant context:
 | `StageCompletedEvent` | blackboard | `UUID caseId, Stage stage, int instanceIndex` |
 | `StageTerminatedEvent` | blackboard | `UUID caseId, Stage stage` |
 
-Each gets `String tenancyId` added as a record component. Position: immediately after `caseId`, establishing a consistent convention. Two of the four existing events with explicit `tenancyId` already place it after `caseId` (`WorkerRetriesExhaustedEvent`, `ActionGateScheduleEvent`). The other two place it last (`ActionGateWorkerFaultedEvent` 4th of 4, `HumanTaskScheduleEvent` 9th of 9). This spec establishes "after caseId" as the convention — it groups identity fields (which case, which tenant) for readability. `ActionGateWorkerFaultedEvent` and `HumanTaskScheduleEvent` are migrated to match.
+Each gets `String tenancyId` added as a record component. Position: immediately after `caseId`, establishing a consistent convention. Two of the four existing events with explicit `tenancyId` already place it after `caseId` (`WorkerRetriesExhaustedEvent`, `ActionGateScheduleRequest`). The other two place it last (`ActionGateWorkerFaultedEvent` 4th of 4, `HumanTaskScheduleEvent` 9th of 9). This spec establishes "after caseId" as the convention — it groups identity fields (which case, which tenant) for readability. `ActionGateWorkerFaultedEvent` and `HumanTaskScheduleEvent` are migrated to match.
 
 **Convenience constructors:** where existing convenience constructors omit optional trailing fields, they pass `null` for those fields. `tenancyId` is NOT optional — no convenience constructors that omit it. This prevents accidental creation of events without tenant context.
 
@@ -123,7 +123,7 @@ For reference — these 14 event types already carry tenant context and are not 
 
 **Via `CaseInstance` (12):** `CaseContextChangedEvent`, `CaseStartedEvent`, `CaseStatusChanged`, `GoalReachedEvent`, `WorkerScheduleEvent`, `WorkflowExecutionCompleted`, `WorkerOutcomeResolvedEvent`, `MilestoneReachedEvent`, `MilestoneActivatedEvent`, `MilestoneCompletedEvent`, `MilestoneSLAViolatedEvent`, `SubCaseScheduleEvent`
 
-**Via explicit `String tenancyId` (2):** `WorkerRetriesExhaustedEvent`, `ActionGateScheduleEvent`
+**Via explicit `String tenancyId` (2):** `WorkerRetriesExhaustedEvent`, `ActionGateScheduleRequest`
 
 ## Migrated existing events (component reorder)
 

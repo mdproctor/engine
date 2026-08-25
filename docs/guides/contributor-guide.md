@@ -148,7 +148,7 @@ Multi-approver oversight for consequential worker actions:
 
 1. Worker returns `PlannedAction` via `WorkerResult`
 2. `ActionRiskClassifier` evaluates risk — `ChainedActionRiskClassifier` composes multiple classifiers ("most restrictive wins")
-3. If `GateRequired`: `ActionGateScheduleEvent` creates approval WorkItem(s)
+3. If `GateRequired`: `ActionGateScheduleRequest` creates approval WorkItem(s)
 4. `QuorumConfig` supports M-of-N approval with dynamic instance count from candidate group membership
 5. Gate lifecycle events: `ActionGateApprovedEvent`, `ActionGateRejectedEvent`, `ActionGateExpiredEvent`, `ActionGateCancelledEvent`
 6. On approval: PlanItem resumes execution

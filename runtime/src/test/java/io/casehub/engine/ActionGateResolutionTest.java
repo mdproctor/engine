@@ -35,7 +35,6 @@ import io.casehub.api.spi.RiskDecision.GateRequired;
 import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
-import io.casehub.engine.common.internal.event.ActionGateScheduleEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Capability;
@@ -300,11 +299,7 @@ class ActionGateResolutionTest {
       capturedRejected.add(e);
     }
 
-    // ACTION_GATE_SCHEDULE codec — registered by ActionGateWorkItemHandler stub below
-    @ConsumeEvent(EventBusAddresses.ACTION_GATE_SCHEDULE)
-    void onSchedule(final ActionGateScheduleEvent e) {
-      // no-op — just registers codec
-    }
+    // ActionGateScheduleRequest is now dispatched via ActionGateScheduler SPI, not event bus
   }
 
   // --- Helpers ---

@@ -493,7 +493,7 @@ Platform-level oversight gate for consequential worker actions. Workers declare 
 
 **SPI interfaces** in `api/src/main/java/io/casehub/api/spi/`:
 - `ActionRiskClassifier` — consumer implementations use this
-- `RiskDecision` — sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope, resolutionType, quorum)`. `quorum` (`@Nullable QuorumConfig`) — M-of-N multi-party approval config; null = single-approver (backward compat). `QuorumConfig(instances, required, onThresholdReached, allowSameAssignee)` — governance semantics; validated at construction (instances >= 2, required in 1..instances). Factory methods: `majority(N)`, `unanimous(N)`, `atLeast(N, M)`. Uses engine's `OnThresholdReached` enum (KEEP, CANCEL); adapter maps to work-api's enum. `candidateGroups` is `CandidateSetStrategy` (not `List<String>`) — supports dynamic evaluation via `StaticSetStrategy.of(...)`, `ExpressionSetStrategy`, or named CDI strategies resolved via `StrategyResolver`. `resolutionType` (`@Nullable Class<?>`) — declares the expected type for gate WorkItem resolution; threaded as `resolutionTypeName` (String) through `PendingActionGate` → `ActionGateScheduleEvent` → `ActionGateApprovedEvent`. `ActionGateApprovedHandler` validates via `BridgeResolver` and includes the typed resolution in the `actionGateApproved` context entry under `resolution`. Refs engine#634, engine#742, engine#810.
+- `RiskDecision` — sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope, resolutionType, quorum)`. `quorum` (`@Nullable QuorumConfig`) — M-of-N multi-party approval config; null = single-approver (backward compat). `QuorumConfig(instances, required, onThresholdReached, allowSameAssignee)` — governance semantics; validated at construction (instances >= 2, required in 1..instances). Factory methods: `majority(N)`, `unanimous(N)`, `atLeast(N, M)`. Uses engine's `OnThresholdReached` enum (KEEP, CANCEL); adapter maps to work-api's enum. `candidateGroups` is `CandidateSetStrategy` (not `List<String>`) — supports dynamic evaluation via `StaticSetStrategy.of(...)`, `ExpressionSetStrategy`, or named CDI strategies resolved via `StrategyResolver`. `resolutionType` (`@Nullable Class<?>`) — declares the expected type for gate WorkItem resolution; threaded as `resolutionTypeName` (String) through `PendingActionGate` → `ActionGateScheduleRequest` → `ActionGateApprovedEvent`. `ActionGateApprovedHandler` validates via `BridgeResolver` and includes the typed resolution in the `actionGateApproved` context entry under `resolution`. Refs engine#634, engine#742, engine#810.
 - `PlannedAction` — from `io.casehub.worker.api.PlannedAction` (foundation tier); carries `description`, `actionType`, `parameters` only — no identity fields
 - `ClassificationContext` — carries `workerId`, `caseId`, `tenancyId`, `caseDefinitionName`, `capabilityName`, `bindingName`; constructed by engine at classify() call site
 - `@RiskClassifier` — CDI qualifier; consumer implementations must use this to avoid CDI conflict with the chain
@@ -509,7 +509,7 @@ public class AmlActionRiskClassifier implements ActionRiskClassifier {
 
 **Gate mechanism:** When `GateRequired` fires:
 1. `WorkflowExecutionCompletedHandler` stores `PendingActionGate` in-memory on `CaseInstance` (**not persisted by JPA in v1 — restart loses the gate**; tracked as engine#433)
-2. Publishes `ActionGateScheduleEvent` (carrying `resolvedCandidateGroups` — the evaluated `Set<String>` from `CandidateSetStrategy`) → `ActionGateWorkItemHandler` (engine-adapter, work repo) creates a WorkItem (single-approver) or an M-of-N `WorkItemSpawnGroup` via `WorkItemCreator.createMultiInstance()` (multi-approver, when `quorum != null`). Children get no callerRef — only the parent carries the gate ref. `WorkItemLifecycleAdapter.onWorkItemGroupLifecycle()` routes group terminal events to `ActionGateCompletionApplier.applyGroupCompletion()`. Refs engine#810.
+2. Publishes `ActionGateScheduleRequest` (carrying `resolvedCandidateGroups` — the evaluated `Set<String>` from `CandidateSetStrategy`) → `ActionGateWorkItemHandler` (engine-adapter, work repo) creates a WorkItem (single-approver) or an M-of-N `WorkItemSpawnGroup` via `WorkItemCreator.createMultiInstance()` (multi-approver, when `quorum != null`). Children get no callerRef — only the parent carries the gate ref. `WorkItemLifecycleAdapter.onWorkItemGroupLifecycle()` routes group terminal events to `ActionGateCompletionApplier.applyGroupCompletion()`. Refs engine#810.
 3. Human approves/rejects via work inbox
 4. `ActionGateCompletionApplier` (engine-adapter, work repo) publishes `ActionGateApprovedEvent` or `ActionGateRejectedEvent`
 5. `ActionGateApprovedHandler` (runtime) re-fires `WorkflowExecutionCompleted` with `outcome=Success(null)` — normal completion path applies deferred output
@@ -930,6 +930,36 @@ workers:
 **Compile dependencies:** `casehub-engine-common`, `casehub-engine-api`, `casehub-worker-api`, `casehub-engine` (runtime, for `WorkerRuntimeFactory`), `dev.langchain4j:langchain4j`, `quarkus-arc`, `quarkus-virtual-threads`, `quarkus-vertx`.
 
 **Test dependencies:** Full engine stack with `casehub-persistence-memory`, Mockito.
+
+## casehub-engine-work-cloudevent Module
+
+Optional CloudEvent bridge for distributed HumanTask and ActionGate dispatch. Activated by adding `casehub-engine-work-cloudevent` to the consumer's classpath. Directory: `work-cloudevent/`. Mutually exclusive with `casehub-work-engine-adapter`. Refs engine#972.
+
+**Architecture:** Implements `HumanTaskScheduler` and `ActionGateScheduler` SPIs via CloudEvent emission (`io.casehub.work.workitem.create`). Inbound lifecycle CloudEvents (`completed`, `rejected`, `faulted`, `expired`, `escalated`, `suspended`, `resumed`) are consumed by `WorkItemLifecycleCloudEventConsumer` which delegates to shared `PlanItemCompletionApplier` and `GateCompletionApplier` (planning module). Transport-agnostic — CDI `Event<CloudEvent>` emission/consumption; a Quarkus messaging connector bridges to the wire (Kafka, AMQP, HTTP).
+
+**Core types (all in `io.casehub.engine.work.cloudevent`):**
+- `CloudEventHumanTaskScheduler` — `@ApplicationScoped`, implements `HumanTaskScheduler`. Maps `HumanTaskScheduleRequest` fields to CloudEvent data (title, candidateGroups, candidateUsers, payload, callerRef, scope, expiresAt, outcomes, scores, experiences). PlanItem lifecycle: validates DISPATCHING, persists DELEGATED via `PlanItemStore`, marks `markDelegated()`. Template vs inline mode via `HumanTaskTarget.isTemplateMode()`.
+- `CloudEventActionGateScheduler` — `@ApplicationScoped`, implements `ActionGateScheduler`. Maps gate fields (reason, candidateGroups, PlannedAction, expiresIn, scope, resolutionType) to CloudEvent data. Quorum gates log warning and skip (work-side multi-instance CloudEvent not yet supported).
+- `WorkItemLifecycleCloudEventConsumer` — `@ApplicationScoped`, `@ObservesAsync CloudEvent`. Pure transport adapter: parses `callerRef` via `CallerRefParser`, routes PlanItem path to `PlanItemCompletionApplier`, gate path to `GateCompletionApplier`. Maps CloudEvent types to `TaskStatus`.
+- `WorkIntegrationConflictDetector` — `@Observes @Priority(1) StartupEvent`. Fails fast when both co-located (`casehub-work-engine-adapter`) and distributed (`casehub-engine-work-cloudevent`) modules are on the classpath.
+
+**Shared completion infrastructure (planning module, `io.casehub.engine.planning.completion`):**
+- `PlanItemCompletionApplier` — `@ApplicationScoped`. Full PlanItem completion: lookup via `BlackboardRegistry`, resolution validation via `BridgeResolver`, status transition, JQ output mapping with `ConflictResolver`, CDI event publishing (`PlanItemStateChangedEvent`, `PlanItemObsoleteEvent`), `CONTEXT_CHANGED`. Accepts `TaskStatus` — callers map from external types.
+- `GateCompletionApplier` — `@ApplicationScoped`. Routes `TaskStatus` to event bus addresses: COMPLETED→`ACTION_GATE_APPROVED`, REJECTED/CANCELLED→`ACTION_GATE_REJECTED`, FAULTED→`ACTION_GATE_EXPIRED`.
+
+**CallerRef encoding** (`common/spi/CallerRefParser`): PlanItem `case:{caseId}/pi:{planItemId}`, Gate `case:{caseId}/gate:{gateId}`. Sealed `CallerRef` with `PlanItemRef` and `GateRef` permits.
+
+**ActionGateScheduler SPI** (`common/spi/`): `ActionGateScheduler.schedule(ActionGateScheduleRequest)`. Symmetric with `HumanTaskScheduler`. `NoOpActionGateScheduler` (`@DefaultBean`, runtime). `WorkflowExecutionCompletedHandler.handleGate()` uses `Instance<ActionGateScheduler>` instead of event bus publish.
+
+**Compile dependencies:** `casehub-engine-common`, `casehub-engine-planning`, `casehub-work-api`, `io.cloudevents:cloudevents-core`, `quarkus-arc`, `quarkus-vertx`.
+
+**Test dependencies:** Full engine stack with `casehub-persistence-memory`, Mockito.
+
+**Build and test:**
+```bash
+mvn install -DskipTests -q          # install deps to local repo first
+TESTCONTAINERS_RYUK_DISABLED=true mvn clean test -pl work-cloudevent
+```
 
 ## casehub-blocks-engine-adapter Module (relocated)
 

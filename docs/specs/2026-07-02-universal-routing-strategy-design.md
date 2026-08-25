@@ -404,7 +404,7 @@ RiskDecision.GateRequired(reason, reversible, StaticSetStrategy.of("compliance-t
 
 **Migration convenience:** `StaticSetStrategy.of(String...)` makes the change a one-line migration for all 6 consumer classifiers. No logic changes, no new dependencies — `StaticSetStrategy` is in engine-api alongside `CandidateSetStrategy`.
 
-**Evaluation timing:** The classifier returns a `CandidateSetStrategy` (e.g., `StaticSetStrategy.of("compliance-team")` or a dynamic strategy). The engine evaluates the strategy in `WorkflowExecutionCompletedHandler.handleGate()`, where `CaseInstance` (and therefore case context) is available. The resolved `Set<String>` is passed in `ActionGateScheduleEvent` alongside the `GateRequired` record. `ActionGateWorkItemHandler` receives the already-resolved groups and creates the WorkItem — it does not need case context and does not evaluate the strategy itself.
+**Evaluation timing:** The classifier returns a `CandidateSetStrategy` (e.g., `StaticSetStrategy.of("compliance-team")` or a dynamic strategy). The engine evaluates the strategy in `WorkflowExecutionCompletedHandler.handleGate()`, where `CaseInstance` (and therefore case context) is available. The resolved `Set<String>` is passed in `ActionGateScheduleRequest` alongside the `GateRequired` record. `ActionGateWorkItemHandler` receives the already-resolved groups and creates the WorkItem — it does not need case context and does not evaluate the strategy itself.
 
 ---
 
