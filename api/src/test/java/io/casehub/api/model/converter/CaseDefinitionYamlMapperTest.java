@@ -136,15 +136,15 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getCapabilities()).hasSize(1);
     Capability cap = def.getCapabilities().get(0);
     assertThat(cap.name()).isEqualTo("validate");
-    assertThat(cap.inputSchema()).isEqualTo(".request");
-    assertThat(cap.outputSchema()).isEqualTo(".valid");
+    assertThat(cap.inputProjection()).isEqualTo(".request");
+    assertThat(cap.outputProjection()).isEqualTo(".valid");
     assertThat(cap.description()).isEqualTo("Validates input");
 
     // Workers
     assertThat(def.getWorkers()).hasSize(1);
     Worker worker = def.getWorkers().get(0);
     assertThat(worker.name()).isEqualTo("validator-worker");
-    assertThat(worker.capabilityNames()).containsExactly("validate");
+    assertThat(worker.capabilities()).containsExactly("validate");
     assertThat(worker.description()).isEqualTo("Worker that validates");
 
     // Bindings
@@ -212,8 +212,8 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def = CaseDefinitionYamlMapper.load(is);
 
     Capability cap = def.getCapabilities().get(0);
-    assertThat(cap.inputSchema()).isEqualTo("{ request: .request }");
-    assertThat(cap.outputSchema()).isEqualTo("{ inspection: . }");
+    assertThat(cap.inputProjection()).isEqualTo("{ request: .request }");
+    assertThat(cap.outputProjection()).isEqualTo("{ inspection: . }");
   }
 
   @Test
@@ -258,13 +258,13 @@ class CaseDefinitionYamlMapperTest {
 
     Capability legacy = def.getCapabilities().get(0);
     assertThat(legacy.name()).isEqualTo("legacy-cap");
-    assertThat(legacy.inputSchema()).isEqualTo("{ req: .request }");
-    assertThat(legacy.outputSchema()).isEqualTo("{ result: . }");
+    assertThat(legacy.inputProjection()).isEqualTo("{ req: .request }");
+    assertThat(legacy.outputProjection()).isEqualTo("{ result: . }");
 
     Capability current = def.getCapabilities().get(1);
     assertThat(current.name()).isEqualTo("current-cap");
-    assertThat(current.inputSchema()).isEqualTo("{ data: .data }");
-    assertThat(current.outputSchema()).isEqualTo("{ processed: . }");
+    assertThat(current.inputProjection()).isEqualTo("{ data: .data }");
+    assertThat(current.outputProjection()).isEqualTo("{ processed: . }");
   }
 
   @Test
@@ -455,8 +455,8 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getCapabilities()).hasSize(1);
     Capability cap = def.getCapabilities().get(0);
     assertThat(cap.name()).isEqualTo("analyze");
-    assertThat(cap.inputSchema()).isEqualTo("{ text: .text }");
-    assertThat(cap.outputSchema()).isEqualTo("{ result: .result }");
+    assertThat(cap.inputProjection()).isEqualTo("{ text: .text }");
+    assertThat(cap.outputProjection()).isEqualTo("{ result: .result }");
 
     assertThat(def.getWorkers()).hasSize(1);
     Worker worker = def.getWorkers().get(0);
@@ -2872,8 +2872,8 @@ class CaseDefinitionYamlMapperTest {
 
     assertThat(def.getCapabilities()).hasSize(1);
     Capability cap = def.getCapabilities().get(0);
-    assertThat(cap.inputSchema()).isEqualTo("{ in: .data }");
-    assertThat(cap.outputSchema()).isEqualTo("{ out: .result }");
+    assertThat(cap.inputProjection()).isEqualTo("{ in: .data }");
+    assertThat(cap.outputProjection()).isEqualTo("{ out: .result }");
   }
 
   @Test
@@ -3091,5 +3091,241 @@ class CaseDefinitionYamlMapperTest {
     var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
 
     assertThat(def.getPlanningConstraints().costBudgets()).isEmpty();
+  }
+
+  @org.junit.jupiter.api.Test
+  void parsesGoapActionsFromSpec() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  goapActions:
+                    - name: verify
+                      preconditions:
+                        dataLoaded: true
+                      effects:
+                        verified: true
+                      cost: 2.5
+                    - name: load
+                      effects:
+                        dataLoaded: true
+                      cost: 1.0
+                      benefit: 0.5
+                      softPreconditions:
+                        cacheWarmed: true
+                  capabilities:
+                    - name: analysis
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getGoapActions()).hasSize(2);
+    var verify = def.getGoapActions().get(0);
+    assertThat(verify.name()).isEqualTo("verify");
+    assertThat(verify.preconditions()).containsEntry("dataLoaded", true);
+    assertThat(verify.effects()).containsEntry("verified", true);
+    assertThat(verify.cost()).isEqualTo(2.5);
+
+    var load = def.getGoapActions().get(1);
+    assertThat(load.name()).isEqualTo("load");
+    assertThat(load.benefit()).isEqualTo(0.5);
+    assertThat(load.softPreconditions()).containsEntry("cacheWarmed", true);
+  }
+
+  @org.junit.jupiter.api.Test
+  void parsesWorkerServiceAccountIdsFromSpec() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  workerServiceAccountIds:
+                    analyser: sa-analyser-prod
+                    reviewer: sa-reviewer-prod
+                  capabilities:
+                    - name: analysis
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getWorkerServiceAccountIds())
+        .containsEntry("analyser", "sa-analyser-prod")
+        .containsEntry("reviewer", "sa-reviewer-prod");
+  }
+
+  @org.junit.jupiter.api.Test
+  void parsesHumanTaskWorkloadConstraintFromSpec() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  humanTaskWorkloadConstraint:
+                    maxActiveTaskCount: 5
+                    loadBalanceWeight: 0.7
+                  capabilities:
+                    - name: analysis
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getHumanTaskWorkloadConstraint()).isNotNull();
+    assertThat(def.getHumanTaskWorkloadConstraint().maxActiveTaskCount()).isEqualTo(5);
+    assertThat(def.getHumanTaskWorkloadConstraint().loadBalanceWeight()).isEqualTo(0.7);
+  }
+
+  @org.junit.jupiter.api.Test
+  void parsesHumanTaskContextConstraintsFromSpec() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  humanTaskContextConstraints:
+                    - when: ".priority == \\"high\\""
+                      effect:
+                        preferGroups: [ senior-reviewers ]
+                      weight: 0.8
+                    - when: ".region == \\"eu\\""
+                      effect:
+                        excludeGroups: [ us-only-team ]
+                  capabilities:
+                    - name: analysis
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getHumanTaskContextConstraints()).hasSize(2);
+    var first = def.getHumanTaskContextConstraints().get(0);
+    assertThat(first.weight()).isEqualTo(0.8);
+    assertThat(first.effect())
+        .isInstanceOf(io.casehub.api.model.routing.ContextConstraint.Prefer.class);
+    var prefer = (io.casehub.api.model.routing.ContextConstraint.Prefer) first.effect();
+    assertThat(prefer.groups()).contains("senior-reviewers");
+
+    var second = def.getHumanTaskContextConstraints().get(1);
+    assertThat(second.effect())
+        .isInstanceOf(io.casehub.api.model.routing.ContextConstraint.Exclude.class);
+  }
+
+  @org.junit.jupiter.api.Test
+  void parsesGoapFieldsFromPerWorkerShorthand() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  capabilities:
+                    - name: verify
+                    - name: load
+                  workers:
+                    - name: verifier
+                      capabilities: [ verify ]
+                      cost: 2.5
+                      effect:
+                        verified: true
+                      softDependency:
+                        - dataLoaded
+                    - name: loader
+                      capabilities: [ load ]
+                      cost: 1.0
+                      effect:
+                        dataLoaded: true
+                  bindings:
+                    - name: verify-trigger
+                      capability: verify
+                      on:
+                        contextChange: {}
+                    - name: load-trigger
+                      capability: load
+                      on:
+                        contextChange: {}
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getGoapActions()).hasSize(2);
+
+    var verifyAction =
+        def.getGoapActions().stream()
+            .filter(a -> a.name().equals("verify"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(verifyAction.cost()).isEqualTo(2.5);
+    assertThat(verifyAction.effects()).containsEntry("verified", true);
+    assertThat(verifyAction.softPreconditions()).containsEntry("dataLoaded", true);
+
+    var loadAction =
+        def.getGoapActions().stream()
+            .filter(a -> a.name().equals("load"))
+            .findFirst()
+            .orElseThrow();
+    assertThat(loadAction.cost()).isEqualTo(1.0);
+    assertThat(loadAction.effects()).containsEntry("dataLoaded", true);
+  }
+
+  @org.junit.jupiter.api.Test
+  void perWorkerGoapMergesWithExplicitGoapActions() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  goapActions:
+                    - name: explicit-action
+                      effects:
+                        explicitDone: true
+                      cost: 3.0
+                  capabilities:
+                    - name: verify
+                  workers:
+                    - name: verifier
+                      capabilities: [ verify ]
+                      cost: 1.5
+                      effect:
+                        verified: true
+                  bindings:
+                    - name: verify-trigger
+                      capability: verify
+                      on:
+                        contextChange: {}
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getGoapActions()).hasSize(2);
+    assertThat(def.getGoapActions().stream().map(a -> a.name()).toList())
+        .containsExactlyInAnyOrder("explicit-action", "verify");
+  }
+
+  @org.junit.jupiter.api.Test
+  void perWorkerEffectOnly_createsGoapActionWithDefaultCost() throws Exception {
+    var yaml =
+        """
+                name: test
+                namespace: io.casehub.test
+                version: "1.0"
+                spec:
+                  capabilities:
+                    - name: scan
+                  workers:
+                    - name: scanner
+                      capabilities: [ scan ]
+                      effect:
+                        scanned: true
+                  bindings:
+                    - name: scan-trigger
+                      capability: scan
+                      on:
+                        contextChange: {}
+                """;
+    var def = CaseDefinitionYamlMapper.load(new java.io.ByteArrayInputStream(yaml.getBytes()));
+
+    assertThat(def.getGoapActions()).hasSize(1);
+    var action = def.getGoapActions().get(0);
+    assertThat(action.name()).isEqualTo("scan");
+    assertThat(action.cost()).isEqualTo(1.0);
+    assertThat(action.effects()).containsEntry("scanned", true);
   }
 }

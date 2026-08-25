@@ -227,7 +227,7 @@ public class DefaultWorkOrchestrator implements WorkOrchestrator {
                         && ct.capability().name().equals(capability.name()))
             .findFirst()
             .map(b -> ((CapabilityTarget) b.target()).inputProjection())
-            .orElse(new JQExpressionEvaluator(capability.inputSchema()));
+            .orElse(new JQExpressionEvaluator(capability.inputProjection()));
     final Map<String, Object> inputData =
         transformAsMap(
             inputEval, instance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode());

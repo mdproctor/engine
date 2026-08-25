@@ -257,7 +257,7 @@ MemoryQuery query = MemoryQuery
 
 **Order at case start (sequential):**
 
-1. Working panel created (empty, or with `inputData` from call site converted via initial `inputSchema` if declared)
+1. Working panel created (empty, or with `inputData` from call site converted via initial `inputProjection` if declared)
 2. Semantic panel: definition `semanticData` merged, then call-site `semanticData` merged over top. `ReadablePanel` view exposed externally.
 3. Episodic panel — inter-case: if `episodic.memory` declared AND `ReactiveCaseMemoryStore` non-NoOp, evaluate `entityId` JQ against semantic panel, call `ReactiveCaseMemoryStore.query()` as a `Uni` step in the reactive chain, inject `memory` section. `ReadablePanel` view exposed.
 4. Episodic panel — intra-case: rebuild from `EventLog` if recovered case via `fromPanelDocument()`; empty for new cases.

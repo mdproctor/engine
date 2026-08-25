@@ -125,6 +125,7 @@
         <module>examples/warehouse-annotated</module>
         <module>examples/wildfire-response-annotated</module>
         <module>annotations</module>
+        <module>generator</module>
     </modules>
 
     <repositories>

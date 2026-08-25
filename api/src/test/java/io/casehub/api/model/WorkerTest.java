@@ -37,7 +37,7 @@ class WorkerTest {
 
     assertThat(worker.name()).isEqualTo("test-worker");
     assertThat(worker.description()).isEqualTo("a worker");
-    assertThat(worker.capabilityNames()).containsExactly("review");
+    assertThat(worker.capabilities()).containsExactly("review");
     assertThat(worker.function()).isInstanceOf(WorkerFunction.Sync.class);
   }
 

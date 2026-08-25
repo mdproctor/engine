@@ -86,7 +86,7 @@ Fluent builder with two modes for input/output transformation:
 - **Lambda mode** (`inputTransformer(UnaryOperator<JsonNode>)`, `outputTransformer(...)`) — for CDI
   callers who supply a `JQEvaluator`-backed function or custom logic.
 
-Both modes are mutually exclusive per direction — setting both `inputSchema` and `inputTransformer`
+Both modes are mutually exclusive per direction — setting both `inputProjection` and `inputTransformer`
 throws `IllegalStateException`. When neither is set, the transformer defaults to
 `UnaryOperator.identity()`.
 
@@ -138,7 +138,7 @@ dependency on every LLM SDK. Each provider has:
 
 Standalone JQ evaluator using `jackson-jq` (JQ 1.6). Thread-safe after construction —
 `Scope` is fully populated in the constructor and never mutated. Used internally by
-`AgentBuilder` when `inputSchema`/`outputSchema` are JQ expression strings.
+`AgentBuilder` when `inputProjection`/`outputProjection` are JQ expression strings.
 
 ---
 
@@ -307,7 +307,7 @@ model to the API `Agent`:
 
 1. Reads `AgentModel` and dispatches to the matching provider builder (`openai`, `anthropic`, etc.)
 2. Configures provider-specific parameters (apiKey, modelName, temperature, topP, topK, maxTokens)
-3. Constructs `AgentBuilder` with `systemPrompt`, `inputSchema`, `outputSchema`, `userMessageTemplate`
+3. Constructs `AgentBuilder` with `systemPrompt`, `inputProjection`, `outputProjection`, `userMessageTemplate`
 4. Returns the built `Agent`
 
 ### CaseDefinitionYamlMapper

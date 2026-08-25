@@ -31,25 +31,80 @@ public class Binding {
   @JsonProperty("target")
   private final BindingTarget target;
 
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Binding name — unique within the definition.")
   private final String name;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Trigger condition that activates this binding.")
   private final Trigger on;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Additional guard condition evaluated after the trigger fires.")
   private ExpressionEvaluator when;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Conflict resolution strategy for output merging. Default: LAST_WRITER_WINS.")
   private String conflictResolverStrategy;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "How to handle worker decline, failure, and expiration outcomes.")
   private OutcomePolicy outcomePolicy;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Override the capability's input projection for this specific binding.")
   private ExpressionEvaluator inputProjectionOverride;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Context keys applied before dispatch — prevents infinite re-evaluation loops.")
   private Map<String, Object> contextWrite;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Context keys this binding is expected to produce — used for expectation validation.")
   private Set<String> producedKeys;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Worker lifetime scope: BINDING (single dispatch), COMPOUND, or CASE.")
   private LifecycleScope lifecycleScope;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "PARTICIPANT blocks completion; COMPANION is a sidecar excluded from completion.")
   private Participation participation;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "TRANSIENT (fire-and-forget), PERSISTENT (long-running), or REINVOKED (re-invoked with state).")
   private ExecutionMode executionMode;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Declared worker actions for rights classification.")
   private List<WorkerAction> permissionIntent;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Exchange projection strategy ID or JQ expression.")
   private String exchangeProjectionStrategy;
+
   private String exchangeProjectionExpression;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Output channel name for Exchange data flow.")
   private String produces;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Input channel name for Exchange data flow.")
   private String consumes;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Per-binding recovery override configuration.")
   private RecoveryOverride recoveryOverride;
+
   private SideEffectClassification sideEffectClassification;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Hint for plan adaptation: always, conditional, or never.")
   private ReplanHint replanHint;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Alternative capability names activated on primary node failure.")
   private List<String> contingency;
 
   private Binding(String name, BindingTarget target, Trigger on) {

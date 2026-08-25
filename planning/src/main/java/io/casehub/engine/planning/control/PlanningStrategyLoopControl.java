@@ -289,7 +289,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
       String capName = ct.capability().name();
       long matchCount =
           ctx.definition().getWorkers().stream()
-              .filter(w -> w.capabilityNames() != null && w.capabilityNames().contains(capName))
+              .filter(w -> w.capabilities() != null && w.capabilities().contains(capName))
               .count();
       if (matchCount > 1) {
         LOG.warnf(

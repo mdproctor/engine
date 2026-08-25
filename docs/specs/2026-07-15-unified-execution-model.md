@@ -195,7 +195,7 @@ Within the orchestration dispatch mode, different algorithms build the plan. The
 - Flow already partially exists as `casehub-engine-flow` (Serverless Workflow SDK), currently positioned as worker execution (Tier 3). Should be a peer planning strategy.
 - `DagPlan<T>` is the universal output format — infrastructure, not an algorithm. All algorithms produce DAGs.
 - ReAct is NOT a separate algorithm. It's the native `CONTEXT_CHANGED` evaluation loop: strategy evaluates state (Thought) -> dispatches worker (Action) -> context changes from output (Observation) -> repeat.
-- The unnamed goal-directed algorithm already exists in one form: `LlmDecomposition` in blocks takes a goal and capabilities and produces a plan. LangChain4j calls their version `GoalOrientedPlanner` — graph search over agent I/O keys. Our capabilities already declare `inputSchema`/`outputSchema`.
+- The unnamed goal-directed algorithm already exists in one form: `LlmDecomposition` in blocks takes a goal and capabilities and produces a plan. LangChain4j calls their version `GoalOrientedPlanner` — graph search over agent I/O keys. Our capabilities already declare `inputProjection`/`outputProjection`.
 
 ### 2.6 Where Stages land
 

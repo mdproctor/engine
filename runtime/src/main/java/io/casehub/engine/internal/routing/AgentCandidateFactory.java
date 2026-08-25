@@ -131,7 +131,7 @@ public class AgentCandidateFactory {
       candidates.add(
           new AgentCandidate(
               w.name(),
-              w.capabilityNames(),
+              w.capabilities(),
               executionManager.getActiveWorkCount(w.name()),
               health,
               descriptor,

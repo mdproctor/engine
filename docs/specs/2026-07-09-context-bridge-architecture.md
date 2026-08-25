@@ -202,9 +202,9 @@ public interface ContextBridge<T> {
 
 **`initialise`** — produces a `T` from the case's context data.
 `narrowedInput` is the result of JQ evaluation against the working layer
-using the binding's `inputSchema` expression — the engine pipeline evaluates
+using the binding's `inputProjection` expression — the engine pipeline evaluates
 JQ before calling the bridge, so bridge implementations do not need access
-to `JQEvaluator`. If no `inputSchema` is specified, `narrowedInput` is the
+to `JQEvaluator`. If no `inputProjection` is specified, `narrowedInput` is the
 full working layer as `JsonNode`. Snapshot bridges (like `JacksonPojoBridge`)
 deserialise from `narrowedInput`; live-view bridges (like
 `WorkflowContextBridge`) create a scoped view backed by the `CaseContext`

@@ -143,7 +143,7 @@ public interface WorkerFunctionHandler {
 }
 ```
 
-`outputSchema` is deliberately absent. Output schema evaluation is a
+`outputProjection` is deliberately absent. Output schema evaluation is a
 cross-cutting concern owned by the composite executor, not the handler —
 it applies identically to all function types. Including it would force each
 handler to either duplicate the JQ evaluation infrastructure or ignore the
@@ -172,7 +172,7 @@ public Uni<WorkerResult> execute(WorkerFunction function, ..., String outputSche
 ```
 
 The outer `WorkerExecutor` interface (called by `QuartzWorkerExecutionJob`)
-still takes `outputSchema` — unchanged. Only the handler interface omits it.
+still takes `outputProjection` — unchanged. Only the handler interface omits it.
 
 Runtime provides `SyncAgentWorkerFunctionHandler` (`@ApplicationScoped`) —
 handles `Sync` and `AgentWorkerFunction`. Contains the current `executeSync()`

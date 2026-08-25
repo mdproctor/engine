@@ -258,7 +258,7 @@ public class WorkerExecutionOrchestrator {
             typedInput,
             workerContext,
             timeoutMs,
-            capability.outputSchema(),
+            capability.outputProjection(),
             metadata);
 
     WorkerResult<?> workerResult = handlerResult.result();

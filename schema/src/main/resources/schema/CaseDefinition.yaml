@@ -1,994 +1,303 @@
-$schema: "https://json-schema.org/draft/2020-12/schema"
-$id: "https://casehub.io/schemas/0.1.0/casehub.yaml"
-title: "CaseHub"
-description: >
-  Case Hub schema for coordination and observability of Cases.
-
-  The Reactor is the minimal core: it manages state, publishes events,
-  detects milestones, and provides observability. It does NOT initiate
-  work, assign tasks, or make decisions on behalf of participants.
-
-  Workers are autonomous participants. They observe CaseContext and events,
-  make local decisions, and act based on their own capabilities.
-
-  Case Hub is choreography-oriented by default.
-type: object
-required: [ dsl, namespace, name, version, spec ]
-unevaluatedProperties: false
-
-properties:
-  dsl:
-    type: string
-    pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
-    title: CaseHubDSL
-    minLength: 1
-    maxLength: 50
-    description: The version of the DSL used by the CaseHub.
-  expressionLang:
-    type: string
-    title: ExpressionLang
-    minLength: 1
-    maxLength: 64
-    default: "jq"
-    description: >
-      Expression language for all condition expressions in this definition.
-      Must match the type() of a registered ExpressionEngine that overrides create().
-      Defaults to "jq". Constraint: expressionLang == ExpressionEvaluator.type() == ExpressionEngine.type().
-  contextType:
-    type: string
-    title: ContextType
-    minLength: 1
-    maxLength: 512
-    description: >
-      Fully-qualified Java class name for typed POJO context. When declared,
-      JacksonPojoBridge<T> is auto-constructed and expressionLang defaults to "mvel".
-  namespace:
-    type: string
-    pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
-    title: CaseHubNamespace
-    minLength: 1
-    maxLength: 255
-    description: The CaseHub's namespace.
-  name:
-    type: string
-    pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
-    title: CaseHubName
-    minLength: 1
-    maxLength: 255
-    description: The CaseHub's name.
-  version:
-    type: string
-    pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
-    title: CaseHubVersion
-    minLength: 1
-    maxLength: 50
-    description: The CaseHub's semantic version.
-  title:
-    type: string
-    title: CaseHubTitle
-    minLength: 0
-    maxLength: 500
-    description: The CaseHub's title.
-  summary:
-    type: string
-    title: CaseHubSummary
-    description: The CaseHub's Markdown summary.
-  types:
-    type: array
-    title: CaseHubTypes
-    description: >
-      Behavioral type classifications for this case definition.
-      Each entry is a hierarchical path string parsed via Path.parse().
-      Types affect engine behavior — routing, dispatch, completion strategy.
-    items:
-      type: string
-      minLength: 1
-  labels:
-    type: array
-    title: CaseHubLabels
-    description: >
-      Operational classification labels for this case definition.
-      Each entry is a hierarchical path string parsed via Path.parse().
-      Labels affect organization — queues, dashboards, analytics.
-    items:
-      type: string
-      minLength: 1
-  use:
-    $ref: "#/$defs/Use"
-    description: >
-      Declares external dependencies (secrets, config maps) required by this Case definition.
-      Secrets are validated at load time for fail-fast behavior.
-      ConfigMaps provide non-sensitive configuration accessible via ${$config.*} in JQ.
-  semanticData:
-    type: object
-    additionalProperties: true
-    description: Static domain knowledge injected into the semantic layer at case start
-  episodic:
-    type: object
-    description: Episodic memory configuration for this case definition
-    unevaluatedProperties: false
-    properties:
-      memory:
-        type: object
-        required:
-          - domain
-          - entityId
-        unevaluatedProperties: false
-        properties:
-          domain:
-            type: string
-            description: MemoryDomain name (e.g. "fraud-check")
-          entityId:
-            type: string
-            description: JQ expression evaluated against semantic layer to resolve entity ID(s)
-          recent:
-            type: integer
-            default: 10
-            minimum: 1
-            description: Max items to return; default 10
-  layers:
-    type: array
-    description: User-defined layer names for this case definition
-    items:
-      type: object
-      required:
-        - name
-      unevaluatedProperties: false
-      properties:
-        name:
-          type: string
-          description: User-defined layer name
-  context:
-    type: object
-    description: Context store configuration for this case definition
-    unevaluatedProperties: false
-    properties:
-      storeFactory:
-        type: string
-        description: >
-          Strategy ID for CaseContextStoreFactory resolution via EngineStrategyResolver.
-          Default: "in-memory". Persistent stores (e.g. Redis-backed) must implement
-          isDurable()=true and the recovery path.
-  signals:
-    type: array
-    title: CaseSignals
-    description: >
-      Typed signal declarations for this case definition. Each signal has a name
-      and a contextType (fully qualified Java class name). When declared, only
-      signals with matching name and payload type are accepted on the typed API.
-    items:
-      type: object
-      required: [name, contextType]
-      unevaluatedProperties: false
-      properties:
-        name:
-          type: string
-          minLength: 1
-          description: Signal name — must be unique within the definition
-        contextType:
-          type: string
-          minLength: 1
-          description: Fully qualified Java class name for the signal payload type
-  labelRules:
-    type: array
-    title: CaseLabelRules
-    description: >
-      Label evaluation rules for case queue management. Evaluated on every
-      context change via CaseLabelEvaluator. Each rule's condition is a JQ
-      predicate over the working layer; actions add or remove labels.
-    items:
-      $ref: "#/$defs/LabelRule"
-  inboundMappings:
-    type: array
-    title: CaseInboundMappings
-    description: >
-      Bridges inbound connector messages to typed case signals. Each mapping
-      declares a signal name, connector type, correlation expression (resolves
-      to a case ID), and payload expression (extracts the signal payload).
-    items:
-      $ref: "#/$defs/InboundSignalMapping"
-  spec:
-    $ref: "#/$defs/CaseDefinitionSpec"
+$schema: https://json-schema.org/draft/2020-12/schema
 $defs:
-  ExpressionOrOverride:
-    description: >
-      Expression string or per-expression language override map.
-      Plain string uses the definition-level expressionLang.
-      Map syntax overrides: { jq: ".expr" } or { mvel: "expr" }.
-    oneOf:
-      - type: string
-      - type: object
-        minProperties: 1
-        maxProperties: 1
-        additionalProperties:
-          type: string
-
-  Use:
+  Binding:
     type: object
-    description: >
-      External dependencies declaration (secrets and config maps).
-      Inspired by CNCF Serverless Workflow 'use' section.
-
-      Secrets are validated at load time via SecretManager.secret() for fail-fast behavior.
-      ConfigMaps are validated via ConfigManager for availability.
-    unevaluatedProperties: false
     properties:
-      secrets:
-        type: array
-        description: >
-          Secret names required by this Case definition.
-          Validated at load time via SecretManager.secret().
-          Accessible in JQ expressions via ${$secret.{name}.{property}}
-        items:
-          type: string
-          pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
-          minLength: 1
-          maxLength: 63
-        uniqueItems: true
-
-      configMaps:
-        type: array
-        description: >
-          Config map names required by this Case definition.
-          Validated at load time via ConfigManager - checks that properties with
-          {configMapName}. prefix exist.
-          Accessible in JQ expressions via ${$config.{name}.{property}}
-        items:
-          type: string
-          pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
-          minLength: 1
-          maxLength: 63
-        uniqueItems: true
-
-  CaseDefinitionSpec:
-    type: object
-    unevaluatedProperties: true
-    description: >
-      Case definition specification. unevaluatedProperties is true because
-      the spec is an extension point — plugin modules may add their own
-      configuration blocks (e.g. cbr, routing strategies, future plugins)
-      without requiring schema changes.
-    properties:
-      milestones:
-        type: array
-        description: >
-          Observable progress markers derived from CaseContext.
-          The Reactor evaluates milestone conditions on every context
-          change and publishes MilestoneReached events.
-          Milestones provide visibility, not control flow.
-        items:
-          $ref: "#/$defs/Milestone"
-      capabilities:
-        type: array
-        description: >
-          Capabilities define what Workers can do.
-          A capability is a declared competence with a defined input/output
-          contract and shared vocabulary for discovery.
-        items:
-          $ref: "#/$defs/Capability"
-      goals:
-        type: array
-        description: >
-          Desired end-states expressed as JQ predicates over the CaseContext.
-          Goals provide outcome-oriented observability and can be used to
-          determine Case completion (success/failure), without prescribing
-          control flow or assigning work.
-        items:
-          $ref: "#/$defs/Goal"
-      completion:
-        $ref: "#/$defs/CaseCompletion"
-        description: >
-          Defines when a Case instance is considered terminally completed
-          (success) or terminally failed based on Goal satisfaction and/or a
-          direct JQ predicate. The Reactor evaluates completion on every
-          CaseContext change and may emit CaseCompleted/CaseFailed events.
-      planningStrategy:
+      conflictResolverStrategy:
         type: string
-        description: >
-          Planning strategy ID for this case. Resolved via StrategyResolver.
-          Built-in: "default" (choreography), "sequential".
-          Plugin strategies register via CDI as NamedStrategy beans.
-      decompositionStrategy:
+        description: "Conflict resolution strategy for output merging. Default: LAST_WRITER_WINS."
+        default: LAST_WRITER_WINS
+        enum:
+        - LAST_WRITER_WINS
+        - FIRST_WRITER_WINS
+        - FAIL
+        - DEEP_MERGE
+      consumes:
         type: string
-        description: >
-          HTN decomposition strategy ID. Resolved via StrategyResolver.
-          Default: "identity". Plugin strategies register via CDI.
-      maxDecompositionDepth:
-        type: integer
-        minimum: 1
-        maximum: 10
-        description: >
-          Maximum nesting depth for dynamic decomposition. When a leaf task
-          fails with a Knowledge failure, the engine decomposes it finer
-          up to this depth. Default: 3.
-      agentRouting:
-        type: string
-        description: >
-          Agent routing strategy ID. Selects which worker instance handles
-          a task. Resolved via StrategyResolver. Default: "composable".
-      implementationRouting:
-        type: string
-        description: >
-          Implementation routing strategy ID. Selects which binding(s) handle
-          a capability when multiple bindings target the same capability.
-          Resolved via StrategyResolver. Default: runs all.
-      humanTaskRouting:
-        type: string
-        description: >
-          HumanTask routing strategy ID. Enriches humanTask candidate sets
-          with historical data. Resolved via StrategyResolver.
-      candidateMatching:
-        type: string
-        description: >
-          Candidate matching strategy ID. Controls how worker capabilities
-          are matched to binding requirements. Built-in: "exact", "subsumption".
-          Resolved via StrategyResolver.
-      routingSignalWeights:
+        description: Input channel name for Exchange data flow.
+      contextWrite:
         type: object
-        description: >
-          Per-signal-provider weight configuration for composable agent routing.
-          Keys are signal provider IDs (e.g. "workload", "trust", "experience",
-          "personality", "semantic"). Values are weights. When present, only
-          named providers are called with given weights.
-        additionalProperties:
-          type: number
-      cbr:
-        $ref: "#/$defs/Cbr"
-      channels:
+        additionalProperties: true
+      contingency:
+        description: Alternative capability names activated on primary node failure.
         type: array
-        description: >
-          Typed streaming channels for worker-to-worker data flow. Each channel
-          is created when its owning scope activates and closed when it terminates.
-          Workers produce/consume via Exchange records.
         items:
-          type: object
-          required: [ name, recordType ]
-          unevaluatedProperties: false
-          properties:
-            name:
-              type: string
-              minLength: 1
-              description: "Channel name — unique within the case definition"
-            recordType:
-              type: string
-              minLength: 1
-              description: "Fully qualified Java class name for the channel record type"
-            transport:
-              type: string
-              default: in-memory
-              description: "DataChannelFactory strategy ID. Default: in-memory."
-            scope:
-              type: string
-              enum: [ COMPOUND, CASE ]
-              default: CASE
-              description: "Channel lifecycle scope. CASE (default) or COMPOUND."
-      bindings:
-        type: array
-        description: >
-          Bindings connect trigger conditions to worker capabilities. When a binding's
-          trigger condition is met, the associated capability is invoked.
-        items:
-          $ref: "#/$defs/Binding"
-      workers:
-        type: array
-        description: >
-          Autonomous participants that observe CaseContext and events,
-          make local decisions, and perform work.
-        items:
-          $ref: "#/$defs/Worker"
-      authorization:
-        $ref: "#/$defs/Authorization"
-        description: >
-          ACL grants created when a case instance of this type is started.
-          Maps AclAction to groups. Absent = no ACL enforcement (NoOp default).
-      _codegenAgent:
-        description: "Code generation directive — ensures Agent type is generated by jsonschema2pojo. Not a user-facing property."
-        $ref: "#/$defs/Agent"
-      _codegenAgentModel:
-        description: "Code generation directive — ensures AgentModel type is generated. Not a user-facing property."
-        $ref: "#/$defs/AgentModel"
-      _codegenOpenAi:
-        description: "Code generation directive — ensures OpenAiModel type is generated. Not a user-facing property."
-        $ref: "#/$defs/OpenAiModel"
-      _codegenOllama:
-        description: "Code generation directive — ensures OllamaModel type is generated. Not a user-facing property."
-        $ref: "#/$defs/OllamaModel"
-      _codegenAnthropic:
-        description: "Code generation directive — ensures AnthropicModel type is generated. Not a user-facing property."
-        $ref: "#/$defs/AnthropicModel"
-      _codegenMistral:
-        description: "Code generation directive — ensures MistralAiModel type is generated. Not a user-facing property."
-        $ref: "#/$defs/MistralAiModel"
-      _codegenGoogleAi:
-        description: "Code generation directive — ensures GoogleAiGeminiModel type is generated. Not a user-facing property."
-        $ref: "#/$defs/GoogleAiGeminiModel"
-
-  Authorization:
-    type: object
-    description: >
-      Declares which groups are granted each ACL action when a case
-      of this type is created. Groups are IdP-agnostic — resolved
-      via CurrentPrincipal.roles(). All fields are optional.
-    unevaluatedProperties: false
-    properties:
-      read:
-        type: array
-        items: { type: string }
-        description: "Groups granted READ — query case, view plan items, event log, work items"
-      write:
-        type: array
-        items: { type: string }
-        description: "Groups granted WRITE — signal, update context, assign work items"
-      admin:
-        type: array
-        items: { type: string }
-        description: "Groups granted ADMIN — start, close, suspend, resume, dispatch"
-      claim:
-        type: array
-        items: { type: string }
-        description: "Groups granted CLAIM — claim work items for execution"
-
-  LabelRule:
-    type: object
-    description: >
-      A label evaluation rule. Condition is a JQ predicate evaluated against
-      the working layer on every context change. Actions add or remove labels
-      from the case instance. Evaluation uses clean-slate semantics per cycle.
-    required: [ name, when, actions ]
-    unevaluatedProperties: false
-    properties:
+          type: string
+      executionMode:
+        type: string
+        enum:
+        - TRANSIENT
+        - PERSISTENT
+        - REINVOKED
+        description: "TRANSIENT (fire-and-forget), PERSISTENT (long-running), or REINVOKED\
+          \ (re-invoked with state)."
+        default: TRANSIENT
+      inputProjectionOverride:
+        type: string
+      lifecycleScope:
+        type: string
+        enum:
+        - BINDING
+        - COMPOUND
+        - CASE
+        description: "Worker lifetime scope: BINDING (single dispatch), COMPOUND,\
+          \ or CASE."
+        default: BINDING
       name:
         type: string
-        minLength: 1
-        description: Unique rule name within the definition
-      when:
+        description: Binding name — unique within the definition.
+      "on":
+        $ref: "#/$defs/Trigger"
+        description: Trigger condition that activates this binding.
+      outcomePolicy:
+        $ref: "#/$defs/OutcomePolicy"
+        description: "How to handle worker decline, failure, and expiration outcomes."
+      participation:
         type: string
-        description: JQ predicate over the working layer — rule fires when true
-      actions:
+        enum:
+        - PARTICIPANT
+        - COMPANION
+        description: PARTICIPANT blocks completion; COMPANION is a sidecar excluded
+          from completion.
+        default: PARTICIPANT
+      permissionIntent:
+        description: Declared worker actions for rights classification.
         type: array
-        minItems: 1
-        description: Label actions to apply when the rule fires
         items:
-          type: object
-          unevaluatedProperties: false
-          oneOf:
-            - required: [ add ]
-            - required: [ remove ]
-          properties:
-            add:
-              type: string
-              description: Label name to add
-            remove:
-              type: string
-              description: Label name to remove
-
-  InboundSignalMapping:
-    type: object
-    description: >
-      Maps inbound connector messages to typed case signals. The correlation
-      expression resolves to a case ID; the payload expression extracts the
-      signal payload. Evaluated by InboundSignalBridge.
-    required: [ signal, connectorType, correlation, payload ]
-    unevaluatedProperties: false
-    properties:
-      signal:
-        type: string
-        minLength: 1
-        description: >
-          Signal name — must reference a declared SignalType on the same definition.
-          Validated at YAML load time.
-      connectorType:
-        type: string
-        minLength: 1
-        description: Connector type discriminator (e.g. "slack", "email")
-      correlation:
-        type: string
-        description: JQ expression or ExpressionEvaluator resolving to the target case UUID
-      payload:
-        type: string
-        description: JQ expression or ExpressionEvaluator extracting the signal payload from the message
-      correlationResolver:
-        type: string
-        description: >
-          Strategy ID for CaseCorrelationResolver. Default: "uuid" (direct UUID parsing).
-          Custom resolvers register via CDI as NamedStrategy beans.
-
-  Cbr:
-    type: object
-    description: >
-      CBR (Case-Based Reasoning) retrieval configuration. Declares how to
-      extract features from the case context for similarity-based retrieval
-      of past case experiences at routing time.
-    required: [ features ]
-    unevaluatedProperties: false
-    properties:
-      features:
-        type: object
-        description: >
-          Map of feature name to JQ expression. Each expression is evaluated
-          against the working layer to extract a feature value for CBR retrieval.
-        additionalProperties:
           type: string
-      weights:
+      producedKeys:
+        description: Context keys this binding is expected to produce — used for expectation
+          validation.
+        type: array
+        items:
+          type: string
+      produces:
+        type: string
+        description: Output channel name for Exchange data flow.
+      when:
+        $ref: "#/$defs/ExpressionOrOverride"
+        description: Additional guard condition evaluated after the trigger fires.
+      capability:
+        type: string
+      subCase:
+        $ref: "#/$defs/SubCase"
+      humanTask:
+        $ref: "#/$defs/HumanTask"
+      signal:
         type: object
-        description: Per-feature weight overrides for similarity scoring.
-        additionalProperties:
-          type: number
-      topK:
-        type: integer
-        minimum: 1
-        default: 5
-        description: Maximum number of similar cases to retrieve.
-      minSimilarity:
-        type: number
-        minimum: 0
-        maximum: 1
-        default: 0
-        description: Minimum similarity score threshold.
-      vectorWeight:
-        type: number
-        minimum: 0
-        maximum: 1
-        default: 0.5
-        description: Blend factor between feature similarity and vector similarity.
-      domain:
+        additionalProperties: true
+        description: Context signal payload. Written to the case context when the
+          binding fires. No worker dispatch.
+      replanAfter:
         type: string
-        minLength: 1
-        description: >
-          MemoryDomain name for CBR retrieval. Defaults to episodicMemory.domain
-          if not specified.
-      caseType:
-        type: string
-        minLength: 1
-        description: >
-          CBR case type for retrieval. Defaults to the case definition name
-          if not specified.
-      cbrType:
-        type: string
-        minLength: 1
-        description: >
-          CbrCase Java class discriminator for deserialization. Identifies which
-          CbrCase subtype to use. Built-in: "plan" (PlanCbrCase), "feature-vector"
-          (FeatureVectorCbrCase), "textual" (TextualCbrCase). Extensible via
-          CbrCaseTypeRegistration CDI bean. Distinct from caseType (query filter).
-      timing:
-        type: string
-        enum: [ per-evaluation, case-lifetime ]
-        default: per-evaluation
-        description: >
-          Retrieval timing strategy. 'per-evaluation' retrieves on every
-          evaluation (default). 'case-lifetime' retrieves once on first access
-          and caches the result for the case's lifetime.
-      temporalDecayHalfLifeDays:
-        type: integer
-        minimum: 1
-        description: >
-          Half-life in days for temporal decay during retrieval. Older cases
-          lose relevance via similarity *= 0.5^(age / halfLife). Null means
-          no decay (backward compatible).
-      minCostSamples:
-        type: integer
-        minimum: 1
-        description: >
-          Minimum number of plan trace samples required before learned costs
-          override declared costs. Below this threshold, actions use their
-          static/dynamic cost (cold start). Default: 5.
-
-  Capability:
-    description: >
-      A capability that a Worker can perform.
-      It declares what a Worker is able to do and defines the contract
-      (input/output schema) for that capability.
-    type: object
-    required: [ name ]
+        enum:
+        - always
+        - conditional
+        - never
+        description: "Hint for plan adaptation: always, conditional, or never."
+        default: conditional
+      exchangeProjection:
+        oneOf:
+        - type: string
+        - type: object
+          unevaluatedProperties: false
+          required:
+          - strategy
+          properties:
+            strategy:
+              type: string
+            expression:
+              type: string
+    oneOf:
+    - required:
+      - capability
+    - required:
+      - subCase
+    - required:
+      - humanTask
+    - required:
+      - signal
     unevaluatedProperties: false
+    required:
+    - "on"
+  Capability:
+    type: object
     properties:
+      description:
+        type: string
+      inputProjection:
+        type: string
       name:
         type: string
         title: CapabilityName
-        description: "Unique capability identifier"
-      description:
-        type: string
-        title: CapabilityDescription
-        description: "What this capability represents"
-      inputProjection:
-        { type: string, description: "JQ expression producing capability input from case context" }
       outputProjection:
-        { type: string, description: "JQ expression producing capability output from worker result" }
+        type: string
       cognitiveDemand:
         type: object
-        description: >
-          Weighted cognitive function demand profile for this capability.
-          Keys are Jungian function names (Ti, Te, Fi, Fe, Si, Se, Ni, Ne).
-          Values are weights that should sum to 1.0. Used by
-          PersonalitySignalProvider for JPAF personality-adaptive routing.
         additionalProperties:
           type: number
           minimum: 0
           maximum: 1
-
-  HumanTask:
-    type: object
-    description: >-
-      A binding target that creates a WorkItem in casehub-work and resumes the case
-      when the WorkItem reaches a terminal state. Inline mode requires title;
-      template mode requires templateRef. The two modes are mutually exclusive.
     unevaluatedProperties: false
-    oneOf:
-      - required: [ title ]
-      - required: [ titleExpression ]
-      - required: [ templateRef ]
-    properties:
-      title:
-        type: string
-        description: "WorkItem title — inline mode"
-      titleExpression:
-        type: string
-        description: "JQ expression resolving to the WorkItem title from case context (e.g. '\"IRB Review — \" + .protocol.id')"
-      templateRef:
-        type: string
-        description: "WorkItemTemplate reference (UUID or name) — template mode"
-      inputMapping:
-        type: string
-        description: "JQ expression: case context → WorkItem payload"
-      outputMapping:
-        type: string
-        description: "JQ expression: WorkItem resolution → case context updates"
-      scope:
-        type: string
-        description: >-
-          Hierarchical scope path for SLA preference resolution
-          (e.g. "casehubio/devtown/pr-review"). Null resolves preferences at root scope.
-          Follow the platform convention: org / app / case-type.
-      scopeExpression:
-        type: string
-        description: "JQ expression resolving to the scope path from case context (e.g. '.trial.site.code')"
-      candidateGroups:
-        oneOf:
-          - type: array
-            items: { type: string }
-            description: "Static list of groups eligible to claim this WorkItem"
-          - type: string
-            description: "JQ expression resolving to a list of group names from case context (e.g. \".irb.candidateGroups\")"
-      candidateUsers:
-        oneOf:
-          - type: array
-            items: { type: string }
-            description: "Static list of users eligible to claim this WorkItem"
-          - type: string
-            description: "JQ expression resolving to a list of user IDs from case context"
-      expiresIn:
-        type: string
-        description: "ISO 8601 duration after which the WorkItem expires (e.g. PT24H)"
-      expiresInExpression:
-        type: string
-        description: "JQ expression resolving to an ISO-8601 duration from case context (e.g. '.trial.regulatoryDeadlineDuration')"
-      claimDeadlineHours:
-        type: integer
-        minimum: 1
-        description: "Business hours allowed to claim this WorkItem before it escalates"
-      expiresAtExpression:
-        type: string
-        description: >
-          JQ expression evaluated against the case context WORKING layer at scheduling time.
-          Must produce an ISO-8601 Instant string (e.g. ".indReportingDeadline").
-          Validated at YAML load time. Used to enforce an absolute deadline derived from
-          domain data (e.g. ae.reportedAt + window) rather than a relative duration from
-          WorkItem creation.
-      outcomes:
-        type: array
-        items: { type: string }
-        description: "Valid outcome names for this WorkItem (e.g. APPROVED, REJECTED). Enforced at completion by casehub-work."
-      payloadType:
-        type: string
-        description: "Fully-qualified Java class name for typed payload validation via ContextBridge. Engine validates inputMapping output against this type at dispatch time."
-      resolutionType:
-        type: string
-        description: "Fully-qualified Java class name for typed resolution validation via ContextBridge. Engine validates WorkItem resolution against this type at completion time."
-
-  Binding:
-    type: object
-    required: [ "on" ]
-    unevaluatedProperties: false
-    oneOf:
-      - required: [ capability ]
-      - required: [ subCase ]
-      - required: [ humanTask ]
-      - required: [ signal ]
-    properties:
-      name: { type: string }
-      "on": { $ref: "#/$defs/Trigger" }
-      when:
-        $ref: "#/$defs/ExpressionOrOverride"
-        description: "Expression over context and/or event — string or {lang: expr} override"
-      capability: { type: string }
-      subCase: { $ref: "#/$defs/SubCase" }
-      humanTask: { $ref: "#/$defs/HumanTask" }
-      signal:
-        type: object
-        additionalProperties: true
-        description: "Context signal payload. Written to the case context when the binding fires. No worker dispatch."
-      conflictResolverStrategy:
-        type: string
-        enum: [ LAST_WRITER_WINS, FIRST_WRITER_WINS, FAIL, DEEP_MERGE ]
-        default: LAST_WRITER_WINS
-        description: "Strategy for resolving concurrent writes to the same CaseContext key"
-      outcomePolicy:
-        $ref: "#/$defs/OutcomePolicy"
-      inputProjectionOverride:
-        type: string
-        description: "JQ expression overriding the capability's input projection for this binding. Use for failure cascade scope reduction."
-      contextWrite:
-        type: object
-        additionalProperties: true
-        description: "Key-value pairs to write to the case context before dispatching. Prevents condition re-evaluation loops in failure cascades."
-      producedKeys:
-        type: array
-        items:
-          type: string
-        description: "Context keys this binding is expected to produce. Used for static cycle detection and dependency reasoning."
-      replanAfter:
-        type: string
-        enum: [ always, conditional, never ]
-        default: conditional
-        description: "Per-binding hint for progress-gated adaptation trigger. ALWAYS = always replan after this binding. CONDITIONAL = use divergence score (default). NEVER = never replan after this binding."
-      contingency:
-        type: array
-        items:
-          type: string
-        description: "Alternative capability names to try in sequence if the primary capability fails. Used by DefaultGoalDecomposer to attach contingency sub-plans to DagNodes post-decomposition."
-      permissionIntent:
-        type: array
-        description: >
-          Declares what automated worker actions are permitted for this binding.
-          Each entry is a WorkerAction mapped to ACL grants at dispatch time.
-          Default (if omitted): [read-context] only (fail-closed).
-        items:
-          type: string
-      lifecycleScope:
-        type: string
-        enum: [ BINDING, COMPOUND, CASE ]
-        default: BINDING
-        description: "Scope governing worker lifetime. BINDING = single dispatch (default). COMPOUND = lives for compound duration. CASE = lives for case duration."
-      participation:
-        type: string
-        enum: [ PARTICIPANT, COMPANION ]
-        default: PARTICIPANT
-        description: "PARTICIPANT blocks completion. COMPANION is a sidecar excluded from completion evaluation."
-      executionMode:
-        type: string
-        enum: [ TRANSIENT, PERSISTENT, REINVOKED ]
-        default: TRANSIENT
-        description: "TRANSIENT = fire-and-forget (default). PERSISTENT = long-running virtual thread with mailbox. REINVOKED = re-invoked on each trigger with accumulated state."
-      produces:
-        type: string
-        description: "DataChannel name this binding produces to. The binding's Exchange output is streamed to this channel."
-      consumes:
-        type: string
-        description: "DataChannel name this binding consumes from. The binding receives Exchanges from this channel."
-      exchangeProjection:
-        description: "Exchange projection strategy — controls how Exchange data reaches the Blackboard."
-        oneOf:
-          - type: string
-            description: "Strategy ID (e.g. 'dual-write', 'exchange-only')"
-          - type: object
-            unevaluatedProperties: false
-            required: [ strategy ]
-            properties:
-              strategy:
-                type: string
-                description: "Strategy ID (e.g. 'jq')"
-              expression:
-                type: string
-                description: "JQ expression for custom projection (required when strategy is 'jq')"
-
-  OutcomePolicy:
-    type: object
-    description: "Policy for handling semantic worker outcomes (DECLINED, FAILED, EXPIRED)"
-    unevaluatedProperties: false
-    properties:
-      onDecline:
-        type: string
-        enum: [ REROUTE, FAULT ]
-        default: REROUTE
-        description: "Action when a worker returns DECLINED"
-      onFailure:
-        type: string
-        enum: [ REROUTE, FAULT ]
-        default: REROUTE
-        description: "Action when a worker returns FAILED"
-      onExpired:
-        type: string
-        enum: [ REROUTE, FAULT ]
-        default: REROUTE
-        description: "Action when a worker's commitment expires"
-      maxRerouteAttempts:
-        type: integer
-        minimum: 1
-        default: 3
-        description: "Maximum dispatch+outcome cycles before writing REROUTES_EXHAUSTED"
-
-  Goal:
-    type: object
-    required: [ name, condition ]
-    unevaluatedProperties: false
-    properties:
-      name:
-        type: string
-        description: "Unique goal identifier"
-      description:
-        type: string
-      kind:
-        type: string
-        default: success
-        description: "Goal kind label — built-in kinds are 'success' and 'failure'; domains may define custom kinds"
-      condition:
-        $ref: "#/$defs/ExpressionOrOverride"
-        description: "Predicate over CaseContext — string or {lang: expr} override"
-
+    required:
+    - name
   CaseCompletion:
     type: object
-    description: >
-      Maps goal kinds to goal expressions. Document order determines evaluation
-      priority — first satisfied expression wins. Built-in kinds (success, failure)
-      have implicit terminal status mappings. Custom kinds require an explicit
-      'status' field.
+    description: Maps goal kinds to goal expressions. Document order determines evaluation
+      priority — first satisfied expression wins.
     properties:
       doneWhen:
         $ref: "#/$defs/ExpressionOrOverride"
-        description: "Optional predicate over CaseContext — string or {lang: expr} override. Default language is always JQ regardless of definition-level expressionLang."
+        description: "Optional predicate over CaseContext — string or {lang: expr}\
+          \ override."
     additionalProperties:
       $ref: "#/$defs/GoalExpression"
-
-  ContextChangeTrigger:
+  Goal:
     type: object
-    description: "Fires when CaseContext changes."
-    unevaluatedProperties: false
     properties:
-      filter:
-        $ref: "#/$defs/ExpressionOrOverride"
-        description: "Predicate over { context, event } — string or {lang: expr} override"
-      listenLayer:
-        type: string
-        description: "Optional layer name; if set, binding only re-evaluates when this layer changes"
-    additionalProperties: false
-
-  CloudEventTrigger:
-    description: "Fires on matching CloudEvents."
-    oneOf:
-      - type: string
-        description: "CloudEvent type exact match"
-      - type: object
-        required: [ type ]
-        unevaluatedProperties: false
-        properties:
-          type:
-            type: string
-            description: "CloudEvent type exact match"
-          source:
-            type: string
-            description: "Optional exact match on CloudEvent source"
-          subject:
-            type: string
-            description: "Optional exact match on CloudEvent subject"
-          filter:
-            $ref: "#/$defs/ExpressionOrOverride"
-            description: "Predicate over { context, event } — string or {lang: expr} override"
-        additionalProperties: false
-
-  ExecutionPolicy:
-    type: object
-    unevaluatedProperties: false
-    properties:
-      timeoutMs:
-        type: integer
-        minimum: 60000
-        description: "Default timeout for a single work execution/invocation"
-      retries:
-        $ref: "#/$defs/RetryPolicy"
-        description: "Default retry policy"
-
-  GoalExpression:
-    type: object
-    unevaluatedProperties: false
-    oneOf:
-      - required: [ allOf ]
-      - required: [ anyOf ]
-    properties:
-      allOf:
-        type: array
-        description: "All listed goals/expressions must be satisfied. Items are goal names (strings) or nested GoalExpression objects."
-        items:
-          oneOf:
-            - type: string
-            - $ref: "#/$defs/GoalExpression"
-        minItems: 1
-      anyOf:
-        type: array
-        description: "At least one listed goal/expression must be satisfied. Items are goal names (strings) or nested GoalExpression objects."
-        items:
-          oneOf:
-            - type: string
-            - $ref: "#/$defs/GoalExpression"
-        minItems: 1
-
-  Milestone:
-    description: >
-      Observable progress marker. The Reactor evaluates milestone
-      conditions on every context change and publishes MilestoneReached
-      events. Milestones provide visibility, not control flow.
-    type: object
-    required: [ name, condition ]
-    unevaluatedProperties: false
-    properties:
-      name:
-        type: string
-        title: MilestoneName
-        description: "Milestone name"
-      description:
-        type: string
-        title: MilestoneDescription
-        description: "What this milestone represents"
       condition:
         $ref: "#/$defs/ExpressionOrOverride"
-        title: MilestoneCondition
-        description: "Expression — true means milestone is reached. String or {lang: expr} override"
+        description: JQ predicate over the CaseContext — goal is reached when this
+          evaluates to true.
+      description:
+        type: string
+        description: Human-readable goal description.
+      kind:
+        type: string
+        description: "Goal kind label — built-in: \"success\", \"failure\". Custom\
+          \ kinds require explicit status."
+        default: success
+      name:
+        type: string
+        description: Unique goal name within the definition.
+    unevaluatedProperties: false
+    required:
+    - name
+    - condition
+  InboundSignalMapping:
+    type: object
+    properties:
+      connectorType:
+        type: string
+        minLength: 1
+      correlation:
+        type: string
+      correlationResolver:
+        type: string
+      payload:
+        type: string
+      signal:
+        type: string
+        minLength: 1
+    unevaluatedProperties: false
+    required:
+    - signal
+    - connectorType
+    - correlation
+    - payload
+  LabelRule:
+    type: object
+    properties:
+      actions:
+        type: array
+        items:
+          type: object
+          unevaluatedProperties: false
+          oneOf:
+          - required:
+            - add
+          - required:
+            - remove
+          properties:
+            add:
+              type: string
+            remove:
+              type: string
+        minItems: 1
+      name:
+        type: string
+        minLength: 1
+      when:
+        type: string
+    unevaluatedProperties: false
+    required:
+    - name
+    - when
+    - actions
+  Milestone:
+    type: object
+    properties:
+      description:
+        type: string
+        description: Human-readable milestone description.
       entryCriteria:
         $ref: "#/$defs/ExpressionOrOverride"
-        description: "Predicate — milestone becomes ACTIVE when true. String or {lang: expr} override"
+        description: JQ predicate — milestone activates when this becomes true.
+      name:
+        type: string
+        description: Unique milestone name within the definition.
+        title: MilestoneName
       slaDuration:
         type: string
-        description: "ISO-8601 duration for SLA deadline (e.g. PT2H, PT24H). Must be positive if present."
+        description: SLA duration — ISO-8601 format. Fires timeout when exceeded.
       slaStartFrom:
         type: string
-        enum: [CASE_CREATED, MILESTONE_ACTIVATED, PREVIOUS_MILESTONE_COMPLETED, EVENT_OCCURRED]
+        enum:
+        - CASE_CREATED
+        - MILESTONE_ACTIVATED
+        - PREVIOUS_MILESTONE_COMPLETED
+        - EVENT_OCCURRED
+        description: "When the SLA clock starts. Default: MILESTONE_ACTIVATED."
         default: MILESTONE_ACTIVATED
-        description: "When SLA clock starts. Only CASE_CREATED and MILESTONE_ACTIVATED are currently implemented."
-
-  RetryPolicy:
-    type: object
+      condition:
+        $ref: "#/$defs/ExpressionOrOverride"
+        description: JQ predicate — milestone completes when this becomes true after
+          activation.
+        title: MilestoneCondition
     unevaluatedProperties: false
+    required:
+    - name
+    - condition
+  OutcomePolicy:
+    type: object
     properties:
-      maxAttempts:
+      maxRerouteAttempts:
         type: integer
-        minimum: 1
         default: 3
-        description: "Total attempts including the first one"
-      delayMs:
-        type: integer
-        minimum: 0
-        default: 100
-        description: "Delay in milliseconds between retry attempts"
-
-  ScheduleTrigger:
-    type: object
-    description: "Time-based trigger."
+        minimum: 1
+      onDecline:
+        type: string
+        enum:
+        - REROUTE
+        - FAULT
+        default: REROUTE
+      onExpired:
+        type: string
+        enum:
+        - REROUTE
+        - FAULT
+        default: REROUTE
+      onFailure:
+        type: string
+        enum:
+        - REROUTE
+        - FAULT
+        default: REROUTE
     unevaluatedProperties: false
-    oneOf:
-      - required: [ cron ]
-      - required: [ every ]
-    properties:
-      cron:
-        type: string
-        description: "Cron expression (define the dialect in docs: e.g. cron/Quartz)."
-      every:
-        type: string
-        description: "ISO-8601 duration, e.g. PT5M."
-      timezone:
-        type: string
-        description: "IANA TZ, e.g. America/Vancouver"
-    additionalProperties: false
-
   Trigger:
     type: object
-    description: >
-      Defines what the Worker observes. Exactly one of: contextChange, cloudEvent, schedule, scopeActivated.
+    description: "Defines what the Worker observes. Exactly one of: contextChange,\
+      \ cloudEvent, schedule, scopeActivated."
     unevaluatedProperties: false
     oneOf:
-      - required: [ contextChange ]
-      - required: [ cloudEvent ]
-      - required: [ schedule ]
-      - required: [ scopeActivated ]
+    - required:
+      - contextChange
+    - required:
+      - cloudEvent
+    - required:
+      - schedule
+    - required:
+      - scopeActivated
     properties:
       contextChange:
         $ref: "#/$defs/ContextChangeTrigger"
@@ -998,172 +307,778 @@ $defs:
         $ref: "#/$defs/ScheduleTrigger"
       scopeActivated:
         $ref: "#/$defs/ScopeActivatedTrigger"
-
-  ScopeActivatedTrigger:
+  Use:
     type: object
-    description: "Fires when the owning scope (compound or case) becomes active. Used for lifecycle-scoped workers."
+    properties:
+      configMaps:
+        type: array
+        items:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: "^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+        uniqueItems: true
+      secrets:
+        type: array
+        items:
+          type: string
+          minLength: 1
+          maxLength: 63
+          pattern: "^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+        uniqueItems: true
     unevaluatedProperties: false
-    additionalProperties: false
-
+  Worker:
+    type: object
+    additionalProperties: true
+    properties:
+      name:
+        type: string
+        minLength: 1
+        title: WorkerName
+        maxLength: 255
+      description:
+        type: string
+      capabilities:
+        type: array
+        minItems: 1
+        items:
+          type: string
+        title: WorkerCapabilities
+      executionPolicy:
+        $ref: "#/$defs/ExecutionPolicy"
+      sequence:
+        type: array
+        items:
+          type: string
+      contextType:
+        type: string
+      outputType:
+        type: string
+      cost:
+        type: number
+        minimum: 0
+      effect:
+        type: object
+        additionalProperties:
+          type: boolean
+      softDependency:
+        type: array
+        items:
+          type: string
+    required:
+    - name
+    - capabilities
+  ExpressionOrOverride:
+    description: "Expression string or per-expression language override map. Plain\
+      \ string uses the definition-level expressionLang. Map syntax overrides: { jq:\
+      \ \".expr\" } or { mvel: \"expr\" }."
+    oneOf:
+    - type: string
+    - type: object
+      minProperties: 1
+      maxProperties: 1
+      additionalProperties:
+        type: string
+  GoalExpression:
+    type: object
+    unevaluatedProperties: false
+    oneOf:
+    - required:
+      - allOf
+    - required:
+      - anyOf
+    properties:
+      allOf:
+        type: array
+        minItems: 1
+        items:
+          oneOf:
+          - type: string
+          - $ref: "#/$defs/GoalExpression"
+      anyOf:
+        type: array
+        minItems: 1
+        items:
+          oneOf:
+          - type: string
+          - $ref: "#/$defs/GoalExpression"
+  CaseDefinitionSpec:
+    type: object
+    unevaluatedProperties: true
+    description: Case definition specification. unevaluatedProperties is true because
+      the spec is an extension point.
+    properties:
+      agentRouting:
+        type: string
+        description: Agent routing strategy ID. Selects which worker instance handles
+          a task.
+      authorization:
+        $ref: "#/$defs/Authorization"
+        description: ACL grants created when a case of this type is started.
+      bindings:
+        description: Bindings connect trigger conditions to worker capabilities.
+        type: array
+        items:
+          $ref: "#/$defs/Binding"
+      candidateMatching:
+        type: string
+        description: "Candidate matching strategy ID. Built-in: \"exact\", \"subsumption\"\
+          ."
+      capabilities:
+        description: Capabilities define what Workers can do — declared competences
+          with input/output contracts.
+        type: array
+        items:
+          $ref: "#/$defs/Capability"
+      channels:
+        description: Typed streaming channels for worker-to-worker data flow.
+        type: array
+        items:
+          type: object
+          required:
+          - name
+          - recordType
+          unevaluatedProperties: false
+          properties:
+            name:
+              type: string
+              minLength: 1
+            recordType:
+              type: string
+              minLength: 1
+            transport:
+              type: string
+              default: in-memory
+            scope:
+              type: string
+              enum:
+              - COMPOUND
+              - CASE
+              default: CASE
+      completion:
+        $ref: "#/$defs/CaseCompletion"
+        description: Defines when a Case is terminally completed or failed based on
+          Goal satisfaction.
+      decompositionStrategy:
+        type: string
+        description: "HTN decomposition strategy ID. Default: \"identity\"."
+      defaultQuorum:
+        type: object
+        unevaluatedProperties: false
+        description: Default M-of-N multi-party approval configuration for action
+          gates.
+        required:
+        - instances
+        - required
+        properties:
+          instances:
+            type: integer
+            minimum: 2
+          required:
+            type: integer
+            minimum: 1
+          onThresholdReached:
+            type: string
+            enum:
+            - KEEP
+            - CANCEL
+            default: KEEP
+          allowSameAssignee:
+            type: boolean
+            default: false
+      goals:
+        description: Desired end-states expressed as predicates over the CaseContext.
+        type: array
+        items:
+          $ref: "#/$defs/Goal"
+      goapActions:
+        type: array
+        description: GOAP action declarations for planning.
+        items:
+          type: object
+          unevaluatedProperties: false
+          required:
+          - name
+          - effects
+          properties:
+            name:
+              type: string
+              minLength: 1
+            preconditions:
+              type: object
+              additionalProperties:
+                type: boolean
+            effects:
+              type: object
+              additionalProperties:
+                type: boolean
+            cost:
+              type: number
+              minimum: 0
+              default: 1.0
+            benefit:
+              type: number
+              minimum: 0
+              default: 0
+            softPreconditions:
+              type: object
+              additionalProperties:
+                type: boolean
+      goalToEffectKeys:
+        type: object
+        description: Maps goal names to sets of GOAP effect keys for planning.
+        additionalProperties:
+          type: array
+          items:
+            type: string
+      humanTaskContextConstraints:
+        type: array
+        description: Declarative rules for humanTask candidate filtering and scoring.
+        items:
+          type: object
+          unevaluatedProperties: false
+          required:
+          - when
+          - effect
+          properties:
+            when:
+              $ref: "#/$defs/ExpressionOrOverride"
+            effect:
+              type: object
+              unevaluatedProperties: false
+              properties:
+                preferGroups:
+                  type: array
+                  items:
+                    type: string
+                preferUsers:
+                  type: array
+                  items:
+                    type: string
+                excludeGroups:
+                  type: array
+                  items:
+                    type: string
+                excludeUsers:
+                  type: array
+                  items:
+                    type: string
+            weight:
+              type: number
+              minimum: 0
+              maximum: 1
+              default: 1.0
+      humanTaskRouting:
+        type: string
+        description: HumanTask routing strategy ID. Enriches candidate sets with historical
+          data.
+      humanTaskWorkloadConstraint:
+        type: object
+        unevaluatedProperties: false
+        description: Workload-based constraints for humanTask candidate filtering.
+        properties:
+          maxActiveTaskCount:
+            type: integer
+            minimum: 1
+          loadBalanceWeight:
+            type: number
+            minimum: 0
+            maximum: 1
+      implementationRouting:
+        type: string
+        description: Implementation routing strategy ID. Selects which binding(s)
+          handle a capability.
+      maxAdaptations:
+        type: integer
+        minimum: 1
+        description: "Maximum adaptation count per compound before Concede. Default:\
+          \ 5."
+      maxDecompositionDepth:
+        type: integer
+        description: "Maximum nesting depth for dynamic decomposition. Default: 3."
+        minimum: 1
+        maximum: 10
+      memoryRetrieval:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case memory retrieval configuration.
+        properties:
+          enabled:
+            type: boolean
+            default: true
+          maxMemories:
+            type: integer
+            minimum: 1
+          domains:
+            type: array
+            items:
+              type: string
+      milestones:
+        description: Observable progress markers derived from CaseContext.
+        type: array
+        items:
+          $ref: "#/$defs/Milestone"
+      planningConstraints:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case resource constraints for decomposition and pattern execution.
+        properties:
+          timeBudget:
+            type: string
+            description: ISO-8601 Duration (e.g. PT30M).
+          resourceLimit:
+            type: integer
+            minimum: 1
+          weights:
+            type: object
+            additionalProperties:
+              type: number
+          costBudgets:
+            type: object
+            additionalProperties:
+              type: integer
+      planningStrategy:
+        type: string
+        description: "Planning strategy ID. Built-in: \"default\" (choreography),\
+          \ \"sequential\"."
+      portfolioConfig:
+        type: object
+        unevaluatedProperties: false
+        description: Cascading decomposition strategy configuration.
+        properties:
+          delegates:
+            type: array
+            items:
+              type: string
+          timeouts:
+            type: object
+            additionalProperties:
+              type: integer
+      recoveryPolicy:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case multi-level recovery configuration.
+        properties:
+          maxRetries:
+            type: integer
+            minimum: 0
+            default: 3
+          maxRerouteAttempts:
+            type: integer
+            minimum: 0
+            default: 3
+          classifierId:
+            type: string
+          revisionStrategyId:
+            type: string
+          replanStrategyId:
+            type: string
+          enabled:
+            type: boolean
+            default: true
+      routingSignalWeights:
+        type: object
+        additionalProperties:
+          type: number
+      workerServiceAccountIds:
+        type: object
+        additionalProperties:
+          type: string
+        description: Map of worker name to service account ID for tenant-specific
+          endpoint resolution.
+      workers:
+        description: "Autonomous participants that observe CaseContext, make local\
+          \ decisions, and perform work."
+        type: array
+        items:
+          $ref: "#/$defs/Worker"
+      cbr:
+        $ref: "#/$defs/Cbr"
+      reflection:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case reflection trigger configuration.
+        properties:
+          enabled:
+            type: boolean
+          importanceThreshold:
+            type: number
+            minimum: 0
+            maximum: 10
+          maxUnreflectedOutcomes:
+            type: integer
+            minimum: 1
+          maxSourceMemories:
+            type: integer
+            minimum: 1
+          importanceWeights:
+            type: object
+            additionalProperties:
+              type: number
+      monitoring:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case expectation tracking configuration.
+        properties:
+          enabled:
+            type: boolean
+            default: true
+          perCompletionThreshold:
+            type: number
+            minimum: 0
+            maximum: 1
+            default: 0.5
+          windowSize:
+            type: integer
+            minimum: 1
+            default: 5
+      adaptation:
+        description: Per-case plan adaptation configuration. String preset or explicit
+          object.
+        oneOf:
+        - type: string
+          enum:
+          - adaptive
+          - conservative
+          - "off"
+          - progress
+        - type: object
+          unevaluatedProperties: false
+          properties:
+            trigger:
+              type: string
+            optimization:
+              type: string
+            revision:
+              type: string
+            threshold:
+              type: number
+              minimum: 0
+              maximum: 1
+            metaReasoner:
+              type: string
+            repair:
+              type: string
+            contingencyThreshold:
+              type: number
+              minimum: 0
+              maximum: 1
+      _codegenOllama:
+        description: Code generation directive — ensures OllamaModel type is generated
+          by jsonschema2pojo. Not a user-facing property.
+        $ref: "#/$defs/OllamaModel"
+      _codegenAnthropic:
+        description: Code generation directive — ensures AnthropicModel type is generated
+          by jsonschema2pojo. Not a user-facing property.
+        $ref: "#/$defs/AnthropicModel"
+      _codegenOpenAi:
+        description: Code generation directive — ensures OpenAiModel type is generated
+          by jsonschema2pojo. Not a user-facing property.
+        $ref: "#/$defs/OpenAiModel"
+      _codegenAgent:
+        description: Code generation directive — ensures Agent type is generated by
+          jsonschema2pojo. Not a user-facing property.
+        $ref: "#/$defs/Agent"
+      _codegenAgentModel:
+        description: Code generation directive — ensures AgentModel type is generated
+          by jsonschema2pojo. Not a user-facing property.
+        $ref: "#/$defs/AgentModel"
+      _codegenGoogleAi:
+        description: Code generation directive — ensures GoogleAiGeminiModel type
+          is generated by jsonschema2pojo. Not a user-facing property.
+        $ref: "#/$defs/GoogleAiGeminiModel"
+      _codegenMistral:
+        description: Code generation directive — ensures MistralAiModel type is generated
+          by jsonschema2pojo. Not a user-facing property.
+        $ref: "#/$defs/MistralAiModel"
+  HumanTask:
+    type: object
+    unevaluatedProperties: false
+    description: A binding target that creates a WorkItem in casehub-work and resumes
+      the case when the WorkItem reaches a terminal state.
+    oneOf:
+    - required:
+      - title
+    - required:
+      - titleExpression
+    - required:
+      - templateRef
+    properties:
+      title:
+        type: string
+      titleExpression:
+        type: string
+      templateRef:
+        type: string
+      inputMapping:
+        type: string
+      outputMapping:
+        type: string
+      scope:
+        type: string
+      scopeExpression:
+        type: string
+      candidateGroups:
+        oneOf:
+        - type: array
+          items:
+            type: string
+        - type: string
+      candidateUsers:
+        oneOf:
+        - type: array
+          items:
+            type: string
+        - type: string
+      expiresIn:
+        type: string
+      expiresInExpression:
+        type: string
+      claimDeadlineHours:
+        type: integer
+        minimum: 1
+      expiresAtExpression:
+        type: string
+      outcomes:
+        type: array
+        items:
+          type: string
+      payloadType:
+        type: string
+      resolutionType:
+        type: string
   SubCase:
-    description: >
-      Identifies a child case definition to launch as part of a Binding's work.
-      When a binding with a subCase is triggered, a child CaseInstance is spawned.
-      The parent case can optionally wait for the child to complete (WAITING state)
-      and merge the child's final context back into the parent context.
     type: object
-    required: [ namespace, name, version ]
     unevaluatedProperties: false
+    required:
+    - namespace
+    - name
+    - version
     properties:
       namespace:
         type: string
-        pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
         minLength: 1
         maxLength: 255
-        description: "Child case definition namespace"
+        pattern: "^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
       name:
         type: string
-        pattern: ^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$
         minLength: 1
         maxLength: 255
-        description: "Child case definition name"
+        pattern: "^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
       version:
         type: string
-        pattern: ^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$
         minLength: 1
         maxLength: 50
-        description: "Child case definition semantic version"
+        pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\\
+          d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\\
+          +([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
       completionStrategy:
         type: string
-        enum: [ DEFAULT, CUSTOM ]
+        enum:
+        - DEFAULT
+        - CUSTOM
         default: DEFAULT
-        description: "Strategy for determining when the child case is considered complete"
       waitForCompletion:
         type: boolean
         default: true
-        description: "If true, parent transitions to WAITING until child reaches a terminal state"
       inputMapping:
         type: string
-        default: "."
-        description: "JQ expression to map parent CaseContext to child initial context"
+        default: .
       outputMapping:
         type: string
-        description: "Optional JQ expression to map child final context back to parent (null = no merge)"
       maxRecursionDepth:
         type: integer
         minimum: 0
         maximum: 20
         default: 0
-        description: "Maximum self-referencing depth. 0 = no recursion (default). N = allow N levels."
       groupId:
         type: string
         minLength: 1
         maxLength: 255
-        description: "Groups multiple sub-case spawns under one M-of-N completion policy"
       totalInGroup:
         type: integer
         minimum: 1
-        description: "Total children expected in this group"
       requiredCount:
         type: integer
         minimum: 1
-        description: "How many must complete to trigger threshold (default: totalInGroup)"
       onThresholdReached:
         type: string
-        enum: [ KEEP, CANCEL ]
+        enum:
+        - KEEP
+        - CANCEL
         default: KEEP
-        description: "KEEP leaves remaining children running; CANCEL stops them"
-
-  Worker:
-    description: >
-      A Worker is an autonomous participant that owns one or more capabilities.
-      Workers observe CaseContext and events, make local decisions, and perform
-      work independently.
-
-      Worker function configuration (agent, do, mcp, http, etc.) is plugin-supplied.
-      additionalProperties is true because Worker is an extension point — new function
-      types can be added without schema changes. The WorkerFunctionProviderRegistry
-      dispatches to the correct provider based on the raw YAML content.
-    type: object
-    required: [ name, capabilities ]
-    additionalProperties: true
-    properties:
-      name:
-        type: string
-        title: WorkerName
-        minLength: 1
-        maxLength: 255
-        description: "Worker name"
-      description:
-        type: string
-        title: WorkerDescription
-        description: "What this worker does"
-      capabilities:
-        type: array
-        title: WorkerCapabilities
-        description: "Capabilities this Worker owns and can perform"
-        minItems: 1
-        items:
+  CloudEventTrigger:
+    description: Fires on matching CloudEvents.
+    oneOf:
+    - type: string
+      description: CloudEvent type exact match
+    - type: object
+      required:
+      - type
+      unevaluatedProperties: false
+      additionalProperties: false
+      properties:
+        type:
           type: string
-      executionPolicy:
-        $ref: "#/$defs/ExecutionPolicy"
-        description: >
-          Default execution policy for this Worker. These are defaults and may be
-          overridden by workflow/state-specific settings (if present).
-      sequence:
-        type: array
-        description: >
-          Sequential composition of other workers. Each step name must reference
-          a worker defined earlier in the workers list.
-        items:
+        source:
           type: string
-      contextType:
-        type: string
-        description: >
-          Fully qualified Java class name for typed worker function input.
-          Used by ContextBridge protocol for POJO deserialization.
-          When set, the engine creates a typed WorkerFunction.Sync<T>.
-      outputType:
-        type: string
-        description: >
-          Fully qualified Java class name for typed worker function output.
-          Used by ContextBridge protocol for output serialization.
-          Defaults to java.util.Map when not specified.
-
-  Agent:
-    description: >
-      AI-powered worker using LangChain4j models. Agents transform input data
-      using JQ expressions, invoke an LLM with a system prompt, and transform
-      the LLM response back to output data.
+        subject:
+          type: string
+        filter:
+          $ref: "#/$defs/ExpressionOrOverride"
+  ScheduleTrigger:
     type: object
-    required: [ systemPrompt, inputProjection, outputProjection, model ]
+    description: Time-based trigger.
     unevaluatedProperties: false
+    additionalProperties: false
+    oneOf:
+    - required:
+      - cron
+    - required:
+      - every
+    properties:
+      cron:
+        type: string
+      every:
+        type: string
+      timezone:
+        type: string
+  ScopeActivatedTrigger:
+    type: object
+    unevaluatedProperties: false
+    additionalProperties: false
+  ContextChangeTrigger:
+    type: object
+    unevaluatedProperties: false
+    additionalProperties: false
+    properties:
+      filter:
+        $ref: "#/$defs/ExpressionOrOverride"
+      listenLayer:
+        type: string
+  ExecutionPolicy:
+    type: object
+    unevaluatedProperties: false
+    properties:
+      timeoutMs:
+        type: integer
+        minimum: 60000
+      retries:
+        $ref: "#/$defs/RetryPolicy"
+  RetryPolicy:
+    type: object
+    unevaluatedProperties: false
+    properties:
+      maxAttempts:
+        type: integer
+        minimum: 1
+        default: 3
+      delayMs:
+        type: integer
+        minimum: 0
+        default: 100
+  Authorization:
+    type: object
+    unevaluatedProperties: false
+    properties:
+      read:
+        type: array
+        items:
+          type: string
+      write:
+        type: array
+        items:
+          type: string
+      admin:
+        type: array
+        items:
+          type: string
+      claim:
+        type: array
+        items:
+          type: string
+  Cbr:
+    type: object
+    unevaluatedProperties: false
+    required:
+    - features
+    properties:
+      features:
+        type: object
+        additionalProperties:
+          type: string
+      weights:
+        type: object
+        additionalProperties:
+          type: number
+      topK:
+        type: integer
+        minimum: 1
+        default: 5
+      minSimilarity:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0
+      vectorWeight:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0.5
+      domain:
+        type: string
+        minLength: 1
+      caseType:
+        type: string
+        minLength: 1
+      cbrType:
+        type: string
+        minLength: 1
+      timing:
+        type: string
+        enum:
+        - per-evaluation
+        - case-lifetime
+        default: per-evaluation
+      temporalDecayHalfLifeDays:
+        type: integer
+        minimum: 1
+      minCostSamples:
+        type: integer
+        minimum: 1
+  Agent:
+    type: object
+    unevaluatedProperties: false
+    required:
+    - systemPrompt
+    - inputProjection
+    - outputProjection
+    - model
     properties:
       systemPrompt:
         type: string
-        description: "System prompt sent to the LLM to define its behavior and context"
       inputProjection:
         type: string
-        description: "JQ expression to transform case context into agent input"
       outputProjection:
         type: string
-        description: "JQ expression to transform agent output back to case context"
       userMessageTemplate:
         type: string
-        description: "Optional template for the user message. Variables are substituted from transformed input."
       model:
         $ref: "#/$defs/AgentModel"
-
   AgentModel:
-    description: "LLM provider configuration. Exactly one provider must be specified."
     type: object
     unevaluatedProperties: false
     oneOf:
-      - required: [ openai ]
-      - required: [ ollama ]
-      - required: [ anthropic ]
-      - required: [ mistralAi ]
-      - required: [ googleAiGemini ]
+    - required:
+      - openai
+    - required:
+      - ollama
+    - required:
+      - anthropic
+    - required:
+      - mistralAi
+    - required:
+      - googleAiGemini
     properties:
       openai:
         $ref: "#/$defs/OpenAiModel"
@@ -1175,170 +1090,288 @@ $defs:
         $ref: "#/$defs/MistralAiModel"
       googleAiGemini:
         $ref: "#/$defs/GoogleAiGeminiModel"
-
-  OpenAiModel:
+  MistralAiModel:
     type: object
-    required: [ modelName ]
     unevaluatedProperties: false
+    required:
+    - modelName
     properties:
       apiKey:
         type: string
-        description: "OpenAI API key. Supports JQ expressions: \"${$secret.openai.apiKey}\""
       modelName:
         type: string
-        description: "Model name (e.g., gpt-4, gpt-3.5-turbo)"
       temperature:
         type: number
         minimum: 0.0
-        maximum: 2.0
-        description: "Sampling temperature (0.0-2.0)"
+        maximum: 1.0
       maxTokens:
         type: integer
         minimum: 1
-        description: "Maximum tokens in the response"
       topP:
         type: number
         minimum: 0.0
         maximum: 1.0
-        description: "Nucleus sampling parameter"
+      baseUrl:
+        type: string
+  GoogleAiGeminiModel:
+    type: object
+    unevaluatedProperties: false
+    required:
+    - modelName
+    properties:
+      apiKey:
+        type: string
+      modelName:
+        type: string
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+      maxTokens:
+        type: integer
+        minimum: 1
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+      topK:
+        type: integer
+        minimum: 1
+  OpenAiModel:
+    type: object
+    unevaluatedProperties: false
+    required:
+    - modelName
+    properties:
+      apiKey:
+        type: string
+      modelName:
+        type: string
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 2.0
+      maxTokens:
+        type: integer
+        minimum: 1
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
       frequencyPenalty:
         type: number
         minimum: -2.0
         maximum: 2.0
-        description: "Frequency penalty (-2.0 to 2.0)"
       presencePenalty:
         type: number
         minimum: -2.0
         maximum: 2.0
-        description: "Presence penalty (-2.0 to 2.0)"
       organizationId:
         type: string
-        description: "OpenAI organization ID (optional)"
       baseUrl:
         type: string
-        description: "Custom base URL (default: https://api.openai.com/v1)"
-
+  AnthropicModel:
+    type: object
+    unevaluatedProperties: false
+    required:
+    - modelName
+    properties:
+      apiKey:
+        type: string
+      modelName:
+        type: string
+      version:
+        type: string
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+      maxTokens:
+        type: integer
+        minimum: 1
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+      topK:
+        type: integer
+        minimum: 1
+      baseUrl:
+        type: string
   OllamaModel:
     type: object
-    required: [ baseUrl, modelName ]
     unevaluatedProperties: false
+    required:
+    - baseUrl
+    - modelName
     properties:
       baseUrl:
         type: string
-        description: "Ollama server URL (e.g., http://localhost:11434)"
       modelName:
         type: string
-        description: "Model name (e.g., llama2, mistral)"
       temperature:
         type: number
         minimum: 0.0
         maximum: 2.0
-        description: "Sampling temperature"
       maxTokens:
         type: integer
         minimum: 1
-        description: "Maximum tokens in the response"
       topP:
         type: number
         minimum: 0.0
         maximum: 1.0
-        description: "Nucleus sampling parameter"
       topK:
         type: integer
         minimum: 1
-        description: "Top-K sampling parameter"
-
-  AnthropicModel:
+type: object
+properties:
+  dsl:
+    type: string
+    description: The version of the DSL used by the CaseHub.
+    title: CaseHubDSL
+    minLength: 1
+    maxLength: 50
+    pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\\
+      d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\\
+      +([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+  inboundMappings:
+    description: Inbound connector message to typed case signal mappings.
+    type: array
+    items:
+      $ref: "#/$defs/InboundSignalMapping"
+    title: CaseInboundMappings
+  labelRules:
+    description: Label evaluation rules for case queue management.
+    type: array
+    items:
+      $ref: "#/$defs/LabelRule"
+    title: CaseLabelRules
+  labels:
+    description: Operational classification labels — hierarchical path strings via
+      Path.parse().
+    type: array
+    items:
+      type: string
+      minLength: 1
+    title: CaseHubLabels
+  name:
+    type: string
+    description: The CaseHub's name.
+    title: CaseHubName
+    minLength: 1
+    maxLength: 255
+    pattern: "^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+  namespace:
+    type: string
+    description: The CaseHub's namespace.
+    title: CaseHubNamespace
+    minLength: 1
+    maxLength: 255
+    pattern: "^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+  semanticData:
     type: object
-    required: [ modelName ]
+    additionalProperties: true
+  signals:
+    description: Typed signal declarations for this case definition.
+    type: array
+    items:
+      type: object
+      required:
+      - name
+      - contextType
+      unevaluatedProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+        contextType:
+          type: string
+          minLength: 1
+    title: CaseSignals
+  summary:
+    type: string
+    description: The CaseHub's Markdown summary.
+    title: CaseHubSummary
+  title:
+    type: string
+    description: The CaseHub's title.
+    title: CaseHubTitle
+    maxLength: 500
+    minLength: 0
+  types:
+    description: Behavioral type classifications — hierarchical path strings via Path.parse().
+    type: array
+    items:
+      type: string
+      minLength: 1
+    title: CaseHubTypes
+  use:
+    $ref: "#/$defs/Use"
+    description: "Declares external dependencies (secrets, config maps) required by\
+      \ this Case definition."
+  version:
+    type: string
+    description: The CaseHub's semantic version.
+    title: CaseHubVersion
+    minLength: 1
+    maxLength: 50
+    pattern: "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-((?:0|[1-9]\\d*|\\\
+      d*[a-zA-Z-][0-9a-zA-Z-]*)(?:\\.(?:0|[1-9]\\d*|\\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(?:\\\
+      +([0-9a-zA-Z-]+(?:\\.[0-9a-zA-Z-]+)*))?$"
+  spec:
+    $ref: "#/$defs/CaseDefinitionSpec"
+  episodic:
+    type: object
     unevaluatedProperties: false
     properties:
-      apiKey:
-        type: string
-        description: "Anthropic API key. Supports JQ expressions: \"${$secret.anthropic.apiKey}\""
-      modelName:
-        type: string
-        description: "Model name (e.g., claude-3-sonnet-20240229)"
-      version:
-        type: string
-        description: "API version (e.g., 2023-06-01)"
-      temperature:
-        type: number
-        minimum: 0.0
-        maximum: 1.0
-        description: "Sampling temperature"
-      maxTokens:
-        type: integer
-        minimum: 1
-        description: "Maximum tokens in the response"
-      topP:
-        type: number
-        minimum: 0.0
-        maximum: 1.0
-        description: "Nucleus sampling parameter"
-      topK:
-        type: integer
-        minimum: 1
-        description: "Top-K sampling parameter"
-      baseUrl:
-        type: string
-        description: "Custom base URL (default: https://api.anthropic.com)"
-
-  MistralAiModel:
+      memory:
+        type: object
+        required:
+        - domain
+        - entityId
+        unevaluatedProperties: false
+        properties:
+          domain:
+            type: string
+          entityId:
+            type: string
+          recent:
+            type: integer
+            default: 10
+            minimum: 1
+  expressionLang:
+    type: string
+    title: ExpressionLang
+    minLength: 1
+    maxLength: 64
+    default: jq
+  contextType:
+    type: string
+    title: ContextType
+    minLength: 1
+    maxLength: 512
+  layers:
+    type: array
+    items:
+      type: object
+      required:
+      - name
+      unevaluatedProperties: false
+      properties:
+        name:
+          type: string
+  context:
     type: object
-    required: [ modelName ]
     unevaluatedProperties: false
     properties:
-      apiKey:
+      storeFactory:
         type: string
-        description: "Mistral AI API key. Supports JQ expressions: \"${$secret.mistralai.apiKey}\""
-      modelName:
-        type: string
-        description: "Model name (e.g., mistral-large-latest)"
-      temperature:
-        type: number
-        minimum: 0.0
-        maximum: 1.0
-        description: "Sampling temperature"
-      maxTokens:
-        type: integer
-        minimum: 1
-        description: "Maximum tokens in the response"
-      topP:
-        type: number
-        minimum: 0.0
-        maximum: 1.0
-        description: "Nucleus sampling parameter"
-      baseUrl:
-        type: string
-        description: "Custom base URL (default: https://api.mistral.ai)"
-
-  GoogleAiGeminiModel:
-    type: object
-    required: [ modelName ]
-    unevaluatedProperties: false
-    properties:
-      apiKey:
-        type: string
-        description: "Google AI API key. Supports JQ expressions: \"${$secret.googleai.apiKey}\""
-      modelName:
-        type: string
-        description: "Model name (e.g., gemini-pro)"
-      temperature:
-        type: number
-        minimum: 0.0
-        maximum: 1.0
-        description: "Sampling temperature"
-      maxTokens:
-        type: integer
-        minimum: 1
-        description: "Maximum tokens in the response (called maxOutputTokens in Gemini)"
-      topP:
-        type: number
-        minimum: 0.0
-        maximum: 1.0
-        description: "Nucleus sampling parameter"
-      topK:
-        type: integer
-        minimum: 1
-        description: "Top-K sampling parameter"
+unevaluatedProperties: false
+required:
+- dsl
+- namespace
+- name
+- version
+- spec
+$id: https://casehub.io/schemas/0.1.0/casehub.yaml
+title: CaseHub

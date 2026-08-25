@@ -37,7 +37,7 @@ public final class BindingExecutorResolver {
         String capName = ct.capability().name();
         List<Worker> matching =
             definition.getWorkers().stream()
-                .filter(w -> w.capabilityNames() != null && w.capabilityNames().contains(capName))
+                .filter(w -> w.capabilities() != null && w.capabilities().contains(capName))
                 .toList();
         yield matching.isEmpty()
             ? ExecutorRef.of(capName)

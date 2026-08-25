@@ -264,8 +264,8 @@ The sequence for a two-step workflow:
 
 This means:
 - The `capability:` field in the YAML `with:` block is the only required dispatch parameter.
-- Worker B sees Worker A's output through the case context, shaped by Worker B's `inputSchema` JQ expression.
-- Workers dispatched from workflow steps should define `inputSchema` to select the relevant fields from the case context, exactly as they would for normal binding-triggered execution.
+- Worker B sees Worker A's output through the case context, shaped by Worker B's `inputProjection` JQ expression.
+- Workers dispatched from workflow steps should define `inputProjection` to select the relevant fields from the case context, exactly as they would for normal binding-triggered execution.
 
 The `dispatch()` future resolves when `PendingWorkRegistry.complete(correlationKey)` is called — triggered by `WorkflowExecutionCompletedHandler` processing the dispatched worker's `WORKER_EXECUTION_FINISHED` event. This is the mechanism that sequences workflow steps: step N+1 cannot begin until step N's dispatch future resolves and quarkus-flow receives the resolved value.
 
@@ -290,7 +290,7 @@ do:
         capability: generate-report
 ```
 
-Worker input is always drawn from the case context via each capability's `inputSchema` — not from the workflow data model. `Worker(Workflow)` constructor unchanged; no API change for YAML-authored workers.
+Worker input is always drawn from the case context via each capability's `inputProjection` — not from the workflow data model. `Worker(Workflow)` constructor unchanged; no API change for YAML-authored workers.
 
 ---
 

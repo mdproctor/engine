@@ -18,7 +18,7 @@ A loan approval case showing the three ACL isolation levels:
 
 | Level | Example worker | How it works |
 |-------|---------------|--------------|
-| **In-process** | `credit-check-worker` | Sandboxed by `inputSchema`/`outputSchema`. No ACL grants needed — the engine passes only projected data in and out. |
+| **In-process** | `credit-check-worker` | Sandboxed by `inputProjection`/`outputProjection`. No ACL grants needed — the engine passes only projected data in and out. |
 | **External (ephemeral)** | `compliance-checker` | Engine mints a unique identity per dispatch (e.g., `agent:worker-a1b2c3d4-7f3e`). Scoped credential token bound to the specific case. Cannot reference other cases. |
 | **External (service account)** | `risk-assessment-agent` | Pre-declared identity (`agent:risk-pool@lending.io`). Same identity reused across cases, but grants are case-scoped and revoked on completion. |
 

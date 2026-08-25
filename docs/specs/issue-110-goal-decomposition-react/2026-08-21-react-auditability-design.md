@@ -116,7 +116,7 @@ class ToolSpecificationBuilder {
 }
 ```
 
-For `WorkerTool`, parameters are derived from `Capability.inputSchema()`. Since `inputSchema` is a JQ expression (context projection), the builder extracts top-level field names from the JQ output shape. Complex nested schemas require `LocalTool` with explicit parameter schema.
+For `WorkerTool`, parameters are derived from `Capability.inputSchema()`. Since `inputProjection` is a JQ expression (context projection), the builder extracts top-level field names from the JQ output shape. Complex nested schemas require `LocalTool` with explicit parameter schema.
 
 ### ReActWorkerFunction (casehub-engine-react, `io.casehub.engine.react`)
 
@@ -561,7 +561,7 @@ No dependency on `casehub-eidos-api` or `casehub-blocks`.
 - `LocalTool` registration is builder-only (no YAML — functions not serializable)
 - No custom termination SPI (LLM-native + config guards only)
 - No conversation context persistence across JVM restarts (loop runs within a single worker execution; engine retry restarts from scratch)
-- JQ `inputSchema`/`outputSchema` on Capability describe context projection, not JSON Schema. The builder extracts top-level field names for `ToolSpecification` parameters. Complex nested schemas require `LocalTool` with explicit parameter schema.
+- JQ `inputProjection`/`outputProjection` on Capability describe context projection, not JSON Schema. The builder extracts top-level field names for `ToolSpecification` parameters. Complex nested schemas require `LocalTool` with explicit parameter schema.
 - No context window management for message list growth. maxCycles (default 20) bounds total messages. Long loops with large tool results may hit LLM context limits — the LLM's error is surfaced as a tool-use failure.
 
 **Out of scope (future work):**

@@ -76,7 +76,7 @@ class SimpleAnnotatedCaseTest {
             .filter(w -> w.name().equals("checkCompliance"))
             .findFirst();
     assertThat(complianceWorker).isPresent();
-    assertThat(complianceWorker.get().capabilityNames()).contains("kycScreening");
+    assertThat(complianceWorker.get().capabilities()).contains("kycScreening");
   }
 
   @Test

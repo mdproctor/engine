@@ -129,8 +129,8 @@ public record WorkerScheduleEvent(
   public ExpressionEvaluator effectiveInputProjection() {
     return inputProjectionOverride != null
         ? inputProjectionOverride
-        : (capability.inputSchema() != null
-            ? new JQExpressionEvaluator(capability.inputSchema())
+        : (capability.inputProjection() != null
+            ? new JQExpressionEvaluator(capability.inputProjection())
             : null);
   }
 }

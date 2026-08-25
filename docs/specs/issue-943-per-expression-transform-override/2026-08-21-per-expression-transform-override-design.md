@@ -27,7 +27,7 @@ through `resolveExpression()`.
 
 ## What Is Not Changing
 
-- `Capability` (foundation tier, `worker-api`) — `inputSchema` and `outputSchema` remain Strings.
+- `Capability` (foundation tier, `worker-api`) — `inputProjection` and `outputProjection` remain Strings.
   Foundation tier has no dependency on `platform-api` where `ExpressionEvaluator` lives.
 - `ExpressionEngine`, `ExpressionEngineRegistry`, `DefaultExpressionEngineRegistry` — already
   have `transform()` methods. No changes needed.

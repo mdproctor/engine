@@ -35,7 +35,7 @@ class YamlCaseHubTest {
 
     assertThat(def.getWorkers()).hasSize(1);
     assertThat(def.getWorkers().get(0).name()).isEqualTo("test-worker");
-    assertThat(def.getWorkers().get(0).capabilityNames()).containsExactly("process");
+    assertThat(def.getWorkers().get(0).capabilities()).containsExactly("process");
   }
 
   @Test

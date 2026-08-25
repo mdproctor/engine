@@ -91,7 +91,7 @@ class AnnotationFeaturesTest {
                 .filter(w -> w.name().equals("doWork"))
                 .findFirst()
                 .get()
-                .capabilityNames())
+                .capabilities())
         .contains("customName");
   }
 
