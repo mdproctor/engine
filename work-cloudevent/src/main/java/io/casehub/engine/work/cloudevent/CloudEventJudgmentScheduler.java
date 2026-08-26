@@ -23,6 +23,7 @@ import io.casehub.api.model.CallerConfig;
 import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.TargetType;
@@ -35,6 +36,7 @@ import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.work.api.WorkCloudEventTypes;
+import io.casehub.worker.api.PlannedAction;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.core.builder.CloudEventBuilder;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -49,9 +51,9 @@ import java.util.UUID;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-public class CloudEventHumanTaskScheduler implements JudgmentScheduler {
+public class CloudEventJudgmentScheduler implements JudgmentScheduler {
 
-  private static final Logger LOG = Logger.getLogger(CloudEventHumanTaskScheduler.class);
+  private static final Logger LOG = Logger.getLogger(CloudEventJudgmentScheduler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   @Inject BlackboardRegistry registry;
@@ -60,12 +62,13 @@ public class CloudEventHumanTaskScheduler implements JudgmentScheduler {
 
   @Override
   public void schedule(JudgmentRequest request) {
-    if (!(request.payload() instanceof JudgmentPayload.BindingPayload payload)) {
-      LOG.warnf(
-          "CloudEventHumanTaskScheduler only handles BindingPayload — got %s",
-          request.payload().getClass().getSimpleName());
-      return;
+    switch (request.payload()) {
+      case JudgmentPayload.BindingPayload payload -> scheduleBinding(request, payload);
+      case JudgmentPayload.GatePayload payload -> scheduleGate(request, payload);
     }
+  }
+
+  private void scheduleBinding(JudgmentRequest request, JudgmentPayload.BindingPayload payload) {
     var plan = registry.get(request.caseId()).orElse(null);
     if (plan == null) {
       LOG.warnf(
@@ -132,6 +135,67 @@ public class CloudEventHumanTaskScheduler implements JudgmentScheduler {
     LOG.infof(
         "CloudEvent emitted for judgment binding callerRef=%s type=%s",
         callerRef, templateMode ? "template" : "inline");
+  }
+
+  private void scheduleGate(JudgmentRequest request, JudgmentPayload.GatePayload payload) {
+    RiskDecision.GateRequired gate = payload.gateRequired();
+
+    if (gate.quorum() != null) {
+      LOG.warnf(
+          "Quorum gates not yet supported via CloudEvent — skipping gate for caseId=%s gateId=%d",
+          request.caseId(), payload.gateId());
+      return;
+    }
+
+    String callerRef = CallerRefParser.encodeGate(request.caseId(), payload.gateId());
+    PlannedAction action = payload.plannedAction();
+
+    ObjectNode data = MAPPER.createObjectNode();
+    data.put("callerRef", callerRef);
+    data.put("title", gate.reason());
+
+    String candidateGroups = toCsv(payload.resolvedCandidateGroups());
+    if (candidateGroups != null) {
+      data.put("candidateGroups", candidateGroups);
+    }
+
+    if (gate.scope() != null) {
+      data.put("scope", gate.scope());
+    }
+
+    if (payload.resolutionTypeName() != null) {
+      data.put("resolutionTypeName", payload.resolutionTypeName());
+    }
+
+    ObjectNode payloadObj = MAPPER.createObjectNode();
+    payloadObj.put("description", action.description());
+    payloadObj.put("actionType", action.actionType());
+    payloadObj.put("reversible", gate.reversible());
+    if (action.parameters() != null && !action.parameters().isEmpty()) {
+      payloadObj.set("context", MAPPER.valueToTree(action.parameters()));
+    }
+    data.put("payload", payloadObj.toString());
+
+    if (gate.expiresIn() != null) {
+      Instant expiresAt = Instant.now().plus(gate.expiresIn());
+      data.put("expiresAt", expiresAt.toString());
+    }
+
+    CloudEvent cloudEvent =
+        CloudEventBuilder.v1()
+            .withId(UUID.randomUUID().toString())
+            .withType(WorkCloudEventTypes.CREATE)
+            .withSource(
+                URI.create("/engine/cases/" + request.caseId() + "/gates/" + payload.gateId()))
+            .withDataContentType("application/json")
+            .withData(data.toString().getBytes())
+            .withExtension(WorkCloudEventTypes.EXT_TENANCY_ID, request.tenancyId())
+            .build();
+
+    cloudEventEmitter.fireAsync(cloudEvent);
+
+    LOG.infof(
+        "CloudEvent emitted for judgment gate callerRef=%s caseId=%s", callerRef, request.caseId());
   }
 
   private ObjectNode buildDataPayload(

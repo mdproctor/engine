@@ -221,7 +221,7 @@ public sealed interface JudgmentPayload
 **EngineStrategyResolver** — gains explicit `@Any Instance<JudgmentVerifier>` and `@Any Instance<JudgmentEscalator>` constructor parameters for Quarkus ARC build-time discovery (per GE-20260704-d6aacc — `Instance<SuperInterface>` does not discover sub-interface beans without explicit injection).
 
 **Implementations:**
-- `CloudEventJudgmentScheduler` (in `work-cloudevent` module) — replaces both `CloudEventHumanTaskScheduler` and `CloudEventActionGateScheduler`
+- `CloudEventJudgmentScheduler` (in `work-cloudevent` module) — replaces both `CloudEventJudgmentScheduler` and `CloudEventActionGateScheduler`
 - Work-engine-adapter implementation (in `casehub-work` repo) — replaces both `HumanTaskScheduleHandler` and `ActionGateWorkItemHandler`
 
 ### 4. JudgmentVerifier — Post-Response Verification
@@ -666,7 +666,7 @@ The adapter's `HumanTaskScheduleHandler` and `ActionGateWorkItemHandler` merge i
 
 ### CloudEvent Module
 
-`CloudEventHumanTaskScheduler` and `CloudEventActionGateScheduler` merge into `CloudEventJudgmentScheduler`. CloudEvent type changes from `io.casehub.work.workitem.create` to `io.casehub.judgment.request`.
+`CloudEventJudgmentScheduler` and `CloudEventActionGateScheduler` merge into `CloudEventJudgmentScheduler`. CloudEvent type changes from `io.casehub.work.workitem.create` to `io.casehub.judgment.request`.
 
 ---
 
@@ -701,7 +701,7 @@ The adapter's `HumanTaskScheduleHandler` and `ActionGateWorkItemHandler` merge i
 ### Batch 5: Migration + Cleanup
 
 15. Delete `HumanTaskTarget`, `HumanTaskScheduler`, `HumanTaskScheduleRequest`, `ActionGateScheduler`, `ActionGateScheduleRequest`
-16. Delete `CloudEventHumanTaskScheduler`, `CloudEventActionGateScheduler`
+16. Delete `CloudEventJudgmentScheduler`, `CloudEventActionGateScheduler`
 17. Merge `GateCompletionApplier` into `PlanItemCompletionApplier`
 18. Update all consumer YAML (`humanTask:` → `judgment:`)
 19. Update all consumer Java DSL

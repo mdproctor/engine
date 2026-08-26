@@ -34,7 +34,7 @@ New optional engine module. Directory: `work-cloudevent/` (per maven-submodule-f
 
 ### Part 1 — Outbound: HumanTask CloudEvent Emitter
 
-`CloudEventHumanTaskScheduler` — `@ApplicationScoped`, implements `HumanTaskScheduler`.
+`CloudEventJudgmentScheduler` — `@ApplicationScoped`, implements `HumanTaskScheduler`.
 
 On `schedule(HumanTaskScheduleRequest)`:
 
@@ -231,7 +231,7 @@ Round-trip test using CDI events (no external broker):
 | `engine-common/pom.xml` | New dependency: `casehub-work-api` (for `WorkItemStatus` in applier signatures) |
 | `engine/runtime/` | Refactor: `WorkflowExecutionCompletedHandler.handleGate()` uses `Instance<ActionGateScheduler>` instead of event bus |
 | `engine/runtime/` | New: `NoOpActionGateScheduler` (`@DefaultBean`, no-op, symmetric with existing pattern) |
-| `work-cloudevent/` (new module) | New: `CloudEventHumanTaskScheduler`, `CloudEventActionGateScheduler`, `WorkItemLifecycleCloudEventConsumer` (pure transport adapter), startup conflict detector |
+| `work-cloudevent/` (new module) | New: `CloudEventJudgmentScheduler`, `CloudEventActionGateScheduler`, `WorkItemLifecycleCloudEventConsumer` (pure transport adapter), startup conflict detector |
 | Root `pom.xml` | Add `work-cloudevent` to `<modules>` |
 
 ## Not In Scope
