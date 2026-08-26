@@ -107,3 +107,65 @@
 **Sources:** Epic #994, child issues across engine (#995-#1000), blocks (#170-#173), qhorus (#410-#414)
 **Exploration:** quick
 **Status:** captured
+
+## D10: JudgmentTarget Type Structure
+
+**Choice:** Flat builder with sealed CallerConfig record
+**Alternatives:**
+- Minimal core + extension map — maximally extensible but loses type safety for caller-specific fields.
+- Sealed JudgmentTarget subtypes — better compile-time safety per caller type, but forces caller-awareness into the BindingTarget dispatch layer, contradicting caller-agnosticism principle.
+**Rationale:** Engine handler treats all judgments uniformly — one code path, one JudgmentRequest type. CallerConfig is opaque data for the scheduler, not structure for the engine. Caller-type-specific pre-processing (candidate resolution, title evaluation) moves into the scheduler where it belongs.
+**Trade-offs:** CallerConfig access requires cast from sealed base. Less compile-time enforcement of caller-specific field validity than sealed subtypes. Acceptable — the builder convenience methods (.forHuman(), .forLlm()) provide the ergonomic API surface.
+**Sources:** HumanTaskTarget.java structure, CaseContextChangedEventHandler.publishHumanTaskSchedule()
+**Exploration:** deep-analysis
+**Status:** captured
+
+## D11: Evidence Model
+
+**Choice:** Named requirement slots with typed evidence
+**Alternatives:**
+- Schema-validated evidence (JSON Schema) — maximum flexibility but loses semantic types.
+- No structured evidence in v1 — simplest but evidence quality becomes ad-hoc.
+**Rationale:** Evidence is the differentiator. Named requirements (name, type, required flag) are declarative and verifier-friendly. EvidenceType enum (DOCUMENT, REFERENCE, REASONING, ATTESTATION) gives semantic meaning. JudgmentResponse carries List<Evidence> matched by name.
+**Trade-offs:** Callers must produce named evidence entries — higher bar than free-form. Acceptable for judgment-class decisions.
+**Sources:** Epic #994 evidence requirements design, qhorus E5 compliance evidence export
+**Exploration:** quick
+**Status:** captured
+
+## D12: YAML Syntax
+
+**Choice:** `judgment:` block with `caller:` key replacing `humanTask:`
+**Alternatives:**
+- `yield:` block — more abstract naming, same structure.
+- Keep `humanTask:` as alias — eases migration but two syntaxes coexist permanently.
+**Rationale:** Clean break. Pre-release platform — no backward compat needed. `caller.type` selects caller category (human, llm, a2a, any). Human-specific fields nest under `caller:`. Verification and evidence are top-level within the judgment block. Migration is mechanical find-replace.
+**Trade-offs:** Every consumer YAML with `humanTask:` blocks must change. Mechanical migration.
+**Sources:** Existing HumanTaskTarget YAML mapping in CaseDefinitionYamlMapper
+**Exploration:** quick
+**Status:** captured
+
+## D13: Blocks Pattern Integration
+
+**Choice:** Yield step in DagPlan — DagNode carries JudgmentTarget
+**Alternatives:**
+- Pattern-level judgment hooks — opinionated insertion points but less flexible.
+- Judgment as WorkerFunction variant — reuses worker pipeline but conflates workers (do) with judgments (decide).
+**Rationale:** DagNode already supports contingency sub-plans. Adding JudgmentTarget as an alternative to task on a DagNode is natural. DagDriver pauses the node on yield, resumes on response. Pattern variants declare yield nodes at definition time. No new execution model.
+**Trade-offs:** DagDriver needs pause/resume semantics for yield nodes. DagNode type parameter becomes more complex (task OR judgment).
+**Depends on:** D1 (JudgmentTarget as single yield mechanism), D10 (flat builder structure)
+**Sources:** DagDriver, DagNode, DagPlan, PatternWorkerFunctionHandler, blocks#60 phases
+**Exploration:** quick
+**Status:** captured
+
+## D14: Qhorus Commitment Mapping
+
+**Choice:** New JUDGMENT commitment type in qhorus speech act taxonomy
+**Alternatives:**
+- Reuse COMMAND commitment — simpler but loses semantic distinction between task commands and judgment requests.
+- Commitment mapping deferred to qhorus — loosest coupling but qhorus must interpret engine events without engine-side semantics.
+**Rationale:** Judgment yields ARE deontic commitments with distinct semantics from task commands. JUDGMENT commitment type maps naturally: obligor=caller (must respond), obligee=engine (waits), deadline=expiresIn. Fulfillment=response, violation=timeout/escalation. E7 formal verification validates temporal properties on JUDGMENT commitments specifically.
+**Trade-offs:** New commitment type requires qhorus speech act taxonomy update. Acceptable — this is exactly the kind of governance extension qhorus is designed for.
+**Depends on:** D2 (JudgmentScheduler SPI)
+**Sources:** Qhorus speech act taxonomy, qhorus#411 (judgment commitment type), E7 (#404) formal verification
+**Exploration:** quick
+**Status:** captured
