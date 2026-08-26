@@ -25,8 +25,9 @@ import io.casehub.api.model.Binding;
 /**
  * Transforms the Binding schema to use flat named-property oneOf for target types instead of a
  * single {@code target} field with a sealed-interface $ref. Replaces the {@code target} property
- * with {@code capability} (string), {@code subCase} ($ref), {@code humanTask} ($ref), and {@code
- * signal} (object). {@code ExtensionTarget} is excluded (engine-internal).
+ * with {@code capability} (string), {@code subCase} ($ref), {@code humanTask} ($ref), {@code
+ * judgment} ($ref), and {@code signal} (object). {@code ExtensionTarget} is excluded
+ * (engine-internal).
  */
 public class BindingTargetModule implements Module {
 
@@ -51,6 +52,7 @@ public class BindingTargetModule implements Module {
               properties.putObject("capability").put("type", "string");
               properties.putObject("subCase").put("$ref", "#/$defs/SubCase");
               properties.putObject("humanTask").put("$ref", "#/$defs/HumanTask");
+              properties.putObject("judgment").put("$ref", "#/$defs/Judgment");
               ObjectNode signal = properties.putObject("signal");
               signal.put("type", "object");
               signal.put("additionalProperties", true);
@@ -63,6 +65,7 @@ public class BindingTargetModule implements Module {
               oneOf.addObject().putArray("required").add("capability");
               oneOf.addObject().putArray("required").add("subCase");
               oneOf.addObject().putArray("required").add("humanTask");
+              oneOf.addObject().putArray("required").add("judgment");
               oneOf.addObject().putArray("required").add("signal");
             });
   }

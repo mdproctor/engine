@@ -129,8 +129,11 @@ final class SchemaPostProcessor {
     }
     defs.set("ExpressionOrOverride", buildExpressionOrOverride());
     defs.set("GoalExpression", buildGoalExpression());
-    defs.set("CaseDefinitionSpec", buildCaseDefinitionSpec(schema));
+    if (!defs.has("CaseDefinitionSpec")) {
+      defs.set("CaseDefinitionSpec", buildCaseDefinitionSpec(schema));
+    }
     defs.set("HumanTask", buildHumanTask());
+    defs.set("Judgment", buildJudgment());
     defs.set("SubCase", buildSubCase());
     defs.set("CloudEventTrigger", buildCloudEventTrigger());
     defs.set("ScheduleTrigger", buildScheduleTrigger());
@@ -155,9 +158,9 @@ final class SchemaPostProcessor {
     if (rootProps == null || !rootProps.has("spec")) {
       return;
     }
-    ObjectNode specInline = (ObjectNode) rootProps.get("spec");
     ObjectNode defs = (ObjectNode) schema.get("$defs");
-    if (defs != null && defs.has("CaseDefinitionSpec")) {
+    if (defs != null && !defs.has("CaseDefinitionSpec")) {
+      ObjectNode specInline = (ObjectNode) rootProps.get("spec");
       defs.set("CaseDefinitionSpec", specInline.deepCopy());
     }
     ObjectNode specRef = newObject();
@@ -266,6 +269,13 @@ final class SchemaPostProcessor {
       return;
     }
     ObjectNode spec = (ObjectNode) defs.get("CaseDefinitionSpec");
+    spec.put("unevaluatedProperties", true);
+    if (!spec.has("description")) {
+      spec.put(
+          "description",
+          "Case definition specification. unevaluatedProperties is true"
+              + " because the spec is an extension point.");
+    }
     ObjectNode specProps = (ObjectNode) spec.get("properties");
     if (specProps == null) {
       return;
@@ -832,9 +842,9 @@ final class SchemaPostProcessor {
     if (type == null) {
       return;
     }
-    ObjectNode prop = (ObjectNode) type.path("properties").path(field);
-    if (!prop.isMissingNode() && !prop.has("default")) {
-      prop.put("default", value);
+    JsonNode prop = type.path("properties").path(field);
+    if (prop.isObject() && !prop.has("default")) {
+      ((ObjectNode) prop).put("default", value);
     }
   }
 
@@ -843,9 +853,9 @@ final class SchemaPostProcessor {
     if (type == null) {
       return;
     }
-    ObjectNode prop = (ObjectNode) type.path("properties").path(field);
-    if (!prop.isMissingNode() && !prop.has("default")) {
-      prop.put("default", value);
+    JsonNode prop = type.path("properties").path(field);
+    if (prop.isObject() && !prop.has("default")) {
+      ((ObjectNode) prop).put("default", value);
     }
   }
 
@@ -854,9 +864,9 @@ final class SchemaPostProcessor {
     if (type == null) {
       return;
     }
-    ObjectNode prop = (ObjectNode) type.path("properties").path(field);
-    if (!prop.isMissingNode() && !prop.has("minimum")) {
-      prop.put("minimum", min);
+    JsonNode prop = type.path("properties").path(field);
+    if (prop.isObject() && !prop.has("minimum")) {
+      ((ObjectNode) prop).put("minimum", min);
     }
   }
 
@@ -865,13 +875,14 @@ final class SchemaPostProcessor {
     if (type == null) {
       return;
     }
-    ObjectNode prop = (ObjectNode) type.path("properties").path(field);
-    if (!prop.isMissingNode()) {
-      if (!prop.has("minimum")) {
-        prop.put("minimum", min);
+    JsonNode prop = type.path("properties").path(field);
+    if (prop.isObject()) {
+      ObjectNode propObj = (ObjectNode) prop;
+      if (!propObj.has("minimum")) {
+        propObj.put("minimum", min);
       }
-      if (!prop.has("maximum")) {
-        prop.put("maximum", max);
+      if (!propObj.has("maximum")) {
+        propObj.put("maximum", max);
       }
     }
   }
@@ -981,6 +992,14 @@ final class SchemaPostProcessor {
       adp.put("type", "number");
       adp.put("minimum", 0);
       adp.put("maximum", 1);
+    }
+    if (!capabilityProps.isMissingNode()) {
+      if (!capabilityProps.has("inputProjection")) {
+        capabilityProps.putObject("inputProjection").put("type", "string");
+      }
+      if (!capabilityProps.has("outputProjection")) {
+        capabilityProps.putObject("outputProjection").put("type", "string");
+      }
     }
     ObjectNode rootProps = (ObjectNode) schema.get("properties");
     if (rootProps != null) {
@@ -1305,6 +1324,82 @@ final class SchemaPostProcessor {
     outcomes.putObject("items").put("type", "string");
     props.putObject("payloadType").put("type", "string");
     props.putObject("resolutionType").put("type", "string");
+    return n;
+  }
+
+  private static ObjectNode buildJudgment() {
+    ObjectNode n = newObject();
+    n.put("type", "object");
+    n.put("unevaluatedProperties", false);
+    n.put(
+        "description",
+        "A binding target that yields to a caller (human, LLM, A2A agent)"
+            + " for a judgment decision with optional evidence and verification.");
+    ObjectNode props = n.putObject("properties");
+    props.putObject("prompt").put("type", "string");
+    ObjectNode caller = props.putObject("caller");
+    caller.put("type", "object");
+    caller.put("unevaluatedProperties", false);
+    ObjectNode callerProps = caller.putObject("properties");
+    ObjectNode callerType = callerProps.putObject("type");
+    callerType.put("type", "string");
+    callerType.putArray("enum").add("human").add("llm").add("a2a").add("any");
+    callerProps
+        .putObject("candidateGroups")
+        .put("type", "array")
+        .putObject("items")
+        .put("type", "string");
+    callerProps
+        .putObject("candidateUsers")
+        .put("type", "array")
+        .putObject("items")
+        .put("type", "string");
+    callerProps.putObject("title").put("type", "string");
+    callerProps.putObject("titleExpression").put("type", "string");
+    ObjectNode outcomes = callerProps.putObject("outcomes");
+    outcomes.put("type", "array");
+    outcomes.putObject("items").put("type", "string");
+    ObjectNode claimDeadline = callerProps.putObject("claimDeadlineHours");
+    claimDeadline.put("type", "integer");
+    claimDeadline.put("minimum", 1);
+    callerProps.putObject("scope").put("type", "string");
+    callerProps.putObject("scopeExpression").put("type", "string");
+    callerProps.putObject("priority").put("type", "string");
+    callerProps.putObject("templateRef").put("type", "string");
+    callerProps.putObject("payloadType").put("type", "string");
+    callerProps.putObject("model").put("type", "string");
+    callerProps.putObject("modelName").put("type", "string");
+    callerProps.putObject("systemPrompt").put("type", "string");
+    callerProps.putObject("endpoint").put("type", "string");
+    callerProps.putObject("skill").put("type", "string");
+    ObjectNode streaming = callerProps.putObject("streaming");
+    streaming.put("type", "boolean");
+    streaming.put("default", false);
+    caller.putArray("required").add("type");
+    props.putObject("inputMapping").put("type", "string");
+    props.putObject("outputMapping").put("type", "string");
+    props.putObject("resolutionType").put("type", "string");
+    props.putObject("expiresIn").put("type", "string");
+    props.putObject("expiresInExpression").put("type", "string");
+    props.putObject("expiresAtExpression").put("type", "string");
+    props.putObject("verifier").put("type", "string");
+    props.putObject("escalator").put("type", "string");
+    props.putObject("trustPolicy").put("type", "string");
+    ObjectNode evidence = props.putObject("evidence");
+    evidence.put("type", "array");
+    ObjectNode evidenceItems = evidence.putObject("items");
+    evidenceItems.put("type", "object");
+    evidenceItems.put("unevaluatedProperties", false);
+    evidenceItems.putArray("required").add("name").add("type");
+    ObjectNode evProps = evidenceItems.putObject("properties");
+    evProps.putObject("name").put("type", "string");
+    ObjectNode evType = evProps.putObject("type");
+    evType.put("type", "string");
+    evType.putArray("enum").add("REASONING").add("DOCUMENT").add("REFERENCE").add("ATTESTATION");
+    ObjectNode evRequired = evProps.putObject("required");
+    evRequired.put("type", "boolean");
+    evRequired.put("default", true);
+    n.putArray("required").add("prompt");
     return n;
   }
 
