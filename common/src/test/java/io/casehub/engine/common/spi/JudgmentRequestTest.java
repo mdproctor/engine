@@ -44,7 +44,8 @@ class JudgmentRequestTest {
             "case-scope",
             List.of(),
             Map.of());
-    var request = new JudgmentRequest(UUID.randomUUID(), "tenant-1", "review-binding", target, payload);
+    var request =
+        new JudgmentRequest(UUID.randomUUID(), "tenant-1", "review-binding", target, payload);
 
     assertNotNull(request);
     assertEquals("tenant-1", request.tenancyId());
@@ -98,8 +99,7 @@ class JudgmentRequestTest {
         new JudgmentPayload.BindingPayload(
             Map.of(), null, null, null, null, null, null, null, null, List.of(), Map.of());
     assertThrows(
-        NullPointerException.class,
-        () -> new JudgmentRequest(null, "t", "b", target, payload));
+        NullPointerException.class, () -> new JudgmentRequest(null, "t", "b", target, payload));
   }
 
   @Test
@@ -109,7 +109,12 @@ class JudgmentRequestTest {
             Map.of(), null, null, null, null, null, null, null, null, List.of(), Map.of());
     var pending =
         new PendingJudgment(
-            42L, "review-binding", payload, "worker-1", "idem-key", Map.of("out", "val"),
+            42L,
+            "review-binding",
+            payload,
+            "worker-1",
+            "idem-key",
+            Map.of("out", "val"),
             java.time.Instant.now());
 
     assertEquals(42L, pending.judgmentId());

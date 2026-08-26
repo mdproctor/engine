@@ -20,11 +20,7 @@ import java.util.Objects;
 import java.util.UUID;
 
 public record JudgmentResponseEvent(
-    UUID caseId,
-    String tenancyId,
-    String bindingName,
-    long judgmentId,
-    JudgmentResponse response) {
+    UUID caseId, String tenancyId, String bindingName, long judgmentId, JudgmentResponse response) {
 
   public JudgmentResponseEvent {
     Objects.requireNonNull(caseId, "caseId required");

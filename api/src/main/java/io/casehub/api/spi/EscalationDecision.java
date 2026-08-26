@@ -19,9 +19,7 @@ import io.casehub.api.model.CallerConfig;
 import jakarta.annotation.Nullable;
 
 public sealed interface EscalationDecision
-    permits EscalationDecision.ReYield,
-        EscalationDecision.Escalate,
-        EscalationDecision.Fault {
+    permits EscalationDecision.ReYield, EscalationDecision.Escalate, EscalationDecision.Fault {
 
   record ReYield(String feedback) implements EscalationDecision {}
 

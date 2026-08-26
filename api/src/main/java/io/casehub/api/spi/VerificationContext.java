@@ -18,13 +18,12 @@ package io.casehub.api.spi;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.JudgmentTarget;
 import jakarta.annotation.Nullable;
-
 import java.util.UUID;
 
 public record VerificationContext(
-        UUID caseId,
-        String tenancyId,
-        String bindingName,
-        JudgmentTarget target,
-        @Nullable CaseContext caseContext,
-        @Nullable String origin) {}
+    UUID caseId,
+    String tenancyId,
+    String bindingName,
+    JudgmentTarget target,
+    @Nullable CaseContext caseContext,
+    @Nullable String origin) {}

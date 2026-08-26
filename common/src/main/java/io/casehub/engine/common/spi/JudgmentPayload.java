@@ -16,13 +16,13 @@
 package io.casehub.engine.common.spi;
 
 import io.casehub.api.spi.RiskDecision;
+import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.worker.api.PlannedAction;
 import jakarta.annotation.Nullable;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import io.casehub.api.spi.routing.RetrievedExperience;
 
 public sealed interface JudgmentPayload
     permits JudgmentPayload.BindingPayload, JudgmentPayload.GatePayload {
