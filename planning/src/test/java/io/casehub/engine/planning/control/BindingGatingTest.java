@@ -25,7 +25,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ExecutorRef;
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
@@ -432,7 +432,7 @@ class BindingGatingTest {
 
     Binding b = mock(Binding.class);
     when(b.getName()).thenReturn("ht-b");
-    when(b.target()).thenReturn(HumanTaskTarget.inline().title("Review").build());
+    when(b.target()).thenReturn(JudgmentTarget.forHuman().title("Review").build());
 
     List<Binding> firstResult = loopControl.select(ctx, List.of(b));
     assertThat(firstResult.stream().map(Binding::getName))

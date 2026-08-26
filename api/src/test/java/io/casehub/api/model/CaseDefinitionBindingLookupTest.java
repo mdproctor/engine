@@ -112,7 +112,7 @@ class CaseDefinitionBindingLookupTest {
     var htBinding =
         Binding.builder()
             .name("review")
-            .humanTask(HumanTaskTarget.inline().title("Review task").build())
+            .judgment(JudgmentTarget.forHuman().title("Review task").build())
             .on(new ContextChangeTrigger(".needsReview == true"))
             .build();
     var definition =

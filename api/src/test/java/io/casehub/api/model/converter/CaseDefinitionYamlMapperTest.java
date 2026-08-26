@@ -26,12 +26,13 @@ import io.casehub.api.context.JacksonPojoBridge;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.Binding;
+import io.casehub.api.model.CallerConfig;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.StandardGoalKind;
@@ -489,17 +490,18 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getBindings()).hasSize(1);
     Binding binding = def.getBindings().get(0);
     assertThat(binding.getName()).isEqualTo("approval");
-    assertThat(binding.target()).isInstanceOf(HumanTaskTarget.class);
+    assertThat(binding.target()).isInstanceOf(JudgmentTarget.class);
 
-    HumanTaskTarget ht = (HumanTaskTarget) binding.target();
-    assertThat(ht.isTemplateMode()).isFalse();
-    assertThat(ht.title()).isEqualTo("PR approval required");
-    assertThat(ht.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.outputMapping()).expression())
+    JudgmentTarget jt = (JudgmentTarget) binding.target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
+    assertThat(human.templateRef()).isNull();
+    assertThat(human.title()).isEqualTo("PR approval required");
+    assertThat(jt.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.outputMapping()).expression())
         .isEqualTo("{ approval: { status: .decision } }");
-    assertThat(ht.inputMapping()).isNull();
-    assertThat(ht.candidateGroups()).isNull();
-    assertThat(ht.expiresIn()).isNull();
+    assertThat(jt.inputMapping()).isNull();
+    assertThat(human.candidateGroups()).isNull();
+    assertThat(jt.expiresIn()).isNull();
   }
 
   @Test
@@ -522,12 +524,13 @@ class CaseDefinitionYamlMapperTest {
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
-    assertThat(ht.isTemplateMode()).isTrue();
-    assertThat(ht.templateRef()).isEqualTo("senior-review");
-    assertThat(ht.title()).isNull();
-    assertThat(ht.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.outputMapping()).expression())
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
+    assertThat(human.templateRef()).isNotNull();
+    assertThat(human.templateRef()).isEqualTo("senior-review");
+    assertThat(human.title()).isNull();
+    assertThat(jt.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.outputMapping()).expression())
         .isEqualTo("{ review: .outcome }");
   }
 
@@ -558,23 +561,24 @@ class CaseDefinitionYamlMapperTest {
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
-    assertThat(ht.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
-    assertThat(((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
+    assertThat(human.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(((CandidateSetSpec.Inline) human.candidateGroups()).strategy())
         .isInstanceOf(StaticSetStrategy.class);
     assertThat(
-            ((StaticSetStrategy) ((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+            ((StaticSetStrategy) ((CandidateSetSpec.Inline) human.candidateGroups()).strategy())
                 .values())
         .containsExactlyInAnyOrder("architects", "seniors");
-    assertThat(ht.candidateUsers()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(human.candidateUsers()).isInstanceOf(CandidateSetSpec.Inline.class);
     assertThat(
-            ((StaticSetStrategy) ((CandidateSetSpec.Inline) ht.candidateUsers()).strategy())
+            ((StaticSetStrategy) ((CandidateSetSpec.Inline) human.candidateUsers()).strategy())
                 .values())
         .containsExactlyInAnyOrder("alice");
-    assertThat(ht.expiresIn()).isEqualTo(Duration.parse("PT24H"));
-    assertThat(ht.inputMapping()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.inputMapping()).expression()).isEqualTo("{ pr: .pr }");
-    assertThat(((JQExpressionEvaluator) ht.outputMapping()).expression())
+    assertThat(jt.expiresIn()).isEqualTo(Duration.parse("PT24H"));
+    assertThat(jt.inputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.inputMapping()).expression()).isEqualTo("{ pr: .pr }");
+    assertThat(((JQExpressionEvaluator) jt.outputMapping()).expression())
         .isEqualTo("{ approval: .decision }");
   }
 
@@ -599,9 +603,10 @@ class CaseDefinitionYamlMapperTest {
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
-    assertThat(ht.candidateGroups()).isNull();
-    assertThat(ht.candidateUsers()).isNull();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
+    assertThat(human.candidateGroups()).isNull();
+    assertThat(human.candidateUsers()).isNull();
   }
 
   @Test
@@ -700,8 +705,9 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
     Binding binding = def.getBindings().get(0);
-    HumanTaskTarget target = (HumanTaskTarget) binding.target();
-    assertThat(target.scope()).isEqualTo("casehubio/clinical/adverse-event");
+    JudgmentTarget jt = (JudgmentTarget) binding.target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
+    assertThat(human.scope()).isEqualTo("casehubio/clinical/adverse-event");
   }
 
   @Test
@@ -724,8 +730,9 @@ class CaseDefinitionYamlMapperTest {
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
     Binding binding = def.getBindings().get(0);
-    HumanTaskTarget target = (HumanTaskTarget) binding.target();
-    assertThat(target.scope()).isNull();
+    JudgmentTarget jt = (JudgmentTarget) binding.target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
+    assertThat(human.scope()).isNull();
   }
 
   @Test
@@ -772,13 +779,15 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
-    assertThat(((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+    assertThat(human.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(((CandidateSetSpec.Inline) human.candidateGroups()).strategy())
         .isInstanceOf(JqCandidateSetStrategy.class);
     assertThat(
-            ((JqCandidateSetStrategy) ((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+            ((JqCandidateSetStrategy)
+                    ((CandidateSetSpec.Inline) human.candidateGroups()).strategy())
                 .expression())
         .isEqualTo(".irb.candidateGroups");
   }
@@ -802,13 +811,14 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.candidateUsers()).isInstanceOf(CandidateSetSpec.Inline.class);
-    assertThat(((CandidateSetSpec.Inline) ht.candidateUsers()).strategy())
+    assertThat(human.candidateUsers()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(((CandidateSetSpec.Inline) human.candidateUsers()).strategy())
         .isInstanceOf(JqCandidateSetStrategy.class);
     assertThat(
-            ((JqCandidateSetStrategy) ((CandidateSetSpec.Inline) ht.candidateUsers()).strategy())
+            ((JqCandidateSetStrategy) ((CandidateSetSpec.Inline) human.candidateUsers()).strategy())
                 .expression())
         .isEqualTo(".approver.id | [.]");
   }
@@ -834,13 +844,14 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
-    assertThat(((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+    assertThat(human.candidateGroups()).isInstanceOf(CandidateSetSpec.Inline.class);
+    assertThat(((CandidateSetSpec.Inline) human.candidateGroups()).strategy())
         .isInstanceOf(StaticSetStrategy.class);
     assertThat(
-            ((StaticSetStrategy) ((CandidateSetSpec.Inline) ht.candidateGroups()).strategy())
+            ((StaticSetStrategy) ((CandidateSetSpec.Inline) human.candidateGroups()).strategy())
                 .values())
         .containsExactlyInAnyOrder("architects", "seniors");
   }
@@ -889,11 +900,12 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.title()).isNull();
-    assertThat(ht.titleExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.titleExpression()).expression())
+    assertThat(human.title()).isNull();
+    assertThat(human.titleExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) human.titleExpression()).expression())
         .isEqualTo("\"IRB Review — \" + .protocol.id");
   }
 
@@ -916,11 +928,12 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.scope()).isNull();
-    assertThat(ht.scopeExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.scopeExpression()).expression())
+    assertThat(human.scope()).isNull();
+    assertThat(human.scopeExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) human.scopeExpression()).expression())
         .isEqualTo(".trial.site.code");
   }
 
@@ -943,11 +956,12 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresIn()).isNull();
-    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+    assertThat(jt.expiresIn()).isNull();
+    assertThat(jt.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.expiresInExpression()).expression())
         .isEqualTo(".trial.regulatoryDeadlineDuration");
   }
 
@@ -970,11 +984,12 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.isTemplateMode()).isTrue();
-    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+    assertThat(human.templateRef()).isNotNull();
+    assertThat(jt.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.expiresInExpression()).expression())
         .isEqualTo(".sla.reviewWindow");
   }
 
@@ -997,9 +1012,10 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isNull();
+    assertThat(jt.expiresInExpression()).isNull();
   }
 
   @Test
@@ -1021,9 +1037,10 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isNull();
+    assertThat(jt.expiresInExpression()).isNull();
   }
 
   @Test
@@ -1123,10 +1140,11 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+    assertThat(jt.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.expiresInExpression()).expression())
         .isEqualTo(".sla | .reviewWindow");
   }
 
@@ -1149,9 +1167,10 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isNull();
+    assertThat(jt.expiresInExpression()).isNull();
   }
 
   @Test
@@ -1174,13 +1193,14 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+    assertThat(jt.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.expiresInExpression()).expression())
         .isEqualTo(".sla.reviewWindow");
-    assertThat(ht.expiresAtExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.expiresAtExpression()).expression())
+    assertThat(jt.expiresAtExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.expiresAtExpression()).expression())
         .isEqualTo(".regulatory.absoluteDeadline");
   }
 
@@ -1203,9 +1223,10 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(jt.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
   }
 
   @Test
@@ -1239,18 +1260,19 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+    assertThat(jt.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.expiresInExpression()).expression())
         .isEqualTo(".sla.reviewWindow");
-    assertThat(ht.expiresAtExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(ht.inputMapping()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(ht.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(ht.candidateGroups()).isNotNull();
-    assertThat(ht.candidateUsers()).isNotNull();
-    assertThat(ht.scope()).isEqualTo("casehubio/devtown/pr-review");
-    assertThat(ht.outcomes()).containsExactlyInAnyOrder("APPROVED", "REJECTED");
+    assertThat(jt.expiresAtExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(jt.inputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(jt.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(human.candidateGroups()).isNotNull();
+    assertThat(human.candidateUsers()).isNotNull();
+    assertThat(human.scope()).isEqualTo("casehubio/devtown/pr-review");
+    assertThat(human.outcomes()).containsExactlyInAnyOrder("APPROVED", "REJECTED");
   }
 
   @Test
@@ -1272,10 +1294,11 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.expiresInExpression()).expression())
+    assertThat(jt.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.expiresInExpression()).expression())
         .isEqualTo(".expiryDuration");
   }
 
@@ -1297,10 +1320,11 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresIn()).isNull();
-    assertThat(ht.expiresInExpression()).isNull();
+    assertThat(jt.expiresIn()).isNull();
+    assertThat(jt.expiresInExpression()).isNull();
   }
 
   @Test
@@ -1322,10 +1346,11 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresIn()).isEqualTo(Duration.parse("PT24H"));
-    assertThat(ht.expiresInExpression()).isNull();
+    assertThat(jt.expiresIn()).isEqualTo(Duration.parse("PT24H"));
+    assertThat(jt.expiresInExpression()).isNull();
   }
 
   @Test
@@ -1347,13 +1372,14 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
-    JQExpressionEvaluator evaluator = (JQExpressionEvaluator) ht.expiresInExpression();
+    assertThat(jt.expiresInExpression()).isInstanceOf(JQExpressionEvaluator.class);
+    JQExpressionEvaluator evaluator = (JQExpressionEvaluator) jt.expiresInExpression();
     assertThat(evaluator.expression()).isEqualTo(".sla.reviewWindow");
     assertThat(evaluator.type()).isEqualTo("jq");
-    assertThat(ht.expiresIn()).isNull();
+    assertThat(jt.expiresIn()).isNull();
   }
 
   @Test
@@ -1375,10 +1401,11 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def =
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
 
-    assertThat(ht.expiresIn()).isEqualTo(Duration.parse("PT72H"));
-    assertThat(ht.expiresInExpression()).isNull();
+    assertThat(jt.expiresIn()).isEqualTo(Duration.parse("PT72H"));
+    assertThat(jt.expiresInExpression()).isNull();
   }
 
   @Test
@@ -2687,9 +2714,10 @@ class CaseDefinitionYamlMapperTest {
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
-    assertThat(ht.payloadType()).isEqualTo(java.util.Map.class);
-    assertThat(ht.resolutionType()).isEqualTo(String.class);
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
+    assertThat(human.payloadType()).isEqualTo(java.util.Map.class);
+    assertThat(jt.resolutionType()).isEqualTo(String.class);
   }
 
   @Test
@@ -2711,9 +2739,10 @@ class CaseDefinitionYamlMapperTest {
         CaseDefinitionYamlMapper.load(
             new ByteArrayInputStream(yaml.getBytes(StandardCharsets.UTF_8)));
 
-    HumanTaskTarget ht = (HumanTaskTarget) def.getBindings().get(0).target();
-    assertThat(ht.payloadType()).isNull();
-    assertThat(ht.resolutionType()).isNull();
+    JudgmentTarget jt = (JudgmentTarget) def.getBindings().get(0).target();
+    CallerConfig.Human human = (CallerConfig.Human) jt.callerConfig();
+    assertThat(human.payloadType()).isNull();
+    assertThat(jt.resolutionType()).isNull();
   }
 
   @Test

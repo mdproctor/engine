@@ -23,7 +23,7 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.cbr.CbrConfig;
 import io.casehub.api.spi.CaseOutcomeEvent;
@@ -223,7 +223,7 @@ class CbrCaseRetainObserverTest {
             capBinding("cap-bind", "cap1"),
             Binding.builder()
                 .name("ht-bind")
-                .target(HumanTaskTarget.inline().title("Review task").build())
+                .target(JudgmentTarget.forHuman().title("Review task").build())
                 .on(new io.casehub.api.model.ContextChangeTrigger("true"))
                 .build()));
     planItemStore.items =

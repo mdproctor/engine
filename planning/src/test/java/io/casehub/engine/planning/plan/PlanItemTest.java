@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.casehub.api.model.BindingTarget;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.ExecutorRef;
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.worker.api.Capability;
 import java.time.Instant;
@@ -161,7 +161,7 @@ class PlanItemTest {
 
   @Test
   void create_withTarget_storesTarget() {
-    BindingTarget target = HumanTaskTarget.template("irb-review").build();
+    BindingTarget target = JudgmentTarget.forHuman().templateRef("irb-review").build();
     PlanItem item = PlanItem.create("binding-a", ExecutorRef.of("worker-a"), 5, target);
 
     assertThat(item.getTarget()).isSameAs(target);

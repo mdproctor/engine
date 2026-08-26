@@ -17,7 +17,7 @@ package io.casehub.engine.planning.registry;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
@@ -80,11 +80,11 @@ class BlackboardRegistryLazyHydrationTest {
     PlanItem item = result.get().getPlanItem(planItemId).get();
     assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
     assertThat(item.getBindingName()).isEqualTo("review-binding");
-    assertThat(item.getTarget()).isInstanceOf(HumanTaskTarget.class);
-    HumanTaskTarget ht = (HumanTaskTarget) item.getTarget();
-    assertThat(ht.outputMapping()).isNotNull();
-    assertThat(ht.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
-    assertThat(((JQExpressionEvaluator) ht.outputMapping()).expression())
+    assertThat(item.getTarget()).isInstanceOf(JudgmentTarget.class);
+    JudgmentTarget jt = (JudgmentTarget) item.getTarget();
+    assertThat(jt.outputMapping()).isNotNull();
+    assertThat(jt.outputMapping()).isInstanceOf(JQExpressionEvaluator.class);
+    assertThat(((JQExpressionEvaluator) jt.outputMapping()).expression())
         .isEqualTo(".result.decision");
   }
 
@@ -112,9 +112,9 @@ class BlackboardRegistryLazyHydrationTest {
 
     assertThat(result).isPresent();
     PlanItem item = result.get().getPlanItem(planItemId).get();
-    assertThat(item.getTarget()).isInstanceOf(HumanTaskTarget.class);
-    HumanTaskTarget ht = (HumanTaskTarget) item.getTarget();
-    assertThat(ht.outputMapping()).isNull();
+    assertThat(item.getTarget()).isInstanceOf(JudgmentTarget.class);
+    JudgmentTarget jt = (JudgmentTarget) item.getTarget();
+    assertThat(jt.outputMapping()).isNull();
   }
 
   @Test
