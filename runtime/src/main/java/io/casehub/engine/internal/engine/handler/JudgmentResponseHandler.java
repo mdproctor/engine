@@ -24,10 +24,13 @@ import io.casehub.api.spi.VerificationContext;
 import io.casehub.api.spi.VerificationResult;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.JudgmentResponseEvent;
-// EventLog writing deferred to migration batch — requires CaseInstanceCache integration
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.JudgmentPayload;
 import io.casehub.engine.common.spi.JudgmentScheduler;
 import io.casehub.engine.common.spi.PendingJudgment;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.platform.api.routing.StrategyResolver;
 import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.RunOnVirtualThread;
@@ -43,8 +46,9 @@ public class JudgmentResponseHandler {
 
   @Inject StrategyResolver strategyResolver;
   @Inject JudgmentScheduler judgmentScheduler;
-
-  // EventLogRepository injection deferred to migration batch
+  @Inject CaseInstanceCache caseInstanceCache;
+  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
+  @Inject EventLogRepository eventLogRepository;
 
   @RunOnVirtualThread
   @ConsumeEvent(value = EventBusAddresses.JUDGMENT_RESPONSE)
@@ -68,15 +72,71 @@ public class JudgmentResponseHandler {
   }
 
   private void processResponse(final JudgmentResponseEvent event) {
-    // TODO: look up PendingJudgment and JudgmentTarget from CaseInstance
-    // For now, this handler establishes the event bus contract and verification pipeline.
-    // Full wiring to CaseInstance.pendingJudgments requires CaseInstanceCache integration
-    // which is part of the migration batch.
+    final CaseInstance instance = caseInstanceCache.get(event.caseId());
+    if (instance == null) {
+      LOG.warnf(
+          "CaseInstance not in cache for judgment response: caseId=%s — discarding",
+          event.caseId());
+      return;
+    }
 
-    LOG.infof(
-        "Judgment response received for caseId=%s binding=%s — "
-            + "verification and completion wiring deferred to migration batch",
-        event.caseId(), event.bindingName());
+    if (isTerminal(instance.getState())) {
+      LOG.warnf(
+          "Judgment response on terminated case (state=%s): caseId=%s — discarding",
+          instance.getState(), event.caseId());
+      instance.clearPendingJudgment(event.bindingName());
+      return;
+    }
+
+    final PendingJudgment pending = instance.getPendingJudgment(event.bindingName());
+    if (pending == null) {
+      LOG.warnf(
+          "No PendingJudgment for binding '%s' caseId=%s — discarding",
+          event.bindingName(), event.caseId());
+      return;
+    }
+
+    if (pending.judgmentId() != event.judgmentId()) {
+      LOG.warnf(
+          "PendingJudgment ID mismatch: caseId=%s binding=%s expected=%d got=%d — discarding",
+          event.caseId(), event.bindingName(), pending.judgmentId(), event.judgmentId());
+      return;
+    }
+
+    final var def = caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+    if (def == null) {
+      LOG.errorf(
+          "CaseDefinition not found for caseId=%s — cannot resolve JudgmentTarget", event.caseId());
+      return;
+    }
+
+    final var binding =
+        def.getBindings().stream()
+            .filter(b -> b.getName().equals(event.bindingName()))
+            .findFirst()
+            .orElse(null);
+
+    JudgmentTarget target = null;
+    if (binding != null && binding.target() instanceof JudgmentTarget jt) {
+      target = jt;
+    }
+    if (target == null && "__gate__".equals(event.bindingName())) {
+      target = JudgmentTarget.forHuman().prompt("gate").build();
+    }
+    if (target == null) {
+      LOG.errorf(
+          "JudgmentTarget not found for binding '%s' caseId=%s — discarding",
+          event.bindingName(), event.caseId());
+      return;
+    }
+
+    verifyAndApply(event, target, pending, 1);
+  }
+
+  private static boolean isTerminal(final io.casehub.api.model.CaseStatus state) {
+    return state == io.casehub.api.model.CaseStatus.COMPLETED
+        || state == io.casehub.api.model.CaseStatus.FAULTED
+        || state == io.casehub.api.model.CaseStatus.CANCELLED;
   }
 
   void verifyAndApply(
@@ -117,7 +177,7 @@ public class JudgmentResponseHandler {
             "Judgment accepted (binding): caseId=%s binding=%s — applying output mapping",
             event.caseId(), event.bindingName());
         // Binding origin: apply outputMapping(response.decision) to context → CONTEXT_CHANGED
-        // Full implementation requires CaseInstance access — wired in migration batch
+        // Full implementation requires WritableLayer access — future commit
       }
       case JudgmentPayload.GatePayload gp -> {
         LOG.infof(
@@ -157,13 +217,11 @@ public class JudgmentResponseHandler {
         LOG.infof(
             "Judgment re-yielded: caseId=%s binding=%s feedback='%s'",
             event.caseId(), event.bindingName(), ry.feedback());
-        // Re-submit to JudgmentScheduler with feedback — requires rebuilding JudgmentRequest
       }
       case EscalationDecision.Escalate esc -> {
         LOG.infof(
             "Judgment escalated: caseId=%s binding=%s reason='%s'",
             event.caseId(), event.bindingName(), esc.reason());
-        // Re-submit with overridden CallerConfig
       }
       case EscalationDecision.Fault f -> {
         LOG.warnf(
@@ -175,8 +233,7 @@ public class JudgmentResponseHandler {
             // Binding origin: fault the PlanItem
           }
           case JudgmentPayload.GatePayload gp -> {
-            // Gate origin: write judgmentRejected signal, call workerStatusListener,
-            // record routing outcome, trigger RecoveryCoordinator
+            // Gate origin: write judgmentRejected signal, trigger recovery
           }
         }
       }

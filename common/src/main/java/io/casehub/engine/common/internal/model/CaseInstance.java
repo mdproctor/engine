@@ -168,6 +168,27 @@ public class CaseInstance {
     this.pendingActionGate = pendingActionGate;
   }
 
+  private final java.util.concurrent.ConcurrentHashMap<
+          String, io.casehub.engine.common.spi.PendingJudgment>
+      pendingJudgments = new java.util.concurrent.ConcurrentHashMap<>();
+
+  public io.casehub.engine.common.spi.PendingJudgment getPendingJudgment(String key) {
+    return pendingJudgments.get(key);
+  }
+
+  public void setPendingJudgment(
+      String key, io.casehub.engine.common.spi.PendingJudgment judgment) {
+    if (judgment == null) {
+      pendingJudgments.remove(key);
+    } else {
+      pendingJudgments.put(key, judgment);
+    }
+  }
+
+  public void clearPendingJudgment(String key) {
+    pendingJudgments.remove(key);
+  }
+
   private Set<String> labels = new LinkedHashSet<>();
   private Set<String> types = new LinkedHashSet<>();
   private java.util.Map<String, Object> exchangeHeaders = new java.util.LinkedHashMap<>();

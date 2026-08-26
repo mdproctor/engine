@@ -792,6 +792,17 @@ public class CaseContextChangedEventHandler {
         new io.casehub.engine.common.spi.JudgmentRequest(
             caseInstance.getUuid(), caseInstance.tenancyId, binding.getName(), target, payload);
 
+    caseInstance.setPendingJudgment(
+        binding.getName(),
+        new io.casehub.engine.common.spi.PendingJudgment(
+            System.nanoTime(),
+            binding.getName(),
+            payload,
+            null,
+            null,
+            null,
+            java.time.Instant.now()));
+
     LOG.infof(
         "Scheduling judgment: caseId=%s binding=%s callerType=%s",
         caseInstance.getUuid(),

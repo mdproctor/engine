@@ -70,6 +70,81 @@ class JudgmentResponseHandlerTest {
   }
 
   @Test
+  void processResponse_looks_up_caseInstance_and_calls_verifyAndApply() {
+    var caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
+    var caseDefRegistry = mock(io.casehub.engine.common.spi.CaseDefinitionRegistry.class);
+    var eventLogRepo = mock(io.casehub.engine.common.spi.EventLogRepository.class);
+    handler.caseInstanceCache = caseInstanceCache;
+    handler.caseDefinitionRegistry = caseDefRegistry;
+    handler.eventLogRepository = eventLogRepo;
+
+    var target = JudgmentTarget.forHuman().prompt("Review").verifier("none").build();
+    var payload = bindingPayload();
+    var pending = pending(payload);
+
+    var instance = mock(io.casehub.engine.common.internal.model.CaseInstance.class);
+    when(instance.getState()).thenReturn(io.casehub.api.model.CaseStatus.RUNNING);
+    when(instance.getPendingJudgment("review-binding")).thenReturn(pending);
+    when(instance.getCaseMetaModel()).thenReturn(null);
+    when(caseInstanceCache.get(CASE_ID)).thenReturn(instance);
+
+    var def = mock(io.casehub.api.model.CaseDefinition.class);
+    var binding = mock(io.casehub.api.model.Binding.class);
+    when(binding.getName()).thenReturn("review-binding");
+    when(binding.target()).thenReturn(target);
+    when(def.getBindings()).thenReturn(List.of(binding));
+    when(caseDefRegistry.getCaseDefinition(any())).thenReturn(def);
+
+    when(verifier.verify(any(), any())).thenReturn(new VerificationResult.Accepted());
+
+    var event = responseEvent();
+    handler.onJudgmentResponse(event);
+
+    verify(verifier)
+        .verify(any(JudgmentResponse.class), any(io.casehub.api.spi.VerificationContext.class));
+  }
+
+  @Test
+  void processResponse_discards_when_case_not_in_cache() {
+    var caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
+    handler.caseInstanceCache = caseInstanceCache;
+    when(caseInstanceCache.get(CASE_ID)).thenReturn(null);
+
+    handler.onJudgmentResponse(responseEvent());
+
+    verify(verifier, never()).verify(any(), any());
+  }
+
+  @Test
+  void processResponse_discards_when_case_is_terminal() {
+    var caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
+    handler.caseInstanceCache = caseInstanceCache;
+
+    var instance = mock(io.casehub.engine.common.internal.model.CaseInstance.class);
+    when(instance.getState()).thenReturn(io.casehub.api.model.CaseStatus.COMPLETED);
+    when(caseInstanceCache.get(CASE_ID)).thenReturn(instance);
+
+    handler.onJudgmentResponse(responseEvent());
+
+    verify(verifier, never()).verify(any(), any());
+  }
+
+  @Test
+  void processResponse_discards_when_no_pending_judgment() {
+    var caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
+    handler.caseInstanceCache = caseInstanceCache;
+
+    var instance = mock(io.casehub.engine.common.internal.model.CaseInstance.class);
+    when(instance.getState()).thenReturn(io.casehub.api.model.CaseStatus.RUNNING);
+    when(instance.getPendingJudgment("review-binding")).thenReturn(null);
+    when(caseInstanceCache.get(CASE_ID)).thenReturn(instance);
+
+    handler.onJudgmentResponse(responseEvent());
+
+    verify(verifier, never()).verify(any(), any());
+  }
+
+  @Test
   void accepted_binding_does_not_escalate() {
     var target = JudgmentTarget.forHuman().prompt("Review").verifier("evidence-presence").build();
     var payload = bindingPayload();
