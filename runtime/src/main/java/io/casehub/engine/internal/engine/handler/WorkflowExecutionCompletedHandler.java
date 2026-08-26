@@ -732,7 +732,7 @@ public class WorkflowExecutionCompletedHandler {
     var target =
         JudgmentTarget.forHuman().prompt(gate.reason()).expiresIn(gate.expiresIn()).build();
 
-    var payload =
+    var gatePayload =
         new JudgmentPayload.GatePayload(
             gateEventLog.id,
             plannedAction,
@@ -741,9 +741,20 @@ public class WorkflowExecutionCompletedHandler {
             gate.resolutionType() != null ? gate.resolutionType().getName() : null,
             rawOutput);
 
+    caseInstance.setPendingJudgment(
+        "__gate__",
+        new io.casehub.engine.common.spi.PendingJudgment(
+            gateEventLog.id,
+            "__gate__",
+            gatePayload,
+            worker.name(),
+            event.idempotency(),
+            rawOutput,
+            now));
+
     judgmentScheduler.schedule(
         new JudgmentRequest(
-            caseInstance.getUuid(), caseInstance.tenancyId, "__gate__", target, payload));
+            caseInstance.getUuid(), caseInstance.tenancyId, "__gate__", target, gatePayload));
 
     lifecycleEvents
         .fireAsync(
