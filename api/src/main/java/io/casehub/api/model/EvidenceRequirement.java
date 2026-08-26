@@ -15,10 +15,12 @@
  */
 package io.casehub.api.model;
 
-public sealed interface BindingTarget
-    permits CapabilityTarget,
-        SubCaseTarget,
-        HumanTaskTarget,
-        JudgmentTarget,
-        SignalTarget,
-        ExtensionTarget {}
+import java.util.Objects;
+
+public record EvidenceRequirement(String name, EvidenceType type, boolean required) {
+
+  public EvidenceRequirement {
+    Objects.requireNonNull(name, "name required");
+    Objects.requireNonNull(type, "type required");
+  }
+}

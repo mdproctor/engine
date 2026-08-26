@@ -15,10 +15,17 @@
  */
 package io.casehub.api.model;
 
-public sealed interface BindingTarget
-    permits CapabilityTarget,
-        SubCaseTarget,
-        HumanTaskTarget,
-        JudgmentTarget,
-        SignalTarget,
-        ExtensionTarget {}
+import java.time.Instant;
+import java.util.List;
+import java.util.Objects;
+
+public record JudgmentResponse(
+    Object decision, List<Evidence> evidence, CallerIdentity callerIdentity, Instant responseTime) {
+
+  public JudgmentResponse {
+    Objects.requireNonNull(evidence, "evidence required");
+    Objects.requireNonNull(callerIdentity, "callerIdentity required");
+    Objects.requireNonNull(responseTime, "responseTime required");
+    evidence = List.copyOf(evidence);
+  }
+}

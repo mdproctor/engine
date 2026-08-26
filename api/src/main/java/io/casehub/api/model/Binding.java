@@ -337,6 +337,11 @@ public class Binding {
       return this;
     }
 
+    public Builder judgment(JudgmentTarget judgment) {
+      this.target = judgment;
+      return this;
+    }
+
     /** Sets a {@link SignalTarget} from a payload map. */
     public Builder signal(Map<String, Object> payload) {
       this.target = new SignalTarget(payload);

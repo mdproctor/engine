@@ -15,10 +15,14 @@
  */
 package io.casehub.api.model;
 
-public sealed interface BindingTarget
-    permits CapabilityTarget,
-        SubCaseTarget,
-        HumanTaskTarget,
-        JudgmentTarget,
-        SignalTarget,
-        ExtensionTarget {}
+import jakarta.annotation.Nullable;
+import java.util.Objects;
+
+public record Evidence(String name, EvidenceType type, String content, @Nullable String ref) {
+
+  public Evidence {
+    Objects.requireNonNull(name, "name required");
+    Objects.requireNonNull(type, "type required");
+    Objects.requireNonNull(content, "content required");
+  }
+}

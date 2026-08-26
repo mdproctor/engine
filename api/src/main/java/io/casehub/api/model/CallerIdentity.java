@@ -15,10 +15,13 @@
  */
 package io.casehub.api.model;
 
-public sealed interface BindingTarget
-    permits CapabilityTarget,
-        SubCaseTarget,
-        HumanTaskTarget,
-        JudgmentTarget,
-        SignalTarget,
-        ExtensionTarget {}
+import jakarta.annotation.Nullable;
+import java.util.Objects;
+
+public record CallerIdentity(String callerId, String callerType, @Nullable Double trustScore) {
+
+  public CallerIdentity {
+    Objects.requireNonNull(callerId, "callerId required");
+    Objects.requireNonNull(callerType, "callerType required");
+  }
+}

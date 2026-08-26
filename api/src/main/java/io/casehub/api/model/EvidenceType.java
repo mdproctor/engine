@@ -15,10 +15,9 @@
  */
 package io.casehub.api.model;
 
-public sealed interface BindingTarget
-    permits CapabilityTarget,
-        SubCaseTarget,
-        HumanTaskTarget,
-        JudgmentTarget,
-        SignalTarget,
-        ExtensionTarget {}
+public enum EvidenceType {
+  REASONING,
+  DOCUMENT,
+  REFERENCE,
+  ATTESTATION
+}
