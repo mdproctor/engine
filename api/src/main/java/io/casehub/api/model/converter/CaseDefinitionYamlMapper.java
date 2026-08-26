@@ -69,6 +69,13 @@ import io.casehub.platform.api.label.LabelRule;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
+import net.thisptr.jackson.jq.BuiltinFunctionLoader;
+import net.thisptr.jackson.jq.JsonQuery;
+import net.thisptr.jackson.jq.Scope;
+import net.thisptr.jackson.jq.Versions;
+import net.thisptr.jackson.jq.exception.JsonQueryException;
+import org.jboss.logging.Logger;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Duration;
@@ -80,12 +87,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import net.thisptr.jackson.jq.BuiltinFunctionLoader;
-import net.thisptr.jackson.jq.JsonQuery;
-import net.thisptr.jackson.jq.Scope;
-import net.thisptr.jackson.jq.Versions;
-import net.thisptr.jackson.jq.exception.JsonQueryException;
-import org.jboss.logging.Logger;
 
 /**
  * Centralized YAML marshaller for CaseDefinition.
@@ -1415,11 +1416,18 @@ public final class CaseDefinitionYamlMapper {
       @SuppressWarnings("unchecked")
       Map<String, Object> signalPayload = MAPPER.convertValue(signalNode, Map.class);
       builder.signal(signalPayload);
+    } else if (rawBindingNode != null && rawBindingNode.has("judgment")) {
+      try {
+        builder.judgment(convertJudgmentTarget(rawBindingNode.get("judgment"), registry, expressionLang));
+      } catch (IllegalStateException | IllegalArgumentException e) {
+        throw new IllegalArgumentException(
+            "Binding '" + schemaBinding.getName() + "' has invalid judgment: " + e.getMessage(), e);
+      }
     } else {
       throw new IllegalArgumentException(
           "Binding '"
               + schemaBinding.getName()
-              + "' must have capability, subCase, humanTask, or signal");
+              + "' must have capability, subCase, humanTask, judgment, or signal");
     }
 
     if (rawBindingNode != null && rawBindingNode.has("when")) {
@@ -1864,7 +1872,135 @@ public final class CaseDefinitionYamlMapper {
     return builder.build();
   }
 
-  @SuppressWarnings("unchecked")
+    private static io.casehub.api.model.JudgmentTarget convertJudgmentTarget(
+            final JsonNode judgmentNode,
+            final ExpressionEngineRegistry registry,
+            final String expressionLang) {
+        if (judgmentNode == null || judgmentNode.isNull()) {
+            throw new IllegalArgumentException("judgment block must not be null");
+        }
+
+        final io.casehub.api.model.JudgmentTarget.Builder builder;
+        final JsonNode                                    callerNode = judgmentNode.get("caller");
+        final String callerType = callerNode != null && callerNode.has("type")
+                                  ? callerNode.get("type").asText() : "any";
+
+        builder = switch (callerType) {
+            case "human" -> io.casehub.api.model.JudgmentTarget.forHuman();
+            case "llm" -> io.casehub.api.model.JudgmentTarget.forLlm();
+            case "a2a" -> io.casehub.api.model.JudgmentTarget.forA2A();
+            default -> io.casehub.api.model.JudgmentTarget.forAny();
+        };
+
+        if (judgmentNode.has("prompt")) {
+            builder.prompt(judgmentNode.get("prompt").asText());
+        }
+        if (judgmentNode.has("inputMapping")) {
+            builder.inputMapping(judgmentNode.get("inputMapping").asText());
+        }
+        if (judgmentNode.has("outputMapping")) {
+            builder.outputMapping(judgmentNode.get("outputMapping").asText());
+        }
+        if (judgmentNode.has("verifier")) {
+            builder.verifier(judgmentNode.get("verifier").asText());
+        }
+        if (judgmentNode.has("escalator")) {
+            builder.escalator(judgmentNode.get("escalator").asText());
+        }
+        if (judgmentNode.has("trustPolicy")) {
+            builder.trustPolicy(judgmentNode.get("trustPolicy").asText());
+        }
+        if (judgmentNode.has("expiresIn")) {
+            java.time.Duration duration;
+            try {
+                duration = java.time.Duration.parse(judgmentNode.get("expiresIn").asText());
+            } catch (java.time.format.DateTimeParseException e) {
+                throw new IllegalArgumentException(
+                        "invalid judgment expiresIn — must be ISO-8601 duration (e.g. PT24H)", e);
+            }
+            builder.expiresIn(duration);
+        }
+        if (judgmentNode.has("resolutionType")) {
+            try {
+                builder.resolutionType(Class.forName(judgmentNode.get("resolutionType").asText()));
+            } catch (ClassNotFoundException e) {
+                throw new IllegalArgumentException(
+                        "judgment resolutionType class not found: " + judgmentNode.get("resolutionType").asText(), e);
+            }
+        }
+
+        // Evidence requirements
+        if (judgmentNode.has("evidence") && judgmentNode.get("evidence").isArray()) {
+            for (JsonNode evNode : judgmentNode.get("evidence")) {
+                String name = evNode.has("name") ? evNode.get("name").asText() : null;
+                if (name == null || name.isBlank()) {
+                    throw new IllegalArgumentException("evidence requirement must have a 'name'");
+                }
+                io.casehub.api.model.EvidenceType type = io.casehub.api.model.EvidenceType.REASONING;
+                if (evNode.has("type")) {
+                    try {
+                        type = io.casehub.api.model.EvidenceType.valueOf(evNode.get("type").asText());
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException(
+                                "unknown evidence type '" + evNode.get("type").asText()
+                                + "' — valid: REASONING, DOCUMENT, REFERENCE, ATTESTATION", e);
+                    }
+                }
+                boolean required = !evNode.has("required") || evNode.get("required").asBoolean(true);
+                builder.evidence(name, type, required);
+            }
+        }
+
+        // Caller-specific fields
+        if (callerNode != null) {
+            switch (callerType) {
+                case "human" -> {
+                    final io.casehub.api.spi.routing.CandidateSetSpec groupsSpec =
+                            parseCandidateSet(
+                                    callerNode.has("candidateGroups")
+                                    ? MAPPER.convertValue(callerNode.get("candidateGroups"), Object.class)
+                                    : null,
+                                    "candidateGroups");
+                    if (groupsSpec != null) {builder.candidateGroups(groupsSpec);}
+                    final io.casehub.api.spi.routing.CandidateSetSpec usersSpec =
+                            parseCandidateSet(
+                                    callerNode.has("candidateUsers")
+                                    ? MAPPER.convertValue(callerNode.get("candidateUsers"), Object.class)
+                                    : null,
+                                    "candidateUsers");
+                    if (usersSpec != null) {builder.candidateUsers(usersSpec);}
+                    if (callerNode.has("title")) {builder.title(callerNode.get("title").asText());}
+                    if (callerNode.has("templateRef")) {builder.templateRef(callerNode.get("templateRef").asText());}
+                    if (callerNode.has("scope")) {builder.scope(callerNode.get("scope").asText());}
+                    if (callerNode.has("priority")) {builder.priority(callerNode.get("priority").asText());}
+                    if (callerNode.has("claimDeadlineHours")) {
+                        builder.claimDeadlineHours(callerNode.get("claimDeadlineHours").asInt());
+                    }
+                    if (callerNode.has("outcomes") && callerNode.get("outcomes").isArray()) {
+                        java.util.Set<String> outcomes = new java.util.LinkedHashSet<>();
+                        for (JsonNode o : callerNode.get("outcomes")) {outcomes.add(o.asText());}
+                        builder.outcomes(outcomes);
+                    }
+                }
+                case "llm" -> {
+                    if (callerNode.has("model")) {builder.model(callerNode.get("model").asText());}
+                    if (callerNode.has("modelName")) {builder.modelName(callerNode.get("modelName").asText());}
+                    if (callerNode.has("systemPrompt")) {builder.systemPrompt(callerNode.get("systemPrompt").asText());}
+                }
+                case "a2a" -> {
+                    if (callerNode.has("endpoint")) {builder.endpoint(callerNode.get("endpoint").asText());}
+                    if (callerNode.has("skill")) {builder.skill(callerNode.get("skill").asText());}
+                    if (callerNode.has("streaming")) {builder.streaming(callerNode.get("streaming").asBoolean());}
+                }
+                default -> { /* any — no caller-specific fields */ }
+            }
+        }
+
+        return builder.build();
+    }
+
+
+    @SuppressWarnings("unchecked")
   private static io.casehub.api.spi.routing.CandidateSetSpec parseCandidateSet(
       final Object raw, final String fieldName) {
     if (raw instanceof List<?> list && !list.isEmpty()) {
