@@ -73,6 +73,14 @@ public enum CaseHubEventType {
   ACTION_GATE_EXPIRED, // gate WorkItem expired before approval; worker treated as faulted
   ACTION_GATE_CANCELLED, // gate cancelled because the case reached a terminal state
 
+  JUDGMENT_YIELDED, // judgment request submitted to JudgmentScheduler
+  JUDGMENT_RESPONDED, // judgment response received from caller
+  JUDGMENT_VERIFIED, // JudgmentVerifier ran on the response
+  JUDGMENT_ESCALATED, // JudgmentEscalator fired after verification failure
+  JUDGMENT_REJECTED, // verification failed and escalator chose Fault
+  JUDGMENT_CANCELLED, // judgment cancelled because the case reached terminal state
+  JUDGMENT_EXPIRED, // judgment deadline elapsed with no response
+
   ORCHESTRATION_STARTED, // routing/orchestration phase began for a capability binding
   ORCHESTRATION_COMPLETED, // routing/orchestration phase completed successfully
   AGENT_ROUTED, // agent candidate selected via routing strategy
