@@ -70,13 +70,12 @@ public class CaseEvaluationSerializer implements io.casehub.engine.common.spi.Re
     gates.remove(caseId);
   }
 
-    @Override
-    public void reset() {
-        gates.clear();
-    }
+  @Override
+  public void reset() {
+    gates.clear();
+  }
 
-
-    private void drainPending(UUID caseId, CaseGate gate) {
+  private void drainPending(UUID caseId, CaseGate gate) {
     while (true) {
       Runnable next;
       gate.lock.lock();
