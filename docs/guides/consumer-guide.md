@@ -258,7 +258,7 @@ public class MyClassifier implements ActionRiskClassifier {
 
 Multiple classifiers compose via `ChainedActionRiskClassifier` ("most restrictive wins"). `RiskDecision` is sealed: `Autonomous` | `GateRequired(reason, reversible, candidateGroups, expiresIn, scope, resolutionType, quorum)`.
 
-**Multi-approver gates:** `QuorumConfig` supports M-of-N approval for high-risk actions. `OversightGateService` manages gate lifecycle with `openGate()` and `fulfill()`.
+**Multi-approver gates:** `QuorumConfig` supports M-of-N approval for high-risk actions via `CallerConfig.Human.quorum()` on `JudgmentTarget`.
 
 **ActionGatePolicy** — policy for gate lifecycle decisions.
 
@@ -318,7 +318,8 @@ All follow the `NamedStrategy` convention and are resolved at dispatch time via 
 | `CaseEventRecorder` | Records case events for external consumption |
 | `CaseCorrelationResolver` | Resolves case correlation for inbound signals |
 | `DataRefResolver` | Resolves `DataRef` references to external data |
-| `OversightGateService` | Multi-approver oversight gate lifecycle |
+| `JudgmentVerifier` | Post-response verification for judgment yields |
+| `JudgmentEscalator` | Verification failure handling for judgment yields |
 | `ActionGatePolicy` | Gate lifecycle policy |
 | `ProvisionerConfigRegistry` | Configuration registry for worker provisioners |
 

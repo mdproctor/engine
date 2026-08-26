@@ -25,7 +25,7 @@ import io.casehub.engine.planning.plan.PlanItem;
  * Package-private utility — converts {@link PlanItemRecord} to {@link PlanItem} during registry
  * hydration.
  *
- * <p>Keeps {@link BlackboardRegistry} free of {@link HumanTaskTarget} and evaluator imports.
+ * <p>Keeps {@link BlackboardRegistry} free of {@link JudgmentTarget} and evaluator imports.
  */
 class PlanItemRestorer {
 
