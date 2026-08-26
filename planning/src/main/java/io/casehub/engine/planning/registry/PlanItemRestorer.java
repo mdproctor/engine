@@ -16,7 +16,7 @@
 package io.casehub.engine.planning.registry;
 
 import io.casehub.api.model.BindingTarget;
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.planning.plan.PlanItem;
@@ -32,7 +32,7 @@ class PlanItemRestorer {
   PlanItem restore(PlanItemRecord r) {
     BindingTarget target =
         r.targetType() == TargetType.HUMAN_TASK
-            ? buildHumanTaskTarget(r.outputMappingExpression())
+            ? buildJudgmentTarget(r.outputMappingExpression())
             : null;
     io.casehub.api.model.ExecutorRef executor =
         r.executorName() != null
@@ -48,8 +48,8 @@ class PlanItemRestorer {
         r.description());
   }
 
-  private HumanTaskTarget buildHumanTaskTarget(String expr) {
-    HumanTaskTarget.Builder b = HumanTaskTarget.inline().title("[restored]");
+  private JudgmentTarget buildJudgmentTarget(String expr) {
+    JudgmentTarget.Builder b = JudgmentTarget.forHuman().title("[restored]");
     if (expr != null) {
       b = b.outputMapping(expr);
     }

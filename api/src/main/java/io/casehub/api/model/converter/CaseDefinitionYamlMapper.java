@@ -35,8 +35,8 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.InboundSignalMapping;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.LifecycleScope;
 import io.casehub.api.model.MemoryRetrievalConfig;
 import io.casehub.api.model.Milestone;
@@ -1400,7 +1400,7 @@ public final class CaseDefinitionYamlMapper {
       builder.subCase(subCase);
     } else if (schemaBinding.getHumanTask() != null) {
       try {
-        builder.humanTask(convertHumanTask(schemaBinding.getHumanTask()));
+        builder.judgment(convertHumanTask(schemaBinding.getHumanTask()));
       } catch (IllegalStateException | IllegalArgumentException e) {
         throw new IllegalArgumentException(
             "Binding '" + schemaBinding.getName() + "' has invalid humanTask: " + e.getMessage(),
@@ -1772,21 +1772,19 @@ public final class CaseDefinitionYamlMapper {
         "Completion expression element must be a goal name (string) or an object with allOf/anyOf");
   }
 
-  private static HumanTaskTarget convertHumanTask(final io.casehub.model.HumanTask schema) {
+  private static JudgmentTarget convertHumanTask(final io.casehub.model.HumanTask schema) {
     if ((schema.getTitle() != null || schema.getTitleExpression() != null)
         && schema.getTemplateRef() != null) {
       throw new IllegalArgumentException(
           "humanTask cannot specify both title/titleExpression and templateRef"
               + " - use inline mode (title or titleExpression) or template mode (templateRef), not both");
     }
-    final HumanTaskTarget.Builder builder;
+    final JudgmentTarget.Builder builder = JudgmentTarget.forHuman();
     if (schema.getTemplateRef() != null) {
-      builder = HumanTaskTarget.template(schema.getTemplateRef());
-    } else {
-      builder = HumanTaskTarget.inline();
-      if (schema.getTitle() != null) {
-        builder.title(schema.getTitle());
-      }
+      builder.templateRef(schema.getTemplateRef());
+    }
+    if (schema.getTitle() != null) {
+      builder.title(schema.getTitle());
     }
 
     if (schema.getInputMapping() != null) {

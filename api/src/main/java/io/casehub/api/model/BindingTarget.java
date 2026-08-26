@@ -16,9 +16,4 @@
 package io.casehub.api.model;
 
 public sealed interface BindingTarget
-    permits CapabilityTarget,
-        SubCaseTarget,
-        HumanTaskTarget,
-        JudgmentTarget,
-        SignalTarget,
-        ExtensionTarget {}
+    permits CapabilityTarget, SubCaseTarget, JudgmentTarget, SignalTarget, ExtensionTarget {}

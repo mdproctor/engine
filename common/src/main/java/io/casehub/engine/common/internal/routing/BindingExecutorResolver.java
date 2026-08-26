@@ -20,7 +20,7 @@ import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.ExtensionTarget;
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.SignalTarget;
 import io.casehub.api.model.SubCaseTarget;
 import io.casehub.worker.api.Worker;
@@ -44,7 +44,7 @@ public final class BindingExecutorResolver {
             : ExecutorRef.fromWorker(matching.get(0));
       }
       case SubCaseTarget st -> ExecutorRef.of("unknown");
-      case HumanTaskTarget ht -> ExecutorRef.of("unknown");
+      case JudgmentTarget jt -> ExecutorRef.of("unknown");
       case SignalTarget st -> ExecutorRef.of("signal");
       case ExtensionTarget et -> ExecutorRef.of("unknown");
       default -> ExecutorRef.of("unknown");

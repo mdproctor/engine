@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.work.cloudevent;
 
-import io.casehub.engine.common.spi.HumanTaskScheduler;
+import io.casehub.engine.common.spi.JudgmentScheduler;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -26,13 +26,13 @@ import jakarta.inject.Inject;
 @ApplicationScoped
 public class WorkIntegrationConflictDetector {
 
-  @Inject Instance<HumanTaskScheduler> humanTaskSchedulers;
+  @Inject Instance<JudgmentScheduler> judgmentSchedulers;
 
   void onStartup(@Observes @Priority(1) StartupEvent event) {
-    long count = humanTaskSchedulers.stream().count();
+    long count = judgmentSchedulers.stream().count();
     if (count > 1) {
       throw new IllegalStateException(
-          "Multiple HumanTaskScheduler implementations detected ("
+          "Multiple JudgmentScheduler implementations detected ("
               + count
               + "). casehub-work-engine-adapter and casehub-engine-work-cloudevent "
               + "are mutually exclusive — remove one from the classpath.");

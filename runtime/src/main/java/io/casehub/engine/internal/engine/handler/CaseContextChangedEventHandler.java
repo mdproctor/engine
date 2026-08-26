@@ -21,7 +21,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
-import io.casehub.api.context.PropagationContext;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.engine.LoopControl;
 import io.casehub.api.engine.PlanExecutionContext;
@@ -32,7 +31,6 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.ExtensionTarget;
 import io.casehub.api.model.Goal;
-import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.ProvisionContext;
 import io.casehub.api.model.SubCaseTarget;
 import io.casehub.api.model.WorkRequest;
@@ -47,10 +45,6 @@ import io.casehub.api.spi.routing.AgentRoutingStrategy;
 import io.casehub.api.spi.routing.CandidateSetContext;
 import io.casehub.api.spi.routing.CandidateSetSpec;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
-import io.casehub.api.spi.routing.HumanTaskCandidates;
-import io.casehub.api.spi.routing.HumanTaskRoutingContext;
-import io.casehub.api.spi.routing.HumanTaskRoutingResult;
-import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.eidos.api.CapabilityHealth;
@@ -69,8 +63,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.HumanTaskScheduleRequest;
-import io.casehub.engine.common.spi.HumanTaskScheduler;
 import io.casehub.engine.common.spi.event.CaseContextUpdatedEvent;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
@@ -147,8 +139,6 @@ public class CaseContextChangedEventHandler {
   @Inject ScopedWorkerRegistry scopedWorkerRegistry;
 
   @Inject Event<CaseContextUpdatedEvent> caseContextUpdatedEvents;
-
-  @Inject jakarta.enterprise.inject.Instance<HumanTaskScheduler> humanTaskScheduler;
 
   @Inject io.casehub.engine.common.spi.JudgmentScheduler judgmentScheduler;
 
@@ -374,9 +364,6 @@ public class CaseContextChangedEventHandler {
               activationSnapshot);
       case SubCaseTarget st ->
           publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
-      case HumanTaskTarget ht ->
-          publishHumanTaskSchedule(
-              caseInstance, caseDefinition, binding, ht, experiences, activationSnapshot);
       case io.casehub.api.model.JudgmentTarget jt ->
           publishJudgment(
               caseInstance, caseDefinition, binding, jt, experiences, activationSnapshot);
@@ -687,138 +674,6 @@ public class CaseContextChangedEventHandler {
             escalation.escalationReason()));
   }
 
-  private void publishHumanTaskSchedule(
-      final CaseInstance caseInstance,
-      final CaseDefinition caseDefinition,
-      final Binding binding,
-      final HumanTaskTarget target,
-      final List<RetrievedExperience> experiences,
-      JsonNode activationSnapshot) {
-    if (!humanTaskScheduler.isResolvable()) {
-      LOG.warnf(
-          "No HumanTaskScheduler on classpath — skipping human task binding '%s' caseId=%s",
-          binding.getName(), caseInstance.getUuid());
-      return;
-    }
-
-    final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
-
-    if (target.payloadType() != null && target.inputMapping() != null && !inputData.isEmpty()) {
-      try {
-        var bridge = bridgeResolver.resolveByType(target.payloadType());
-        bridge.initialise(caseInstance.getCaseContext(), MAPPER.valueToTree(inputData));
-      } catch (Exception e) {
-        LOG.warnf(
-            e,
-            "Bridge validation failed for HumanTask binding '%s' caseId=%s — "
-                + "inputMapping output does not match payloadType %s. PlanItem stays PENDING.",
-            binding.getName(),
-            caseInstance.getUuid(),
-            target.payloadType().getName());
-        return;
-      }
-    }
-
-    final JsonNode caseContext =
-        caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
-
-    try {
-      final Set<String> resolvedGroups =
-          resolveCandidateSet(target.candidateGroups(), caseContext, "candidateGroups");
-      final Set<String> resolvedUsers =
-          resolveCandidateSet(target.candidateUsers(), caseContext, "candidateUsers");
-
-      final HumanTaskRoutingStrategy humanTaskStrategy =
-          strategyResolver.resolve(
-              HumanTaskRoutingStrategy.class, caseDefinition.getHumanTaskRouting());
-      final var routingCtx =
-          new HumanTaskRoutingContext(
-              caseInstance.getUuid(),
-              binding.getName(),
-              caseInstance.tenancyId,
-              caseInstance.getCaseContext(),
-              caseDefinition,
-              experiences);
-      final var htCandidates = HumanTaskCandidates.of(resolvedGroups, resolvedUsers);
-
-      final HumanTaskRoutingResult routingResult =
-          humanTaskStrategy.select(routingCtx, htCandidates);
-
-      final Set<String> finalGroups;
-      final Set<String> finalUsers;
-      final Map<String, Double> scores;
-      switch (routingResult) {
-        case HumanTaskRoutingResult.Enriched e -> {
-          finalGroups = e.candidateGroups();
-          finalUsers = e.candidateUsers();
-          scores = e.candidateScores();
-        }
-        case HumanTaskRoutingResult.Unchanged u -> {
-          finalGroups = resolvedGroups;
-          finalUsers = resolvedUsers;
-          scores = Map.of();
-        }
-        case HumanTaskRoutingResult.Escalated e -> {
-          LOG.warnf(
-              "HumanTask routing escalated for caseId=%s binding=%s: %s",
-              caseInstance.getUuid(), binding.getName(), e.reason());
-          finalGroups = resolvedGroups;
-          finalUsers = resolvedUsers;
-          scores = Map.of();
-        }
-      }
-
-      final java.time.Instant caseBudgetDeadline =
-          java.util.Optional.ofNullable(caseInstance.getPropagationContext())
-              .flatMap(PropagationContext::getDeadline)
-              .orElse(null);
-      final java.time.Instant expiresAtDeadline = resolveExpiresAtDeadline(caseInstance, target);
-      final String resolvedTitle =
-          resolveStringExpression(caseInstance, target.titleExpression(), "titleExpression");
-      final String resolvedScope =
-          resolveStringExpression(caseInstance, target.scopeExpression(), "scopeExpression");
-
-      LOG.infof(
-          "Scheduling human task: caseId=%s binding=%s template=%s deadline=%s expiresAtDeadline=%s",
-          caseInstance.getUuid(),
-          binding.getName(),
-          target.templateRef(),
-          caseBudgetDeadline,
-          expiresAtDeadline);
-
-      final String payloadTypeName =
-          target.payloadType() != null ? target.payloadType().getName() : null;
-      final String resolutionTypeName =
-          target.resolutionType() != null ? target.resolutionType().getName() : null;
-
-      humanTaskScheduler
-          .get()
-          .schedule(
-              new HumanTaskScheduleRequest(
-                  caseInstance.getUuid(),
-                  caseInstance.tenancyId,
-                  binding.getName(),
-                  target,
-                  inputData,
-                  payloadTypeName,
-                  resolutionTypeName,
-                  finalGroups,
-                  finalUsers,
-                  caseBudgetDeadline,
-                  expiresAtDeadline,
-                  resolvedTitle,
-                  resolvedScope,
-                  experiences,
-                  scores));
-    } catch (Exception t) {
-      LOG.warnf(
-          t,
-          "HumanTask candidate set resolution failed for caseId=%s binding=%s — PlanItem stays PENDING",
-          caseInstance.getUuid(),
-          binding.getName());
-    }
-  }
-
   private void publishJudgment(
       final CaseInstance caseInstance,
       final CaseDefinition caseDefinition,
@@ -1017,27 +872,6 @@ public class CaseContextChangedEventHandler {
     };
   }
 
-  private java.time.Instant resolveExpiresAtDeadline(
-      final CaseInstance caseInstance, final HumanTaskTarget target) {
-    if (target.expiresAtExpression() == null) {
-      return null;
-    }
-    return expressionEngineRegistry
-        .extractString(target.expiresAtExpression(), caseInstance.getCaseContext())
-        .map(
-            s -> {
-              try {
-                return java.time.Instant.parse(s);
-              } catch (Exception e) {
-                LOG.warnf(
-                    "expiresAtExpression result '%s' is not a valid ISO-8601 instant — ignoring",
-                    s);
-                return null;
-              }
-            })
-        .orElse(null);
-  }
-
   private String resolveStringExpression(
       final CaseInstance caseInstance,
       final io.casehub.platform.api.expression.ExpressionEvaluator evaluator,
@@ -1048,33 +882,6 @@ public class CaseContextChangedEventHandler {
     return expressionEngineRegistry
         .extractString(evaluator, caseInstance.getCaseContext())
         .orElse(null);
-  }
-
-  private Map<String, Object> evaluateInputMapping(
-      final CaseInstance caseInstance, final HumanTaskTarget target) {
-    if (target.inputMapping() == null) {
-      return Map.of();
-    }
-    if (target.inputMapping() instanceof JQExpressionEvaluator jq) {
-      try {
-        final ValidationResult vr =
-            jqEvaluator.eval(
-                jq.expression(),
-                caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode());
-        if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
-          LOG.warnf("inputMapping evaluation failed for HumanTaskTarget: %s", vr.error());
-          return Map.of();
-        }
-        return MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
-      } catch (Exception e) {
-        LOG.warnf(e, "inputMapping evaluation failed for HumanTaskTarget — using empty input");
-        return Map.of();
-      }
-    }
-    LOG.warnf(
-        "Unsupported inputMapping evaluator type '%s' — using empty input",
-        target.inputMapping().getClass().getName());
-    return Map.of();
   }
 
   private void tryProvision(

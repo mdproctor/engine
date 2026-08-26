@@ -19,15 +19,17 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.CallerConfig;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.spi.CallerRefParser;
-import io.casehub.engine.common.spi.HumanTaskScheduleRequest;
-import io.casehub.engine.common.spi.HumanTaskScheduler;
+import io.casehub.engine.common.spi.JudgmentPayload;
+import io.casehub.engine.common.spi.JudgmentRequest;
+import io.casehub.engine.common.spi.JudgmentScheduler;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
@@ -47,7 +49,7 @@ import java.util.UUID;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
-public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
+public class CloudEventHumanTaskScheduler implements JudgmentScheduler {
 
   private static final Logger LOG = Logger.getLogger(CloudEventHumanTaskScheduler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -57,7 +59,13 @@ public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
   @Inject Event<CloudEvent> cloudEventEmitter;
 
   @Override
-  public void schedule(HumanTaskScheduleRequest request) {
+  public void schedule(JudgmentRequest request) {
+    if (!(request.payload() instanceof JudgmentPayload.BindingPayload payload)) {
+      LOG.warnf(
+          "CloudEventHumanTaskScheduler only handles BindingPayload — got %s",
+          request.payload().getClass().getSimpleName());
+      return;
+    }
     var plan = registry.get(request.caseId()).orElse(null);
     if (plan == null) {
       LOG.warnf(
@@ -83,11 +91,12 @@ public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
     }
 
     String callerRef = CallerRefParser.encodePlanItem(request.caseId(), item.id());
-    HumanTaskTarget target = request.target();
+    JudgmentTarget target = request.target();
+    CallerConfig.Human human = target.callerConfig() instanceof CallerConfig.Human h ? h : null;
 
-    ObjectNode data = buildDataPayload(request, target, callerRef);
+    ObjectNode data = buildDataPayload(request, payload, target, human, callerRef);
 
-    CloudEventBuilder builder =
+    CloudEventBuilder ceBuilder =
         CloudEventBuilder.v1()
             .withId(UUID.randomUUID().toString())
             .withType(WorkCloudEventTypes.CREATE)
@@ -96,11 +105,11 @@ public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
             .withData(data.toString().getBytes())
             .withExtension(WorkCloudEventTypes.EXT_TENANCY_ID, request.tenancyId());
 
-    if (target.isTemplateMode() && target.templateRef() != null) {
-      builder.withExtension(WorkCloudEventTypes.EXT_TEMPLATE_ID, target.templateRef());
+    if (human != null && human.templateRef() != null) {
+      ceBuilder.withExtension(WorkCloudEventTypes.EXT_TEMPLATE_ID, human.templateRef());
     }
 
-    CloudEvent cloudEvent = builder.build();
+    CloudEvent cloudEvent = ceBuilder.build();
     cloudEventEmitter.fireAsync(cloudEvent);
 
     planItemStore.save(
@@ -119,48 +128,55 @@ public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
         request.tenancyId());
     item.markDelegated();
 
+    boolean templateMode = human != null && human.templateRef() != null;
     LOG.infof(
-        "CloudEvent emitted for HumanTask binding callerRef=%s type=%s",
-        callerRef, target.isTemplateMode() ? "template" : "inline");
+        "CloudEvent emitted for judgment binding callerRef=%s type=%s",
+        callerRef, templateMode ? "template" : "inline");
   }
 
   private ObjectNode buildDataPayload(
-      HumanTaskScheduleRequest request, HumanTaskTarget target, String callerRef) {
+      JudgmentRequest request,
+      JudgmentPayload.BindingPayload payload,
+      JudgmentTarget target,
+      CallerConfig.Human human,
+      String callerRef) {
     ObjectNode data = MAPPER.createObjectNode();
 
     data.put("callerRef", callerRef);
 
-    String title = request.resolvedTitle() != null ? request.resolvedTitle() : target.title();
+    String humanTitle = human != null ? human.title() : null;
+    String title = payload.resolvedTitle() != null ? payload.resolvedTitle() : humanTitle;
     if (title != null) {
       data.put("title", title);
     }
 
-    String scope = request.resolvedScope() != null ? request.resolvedScope() : target.scope();
+    String humanScope = human != null ? human.scope() : null;
+    String scope = payload.resolvedScope() != null ? payload.resolvedScope() : humanScope;
     if (scope != null) {
       data.put("scope", scope);
     }
 
-    if (target.isTemplateMode() && target.templateRef() != null) {
-      data.put("templateId", target.templateRef());
+    if (human != null && human.templateRef() != null) {
+      data.put("templateId", human.templateRef());
     }
 
-    String candidateGroups = toCsv(request.resolvedCandidateGroups());
+    String candidateGroups = toCsv(payload.resolvedCandidateGroups());
     if (candidateGroups != null) {
       data.put("candidateGroups", candidateGroups);
     }
 
-    String candidateUsers = toCsv(request.resolvedCandidateUsers());
+    String candidateUsers = toCsv(payload.resolvedCandidateUsers());
     if (candidateUsers != null) {
       data.put("candidateUsers", candidateUsers);
     }
 
-    String payload = serializeToJson(request.inputData());
-    if (payload != null) {
-      data.put("payload", payload);
+    String inputJson = serializeToJson(payload.inputData());
+    if (inputJson != null) {
+      data.put("payload", inputJson);
     }
 
     Instant effectiveDeadline =
-        earliestOf(request.expiresAtDeadline(), request.caseBudgetDeadline());
+        earliestOf(payload.expiresAtDeadline(), payload.caseBudgetDeadline());
     if (effectiveDeadline == null && target.expiresIn() != null) {
       effectiveDeadline = Instant.now().plus(target.expiresIn());
     }
@@ -168,32 +184,33 @@ public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
       data.put("expiresAt", effectiveDeadline.toString());
     }
 
-    if (target.claimDeadlineHours() != null) {
-      data.put("claimDeadlineBusinessHours", target.claimDeadlineHours());
+    if (human != null && human.claimDeadlineHours() != null) {
+      data.put("claimDeadlineBusinessHours", human.claimDeadlineHours());
     }
 
-    if (request.payloadTypeName() != null) {
-      data.put("payloadTypeName", request.payloadTypeName());
+    if (payload.payloadTypeName() != null) {
+      data.put("payloadTypeName", payload.payloadTypeName());
     }
 
-    if (request.resolutionTypeName() != null) {
-      data.put("resolutionTypeName", request.resolutionTypeName());
+    if (payload.resolutionTypeName() != null) {
+      data.put("resolutionTypeName", payload.resolutionTypeName());
     }
 
-    String scores = serializeToJson(request.candidateScores());
+    String scores = serializeToJson(payload.candidateScores());
     if (scores != null) {
       data.put("candidateScores", scores);
     }
 
-    String experiences = serializeExperiences(request.experiences());
+    String experiences = serializeExperiences(payload.experiences());
     if (experiences != null) {
       data.put("routingExperiences", experiences);
     }
 
-    if (target.outcomes() != null && !target.outcomes().isEmpty()) {
-      ArrayNode outcomes = data.putArray("permittedOutcomes");
-      for (String outcome : target.outcomes()) {
-        outcomes.addObject().put("name", outcome);
+    Set<String> outcomes = human != null ? human.outcomes() : null;
+    if (outcomes != null && !outcomes.isEmpty()) {
+      ArrayNode outcomesArray = data.putArray("permittedOutcomes");
+      for (String outcome : outcomes) {
+        outcomesArray.addObject().put("name", outcome);
       }
     }
 
@@ -232,7 +249,7 @@ public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
     }
   }
 
-  private static String extractOutputMappingExpression(HumanTaskTarget target) {
+  private static String extractOutputMappingExpression(JudgmentTarget target) {
     if (target == null || target.outputMapping() == null) return null;
     ExpressionEvaluator evaluator = target.outputMapping();
     if (evaluator instanceof JQExpressionEvaluator jq) {

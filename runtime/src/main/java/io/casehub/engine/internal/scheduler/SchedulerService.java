@@ -121,8 +121,6 @@ public class SchedulerService {
         }
         case SubCaseTarget st ->
             LOG.warnf("Schedule binding '%s' has SubCase target — skipping", binding.getName());
-        case io.casehub.api.model.HumanTaskTarget ht ->
-            LOG.warnf("Schedule binding '%s' has HumanTask target — skipping", binding.getName());
         case ExtensionTarget et ->
             LOG.warnf("Schedule binding '%s' has Extension target — skipping", binding.getName());
         case io.casehub.api.model.JudgmentTarget jt ->
@@ -239,9 +237,6 @@ public class SchedulerService {
         data.put("capabilityName", capabilityName);
       }
       case SubCaseTarget ignored ->
-          throw new IllegalStateException(
-              "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
-      case io.casehub.api.model.HumanTaskTarget ignored ->
           throw new IllegalStateException(
               "createJobData called with non-CapabilityTarget binding '" + binding.getName() + "'");
       case io.casehub.api.model.SignalTarget ignored ->

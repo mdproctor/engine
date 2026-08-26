@@ -24,7 +24,7 @@ import com.fasterxml.jackson.databind.deser.std.StdDeserializer;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.ExecutionMode;
-import io.casehub.api.model.HumanTaskTarget;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.LifecycleScope;
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.api.model.OutcomeAction;
@@ -164,7 +164,7 @@ public class BindingDeserializer extends StdDeserializer<Binding> {
     } else if (node.has("subCase")) {
       builder.subCase(deserializeSubCase(node.get("subCase"), codec, ctxt));
     } else if (node.has("humanTask")) {
-      builder.humanTask(deserializeHumanTask(node.get("humanTask"), codec, ctxt));
+      builder.judgment(deserializeHumanTask(node.get("humanTask"), codec, ctxt));
     } else if (node.has("signal")) {
       @SuppressWarnings("unchecked")
       Map<String, Object> payload =
@@ -197,13 +197,11 @@ public class BindingDeserializer extends StdDeserializer<Binding> {
     return b.build();
   }
 
-  private HumanTaskTarget deserializeHumanTask(
+  private JudgmentTarget deserializeHumanTask(
       JsonNode node, ObjectCodec codec, DeserializationContext ctxt) throws IOException {
-    HumanTaskTarget.Builder b;
+    JudgmentTarget.Builder b = JudgmentTarget.forHuman();
     if (node.has("templateRef")) {
-      b = HumanTaskTarget.template(node.get("templateRef").asText());
-    } else {
-      b = HumanTaskTarget.inline();
+      b.templateRef(node.get("templateRef").asText());
     }
     if (node.has("title")) b.title(node.get("title").asText());
     if (node.has("candidateGroups")) {

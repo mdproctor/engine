@@ -263,7 +263,7 @@ public class CbrCaseRetainObserver implements CaseOutcomeObserver {
     for (Binding binding : definition.getBindings()) {
       switch (binding.target()) {
         case CapabilityTarget ct -> map.put(binding.getName(), ct.capability().name());
-        case io.casehub.api.model.HumanTaskTarget ht -> map.put(binding.getName(), null);
+        case io.casehub.api.model.JudgmentTarget jt -> map.put(binding.getName(), null);
         default -> {
           /* SubCase, Extension — not retained */
         }
