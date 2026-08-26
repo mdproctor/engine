@@ -56,60 +56,62 @@ public class EngineStrategyResolver implements StrategyResolver {
     this.defaults = new HashMap<>();
   }
 
-  @Inject
-  public EngineStrategyResolver(
-      @Any Instance<io.casehub.api.spi.routing.AgentRoutingStrategy> agentStrategies,
-      @Any Instance<io.casehub.api.spi.routing.ImplementationRoutingStrategy> implStrategies,
-      @Any Instance<io.casehub.api.spi.routing.CandidateMatchingStrategy> matchStrategies,
-      @Any Instance<io.casehub.api.spi.routing.CandidateSetStrategy> candidateSetStrategies,
-      @Any
-          Instance<io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy>
-              execStrategies,
-      @Any Instance<io.casehub.api.spi.routing.TrustRoutingPolicyProvider> trustStrategies,
-      @Any Instance<io.casehub.api.context.CaseContextStoreFactory> contextStoreFactories,
-      @Any Instance<io.casehub.api.spi.routing.HumanTaskRoutingStrategy> humanTaskStrategies,
-      @Any Instance<io.casehub.api.spi.CaseCorrelationResolver> correlationResolvers,
-      @Any Instance<io.casehub.engine.plan.DecompositionStrategy<?>> decompositionStrategies,
-      @Any Instance<io.casehub.api.spi.routing.GoalFormationStrategy> goalFormationStrategies,
-      @Any Instance<io.casehub.api.spi.routing.GoalRevisionStrategy> goalRevisionStrategies,
-      @Any Instance<io.casehub.api.spi.ExchangeProjectionStrategy> projectionStrategies,
-      @Any Instance<io.casehub.api.spi.DataChannelFactory> channelFactories,
-      @Any Instance<io.casehub.api.spi.recovery.ErrorClassifier> errorClassifiers,
-      @Any Instance<io.casehub.engine.plan.adaptation.AdaptationMetaReasoner> metaReasoners,
-      @Any Instance<io.casehub.engine.plan.adaptation.RepairStrategy> repairStrategies,
-      @Any Instance<io.casehub.engine.plan.adaptation.OptimizationStrategy> optimizationStrategies,
-      @Any Instance<io.casehub.engine.plan.adaptation.AdaptationTrigger> adaptationTriggers,
-      @Any Instance<NamedStrategy> allStrategies) {
-    this();
-    registerStrategies(agentStrategies);
-    registerStrategies(implStrategies);
-    registerStrategies(matchStrategies);
-    registerStrategies(candidateSetStrategies);
-    registerStrategies(execStrategies);
-    registerStrategies(trustStrategies);
-    registerStrategies(contextStoreFactories);
-    registerStrategies(humanTaskStrategies);
-    registerStrategies(correlationResolvers);
-    registerStrategies(decompositionStrategies);
-    registerStrategies(goalFormationStrategies);
-    registerStrategies(goalRevisionStrategies);
-    registerStrategies(projectionStrategies);
-    registerStrategies(channelFactories);
-    registerStrategies(errorClassifiers);
-    registerStrategies(metaReasoners);
-    registerStrategies(repairStrategies);
-    registerStrategies(optimizationStrategies);
-    registerStrategies(adaptationTriggers);
-    registerRemainingStrategies(allStrategies);
+    @Inject
+    public EngineStrategyResolver(
+            @Any Instance<io.casehub.api.spi.routing.AgentRoutingStrategy> agentStrategies,
+            @Any Instance<io.casehub.api.spi.routing.ImplementationRoutingStrategy> implStrategies,
+            @Any Instance<io.casehub.api.spi.routing.CandidateMatchingStrategy> matchStrategies,
+            @Any Instance<io.casehub.api.spi.routing.CandidateSetStrategy> candidateSetStrategies,
+            @Any
+            Instance<io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy>
+                    execStrategies,
+            @Any Instance<io.casehub.api.spi.routing.TrustRoutingPolicyProvider> trustStrategies,
+            @Any Instance<io.casehub.api.context.CaseContextStoreFactory> contextStoreFactories,
+            @Any Instance<io.casehub.api.spi.routing.HumanTaskRoutingStrategy> humanTaskStrategies,
+            @Any Instance<io.casehub.api.spi.CaseCorrelationResolver> correlationResolvers,
+            @Any Instance<io.casehub.engine.plan.DecompositionStrategy<?>> decompositionStrategies,
+            @Any Instance<io.casehub.api.spi.routing.GoalFormationStrategy> goalFormationStrategies,
+            @Any Instance<io.casehub.api.spi.routing.GoalRevisionStrategy> goalRevisionStrategies,
+            @Any Instance<io.casehub.api.spi.ExchangeProjectionStrategy> projectionStrategies,
+            @Any Instance<io.casehub.api.spi.DataChannelFactory> channelFactories,
+            @Any Instance<io.casehub.api.spi.recovery.ErrorClassifier> errorClassifiers,
+            @Any Instance<io.casehub.engine.plan.adaptation.AdaptationMetaReasoner> metaReasoners,
+            @Any Instance<io.casehub.engine.plan.adaptation.RepairStrategy> repairStrategies,
+            @Any Instance<io.casehub.engine.plan.adaptation.OptimizationStrategy> optimizationStrategies,
+            @Any Instance<io.casehub.engine.plan.adaptation.AdaptationTrigger> adaptationTriggers,
+            @Any Instance<io.casehub.api.spi.JudgmentVerifier> judgmentVerifiers,
+            @Any Instance<NamedStrategy> allStrategies) {
+        this();
+        registerStrategies(agentStrategies);
+        registerStrategies(implStrategies);
+        registerStrategies(matchStrategies);
+        registerStrategies(candidateSetStrategies);
+        registerStrategies(execStrategies);
+        registerStrategies(trustStrategies);
+        registerStrategies(contextStoreFactories);
+        registerStrategies(humanTaskStrategies);
+        registerStrategies(correlationResolvers);
+        registerStrategies(decompositionStrategies);
+        registerStrategies(goalFormationStrategies);
+        registerStrategies(goalRevisionStrategies);
+        registerStrategies(projectionStrategies);
+        registerStrategies(channelFactories);
+        registerStrategies(errorClassifiers);
+        registerStrategies(metaReasoners);
+        registerStrategies(repairStrategies);
+        registerStrategies(optimizationStrategies);
+        registerStrategies(adaptationTriggers);
+        registerStrategies(judgmentVerifiers);
+        registerRemainingStrategies(allStrategies);
 
-    org.jboss.logging.Logger.getLogger(EngineStrategyResolver.class)
-        .infof(
-            "EngineStrategyResolver discovered %d strategies, defaults: %s",
-            index.values().stream().mapToInt(Map::size).sum(),
-            defaults.entrySet().stream()
-                .map(e -> e.getKey().getSimpleName() + "=" + e.getValue().id())
-                .toList());
-  }
+        org.jboss.logging.Logger.getLogger(EngineStrategyResolver.class)
+                                .infof(
+                                        "EngineStrategyResolver discovered %d strategies, defaults: %s",
+                                        index.values().stream().mapToInt(Map::size).sum(),
+                                        defaults.entrySet().stream()
+                                                .map(e -> e.getKey().getSimpleName() + "=" + e.getValue().id())
+                                                .toList());
+    }
 
   private void registerRemainingStrategies(Instance<NamedStrategy> allStrategies) {
     for (Instance.Handle<NamedStrategy> handle : allStrategies.handles()) {
