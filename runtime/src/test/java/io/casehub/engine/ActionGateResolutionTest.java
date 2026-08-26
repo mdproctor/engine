@@ -299,7 +299,7 @@ class ActionGateResolutionTest {
       capturedRejected.add(e);
     }
 
-    // ActionGateScheduleRequest is now dispatched via ActionGateScheduler SPI, not event bus
+    // Gate path dispatches via JudgmentScheduler with GatePayload
   }
 
   // --- Helpers ---
