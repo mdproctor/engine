@@ -13,18 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.spi;
+package io.casehub.engine.common.internal.event;
 
-import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.JudgmentTarget;
-import jakarta.annotation.Nullable;
-
+import io.casehub.api.model.JudgmentResponse;
+import java.util.Objects;
 import java.util.UUID;
 
-public record VerificationContext(
-        UUID caseId,
-        String tenancyId,
-        String bindingName,
-        JudgmentTarget target,
-        @Nullable CaseContext caseContext,
-        @Nullable String origin) {}
+public record JudgmentResponseEvent(
+    UUID caseId,
+    String tenancyId,
+    String bindingName,
+    long judgmentId,
+    JudgmentResponse response) {
+
+  public JudgmentResponseEvent {
+    Objects.requireNonNull(caseId, "caseId required");
+    Objects.requireNonNull(tenancyId, "tenancyId required");
+    Objects.requireNonNull(bindingName, "bindingName required");
+    Objects.requireNonNull(response, "response required");
+  }
+}

@@ -80,6 +80,10 @@ public final class EventBusAddresses {
    */
   public static final String ACTION_GATE_CANCELLED = "casehub.action.gate.cancelled";
 
+  // --- Judgment lifecycle ---
+
+  public static final String JUDGMENT_RESPONSE = "casehub.judgment.response";
+
   // --- Worker outcome lifecycle (semantic DECLINED/FAILED) ---
 
   /**
