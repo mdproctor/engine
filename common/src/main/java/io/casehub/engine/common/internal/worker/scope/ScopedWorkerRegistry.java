@@ -22,7 +22,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @ApplicationScoped
-public class ScopedWorkerRegistry {
+public class ScopedWorkerRegistry implements io.casehub.engine.common.spi.Resettable {
 
   private final ConcurrentHashMap<ScopeKey, ScopedWorkerSession> sessions =
       new ConcurrentHashMap<>();
@@ -68,6 +68,13 @@ public class ScopedWorkerRegistry {
       }
       executionLocks.remove(key);
     }
+  }
+
+  @Override
+  public void reset() {
+    sessions.values().forEach(this::terminateSession);
+    sessions.clear();
+    executionLocks.clear();
   }
 
   private void terminateSession(ScopedWorkerSession session) {
