@@ -89,7 +89,8 @@ public sealed interface CallerConfig
         ExpressionEvaluator scopeExpression,
         String priority,
         String templateRef,
-        Class<?> payloadType
+        Class<?> payloadType,
+        @Nullable QuorumConfig quorum  // M-of-N approval (subsumes OversightGateService)
     ) implements CallerConfig {}
 
     record Llm(
@@ -196,7 +197,8 @@ public sealed interface JudgmentPayload
         @Nullable String resolutionTypeName,
         @Nullable Set<String> resolvedCandidateGroups,
         @Nullable Set<String> resolvedCandidateUsers,
-        @Nullable Instant deadline,
+        @Nullable Instant caseBudgetDeadline,   // from PropagationContext (case-level)
+        @Nullable Instant expiresAtDeadline,     // from binding's expiresAt expression (judgment-level SLA)
         @Nullable String resolvedTitle,
         @Nullable String resolvedScope,
         List<RetrievedExperience> experiences,
@@ -214,7 +216,9 @@ public sealed interface JudgmentPayload
 }
 ```
 
-**NoOpJudgmentScheduler** — `@DefaultBean @ApplicationScoped` no-op default in `runtime/internal/worker/`.
+**NoOpJudgmentScheduler** — `@DefaultBean @ApplicationScoped` no-op default in `runtime/internal/worker/`. Note: this changes the CDI discovery pattern from optional `Instance<>` injection (current HumanTaskScheduler) to `@DefaultBean` — consistent with the engine's established SPI pattern (PP-20260514-engine-spi-noops-defaultbean).
+
+**EngineStrategyResolver** — gains explicit `@Any Instance<JudgmentVerifier>` and `@Any Instance<JudgmentEscalator>` constructor parameters for Quarkus ARC build-time discovery (per GE-20260704-d6aacc — `Instance<SuperInterface>` does not discover sub-interface beans without explicit injection).
 
 **Implementations:**
 - `CloudEventJudgmentScheduler` (in `work-cloudevent` module) — replaces both `CloudEventHumanTaskScheduler` and `CloudEventActionGateScheduler`
@@ -263,7 +267,7 @@ public record VerificationContext(
     String bindingName,
     JudgmentTarget target,
     CaseContext caseContext,
-    JudgmentOrigin origin
+    JudgmentPayload payload  // Sealed type — discriminate via pattern match, not separate enum
 ) {}
 ```
 
@@ -346,15 +350,38 @@ The `publishJudgment` method:
 2. Handler builds `JudgmentRequest` with `origin=GATE`, `gateAction`, `deferredOutput`
 3. Submits to `JudgmentScheduler` (replaces direct `ActionGateScheduler.schedule()`)
 
+**Pending judgment state** (new `PendingJudgment`):
+
+Between `JudgmentScheduler.schedule()` and response arrival, state is stored in `PendingJudgment` on `CaseInstance` (in-memory, same pattern as `PendingActionGate`):
+
+```java
+public record PendingJudgment(
+    long judgmentId,                       // Unique ID for correlation
+    String bindingName,
+    JudgmentPayload payload,              // Carries origin-specific state
+    @Nullable String workerId,            // Gate path: originating worker
+    @Nullable String idempotency,         // Gate path: for re-fire
+    @Nullable Map<String, Object> deferredOutput,  // Gate path: held worker output
+    Instant yieldedAt
+) {}
+```
+
+**Concurrency constraint (v1):** One pending judgment per case per origin type. Multiple binding-declared judgments can coexist (different bindings), but only one gate judgment at a time (same constraint as current `PendingActionGate`). `CaseInstance` stores `Map<String, PendingJudgment>` keyed by bindingName (binding path) or `"__gate__"` (gate path).
+
 **Judgment response path** (new `JudgmentResponseHandler`):
 1. Receives `JudgmentResponseEvent` (from scheduler/work-adapter/CloudEvent consumer)
-2. Runs `JudgmentVerifier.verify()` synchronously
-3. On `Accepted`: applies output mapping, publishes `CONTEXT_CHANGED`
-4. On non-accepted: runs `JudgmentEscalator.escalate()`
+2. Correlates to `PendingJudgment` by caseId + judgmentId
+3. Runs `JudgmentVerifier.verify()` synchronously
+4. **On `Accepted` — origin-dependent data flow:**
+   - **Binding origin:** apply `outputMapping(response.decision)` to context → publish `CONTEXT_CHANGED`
+   - **Gate origin:** write `judgmentApproved` signal to context, clear `PendingJudgment`, re-fire `WorkflowExecutionCompleted.approved()` with `deferredOutput` (same as current `ActionGateApprovedHandler`)
+5. **On non-accepted:** runs `JudgmentEscalator.escalate()`
    - `ReYield` → re-submit to `JudgmentScheduler` with feedback
    - `Escalate` → re-submit with overridden CallerConfig
-   - `Fault` → fault the PlanItem
-5. Writes EventLog entries at each step
+   - `Fault`:
+     - **Binding origin:** fault the PlanItem
+     - **Gate origin:** write `judgmentRejected`/`judgmentExpired` signal to context, clear `PendingJudgment`, call `workerStatusListener.onWorkerCompleted()` with faulted status, record routing outcome via `RoutingOutcomeRecorder`, trigger `RecoveryCoordinator` for the originating worker
+6. Writes EventLog entries at each step
 
 ### 7. Ledger Events
 
@@ -383,9 +410,8 @@ All written via existing `EventLogRepository`. Metadata JSON matches existing pa
 | `HumanTaskScheduleRequest` | `JudgmentRequest` with `BindingPayload` |
 | `ActionGateScheduler` | `JudgmentScheduler` |
 | `ActionGateScheduleRequest` | `JudgmentRequest` with `GatePayload` |
-| `HumanTaskScheduleEvent` | `JudgmentScheduleEvent` |
-| `NoOpHumanTaskScheduler` | `NoOpJudgmentScheduler` |
-| `NoOpActionGateScheduler` | (absorbed into NoOpJudgmentScheduler) |
+| `Instance<HumanTaskScheduler>` optional injection | `NoOpJudgmentScheduler` `@DefaultBean` (CDI pattern change: optional → default) |
+| `NoOpActionGateScheduler` | (absorbed into `NoOpJudgmentScheduler`) |
 | `OversightGateService` | `JudgmentScheduler` + `QuorumConfig` on `CallerConfig.Human` |
 | `GateCompletionApplier` | (merged into `PlanItemCompletionApplier`) |
 | `ACTION_GATE_*` event types | `JUDGMENT_*` event types (see §7) |
@@ -420,7 +446,7 @@ public record DagNode<T>(
 
 **v1 approach:** Judgment steps in patterns are modeled as **separate case bindings** triggered between pattern nodes, not as mid-pattern pauses. The pattern completes its step, writes output to context, and a judgment binding fires on that context change. After the judgment completes, the next pattern step fires. This reuses the existing choreography model.
 
-**DagDriver yield (future):** `DagDriver` (`engine-common`) has the infrastructure for node-level pause/resume (it already tracks per-node state via `NodeState` sealed type). Adding a `Yielded` state to `NodeState` and having the driver pause on judgment nodes is architecturally clean. But integrating this with blocks' `PatternWorkerFunctionHandler` requires a new `WorkerFunction` lifecycle variant where the function can checkpoint and resume. Tracked as future work.
+**DagDriver yield (future):** `DagDriver` (`engine-common`) has the infrastructure for node-level pause/resume (it already tracks per-node state via `NodeState` sealed type). Adding a `Yielded` state to `NodeState` and having the driver pause on judgment nodes is architecturally clean. But two blockers exist: (1) `DagNode.task` enforces `Objects.requireNonNull(task)` — judgment-only nodes require either making `task` nullable with a sealed discriminator, or wrapping both in `sealed interface NodePayload permits TaskPayload, JudgmentPayload`. (2) Blocks' `PatternWorkerFunctionHandler` runs within a single worker function invocation — mid-pattern yield requires a new `WorkerFunction` lifecycle variant where the function can checkpoint and resume. Both tracked as future work.
 
 **LeafTask with JudgmentTarget** — blocks' `PrimitiveTask` and `PlannedTask` gain nullable `JudgmentTarget`. In v1, when present, the pattern decomposes the judgment step into a separate case binding (not mid-pattern yield). The "execute then review" pattern is achieved via binding sequencing.
 
