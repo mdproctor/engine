@@ -17,10 +17,12 @@ package io.casehub.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.model.PendingActionGate;
-import io.casehub.engine.common.spi.ActionGateScheduleRequest;
+import io.casehub.engine.common.spi.JudgmentPayload;
+import io.casehub.engine.common.spi.JudgmentRequest;
 import io.casehub.worker.api.PlannedAction;
 import java.util.Map;
 import java.util.Set;
@@ -61,17 +63,19 @@ class ActionGateResolutionTypeTest {
   }
 
   @Test
-  void actionGateScheduleEvent_carries_resolutionTypeName() {
-    var event =
-        new ActionGateScheduleRequest(
-            UUID.randomUUID(),
-            "tenant1",
+  void judgmentGatePayload_carries_resolutionTypeName() {
+    var target = JudgmentTarget.forHuman().prompt("Approve").build();
+    var payload =
+        new JudgmentPayload.GatePayload(
             1L,
             PlannedAction.of("desc", "type", Map.of()),
             new RiskDecision.GateRequired("reason", true, null, null, null, null, null),
             Set.of(),
-            ComplianceSignOff.class.getName());
-    assertThat(event.resolutionTypeName()).isEqualTo(ComplianceSignOff.class.getName());
+            ComplianceSignOff.class.getName(),
+            Map.of());
+    var request = new JudgmentRequest(UUID.randomUUID(), "tenant1", "__gate__", target, payload);
+    assertThat(((JudgmentPayload.GatePayload) request.payload()).resolutionTypeName())
+        .isEqualTo(ComplianceSignOff.class.getName());
   }
 
   @Test

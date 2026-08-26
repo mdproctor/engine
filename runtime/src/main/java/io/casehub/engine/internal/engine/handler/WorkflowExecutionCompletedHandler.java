@@ -25,6 +25,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.OutcomeAction;
 import io.casehub.api.model.OutcomePolicy;
 import io.casehub.api.model.WorkResult;
@@ -44,10 +45,12 @@ import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
-import io.casehub.engine.common.spi.ActionGateScheduleRequest;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.JudgmentPayload;
+import io.casehub.engine.common.spi.JudgmentRequest;
+import io.casehub.engine.common.spi.JudgmentScheduler;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
@@ -116,9 +119,7 @@ public class WorkflowExecutionCompletedHandler {
   jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
       outcomeRecorder;
 
-  @Inject
-  jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.ActionGateScheduler>
-      actionGateScheduler;
+  @Inject JudgmentScheduler judgmentScheduler;
 
   private static Long extractDurationMs(WorkflowExecutionCompleted event) {
     if (event.protocolMetadata() == null) {
@@ -694,13 +695,6 @@ public class WorkflowExecutionCompletedHandler {
     final String bindingName = event.bindingName();
     final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
-    if (!actionGateScheduler.isResolvable()) {
-      LOG.warnf(
-          "No ActionGateScheduler on classpath — skipping gate for caseId=%s",
-          caseInstance.getUuid());
-      return;
-    }
-
     Set<String> resolvedGroups;
     if (gate.candidateGroups() != null) {
       JsonNode contextNode = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
@@ -735,17 +729,21 @@ public class WorkflowExecutionCompletedHandler {
             gate.resolutionType()));
     caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
 
-    actionGateScheduler
-        .get()
-        .schedule(
-            new ActionGateScheduleRequest(
-                caseInstance.getUuid(),
-                caseInstance.tenancyId,
-                gateEventLog.id,
-                plannedAction,
-                gate,
-                resolvedGroups,
-                gate.resolutionType() != null ? gate.resolutionType().getName() : null));
+    var target =
+        JudgmentTarget.forHuman().prompt(gate.reason()).expiresIn(gate.expiresIn()).build();
+
+    var payload =
+        new JudgmentPayload.GatePayload(
+            gateEventLog.id,
+            plannedAction,
+            gate,
+            resolvedGroups,
+            gate.resolutionType() != null ? gate.resolutionType().getName() : null,
+            rawOutput);
+
+    judgmentScheduler.schedule(
+        new JudgmentRequest(
+            caseInstance.getUuid(), caseInstance.tenancyId, "__gate__", target, payload));
 
     lifecycleEvents
         .fireAsync(
