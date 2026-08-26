@@ -44,9 +44,12 @@ spec:
         contextChange:
           filter: ".investigation != null"
     - name: approve-trigger
-      humanTask:
-        title: "Approve investigation"
-        candidateGroups: [ senior-reviewers ]
+      judgment:
+        prompt: "Approve the investigation findings"
+        caller:
+          type: human
+          title: "Approve investigation"
+          candidateGroups: [ senior-reviewers ]
       on:
         contextChange:
           filter: ".verified == true"

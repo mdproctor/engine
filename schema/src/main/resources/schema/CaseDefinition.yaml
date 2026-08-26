@@ -1195,6 +1195,34 @@ $defs:
         $ref: "#/$defs/MistralAiModel"
       googleAiGemini:
         $ref: "#/$defs/GoogleAiGeminiModel"
+  AnthropicModel:
+    type: object
+    unevaluatedProperties: false
+    required:
+    - modelName
+    properties:
+      apiKey:
+        type: string
+      modelName:
+        type: string
+      version:
+        type: string
+      temperature:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+      maxTokens:
+        type: integer
+        minimum: 1
+      topP:
+        type: number
+        minimum: 0.0
+        maximum: 1.0
+      topK:
+        type: integer
+        minimum: 1
+      baseUrl:
+        type: string
   OpenAiModel:
     type: object
     unevaluatedProperties: false
@@ -1300,34 +1328,6 @@ $defs:
       topK:
         type: integer
         minimum: 1
-  AnthropicModel:
-    type: object
-    unevaluatedProperties: false
-    required:
-    - modelName
-    properties:
-      apiKey:
-        type: string
-      modelName:
-        type: string
-      version:
-        type: string
-      temperature:
-        type: number
-        minimum: 0.0
-        maximum: 1.0
-      maxTokens:
-        type: integer
-        minimum: 1
-      topP:
-        type: number
-        minimum: 0.0
-        maximum: 1.0
-      topK:
-        type: integer
-        minimum: 1
-      baseUrl:
-        type: string
 type: object
 properties:
   contextType:
