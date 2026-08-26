@@ -15,10 +15,11 @@
  */
 package io.casehub.engine.internal.worker;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.model.CallerIdentity;
-import io.casehub.api.model.EvidenceType;
 import io.casehub.api.model.JudgmentResponse;
 import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.spi.EscalationContext;
@@ -36,7 +37,8 @@ class DefaultJudgmentEscalatorTest {
 
   @Test
   void reYieldsOnInsufficientEvidence() {
-    var ctx = ctx(new VerificationResult.InsufficientEvidence("missing", List.of("rationale")), 1, 3);
+    var ctx =
+        ctx(new VerificationResult.InsufficientEvidence("missing", List.of("rationale")), 1, 3);
     var result = escalator.escalate(ctx);
     assertInstanceOf(EscalationDecision.ReYield.class, result);
     assertTrue(((EscalationDecision.ReYield) result).feedback().contains("rationale"));
@@ -75,10 +77,8 @@ class DefaultJudgmentEscalatorTest {
     var target = JudgmentTarget.forHuman().prompt("Review").build();
     var response =
         new JudgmentResponse(
-            Map.of("d", "v"),
-            List.of(),
-            new CallerIdentity("u", "human", null),
-            Instant.now());
-    return new EscalationContext(UUID.randomUUID(), "t1", "b1", target, response, vr, attempt, maxAttempts);
+            Map.of("d", "v"), List.of(), new CallerIdentity("u", "human", null), Instant.now());
+    return new EscalationContext(
+        UUID.randomUUID(), "t1", "b1", target, response, vr, attempt, maxAttempts);
   }
 }

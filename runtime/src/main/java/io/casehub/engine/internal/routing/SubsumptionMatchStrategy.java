@@ -50,7 +50,7 @@ public class SubsumptionMatchStrategy implements CandidateMatchingStrategy {
   public List<MatchedWorker> match(CandidateMatchingContext context) {
     List<MatchedWorker> matched = new ArrayList<>();
     for (Worker worker : context.workers()) {
-      if (worker.capabilities().contains(context.capabilityName())) {
+      if (worker.capabilityNames().contains(context.capabilityName())) {
         matched.add(MatchedWorker.exact(worker));
         continue;
       }

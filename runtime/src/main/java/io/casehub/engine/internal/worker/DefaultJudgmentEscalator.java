@@ -40,8 +40,7 @@ public class DefaultJudgmentEscalator implements JudgmentEscalator {
 
     if (context.verificationResult() instanceof VerificationResult.InsufficientEvidence ie) {
       return new EscalationDecision.ReYield(
-          "Please provide the missing evidence: "
-              + String.join(", ", ie.missingRequirements()));
+          "Please provide the missing evidence: " + String.join(", ", ie.missingRequirements()));
     }
 
     if (context.verificationResult() instanceof VerificationResult.TrustTooLow ttl) {

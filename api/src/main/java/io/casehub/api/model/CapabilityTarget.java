@@ -29,11 +29,11 @@ public record CapabilityTarget(
   public CapabilityTarget(Capability capability) {
     this(
         capability,
-        capability.inputProjection() != null
-            ? new JQExpressionEvaluator(capability.inputProjection())
+        capability.inputSchema() != null
+            ? new JQExpressionEvaluator(capability.inputSchema())
             : null,
-        capability.outputProjection() != null
-            ? new JQExpressionEvaluator(capability.outputProjection())
+        capability.outputSchema() != null
+            ? new JQExpressionEvaluator(capability.outputSchema())
             : null);
   }
 }

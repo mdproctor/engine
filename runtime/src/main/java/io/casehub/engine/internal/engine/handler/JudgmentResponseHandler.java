@@ -43,6 +43,7 @@ public class JudgmentResponseHandler {
 
   @Inject StrategyResolver strategyResolver;
   @Inject JudgmentScheduler judgmentScheduler;
+
   // EventLogRepository injection deferred to migration batch
 
   @RunOnVirtualThread

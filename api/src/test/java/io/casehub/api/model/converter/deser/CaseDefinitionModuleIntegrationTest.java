@@ -90,7 +90,7 @@ class CaseDefinitionModuleIntegrationTest {
 
     CapabilityTarget ct = (CapabilityTarget) result.getBindings().get(0).target();
     assertEquals("analyse", ct.capability().name());
-    assertEquals(".data", ct.capability().inputProjection());
+    assertEquals(".data", ct.capability().inputSchema());
   }
 
   @Test

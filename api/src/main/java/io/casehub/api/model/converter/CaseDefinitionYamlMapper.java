@@ -435,7 +435,7 @@ public final class CaseDefinitionYamlMapper {
                 : null;
         ExpressionEvaluator inputEval =
             resolveExpression(rawInputNode, effectiveRegistry, expressionLang);
-        if (inputEval == null) inputEval = new JQExpressionEvaluator(cap.inputProjection());
+        if (inputEval == null) inputEval = new JQExpressionEvaluator(cap.inputSchema());
 
         JsonNode rawOutputNode =
             rawCap != null
@@ -445,7 +445,7 @@ public final class CaseDefinitionYamlMapper {
                 : null;
         ExpressionEvaluator outputEval =
             resolveExpression(rawOutputNode, effectiveRegistry, expressionLang);
-        if (outputEval == null) outputEval = new JQExpressionEvaluator(cap.outputProjection());
+        if (outputEval == null) outputEval = new JQExpressionEvaluator(cap.outputSchema());
 
         capTargetMap.put(sc.getName(), new CapabilityTarget(cap, inputEval, outputEval));
 
@@ -588,7 +588,7 @@ public final class CaseDefinitionYamlMapper {
           final Worker updatedWorker =
               Worker.builder()
                   .name(worker.name())
-                  .capabilityNames(worker.capabilities())
+                  .capabilityNames(worker.capabilityNames())
                   .function(sequenceFunc)
                   .executionPolicy(worker.executionPolicy())
                   .description(worker.description())

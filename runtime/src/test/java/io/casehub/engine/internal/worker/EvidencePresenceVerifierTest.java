@@ -15,7 +15,9 @@
  */
 package io.casehub.engine.internal.worker;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.casehub.api.model.CallerIdentity;
 import io.casehub.api.model.Evidence;

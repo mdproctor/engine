@@ -91,13 +91,12 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
-import org.jboss.logging.Logger;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class CaseContextChangedEventHandler {
@@ -379,7 +378,8 @@ public class CaseContextChangedEventHandler {
           publishHumanTaskSchedule(
               caseInstance, caseDefinition, binding, ht, experiences, activationSnapshot);
       case io.casehub.api.model.JudgmentTarget jt ->
-          publishJudgment(caseInstance, caseDefinition, binding, jt, experiences, activationSnapshot);
+          publishJudgment(
+              caseInstance, caseDefinition, binding, jt, experiences, activationSnapshot);
       case io.casehub.api.model.SignalTarget st ->
           eventBus.publish(
               EventBusAddresses.CONTEXT_SIGNAL,
@@ -819,152 +819,189 @@ public class CaseContextChangedEventHandler {
     }
   }
 
-    private void publishJudgment(
-            final CaseInstance caseInstance,
-            final CaseDefinition caseDefinition,
-            final Binding binding,
-            final io.casehub.api.model.JudgmentTarget target,
-            final List<io.casehub.api.spi.routing.RetrievedExperience> experiences,
-            JsonNode activationSnapshot) {
+  private void publishJudgment(
+      final CaseInstance caseInstance,
+      final CaseDefinition caseDefinition,
+      final Binding binding,
+      final io.casehub.api.model.JudgmentTarget target,
+      final List<io.casehub.api.spi.routing.RetrievedExperience> experiences,
+      JsonNode activationSnapshot) {
 
-        final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
+    final Map<String, Object> inputData = evaluateInputMapping(caseInstance, target);
 
-        final JsonNode caseContext =
-                caseInstance.getCaseContext().layer(io.casehub.api.context.ContextLayer.WORKING).asJsonNode();
+    final JsonNode caseContext =
+        caseInstance
+            .getCaseContext()
+            .layer(io.casehub.api.context.ContextLayer.WORKING)
+            .asJsonNode();
 
-        Set<String>         resolvedGroups = Set.of();
-        Set<String>         resolvedUsers  = Set.of();
-        Map<String, Double> scores         = Map.of();
-        String              resolvedTitle  = null;
-        String              resolvedScope  = null;
+    Set<String> resolvedGroups = Set.of();
+    Set<String> resolvedUsers = Set.of();
+    Map<String, Double> scores = Map.of();
+    String resolvedTitle = null;
+    String resolvedScope = null;
 
-        if (target.callerConfig() instanceof io.casehub.api.model.CallerConfig.Human human) {
-            try {
-                resolvedGroups = resolveCandidateSet(human.candidateGroups(), caseContext, "candidateGroups");
-                resolvedUsers  = resolveCandidateSet(human.candidateUsers(), caseContext, "candidateUsers");
-            } catch (Exception e) {
-                LOG.warnf(e, "Failed to resolve candidate sets for judgment binding '%s' caseId=%s",
-                          binding.getName(), caseInstance.getUuid());
-                return;
-            }
+    if (target.callerConfig() instanceof io.casehub.api.model.CallerConfig.Human human) {
+      try {
+        resolvedGroups =
+            resolveCandidateSet(human.candidateGroups(), caseContext, "candidateGroups");
+        resolvedUsers = resolveCandidateSet(human.candidateUsers(), caseContext, "candidateUsers");
+      } catch (Exception e) {
+        LOG.warnf(
+            e,
+            "Failed to resolve candidate sets for judgment binding '%s' caseId=%s",
+            binding.getName(),
+            caseInstance.getUuid());
+        return;
+      }
 
-            final io.casehub.api.spi.routing.HumanTaskRoutingStrategy humanTaskStrategy =
-                    strategyResolver.resolve(
-                            io.casehub.api.spi.routing.HumanTaskRoutingStrategy.class,
-                            caseDefinition.getHumanTaskRouting());
-            final var routingCtx =
-                    new io.casehub.api.spi.routing.HumanTaskRoutingContext(
-                            caseInstance.getUuid(),
-                            binding.getName(),
-                            caseInstance.tenancyId,
-                            caseInstance.getCaseContext(),
-                            caseDefinition,
-                            experiences);
-            final var htCandidates = io.casehub.api.spi.routing.HumanTaskCandidates.of(resolvedGroups, resolvedUsers);
-            final io.casehub.api.spi.routing.HumanTaskRoutingResult routingResult =
-                    humanTaskStrategy.select(routingCtx, htCandidates);
+      final io.casehub.api.spi.routing.HumanTaskRoutingStrategy humanTaskStrategy =
+          strategyResolver.resolve(
+              io.casehub.api.spi.routing.HumanTaskRoutingStrategy.class,
+              caseDefinition.getHumanTaskRouting());
+      final var routingCtx =
+          new io.casehub.api.spi.routing.HumanTaskRoutingContext(
+              caseInstance.getUuid(),
+              binding.getName(),
+              caseInstance.tenancyId,
+              caseInstance.getCaseContext(),
+              caseDefinition,
+              experiences);
+      final var htCandidates =
+          io.casehub.api.spi.routing.HumanTaskCandidates.of(resolvedGroups, resolvedUsers);
+      final io.casehub.api.spi.routing.HumanTaskRoutingResult routingResult =
+          humanTaskStrategy.select(routingCtx, htCandidates);
 
-            switch (routingResult) {
-                case io.casehub.api.spi.routing.HumanTaskRoutingResult.Enriched e -> {
-                    resolvedGroups = e.candidateGroups();
-                    resolvedUsers  = e.candidateUsers();
-                    scores         = e.candidateScores();
-                }
-                case io.casehub.api.spi.routing.HumanTaskRoutingResult.Unchanged u -> {}
-                case io.casehub.api.spi.routing.HumanTaskRoutingResult.Escalated e -> {
-                    LOG.warnf("Judgment routing escalated for caseId=%s binding=%s: %s",
-                              caseInstance.getUuid(), binding.getName(), e.reason());
-                }
-            }
-
-            if (human.title() != null) {resolvedTitle = human.title();}
-            if (human.titleExpression() != null) {
-                resolvedTitle = resolveStringExpression(caseInstance, human.titleExpression(), "titleExpression");
-            }
-            if (human.scope() != null) {resolvedScope = human.scope();}
-            if (human.scopeExpression() != null) {
-                resolvedScope = resolveStringExpression(caseInstance, human.scopeExpression(), "scopeExpression");
-            }
+      switch (routingResult) {
+        case io.casehub.api.spi.routing.HumanTaskRoutingResult.Enriched e -> {
+          resolvedGroups = e.candidateGroups();
+          resolvedUsers = e.candidateUsers();
+          scores = e.candidateScores();
         }
-
-        final java.time.Instant caseBudgetDeadline =
-                java.util.Optional.ofNullable(caseInstance.getPropagationContext())
-                                  .flatMap(io.casehub.api.context.PropagationContext::getDeadline)
-                                  .orElse(null);
-        final java.time.Instant expiresAtDeadline = resolveExpiresAtDeadline(caseInstance, target);
-
-        String payloadTypeName    = null;
-        String resolutionTypeName = null;
-        if (target.callerConfig() instanceof io.casehub.api.model.CallerConfig.Human human) {
-            if (human.payloadType() != null) {payloadTypeName = human.payloadType().getName();}
+        case io.casehub.api.spi.routing.HumanTaskRoutingResult.Unchanged u -> {}
+        case io.casehub.api.spi.routing.HumanTaskRoutingResult.Escalated e -> {
+          LOG.warnf(
+              "Judgment routing escalated for caseId=%s binding=%s: %s",
+              caseInstance.getUuid(), binding.getName(), e.reason());
         }
-        if (target.resolutionType() != null) {resolutionTypeName = target.resolutionType().getName();}
+      }
 
-        var payload = new io.casehub.engine.common.spi.JudgmentPayload.BindingPayload(
-                inputData, payloadTypeName, resolutionTypeName,
-                resolvedGroups, resolvedUsers,
-                caseBudgetDeadline, expiresAtDeadline,
-                resolvedTitle, resolvedScope,
-                experiences, scores);
-
-        var request = new io.casehub.engine.common.spi.JudgmentRequest(
-                caseInstance.getUuid(), caseInstance.tenancyId,
-                binding.getName(), target, payload);
-
-        LOG.infof("Scheduling judgment: caseId=%s binding=%s callerType=%s",
-                  caseInstance.getUuid(), binding.getName(),
-                  target.callerConfig().getClass().getSimpleName());
-
-        judgmentScheduler.schedule(request);
+      if (human.title() != null) {
+        resolvedTitle = human.title();
+      }
+      if (human.titleExpression() != null) {
+        resolvedTitle =
+            resolveStringExpression(caseInstance, human.titleExpression(), "titleExpression");
+      }
+      if (human.scope() != null) {
+        resolvedScope = human.scope();
+      }
+      if (human.scopeExpression() != null) {
+        resolvedScope =
+            resolveStringExpression(caseInstance, human.scopeExpression(), "scopeExpression");
+      }
     }
 
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> evaluateInputMapping(
-            final CaseInstance caseInstance,
-            final io.casehub.api.model.JudgmentTarget target) {
-        if (target.inputMapping() == null) {
-            return MAPPER.convertValue(
-                    caseInstance.getCaseContext().layer(io.casehub.api.context.ContextLayer.WORKING).asJsonNode(),
-                    MAP_TYPE);
+    final java.time.Instant caseBudgetDeadline =
+        java.util.Optional.ofNullable(caseInstance.getPropagationContext())
+            .flatMap(io.casehub.api.context.PropagationContext::getDeadline)
+            .orElse(null);
+    final java.time.Instant expiresAtDeadline = resolveExpiresAtDeadline(caseInstance, target);
+
+    String payloadTypeName = null;
+    String resolutionTypeName = null;
+    if (target.callerConfig() instanceof io.casehub.api.model.CallerConfig.Human human) {
+      if (human.payloadType() != null) {
+        payloadTypeName = human.payloadType().getName();
+      }
+    }
+    if (target.resolutionType() != null) {
+      resolutionTypeName = target.resolutionType().getName();
+    }
+
+    var payload =
+        new io.casehub.engine.common.spi.JudgmentPayload.BindingPayload(
+            inputData,
+            payloadTypeName,
+            resolutionTypeName,
+            resolvedGroups,
+            resolvedUsers,
+            caseBudgetDeadline,
+            expiresAtDeadline,
+            resolvedTitle,
+            resolvedScope,
+            experiences,
+            scores);
+
+    var request =
+        new io.casehub.engine.common.spi.JudgmentRequest(
+            caseInstance.getUuid(), caseInstance.tenancyId, binding.getName(), target, payload);
+
+    LOG.infof(
+        "Scheduling judgment: caseId=%s binding=%s callerType=%s",
+        caseInstance.getUuid(),
+        binding.getName(),
+        target.callerConfig().getClass().getSimpleName());
+
+    judgmentScheduler.schedule(request);
+  }
+
+  @SuppressWarnings("unchecked")
+  private Map<String, Object> evaluateInputMapping(
+      final CaseInstance caseInstance, final io.casehub.api.model.JudgmentTarget target) {
+    if (target.inputMapping() == null) {
+      return MAPPER.convertValue(
+          caseInstance
+              .getCaseContext()
+              .layer(io.casehub.api.context.ContextLayer.WORKING)
+              .asJsonNode(),
+          MAP_TYPE);
+    }
+    try {
+      if (target.inputMapping()
+          instanceof io.casehub.api.model.evaluator.JQExpressionEvaluator jqEval) {
+        final JsonNode ctx =
+            caseInstance
+                .getCaseContext()
+                .layer(io.casehub.api.context.ContextLayer.WORKING)
+                .asJsonNode();
+        final ValidationResult vr = jqEvaluator.eval(jqEval.expression(), ctx);
+        if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
+          return Map.of();
         }
+        return MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
+      }
+      return Map.of();
+    } catch (Exception e) {
+      LOG.warnf(
+          e, "Failed to evaluate judgment inputMapping for caseId=%s", caseInstance.getUuid());
+      return Map.of();
+    }
+  }
+
+  private java.time.Instant resolveExpiresAtDeadline(
+      final CaseInstance caseInstance, final io.casehub.api.model.JudgmentTarget target) {
+    if (target.expiresAtExpression() != null) {
+      String resolved =
+          resolveStringExpression(
+              caseInstance, target.expiresAtExpression(), "expiresAtExpression");
+      if (resolved != null && !resolved.isBlank()) {
         try {
-            if (target.inputMapping() instanceof io.casehub.api.model.evaluator.JQExpressionEvaluator jqEval) {
-                final JsonNode ctx = caseInstance.getCaseContext()
-                                                 .layer(io.casehub.api.context.ContextLayer.WORKING).asJsonNode();
-                final ValidationResult vr = jqEvaluator.eval(jqEval.expression(), ctx);
-                if (!vr.ok() || vr.output() == null || vr.output().isEmpty()) {
-                  return Map.of();
-                }
-                return MAPPER.convertValue(vr.output().get(0), MAP_TYPE);
-            }
-            return Map.of();
-        } catch (Exception e) {
-            LOG.warnf(e, "Failed to evaluate judgment inputMapping for caseId=%s", caseInstance.getUuid());
-            return Map.of();
+          return java.time.Instant.parse(resolved);
+        } catch (java.time.format.DateTimeParseException e) {
+          LOG.warnf(
+              "Invalid expiresAt value '%s' for caseId=%s — ignoring",
+              resolved, caseInstance.getUuid());
         }
+      }
     }
-
-    private java.time.Instant resolveExpiresAtDeadline(
-            final CaseInstance caseInstance,
-            final io.casehub.api.model.JudgmentTarget target) {
-        if (target.expiresAtExpression() != null) {
-            String resolved = resolveStringExpression(caseInstance, target.expiresAtExpression(), "expiresAtExpression");
-            if (resolved != null && !resolved.isBlank()) {
-                try {
-                    return java.time.Instant.parse(resolved);
-                } catch (java.time.format.DateTimeParseException e) {
-                    LOG.warnf("Invalid expiresAt value '%s' for caseId=%s — ignoring", resolved, caseInstance.getUuid());
-                }
-            }
-        }
-        if (target.expiresIn() != null) {
-            return java.time.Instant.now().plus(target.expiresIn());
-        }
-        return null;
+    if (target.expiresIn() != null) {
+      return java.time.Instant.now().plus(target.expiresIn());
     }
+    return null;
+  }
 
-
-    private Set<String> resolveCandidateSet(
+  private Set<String> resolveCandidateSet(
       final CandidateSetSpec spec, final JsonNode caseContext, final String fieldName) {
     if (spec == null) {
       return null;
@@ -1051,8 +1088,8 @@ public class CaseContextChangedEventHandler {
     final ExpressionEvaluator effectiveProjection =
         inputProjectionOverride != null
             ? inputProjectionOverride
-            : (capability.inputProjection() != null
-                ? new JQExpressionEvaluator(capability.inputProjection())
+            : (capability.inputSchema() != null
+                ? new JQExpressionEvaluator(capability.inputSchema())
                 : null);
     final Map<String, Object> inputData =
         transformAsMap(
