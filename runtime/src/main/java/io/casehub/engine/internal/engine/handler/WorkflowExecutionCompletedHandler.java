@@ -951,7 +951,7 @@ public class WorkflowExecutionCompletedHandler {
       final CaseInstance caseInstance, final Worker worker) {
     final CaseDefinition definition =
         caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    if (definition == null || definition.getBindings() == null || worker.capabilities() == null) {
+    if (definition == null || definition.getBindings() == null || worker.capabilityNames() == null) {
       return null;
     }
     for (final Binding binding : definition.getBindings()) {
@@ -959,7 +959,7 @@ public class WorkflowExecutionCompletedHandler {
         continue;
       }
       final String capabilityName = ct.capability().name();
-      if (worker.capabilities().contains(capabilityName)) {
+      if (worker.capabilityNames().contains(capabilityName)) {
         return binding;
       }
     }

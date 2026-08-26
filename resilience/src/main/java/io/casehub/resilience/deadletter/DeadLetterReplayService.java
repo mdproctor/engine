@@ -160,7 +160,7 @@ public class DeadLetterReplayService {
       capabilityName = scheduledMeta.get("capabilityName").asText();
     }
     if (capabilityName == null) {
-      capabilityName = worker.capabilities().stream().findFirst().orElse(null);
+      capabilityName = worker.capabilityNames().stream().findFirst().orElse(null);
     }
     if (capabilityName == null) {
       LOG.warnf("DLQ replay: worker '%s' has no capabilities", workerId);

@@ -34,7 +34,7 @@ public class ExactMatchStrategy implements CandidateMatchingStrategy {
   @Override
   public List<MatchedWorker> match(CandidateMatchingContext context) {
     return context.workers().stream()
-        .filter(w -> w.capabilities().contains(context.capabilityName()))
+        .filter(w -> w.capabilityNames().contains(context.capabilityName()))
         .map(MatchedWorker::exact)
         .toList();
   }

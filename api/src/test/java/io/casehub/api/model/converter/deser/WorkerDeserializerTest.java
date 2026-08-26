@@ -35,7 +35,7 @@ class WorkerDeserializerTest {
     String json = "{\"name\": \"analyser\", \"capabilities\": [\"analysis\"]}";
     Worker result = mapper.readValue(json, Worker.class);
     assertEquals("analyser", result.name());
-    assertTrue(result.capabilities().contains("analysis"));
+    assertTrue(result.capabilityNames().contains("analysis"));
     assertEquals(WorkerFunction.NONE, result.function());
   }
 
@@ -50,10 +50,10 @@ class WorkerDeserializerTest {
   void workerWithMultipleCapabilities() throws Exception {
     String json = "{\"name\": \"w\", \"capabilities\": [\"a\", \"b\", \"c\"]}";
     Worker result = mapper.readValue(json, Worker.class);
-    assertEquals(3, result.capabilities().size());
-    assertTrue(result.capabilities().contains("a"));
-    assertTrue(result.capabilities().contains("b"));
-    assertTrue(result.capabilities().contains("c"));
+    assertEquals(3, result.capabilityNames().size());
+    assertTrue(result.capabilityNames().contains("a"));
+    assertTrue(result.capabilityNames().contains("b"));
+    assertTrue(result.capabilityNames().contains("c"));
   }
 
   @Test

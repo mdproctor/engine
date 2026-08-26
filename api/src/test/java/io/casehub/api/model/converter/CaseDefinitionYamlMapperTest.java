@@ -136,15 +136,15 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getCapabilities()).hasSize(1);
     Capability cap = def.getCapabilities().get(0);
     assertThat(cap.name()).isEqualTo("validate");
-    assertThat(cap.inputProjection()).isEqualTo(".request");
-    assertThat(cap.outputProjection()).isEqualTo(".valid");
+    assertThat(cap.inputSchema()).isEqualTo(".request");
+    assertThat(cap.outputSchema()).isEqualTo(".valid");
     assertThat(cap.description()).isEqualTo("Validates input");
 
     // Workers
     assertThat(def.getWorkers()).hasSize(1);
     Worker worker = def.getWorkers().get(0);
     assertThat(worker.name()).isEqualTo("validator-worker");
-    assertThat(worker.capabilities()).containsExactly("validate");
+    assertThat(worker.capabilityNames()).containsExactly("validate");
     assertThat(worker.description()).isEqualTo("Worker that validates");
 
     // Bindings
@@ -212,8 +212,8 @@ class CaseDefinitionYamlMapperTest {
     CaseDefinition def = CaseDefinitionYamlMapper.load(is);
 
     Capability cap = def.getCapabilities().get(0);
-    assertThat(cap.inputProjection()).isEqualTo("{ request: .request }");
-    assertThat(cap.outputProjection()).isEqualTo("{ inspection: . }");
+    assertThat(cap.inputSchema()).isEqualTo("{ request: .request }");
+    assertThat(cap.outputSchema()).isEqualTo("{ inspection: . }");
   }
 
   @Test
@@ -258,13 +258,13 @@ class CaseDefinitionYamlMapperTest {
 
     Capability legacy = def.getCapabilities().get(0);
     assertThat(legacy.name()).isEqualTo("legacy-cap");
-    assertThat(legacy.inputProjection()).isEqualTo("{ req: .request }");
-    assertThat(legacy.outputProjection()).isEqualTo("{ result: . }");
+    assertThat(legacy.inputSchema()).isEqualTo("{ req: .request }");
+    assertThat(legacy.outputSchema()).isEqualTo("{ result: . }");
 
     Capability current = def.getCapabilities().get(1);
     assertThat(current.name()).isEqualTo("current-cap");
-    assertThat(current.inputProjection()).isEqualTo("{ data: .data }");
-    assertThat(current.outputProjection()).isEqualTo("{ processed: . }");
+    assertThat(current.inputSchema()).isEqualTo("{ data: .data }");
+    assertThat(current.outputSchema()).isEqualTo("{ processed: . }");
   }
 
   @Test
@@ -455,8 +455,8 @@ class CaseDefinitionYamlMapperTest {
     assertThat(def.getCapabilities()).hasSize(1);
     Capability cap = def.getCapabilities().get(0);
     assertThat(cap.name()).isEqualTo("analyze");
-    assertThat(cap.inputProjection()).isEqualTo("{ text: .text }");
-    assertThat(cap.outputProjection()).isEqualTo("{ result: .result }");
+    assertThat(cap.inputSchema()).isEqualTo("{ text: .text }");
+    assertThat(cap.outputSchema()).isEqualTo("{ result: .result }");
 
     assertThat(def.getWorkers()).hasSize(1);
     Worker worker = def.getWorkers().get(0);
@@ -2872,8 +2872,8 @@ class CaseDefinitionYamlMapperTest {
 
     assertThat(def.getCapabilities()).hasSize(1);
     Capability cap = def.getCapabilities().get(0);
-    assertThat(cap.inputProjection()).isEqualTo("{ in: .data }");
-    assertThat(cap.outputProjection()).isEqualTo("{ out: .result }");
+    assertThat(cap.inputSchema()).isEqualTo("{ in: .data }");
+    assertThat(cap.outputSchema()).isEqualTo("{ out: .result }");
   }
 
   @Test

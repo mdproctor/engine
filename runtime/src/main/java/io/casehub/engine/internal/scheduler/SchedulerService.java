@@ -255,7 +255,7 @@ public class SchedulerService {
 
   private Worker findWorkerForCapability(CaseDefinition definition, Capability capability) {
     return definition.getWorkers().stream()
-        .filter(w -> w.capabilities().contains(capability.name()))
+        .filter(w -> w.capabilityNames().contains(capability.name()))
         .findFirst()
         .orElse(null);
   }

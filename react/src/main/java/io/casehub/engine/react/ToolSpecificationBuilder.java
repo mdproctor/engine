@@ -59,7 +59,7 @@ final class ToolSpecificationBuilder {
   }
 
   private static JsonObjectSchema deriveParametersFromCapability(Capability capability) {
-    var inputSchema = capability.inputProjection();
+    var inputSchema = capability.inputSchema();
     if (inputSchema == null || inputSchema.equals(".")) {
       return JsonObjectSchema.builder().build();
     }

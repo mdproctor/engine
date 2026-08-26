@@ -74,8 +74,8 @@ class AgentWorkerTest {
 
     assertEquals("ai-text-processor", worker.name());
     assertEquals("AI-powered text processing worker", worker.description());
-    assertEquals(1, worker.capabilities().size());
-    assertEquals("text-processing", worker.capabilities().iterator().next());
+    assertEquals(1, worker.capabilityNames().size());
+    assertEquals("text-processing", worker.capabilityNames().iterator().next());
 
     assertNotNull(worker.function());
     assertInstanceOf(AgentWorkerFunction.class, worker.function());

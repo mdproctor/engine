@@ -653,8 +653,8 @@ class ModelBuilderTest {
                       .outputSchema("{output: .y}")
                       .build());
       assertEquals("cap", cap.name());
-      assertEquals("{input: .x}", cap.inputProjection());
-      assertEquals("{output: .y}", cap.outputProjection());
+      assertEquals("{input: .x}", cap.inputSchema());
+      assertEquals("{output: .y}", cap.outputSchema());
       assertNull(cap.description());
     }
 
