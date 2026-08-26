@@ -5,7 +5,21 @@
 
 ## Last Session
 
-Fixed the pre-existing worker-api SNAPSHOT mismatch that was blocking engine compilation and downstream module installation.
+Two major milestones: fixed the worker-api SNAPSHOT compilation blocker, then completed the HumanTaskTarget → JudgmentTarget migration.
+
+### HumanTaskTarget Deletion (this session)
+
+Clean delete of HumanTaskTarget and old HumanTask SPIs. JudgmentTarget now subsumes all human task functionality:
+
+- **Deleted:** `HumanTaskTarget.java`, `HumanTaskScheduler.java`, `HumanTaskScheduleRequest.java`
+- **Sealed permits:** Removed `HumanTaskTarget` from `BindingTarget`
+- **Binding API:** Removed `.humanTask()` builder method; `.judgment()` is the sole entry point
+- **YAML/Deserializer:** `humanTask:` YAML blocks now produce `JudgmentTarget.forHuman()` (backward-compatible)
+- **Handlers:** Removed `publishHumanTaskSchedule()` and old helper methods from `CaseContextChangedEventHandler`; all dispatch routes through `publishJudgment()`
+- **CloudEvent module:** `CloudEventHumanTaskScheduler` migrated to implement `JudgmentScheduler` with `JudgmentRequest`/`JudgmentPayload.BindingPayload`
+- **Switch cases:** All exhaustive `BindingTarget` switches updated (6 files)
+- **Tests:** Migrated 9 test files, deleted 6 obsolete test files (2264 lines removed)
+- **Production compilation:** Clean across all modules (except pre-existing generator schema issue)
 
 ### Worker-API Alignment (this session)
 
@@ -27,26 +41,24 @@ Designed and implemented the engine foundation for governed yield — a caller-a
 
 **Batch 1 — Engine Foundation Types** (complete), **Batch 2 — Handler Wiring + Ledger Events** (complete), **Batch 3 — Qhorus JUDGMENT type** (complete).
 
-### Deferred (10 tasks)
+### Deferred (7 tasks — 3 completed this session)
 
-| Task | Blocker |
-|------|---------|
-| qhorus#412 E4 trust routing | Blocked by qhorus E4 (#401) + ledger#200 |
-| blocks#171 LLM JudgmentScheduler | engine-api now installs — **unblocked** |
-| blocks#172 verification strategies | engine-api now installs — **unblocked** |
-| blocks#173 yield-aware patterns | engine-api installs but mid-pattern yield infrastructure needed (future) |
+| Task | Status |
+|------|--------|
+| Delete HumanTaskTarget + old SPIs | **DONE** |
+| Update CloudEvent module | **DONE** (migrated to JudgmentScheduler) |
+| Update consumer examples | **unblocked** — HumanTaskTarget deleted |
+| blocks#171 LLM JudgmentScheduler | **unblocked** — engine-api installs |
+| blocks#172 verification strategies | **unblocked** — engine-api installs |
+| blocks#173 yield-aware patterns | Mid-pattern yield infrastructure needed (future) |
 | engine#1000 DagNode judgment | DagNode.task non-null constraint (future) |
+| qhorus#412 E4 trust routing | Blocked by qhorus E4 (#401) + ledger#200 |
 | qhorus#413 E5 compliance evidence | Blocked by qhorus E5 (#402) + ledger#201 |
 | qhorus#414 E7 formal verification | Blocked by qhorus E7 (#404) |
-| Delete HumanTaskTarget + old SPIs | **unblocked** — engine-api compiles |
-| Update CloudEvent module | **unblocked** — engine-api compiles |
-| Update consumer examples | Blocked until HumanTaskTarget deletion |
 
 ## Immediate Next Step
 
-The engine-api compilation blocker is resolved. Three deferred tasks are now unblocked:
-1. **blocks#171 / #172** — LLM JudgmentScheduler and verification strategies (engine-api SNAPSHOT now installs)
-2. **Delete HumanTaskTarget + old SPIs** — engine compiles, migration can proceed
-3. **Update CloudEvent module** — depends on HumanTaskTarget deletion
-
-Also: fix the generator schema issue (MissingNode cast on judgment YAML types).
+1. **CloudEvent tests** — `CloudEventHumanTaskSchedulerTest` and `DistributedHumanTaskRoundTripTest` were deleted (tested old SPI). Need JudgmentScheduler equivalents.
+2. **Generator schema** — pre-existing MissingNode cast on judgment YAML types
+3. **Consumer examples** — mechanical `humanTask:` → `judgment:` YAML migration
+4. **blocks#171/#172** — cross-repo, engine-api now installs
