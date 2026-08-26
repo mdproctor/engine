@@ -16,6 +16,7 @@
 package io.casehub.engine.internal.engine.handler;
 
 import io.casehub.api.model.JudgmentTarget;
+import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.spi.EscalationContext;
 import io.casehub.api.spi.EscalationDecision;
 import io.casehub.api.spi.JudgmentEscalator;
@@ -49,6 +50,7 @@ public class JudgmentResponseHandler {
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject EventLogRepository eventLogRepository;
+  @Inject io.vertx.mutiny.core.eventbus.EventBus eventBus;
 
   @RunOnVirtualThread
   @ConsumeEvent(value = EventBusAddresses.JUDGMENT_RESPONSE)
@@ -130,7 +132,7 @@ public class JudgmentResponseHandler {
       return;
     }
 
-    verifyAndApply(event, target, pending, 1);
+    verifyAndApply(instance, event, target, pending, 1);
   }
 
   private static boolean isTerminal(final io.casehub.api.model.CaseStatus state) {
@@ -140,6 +142,7 @@ public class JudgmentResponseHandler {
   }
 
   void verifyAndApply(
+      final CaseInstance instance,
       final JudgmentResponseEvent event,
       final JudgmentTarget target,
       final PendingJudgment pending,
@@ -159,37 +162,100 @@ public class JudgmentResponseHandler {
 
     final VerificationResult result = verifier.verify(event.response(), verificationCtx);
 
+    writeEventLog(instance, event, CaseHubEventType.JUDGMENT_VERIFIED);
+
     if (result instanceof VerificationResult.Accepted) {
-      applyAccepted(event, target, pending);
+      applyAccepted(instance, event, target, pending);
     } else {
-      handleVerificationFailure(event, target, pending, result, attemptCount);
+      handleVerificationFailure(instance, event, target, pending, result, attemptCount);
     }
   }
 
   private void applyAccepted(
+      final CaseInstance instance,
       final JudgmentResponseEvent event,
       final JudgmentTarget target,
       final PendingJudgment pending) {
+
+    writeEventLog(instance, event, CaseHubEventType.JUDGMENT_RESPONDED);
+    instance.clearPendingJudgment(event.bindingName());
 
     switch (pending.payload()) {
       case JudgmentPayload.BindingPayload bp -> {
         LOG.infof(
             "Judgment accepted (binding): caseId=%s binding=%s — applying output mapping",
             event.caseId(), event.bindingName());
-        // Binding origin: apply outputMapping(response.decision) to context → CONTEXT_CHANGED
-        // Full implementation requires WritableLayer access — future commit
+
+        if (target.outputMapping() != null && event.response().decision() != null) {
+          @SuppressWarnings("unchecked")
+          var decisionMap =
+              event.response().decision() instanceof java.util.Map
+                  ? (java.util.Map<String, Object>) event.response().decision()
+                  : java.util.Map.of("decision", event.response().decision());
+          decisionMap.forEach((k, v) -> instance.getCaseContext().set(k, v));
+        }
+
+        eventBus.publish(
+            EventBusAddresses.CONTEXT_CHANGED,
+            new io.casehub.engine.common.internal.event.CaseContextChangedEvent(
+                instance, instance.getCaseContext(), null));
       }
       case JudgmentPayload.GatePayload gp -> {
         LOG.infof(
             "Judgment accepted (gate): caseId=%s binding=%s — re-firing deferred output",
             event.caseId(), event.bindingName());
-        // Gate origin: clear PendingJudgment, re-fire WorkflowExecutionCompleted.approved()
-        // with gp.deferredOutput() — same as current ActionGateApprovedHandler
+
+        instance
+            .getCaseContext()
+            .set(
+                "judgmentApproved",
+                java.util.Map.of(
+                    "gateId", gp.gateId(),
+                    "approvedBy", event.response().callerIdentity().callerId()));
+
+        var pendingGate = instance.getPendingActionGate();
+        if (pendingGate != null && pendingGate.gateId() == gp.gateId()) {
+          instance.setPendingActionGate(null);
+          var worker = findWorker(instance, pendingGate.workerId());
+          if (worker != null) {
+            eventBus.publish(
+                EventBusAddresses.WORKER_EXECUTION_FINISHED,
+                io.casehub.engine.common.internal.event.WorkflowExecutionCompleted.approved(
+                    instance,
+                    worker,
+                    pendingGate.idempotency(),
+                    pendingGate.deferredOutput(),
+                    pendingGate.bindingName()));
+          }
+        }
       }
     }
   }
 
+  private io.casehub.worker.api.Worker findWorker(
+      final CaseInstance instance, final String workerId) {
+    var def = caseDefinitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+    if (def == null) return null;
+    return def.getWorkers().stream()
+        .filter(w -> w.name().equals(workerId))
+        .findFirst()
+        .orElse(null);
+  }
+
+  private void writeEventLog(
+      final CaseInstance instance,
+      final JudgmentResponseEvent event,
+      final CaseHubEventType eventType) {
+    var log = new io.casehub.engine.common.internal.history.EventLog();
+    log.setCaseId(event.caseId());
+    log.setStreamType(io.casehub.api.model.event.EventStreamType.CASE);
+    log.setTimestamp(java.time.Instant.now());
+    log.setEventType(eventType);
+    eventLogRepository.append(log, event.tenancyId());
+  }
+
   private void handleVerificationFailure(
+      final CaseInstance instance,
       final JudgmentResponseEvent event,
       final JudgmentTarget target,
       final PendingJudgment pending,
@@ -228,12 +294,33 @@ public class JudgmentResponseHandler {
             "Judgment faulted: caseId=%s binding=%s reason='%s'",
             event.caseId(), event.bindingName(), f.reason());
 
+        writeEventLog(instance, event, CaseHubEventType.JUDGMENT_REJECTED);
+        instance.clearPendingJudgment(event.bindingName());
+
         switch (pending.payload()) {
           case JudgmentPayload.BindingPayload bp -> {
-            // Binding origin: fault the PlanItem
+            eventBus.publish(
+                EventBusAddresses.WORKER_OUTCOME_RESOLVED,
+                new io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent(
+                    instance,
+                    null,
+                    event.bindingName(),
+                    null,
+                    io.casehub.engine.common.internal.event.OutcomeDisposition.FAULT,
+                    null));
           }
           case JudgmentPayload.GatePayload gp -> {
-            // Gate origin: write judgmentRejected signal, trigger recovery
+            instance
+                .getCaseContext()
+                .set(
+                    "judgmentRejected",
+                    java.util.Map.of(
+                        "gateId", gp.gateId(),
+                        "reason", f.reason()));
+            eventBus.publish(
+                EventBusAddresses.CONTEXT_CHANGED,
+                new io.casehub.engine.common.internal.event.CaseContextChangedEvent(
+                    instance, instance.getCaseContext(), null));
           }
         }
       }

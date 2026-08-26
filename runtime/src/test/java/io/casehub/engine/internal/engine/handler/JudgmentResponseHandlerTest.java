@@ -64,6 +64,8 @@ class JudgmentResponseHandlerTest {
     handler = new JudgmentResponseHandler();
     handler.strategyResolver = strategyResolver;
     handler.judgmentScheduler = judgmentScheduler;
+    handler.eventLogRepository = mock(io.casehub.engine.common.spi.EventLogRepository.class);
+    handler.eventBus = mock(io.vertx.mutiny.core.eventbus.EventBus.class);
 
     when(strategyResolver.resolve(eq(JudgmentVerifier.class), any())).thenReturn(verifier);
     when(strategyResolver.resolve(eq(JudgmentEscalator.class), any())).thenReturn(escalator);
@@ -82,7 +84,7 @@ class JudgmentResponseHandlerTest {
     var payload = bindingPayload();
     var pending = pending(payload);
 
-    var instance = mock(io.casehub.engine.common.internal.model.CaseInstance.class);
+    var instance = stubbedInstance();
     when(instance.getState()).thenReturn(io.casehub.api.model.CaseStatus.RUNNING);
     when(instance.getPendingJudgment("review-binding")).thenReturn(pending);
     when(instance.getCaseMetaModel()).thenReturn(null);
@@ -120,7 +122,7 @@ class JudgmentResponseHandlerTest {
     var caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
     handler.caseInstanceCache = caseInstanceCache;
 
-    var instance = mock(io.casehub.engine.common.internal.model.CaseInstance.class);
+    var instance = stubbedInstance();
     when(instance.getState()).thenReturn(io.casehub.api.model.CaseStatus.COMPLETED);
     when(caseInstanceCache.get(CASE_ID)).thenReturn(instance);
 
@@ -134,7 +136,7 @@ class JudgmentResponseHandlerTest {
     var caseInstanceCache = mock(io.casehub.engine.common.spi.cache.CaseInstanceCache.class);
     handler.caseInstanceCache = caseInstanceCache;
 
-    var instance = mock(io.casehub.engine.common.internal.model.CaseInstance.class);
+    var instance = stubbedInstance();
     when(instance.getState()).thenReturn(io.casehub.api.model.CaseStatus.RUNNING);
     when(instance.getPendingJudgment("review-binding")).thenReturn(null);
     when(caseInstanceCache.get(CASE_ID)).thenReturn(instance);
@@ -153,7 +155,7 @@ class JudgmentResponseHandlerTest {
 
     when(verifier.verify(any(), any())).thenReturn(new VerificationResult.Accepted());
 
-    handler.verifyAndApply(event, target, pending, 1);
+    handler.verifyAndApply(stubbedInstance(), event, target, pending, 1);
 
     verify(verifier).verify(any(JudgmentResponse.class), any(VerificationContext.class));
     verify(escalator, never()).escalate(any());
@@ -177,7 +179,7 @@ class JudgmentResponseHandlerTest {
     when(escalator.escalate(any()))
         .thenReturn(new EscalationDecision.ReYield("Please provide rationale"));
 
-    handler.verifyAndApply(event, target, pending, 1);
+    handler.verifyAndApply(stubbedInstance(), event, target, pending, 1);
 
     verify(escalator).escalate(any(EscalationContext.class));
   }
@@ -198,7 +200,7 @@ class JudgmentResponseHandlerTest {
         .thenReturn(new VerificationResult.Rejected("Invalid response"));
     when(escalator.escalate(any())).thenReturn(new EscalationDecision.Fault("Cannot recover"));
 
-    handler.verifyAndApply(event, target, pending, 3);
+    handler.verifyAndApply(stubbedInstance(), event, target, pending, 3);
 
     verify(escalator).escalate(any(EscalationContext.class));
   }
@@ -219,7 +221,7 @@ class JudgmentResponseHandlerTest {
     when(escalator.escalate(any()))
         .thenReturn(new EscalationDecision.Escalate(null, "Trust insufficient"));
 
-    handler.verifyAndApply(event, target, pending, 1);
+    handler.verifyAndApply(stubbedInstance(), event, target, pending, 1);
 
     verify(escalator).escalate(any(EscalationContext.class));
   }
@@ -233,7 +235,7 @@ class JudgmentResponseHandlerTest {
 
     when(verifier.verify(any(), any())).thenReturn(new VerificationResult.Accepted());
 
-    handler.verifyAndApply(event, target, pending, 1);
+    handler.verifyAndApply(stubbedInstance(), event, target, pending, 1);
 
     verify(verifier).verify(any(JudgmentResponse.class), any(VerificationContext.class));
     verify(escalator, never()).escalate(any());
@@ -281,5 +283,14 @@ class JudgmentResponseHandlerTest {
             List.of(),
             new CallerIdentity("user-1", "human", null),
             Instant.now()));
+  }
+
+  private static io.casehub.engine.common.internal.model.CaseInstance stubbedInstance() {
+    var instance = mock(io.casehub.engine.common.internal.model.CaseInstance.class);
+    when(instance.getState()).thenReturn(io.casehub.api.model.CaseStatus.RUNNING);
+    when(instance.getUuid()).thenReturn(CASE_ID);
+    var caseContext = mock(io.casehub.api.context.CaseContext.class);
+    when(instance.getCaseContext()).thenReturn(caseContext);
+    return instance;
   }
 }
