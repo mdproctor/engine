@@ -21,6 +21,26 @@ import io.casehub.worker.api.WorkerOutcome;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Published on {@link EventBusAddresses#WORKER_EXECUTION_FINISHED} when a worker function returns.
+ *
+ * <p>{@code outcome} carries the worker's semantic result: {@link WorkerOutcome.Success}, {@link
+ * WorkerOutcome.Declined}, {@link WorkerOutcome.Failed}, or {@link WorkerOutcome.Expired}. The
+ * completion handler extracts PlannedAction from {@code outcome} when it is {@code Success}.
+ *
+ * <p>The gate approval path re-publishes this event with {@code outcome=Success(null)} so the
+ * normal completion machinery handles output application, PlanItem completion, and stage
+ * autocomplete without re-classifying.
+ *
+ * @param signalId Settlement tracking ID for {@code signalAndAwait()}, or null. Threaded through
+ *     from WorkerScheduleEvent via EventLog metadata so the completion handler can notify the
+ *     tracker. Refs engine#483.
+ * @param executorRef Nullable {@link io.casehub.api.model.ExecutorRef} containing executor
+ *     identity. Threaded through from WorkerScheduleEvent for richer executor tracking. Refs
+ *     engine#702.
+ * @param reasoning Optional reasoning trace from the worker, stored to the worker-reasoning memory
+ *     domain for future context retrieval. Null when the worker did not emit reasoning.
+ */
 public record WorkflowExecutionCompleted(
     CaseInstance caseInstance,
     Worker worker,

@@ -17,6 +17,7 @@ package io.casehub.engine.internal.memory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -32,6 +33,8 @@ import io.casehub.neocortex.memory.reflection.ReflectionOrchestrator;
 import io.casehub.worker.api.WorkerOutcome;
 import jakarta.enterprise.inject.Instance;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -70,6 +73,9 @@ class AgentExperienceRecorderReasoningTest {
 
   @Test
   void storeReasoningCreatesCorrectMemoryInput() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    when(store.store(any())).thenAnswer(inv -> { latch.countDown(); return "mem-1"; });
+
     CaseInstance caseInstance = mockCaseInstance();
     recorder.storeReasoning(
         caseInstance,
@@ -79,7 +85,7 @@ class AgentExperienceRecorderReasoningTest {
         "I approved because no vulnerabilities found",
         "security-check");
 
-    Thread.sleep(300);
+    assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
 
     ArgumentCaptor<MemoryInput> captor = ArgumentCaptor.forClass(MemoryInput.class);
     verify(store).store(captor.capture());
@@ -139,16 +145,21 @@ class AgentExperienceRecorderReasoningTest {
 
   @Test
   void storeReasoningSwallowsException() throws Exception {
-    when(store.store(any())).thenThrow(new RuntimeException("store failed"));
+    CountDownLatch latch = new CountDownLatch(1);
+    doAnswer(inv -> { latch.countDown(); throw new RuntimeException("store failed"); })
+        .when(store).store(any());
 
     recorder.storeReasoning(
         mockCaseInstance(), "agent-1", "cap", WorkerOutcome.success(), "reasoning", "binding");
-    Thread.sleep(300);
+    assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
     verify(store).store(any());
   }
 
   @Test
   void storeReasoningSetsOutcomeForDeclined() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    when(store.store(any())).thenAnswer(inv -> { latch.countDown(); return "mem-1"; });
+
     recorder.storeReasoning(
         mockCaseInstance(),
         "agent-1",
@@ -156,7 +167,7 @@ class AgentExperienceRecorderReasoningTest {
         new WorkerOutcome.Declined<>("scope mismatch"),
         "I declined because...",
         "binding");
-    Thread.sleep(300);
+    assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
 
     ArgumentCaptor<MemoryInput> captor = ArgumentCaptor.forClass(MemoryInput.class);
     verify(store).store(captor.capture());
@@ -165,10 +176,13 @@ class AgentExperienceRecorderReasoningTest {
 
   @Test
   void truncationMarksAttribute() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    when(store.store(any())).thenAnswer(inv -> { latch.countDown(); return "mem-1"; });
+
     String longReasoning = "A".repeat(5000);
     recorder.storeReasoning(
         mockCaseInstance(), "agent-1", "cap", WorkerOutcome.success(), longReasoning, "binding");
-    Thread.sleep(300);
+    assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
 
     ArgumentCaptor<MemoryInput> captor = ArgumentCaptor.forClass(MemoryInput.class);
     verify(store).store(captor.capture());
@@ -180,18 +194,20 @@ class AgentExperienceRecorderReasoningTest {
 
   @Test
   void storeReasoningHandlesNullCapabilityName() throws Exception {
+    CountDownLatch latch = new CountDownLatch(1);
+    when(store.store(any())).thenAnswer(inv -> { latch.countDown(); return "mem-1"; });
+
     recorder.storeReasoning(
         mockCaseInstance(),
         "agent-1",
         null,
-        io.casehub.worker.api.WorkerOutcome.success(),
+        WorkerOutcome.success(),
         "reasoning without capability",
         "binding");
-    Thread.sleep(300);
+    assertThat(latch.await(2, TimeUnit.SECONDS)).isTrue();
 
-    org.mockito.ArgumentCaptor<io.casehub.neocortex.memory.MemoryInput> captor =
-        org.mockito.ArgumentCaptor.forClass(io.casehub.neocortex.memory.MemoryInput.class);
-    org.mockito.Mockito.verify(store).store(captor.capture());
+    ArgumentCaptor<MemoryInput> captor = ArgumentCaptor.forClass(MemoryInput.class);
+    verify(store).store(captor.capture());
     assertThat(captor.getValue().attributes()).doesNotContainKey("capability");
     assertThat(captor.getValue().attributes().get("workerName")).isEqualTo("agent-1");
   }

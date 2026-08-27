@@ -26,20 +26,21 @@ import io.casehub.worker.api.WorkerOutcome;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class AgentExperienceRecorder {
 
   private static final Logger LOG = Logger.getLogger(AgentExperienceRecorder.class);
 
-  private static final io.casehub.neocortex.memory.MemoryDomain WORKER_REASONING_DOMAIN =
-      new io.casehub.neocortex.memory.MemoryDomain("worker-reasoning");
+  private static final MemoryDomain WORKER_REASONING_DOMAIN =
+      new MemoryDomain("worker-reasoning");
   private static final int DEFAULT_MAX_REASONING_LENGTH = 4096;
   private static final String TRUNCATION_MARKER = "\n[...truncated...]\n";
 
@@ -47,7 +48,7 @@ public class AgentExperienceRecorder {
   private final Instance<ReflectionOrchestrator> reflectionOrchestrator;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final GoalFormationEvaluator goalFormationEvaluator;
-  private final Instance<io.casehub.neocortex.memory.CaseMemoryStore> caseMemoryStore;
+  private final Instance<CaseMemoryStore> caseMemoryStore;
   private final ConcurrentHashMap<String, ReflectionState> reflectionStates =
       new ConcurrentHashMap<>();
 
@@ -62,7 +63,7 @@ public class AgentExperienceRecorder {
       Instance<ReflectionOrchestrator> reflectionOrchestrator,
       CaseDefinitionRegistry caseDefinitionRegistry,
       GoalFormationEvaluator goalFormationEvaluator,
-      Instance<io.casehub.neocortex.memory.CaseMemoryStore> caseMemoryStore) {
+      Instance<CaseMemoryStore> caseMemoryStore) {
     this.experienceRecorder = experienceRecorder;
     this.reflectionOrchestrator = reflectionOrchestrator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -124,7 +125,7 @@ public class AgentExperienceRecorder {
 
     String truncated = truncateReasoning(reasoning);
     String outcomeKind = outcomeKindName(outcome);
-    java.util.HashMap<String, String> attributes = new java.util.HashMap<>();
+    HashMap<String, String> attributes = new HashMap<>();
     attributes.put("workerName", workerName);
     if (capabilityName != null) {
       attributes.put("capability", capabilityName);
@@ -138,8 +139,8 @@ public class AgentExperienceRecorder {
     ReflectionTriggerConfig config = lookupConfig(caseInstance);
     double importance = resolveImportance(outcome, config);
 
-    io.casehub.neocortex.memory.MemoryInput input =
-        new io.casehub.neocortex.memory.MemoryInput(
+    MemoryInput input =
+        new MemoryInput(
             "case:" + caseInstance.getUuid(),
             WORKER_REASONING_DOMAIN,
             caseInstance.tenancyId,
@@ -148,10 +149,11 @@ public class AgentExperienceRecorder {
             Map.copyOf(attributes),
             importance);
 
+    CaseMemoryStore store = caseMemoryStore.get();
     Thread.startVirtualThread(
         () -> {
           try {
-            caseMemoryStore.get().store(input);
+            store.store(input);
           } catch (Exception e) {
             LOG.warnf(
                 e,

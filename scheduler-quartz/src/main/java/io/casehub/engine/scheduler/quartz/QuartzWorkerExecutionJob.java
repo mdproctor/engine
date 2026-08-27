@@ -252,35 +252,36 @@ public class QuartzWorkerExecutionJob implements Job {
       java.util.UUID signalId,
       io.casehub.api.model.ExecutionMode executionMode,
       Map<String, Object> protocolMetadata) {
-      if (executionMode != null && executionMode != io.casehub.api.model.ExecutionMode.TRANSIENT) {
-          if (workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Success) {
-              Map<String, Object> output = toMap(workerResult.output());
-              if (output != null && !output.isEmpty()) {
-                  eventBus.publish(
-                          io.casehub.engine.common.internal.event.EventBusAddresses.SCOPED_WORKER_OUTPUT,
-                          new io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent(
-                                  instance, worker.name(), output, bindingName, signalId,
-                                  workerResult.reasoning()));
-              }
-              LOG.debugf("Scoped worker %s returned Success — interim output published", bindingName);
-              return;
-          }
+    if (executionMode != null && executionMode != io.casehub.api.model.ExecutionMode.TRANSIENT) {
+      if (workerResult.outcome() instanceof io.casehub.worker.api.WorkerOutcome.Success) {
+        Map<String, Object> output = toMap(workerResult.output());
+        if (output != null && !output.isEmpty()) {
+          eventBus.publish(
+              io.casehub.engine.common.internal.event.EventBusAddresses.SCOPED_WORKER_OUTPUT,
+              new io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent(
+                  instance, worker.name(), output, bindingName, signalId,
+                  workerResult.reasoning()));
+        }
+        LOG.debugf("Scoped worker %s returned Success — interim output published", bindingName);
+        return;
       }
-      Map<String, Object> output = toMap(workerResult.output());
-      eventBus.publish(
-              WORKER_EXECUTION_FINISHED,
-              new WorkflowExecutionCompleted(
-                      instance,
-                      worker,
-                      inputDataHash,
-                      output,
-                      bindingName,
-                      workerResult.outcome(),
-                      signalId,
-                      null,
-                      null,
-                      protocolMetadata,
-                      workerResult.reasoning()));}
+    }
+    Map<String, Object> output = toMap(workerResult.output());
+    eventBus.publish(
+        WORKER_EXECUTION_FINISHED,
+        new WorkflowExecutionCompleted(
+            instance,
+            worker,
+            inputDataHash,
+            output,
+            bindingName,
+            workerResult.outcome(),
+            signalId,
+            null,
+            null,
+            protocolMetadata,
+            workerResult.reasoning()));
+  }
 
   private void onFailure(WorkerRetryContext retryCtx, Throwable failure) {
     LOG.errorf(

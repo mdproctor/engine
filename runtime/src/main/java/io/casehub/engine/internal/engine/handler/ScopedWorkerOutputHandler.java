@@ -33,9 +33,10 @@ import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.time.Instant;
 import java.util.Map;
-import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class ScopedWorkerOutputHandler {
@@ -46,8 +47,8 @@ public class ScopedWorkerOutputHandler {
   @Inject ContextOutputApplier contextOutputApplier;
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
-  @Inject io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder;
-  @Inject io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
+  @Inject AgentExperienceRecorder agentExperienceRecorder;
+  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
 
   @ConsumeEvent(value = EventBusAddresses.SCOPED_WORKER_OUTPUT)
   @RunOnVirtualThread
@@ -69,7 +70,7 @@ public class ScopedWorkerOutputHandler {
             caseInstance,
             event.workerName(),
             capabilityTag,
-            new io.casehub.worker.api.WorkerOutcome.Success<>(null),
+            new WorkerOutcome.Success<>(null),
             event.reasoning(),
             event.bindingName());
       }
@@ -140,15 +141,15 @@ public class ScopedWorkerOutputHandler {
     if (bindingName == null) {
       return null;
     }
-    io.casehub.api.model.CaseDefinition definition =
+    CaseDefinition definition =
         caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
     if (definition == null || definition.getBindings() == null) {
       return null;
     }
     return definition.getBindings().stream()
         .filter(b -> b.getName().equals(bindingName))
-        .filter(b -> b.target() instanceof io.casehub.api.model.CapabilityTarget)
-        .map(b -> ((io.casehub.api.model.CapabilityTarget) b.target()).capability().name())
+        .filter(b -> b.target() instanceof CapabilityTarget)
+        .map(b -> ((CapabilityTarget) b.target()).capability().name())
         .findFirst()
         .orElse(null);
   }
