@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [multi-tenancy, jpa, cdi, quarkus]
 ---
 
-# The Qualifier Nobody Inherits
 Four issues. Two were already done — one we'd fixed in the previous session and never closed the ticket, one adapted to a SNAPSHOT change without noticing the issue still existed on the board. Closed both without writing a line.
 
 The remaining two took longer but taught something.

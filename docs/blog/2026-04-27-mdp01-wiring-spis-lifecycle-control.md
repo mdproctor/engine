@@ -10,7 +10,6 @@ tags: [quarkus, cdi, spi, lifecycle]
 excerpt: "The Worker Provisioner SPIs get their call sites wired in, and resume adds a single CONTEXT_CHANGED publish so bindings re-evaluate immediately when a suspended case returns to RUNNING."
 ---
 
-# Wiring the SPIs and adding lifecycle control
 The Worker Provisioner SPIs — `WorkerStatusListener`, `WorkerContextProvider`, `CaseChannelProvider` — had been defined with contract tests and no-op defaults. Nothing called them.
 
 Wiring them in was mechanical in places but the call sites matter. `onWorkerStarted` goes in `WorkerExecutionJobListener.jobToBeExecuted()` — right when Quartz is about to fire the job, before execution begins. `onWorkerCompleted` in `WorkflowExecutionCompletedHandler` after output is applied to the context. `onWorkerStalled` in `WorkerRetriesExhaustedEventHandler`. `buildContext()` is called in `WorkerScheduleEventHandler` before scheduling — implementations can prepare worker context before the worker touches the job. `openChannel` fires on case start; `listChannels` plus `closeChannel` fire when the case reaches a terminal state.

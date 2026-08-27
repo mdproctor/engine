@@ -10,7 +10,6 @@ tags: [platform-convention, classification, path, types, labels]
 series: issue-652-cross-repo-blocker-batch
 ---
 
-# The Type That Was Three Things
 *Part of a series on [#652 — add semantic labels/tags to CaseDefinition Java API](https://github.com/casehubio/engine/issues/652). Previous: [Two Canonicals, One Convention](2026-07-05-mdp01-two-canonicals-one-convention.md).*
 
 The issue asked for three things: labels, tags, and categories on `CaseDefinition`. The YAML schema already had `tags` — a `type: object` key-value map that had never been wired to the Java API, never consumed by any code, never used in a single consumer YAML definition. Dead on arrival from the original Serverless Workflow scaffold. `metadata` was the same: defined in the schema, mapped by jsonschema2pojo, called by nobody.

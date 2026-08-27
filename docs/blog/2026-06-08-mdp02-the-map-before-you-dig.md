@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [blackboard, registry, eviction, plan-execution, hybrid-execution]
 ---
 
-# The Map Before You Dig
 Four small issues in a single batch branch. Three were exactly what they looked like. One had a finding inside.
 
 The actor-state tests were straightforward: cover a contributor that writes partial state before throwing, and cover the deleted-channel race in the Qhorus contributor. The partial-write test documents something non-obvious — if a contributor calls `acc.trustScore(0.8)` then throws, that score stays in the response. No rollback. The engine doesn't enforce contributor atomicity; each contributor is responsible for its own consistency. The test is there so no one "fixes" this by adding a rollback, then discovers why the accumulator can't be transactional.

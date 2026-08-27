@@ -9,7 +9,6 @@ projects: [CaseHub Engine]
 series: issue-530-provisioning-binding-enhancements
 ---
 
-# Seven issues, one branch — provisioning through to Qhorus
 The failure cascade shipped in the previous session but had no connection to Qhorus. An agent declining via a DECLINE speech act on a channel wrote a generic `channelMessage` signal — the same as a DONE or RESPONSE. The engine had no way to distinguish "I'm done" from "I refuse."
 
 Seven issues covered the gap, from the provisioner surface up to the Qhorus bridge.

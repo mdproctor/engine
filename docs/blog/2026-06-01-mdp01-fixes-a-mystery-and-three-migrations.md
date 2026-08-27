@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [casehub, tenancyId, flyway, quarkus-arc, cdi]
 ---
 
-# Fixes, a mystery, and three missing migrations
 The S/XS backlog from the multi-tenancy session had nine open issues. I went through them all in a single branch today — eight commits, one PR. Most were straightforward. Two weren't.
 
 ## Three migrations that should have been there

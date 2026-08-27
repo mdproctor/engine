@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [blackboard, registry, restart-recovery, humantask]
 ---
 
-# Hydration and Recovery: Teaching the Engine to Survive a Restart
 When a Quarkus app restarts, every in-memory registry starts empty. For `BlackboardRegistry`, that meant any `WorkItemLifecycleEvent` arriving before the next CONTEXT_CHANGED — a human completing a delegated task, say — would call `registry.get(caseId)`, get empty, log a debug line, and throw the completion away. The case would never progress.
 
 That was engine#274. The second failure mode was subtler: a WorkItem could complete *while the JVM was down*, the lifecycle event would fire into a void, and the case would hang indefinitely with a DELEGATED PlanItem that would never transition.

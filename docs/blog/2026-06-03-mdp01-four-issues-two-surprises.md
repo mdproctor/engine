@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [rls, postgresql, hibernate-reactive, cdi, tenancy]
 ---
 
-# Four issues, two architectural surprises
 The tenancy enforcement batch took longer than the individual issue sizes suggested. Four issues on one branch: a migration (#411), a CDI qualifier pattern (#405), DB-level Row Level Security (#406), and a registry hashCode bug (#410). The migration was mechanical. The other three had opinions.
 
 ## The qualifier pattern

@@ -10,7 +10,6 @@ tags: [persistence, jpa, spi, maven]
 excerpt: "PR3 strips JPA from the engine module entirely — three domain objects become plain Java, twelve handlers route through three SPI interfaces, and no framework annotation remains in casehub-core."
 ---
 
-# Cutting the JPA Wire
 Three domain objects. Twelve handlers. One pom.xml. PR3 is done.
 
 The goal was to strip JPA entirely from the engine module — no Hibernate

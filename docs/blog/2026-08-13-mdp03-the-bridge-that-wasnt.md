@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [planning, goal-decomposition, binding, architecture]
 ---
 
-# The bridge that wasn't — goal decomposition meets engine dispatch
 casehub's goal decomposition pipeline looked complete on paper. An LLM takes a
 high-level goal, produces an ordered sequence of capability references, and the
 engine materializes them as compound PlanItems with CHOREOGRAPHED dispatch. The

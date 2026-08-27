@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [blackboard, state-machine, planitem, quarkus, cdi]
 ---
 
-# Waiting Is Not Running
 The previous branch left the `@QuarkusTest` suites in `casehub-blackboard`
 blocked — `RoutingCursorStore` unsatisfied dependency. The fix was
 straightforward: add `quarkus.arc.exclude-types=io.casehub.work.core.strategy.RoundRobinStrategy`

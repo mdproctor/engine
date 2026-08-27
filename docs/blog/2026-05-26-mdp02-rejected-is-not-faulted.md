@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [casehub, state-machine, jpa, otel]
 ---
 
-# REJECTED is not FAULTED
 Four correctness fixes shipped today as a single PR. Three are mechanical — a PlanItem stuck in RUNNING when Quartz retries exhausted, an atomic counter race in the JPA repository, an OTel trace ID always null because `@ObservesAsync` severs thread-local context. Each had a clear root cause and a clean fix. The fourth took longer to think about.
 
 `WorkItemLifecycleAdapter` was mapping both `WorkItemStatus.REJECTED` and `WorkItemStatus.EXPIRED` to `PlanItem.markFaulted()`. The same terminal state for two semantically different outcomes: someone explicitly refused the work, and a deadline passed without resolution. Case definitions had no way to tell which happened. You can't build "offer to a different group if rejected" when rejection and timeout are the same signal.

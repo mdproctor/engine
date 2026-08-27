@@ -6,7 +6,6 @@ projects: [casehub-engine]
 tags: [casehub, quarkus, cdi, bridge-module, qhorus]
 ---
 
-# The bridge and the try/catch that lied
 The foundation constraint is simple: `casehub-qhorus` and `casehub-work` are peer Foundation modules. Neither can depend on the other. But consumer apps often need both — a message arrives on a qhorus channel and should become a WorkItem. Without a bridge, every consumer writes the same wiring.
 
 `casehub-engine-inbound` lives in the engine repo as an optional classpath module. Add it to your dependencies, drop in an `InboundWorkItemPolicy` bean, and messages start becoming WorkItems. No policy bean, no WorkItems, no noise.

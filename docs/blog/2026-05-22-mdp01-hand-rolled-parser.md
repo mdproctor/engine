@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [jq, cdi, refactoring, architecture]
 ---
 
-# The Hand-Rolled Parser That Shouldn't Exist
 The bug was simple: `{ humanApproval: { status: .decision } }` in an `outputMapping` was producing a String literal in the case context instead of a nested Map. The fix should have been five lines. It turned out to be the wrong question.
 
 The hand-rolled parser in `CaseContextImpl.evalObjectTemplate` only handled three cases: dot-path expressions, JSON literals, and bare strings. Nested `{ }` fell through to the string fallback. Adding a recursive call would have fixed the symptom.

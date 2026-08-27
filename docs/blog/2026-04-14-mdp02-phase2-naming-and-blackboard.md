@@ -10,7 +10,6 @@ tags: [architecture, casehub-engine, casehub-blackboard, testing]
 excerpt: "Naming decisions resolved, CaseStatus aligned with CNCF standards, a silent bug found by the tests we wrote, and casehub-blackboard went from brainstorm to 390 tests in one session."
 ---
 
-# Phase 2: Standards, a Hidden Bug, and casehub-blackboard
 The session opened with a list of blockers — naming decisions that needed resolution before Phase 2 could start. Most turned out to be quick.
 
 ConflictResolver: drop it. The async event cycle serialises all writes through the Vert.x event loop, so the race condition it was designed for doesn't exist in casehub-engine's model. ContextChangeTrigger: keep it. Once I'd decided the shared workspace should be called CaseContext rather than CaseFile or CaseState, the trigger name became naturally consistent — it fires when the context changes. Done.

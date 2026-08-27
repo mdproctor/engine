@@ -10,7 +10,6 @@ tags: [quarkus-work, WorkBroker, orchestration, choreography]
 excerpt: "Wiring WorkBroker into casehub-engine reveals two undocumented quarkus-work-core behaviours — WorkerCandidate.of() silently drops all selections, and WorkItemStatus.EXPIRED.isTerminal() returns false."
 ---
 
-# WorkBroker: wiring the shared SPI into casehub-engine
 quarkus-work-api landed. We spent the session wiring it in.
 
 The first thing to resolve was naming. casehub-core had `TaskBroker` — a concrete class that routed work to workers, handled idempotency, and checked poison pills. The shared SPI coming from treblereel's quarkus-work-core uses `WorkBroker`. The names aren't synonyms: `Work` is the generalised assignable unit, `WorkItem` is Work with human inbox semantics, and `Task` belongs at the sub-step level — inside a unit of Work. I filed ADR-0003 to close this and retire `TaskBroker` as a name. Future code uses `WorkBroker`.

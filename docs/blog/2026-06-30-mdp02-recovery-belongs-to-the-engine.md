@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [architecture, health-check, recovery, quartz]
 ---
 
-# Recovery Belongs to the Engine, Not the Scheduler
 ## Recovery Belongs to the Engine, Not the Scheduler
 
 The engine's Quartz backend ran startup recovery — scanning event logs for workers that were scheduled but never completed, then rescheduling them. It tracked the outcome with a `volatile RecoveryStatus` field. The problem wasn't that recovery was broken. It was that it lived in the wrong place.

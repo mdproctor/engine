@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [compliance, trust, eidos, behavioral-observation]
 ---
 
-# Two gates before you observe
 The engine already observes two compliance dimensions — latency and attestation rate — and feeds them to eidos for trust scoring. Both are straightforward: measure the clock, check the outcome. Adding the two remaining dimensions, delegation and escalation, turned out to be a different kind of problem.
 
 Latency has a natural gate: if the capability doesn't declare a `latencyHintP50Ms`, there's nothing to measure. No hint, no observation. Attestation has no gate at all — every outcome is a data point. But delegation and escalation are policy judgments, not measurements. The question isn't "how long did it take" but "did the agent behave appropriately given what it was supposed to do?"

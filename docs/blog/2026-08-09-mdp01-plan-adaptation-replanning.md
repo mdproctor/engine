@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [planning, adaptation, spi, concurrency, casehub]
 ---
 
-# Plan Adaptation — When Plans Meet Reality
 The engine's goal decomposition creates a plan at case start — but plans go stale the moment a worker returns with unexpected results. Plan adaptation closes that gap: after each worker completion, the engine evaluates whether the remaining plan still makes sense and, if not, asks the LLM to revise it.
 
 The architecture splits the problem into two orthogonal SPIs. `AdaptationTrigger` answers "should we replan?" — the built-in `EveryStepTrigger` always says yes, while `OnFailureTrigger` fires only when something went wrong. `PlanRevisionStrategy` answers "what should the new plan be?" — `ForwardReplanRevision` sends the completed step history and current context to the LLM and asks for the remaining steps. Both are `NamedStrategy` implementations, resolved per case definition via `EngineStrategyResolver`. Consumers can plug in their own without touching the orchestrator.

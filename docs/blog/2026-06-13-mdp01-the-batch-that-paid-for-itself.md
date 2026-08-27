@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [cdi, spi, composition, risk-classifier]
 ---
 
-# The Batch That Paid for Itself
 When the issue backlog accumulates fifteen XS/S items, the temptation is to knock them out one by one across separate branches. I tried the opposite — one branch, all fifteen, sequential execution.
 
 ## Triage before work

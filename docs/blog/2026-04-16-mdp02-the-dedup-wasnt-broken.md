@@ -10,7 +10,6 @@ tags: [quarkus, hibernate, testing, persistence, debugging]
 excerpt: "PR 2 shipped, Flyway is gone, and two CI failures that turned out to be different problems than they appeared."
 ---
 
-# The Dedup Wasn't Broken. The Test Was.
 PR 2 is open: `casehub-persistence-memory`, 30 unit tests, no Docker, no PostgreSQL. `InMemoryEventLogRepository`, `InMemoryCaseMetaModelRepository`, `InMemoryCaseInstanceRepository` — all three SPI interfaces covered with plain JUnit 5, direct instantiation, `Uni.await().indefinitely()`. The upstream maintainer prefers reviewable pieces, so it stacks on PR 1 as its own PR.
 
 The two-stage review in the subagent workflow caught things I wouldn't have caught reviewing my own code. Claude flagged that `save()` was unconditionally assigning a new id on every call — no guard for the case where `id` is already set. JPA semantics only assign an id on INSERT for new entities; the in-memory version was diverging silently. One check fixed it. The reviewer also caught that `update()` silently accepted an unknown UUID with no signal that nothing had been stored — a caller bug that would be loud in the JPA version and invisible in-memory.

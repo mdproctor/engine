@@ -4,7 +4,6 @@ date: 2026-06-10
 tags: [casehub-engine, blackboard, memory, design]
 ---
 
-# The Flat Map That Grew Three Dimensions
 The CaseContext in casehub-engine has been, since the beginning, a flat `Map<String, Object>`. Workers write their output into it, the engine writes its signals — `actionGateRejected`, `workItemEscalated`, whatever — and domain initialization data lands there too. One namespace for everything.
 
 This was always a collision waiting to happen. A worker that returns a key named `actionGateRejected` would silently trigger engine behaviour. Semantic domain knowledge — the fraud threshold for a fraud-check case, the entity ID for a clinical trial — lives alongside mutable worker outputs with no distinction.
@@ -13,7 +12,7 @@ We wanted to fix this properly: named panels with typed access. Working memory (
 
 Three things turned out to be non-obvious.
 
-**The `asJsonNode()` change is a breaking change for every JQ expression.** `CaseContext.asJsonNode()` now returns a panel document: `{"working":{...},"semantic":{...},"episodic":{...}}`. Every binding filter, every `inputProjection`, every goal condition that previously wrote `.result` now needs `.working.result`. Mechanically simple; the surprise is the blast radius — 47 test files across four modules needed updating. A parse-time warning in `CaseDefinitionYamlMapper` catches unmigrated expressions without blocking load.
+**The `asJsonNode()` change is a breaking change for every JQ expression.** `CaseContext.asJsonNode()` now returns a panel document: `{"working":{...},"semantic":{...},"episodic":{...}}`. Every binding filter, every `inputSchema`, every goal condition that previously wrote `.result` now needs `.working.result`. Mechanically simple; the surprise is the blast radius — 47 test files across four modules needed updating. A parse-time warning in `CaseDefinitionYamlMapper` catches unmigrated expressions without blocking load.
 
 **`@ConsumeEvent` is compiled at build time.** The design called for panel-scoped Vert.x addresses — `casehub.context.changed.extracted` for user-defined panels, so bindings could subscribe only to the panel they care about. But `@ConsumeEvent` is a Quarkus Arc annotation resolved at build time, not runtime. There is no equivalent to `eventBus.consumer("dynamic.address", handler)` via annotation. The fix: a single `@ConsumeEvent` handler on the base address, with a `changedPanel` field in the event. The handler reads that field to filter binding evaluation. Panel-scoped addresses are still published for external consumers.
 

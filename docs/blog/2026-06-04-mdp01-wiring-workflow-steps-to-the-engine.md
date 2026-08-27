@@ -6,7 +6,6 @@ tags: [casehub-engine, quarkus-flow, serverless-workflow, architecture]
 projects: casehub-engine
 ---
 
-# Wiring workflow steps to the engine
 Engine#206 has been on the list for a while: when a `Worker` runs a Serverless Workflow, the steps inside it have no way to dispatch other casehub workers. The workflow executes in quarkus-flow's execution environment, which knows nothing about the engine. You can build a YAML workflow that does HTTP calls, listens for events, and branches on conditions — but you can't call `analyze-document` and wait for the engine to schedule it, run it, and come back with a result. Sequential orchestration via workflow was structurally blocked.
 
 This session closed that gap, shipping `casehub-engine-flow`: a new optional module that bridges the two execution environments.
@@ -41,7 +40,7 @@ The `call: casehub:dispatch` step is handled by `CasehubCallableTaskBuilder`, re
 
 The design for this was reviewed three times before implementation started — not as methodology, but because each round uncovered something that would have been expensive to fix later.
 
-The first review caught that `WorkRequest.input` was being silently ignored by `WorkOrchestrator.doSubmit()`. The spec had a YAML `input:` parameter that did nothing. The data flow model was wrong: the spec implied data passed step-to-step through the workflow, but the implementation always re-evaluated from the case context via `inputProjection`. That's actually the right design — the case context is the bus — but the spec hadn't made that explicit. The `input:` parameter was removed and the data flow section was written.
+The first review caught that `WorkRequest.input` was being silently ignored by `WorkOrchestrator.doSubmit()`. The spec had a YAML `input:` parameter that did nothing. The data flow model was wrong: the spec implied data passed step-to-step through the workflow, but the implementation always re-evaluated from the case context via `inputSchema`. That's actually the right design — the case context is the bus — but the spec hadn't made that explicit. The `input:` parameter was removed and the data flow section was written.
 
 The second review caught that `WorkOrchestrator` couldn't go in `api/spi/` as originally planned. It takes `CaseInstance` as a parameter. `CaseInstance` is in `casehub-engine-common/internal/`. Putting the interface in `api/spi/` would create a circular dependency: `api` ← `common` ← `api`. So it went in `common/spi/`, alongside the persistence SPIs.
 

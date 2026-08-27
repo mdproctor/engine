@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [subcase, recursion, depth-limiting]
 ---
 
-# The Trampoline That Changed the Design
 ## The Trampoline That Changed the Design
 
 The merge queue CasePlanModel needs recursive bisection — a batch case that spawns two sub-batch cases of itself, each of which may bisect further. The engine's `SubCaseExecutionHandler` has a hard guard against this: if the parent case definition matches the child SubCase identity, it faults immediately. No exceptions.

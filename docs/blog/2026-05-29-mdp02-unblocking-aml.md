@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [ledger, trust-routing, testcontainers, podman, cdi]
 ---
 
-# Unblocking AML
 The batch that closed today was supposed to be an afternoon.
 
 `TrustRoutingPolicy` and `TrustRoutingPolicyProvider` were living in `casehub-engine-ledger` — the implementation module. Any consumer needing to configure trust routing had to pull in the full ledger runtime to do it. AML wanted `AmlTrustRoutingPolicyProvider`, not `TrustWeightedAgentStrategy`, but you couldn't get one without the other. Moving the two types to `casehub-engine-api` fixed it — one IntelliJ semantic move, all import references updated.

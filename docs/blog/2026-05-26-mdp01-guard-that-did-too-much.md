@@ -7,7 +7,6 @@ projects: [casehub-engine]
 tags: [casehub, casehub-engine, signal-bridge, LoopControl, WAITING, blackboard]
 ---
 
-# The Guard That Did Too Much
 The signal gaps in the engine — Qhorus human messages that never reach cases,
 WorkItem escalations that freeze WAITING cases, M-of-N group outcomes that vanish
 — all traced to eleven lines in `CaseContextChangedEventHandler`:

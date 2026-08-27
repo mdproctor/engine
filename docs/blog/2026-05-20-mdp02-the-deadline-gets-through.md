@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [qhorus, commitments, propagation-context, podman, testcontainers]
 ---
 
-# The Deadline Gets Through
 Claudony is about to start tracking Commitments — Qhorus obligation records that bound how long an agent has to act on a COMMAND. To set an expiry, it needs the case budget deadline. The problem: claudony's `postToChannel` implementation has no access to the engine's `CaseInstance`. The content JSON is the only thing it receives.
 
 `WorkerScheduleEventHandler.dispatchCommand()` was building its COMMAND content as `Map.of(...)` — four fixed fields, immutable by definition. Adding a fifth conditional field meant switching to a `HashMap`. The change itself is five lines. What's more interesting is what surfaced around it.

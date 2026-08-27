@@ -10,7 +10,6 @@ tags: [sealed-types, spi-design, mutiny, failure-cascade]
 series: issue-533-codec-and-expired-wiring
 ---
 
-# Where Does a Timeout Belong?
 `OutcomePolicy` declared `onExpired` from the start. The YAML schema parsed it, the mapper wired it, the default constructor set it to `REROUTE`. But nothing in the engine ever used it. A worker that timed out hit `TimeoutException`, fell into the infrastructure retry loop alongside genuine crashes, retried at the same timeout limit, exhausted its retries, and faulted the case. The distinction between "worker crashed" and "worker ran out of time" didn't exist at runtime.
 
 The fix was straightforward — add `WorkerOutcome.Expired` to the sealed hierarchy and wire it through the same `handleSemanticFailure` path that handles `Declined` and `Failed`. But the interesting question was *where* to intercept the timeout.

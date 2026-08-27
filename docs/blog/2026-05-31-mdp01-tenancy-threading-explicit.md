@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [tenancy, multi-tenancy, spi, cdi, quartz, blackboard]
 ---
 
-# Tenancy Threading Gets Explicit
 My first instinct for tenancy in the engine repositories was elegant: inject
 `CurrentPrincipal`, read `tenancyId()` in each query, filter silently. Callers stay
 clean. Protocol PP-20260520-e6a5f0 says exactly this — bind tenancyId inside the

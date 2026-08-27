@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [hitl, yaml-dsl, quarkus]
 ---
 
-# Giving the YAML a Human Concept
 The `casehub-engine-work-adapter` has been implemented for weeks. `HumanTaskScheduleHandler` creates WorkItems. `WorkItemLifecycleAdapter` listens for completion and signals the engine to resume. The code is there. But devtown's PR review case stalls every time the human approval step fires.
 
 The first assumption — that the adapter simply wasn't on the classpath — was wrong. The problem was upstream of that.

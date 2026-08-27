@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [snapshot, dependency-management]
 ---
 
-# The Shim That Wasn't Dead
 ## The Shim That Wasn't Dead
 
 We spent this session on issue triage — reviewing the state of the orchestration model unification (#700) and its trailing children. The epic itself was closed. The shared type foundation had landed: `TaskDescriptor`, `TaskStatus`, `ExecutorRef`, `TaskSnapshot`. `PlanItem` implements the shared interface. The parallel hierarchies between engine and blocks are gone.

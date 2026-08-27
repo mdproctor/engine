@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [cmmn, goals, milestones, design-review]
 ---
 
-# The Review That Reversed the Design
 ## The Review That Reversed the Design
 
 I started this branch thinking `Goal.terminal` just needed wiring. The field existed in the model, the schema, and the builder — it had never been connected by the YAML mapper and the handler ignored it. The brainstorming conclusion seemed obvious: wire it properly, gate completion evaluation on it, and move on.

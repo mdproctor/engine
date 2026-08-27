@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [trust-routing, bootstrap, escalation, mutiny]
 ---
 
-# The Mixed-Pool Gap
 The initial spec for the bootstrap guard had a gap I missed.
 
 The feature itself is clear enough: certain capabilities — `merge-executor`, `security-review` — are irreversible enough that assigning an unproven agent is genuinely dangerous. `TrustWeightedAgentStrategy` will assign a BOOTSTRAP-phase agent if it has the best workload score, because BOOTSTRAP candidates score by availability and there's nothing to stop them. Adding `bootstrapEscalationRequired` to `TrustRoutingPolicy` is the fix.

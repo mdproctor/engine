@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [casehub-engine, ActionRiskClassifier, design, gate, WorkerResult]
 ---
 
-# The gate that doesn't exist in the code until it fires
 The idea behind `ActionRiskClassifier` is simple: a worker is about to do something consequential — file a SAR, freeze an account, push to production — and before the engine commits that output to the case, a classifier gets to say "no, wait, a human needs to see this." The implementation is not simple.
 
 The first question was how a worker even signals intent. Workers return `Map<String, Object>` — there's no hook. We looked at three options: a thread-local side channel (`WorkerContext.declareAction()`), a reserved key in the output map, or a new return type. The thread-local fails for workflow workers — they run asynchronously, the thread-local context doesn't survive. We went with the breaking change: all worker functions now return `WorkerResult`, which wraps the output map plus an optional `PlannedAction`. The Serverless Workflow workers return `WorkerResult.of(output)` with no action — same bytes, different wrapper.

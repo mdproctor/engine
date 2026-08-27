@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [architecture, spi, serverlessworkflow, worker-execution]
 ---
 
-# The Switch Statement Was the Problem
 ## The Switch Statement Was the Problem
 
 CaseHub's `DefaultWorkerExecutor` had a switch statement that routed worker functions to their execution strategy — sync lambdas to a virtual thread pool, agent functions to the AI model, workflow functions to the Serverless Workflow SDK. Three cases, three code paths.

@@ -9,7 +9,6 @@ projects: [CaseHub Engine]
 tags: [cdi, quarkus, refactoring]
 ---
 
-# The Inheritance Chain Nobody Missed
 The batch PR from earlier today shipped a composition refactor on `CaseLedgerEntryRepository` — breaking it free from `JpaLedgerEntryRepository` so tests could substitute an in-memory double without hitting native SQL tables. Clean separation. The kind of change that should only affect the module it touches.
 
 CI disagreed. Eight unsatisfied `LedgerEntryRepository` injection points in `casehub-engine-flow` — a module that wasn't touched in the PR.

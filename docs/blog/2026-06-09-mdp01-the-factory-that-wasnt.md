@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [expression-evaluator, spi, cdi, quarkus, design]
 ---
 
-# The factory that wasn't
 `CaseDefinitionYamlMapper` had five call sites that all said the same wrong thing:
 
 ```java

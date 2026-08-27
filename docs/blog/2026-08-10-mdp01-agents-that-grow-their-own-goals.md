@@ -9,7 +9,6 @@ tags: [goal-lifecycle, agent-autonomy, reflection, goal-formation]
 series: issue-800-agent-learning-subepics-bc
 ---
 
-# Agents That Grow Their Own Goals
 The landscape analysis I did in July surveyed every multi-agent project worth examining — Smallville, Emergence World, Concordia, the lot. One gap stood out from the rest: no project has agents that form new goals from experience. Goals are pre-declared by the developer or implicit from survival pressure. Nobody closes the loop.
 
 Today we closed it — or at least built the mechanism. Goal formation is the pipeline that turns accumulated experience into new objectives: reflection produces insights, the LLM extracts goal candidates from those insights alongside the agent's existing goals and recent memories, validation enforces the structural constraints (name length, description bounds, no duplicates, max 10 goals per agent), and registration writes the new goals onto the AgentDescriptor.

@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [refactoring, platform, quarkus, cdi]
 ---
 
-# Clearing the Interim Address
 When we moved `JQEvaluator` into `casehub-engine-common` as part of the JQ
 consolidation a few days ago, we knew it was temporary. The comment in CLAUDE.md
 said so explicitly: *follow-on platform extraction tracked in engine#317.* The

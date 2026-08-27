@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [concurrency, routing, worker-runtime]
 ---
 
-# Six Issues, One Branch
 The last session landed the universal routing strategy convention (#634) — `NamedStrategy`, `StrategyResolver`, five SPIs retrofitted. That work left a trail of follow-on issues: evaluation happening in the wrong place, non-deterministic defaults, a concurrency race nobody had noticed, and three methods that still threw `UnsupportedOperationException`.
 
 I wanted to clear the deck. Six issues, all on one branch, ranging from a one-line annotation swap to a full case-lifecycle tracker.

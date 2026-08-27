@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [spi, mutiny, cdi, reactive]
 ---
 
-# Worker carries a definition, not an outcome
 ## Worker carries a definition, not an outcome
 
 `WorkerProvisioner.provision()` had been returning `Worker` since the provisioner SPI was first written. I drafted the follow-on feature — causal audit linkage, connecting a provisioned worker back to the Qhorus COMMAND that triggered it — as a nullable `causedByEntryId` field on `Worker`. Set by the provisioner after building the worker object, returned through it.

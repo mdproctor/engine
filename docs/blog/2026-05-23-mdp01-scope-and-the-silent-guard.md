@@ -10,7 +10,6 @@ excerpt: >
   routing and a silent when-field bug in contextChange bindings.
 ---
 
-# Scope and the Silent Guard
 Two issues, both discovered via devtown and clinical integration work. Neither
 was complex to fix. Both were invisible until the right test ran.
 

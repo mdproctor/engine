@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [quarkus, cdi, flyway, multi-tenancy, testing]
 ---
 
-# What four CI failures found in the multi-tenancy test infrastructure
 The PR had seven commits and clean local tests. CI disagreed — four times.
 
 The S/XS batch work itself was finished. Merging it was supposed to be a formality. What CI found instead was a sequence of test infrastructure gaps that adding `@Inject CurrentPrincipal` to the engine's core beans had quietly exposed. Claude and I worked through them one run at a time.

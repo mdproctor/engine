@@ -10,7 +10,6 @@ tags: [quarkus, cdi, quarkus-work, blackboard, testing]
 excerpt: "CaseLifecycleEvent gets its missing worker execution call sites, and the casehub-work-adapter uses CDI choreography to route quarkus-work terminal states into PlanItem transitions via the callerRef routing key."
 ---
 
-# Connecting quarkus-work to the blackboard
 The two upstream pieces Claudony needs from casehub-engine are now shipped: `CaseLifecycleEvent` for worker execution transitions, and `casehub-testing` to let downstream `@QuarkusTest` classes run the engine in memory without Docker or PostgreSQL.
 
 The lineage gap was simple to diagnose. `CaseLedgerEventCapture` observes `CaseLifecycleEvent` and writes ledger entries — but the engine only fired those events for case-level transitions. Worker execution never fired them. Claudony's `JpaCaseLineageQuery` was querying for ledger entries that were never written. The fix was two call sites: `WorkerExecutionJobListener.jobToBeExecuted()` for the start event, `WorkflowExecutionCompletedHandler` for completion. Both fire `CaseLifecycleEvent` with `actorId = workerId` and `actorRole = "WORKER"`.

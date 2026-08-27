@@ -10,7 +10,6 @@ tags: [serverlessworkflow, quarkus-flow, upstream]
 excerpt: "We submitted a PR to fix a null output bug in sdk-java. The maintainer closed it: it wasn't a bug."
 ---
 
-# The Workaround That Wasn't
 When writing behaviour-documenting tests for `WorkflowExecutionListener` in
 quarkus-flow, we kept hitting a strange failure. The Q2 test was checking whether
 `onWorkflowCompleted` carries output — `completedOutput` was null after `await()`

@@ -9,7 +9,6 @@ tags: [worker-rights, migration, silent-failures, yaml-parsing]
 published: false
 ---
 
-# The Field That Was Never Read
 The platform generalized its worker rights SPI — `WorkerAction` from a closed enum to a record, `WorkerCredential` scoped by `ResourceId` instead of a bare UUID, authorization context as a marker interface instead of a hardcoded `caseDefinitionId`. Standard type-level work to make engine-specific vocabulary extensible across domains.
 
 The engine migration was supposed to be mechanical. Replace enum constant references with a new `EngineWorkerActions` constants class, wrap case UUIDs in `ResourceId`, swap the engine's local `WorkerCredentialFilter` for the platform's reusable `acl-worker` module. Four hours of find-and-replace with a few new files.

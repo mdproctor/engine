@@ -10,7 +10,6 @@ tags: [quarkus, cdi, design]
 excerpt: "WorkerRegistry becomes the single source of truth for all three worker entry paths — static, provisioned, self-registering — and Java 21 sealed classes provide the execution fork without an explicit type check."
 ---
 
-# Worker registration as a speech act
 The design session for WorkerProvisioner wiring started as an infrastructure
 question and ended as a philosophy question: what *kind of thing* is worker
 registration?

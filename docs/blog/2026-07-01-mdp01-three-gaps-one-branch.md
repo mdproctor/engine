@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [signal-settlement, planning-strategy, event-log, audit]
 ---
 
-# Three Gaps, One Branch
 The hybrid orchestration epic shipped last session. What it left behind were three follow-up issues — not defects exactly, more like threads that were cut short when the scope boundary was drawn.
 
 The most interesting one was #620: `signalAndAwait()` hangs when a worker throws and retries are exhausted. I knew signalId threaded through the success path — `WorkflowExecutionCompleted` carries it, the handler calls `recordCompletion()`, settlement resolves. What I hadn't traced was the failure path. `WorkerRetryContext` had no `signalId` field. The entire retry/exhaust flow was invisible to the settlement tracker.

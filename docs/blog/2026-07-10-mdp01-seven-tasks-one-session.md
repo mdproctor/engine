@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [contextbridge, generics, pipeline, cross-repo]
 ---
 
-# Seven tasks, one session: ContextBridge implementation day
 Seven of eight implementation tasks for the ContextBridge protocol landed today. The protocol was fully designed and adversarially reviewed yesterday — today was pure execution. The pipeline now carries typed context from scheduling through execution, with bridge resolution, EventLog metadata threading, and three built-in bridges (Map identity, Jackson POJO, JsonNode pass-through).
 
 The session started with a surprise: `WorkerFunction<T>` was already parameterised from a previous attempt that got reset. The uncommitted changes in the worker repo were sound — the `Sync<T>` record, `inputType()`, the type token on `None`. What hadn't been done was fixing the downstream blast radius. `Worker.Builder.function()` still called `new Sync(fn)` with one arg against a two-arg constructor. The builder itself needed `fn()` and `TypedFunctionBuilder` for the Reified Varargs Type Token DSL.

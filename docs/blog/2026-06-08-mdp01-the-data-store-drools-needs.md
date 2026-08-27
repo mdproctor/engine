@@ -9,7 +9,6 @@ projects: [casehub]
 tags: [blackboard, drools, architecture]
 ---
 
-# The Data Store Drools Actually Needs
 After PR #443 merged — dynamic candidateGroups/Users for humanTask — the question
 turned to what's next. I'd been wanting to do Drools integration for a while.
 Engine has issue #5 (DroolsExpressionEvaluator) and issue #207 (RulesRouter) already

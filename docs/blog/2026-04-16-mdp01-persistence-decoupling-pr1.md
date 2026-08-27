@@ -10,7 +10,6 @@ tags: [quarkus, hibernate, testing, podman, persistence]
 excerpt: "PR 1 of the persistence decoupling plan exposes a Podman misconfiguration and a Quarkus Vert.x context requirement that blocks standard JUnit methods from calling reactive Panache."
 ---
 
-# Persistence PR 1: Container Chaos and a Quarkus Context Trick
 The persistence decoupling plan was written last session — three PRs to strip JPA from the engine core. Today was PR 1.
 
 I brought Claude in to write the implementation plan before touching code. Writing it surfaced real things: a `parentPlanItemId` field the spec notes had as `Long` but the actual code had as `UUID`; a risk that indexing the engine module in the Hibernate module's tests would cause Hibernate to discover duplicate `@Entity` mappings on the same tables; and a decision to leave the Flyway migration files in the engine JAR for now, since moving them in the same PR would require fixing the engine tests simultaneously.

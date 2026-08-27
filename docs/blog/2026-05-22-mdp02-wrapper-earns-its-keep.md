@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [langchain4j, jq, api-design, refactoring]
 ---
 
-# The Wrapper That Earns Its Keep
 Before touching any code I stopped and asked whether the casehub `Agent` class should exist at all. LangChain4j has its own agent model — `UntypedAgent`, `AgenticScope`, supervisor patterns. Was the casehub version just reinventing something the library already provides better?
 
 The answer turned out to matter more than the refactoring.

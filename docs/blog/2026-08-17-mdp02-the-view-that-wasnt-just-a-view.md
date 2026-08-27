@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [rest, snapshots, orchestration, workbench]
 ---
 
-# The View That Wasn't Just a View
 The issue said "no new logic — just a new view composing existing snapshots." Six endpoints already existed on `PlanResource` serving decomposition trees, DAG plans, execution results, and live plan models. The orchestration workbench needed all of that in one JSON shape. A composition endpoint.
 
 The `ExecutionSnapshot` TypeScript contract was clear: `executionId`, `state`, `model` with a pattern and failure policy, `activeAgents`, `completedAgents` with per-agent status and duration, timing fields. The engine types were clear: `CasePlanModelSnapshot`, `DagPlanSnapshot`, `DagResultSnapshot`. Map one to the other. Done by lunch.

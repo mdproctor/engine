@@ -10,7 +10,6 @@ tags: [git, reconstruction, squash, history]
 excerpt: "Pushing the reconstructed engine history live surfaces a silent rebase failure and a detective story about two backup branches, a stale fork, and feature code that never made it to casehubio."
 ---
 
-# Going Live — and the Two-Backup Mystery
 The reconstruction was done. `main_proposal` had been sitting on `mdproctor/engine`
 for a week — 115 commits, tree identical to `casehubio/engine`. I wanted a systematic
 review before touching the canonical repo.

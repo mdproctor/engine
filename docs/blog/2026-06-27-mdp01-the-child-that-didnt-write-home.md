@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [subcase, m-of-n, yaml, outputMapping]
 ---
 
-# The Child That Didn't Write Home
 ## The Data That Disappeared
 
 The M-of-N sub-case coordination in casehub-engine has been fully wired for weeks — group policies, threshold evaluation, cancellation on KEEP vs CANCEL. All working, all tested. But none of it was reachable from YAML. The four fields (`groupId`, `totalInGroup`, `requiredCount`, `onThresholdReached`) existed in the Java DSL's `SubCase.builder()` and were exercised by the runtime, but the YAML schema and mapper didn't know about them.

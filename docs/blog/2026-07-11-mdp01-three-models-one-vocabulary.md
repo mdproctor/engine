@@ -10,7 +10,6 @@ tags: [architecture, orchestration, type-unification]
 series: issue-700-unify-orchestration-model
 ---
 
-# Three Models, One Vocabulary
 CaseHub has three coordination models: blackboard (engine), workflow (engine-flow), and agentic patterns (blocks). They all answer the same question — how do I coordinate work across multiple agents? — but they evolved independently, and the type hierarchies diverged.
 
 Engine had `PlanItemStatus`. Blocks had `ExecutionState`. Engine had `AgentAssignment`. Both had "worker name as a string." The same concepts, different names, different shapes, different packages. Cross-model orchestration was impossible without adapters. Unified monitoring was impossible without per-model glue.

@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [spi, routing, worker-execution, composite, design-review]
 ---
 
-# Routing predicates and the art of not leaking
 The composite `WorkerExecutionManager` (#461) solved CDI ambiguity when co-deploying multiple worker backends. But it left a question hanging: what happens when Quartz — the catch-all fallback — catches a capability it can't actually execute?
 
 External workers (HTTP, MCP, Camel, Script, GitHub Actions) carry placeholder `Sync` functions that return empty maps. If an external backend goes down and Quartz catches the capability, it runs the placeholder. No error. No warning. Wrong output, silently.

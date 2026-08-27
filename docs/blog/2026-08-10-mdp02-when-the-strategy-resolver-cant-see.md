@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [quarkus, cdi, goal-formation, agent-learning]
 ---
 
-# When the Strategy Resolver Can't See Your Strategy
 The final piece of the agent learning sub-epic landed today — goal formation. Agents can now discover new goals from accumulated experience, completing the lifecycle: goals are declared, revised based on outcomes, abandoned when infeasible, and now formed when reflection surfaces new objectives.
 
 The mechanism is straightforward. After a reflection cycle produces insights, the `GoalFormationEvaluator` passes them — along with the agent's current goals and recent memories — to an LLM strategy. The strategy proposes new goals; the evaluator validates them (name length, description length, no duplicates, capacity check) and registers them on the agent's descriptor. A config-based approval gate lets production deployments log proposals without auto-registering.

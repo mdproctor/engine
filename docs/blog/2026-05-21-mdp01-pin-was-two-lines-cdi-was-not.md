@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [quarkus, cdi, arc, testing, alternative, priority]
 ---
 
-# The Pin Was Two Lines. The CDI Was Not.
 `work-adapter` had a json-schema-validator pin sitting in the wrong place — it belonged in the root `pom.xml` alongside the other BOM overrides, not buried in the module that happened to need it first. Moving it was two lines of XML. Verifying it required running `work-adapter` tests. That's where things got interesting.
 
 The test suite failed with a class-loading error:

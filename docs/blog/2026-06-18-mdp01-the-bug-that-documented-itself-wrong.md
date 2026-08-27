@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [failure-cascade, worker-outcome, testing]
 ---
 
-# The Bug That Documented Itself Wrong
 The failure cascade landed in the previous session — `WorkerOutcome` sealed type, `OutcomePolicy`, structured `_outcomes` state, agent exclusion. Four follow-up issues remained open. All four turned out to be straightforward, but the session's real finds were two pre-existing bugs hiding in plain sight.
 
 ## The Follow-Ups

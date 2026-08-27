@@ -10,7 +10,6 @@ tags: [blackboard, architecture, taskbroker, workitems]
 excerpt: "Gap closure via PRs F through J expands into a fifteen-issue ecosystem map, and the binding-gating decision — presence of stage.addBinding() as the opt-in — is validated as the only bounded and fair approach."
 ---
 
-# Ecosystem Mapping, PRs F-J, ADR-0002
 The session started with four parity gaps and ended with fifteen GitHub issues
 mapped against the full ecosystem. That's a wider arc than planned.
 

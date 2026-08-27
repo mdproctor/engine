@@ -10,7 +10,6 @@ tags: [blackboard, architecture, reactive, quarkus]
 excerpt: "Academic research into LLM-based blackboard architectures shapes one critical design decision — changing LoopControl.select() to return Uni — before the blackboard module ships its first implementation."
 ---
 
-# Blackboard: Research, Analysis, and Implementation
 PR3 landed upstream as #85 on Thursday. By Friday the upstream had also merged
 #72 (in-memory SPI), #74 (treblereel's concurrent signal handling), and a few
 others. The engine is in reasonable shape. It was time to start the blackboard.

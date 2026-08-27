@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [java, api-design, migration]
 ---
 
-# Optional Belongs on a Short Leash
 The question of whether `MapCaseFile`'s `get()` should return `Optional<T>` or nullable `T` seemed like a design detail. It opened into something more useful.
 
 Claude pulled up Brian Goetz's own words: "I think routinely using it as a return value for getters would definitely be over-use." The design intent was narrow — a mechanism for library method return types where null would overwhelmingly cause errors. `Stream.findFirst()`, `findById()`, `Config.get(key)`. Not map accessors, not entity getters, not method parameters.

@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [workspace, diagnostics, tooling]
 ---
 
-# Workspace Symlink Archaeology
 The engine's HANDOFF had work-repo issues in it. #329, #330, #298, #152, #328 — all from `casehubio/work`, not `casehubio/engine`. Branch detection was showing a work-repo branch as the active workspace state. Nothing was erroring. Everything looked plausible until you checked the issue numbers.
 
 I asked Claude to verify the issues against the engine repo. Every one came back as a different issue entirely — engine #329 is "fix ledger ActorType import", not "Epic: Progress model enhancements". The HANDOFF had been written by a cross-repo triage session that was working on work-repo epics but writing to what it thought was the engine workspace.

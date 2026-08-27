@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [cdi, quarkus, test-isolation, jq, registry]
 ---
 
-# The Registry That Ate the Scheduler's Reputation
 Every symptom pointed at Quartz. Twelve tests timing out — cases start, workers never fire, `ConditionTimeoutException` after ten seconds of nothing. The contaminating class was `CaseFaultedStateTest`, which runs six cases through `AlwaysFailingCaseHubBean` with retry policies. When it ran first, everything after it died. Textbook cross-test scheduler pollution.
 
 Except it wasn't.

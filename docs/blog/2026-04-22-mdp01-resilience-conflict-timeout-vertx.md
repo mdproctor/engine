@@ -10,7 +10,6 @@ tags: [resilience, quarkus, vertx, eventbus]
 excerpt: "Building ConflictResolver and CaseTimeoutEnforcer surfaces a Vert.x event bus gotcha: publishing from a non-event-loop thread requires explicit context acquisition, or messages silently disappear."
 ---
 
-# casehub-resilience: conflict resolution, a timeout enforcer, and a Vert.x surprise
 The resilience module is open for review. The interesting parts weren't where I expected them.
 
 I had three new things to build: `ConflictResolver` (a strategy for deciding which value wins when two workers write to the same `CaseContext` key), `CaseTimeoutEnforcer` (a scheduled scanner that faults RUNNING cases that have been running too long), and integration tests for both. The poison pill quarantine and dead letter queue were already there — treblereel had implemented them before I started.

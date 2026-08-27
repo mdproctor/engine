@@ -10,7 +10,6 @@ tags: [blackboard, architecture, cmmn, kogito, adr]
 excerpt: "Four genuine gaps against the prior implementation — including strict PlanItem lifecycle and a CDI pre-registration SPI — are closed via PRs F-G and documented in ADR-0002."
 ---
 
-# Closing Every Gap: Parity, Kogito, and ADR-0002
 The previous entry ended at 99 tests. I wasn't done.
 
 A fair comparison of the two LoopControl implementations — ours and treblereel's

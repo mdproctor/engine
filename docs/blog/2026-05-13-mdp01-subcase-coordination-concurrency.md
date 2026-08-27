@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [java, quarkus, concurrency, sub-case]
 ---
 
-# Sub-case coordination — the race condition sequential tests miss
 The session started with a false premise. The handover flagged SubCaseExecutionHandler as "never implemented — scaffold only." It was actually done: 142 tests green, parent cases transitioning to WAITING, children spawning correctly. What was missing was the parallel case — a parent spawning N children and waiting for M of them to complete.
 
 That's what clinical needed for multi-site orchestration.

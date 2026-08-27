@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [architecture, spi, quartz, worker-execution]
 ---
 
-# The Type Dispatch That Didn't Belong
 ## The Type Dispatch That Didn't Belong
 
 The worker execution path in CaseHub's Quartz scheduler had a structural problem: `QuartzWorkerExecutionJob` knew too much. It resolved worker functions by type — sync, agent, flow — applied output schemas, handled timeouts, managed failure events, and published completion. The Quartz adapter was also the execution engine.

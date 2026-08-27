@@ -8,7 +8,6 @@ tags: [architecture, blackboard, reactive, vertx, multi-agent]
 excerpt: "Changing the LoopControl interface from a blocking contract to a reactive Uni unlocks four capabilities the classical synchronous blackboard control shell cannot support."
 ---
 
-# Four Things a Synchronous Blackboard Strategy Can't Do
 The blackboard architecture is 40 years old. Hayes-Roth described it in 1985
 for HEARSAY-II speech recognition. The idea — a shared workspace where
 independent knowledge sources self-organise around a problem, activated

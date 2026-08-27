@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [workflow, handover, multi-session]
 ---
 
-# The List That Emptied Itself
 The "What's Next" table in my handover had nine items. I went to start the first one — engine#300, add the deadline field to the COMMAND message — and found the issue closed. The code was already there, committed three sessions back. All nine items were gone.
 
 This is structural. The engine session tracks its own state, but much of the work it depends on — protocols, platform docs, cross-repo standards — happens in the parent session, which has its own handover. When something closes there, the engine handover doesn't know. The list goes stale silently.

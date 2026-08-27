@@ -10,7 +10,6 @@ tags: [context-bridge, type-safety, java-generics]
 series: issue-203-context-bridge-protocol
 ---
 
-# Every Boundary Is the Same Boundary
 CaseHub passes data through five different boundary types — worker input, work items, sub-case context, signals, connectors. Every one of them uses `Map<String, Object>`. Every one of them has the same class of bugs: a key that should be `transaction` arrives as `txn`, a value that should be a `Double` arrives as an `Integer`, and the failure is silent because Maps don't know what they're supposed to contain.
 
 We spent this session designing the fix — a single protocol called ContextBridge that applies the same typed translation at every boundary.

@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [routing, trust, reactive, cdi, sealed-types]
 ---
 
-# Routing the Uncertain
 Two routing issues had been sitting on the backlog since the `AgentRoutingStrategy`
 SPI shipped. One was about what to do when all candidates are borderline on trust —
 the four-phase model says escalate to human oversight, but the code just returned

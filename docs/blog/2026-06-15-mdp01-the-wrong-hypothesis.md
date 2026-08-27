@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [panels, jq, debugging, root-cause]
 ---
 
-# The Wrong Hypothesis and the JSON Document That Ate Every Binding
 ## The Wrong Hypothesis and the JSON Document That Ate Every Binding
 
 AML's entire test suite was dead. Every `@QuarkusTest` that started a case and drained to completion timed out — cases started, bindings evaluated, and then nothing happened. No workers fired. No errors. The case stayed `RUNNING` forever.

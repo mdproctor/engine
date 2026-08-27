@@ -10,7 +10,6 @@ tags: [lifecycle-scopes, planning, dispatch]
 series: issue-821-lifecycle-scope-wiring
 ---
 
-# Scope-Activated Triggers — Workers That Start When Their World Does
 Most case workers are reactive. A context change satisfies a condition, the binding fires, the worker runs. This is the choreography model — bindings listen for data, and dispatch follows naturally.
 
 But some workers need a different relationship with time. A monitoring sidecar should start when its compound activates and run for the compound's lifetime. A case-level audit logger should start when the case starts, not when some arbitrary piece of data appears. These workers don't react to context — they react to scope.

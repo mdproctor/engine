@@ -8,7 +8,6 @@ tags: [plan-adaptation, design-review, casehub-engine, htn-planning]
 published: false
 ---
 
-# Plan Adaptation Design and the Compound Replacement Problem
 Static plans don't survive contact with reality. The engine's hierarchical planning (#802) decomposes agent goals into ordered capability sequences at case start, but once materialised, the plan is frozen. A worker discovers the data is structured differently than expected, or fails outright, and the remaining steps execute against invalidated assumptions.
 
 Plan adaptation is the fix: after each worker completion, evaluate whether the plan still holds and revise if it doesn't. The design decomposes this into two orthogonal strategies. An `AdaptationTrigger` decides whether to replan — `EveryStepTrigger` fires on every completion, `OnFailureTrigger` only when something goes wrong. A `PlanRevisionStrategy` produces the replacement — `ForwardReplanRevision` re-invokes the LLM with completed step history and asks "what's left to do?" Both are `NamedStrategy` implementations, configurable per case definition, with YAML presets for common combinations (`adaptation: adaptive` maps to every-step + forward-replan).

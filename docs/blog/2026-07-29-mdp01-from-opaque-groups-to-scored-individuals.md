@@ -9,7 +9,6 @@ tags: [routing, humantask, cbr, group-scoring]
 series: issue-797-humantask-cbr-routing
 ---
 
-# From Opaque Groups to Scored Individuals
 *Part of a series on [#797 — HumanTask CBR routing](https://github.com/casehubio/engine/issues/797). Previous: [Teaching the Engine Who Should Handle This](2026-07-29-teaching-the-engine-who-should-handle-this.md).*
 
 When a workflow engine assigns a task to a human, it typically resolves who should see it from a candidate set — a list of users, a list of groups, or both. The candidate set answers "who *can* do this." It doesn't answer "who *should* do this."

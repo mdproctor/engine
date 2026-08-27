@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [goal-expression, lifecycle-event, sealed-interface]
 ---
 
-# Sealing the cracks in goal composition
 ## Sealing the cracks in goal composition
 
 I'd been looking at `GoalExpression` for a while, knowing the flat `allOf`/`anyOf` structure couldn't express what devtown actually needed — `anyOf(allOf(pr-approved, security-verified, ci-passing), externally-merged)`. Two distinct completion paths. The workaround was prepending `.pr.status == "merged" or` to every individual goal condition, which technically worked but polluted each goal's semantics. A goal called `pr-approved` shouldn't evaluate true when no approvals happened.

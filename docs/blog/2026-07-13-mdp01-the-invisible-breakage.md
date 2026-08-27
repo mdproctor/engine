@@ -9,7 +9,6 @@ projects: [casehub-engine]
 tags: [snapshot-drift, intellij-mcp, sla, jsonschema2pojo]
 ---
 
-# The Invisible Breakage
 I set out to fix four small issues on the engine — the kind of cleanup batch where you expect to be done in an hour. Two constructor mismatches from upstream SNAPSHOT changes, one checkstyle violation, and a TODO that had been waiting for someone to replace it with an actual event dispatch.
 
 The constructor fixes were straightforward: `CommitmentContext` grew three parameters in qhorus-api, `TrustRoutingPolicy` gained a `Set<TrustPhase>` parameter. But neither breakage showed up until I ran a full project build. `mvn install -DskipTests` passed clean — production code compiled fine. The breakages lived exclusively in test files that hadn't been recompiled since the upstream SNAPSHOTs changed. Without a cross-repo CI gate on test compilation, SNAPSHOT drift is invisible until someone touches the module.

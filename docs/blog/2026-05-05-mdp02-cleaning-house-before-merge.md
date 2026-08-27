@@ -10,7 +10,6 @@ tags: [git, pull-request, compaction]
 excerpt: "Applying the squash policy to two live PRs collapses docs follow-on commits and surfaces a hitchhiker commit that snuck in under a different author's PR."
 ---
 
-# Cleaning House Before the Merge
 The squash policy has existed as a document since early May. This session it
 got its first application to live PRs.
 
