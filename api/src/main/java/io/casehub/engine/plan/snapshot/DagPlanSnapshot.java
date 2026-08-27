@@ -50,7 +50,8 @@ public record DagPlanSnapshot(Map<String, DagNodeSnapshot> nodes, Instant timest
               execName,
               node.dependsOn(),
               node.joinType(),
-              contingencySnapshot));
+              contingencySnapshot,
+              node.judgment() != null));
     }
     return new DagPlanSnapshot(Map.copyOf(snapshotNodes), timestamp);
   }

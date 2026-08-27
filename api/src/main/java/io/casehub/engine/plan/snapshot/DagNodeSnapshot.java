@@ -25,7 +25,19 @@ public record DagNodeSnapshot(
     String executorName,
     Set<String> dependsOn,
     JoinType joinType,
-    DagPlanSnapshot contingency) {
+    DagPlanSnapshot contingency,
+    boolean hasJudgment) {
+
+  public DagNodeSnapshot(
+      String id,
+      String taskId,
+      String taskDescription,
+      String executorName,
+      Set<String> dependsOn,
+      JoinType joinType,
+      DagPlanSnapshot contingency) {
+    this(id, taskId, taskDescription, executorName, dependsOn, joinType, contingency, false);
+  }
 
   public DagNodeSnapshot(
       String id,
@@ -34,6 +46,6 @@ public record DagNodeSnapshot(
       String executorName,
       Set<String> dependsOn,
       JoinType joinType) {
-    this(id, taskId, taskDescription, executorName, dependsOn, joinType, null);
+    this(id, taskId, taskDescription, executorName, dependsOn, joinType, null, false);
   }
 }

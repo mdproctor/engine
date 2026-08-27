@@ -19,19 +19,31 @@ import java.util.Objects;
 import java.util.Set;
 
 public record DagNode<T>(
-    String id, T task, Set<String> dependsOn, JoinType joinType, DagPlan<T> contingency) {
+    String id,
+    T task,
+    Set<String> dependsOn,
+    JoinType joinType,
+    DagPlan<T> contingency,
+    io.casehub.api.model.JudgmentTarget judgment) {
   public DagNode {
     Objects.requireNonNull(id, "id required");
     Objects.requireNonNull(task, "task required");
     dependsOn = dependsOn != null ? Set.copyOf(dependsOn) : Set.of();
-    if (joinType == null) joinType = JoinType.ALL_OF;
+    if (joinType == null) {
+      joinType = JoinType.ALL_OF;
+    }
     if (contingency != null && contingency.exitNodeIds().size() > 1) {
       throw new IllegalArgumentException(
           "Contingency plan must have a single exit node, got " + contingency.exitNodeIds().size());
     }
   }
 
+  public DagNode(
+      String id, T task, Set<String> dependsOn, JoinType joinType, DagPlan<T> contingency) {
+    this(id, task, dependsOn, joinType, contingency, null);
+  }
+
   public DagNode(String id, T task, Set<String> dependsOn, JoinType joinType) {
-    this(id, task, dependsOn, joinType, null);
+    this(id, task, dependsOn, joinType, null, null);
   }
 }

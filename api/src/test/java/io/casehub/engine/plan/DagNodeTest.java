@@ -58,4 +58,33 @@ class DagNodeTest {
     var node = new DagNode<>("a", "task", Set.of(), JoinType.ALL_OF);
     assertThat(node.contingency()).isNull();
   }
+
+  @Test
+  void judgment_nullByDefault() {
+    var node = new DagNode<>("a", "task", Set.of(), JoinType.ALL_OF);
+    assertThat(node.judgment()).isNull();
+  }
+
+  @Test
+  void judgment_nullWithContingencyConstructor() {
+    var node = new DagNode<>("a", "task", Set.of(), JoinType.ALL_OF, null);
+    assertThat(node.judgment()).isNull();
+  }
+
+  @Test
+  void judgment_carriesTarget() {
+    var target = io.casehub.api.model.JudgmentTarget.forHuman().prompt("Review the output").build();
+    var node = new DagNode<>("a", "task", Set.of(), JoinType.ALL_OF, null, target);
+    assertThat(node.judgment()).isNotNull();
+    assertThat(node.judgment().prompt()).isEqualTo("Review the output");
+  }
+
+  @Test
+  void judgment_coexistsWithContingency() {
+    var contingency = DagPlan.singleton("fallback");
+    var target = io.casehub.api.model.JudgmentTarget.forAny().prompt("Validate").build();
+    var node = new DagNode<>("a", "task", Set.of(), JoinType.ALL_OF, contingency, target);
+    assertThat(node.contingency()).isNotNull();
+    assertThat(node.judgment()).isNotNull();
+  }
 }
