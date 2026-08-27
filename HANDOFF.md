@@ -1,32 +1,50 @@
 # HANDOFF — engine#994 Governed Yield
 
 **Branch:** `issue-994-governed-yield`
-**Date:** 2026-08-26
+**Date:** 2026-08-27
 
 ## Last Session
 
-Fixed generator schema (MissingNode crash, CaseDefinitionSpec overwrite, Judgment type addition), then completed the ActionGateScheduler → JudgmentScheduler unification: renamed CloudEventHumanTaskScheduler → CloudEventJudgmentScheduler with gate payload support, migrated WorkflowExecutionCompletedHandler.handleGate() to JudgmentScheduler, deleted ActionGateScheduler/ActionGateScheduleRequest/NoOpActionGateScheduler/OversightGateService. Updated all CLAUDE.md references. Wrote JudgmentResponseHandler verification pipeline tests. Migrated planning-config-example from humanTask to judgment YAML syntax. 2,082 tests pass across 6 modules.
+Wired JudgmentResponseHandler.processResponse() end-to-end: CaseInstanceCache integration, PendingJudgment on CaseInstance, verification → accepted/fault data flows (binding context update, gate re-fire, PlanItem fault). Implemented engine#1000 DagNode judgment field (6th field, backward-compatible). Implemented blocks#171 tests and blocks#172 verification strategies (SchemaValidationVerifier, LlmEvaluationVerifier). Fixed generator schema (MissingNode crash, CaseDefinitionSpec overwrite). Completed ActionGateScheduler → JudgmentScheduler unification. Deleted OversightGateService. All CLAUDE.md references updated.
 
-Prior sessions: designed spec (14 decisions), implemented Batches 1-3 (foundation types, handler wiring, qhorus JUDGMENT type), fixed worker-api SNAPSHOT blocker, completed HumanTaskTarget → JudgmentTarget migration (200+ references, 32 files).
+Prior sessions: designed spec (14 decisions), implemented all 6 batches, completed HumanTaskTarget → JudgmentTarget migration.
 
 - Spec: `docs/specs/issue-994-governed-yield/2026-08-26-governed-yield-design.md`
 - Plan: `docs/plans/2026-08-26-governed-yield.md`
 
-## Immediate Next Step
+## What's Done
 
-Wire `JudgmentResponseHandler.processResponse()` — currently a skeleton with TODO. Needs CaseInstanceCache integration to look up PendingJudgment and JudgmentTarget from CaseInstance. The `verifyAndApply()` pipeline is implemented and tested (5 tests) but `processResponse()` doesn't call it yet.
+**Engine (complete):**
+- JudgmentTarget + CallerConfig sealed hierarchy
+- JudgmentScheduler SPI + JudgmentRequest/JudgmentPayload
+- JudgmentVerifier + EvidencePresenceVerifier + NoOpJudgmentVerifier
+- JudgmentEscalator + DefaultJudgmentEscalator
+- JudgmentResponseHandler — full verification pipeline with data flows
+- CaseContextChangedEventHandler.publishJudgment() dispatch
+- WorkflowExecutionCompletedHandler.handleGate() → JudgmentScheduler
+- CloudEventJudgmentScheduler — binding + gate paths
+- DagNode judgment field (engine#1000)
+- YAML judgment: block parsing
+- Generator schema with Judgment type
+- 7 JUDGMENT_* event types
+- HumanTaskTarget, ActionGateScheduler, OversightGateService deleted
+- PendingJudgment on CaseInstance (in-memory, ConcurrentHashMap)
 
-Then merge `GateCompletionApplier` into `PlanItemCompletionApplier` — currently both are used by `WorkItemLifecycleCloudEventConsumer`. Deferred until the response handler is wired.
+**Blocks (blocks#171, #172 done; #173 deferred):**
+- LlmJudgmentScheduler — LLM-as-caller for judgment yields (3 tests)
+- SchemaValidationVerifier — resolution type validation (5 tests)
+- LlmEvaluationVerifier — LLM evaluates response quality
+- blocks#173 yield-aware patterns deferred — requires cross-module auto-generation of judgment bindings from pattern config
 
-## Deferred Items (.plan)
+## Remaining
 
-Three completed items still in the deferred section (lifecycle guard blocks edit): "delete HumanTaskTarget", "update CloudEvent module", "update consumer examples" — all done. The remaining 7 deferred items have genuine cross-repo blockers (qhorus ledger dependencies, blocks SNAPSHOT resolution, DagNode non-null constraint).
+- **blocks#173** — yield-aware patterns (deferred, cross-module complexity)
+- **qhorus#412-414** — governance integration (user working on qhorus E5 #402 in original repo)
+- **GateCompletionApplier merge** — into PlanItemCompletionApplier (deferred until gate handlers consolidated)
 
 ## Cross-Module
 
 **Enabled:**
-- `blocks` — engine-api SNAPSHOT installs with Judgment types; blocks#171-173 unblocked once blocks resolves engine-api SNAPSHOT
-- `engine` — all production code compiles, 2,082 tests pass
-
-**Blocked by:**
-- `qhorus` — E4 trust routing (#412), E5 compliance evidence (#413), E7 formal verification (#414) blocked on qhorus/ledger dependencies
+- Engine-api SNAPSHOT installed with all Judgment types
+- Blocks compiles and tests pass against new SNAPSHOT
+- Ledger#200, #201 closed; qhorus E4 (#401) closed — qhorus integration unblocked
