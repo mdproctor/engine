@@ -65,14 +65,19 @@ public class ScopedWorkerOutputHandler {
       }
 
       if (event.reasoning() != null) {
-        String capabilityTag = extractCapabilityTag(caseInstance, event.bindingName());
-        agentExperienceRecorder.storeReasoning(
-            caseInstance,
-            event.workerName(),
-            capabilityTag,
-            new WorkerOutcome.Success<>(null),
-            event.reasoning(),
-            event.bindingName());
+        try {
+          String capabilityTag = extractCapabilityTag(caseInstance, event.bindingName());
+          agentExperienceRecorder.storeReasoning(
+              caseInstance,
+              event.workerName(),
+              capabilityTag,
+              new WorkerOutcome.Success<>(null),
+              event.reasoning(),
+              event.bindingName());
+        } catch (Exception e) {
+          LOG.warnf(e, "Failed to store reasoning for caseId=%s worker=%s — continuing",
+              caseInstance.getUuid(), event.workerName());
+        }
       }
 
       JsonNode diff = contextOutputApplier.apply(caseInstance, event.output(), event.bindingName());
