@@ -104,7 +104,8 @@ class AgentExperienceRecorderTest {
     GoalFormationEvaluator goalFormationEvaluator = mock(GoalFormationEvaluator.class);
     recorder =
         new AgentExperienceRecorder(
-            expInstance, reflInstance, registry, goalFormationEvaluator, memoryStoreInstance);
+            expInstance, reflInstance, registry, goalFormationEvaluator, memoryStoreInstance,
+            mock(Instance.class));
   }
 
   @Test
@@ -207,7 +208,8 @@ class AgentExperienceRecorderTest {
     GoalFormationEvaluator goalFormationEvaluator = mock(GoalFormationEvaluator.class);
     var noopRecorder =
         new AgentExperienceRecorder(
-            unavailable, reflInstance, registry, goalFormationEvaluator, mock(Instance.class));
+            unavailable, reflInstance, registry, goalFormationEvaluator, mock(Instance.class),
+            mock(Instance.class));
     noopRecorder.record(createInstance(), "agent-1", "cap", new WorkerOutcome.Success<>(null), "b");
     assertThat(recorded).isEmpty();
   }

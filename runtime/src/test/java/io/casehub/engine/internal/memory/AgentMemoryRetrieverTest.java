@@ -176,6 +176,49 @@ class AgentMemoryRetrieverTest {
     assertThat(result).isEmpty();
   }
 
+  @Test
+  void retrievesCaseScopedDomainsWhenConfigured() {
+    var caseMem = memory("case-1", "prior reasoning from this case", "worker-reasoning");
+    java.util.UUID caseId = java.util.UUID.fromString("00000000-0000-0000-0000-000000000099");
+
+    when(store.query(any(MemoryQuery.class)))
+        .thenAnswer(
+            inv -> {
+              MemoryQuery q = inv.getArgument(0);
+              if (q.domain().name().equals("worker-reasoning")) return List.of(caseMem);
+              return List.of();
+            });
+
+    var def =
+        CaseDefinition.builder()
+            .namespace("ns")
+            .name("test")
+            .version("1.0")
+            .memoryRetrieval(
+                new MemoryRetrievalConfig(true, 10, Set.of(), Set.of("worker-reasoning"), 5))
+            .build();
+
+    var result = retriever.retrieve("agent-1", "tenant-1", caseId, "security-review", def);
+    assertThat(result).hasSize(1);
+    assertThat(result.get(0).domain()).isEqualTo("worker-reasoning");
+    assertThat(result.get(0).text()).isEqualTo("prior reasoning from this case");
+  }
+
+  @Test
+  void caseScopedDomainsSkippedWhenNoCaseId() {
+    var def =
+        CaseDefinition.builder()
+            .namespace("ns")
+            .name("test")
+            .version("1.0")
+            .memoryRetrieval(
+                new MemoryRetrievalConfig(true, 10, Set.of(), Set.of("worker-reasoning"), 5))
+            .build();
+
+    var result = retriever.retrieve("agent-1", "tenant-1", null, "security-review", def);
+    assertThat(result).isEmpty();
+  }
+
   private Memory memory(String id, String text, String domain) {
     return new Memory(
         id,

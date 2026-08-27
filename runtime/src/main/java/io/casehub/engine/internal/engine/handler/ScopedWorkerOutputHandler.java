@@ -143,19 +143,7 @@ public class ScopedWorkerOutputHandler {
   }
 
   private String extractCapabilityTag(CaseInstance caseInstance, String bindingName) {
-    if (bindingName == null) {
-      return null;
-    }
-    CaseDefinition definition =
-        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    if (definition == null || definition.getBindings() == null) {
-      return null;
-    }
-    return definition.getBindings().stream()
-        .filter(b -> b.getName().equals(bindingName))
-        .filter(b -> b.target() instanceof CapabilityTarget)
-        .map(b -> ((CapabilityTarget) b.target()).capability().name())
-        .findFirst()
-        .orElse(null);
+    return CapabilityTagHelper.extractCapabilityTag(
+        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel()), bindingName);
   }
 }

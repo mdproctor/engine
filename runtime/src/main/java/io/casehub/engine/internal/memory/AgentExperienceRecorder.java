@@ -19,16 +19,22 @@ import io.casehub.api.model.ReflectionTriggerConfig;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.internal.routing.GoalFormationEvaluator;
+import io.casehub.neocortex.memory.CaseMemoryStore;
+import io.casehub.neocortex.memory.MemoryDomain;
+import io.casehub.neocortex.memory.MemoryInput;
 import io.casehub.neocortex.memory.experience.ExperienceRecorder;
 import io.casehub.neocortex.memory.experience.Outcome;
 import io.casehub.neocortex.memory.reflection.ReflectionOrchestrator;
 import io.casehub.worker.api.WorkerOutcome;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -49,6 +55,7 @@ public class AgentExperienceRecorder {
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final GoalFormationEvaluator goalFormationEvaluator;
   private final Instance<CaseMemoryStore> caseMemoryStore;
+  private final Instance<MeterRegistry> meterRegistry;
   private final ConcurrentHashMap<String, ReflectionState> reflectionStates =
       new ConcurrentHashMap<>();
 
@@ -63,12 +70,14 @@ public class AgentExperienceRecorder {
       Instance<ReflectionOrchestrator> reflectionOrchestrator,
       CaseDefinitionRegistry caseDefinitionRegistry,
       GoalFormationEvaluator goalFormationEvaluator,
-      Instance<CaseMemoryStore> caseMemoryStore) {
+      Instance<CaseMemoryStore> caseMemoryStore,
+      Instance<MeterRegistry> meterRegistry) {
     this.experienceRecorder = experienceRecorder;
     this.reflectionOrchestrator = reflectionOrchestrator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.goalFormationEvaluator = goalFormationEvaluator;
     this.caseMemoryStore = caseMemoryStore;
+    this.meterRegistry = meterRegistry;
   }
 
   public void record(
@@ -160,6 +169,12 @@ public class AgentExperienceRecorder {
                 "Reasoning trace storage failed for case=%s worker=%s — non-critical",
                 caseInstance.getUuid(),
                 workerName);
+            if (meterRegistry.isResolvable()) {
+              Counter.builder("casehub.reasoning.storage.failures")
+                  .tag("worker", workerName)
+                  .register(meterRegistry.get())
+                  .increment();
+            }
           }
         });
   }

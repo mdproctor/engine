@@ -24,9 +24,6 @@ public record MemoryRetrievalConfig(
     Set<String> caseScopedDomains,
     int maxCaseMemories) {
 
-  private static final org.jboss.logging.Logger LOG =
-      org.jboss.logging.Logger.getLogger(MemoryRetrievalConfig.class);
-
   public MemoryRetrievalConfig {
     if (maxMemories < 1) {
       throw new IllegalArgumentException("maxMemories must be >= 1");
@@ -36,12 +33,10 @@ public record MemoryRetrievalConfig(
     if (maxCaseMemories < 0) {
       throw new IllegalArgumentException("maxCaseMemories must be >= 0");
     }
-    if (!caseScopedDomains.isEmpty() && maxCaseMemories == 0) {
-      LOG.warnf(
-          "caseScopedDomains configured %s but maxCaseMemories=0 — "
-              + "case-scoped retrieval is effectively disabled",
-          caseScopedDomains);
-    }
+  }
+
+  public boolean isCaseScopedRetrievalEffectivelyDisabled() {
+    return !caseScopedDomains.isEmpty() && maxCaseMemories == 0;
   }
 
   public MemoryRetrievalConfig(boolean enabled, int maxMemories, Set<String> domains) {

@@ -989,7 +989,7 @@ public final class CaseDefinitionYamlMapper {
           memRetrievalNode.has("maxCaseMemories")
               ? memRetrievalNode.get("maxCaseMemories").asInt()
               : 0;
-      def.setMemoryRetrieval(
+      MemoryRetrievalConfig memConfig =
           new MemoryRetrievalConfig(
               memRetrievalNode.has("enabled") && memRetrievalNode.get("enabled").asBoolean(),
               memRetrievalNode.has("maxMemories")
@@ -997,7 +997,15 @@ public final class CaseDefinitionYamlMapper {
                   : 10,
               domains,
               caseScopedDomains,
-              maxCaseMemories));
+              maxCaseMemories);
+      if (memConfig.isCaseScopedRetrievalEffectivelyDisabled()) {
+        LOG.warnf(
+            "[%s] caseScopedDomains configured %s but maxCaseMemories=0 — "
+                + "case-scoped retrieval is effectively disabled",
+            def.getName(),
+            memConfig.caseScopedDomains());
+      }
+      def.setMemoryRetrieval(memConfig);
     }
 
     // adaptation — per-case plan adaptation configuration

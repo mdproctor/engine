@@ -67,7 +67,8 @@ class AgentExperienceRecorderReasoningTest {
             reflInstance,
             mock(CaseDefinitionRegistry.class),
             mock(GoalFormationEvaluator.class),
-            storeInstance);
+            storeInstance,
+            mock(Instance.class));
     recorder.reasoningEnabled = true;
   }
 
@@ -135,7 +136,8 @@ class AgentExperienceRecorderReasoningTest {
             mock(Instance.class),
             mock(CaseDefinitionRegistry.class),
             mock(GoalFormationEvaluator.class),
-            unresolv);
+            unresolv,
+            mock(Instance.class));
     rec.reasoningEnabled = true;
 
     rec.storeReasoning(
