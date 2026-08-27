@@ -47,6 +47,7 @@ public class ScopedWorkerOutputHandler {
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder;
+  @Inject io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
 
   @ConsumeEvent(value = EventBusAddresses.SCOPED_WORKER_OUTPUT)
   @RunOnVirtualThread
@@ -63,10 +64,11 @@ public class ScopedWorkerOutputHandler {
       }
 
       if (event.reasoning() != null) {
+        String capabilityTag = extractCapabilityTag(caseInstance, event.bindingName());
         agentExperienceRecorder.storeReasoning(
             caseInstance,
             event.workerName(),
-            null,
+            capabilityTag,
             new io.casehub.worker.api.WorkerOutcome.Success<>(null),
             event.reasoning(),
             event.bindingName());
@@ -132,5 +134,22 @@ public class ScopedWorkerOutputHandler {
     }
     eventLog.setMetadata(metadata);
     return eventLog;
+  }
+
+  private String extractCapabilityTag(CaseInstance caseInstance, String bindingName) {
+    if (bindingName == null) {
+      return null;
+    }
+    io.casehub.api.model.CaseDefinition definition =
+        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+    if (definition == null || definition.getBindings() == null) {
+      return null;
+    }
+    return definition.getBindings().stream()
+        .filter(b -> b.getName().equals(bindingName))
+        .filter(b -> b.target() instanceof io.casehub.api.model.CapabilityTarget)
+        .map(b -> ((io.casehub.api.model.CapabilityTarget) b.target()).capability().name())
+        .findFirst()
+        .orElse(null);
   }
 }

@@ -55,6 +55,9 @@ class ScopedWorkerOutputHandlerTest {
   private ContextOutputApplier applier;
   private EventLogRepository eventLogRepository;
   private EventBus eventBus;
+  private io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder;
+  private io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
+
   private CaseInstance instance;
 
   @BeforeEach
@@ -62,11 +65,15 @@ class ScopedWorkerOutputHandlerTest {
     applier = mock(ContextOutputApplier.class);
     eventLogRepository = mock(EventLogRepository.class);
     eventBus = mock(EventBus.class);
+    agentExperienceRecorder = mock(io.casehub.engine.internal.memory.AgentExperienceRecorder.class);
+    caseDefinitionRegistry = mock(io.casehub.engine.common.spi.CaseDefinitionRegistry.class);
 
     handler = new ScopedWorkerOutputHandler();
     handler.contextOutputApplier = applier;
     handler.eventLogRepository = eventLogRepository;
     handler.eventBus = eventBus;
+    handler.agentExperienceRecorder = agentExperienceRecorder;
+    handler.caseDefinitionRegistry = caseDefinitionRegistry;
 
     CaseMetaModel metaModel = new CaseMetaModel();
     metaModel.setNamespace("ns");
@@ -195,5 +202,61 @@ class ScopedWorkerOutputHandlerTest {
             instance, "worker1", Map.of("key1", "value1"), "binding1", null);
 
     assertDoesNotThrow(() -> handler.onScopedWorkerOutput(event));
+  }
+
+  @Test
+  void reasoning_extractsCapabilityTagFromBinding() {
+    var capability = mock(io.casehub.worker.api.Capability.class);
+    when(capability.name()).thenReturn("security-review");
+    var binding = mock(io.casehub.api.model.Binding.class);
+    when(binding.getName()).thenReturn("check-security");
+    when(binding.target()).thenReturn(new io.casehub.api.model.CapabilityTarget(capability));
+    var definition = mock(io.casehub.api.model.CaseDefinition.class);
+    when(definition.getBindings()).thenReturn(java.util.List.of(binding));
+    when(caseDefinitionRegistry.getCaseDefinition(any())).thenReturn(definition);
+
+    com.fasterxml.jackson.databind.node.ObjectNode diff =
+        OBJECT_MAPPER.createObjectNode().put("k", "v");
+    when(applier.apply(eq(instance), anyMap(), eq("check-security"))).thenReturn(diff);
+
+    var event =
+        new ScopedWorkerOutputEvent(
+            instance,
+            "worker1",
+            Map.of("k", "v"),
+            "check-security",
+            null,
+            "I chose this because...");
+    handler.onScopedWorkerOutput(event);
+
+    verify(agentExperienceRecorder)
+        .storeReasoning(
+            eq(instance),
+            eq("worker1"),
+            eq("security-review"),
+            any(io.casehub.worker.api.WorkerOutcome.Success.class),
+            eq("I chose this because..."),
+            eq("check-security"));
+  }
+
+  @Test
+  void reasoning_nullBindingName_passesNullCapability() {
+    com.fasterxml.jackson.databind.node.ObjectNode diff =
+        OBJECT_MAPPER.createObjectNode().put("k", "v");
+    when(applier.apply(eq(instance), anyMap(), isNull())).thenReturn(diff);
+
+    var event =
+        new ScopedWorkerOutputEvent(
+            instance, "worker1", Map.of("k", "v"), null, null, "reasoning text");
+    handler.onScopedWorkerOutput(event);
+
+    verify(agentExperienceRecorder)
+        .storeReasoning(
+            eq(instance),
+            eq("worker1"),
+            isNull(),
+            any(io.casehub.worker.api.WorkerOutcome.Success.class),
+            eq("reasoning text"),
+            isNull());
   }
 }

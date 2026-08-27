@@ -17,7 +17,10 @@ package io.casehub.engine.internal.memory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
@@ -173,6 +176,24 @@ class AgentExperienceRecorderReasoningTest {
     assertThat(input.text().length()).isLessThanOrEqualTo(4096);
     assertThat(input.attributes().get("truncated")).isEqualTo("true");
     assertThat(input.text()).contains("[...truncated...]");
+  }
+
+  @Test
+  void storeReasoningHandlesNullCapabilityName() throws Exception {
+    recorder.storeReasoning(
+        mockCaseInstance(),
+        "agent-1",
+        null,
+        io.casehub.worker.api.WorkerOutcome.success(),
+        "reasoning without capability",
+        "binding");
+    Thread.sleep(300);
+
+    org.mockito.ArgumentCaptor<io.casehub.neocortex.memory.MemoryInput> captor =
+        org.mockito.ArgumentCaptor.forClass(io.casehub.neocortex.memory.MemoryInput.class);
+    org.mockito.Mockito.verify(store).store(captor.capture());
+    assertThat(captor.getValue().attributes()).doesNotContainKey("capability");
+    assertThat(captor.getValue().attributes().get("workerName")).isEqualTo("agent-1");
   }
 
   private CaseInstance mockCaseInstance() {

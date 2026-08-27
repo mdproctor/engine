@@ -124,13 +124,13 @@ public class AgentExperienceRecorder {
 
     String truncated = truncateReasoning(reasoning);
     String outcomeKind = outcomeKindName(outcome);
-    java.util.HashMap<String, String> attributes =
-        new java.util.HashMap<>(
-            Map.of(
-                "workerName", workerName,
-                "capability", capabilityName,
-                "bindingName", bindingName,
-                "outcome", outcomeKind));
+    java.util.HashMap<String, String> attributes = new java.util.HashMap<>();
+    attributes.put("workerName", workerName);
+    if (capabilityName != null) {
+      attributes.put("capability", capabilityName);
+    }
+    attributes.put("bindingName", bindingName);
+    attributes.put("outcome", outcomeKind);
     if (truncated.length() < reasoning.length()) {
       attributes.put("truncated", "true");
     }
