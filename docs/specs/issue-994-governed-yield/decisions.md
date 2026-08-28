@@ -169,3 +169,53 @@
 **Sources:** Qhorus speech act taxonomy, qhorus#411 (judgment commitment type), E7 (#404) formal verification
 **Exploration:** quick
 **Status:** captured
+
+## D15: Judgment Mode Per Pattern Type
+
+**Choice:** Configurable with sensible defaults per pattern type
+**Alternatives:**
+- Supervisor IS judgment only — hardcoded, no override. Simple but inflexible.
+- Judgment always separate from agent review — two-step every time. Redundant for supervisor.
+**Rationale:** Each pattern type has a natural judgment placement. SUPERVISOR: judgment replaces supervisor review (supervisor IS the caller). DEBATE: judgment replaces judge convergence. PIPELINE: judgment after each step. Override via `mode:` field when you need the non-default behavior (e.g., post-review validation after supervisor).
+**Trade-offs:** Default must be correct for the common case. Override adds a config field but only surfaces when needed — zero complexity in the default path.
+**Depends on:** D13 (pattern integration approach)
+**Sources:** SupervisorBuilder.java, DebateBuilder.java (JudgeConvergence), AbstractExecutionDriver five-phase loop
+**Exploration:** quick
+**Status:** captured
+
+## D16: v1 Caller Scope in Patterns
+
+**Choice:** LLM + A2A callers (both synchronous request/response)
+**Alternatives:**
+- LLM only — smallest scope but artificially limits when A2A infrastructure exists.
+- All callers including human — requires mid-pattern yield (new WorkerFunction lifecycle variant).
+**Rationale:** Both LLM and A2A are synchronous within the pattern loop — ChatModel call vs HTTP call. A2AClient already exists. Human callers require the pattern to yield mid-execution and resume later, which is a new execution lifecycle deferred per the governed yield spec.
+**Trade-offs:** Human callers in patterns deferred. Acceptable — judgment bindings at the case level already handle human callers.
+**Sources:** LlmJudgmentScheduler.java, A2AClient.java, governed yield spec §9 (execution model constraint)
+**Exploration:** quick
+**Status:** captured
+
+## D17: Judgment Phase Placement
+
+**Choice:** ExecutionModel gains nullable JudgmentPhase as 12th component
+**Alternatives:**
+- TerminationCondition wrapper — shoehorns judgment semantics into termination (approve/reject != continue/stop).
+- ExecutionEventListener — listeners are observation-only (void return), can't influence the loop.
+**Rationale:** Judgment is a first-class concern alongside routing, activation, aggregation, and termination. AbstractExecutionDriver.executeIteration() calls it between aggregation and termination. Nullable — patterns without judgment behave exactly as today. The phase returns a JudgmentDecision (Approved/Rejected/Escalated) that influences the loop.
+**Trade-offs:** ExecutionModel record gains a 12th component. Backward-compatible via existing constructors passing null.
+**Depends on:** D15 (mode per pattern type)
+**Sources:** AbstractExecutionDriver.java (five-phase loop), ExecutionModel.java (11-component record)
+**Exploration:** quick
+**Status:** captured
+
+## D18: Judgment Rejection Behavior
+
+**Choice:** Re-iterate with feedback injected into context
+**Alternatives:**
+- Fail immediately — simple but no recovery within the pattern.
+- Configurable (re-iterate or fail) — adds config field for both behaviors.
+**Rationale:** Natural for SUPERVISOR (supervisor says "try again with more detail"). Rejection feedback becomes part of the context for the next iteration. Bounded by existing maxIterations termination — no infinite loops. For DEBATE, rejection means the judge needs another round. For PIPELINE, rejection means the step needs rework.
+**Trade-offs:** Rejection doesn't immediately fail — agents get another chance. Waste of compute if the issue is fundamental. Bounded by maxIterations.
+**Sources:** OrchestratedDriver.runLoop(), MaxIterationsTermination
+**Exploration:** quick
+**Status:** captured
