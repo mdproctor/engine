@@ -8,7 +8,6 @@ projects: [casehub-engine]
 tags: [annotations, composition, eidos, work, ledger, examples]
 ---
 
-# Four Annotation Layers, One Interface
 An agent that assesses aircraft defects needs to be cautious and methodical. Its inspector sign-off requires two independent approvals. Every step must produce an audit trail that satisfies EASA Part-145 compliance. These are four different concerns — what the agent *does*, who it *is*, when *humans* must approve, and what gets *audited* — and they belong to four different teams, four different repos, four different release cycles.
 
 CaseHub's annotation model lets you declare all four on a single Java interface.
