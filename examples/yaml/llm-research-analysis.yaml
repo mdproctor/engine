@@ -1,0 +1,152 @@
+##
+## Example: LLM Decomposition — Research Analysis
+##
+## Scenario: A research team analyses a topic. An LLM decomposes the
+## high-level goal into concrete steps based on available capabilities —
+## gathering sources, analysing data, and synthesising findings. The
+## planner decides how to sequence and parallelise work.
+##
+## Pathway: YAML (pure — no Java required)
+## See also: examples/llm-decomposition-annotated/ (annotations)
+##           examples/llm-decomposition-dsl/ (DSL)
+##
+## Key features demonstrated:
+##   - decompositionStrategy: llm
+##   - agent worker blocks with model configuration
+##   - goals with descriptions (consumed by the LLM planner)
+##   - planningConstraints
+##   - adaptation: adaptive (re-plan on every step completion)
+##
+
+dsl: "1.0.0"
+namespace: research
+name: analysis-pipeline
+version: "1.0.0"
+title: "Research Analysis Pipeline"
+summary: "Analyses a research topic — gathers sources, analyses data, synthesises findings using LLM-driven decomposition"
+types:
+  - research/analysis
+labels:
+  - example/llm-decomposition
+
+spec:
+
+  ## ─── Decomposition Strategy ───────────────────────────────────────
+  ## LLM: the planner uses a language model to break the high-level
+  ## goal into steps, choosing from available capabilities. The LLM
+  ## receives goal descriptions and capability definitions as context.
+  decompositionStrategy: llm
+
+  ## ─── Planning Constraints ─────────────────────────────────────────
+  ## Constraints guide the LLM planner — resource limits cap agent
+  ## count, time budget bounds execution.
+  planningConstraints:
+    timeBudget: PT1H
+    resourceLimit: 3
+
+  ## ─── Adaptation ───────────────────────────────────────────────────
+  ## Adaptive: after each step completes, the LLM re-evaluates the
+  ## plan and adjusts remaining steps based on what was learned.
+  adaptation: adaptive
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: gatherSources
+      description: "Searches academic databases and web sources for relevant papers and data"
+      inputProjection: "{ topic: .topic, keywords: .keywords }"
+      outputProjection: "{ sources: { papers: .papers, datasets: .datasets, sourceCount: .sourceCount } }"
+
+    - name: analyseData
+      description: "Performs statistical analysis and pattern extraction on gathered data"
+      inputProjection: "{ sources: .sources, methodology: .methodology }"
+      outputProjection: "{ analysis: { findings: .findings, confidence: .confidence, methodology: .methodology } }"
+
+    - name: synthesiseFindings
+      description: "Synthesises analysis results into a coherent research summary with conclusions"
+      inputProjection: "{ analysis: .analysis, sources: .sources, topic: .topic }"
+      outputProjection: "{ synthesis: { summary: .summary, conclusions: .conclusions, limitations: .limitations } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  ## Agent workers use LLM-backed execution. The agent: block configures
+  ## the model, system prompt, and optional response schema.
+  workers:
+    - name: source-gatherer
+      description: "AI-powered academic source discovery"
+      capabilities:
+        - gatherSources
+      agent:
+        model: anthropic
+        modelName: claude-sonnet-4-20250514
+        systemPrompt: |
+          You are a research assistant specialising in academic source discovery.
+          Search for papers, datasets, and authoritative sources on the given topic.
+          Return structured results with paper titles, authors, and relevance scores.
+
+    - name: data-analyst
+      description: "AI-powered statistical analysis and pattern extraction"
+      capabilities:
+        - analyseData
+      agent:
+        model: anthropic
+        modelName: claude-sonnet-4-20250514
+        systemPrompt: |
+          You are a data analyst. Given research sources and a methodology,
+          perform analysis, extract patterns, and compute confidence intervals.
+          Return structured findings with statistical backing.
+
+    - name: findings-synthesiser
+      description: "AI-powered research synthesis and conclusion generation"
+      capabilities:
+        - synthesiseFindings
+      agent:
+        model: anthropic
+        modelName: claude-sonnet-4-20250514
+        systemPrompt: |
+          You are a research synthesiser. Given analysis results and source
+          materials, produce a coherent summary with evidence-backed conclusions
+          and honest assessment of limitations.
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  ## The LLM planner determines ordering. Bindings provide trigger
+  ## conditions for each capability.
+  bindings:
+    - name: gather-on-topic
+      capability: gatherSources
+      on:
+        contextChange:
+          filter: '.topic != null and .sources == null'
+
+    - name: analyse-after-gathering
+      capability: analyseData
+      on:
+        contextChange:
+          filter: '.sources != null and .analysis == null'
+
+    - name: synthesise-after-analysis
+      capability: synthesiseFindings
+      on:
+        contextChange:
+          filter: '.analysis != null and .synthesis == null'
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  ## Goal descriptions are consumed by the LLM planner to understand
+  ## what success looks like. The planner uses these to decide which
+  ## capabilities to invoke and in what order.
+  goals:
+    - name: analysisComplete
+      description: "Research analysis completed — sources gathered, data analysed, findings synthesised"
+      condition: '.synthesis != null and .synthesis.conclusions != null'
+      kind: success
+
+    - name: insufficientSources
+      description: "Not enough sources found to produce meaningful analysis"
+      condition: '.sources != null and .sources.sourceCount == 0'
+      kind: failure
+
+  completion:
+    success:
+      allOf:
+        - analysisComplete
+    failure:
+      allOf:
+        - insufficientSources

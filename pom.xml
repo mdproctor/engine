@@ -121,7 +121,10 @@
         <module>examples/choreography-dsl</module>
         <module>examples/sequential-annotated</module>
         <module>examples/sequential-dsl</module>
-        <module>examples/goap-case-annotated</module>
+        <module>examples/goap-dsl</module>
+        <module>examples/goap-annotated</module>
+        <module>examples/llm-decomposition-dsl</module>
+        <module>examples/llm-decomposition-annotated</module>
         <module>examples/incident-response-annotated</module>
         <module>examples/search-rescue-annotated</module>
         <module>examples/aircraft-maintenance-annotated</module>

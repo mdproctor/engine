@@ -10,9 +10,9 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>casehub-examples-goap-case-annotated</artifactId>
-    <name>Case Hub :: Examples :: GOAP Case (Annotated)</name>
-    <description>Example demonstrating GOAP planning mode with type-inferred worker dependencies</description>
+    <artifactId>casehub-examples-llm-decomposition-annotated</artifactId>
+    <name>Case Hub :: Examples :: LLM Decomposition (Annotated)</name>
+    <description>LLM decomposition execution model — research analysis — annotation pathway</description>
 
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>
@@ -30,21 +30,8 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>io.casehub</groupId>
-            <artifactId>casehub-eidos-annotations</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.casehub</groupId>
-            <artifactId>casehub-eidos-annotations-deployment</artifactId>
-        </dependency>
-        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-h2</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
