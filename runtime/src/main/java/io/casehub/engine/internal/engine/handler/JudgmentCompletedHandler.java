@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -66,7 +65,7 @@ public class JudgmentCompletedHandler {
           event.caseId());
       return;
     }
-    if (isTerminal(instance.getState())) {
+    if (instance.getState().isTerminal()) {
       LOG.warnf(
           "Judgment response on terminated case (state=%s): caseId=%s — discarding",
           instance.getState(), event.caseId());
@@ -250,12 +249,6 @@ public class JudgmentCompletedHandler {
     }
     log.setMetadata(metadata);
     eventLogRepository.append(log, instance.tenancyId);
-  }
-
-  private static boolean isTerminal(CaseStatus state) {
-    return state == CaseStatus.COMPLETED
-        || state == CaseStatus.FAULTED
-        || state == CaseStatus.CANCELLED;
   }
 
   private static List<io.casehub.api.spi.judgment.Evidence> toTypedEvidence(

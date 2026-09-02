@@ -83,8 +83,7 @@ public class MilestoneSLAOrchestrator {
       return;
     }
 
-    if (caseInstance.getState() == CaseStatus.COMPLETED
-        || caseInstance.getState() == CaseStatus.CANCELLED) {
+    if (caseInstance.getState().isTerminal()) {
       LOG.debugf("Case %s already terminal, skipping SLA violation", caseId);
       return;
     }

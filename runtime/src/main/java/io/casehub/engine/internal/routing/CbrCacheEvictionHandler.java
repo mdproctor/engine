@@ -21,7 +21,6 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.util.Set;
 
 /**
  * Evicts CBR retrieval cache entries when a case reaches a terminal state. Prevents unbounded
@@ -35,9 +34,6 @@ import java.util.Set;
 @ApplicationScoped
 public class CbrCacheEvictionHandler {
 
-  private static final Set<String> TERMINAL_STATUSES =
-      Set.of(CaseStatus.COMPLETED.name(), CaseStatus.FAULTED.name(), CaseStatus.CANCELLED.name());
-
   private final CbrRetrievalService cbrRetrievalService;
 
   @Inject
@@ -47,7 +43,7 @@ public class CbrCacheEvictionHandler {
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
   public void onCaseStatusChanged(CaseStatusChanged event) {
-    if (TERMINAL_STATUSES.contains(event.newStatus())) {
+    if (CaseStatus.valueOf(event.newStatus()).isTerminal()) {
       cbrRetrievalService.evict(event.instance().getUuid());
     }
   }
