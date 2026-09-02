@@ -1,0 +1,158 @@
+##
+## Example: Choreography — Customer Onboarding
+##
+## Scenario: A bank opens a new customer account. Identity is verified,
+## compliance screening runs, and the account is provisioned. Each step
+## fires independently when its context conditions are met — no central
+## sequencer. This is the default CaseHub execution model.
+##
+## Pathway: YAML (pure — no Java required)
+## See also: examples/choreography-annotated/ (annotations)
+##           examples/choreography-dsl/ (DSL)
+##
+## Key features demonstrated:
+##   - contextChange triggers with filter expressions
+##   - when: guard conditions on bindings
+##   - schedule trigger (cron)
+##   - goals with condition and kind
+##   - milestones with entryCriteria and condition
+##   - completion block with goal kinds
+##   - workers with do: blocks (Serverless Workflow HTTP calls)
+##
+
+dsl: "1.0.0"
+namespace: banking
+name: customer-onboarding
+version: "1.0.0"
+title: "Customer Onboarding"
+summary: "Opens a new bank account — verifies identity, runs compliance checks, provisions the account"
+types:
+  - banking/onboarding
+labels:
+  - example/choreography
+
+spec:
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: verifyIdentity
+      description: "Verifies customer identity documents"
+      inputProjection: "{ application: .application }"
+      outputProjection: "{ identityResult: { verified: .verified, referenceId: .referenceId } }"
+
+    - name: kycScreening
+      description: "Runs KYC/AML compliance screening"
+      inputProjection: "{ identityResult: .identityResult }"
+      outputProjection: "{ complianceResult: { status: .status, referenceId: .referenceId } }"
+
+    - name: provisionAccount
+      description: "Provisions the new bank account"
+      inputProjection: "{ complianceResult: .complianceResult }"
+      outputProjection: "{ account: { accountId: .accountId, status: .status } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  ## Workers use Serverless Workflow do: blocks for external HTTP dispatch.
+  ## In a real deployment these would call actual services.
+  workers:
+    - name: identity-verifier
+      description: "Verifies customer identity documents"
+      capabilities:
+        - verifyIdentity
+      do:
+        - verify:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://identity-service.internal/api/verify
+              body:
+                application: "${ .application }"
+
+    - name: kyc-screener
+      description: "Runs KYC/AML compliance screening"
+      capabilities:
+        - kycScreening
+      do:
+        - screen:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://compliance-service.internal/api/screen
+              body:
+                referenceId: "${ .identityResult.referenceId }"
+
+    - name: account-provisioner
+      description: "Provisions the new bank account"
+      capabilities:
+        - provisionAccount
+      do:
+        - provision:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://accounts-service.internal/api/provision
+              body:
+                referenceId: "${ .complianceResult.referenceId }"
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  ## Each binding fires independently when its contextChange filter matches.
+  ## The when: guard adds a second condition checked after the trigger fires.
+  bindings:
+    - name: verify-on-application
+      capability: verifyIdentity
+      on:
+        contextChange:
+          filter: '.application != null and .identityResult == null'
+
+    - name: screen-after-verified
+      capability: kycScreening
+      on:
+        contextChange:
+          filter: '.identityResult != null and .complianceResult == null'
+      when: '.identityResult.verified == true'
+
+    - name: provision-after-compliant
+      capability: provisionAccount
+      on:
+        contextChange:
+          filter: '.complianceResult != null and .account == null'
+      when: '.complianceResult.status == "PASS"'
+
+    - name: periodic-compliance-recheck
+      capability: kycScreening
+      on:
+        schedule:
+          cron: "0 0 * * * ?"
+
+  ## ─── Milestones ───────────────────────────────────────────────────
+  milestones:
+    - name: identityVerified
+      description: "Customer identity has been verified"
+      entryCriteria: '.application != null'
+      condition: '.identityResult != null and .identityResult.verified == true'
+
+    - name: complianceCleared
+      description: "KYC/AML screening passed"
+      condition: '.complianceResult != null and .complianceResult.status == "PASS"'
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: accountOpened
+      description: "New bank account successfully provisioned"
+      condition: '.account != null and .account.status == "ACTIVE"'
+      kind: success
+
+    - name: complianceFailed
+      description: "Customer failed compliance screening"
+      condition: '.complianceResult != null and .complianceResult.status == "FAIL"'
+      kind: failure
+
+  completion:
+    success:
+      allOf:
+        - accountOpened
+    failure:
+      allOf:
+        - complianceFailed

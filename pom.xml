@@ -117,7 +117,10 @@
         <module>rest</module>
         <module>graphql</module>
         <module>examples/typed-context</module>
-        <module>examples/simple-case-annotated</module>
+        <module>examples/choreography-annotated</module>
+        <module>examples/choreography-dsl</module>
+        <module>examples/sequential-annotated</module>
+        <module>examples/sequential-dsl</module>
         <module>examples/goap-case-annotated</module>
         <module>examples/incident-response-annotated</module>
         <module>examples/search-rescue-annotated</module>

@@ -10,9 +10,9 @@
         <relativePath>../../pom.xml</relativePath>
     </parent>
 
-    <artifactId>casehub-examples-simple-case-annotated</artifactId>
-    <name>Case Hub :: Examples :: Simple Case (Annotated)</name>
-    <description>Example demonstrating the annotation-driven case definition model</description>
+    <artifactId>casehub-examples-sequential-annotated</artifactId>
+    <name>Case Hub :: Examples :: Sequential (Annotated)</name>
+    <description>Sequential execution model — employee onboarding — annotation pathway</description>
 
     <properties>
         <maven.deploy.skip>true</maven.deploy.skip>
