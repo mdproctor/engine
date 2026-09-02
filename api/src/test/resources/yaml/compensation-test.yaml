@@ -1,0 +1,22 @@
+spec:
+  bindings:
+    - name: irb-review
+      judgment:
+        prompt: "IRB Protocol Review"
+        scope: "casehubio/clinical/irb-review"
+      on:
+        contextChange: ".protocol != null"
+      compensate: irb-review-reversal
+
+    - name: irb-review-reversal
+      judgment:
+        prompt: "Reverse IRB Protocol Approval"
+        scope: "casehubio/clinical/irb-reversal"
+      on:
+        contextChange: "$"
+      compensation: true
+
+    - name: data-export
+      capability: exportService
+      on:
+        contextChange: ".exportReady == true"
