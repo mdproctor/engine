@@ -20,7 +20,10 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 
 import io.casehub.api.model.CaseStatus;
 import java.util.EnumSet;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 /**
  * Verifies that {@link CaseStatus} conforms to the CNCF Serverless Workflow specification as
@@ -76,5 +79,62 @@ class CaseStatusTest {
           .as("valueOf must return same instance for %s", status.name())
           .isSameAs(status);
     }
+  }
+
+  // ── isTerminal() ──────────────────────────────────────────────────────────
+
+  @ParameterizedTest
+  @EnumSource(value = CaseStatus.class, names = {"COMPLETED", "FAULTED", "CANCELLED"})
+  void isTerminal_terminalStates_returnTrue(CaseStatus status) {
+    assertThat(status.isTerminal()).as("%s should be terminal", status).isTrue();
+  }
+
+  @ParameterizedTest
+  @EnumSource(value = CaseStatus.class, names = {"STARTING", "RUNNING", "WAITING", "SUSPENDED"})
+  void isTerminal_activeStates_returnFalse(CaseStatus status) {
+    assertThat(status.isTerminal()).as("%s should not be terminal", status).isFalse();
+  }
+
+  // ── isActive() ────────────────────────────────────────────────────────────
+
+  @ParameterizedTest
+  @EnumSource(value = CaseStatus.class, names = {"STARTING", "RUNNING", "WAITING", "SUSPENDED"})
+  void isActive_activeStates_returnTrue(CaseStatus status) {
+    assertThat(status.isActive()).as("%s should be active", status).isTrue();
+  }
+
+  @ParameterizedTest
+  @EnumSource(value = CaseStatus.class, names = {"COMPLETED", "FAULTED", "CANCELLED"})
+  void isActive_terminalStates_returnFalse(CaseStatus status) {
+    assertThat(status.isActive()).as("%s should not be active", status).isFalse();
+  }
+
+  // ── Exhaustiveness ────────────────────────────────────────────────────────
+
+  @Test
+  void everyStatusIsEitherTerminalOrActive() {
+    for (CaseStatus status : CaseStatus.values()) {
+      assertThat(status.isTerminal() || status.isActive())
+          .as("%s must be either terminal or active", status)
+          .isTrue();
+    }
+  }
+
+  @Test
+  void noStatusIsBothTerminalAndActive() {
+    for (CaseStatus status : CaseStatus.values()) {
+      assertThat(status.isTerminal() && status.isActive())
+          .as("%s must not be both terminal and active", status)
+          .isFalse();
+    }
+  }
+
+  @Test
+  void terminalStatuses_constantMatchesMethod() {
+    assertThat(CaseStatus.TERMINAL_STATUSES)
+        .containsExactlyInAnyOrderElementsOf(
+            EnumSet.allOf(CaseStatus.class).stream()
+                .filter(CaseStatus::isTerminal)
+                .toList());
   }
 }
