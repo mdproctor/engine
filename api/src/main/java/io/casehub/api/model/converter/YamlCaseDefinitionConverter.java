@@ -184,6 +184,12 @@ public final class YamlCaseDefinitionConverter {
             ? yaml.spec().bindings()
             : yaml.bindings();
     convertBindings(effectiveBindings, def, capTargetMap);
+    java.util.List<String> compensationErrors =
+        Binding.validateCompensationBindings(def.getBindings());
+    if (!compensationErrors.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Compensation binding validation failed: " + String.join("; ", compensationErrors));
+    }
 
     convertLabelRules(yaml.labelRules(), def);
     convertInboundMappings(yaml.inboundMappings(), def);
@@ -802,6 +808,12 @@ public final class YamlCaseDefinitionConverter {
       }
       if (yb.recoveryOverride() != null) {
         builder.recoveryOverride(convertRecoveryOverride(yb.recoveryOverride()));
+      }
+      if (yb.compensate() != null) {
+        builder.compensateRef(yb.compensate());
+      }
+      if (yb.compensation() != null && yb.compensation()) {
+        builder.compensation(true);
       }
       if (!yb.permissionIntent().isEmpty()) {
         List<io.casehub.platform.api.acl.WorkerAction> actions = new ArrayList<>();

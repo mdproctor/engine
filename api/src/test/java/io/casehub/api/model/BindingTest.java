@@ -153,4 +153,50 @@ class BindingTest {
 
     assertThat(b.getContextWrite()).isNull();
   }
+
+  @Test
+  void compensateRef_storedAndReturned() {
+    Binding binding =
+        Binding.builder()
+            .name("irb-review")
+            .capability(Capability.of("irb", ".", "."))
+            .on(new ContextChangeTrigger("$"))
+            .compensateRef("irb-review-reversal")
+            .build();
+    assertThat(binding.getCompensateRef()).isEqualTo("irb-review-reversal");
+  }
+
+  @Test
+  void compensateRef_nullByDefault() {
+    Binding binding =
+        Binding.builder()
+            .name("irb-review")
+            .capability(Capability.of("irb", ".", "."))
+            .on(new ContextChangeTrigger("$"))
+            .build();
+    assertThat(binding.getCompensateRef()).isNull();
+  }
+
+  @Test
+  void compensation_storedAndReturned() {
+    Binding binding =
+        Binding.builder()
+            .name("irb-review-reversal")
+            .capability(Capability.of("irb-reversal", ".", "."))
+            .on(new ContextChangeTrigger("$"))
+            .compensation(true)
+            .build();
+    assertThat(binding.isCompensation()).isTrue();
+  }
+
+  @Test
+  void compensation_falseByDefault() {
+    Binding binding =
+        Binding.builder()
+            .name("irb-review")
+            .capability(Capability.of("irb", ".", "."))
+            .on(new ContextChangeTrigger("$"))
+            .build();
+    assertThat(binding.isCompensation()).isFalse();
+  }
 }

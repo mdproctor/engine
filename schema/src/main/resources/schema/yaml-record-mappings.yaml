@@ -90,6 +90,8 @@ types:
       - { name: sideEffectClassification, type: String }
       - { name: judgment, type: YamlJudgmentTarget }
       - { name: recoveryOverride, type: YamlRecoveryOverride }
+      - { name: compensate, type: String }
+      - { name: compensation, type: Boolean }
 
   # ── Worker ──
   Worker:
