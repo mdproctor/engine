@@ -38,7 +38,10 @@ class CaseStatusTest {
             CaseStatus.SUSPENDED,
             CaseStatus.COMPLETED,
             CaseStatus.FAULTED,
-            CaseStatus.CANCELLED);
+            CaseStatus.CANCELLED,
+            CaseStatus.COMPENSATING,
+            CaseStatus.COMPENSATED,
+            CaseStatus.COMPENSATION_FAULTED);
   }
 
   @Test
@@ -60,9 +63,9 @@ class CaseStatusTest {
   }
 
   @Test
-  void allThreeTerminalStatesArePresent() {
+  void allFourTerminalStatesArePresent() {
     assertThat(EnumSet.allOf(CaseStatus.class))
-        .contains(CaseStatus.COMPLETED, CaseStatus.FAULTED, CaseStatus.CANCELLED);
+        .contains(CaseStatus.COMPLETED, CaseStatus.FAULTED, CaseStatus.CANCELLED, CaseStatus.COMPENSATED);
   }
 
   @Test
