@@ -54,7 +54,6 @@ public final class JsonNodeForEachAdapter implements ForEachAdapter<JsonNode> {
     return new ForEachDirective.GroupRef(node.asText());
   }
 
-  @Override
   public String getId(JsonNode element) {
     JsonNode name = element.get("name");
     return name != null ? name.asText() : null;
