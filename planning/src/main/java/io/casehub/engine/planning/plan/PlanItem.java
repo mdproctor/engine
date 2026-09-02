@@ -46,8 +46,11 @@ public class PlanItem implements Comparable<PlanItem>, TaskDescriptor {
   private String parentStageId;
   private final BindingTarget target;
   private final String description;
+  private       boolean compensation;
+  private       String compensatesItemId;
 
-  private PlanItem(
+
+    private PlanItem(
       String bindingName,
       ExecutorRef executor,
       int priority,
@@ -346,4 +349,21 @@ public class PlanItem implements Comparable<PlanItem>, TaskDescriptor {
   public void setParentStageId(String stageId) {
     this.parentStageId = stageId;
   }
+
+  public boolean isCompensation() {
+    return compensation;
+  }
+
+  public void setCompensation(boolean compensation) {
+    this.compensation = compensation;
+  }
+
+  public String getCompensatesItemId() {
+    return compensatesItemId;
+  }
+
+  public void setCompensatesItemId(String compensatesItemId) {
+    this.compensatesItemId = compensatesItemId;
+  }
+
 }

@@ -94,4 +94,10 @@ public enum CaseHubEventType {
   JUDGMENT_RESPONDED, // judgment response received from caller (decision + evidence)
   JUDGMENT_VERIFIED, // judgment response verified (placeholder — blocks/qhorus wiring)
   JUDGMENT_ESCALATED, // judgment escalated to different caller (placeholder — blocks/qhorus wiring)
+
+  COMPENSATION_STARTED, // case entered COMPENSATING
+  COMPENSATION_COMPLETED, // case entered COMPENSATED — all compensating bindings done
+  COMPENSATION_FAULTED, // case entered COMPENSATION_FAULTED — a compensating step failed
+  COMPENSATION_STEP_STARTED, // individual compensating binding fired
+  COMPENSATION_STEP_COMPLETED // individual compensating binding completed
 }
