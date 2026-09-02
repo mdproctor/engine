@@ -258,6 +258,9 @@ public class CaseStatusChangedHandler {
       case COMPLETED -> CaseHubEventType.CASE_COMPLETED;
       case FAULTED -> CaseHubEventType.CASE_FAULTED;
       case CANCELLED -> CaseHubEventType.CASE_CANCELLED;
+      case COMPENSATING -> CaseHubEventType.COMPENSATION_STARTED;
+      case COMPENSATED -> CaseHubEventType.COMPENSATION_COMPLETED;
+      case COMPENSATION_FAULTED -> CaseHubEventType.COMPENSATION_FAULTED;
       default -> CaseHubEventType.CASE_STATUS_CHANGED;
     };
   }
@@ -279,6 +282,9 @@ public class CaseStatusChangedHandler {
       case WAITING -> "SubmitWork";
       case RUNNING -> "ResumeCase";
       case STARTING -> "InitCase";
+      case COMPENSATING -> "CompensateCase";
+      case COMPENSATED -> "CompensationComplete";
+      case COMPENSATION_FAULTED -> "CompensationFaulted";
       default -> "TransitionCase";
     };
   }
@@ -292,6 +298,9 @@ public class CaseStatusChangedHandler {
       case WAITING -> "WorkSubmitted";
       case RUNNING -> "CaseResumed";
       case STARTING -> "CaseInitializing";
+      case COMPENSATING -> "CaseCompensating";
+      case COMPENSATED -> "CaseCompensated";
+      case COMPENSATION_FAULTED -> "CaseCompensationFaulted";
       default -> "CaseStatusChanged";
     };
   }
