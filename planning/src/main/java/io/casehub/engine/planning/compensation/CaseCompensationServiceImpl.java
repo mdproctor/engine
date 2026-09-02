@@ -23,6 +23,7 @@ import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ExecutorRef;
+import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
@@ -34,6 +35,8 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.routing.BindingExecutorResolver;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.JudgmentScheduleRequest;
+import io.casehub.engine.common.spi.JudgmentScheduler;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
@@ -43,6 +46,7 @@ import io.casehub.worker.api.Worker;
 import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -66,6 +70,7 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
   private final BlackboardRegistry blackboardRegistry;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final EventLogRepository eventLogRepository;
+  private final Instance<JudgmentScheduler> judgmentScheduler;
 
   @Inject
   public CaseCompensationServiceImpl(
@@ -73,12 +78,14 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
       EventBus eventBus,
       BlackboardRegistry blackboardRegistry,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      EventLogRepository eventLogRepository) {
+      EventLogRepository eventLogRepository,
+      Instance<JudgmentScheduler> judgmentScheduler) {
     this.caseInstanceCache = caseInstanceCache;
     this.eventBus = eventBus;
     this.blackboardRegistry = blackboardRegistry;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.eventLogRepository = eventLogRepository;
+    this.judgmentScheduler = judgmentScheduler;
   }
 
   @Override
@@ -199,36 +206,59 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
       CaseDefinition definition,
       Binding compensatingBinding,
       PlanItem compensatingItem) {
-    if (!(compensatingBinding.target() instanceof CapabilityTarget ct)) {
-      String targetType =
-          compensatingBinding.target() != null
-              ? compensatingBinding.target().getClass().getSimpleName()
-              : "null";
-      LOG.errorf(
-          "Unsupported target type '%s' for compensation binding '%s', caseId=%s",
-          targetType, compensatingBinding.getName(), instance.getUuid());
-      transitionToFaulted(instance, "Unsupported compensation target type: " + targetType);
-      return;
-    }
-
-    String executorName = compensatingItem.executorName();
-    Worker worker =
-        definition.getWorkers().stream()
-            .filter(w -> w.name().equals(executorName))
-            .findFirst()
-            .orElse(null);
-    if (worker == null) {
-      LOG.errorf(
-          "Worker '%s' not found for compensation dispatch, caseId=%s",
-          executorName, instance.getUuid());
-      transitionToFaulted(instance, "Worker '" + executorName + "' not found");
-      return;
-    }
-
     compensatingItem.tryMarkDispatching();
-    eventBus.publish(
-        EventBusAddresses.WORKER_SCHEDULE,
-        new WorkerScheduleEvent(instance, worker, ct.capability(), compensatingBinding.getName()));
+
+    switch (compensatingBinding.target()) {
+      case CapabilityTarget ct -> {
+        String executorName = compensatingItem.executorName();
+        Worker worker =
+            definition.getWorkers().stream()
+                .filter(w -> w.name().equals(executorName))
+                .findFirst()
+                .orElse(null);
+        if (worker == null) {
+          LOG.errorf(
+              "Worker '%s' not found for compensation dispatch, caseId=%s",
+              executorName, instance.getUuid());
+          transitionToFaulted(instance, "Worker '" + executorName + "' not found");
+          return;
+        }
+        eventBus.publish(
+            EventBusAddresses.WORKER_SCHEDULE,
+            new WorkerScheduleEvent(
+                instance, worker, ct.capability(), compensatingBinding.getName()));
+      }
+      case JudgmentTarget jt -> {
+        if (!judgmentScheduler.isResolvable()) {
+          LOG.errorf(
+              "No JudgmentScheduler on classpath for compensation binding '%s', caseId=%s",
+              compensatingBinding.getName(), instance.getUuid());
+          transitionToFaulted(instance, "No JudgmentScheduler available");
+          return;
+        }
+        judgmentScheduler
+            .get()
+            .schedule(
+                new JudgmentScheduleRequest(
+                    instance.getUuid(),
+                    instance.tenancyId,
+                    compensatingBinding.getName(),
+                    jt,
+                    Map.of(),
+                    null,
+                    null));
+      }
+      default -> {
+        String targetType =
+            compensatingBinding.target() != null
+                ? compensatingBinding.target().getClass().getSimpleName()
+                : "null";
+        LOG.errorf(
+            "Unsupported target type '%s' for compensation binding '%s', caseId=%s",
+            targetType, compensatingBinding.getName(), instance.getUuid());
+        transitionToFaulted(instance, "Unsupported compensation target type: " + targetType);
+      }
+    }
   }
 
   void onCompensationPlanItemStateChanged(@ObservesAsync PlanItemStateChangedEvent event) {
