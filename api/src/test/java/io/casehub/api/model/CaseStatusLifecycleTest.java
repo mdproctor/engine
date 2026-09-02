@@ -129,16 +129,52 @@ class CaseStatusLifecycleTest {
   }
 
   @Test
-  void exactlyThreeTerminalStatuses() {
+  void exactlyFourTerminalStatuses() {
     assertThat(CaseStatus.TERMINAL_STATUSES)
-        .containsExactlyInAnyOrder(CaseStatus.COMPLETED, CaseStatus.FAULTED, CaseStatus.CANCELLED);
+        .containsExactlyInAnyOrder(
+            CaseStatus.COMPLETED, CaseStatus.FAULTED, CaseStatus.CANCELLED, CaseStatus.COMPENSATED);
   }
 
   @Test
-  void exactlyFourActiveStatuses() {
+  void exactlySixActiveStatuses() {
     var active = EnumSet.allOf(CaseStatus.class).stream().filter(CaseStatus::isActive).toList();
     assertThat(active)
         .containsExactlyInAnyOrder(
-            CaseStatus.STARTING, CaseStatus.RUNNING, CaseStatus.WAITING, CaseStatus.SUSPENDED);
+            CaseStatus.STARTING,
+            CaseStatus.RUNNING,
+            CaseStatus.WAITING,
+            CaseStatus.SUSPENDED,
+            CaseStatus.COMPENSATING,
+            CaseStatus.COMPENSATION_FAULTED);
+  }
+
+  @Test
+  void compensating_isActive() {
+    assertThat(CaseStatus.COMPENSATING.isActive()).isTrue();
+  }
+
+  @Test
+  void compensating_isNotTerminal() {
+    assertThat(CaseStatus.COMPENSATING.isTerminal()).isFalse();
+  }
+
+  @Test
+  void compensated_isTerminal() {
+    assertThat(CaseStatus.COMPENSATED.isTerminal()).isTrue();
+  }
+
+  @Test
+  void compensated_isNotActive() {
+    assertThat(CaseStatus.COMPENSATED.isActive()).isFalse();
+  }
+
+  @Test
+  void compensationFaulted_isActive() {
+    assertThat(CaseStatus.COMPENSATION_FAULTED.isActive()).isTrue();
+  }
+
+  @Test
+  void compensationFaulted_isNotTerminal() {
+    assertThat(CaseStatus.COMPENSATION_FAULTED.isTerminal()).isFalse();
   }
 }

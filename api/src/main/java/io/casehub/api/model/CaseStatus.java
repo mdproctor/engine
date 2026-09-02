@@ -29,7 +29,13 @@ public enum CaseStatus {
   /** Case terminated due to an error. */
   FAULTED,
   /** Case was stopped before completion. */
-  CANCELLED;
+  CANCELLED,
+  /** Compensation in progress — completed case is having its effects undone. */
+  COMPENSATING,
+  /** All compensating bindings completed — case effects fully reversed. */
+  COMPENSATED,
+  /** Compensation attempted but a compensating step failed — intervention required. */
+  COMPENSATION_FAULTED;
 
   /**
    * All terminal statuses, derived from {@link #isTerminal()}. Single source of truth for queries.
@@ -43,7 +49,7 @@ public enum CaseStatus {
    */
   public boolean isTerminal() {
     return switch (this) {
-      case COMPLETED, FAULTED, CANCELLED -> true;
+      case COMPLETED, FAULTED, CANCELLED, COMPENSATED -> true;
       default -> false;
     };
   }
@@ -54,7 +60,7 @@ public enum CaseStatus {
    */
   public boolean isActive() {
     return switch (this) {
-      case STARTING, RUNNING, WAITING, SUSPENDED -> true;
+      case STARTING, RUNNING, WAITING, SUSPENDED, COMPENSATING, COMPENSATION_FAULTED -> true;
       default -> false;
     };
   }
