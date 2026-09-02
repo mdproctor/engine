@@ -1,0 +1,134 @@
+##
+## Example: HumanTask — Loan Approval
+##
+## Scenario: A financial institution processes loan applications. AI workers
+## assess creditworthiness and risk, then a human loan officer makes the
+## final approval decision via a WorkItem in the work inbox.
+##
+## Pathway: YAML (pure — no Java required)
+## See also: examples/humantask-annotated/ (annotations)
+##           examples/humantask-dsl/ (DSL)
+##
+## Key features demonstrated:
+##   - humanTask: binding target with candidateGroups, outcomes, expiresIn
+##   - mixed worker + humanTask bindings in one case
+##   - outputMapping on humanTask for structured resolution
+##   - milestones tracking approval pipeline
+##
+
+dsl: "1.0.0"
+namespace: finance
+name: loan-approval
+version: "1.0.0"
+title: "Loan Approval"
+summary: "Processes loan applications — assesses credit, evaluates risk, routes to human officer for final decision"
+types:
+  - finance/lending
+labels:
+  - example/humantask
+
+spec:
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: assessCredit
+      description: "Runs automated credit scoring on the applicant"
+      inputProjection: "{ applicantId: .application.applicantId, income: .application.income }"
+      outputProjection: "{ creditScore: { score: .score, grade: .grade, factors: .factors } }"
+
+    - name: evaluateRisk
+      description: "Evaluates loan risk based on credit score and loan parameters"
+      inputProjection: "{ creditScore: .creditScore, loanAmount: .application.loanAmount, term: .application.term }"
+      outputProjection: "{ riskAssessment: { level: .level, debtToIncome: .debtToIncome, recommendation: .recommendation } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  workers:
+    - name: credit-scorer
+      description: "Automated credit scoring engine"
+      capabilities:
+        - assessCredit
+      do:
+        - score:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://credit-engine.internal/api/score
+              body:
+                applicantId: "${ .applicantId }"
+                income: "${ .income }"
+
+    - name: risk-evaluator
+      description: "Loan risk evaluation engine"
+      capabilities:
+        - evaluateRisk
+      do:
+        - evaluate:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://risk-engine.internal/api/evaluate
+              body:
+                creditScore: "${ .creditScore }"
+                loanAmount: "${ .loanAmount }"
+                term: "${ .term }"
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  ## Two capability bindings for automated workers, then a humanTask
+  ## binding that routes to a loan officer's work inbox.
+  bindings:
+    - name: score-on-application
+      capability: assessCredit
+      on:
+        contextChange:
+          filter: '.application != null and .creditScore == null'
+
+    - name: evaluate-after-scoring
+      capability: evaluateRisk
+      on:
+        contextChange:
+          filter: '.creditScore != null and .riskAssessment == null'
+
+    ## ─── HumanTask Binding ──────────────────────────────────────────
+    ## The humanTask: target creates a WorkItem assigned to the
+    ## loan-officers group. The officer sees the application data,
+    ## picks an outcome, and the resolution flows back to the case.
+    - name: officer-approval
+      humanTask:
+        title: "Review loan application"
+        candidateGroups:
+          - loan-officers
+          - senior-underwriters
+        outcomes:
+          - APPROVED
+          - DECLINED
+          - REFERRED
+        expiresIn: PT48H
+        claimDeadlineHours: 4
+        outputMapping: '{ decision: { outcome: .outcome, officer: .officer, notes: .notes } }'
+      on:
+        contextChange:
+          filter: '.riskAssessment != null and .decision == null'
+
+  ## ─── Milestones ───────────────────────────────────────────────────
+  milestones:
+    - name: creditAssessed
+      description: "Automated credit scoring complete"
+      condition: '.creditScore != null'
+
+    - name: riskEvaluated
+      description: "Risk assessment complete — ready for human review"
+      condition: '.riskAssessment != null'
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: loanDecided
+      description: "Loan officer has made a decision on the application"
+      condition: '.decision != null'
+      kind: success
+
+  completion:
+    success:
+      allOf:
+        - loanDecided
