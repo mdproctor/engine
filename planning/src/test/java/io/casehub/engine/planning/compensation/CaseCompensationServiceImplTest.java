@@ -36,6 +36,8 @@ import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.JudgmentScheduleRequest;
+import io.casehub.engine.common.spi.JudgmentScheduler;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
@@ -60,6 +62,11 @@ class CaseCompensationServiceImplTest {
   private BlackboardRegistry blackboardRegistry;
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private EventLogRepository eventLogRepository;
+
+  @SuppressWarnings("unchecked")
+  private final jakarta.enterprise.inject.Instance<JudgmentScheduler> judgmentSchedulerInstance =
+      mock(jakarta.enterprise.inject.Instance.class);
+
   private CaseCompensationServiceImpl service;
 
   private UUID caseId;
@@ -80,7 +87,8 @@ class CaseCompensationServiceImplTest {
             eventBus,
             blackboardRegistry,
             caseDefinitionRegistry,
-            eventLogRepository);
+            eventLogRepository,
+            judgmentSchedulerInstance);
 
     caseId = UUID.randomUUID();
     instance = new CaseInstance();
@@ -211,6 +219,56 @@ class CaseCompensationServiceImplTest {
     List<CaseStatusChanged> events = captor.getAllValues();
     CaseStatusChanged lastEvent = events.get(events.size() - 1);
     assertThat(lastEvent.newStatus()).isEqualTo(CaseStatus.COMPENSATION_FAULTED.name());
+  }
+
+  @Test
+  void dispatch_judgmentTarget_calls_judgmentScheduler() {
+    JudgmentScheduler mockScheduler = mock(JudgmentScheduler.class);
+    when(judgmentSchedulerInstance.isResolvable()).thenReturn(true);
+    when(judgmentSchedulerInstance.get()).thenReturn(mockScheduler);
+
+    io.casehub.engine.common.internal.model.CaseMetaModel metaModel =
+        mock(io.casehub.engine.common.internal.model.CaseMetaModel.class);
+    instance.setCaseMetaModel(metaModel);
+    instance.setState(CaseStatus.COMPLETED);
+
+    io.casehub.api.model.JudgmentTarget jt =
+        io.casehub.api.model.JudgmentTarget.builder()
+            .prompt("Undo the review")
+            .title("Undo review")
+            .build();
+
+    ContextChangeTrigger trigger = new ContextChangeTrigger(".");
+    Binding original =
+        Binding.builder()
+            .name("step-a")
+            .target(jt)
+            .on(trigger)
+            .compensateRef("undo-step-a")
+            .build();
+    Binding compensating =
+        Binding.builder().name("undo-step-a").target(jt).on(trigger).compensation(true).build();
+
+    definition = mock(CaseDefinition.class);
+    when(definition.getBindings()).thenReturn(List.of(original, compensating));
+    when(definition.getWorkers()).thenReturn(List.of());
+    when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
+
+    CasePlanModel plan = blackboardRegistry.getOrCreate(caseId, "test-tenant");
+    PlanItem completedItem = PlanItem.create("step-a", ExecutorRef.of("worker-a"), 0, jt);
+    plan.addPlanItem(completedItem);
+    completedItem.markRunning();
+    completedItem.markCompleted();
+
+    service.compensate(caseId, "operator", "testing judgment dispatch");
+
+    ArgumentCaptor<JudgmentScheduleRequest> captor =
+        ArgumentCaptor.forClass(JudgmentScheduleRequest.class);
+    verify(mockScheduler).schedule(captor.capture());
+    JudgmentScheduleRequest request = captor.getValue();
+    assertThat(request.caseId()).isEqualTo(caseId);
+    assertThat(request.bindingName()).isEqualTo("undo-step-a");
+    assertThat(request.target()).isSameAs(jt);
   }
 
   // --- Advancement tests ---
