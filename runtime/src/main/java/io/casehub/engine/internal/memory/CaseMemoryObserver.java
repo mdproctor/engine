@@ -55,7 +55,8 @@ public class CaseMemoryObserver {
             event.commandType() != null ? event.commandType() : "unknown");
 
     final MemoryInput input =
-        new MemoryInput(caseIdStr, DOMAIN, event.tenancyId(), caseIdStr, text, attrs, null);
+        new MemoryInput(
+            caseIdStr, DOMAIN, event.tenancyId(), caseIdStr, text, attrs, null, null, null, null);
 
     emitter.emit(input);
   }

@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
-import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
@@ -72,7 +71,7 @@ public class ActionGateApprovedHandler {
     }
 
     // Terminal state guard — case terminated while gate was pending
-    if (isTerminal(instance.getState())) {
+    if (instance.getState().isTerminal()) {
       LOG.warnf(
           "Gate approved on terminated case (state=%s): caseId=%s gateId=%d — discarding",
           instance.getState(), event.caseId(), event.gateId());
@@ -165,9 +164,4 @@ public class ActionGateApprovedHandler {
     eventLogRepository.append(log, instance.tenancyId);
   }
 
-  private static boolean isTerminal(final CaseStatus state) {
-    return state == CaseStatus.COMPLETED
-        || state == CaseStatus.FAULTED
-        || state == CaseStatus.CANCELLED;
-  }
 }

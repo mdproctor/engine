@@ -130,8 +130,8 @@ import net.thisptr.jackson.jq.exception.JsonQueryException;
 import org.jboss.logging.Logger;
 
 /**
- * Converts YAML records to the {@link CaseDefinition} domain model. Replaces
- * the previous hand-coded deserializers and post-processor.
+ * Converts YAML records to the {@link CaseDefinition} domain model. Replaces the previous
+ * hand-coded deserializers and post-processor.
  */
 public final class YamlCaseDefinitionConverter {
 
@@ -139,6 +139,24 @@ public final class YamlCaseDefinitionConverter {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private YamlCaseDefinitionConverter() {}
+
+  record HtnLeafTask(String id, String description, String capabilityName)
+      implements io.casehub.engine.plan.TaskNode.LeafTask<com.fasterxml.jackson.databind.JsonNode> {
+    @Override
+    public io.casehub.api.model.ExecutorRef executor() {
+      return null;
+    }
+
+    @Override
+    public io.casehub.api.model.TaskStatus status() {
+      return io.casehub.api.model.TaskStatus.PENDING;
+    }
+
+    @Override
+    public java.time.Instant createdAt() {
+      return java.time.Instant.EPOCH;
+    }
+  }
 
   public static CaseDefinition convert(
       YamlCaseDefinition yaml,
@@ -164,9 +182,19 @@ public final class YamlCaseDefinitionConverter {
             ? yaml.spec().bindings()
             : yaml.bindings();
     convertBindings(effectiveBindings, def, capTargetMap);
+    java.util.List<String> compensationErrors =
+        Binding.validateCompensationBindings(def.getBindings());
+    if (!compensationErrors.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Compensation binding validation failed: " + String.join("; ", compensationErrors));
+    }
 
     convertLabelRules(yaml.labelRules(), def);
     convertInboundMappings(yaml.inboundMappings(), def);
+
+    if (yaml.spec() != null && yaml.spec().decomposition() != null) {
+      convertDecomposition(yaml.spec().decomposition(), def, registry);
+    }
 
     if (!yaml.definitions().isEmpty()) {
       def.setDefinitions(yaml.definitions());
@@ -777,6 +805,12 @@ public final class YamlCaseDefinitionConverter {
       if (yb.recoveryOverride() != null) {
         builder.recoveryOverride(convertRecoveryOverride(yb.recoveryOverride()));
       }
+      if (yb.compensate() != null) {
+        builder.compensateRef(yb.compensate());
+      }
+      if (yb.compensation() != null && yb.compensation()) {
+        builder.compensation(true);
+      }
       if (!yb.permissionIntent().isEmpty()) {
         List<io.casehub.platform.api.acl.WorkerAction> actions = new ArrayList<>();
         for (String pi : yb.permissionIntent()) {
@@ -1213,6 +1247,84 @@ public final class YamlCaseDefinitionConverter {
     }
     LifecycleScope scope = ych.scope() != null ? LifecycleScope.valueOf(ych.scope()) : null;
     return new ChannelDeclaration(ych.name(), rt, ych.transport(), scope);
+  }
+
+  // --- HTN decomposition ---------------------------------------------------
+
+  private static void convertDecomposition(
+      io.casehub.api.model.converter.yaml.YamlDecomposition decomp,
+      CaseDefinition def,
+      ExpressionEngineRegistry registry) {
+    if (decomp.root() == null) return;
+
+    var root = convertCompoundNode(decomp.root(), registry);
+    def.setDecompositionTree(root);
+
+    if (def.getDecompositionStrategy() == null) {
+      def.setDecompositionStrategy("explicit");
+    }
+  }
+
+  private static io.casehub.engine.plan.TaskNode.CompoundTask<
+          com.fasterxml.jackson.databind.JsonNode>
+      convertCompoundNode(
+          io.casehub.api.model.converter.yaml.YamlHtnNode node, ExpressionEngineRegistry registry) {
+    java.util.List<
+            io.casehub.engine.plan.DecompositionMethod<com.fasterxml.jackson.databind.JsonNode>>
+        methods = node.methods().stream().map(m -> convertHtnMethod(m, registry)).toList();
+    return new io.casehub.engine.plan.TaskNode.CompoundTask<>(node.name(), methods);
+  }
+
+  private static io.casehub.engine.plan.DecompositionMethod<com.fasterxml.jackson.databind.JsonNode>
+      convertHtnMethod(
+          io.casehub.api.model.converter.yaml.YamlHtnMethod method,
+          ExpressionEngineRegistry registry) {
+    java.util.function.Predicate<com.fasterxml.jackson.databind.JsonNode> guard =
+        method.guard() != null ? state -> registry.evaluate(method.guard(), state) : state -> true;
+
+    io.casehub.engine.plan.DecompositionStrategy<com.fasterxml.jackson.databind.JsonNode> strategy =
+        (task, ctx) -> {
+          java.util.List<
+                  io.casehub.engine.plan.TaskNode.LeafTask<com.fasterxml.jackson.databind.JsonNode>>
+              leaves = new java.util.ArrayList<>();
+          for (var childNode : method.tasks()) {
+            if (childNode.isLeaf()) {
+              leaves.add(
+                  new HtnLeafTask(
+                      java.util.UUID.randomUUID().toString(),
+                      childNode.description() != null ? childNode.description() : childNode.name(),
+                      childNode.capability()));
+            } else {
+              var nestedCompound = convertCompoundNode(childNode, registry);
+              var nestedStrategy =
+                  nestedCompound.methods().stream()
+                      .filter(m -> m.guard().test(ctx.state()))
+                      .findFirst()
+                      .orElseThrow(
+                          () ->
+                              new IllegalStateException(
+                                  "No matching method for compound '" + childNode.name() + "'"));
+              var nestedPlan = nestedStrategy.strategy().decompose(nestedCompound, ctx);
+              for (var n : nestedPlan.nodes().values()) {
+                leaves.add(n.task());
+              }
+            }
+          }
+          return io.casehub.engine.plan.DagPlan.sequence(leaves);
+        };
+
+    java.time.Duration estimatedDuration =
+        method.estimatedDuration() != null
+            ? java.time.Duration.parse(method.estimatedDuration())
+            : null;
+
+    return new io.casehub.engine.plan.DecompositionMethod<>(
+        method.name(),
+        guard,
+        strategy,
+        method.guardLabel(),
+        method.estimatedCost().isEmpty() ? null : method.estimatedCost(),
+        estimatedDuration);
   }
 
   // --- Label rules --------------------------------------------------------

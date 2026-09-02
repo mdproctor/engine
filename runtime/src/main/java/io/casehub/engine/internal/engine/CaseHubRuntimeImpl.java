@@ -194,9 +194,7 @@ class CaseHubRuntimeImpl implements CaseHubRuntime {
       caseInstanceCache.put(instance);
     }
     CaseStatus state = instance.getState();
-    if (state == CaseStatus.COMPLETED
-        || state == CaseStatus.FAULTED
-        || state == CaseStatus.CANCELLED) {
+    if (state.isTerminal()) {
       throw new SignalRejectedException("Case " + caseId + " is in terminal state: " + state);
     }
     CaseMetaModel meta = instance.getCaseMetaModel();

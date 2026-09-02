@@ -89,7 +89,7 @@ public class CaseStatusChangedHandler {
     final CaseStatus newState = CaseStatus.valueOf(event.newStatus());
     final String oldStatus = event.oldStatus();
 
-    if (isTerminalState(newState)) {
+    if (newState.isTerminal()) {
       if (!caseInstance.trySetTerminalState(newState)) {
         LOG.infof(
             "Ignoring duplicate terminal transition for caseId=%s — already %s, rejecting %s",
@@ -123,7 +123,7 @@ public class CaseStatusChangedHandler {
     caseInstanceRepository.updateStateAndAppendEvent(
         caseInstance, eventLog, caseInstance.tenancyId);
 
-    if (isTerminalState(newState)) {
+    if (newState.isTerminal()) {
       CaseContext contextSnapshot = caseInstance.getCaseContext().snapshot();
       if (newState == CaseStatus.COMPLETED) {
         caseCompletionTracker.complete(caseInstance.getUuid(), contextSnapshot);
@@ -155,7 +155,7 @@ public class CaseStatusChangedHandler {
     }
     // Notify outcome observers on terminal state — CBR Retain step. Refs engine#477.
     // Called before event bus publishes so observer failures don't block downstream events.
-    if (isTerminalState(newState)) {
+    if (newState.isTerminal()) {
       fireOutcomeObservers(
           caseInstance, newState, event.satisfiedGoalName(), event.satisfiedGoalKind());
     }
@@ -253,17 +253,14 @@ public class CaseStatusChangedHandler {
     }
   }
 
-  private boolean isTerminalState(CaseStatus state) {
-    return state == CaseStatus.COMPLETED
-        || state == CaseStatus.FAULTED
-        || state == CaseStatus.CANCELLED;
-  }
-
   private CaseHubEventType resolveState(CaseStatus state) {
     return switch (state) {
       case COMPLETED -> CaseHubEventType.CASE_COMPLETED;
       case FAULTED -> CaseHubEventType.CASE_FAULTED;
       case CANCELLED -> CaseHubEventType.CASE_CANCELLED;
+      case COMPENSATING -> CaseHubEventType.COMPENSATION_STARTED;
+      case COMPENSATED -> CaseHubEventType.COMPENSATION_COMPLETED;
+      case COMPENSATION_FAULTED -> CaseHubEventType.COMPENSATION_FAULTED;
       default -> CaseHubEventType.CASE_STATUS_CHANGED;
     };
   }
@@ -285,6 +282,9 @@ public class CaseStatusChangedHandler {
       case WAITING -> "SubmitWork";
       case RUNNING -> "ResumeCase";
       case STARTING -> "InitCase";
+      case COMPENSATING -> "CompensateCase";
+      case COMPENSATED -> "CompensationComplete";
+      case COMPENSATION_FAULTED -> "CompensationFaulted";
       default -> "TransitionCase";
     };
   }
@@ -298,6 +298,9 @@ public class CaseStatusChangedHandler {
       case WAITING -> "WorkSubmitted";
       case RUNNING -> "CaseResumed";
       case STARTING -> "CaseInitializing";
+      case COMPENSATING -> "CaseCompensating";
+      case COMPENSATED -> "CaseCompensated";
+      case COMPENSATION_FAULTED -> "CaseCompensationFaulted";
       default -> "CaseStatusChanged";
     };
   }

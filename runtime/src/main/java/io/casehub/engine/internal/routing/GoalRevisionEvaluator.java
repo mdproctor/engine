@@ -18,6 +18,7 @@ package io.casehub.engine.internal.routing;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.ReflectionTriggerConfig;
 import io.casehub.api.model.event.CaseHubEventType;
+import io.casehub.api.spi.routing.GoalRemovalService;
 import io.casehub.api.spi.routing.GoalRevisionAction;
 import io.casehub.api.spi.routing.GoalRevisionContext;
 import io.casehub.api.spi.routing.GoalRevisionProposal;
@@ -58,6 +59,7 @@ public class GoalRevisionEvaluator {
   private final Instance<GoalSignalStore> goalSignalStore;
   private final Instance<GoalEvolution> goalEvolution;
   private final Instance<AgentRegistry> agentRegistry;
+  private final GoalRemovalService goalRemovalService;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final EngineStrategyResolver strategyResolver;
   private final EventLogRepository eventLogRepository;
@@ -74,6 +76,7 @@ public class GoalRevisionEvaluator {
       Instance<GoalSignalStore> goalSignalStore,
       Instance<GoalEvolution> goalEvolution,
       Instance<AgentRegistry> agentRegistry,
+      GoalRemovalService goalRemovalService,
       CaseDefinitionRegistry caseDefinitionRegistry,
       EngineStrategyResolver strategyResolver,
       EventLogRepository eventLogRepository,
@@ -90,6 +93,7 @@ public class GoalRevisionEvaluator {
     this.goalSignalStore = goalSignalStore;
     this.goalEvolution = goalEvolution;
     this.agentRegistry = agentRegistry;
+    this.goalRemovalService = goalRemovalService;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.strategyResolver = strategyResolver;
     this.eventLogRepository = eventLogRepository;
@@ -265,6 +269,13 @@ public class GoalRevisionEvaluator {
 
     AgentDescriptor updated = descriptor.toBuilder().goals(finalGoals).build();
     agentRegistry.get().register(updated);
+
+    List<String> allRemovals = new ArrayList<>(abandonedGoals);
+    allRemovals.addAll(completedGoals);
+    if (!allRemovals.isEmpty()) {
+      goalRemovalService.removeGoals(agentId, tenancyId, allRemovals, "goal revised");
+    }
+
     goalSignalStore.get().clear(agentId, tenancyId);
 
     writeAuditLog(
@@ -287,18 +298,16 @@ public class GoalRevisionEvaluator {
         result.add(goal);
         continue;
       }
-      switch (revision.action()) {
-        case REVISE -> {
-          try {
-            result.add(goal.toBuilder().description(revision.revisedDescription()).build());
-          } catch (Exception e) {
-            LOG.warnf(
-                "Invalid description for goal %s, keeping original: %s",
-                goal.name(), e.getMessage());
-            result.add(goal);
-          }
+      if (revision.action() == GoalRevisionAction.REVISE) {
+        try {
+          result.add(goal.toBuilder().description(revision.revisedDescription()).build());
+        } catch (Exception e) {
+          LOG.warnf(
+              "Invalid description for goal %s, keeping original: %s", goal.name(), e.getMessage());
+          result.add(goal);
         }
-        case ABANDON, COMPLETE -> {}
+      } else {
+        result.add(goal);
       }
     }
     return result;

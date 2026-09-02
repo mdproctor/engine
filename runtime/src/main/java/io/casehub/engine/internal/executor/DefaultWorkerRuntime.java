@@ -204,7 +204,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     CompletableFuture<CaseContext> future = tracker.register(childCaseId);
 
     CaseInstance child = caseInstanceCache.get(childCaseId);
-    if (child != null && isTerminal(child.getState())) {
+    if (child != null && child.getState().isTerminal()) {
       CaseContext snapshot = child.getCaseContext().snapshot();
       if (child.getState() == CaseStatus.COMPLETED) {
         future.complete(snapshot);
@@ -230,11 +230,6 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     }
   }
 
-  private static boolean isTerminal(CaseStatus status) {
-    return status == CaseStatus.COMPLETED
-        || status == CaseStatus.FAULTED
-        || status == CaseStatus.CANCELLED;
-  }
 
   @Override
   public CaseContext spawnAndAwaitCase(

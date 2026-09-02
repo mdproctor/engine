@@ -79,6 +79,26 @@ class SchemaValidationTest {
         () -> "Schema validation failed for " + yamlFile.getFileName() + ":\n" + errors);
   }
 
+  static Stream<Path> standaloneExampleFiles() throws IOException {
+    Path standaloneDir = Path.of("../examples/yaml");
+    if (!Files.exists(standaloneDir)) {
+      return Stream.empty();
+    }
+    return Files.list(standaloneDir)
+        .filter(p -> p.toString().endsWith(".yaml") || p.toString().endsWith(".yml"));
+  }
+
+  @ParameterizedTest
+  @MethodSource("standaloneExampleFiles")
+  void standaloneYaml_validatesAgainstSchema(Path yamlFile) throws IOException {
+    JsonNode yamlNode = YAML_MAPPER.readTree(Files.readString(yamlFile));
+    JsonNode jsonNode = JSON_MAPPER.readTree(JSON_MAPPER.writeValueAsString(yamlNode));
+    Set<ValidationMessage> errors = schema.validate(jsonNode);
+    assertTrue(
+        errors.isEmpty(),
+        () -> "Schema validation failed for " + yamlFile.getFileName() + ":\n" + errors);
+  }
+
   @Test
   void minimalDefinition_validates() throws IOException {
     String yaml =

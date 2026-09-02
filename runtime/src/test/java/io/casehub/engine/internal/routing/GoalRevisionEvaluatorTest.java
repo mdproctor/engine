@@ -24,6 +24,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.CaseDefinition;
+import io.casehub.api.spi.routing.GoalRemovalResult;
+import io.casehub.api.spi.routing.GoalRemovalService;
 import io.casehub.api.spi.routing.GoalRevisionAction;
 import io.casehub.api.spi.routing.GoalRevisionProposal;
 import io.casehub.api.spi.routing.GoalRevisionStrategy;
@@ -57,6 +59,7 @@ class GoalRevisionEvaluatorTest {
   private InMemoryGoalSignalStore goalSignalStore;
   private GoalEvolution goalEvolution;
   private AgentRegistry agentRegistry;
+  private GoalRemovalService goalRemovalService;
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private EngineStrategyResolver strategyResolver;
   private EventLogRepository eventLogRepository;
@@ -71,6 +74,9 @@ class GoalRevisionEvaluatorTest {
     goalSignalStore = new InMemoryGoalSignalStore();
     goalEvolution = new DefaultGoalEvolution();
     agentRegistry = mock(AgentRegistry.class);
+    goalRemovalService = mock(GoalRemovalService.class);
+    when(goalRemovalService.removeGoals(any(), any(), any(), any()))
+        .thenReturn(new GoalRemovalResult(List.of(), 0));
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
     strategyResolver = mock(EngineStrategyResolver.class);
     eventLogRepository = mock(EventLogRepository.class);
@@ -95,6 +101,7 @@ class GoalRevisionEvaluatorTest {
             signalStoreInstance,
             evolutionInstance,
             registryInstance,
+            goalRemovalService,
             caseDefinitionRegistry,
             strategyResolver,
             eventLogRepository,
@@ -117,6 +124,7 @@ class GoalRevisionEvaluatorTest {
             si,
             ei,
             ri,
+            goalRemovalService,
             caseDefinitionRegistry,
             strategyResolver,
             eventLogRepository,
@@ -144,6 +152,7 @@ class GoalRevisionEvaluatorTest {
             absent,
             ei,
             ri,
+            goalRemovalService,
             caseDefinitionRegistry,
             strategyResolver,
             eventLogRepository,
@@ -386,9 +395,8 @@ class GoalRevisionEvaluatorTest {
     }
 
     assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
-    AgentDescriptor registered = registeredDescriptors.get(0);
-    assertThat(registered.goals()).hasSize(1);
-    assertThat(registered.goals().get(0).name()).isEqualTo("g1");
+    Thread.sleep(200);
+    verify(goalRemovalService).removeGoals("agent-1", "tenant-1", List.of("g2"), "goal revised");
   }
 
   @Test
@@ -430,9 +438,8 @@ class GoalRevisionEvaluatorTest {
     }
 
     assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
-    AgentDescriptor registered = registeredDescriptors.get(0);
-    assertThat(registered.goals()).hasSize(1);
-    assertThat(registered.goals().get(0).name()).isEqualTo("g1");
+    Thread.sleep(200);
+    verify(goalRemovalService).removeGoals("agent-1", "tenant-1", List.of("g2"), "goal revised");
   }
 
   @Test
@@ -478,10 +485,24 @@ class GoalRevisionEvaluatorTest {
     }
 
     assertThat(latch.await(5, TimeUnit.SECONDS)).isTrue();
+    Thread.sleep(200);
     AgentDescriptor registered = registeredDescriptors.get(0);
-    assertThat(registered.goals()).hasSize(1);
-    assertThat(registered.goals().get(0).name()).isEqualTo("g1");
-    assertThat(registered.goals().get(0).description()).isEqualTo("updated desc");
+    assertThat(
+            registered.goals().stream()
+                .filter(g -> g.name().equals("g1"))
+                .findFirst()
+                .orElseThrow()
+                .description())
+        .isEqualTo("updated desc");
+    org.mockito.ArgumentCaptor<List<String>> removalCaptor =
+        org.mockito.ArgumentCaptor.forClass(List.class);
+    verify(goalRemovalService)
+        .removeGoals(
+            org.mockito.ArgumentMatchers.eq("agent-1"),
+            org.mockito.ArgumentMatchers.eq("tenant-1"),
+            removalCaptor.capture(),
+            org.mockito.ArgumentMatchers.eq("goal revised"));
+    assertThat(removalCaptor.getValue()).containsExactlyInAnyOrder("g2", "g3");
   }
 
   @Test

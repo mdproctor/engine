@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
-import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
@@ -51,7 +50,7 @@ public class JudgmentExpiredHandler {
           "CaseInstance not in cache for judgment expiry: caseId=%s — discarding", event.caseId());
       return;
     }
-    if (isTerminal(instance.getState())) {
+    if (instance.getState().isTerminal()) {
       LOG.warnf(
           "Judgment expired on terminated case (state=%s): caseId=%s — discarding",
           instance.getState(), event.caseId());
@@ -77,9 +76,4 @@ public class JudgmentExpiredHandler {
     LOG.infof("Judgment expired: caseId=%s binding=%s", event.caseId(), event.bindingName());
   }
 
-  private static boolean isTerminal(CaseStatus state) {
-    return state == CaseStatus.COMPLETED
-        || state == CaseStatus.FAULTED
-        || state == CaseStatus.CANCELLED;
-  }
 }

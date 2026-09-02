@@ -1,0 +1,474 @@
+package: io.casehub.api.model.converter.yaml
+
+skipPatterns:
+  - "_codegen*"
+
+imports:
+  Trigger: io.casehub.api.model.Trigger
+  ExpressionEvaluator: io.casehub.platform.api.expression.ExpressionEvaluator
+  CaseCompletion: io.casehub.api.model.CaseCompletion
+  CbrConfig: io.casehub.api.model.cbr.CbrConfig
+  AdaptationConfig: io.casehub.api.model.AdaptationConfig
+  JsonNode: com.fasterxml.jackson.databind.JsonNode
+  SubCaseMapping: io.casehub.api.model.SubCaseMapping
+
+deserializers:
+  TriggerDeserializer: io.casehub.api.model.converter.deser.TriggerDeserializer
+  CaseCompletionDeserializer: io.casehub.api.model.converter.deser.CaseCompletionDeserializer
+  CbrConfigDeserializer: io.casehub.api.model.converter.deser.CbrConfigDeserializer
+  AdaptationConfigDeserializer: io.casehub.api.model.converter.deser.AdaptationConfigDeserializer
+  SubCaseMappingDeserializer: io.casehub.api.model.converter.deser.SubCaseMappingDeserializer
+
+types:
+  # ── Root type ──
+  CaseDefinition:
+    record: YamlCaseDefinition
+    source: root
+    fields:
+      spec: { type: YamlCaseSpec }
+      context: { type: JsonNode }
+      semanticData: { type: "Map<String, Object>" }
+      episodic: { type: JsonNode }
+      use: { type: JsonNode }
+      signals: { type: "List<YamlSignalType>" }
+      layers: { type: "List<YamlContextLayer>" }
+      labelRules: { type: "List<YamlLabelRule>" }
+      inboundMappings: { type: "List<YamlInboundMapping>" }
+    extra:
+      - { name: dsl, type: String }
+      - { name: title, type: String }
+      - { name: summary, type: String }
+      - { name: expressionLang, type: String }
+      - { name: contextType, type: String }
+      - { name: workers, type: "List<YamlWorker>" }
+      - { name: bindings, type: "List<YamlBinding>" }
+      - { name: definitions, type: "Map<String, JsonNode>" }
+      - { name: iterations, type: "Map<String, YamlIterationGroup>" }
+
+  # ── Spec ──
+  CaseDefinitionSpec:
+    record: YamlCaseSpec
+    fields:
+      cbr: { name: cbrConfig, type: CbrConfig, deserializer: CbrConfigDeserializer, alias: cbr }
+      adaptation: { name: adaptationConfig, type: AdaptationConfig, deserializer: AdaptationConfigDeserializer, alias: adaptation }
+      reflection: { name: reflectionTrigger, type: YamlReflectionTriggerConfig, alias: reflection }
+      defaultQuorum: { name: quorum, type: YamlQuorumConfig }
+      goapActions: { name: actions, type: "List<YamlGoapAction>", alias: goapActions }
+      monitoring: { type: YamlMonitoringConfig }
+      recoveryPolicy: { type: YamlRecoveryPolicy }
+      memoryRetrieval: { type: YamlMemoryRetrievalConfig }
+      planningConstraints: { type: YamlPlanningConstraints }
+      portfolioConfig: { type: YamlPortfolioConfig }
+      humanTaskWorkloadConstraint: { type: YamlWorkloadConstraint }
+      humanTaskContextConstraints: { type: "List<YamlContextConstraint>" }
+      completion: { type: CaseCompletion, deserializer: CaseCompletionDeserializer }
+    extra:
+      - { name: capabilities, type: "List<YamlCapability>" }
+      - { name: goals, type: "List<YamlGoal>" }
+      - { name: milestones, type: "List<YamlMilestone>" }
+      - { name: completion, type: CaseCompletion }
+      - { name: planningStrategy, type: String }
+      - { name: agentRouting, type: String }
+      - { name: implementationRouting, type: String }
+      - { name: humanTaskRouting, type: String }
+      - { name: candidateMatching, type: String }
+      - { name: decompositionStrategy, type: String }
+      - { name: maxDecompositionDepth, type: Integer }
+      - { name: maxEscalations, type: Integer }
+      - { name: routingSignalWeights, type: "Map<String, Double>" }
+      - { name: cognitiveDemands, type: "Map<String, YamlCognitiveDemand>" }
+      - { name: authorization, type: "Map<String, List<String>>" }
+      - { name: workerServiceAccountIds, type: "Map<String, String>" }
+      - { name: compounds, type: "List<YamlCompound>" }
+      - { name: channels, type: "List<YamlChannel>" }
+      - { name: layers, type: "List<YamlContextLayer>" }
+      - { name: workers, type: "List<YamlWorker>" }
+      - { name: bindings, type: "List<YamlBinding>" }
+      - { name: decomposition, type: YamlDecomposition }
+
+  # ── Binding ──
+  Binding:
+    record: YamlBinding
+    fields:
+      on: { type: Trigger, deserializer: TriggerDeserializer }
+      when: { type: ExpressionEvaluator }
+      inputProjectionOverride: { type: ExpressionEvaluator }
+      outcomePolicy: { type: JsonNode }
+      exchangeProjection: { type: JsonNode }
+      replanAfter: { name: replanHint, alias: replanAfter }
+      signal: { type: "Map<String, Object>" }
+      contextWrite: { type: "Map<String, Object>" }
+      humanTask: { type: YamlHumanTaskTarget }
+      subCase: { type: YamlSubCaseTarget }
+    extra:
+      - { name: sideEffectClassification, type: String }
+      - { name: judgment, type: YamlJudgmentTarget }
+      - { name: recoveryOverride, type: YamlRecoveryOverride }
+      - { name: compensate, type: String }
+      - { name: compensation, type: Boolean }
+
+  # ── Worker ──
+  Worker:
+    record: YamlWorker
+    fields:
+      doBlock: { property: do, type: JsonNode }
+      effect: { type: "Map<String, Boolean>" }
+    extra:
+      - { name: definitionRef, type: String }
+      - { name: forEach, type: String }
+      - { name: agent, type: YamlAgent }
+      - { name: react, type: YamlReact }
+      - { name: a2a, type: YamlA2A }
+      - { name: mcp, type: YamlMcp }
+      - { name: agentDescriptor, type: YamlAgentDescriptor }
+
+  # ── Capability ──
+  Capability:
+    record: YamlCapability
+    fields:
+      inputSchema: { name: inputProjection, alias: inputSchema }
+      outputSchema: { name: outputProjection, alias: outputSchema }
+      cognitiveDemand: { type: "Map<String, Double>" }
+
+  # ── Goal ──
+  Goal:
+    record: YamlGoal
+    fields:
+      condition: { name: when, type: ExpressionEvaluator, alias: condition }
+
+  # ── Milestone ──
+  Milestone:
+    record: YamlMilestone
+    fields:
+      condition:
+        name: when
+        type: ExpressionEvaluator
+        alias:
+          - condition
+          - completionCriteria
+      entryCriteria: { type: ExpressionEvaluator }
+    extra:
+      - { name: sla, type: YamlSla }
+
+  # ── SubCase ──
+  SubCase:
+    record: YamlSubCaseTarget
+    fields:
+      inputMapping: { type: SubCaseMapping, deserializer: SubCaseMappingDeserializer }
+      outputMapping: { type: SubCaseMapping, deserializer: SubCaseMappingDeserializer }
+
+  # ── HumanTask ──
+  HumanTask:
+    record: YamlHumanTaskTarget
+    fields:
+      titleExpression: { type: ExpressionEvaluator }
+      candidateGroups: { type: JsonNode }
+      candidateUsers: { type: JsonNode }
+      expiresInExpression: { type: ExpressionEvaluator }
+      expiresAtExpression: { type: ExpressionEvaluator }
+      inputMapping: { type: ExpressionEvaluator }
+      outputMapping: { type: ExpressionEvaluator }
+      scopeExpression: { type: ExpressionEvaluator }
+      outcomes: { type: "Set<String>" }
+    extra:
+      - { name: priority, type: String }
+      - { name: quorum, type: YamlQuorumConfig }
+
+  # ── OutcomePolicy — kept as JsonNode on Binding, not a separate record ──
+
+  # ── ExecutionPolicy ──
+  ExecutionPolicy:
+    record: YamlExecutionPolicy
+    fields:
+      retries: { type: YamlRetryPolicy }
+
+  # ── RetryPolicy ──
+  RetryPolicy:
+    record: YamlRetryPolicy
+    extra:
+      - { name: backoffStrategy, type: String }
+      - { name: maxDelayMs, type: Integer }
+
+  # ── CompoundDeclaration ──
+  CompoundDeclaration:
+    record: YamlCompound
+    fields:
+      scopedBindings: { type: "Map<String, String>" }
+      entryCondition: { type: ExpressionEvaluator }
+      exitCondition: { type: ExpressionEvaluator }
+    extra:
+      - { name: children, type: "List<String>" }
+      - { name: mofnRequired, type: Integer }
+
+  # ── InboundSignalMapping ──
+  InboundSignalMapping:
+    record: YamlInboundMapping
+    fields:
+      correlation: { type: ExpressionEvaluator }
+      payload: { type: ExpressionEvaluator }
+
+  # ── LabelRule ──
+  LabelRule:
+    record: YamlLabelRule
+    fields:
+      when: { type: ExpressionEvaluator }
+      actions: { type: "List<YamlLabelAction>" }
+
+  # ── Extra types (no schema $defs) ──
+
+  YamlA2A:
+    record: YamlA2A
+    extra:
+      - { name: endpoint, type: String }
+      - { name: skill, type: String }
+      - { name: streaming, type: Boolean }
+      - { name: auth, type: YamlAuth }
+
+  YamlAgent:
+    record: YamlAgent
+    extra:
+      - { name: model, type: JsonNode }
+      - { name: modelName, type: String }
+      - { name: systemPrompt, type: String }
+      - { name: inputSchema, type: String }
+      - { name: outputSchema, type: String }
+      - { name: responseSchema, type: String }
+      - { name: baseUrl, type: String }
+      - { name: organizationId, type: String }
+      - { name: temperature, type: Double }
+      - { name: topP, type: Double }
+      - { name: maxTokens, type: Integer }
+      - { name: frequencyPenalty, type: Double }
+      - { name: presencePenalty, type: Double }
+      - { name: version, type: String }
+
+  # YamlAgentDescriptor — hand-written (has 4 inner records referenced as
+  # YamlAgentDescriptor.YamlAgentGoal etc. by the converter)
+
+  YamlAuth:
+    record: YamlAuth
+    extra:
+      - { name: type, type: String }
+      - { name: tokenConfigKey, type: String }
+
+  YamlChannel:
+    record: YamlChannel
+    extra:
+      - { name: name, type: String }
+      - { name: recordType, type: String }
+      - { name: transport, type: String }
+      - { name: scope, type: String }
+
+  YamlCognitiveDemand:
+    record: YamlCognitiveDemand
+    extra:
+      - { name: weights, type: "Map<String, Double>" }
+
+  YamlConstraintEffect:
+    record: YamlConstraintEffect
+    extra:
+      - { name: preferGroups, type: "List<String>" }
+      - { name: preferUsers, type: "List<String>" }
+      - { name: excludeGroups, type: "List<String>" }
+      - { name: excludeUsers, type: "List<String>" }
+
+  YamlContextConstraint:
+    record: YamlContextConstraint
+    extra:
+      - { name: when, type: ExpressionEvaluator }
+      - { name: effect, type: YamlConstraintEffect }
+      - { name: weight, type: Double, default: "1.0" }
+
+  YamlContextLayer:
+    record: YamlContextLayer
+    extra:
+      - { name: name, type: String }
+
+  YamlDecomposition:
+    record: YamlDecomposition
+    extra:
+      - { name: root, type: YamlHtnNode }
+
+  YamlEpisodicMemoryConfig:
+    record: YamlEpisodicMemoryConfig
+    extra:
+      - { name: domain, type: String }
+      - { name: entityId, type: String }
+      - { name: recent, type: Integer }
+
+  YamlEvidenceRequirement:
+    record: YamlEvidenceRequirement
+    extra:
+      - { name: key, type: String }
+      - { name: type, type: String }
+      - { name: required, type: Boolean, default: "true" }
+
+  YamlGoapAction:
+    record: YamlGoapAction
+    extra:
+      - { name: name, type: String }
+      - { name: capability, type: String }
+      - { name: preconditions, type: "Map<String, Boolean>" }
+      - { name: effects, type: "Map<String, Boolean>" }
+      - { name: cost, type: Double }
+      - { name: benefit, type: Double }
+      - { name: softPreconditions, type: "Map<String, Boolean>" }
+      - { name: softDependency, type: "List<String>" }
+
+  YamlHtnMethod:
+    record: YamlHtnMethod
+    extra:
+      - { name: name, type: String }
+      - { name: guardLabel, type: String }
+      - { name: guard, type: ExpressionEvaluator }
+      - { name: estimatedDuration, type: String }
+      - { name: estimatedCost, type: "Map<String, Integer>" }
+      - { name: tasks, type: "List<YamlHtnNode>" }
+
+  YamlHtnNode:
+    record: YamlHtnNode
+    body: |
+      public boolean isLeaf() {
+        return capability != null && methods.isEmpty();
+      }
+    extra:
+      - { name: name, type: String }
+      - { name: capability, type: String }
+      - { name: description, type: String }
+      - { name: estimatedDuration, type: String }
+      - { name: estimatedCost, type: "Map<String, Integer>" }
+      - { name: methods, type: "List<YamlHtnMethod>" }
+
+  YamlIterationGroup:
+    record: YamlIterationGroup
+    extra:
+      - { name: in, type: "List<String>" }
+      - { name: as, type: String }
+
+  YamlJudgmentTarget:
+    record: YamlJudgmentTarget
+    fields:
+      escalationStrategy: { alias: escalatorStrategy }
+    extra:
+      - { name: prompt, type: String }
+      - { name: promptExpression, type: String }
+      - { name: inputMapping, type: String }
+      - { name: outputMapping, type: String }
+      - { name: resolutionType, type: String }
+      - { name: expiresIn, type: String }
+      - { name: expiresInExpression, type: String }
+      - { name: expiresAtExpression, type: String }
+      - { name: evidenceRequirements, type: "List<String>" }
+      - { name: verifierStrategy, type: String }
+      - { name: escalationStrategy, type: String }
+      - { name: trustThreshold, type: String }
+      - { name: title, type: String }
+      - { name: titleExpression, type: String }
+      - { name: outcomes, type: "Set<String>" }
+      - { name: scope, type: String }
+      - { name: scopeExpression, type: String }
+      - { name: priority, type: String }
+      - { name: human, type: JsonNode }
+      - { name: callerConfig, type: JsonNode }
+      - { name: maxEscalationAttempts, type: Integer }
+
+  YamlLabelAction:
+    record: YamlLabelAction
+    extra:
+      - { name: add, type: String }
+      - { name: remove, type: String }
+
+  YamlMcp:
+    record: YamlMcp
+    extra:
+      - { name: command, type: "List<String>" }
+      - { name: url, type: String }
+      - { name: auth, type: YamlAuth }
+      - { name: env, type: "Map<String, String>" }
+
+  YamlMemoryRetrievalConfig:
+    record: YamlMemoryRetrievalConfig
+    extra:
+      - { name: enabled, type: Boolean }
+      - { name: maxMemories, type: Integer }
+      - { name: domains, type: "Set<String>" }
+
+  YamlMonitoringConfig:
+    record: YamlMonitoringConfig
+    extra:
+      - { name: enabled, type: Boolean }
+      - { name: perCompletionThreshold, type: Double }
+      - { name: windowSize, type: Integer }
+
+  YamlPlanningConstraints:
+    record: YamlPlanningConstraints
+    extra:
+      - { name: timeBudget, type: String }
+      - { name: resourceLimit, type: Integer }
+      - { name: weights, type: "Map<String, Double>" }
+      - { name: costBudgets, type: "Map<String, Integer>" }
+
+  YamlPortfolioConfig:
+    record: YamlPortfolioConfig
+    extra:
+      - { name: delegates, type: "List<String>" }
+      - { name: timeouts, type: "Map<String, Long>" }
+
+  YamlQuorumConfig:
+    record: YamlQuorumConfig
+    extra:
+      - { name: instances, type: Integer }
+      - { name: required, type: Integer }
+      - { name: onThresholdReached, type: String }
+      - { name: allowSameAssignee, type: Boolean }
+
+  YamlReact:
+    record: YamlReact
+    extra:
+      - { name: maxCycles, type: Integer }
+
+  YamlRecoveryOverride:
+    record: YamlRecoveryOverride
+    extra:
+      - { name: maxRetries, type: Integer }
+      - { name: maxRerouteAttempts, type: Integer }
+      - { name: maxLevel, type: String }
+      - { name: skipRecovery, type: Boolean }
+      - { name: skipRecoveryFor, type: "List<String>" }
+
+  RecoveryPolicy:
+    record: YamlRecoveryPolicy
+    extra:
+      - { name: maxRetries, type: Integer }
+      - { name: maxRerouteAttempts, type: Integer }
+      - { name: classifierId, type: String }
+      - { name: revisionStrategyId, type: String }
+      - { name: replanStrategyId, type: String }
+      - { name: enabled, type: Boolean }
+
+  YamlReflectionTriggerConfig:
+    record: YamlReflectionTriggerConfig
+    extra:
+      - { name: enabled, type: Boolean }
+      - { name: importanceThreshold, type: Double }
+      - { name: maxUnreflectedOutcomes, type: Integer }
+      - { name: maxSourceMemories, type: Integer }
+      - { name: importanceWeights, type: "Map<String, Double>" }
+
+  YamlSignalType:
+    record: YamlSignalType
+    extra:
+      - { name: name, type: String }
+      - { name: contextType, type: String }
+
+  YamlSla:
+    record: YamlSla
+    extra:
+      - { name: duration, type: String }
+      - { name: breachPolicy, type: String }
+
+  YamlWorkloadConstraint:
+    record: YamlWorkloadConstraint
+    extra:
+      - { name: maxActiveTaskCount, type: Integer }
+      - { name: loadBalanceWeight, type: Double }

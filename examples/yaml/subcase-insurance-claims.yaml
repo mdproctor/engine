@@ -1,0 +1,154 @@
+##
+## Example: SubCase — Insurance Claims Processing
+##
+## Scenario: An insurance company processes a claim. The main case
+## coordinates the overall flow, then delegates detailed investigation
+## to a specialised sub-case definition. The sub-case result flows
+## back via output mapping.
+##
+## Pathway: YAML (pure — no Java required)
+## See also: examples/subcase-annotated/ (annotations)
+##           examples/subcase-dsl/ (DSL)
+##
+## Key features demonstrated:
+##   - subCase: binding target with namespace/name/version
+##   - inputMapping and outputMapping on sub-case
+##   - mixed capability + subCase bindings
+##   - grouped sub-cases with totalInGroup and requiredCount
+##
+
+dsl: "1.0.0"
+namespace: insurance
+name: claims-processing
+version: "1.0.0"
+title: "Claims Processing"
+summary: "Processes insurance claims — triages, delegates investigation to sub-cases, adjudicates outcome"
+types:
+  - insurance/claims
+labels:
+  - example/subcase
+
+spec:
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: triageClaim
+      description: "Initial claim triage — validates documents and categorises the claim"
+      inputProjection: "{ claimId: .claim.id, type: .claim.type, documents: .claim.documents }"
+      outputProjection: "{ triage: { category: .category, priority: .priority, valid: .valid } }"
+
+    - name: adjudicate
+      description: "Final adjudication based on investigation results"
+      inputProjection: "{ claim: .claim, triage: .triage, investigation: .investigation }"
+      outputProjection: "{ adjudication: { decision: .decision, amount: .amount, reasoning: .reasoning } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  workers:
+    - name: claim-triager
+      description: "Automated claim triage and validation"
+      capabilities:
+        - triageClaim
+      do:
+        - triage:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://claims-engine.internal/api/triage
+              body:
+                claimId: "${ .claimId }"
+                type: "${ .type }"
+
+    - name: adjudicator
+      description: "Automated claim adjudication"
+      capabilities:
+        - adjudicate
+      do:
+        - decide:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://claims-engine.internal/api/adjudicate
+              body:
+                claim: "${ .claim }"
+                investigation: "${ .investigation }"
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  bindings:
+    - name: triage-on-submission
+      capability: triageClaim
+      on:
+        contextChange:
+          filter: '.claim != null and .triage == null'
+
+    ## ─── SubCase Binding ────────────────────────────────────────────
+    ## After triage, spawn a sub-case for detailed investigation.
+    ## inputMapping projects parent context into the child.
+    ## outputMapping merges the child result back.
+    - name: investigate-claim
+      subCase:
+        namespace: insurance
+        name: claim-investigation
+        version: "1.0.0"
+        inputMapping: '{ claimId: .claim.id, category: .triage.category, documents: .claim.documents }'
+        outputMapping: '{ investigation: { findings: .findings, evidence: .evidence, estimatedLoss: .estimatedLoss } }'
+        waitForCompletion: true
+      on:
+        contextChange:
+          filter: '.triage != null and .triage.valid == true and .investigation == null'
+
+    ## ─── Grouped SubCase Binding ────────────────────────────────────
+    ## For high-value claims, spawn multiple independent assessments.
+    ## requiredCount means the case proceeds when 2 of 3 complete.
+    - name: independent-assessments
+      subCase:
+        namespace: insurance
+        name: claim-investigation
+        version: "1.0.0"
+        inputMapping: '{ claimId: .claim.id, category: .triage.category }'
+        outputMapping: '{ peerReview: . }'
+        groupId: peer-review
+        totalInGroup: 3
+        requiredCount: 2
+        onThresholdReached: CANCEL
+      on:
+        contextChange:
+          filter: '.triage != null and .triage.priority == "HIGH" and .peerReview == null'
+      when: '.claim.amount > 100000'
+
+    - name: adjudicate-after-investigation
+      capability: adjudicate
+      on:
+        contextChange:
+          filter: '.investigation != null and .adjudication == null'
+
+  ## ─── Milestones ───────────────────────────────────────────────────
+  milestones:
+    - name: claimTriaged
+      description: "Claim validated and categorised"
+      condition: '.triage != null and .triage.valid == true'
+
+    - name: investigationComplete
+      description: "Claim investigation sub-case completed"
+      condition: '.investigation != null'
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: claimResolved
+      description: "Claim fully adjudicated"
+      condition: '.adjudication != null'
+      kind: success
+
+    - name: claimInvalid
+      description: "Claim failed triage validation"
+      condition: '.triage != null and .triage.valid == false'
+      kind: failure
+
+  completion:
+    success:
+      allOf:
+        - claimResolved
+    failure:
+      allOf:
+        - claimInvalid

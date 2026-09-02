@@ -29,7 +29,13 @@ public enum CaseStatus {
   /** Case terminated due to an error. */
   FAULTED,
   /** Case was stopped before completion. */
-  CANCELLED;
+  CANCELLED,
+  /** Compensation in progress — completed case is having its effects undone. */
+  COMPENSATING,
+  /** All compensating bindings completed — case effects fully reversed. */
+  COMPENSATED,
+  /** Compensation attempted but a compensating step failed — intervention required. */
+  COMPENSATION_FAULTED;
 
   /**
    * All terminal statuses, derived from {@link #isTerminal()}. Single source of truth for queries.
@@ -39,28 +45,22 @@ public enum CaseStatus {
 
   /**
    * Returns {@code true} if this status represents a terminal (end) state from which the case
-   * cannot transition further under normal lifecycle rules. Terminal statuses are: {@link
-   * #COMPLETED}, {@link #FAULTED}, {@link #CANCELLED}.
-   *
-   * @return {@code true} when the case has reached a terminal state
+   * cannot transition further under normal lifecycle rules.
    */
   public boolean isTerminal() {
     return switch (this) {
-      case COMPLETED, FAULTED, CANCELLED -> true;
+      case COMPLETED, FAULTED, CANCELLED, COMPENSATED -> true;
       default -> false;
     };
   }
 
   /**
-   * Returns {@code true} if this status represents an active (non-terminal) state in which the case
-   * is still in-flight or awaiting action. Active statuses are: {@link #STARTING}, {@link
-   * #RUNNING}, {@link #WAITING}, {@link #SUSPENDED}.
-   *
-   * @return {@code true} when the case is still active
+   * Returns {@code true} if this status represents an active state in which the case is still being
+   * processed or awaiting input.
    */
   public boolean isActive() {
     return switch (this) {
-      case STARTING, RUNNING, WAITING, SUSPENDED -> true;
+      case STARTING, RUNNING, WAITING, SUSPENDED, COMPENSATING, COMPENSATION_FAULTED -> true;
       default -> false;
     };
   }

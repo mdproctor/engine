@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.yaml.core.foreach.ForEachAdapter;
+import io.casehub.yaml.core.foreach.ForEachDirective;
 import io.casehub.yaml.core.resolver.VariableResolver;
 import java.util.Map;
 
@@ -45,13 +46,14 @@ public final class JsonNodeForEachAdapter implements ForEachAdapter<JsonNode> {
   }
 
   @Override
-  public Object getForEach(JsonNode element) {
+  public ForEachDirective getForEach(JsonNode element) {
     JsonNode node = element.get(forEachField);
-    if (node == null || node.isNull()) return null;
-    return node.asText();
+    if (node == null || node.isNull()) {
+      return null;
+    }
+    return new ForEachDirective.GroupRef(node.asText());
   }
 
-  @Override
   public String getId(JsonNode element) {
     JsonNode name = element.get("name");
     return name != null ? name.asText() : null;

@@ -1,0 +1,174 @@
+##
+## Example: GOAP — Contract Review
+##
+## Scenario: A law firm reviews incoming contracts. The planner automatically
+## determines the optimal execution order from declared preconditions and
+## effects — no explicit sequencing required. Soft preconditions allow
+## optional enrichment when available.
+##
+## Pathway: YAML (pure — no Java required)
+## See also: examples/goap-annotated/ (annotations)
+##           examples/goap-dsl/ (DSL)
+##
+## Key features demonstrated:
+##   - decompositionStrategy: goap
+##   - actions: block with preconditions, effects, cost, benefit
+##   - softPreconditions for optional dependencies
+##   - standalone capability (no worker — satisfied externally)
+##   - goals with condition and kind
+##   - completion block
+##
+
+dsl: "1.0.0"
+namespace: legal
+name: contract-review
+version: "1.0.0"
+title: "Contract Review"
+summary: "Reviews incoming contracts — analyses structure, extracts clauses, assesses risk with optional external legal opinion"
+types:
+  - legal/review
+labels:
+  - example/goap
+
+spec:
+
+  ## ─── Decomposition Strategy ───────────────────────────────────────
+  ## GOAP: the planner reads preconditions and effects from the actions
+  ## block and computes the optimal execution order automatically.
+  ## No manual sequencing or binding trigger chains required.
+  decompositionStrategy: goap
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: analyse
+      description: "Analyses contract structure and key terms"
+      inputProjection: "{ contract: .contract }"
+      outputProjection: "{ analysisResult: { summary: .summary, contractType: .contractType } }"
+
+    - name: extractClauses
+      description: "Extracts and catalogues contract clauses"
+      inputProjection: "{ contract: .contract, analysisResult: .analysisResult }"
+      outputProjection: "{ clauseList: { clauses: .clauses } }"
+
+    - name: externalLegalOpinion
+      description: "External legal expert opinion — satisfied by A2A, MCP, or provisioner"
+
+    - name: assessRisk
+      description: "Assesses overall contract risk based on analysis, clauses, and optional external opinion"
+      inputProjection: "{ analysisResult: .analysisResult, clauseList: .clauseList, legalOpinion: .legalOpinion, priorReview: .priorReview }"
+      outputProjection: "{ riskAssessment: { level: .level, jurisdiction: .jurisdiction, priorContext: .priorContext } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  ## Workers declare capabilities. The GOAP planner determines dispatch
+  ## order from the actions block below — not from binding triggers.
+  workers:
+    - name: contract-analyser
+      description: "Analyses contract structure and key terms"
+      capabilities:
+        - analyse
+      do:
+        - analyse:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://legal-ai.internal/api/analyse
+              body:
+                contract: "${ .contract }"
+
+    - name: clause-extractor
+      description: "Extracts and catalogues contract clauses"
+      capabilities:
+        - extractClauses
+      do:
+        - extract:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://legal-ai.internal/api/extract-clauses
+              body:
+                contract: "${ .contract }"
+                analysisResult: "${ .analysisResult }"
+
+    - name: risk-assessor
+      description: "Assesses overall contract risk"
+      capabilities:
+        - assessRisk
+      do:
+        - assess:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://legal-ai.internal/api/assess-risk
+              body:
+                analysisResult: "${ .analysisResult }"
+                clauseList: "${ .clauseList }"
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  ## With GOAP, bindings provide the initial trigger. The planner
+  ## handles ordering from the actions block.
+  bindings:
+    - name: start-review
+      capability: analyse
+      on:
+        contextChange:
+          filter: '.contract != null and .analysisResult == null'
+
+    - name: extract-after-analysis
+      capability: extractClauses
+      on:
+        contextChange:
+          filter: '.analysisResult != null and .clauseList == null'
+
+    - name: assess-after-extraction
+      capability: assessRisk
+      on:
+        contextChange:
+          filter: '.clauseList != null and .riskAssessment == null'
+
+  ## ─── GOAP Actions ─────────────────────────────────────────────────
+  ## Each action declares what it needs (preconditions) and what it
+  ## produces (effects). The planner builds a dependency graph and
+  ## finds the cheapest plan to reach the goal state.
+  ##
+  ## softPreconditions are optional — the planner prefers them but
+  ## proceeds without. cost influences which plan the planner chooses
+  ## when multiple paths exist.
+  actions:
+    - name: analyse
+      effects:
+        analysisResult: true
+      cost: 0.2
+      benefit: 0.1
+
+    - name: extractClauses
+      preconditions:
+        analysisResult: true
+      effects:
+        clauseList: true
+      cost: 0.3
+
+    - name: assessRisk
+      preconditions:
+        analysisResult: true
+        clauseList: true
+      effects:
+        riskAssessment: true
+      cost: 0.5
+      softPreconditions:
+        legalOpinion: true
+        priorReview: true
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: reviewComplete
+      description: "Risk assessment completed for the contract"
+      condition: '.riskAssessment != null'
+      kind: success
+
+  completion:
+    success:
+      allOf:
+        - reviewComplete

@@ -1,0 +1,121 @@
+##
+## Example: MCP — Code Analysis
+##
+## Scenario: A DevOps team analyses a codebase using MCP server tools.
+## One server runs local static analysis via stdio transport, another
+## provides remote vulnerability scanning via HTTP transport. Results
+## are combined into a unified report.
+##
+## Pathway: YAML (pure — no Java required)
+## See also: examples/mcp-annotated/ (annotations)
+##           examples/mcp-dsl/ (DSL)
+##
+## Key features demonstrated:
+##   - mcp: block on workers with command (stdio) and url (HTTP) transports
+##   - tool discovery from MCP servers
+##   - mixed stdio and HTTP MCP transports
+##   - bearer token auth for remote MCP servers
+##
+
+dsl: "1.0.0"
+namespace: devops
+name: code-analysis
+version: "1.0.0"
+title: "Code Analysis"
+summary: "Analyses a codebase using MCP tools — static analysis, vulnerability scanning, unified reporting"
+types:
+  - devops/analysis
+labels:
+  - example/mcp
+
+spec:
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: staticAnalysis
+      description: "Runs static code analysis — linting, complexity, code smells"
+      inputProjection: "{ repository: .repository, branch: .branch }"
+      outputProjection: "{ staticReport: { issues: .issues, metrics: .metrics, score: .score } }"
+
+    - name: vulnerabilityScan
+      description: "Scans for known vulnerabilities in dependencies and code"
+      inputProjection: "{ repository: .repository, branch: .branch }"
+      outputProjection: "{ vulnReport: { vulnerabilities: .vulnerabilities, severity: .severity, patchable: .patchable } }"
+
+    - name: generateReport
+      description: "Generates a unified code quality report from analysis results"
+      inputProjection: "{ staticReport: .staticReport, vulnReport: .vulnReport, repository: .repository }"
+      outputProjection: "{ report: { summary: .summary, grade: .grade, actionItems: .actionItems } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  ## MCP workers invoke MCP server tools. The mcp: block declares
+  ## the transport (command for stdio, url for HTTP). At definition
+  ## build time, the engine calls tools/list to discover available
+  ## tools and creates one worker per tool.
+  workers:
+    - name: static-analyser
+      description: "Local static analysis MCP server (stdio transport)"
+      capabilities:
+        - staticAnalysis
+      mcp:
+        command:
+          - /usr/local/bin/code-analysis-server
+          - --format
+          - json
+
+    - name: vuln-scanner
+      description: "Remote vulnerability scanning MCP server (HTTP transport)"
+      capabilities:
+        - vulnerabilityScan
+      mcp:
+        url: https://vuln-scanner.internal/mcp
+        auth:
+          type: bearer
+          tokenConfigKey: vuln.scanner.token
+
+    - name: report-generator
+      description: "Report generation — combines analysis results"
+      capabilities:
+        - generateReport
+      do:
+        - generate:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://reporting.internal/api/generate
+              body:
+                staticReport: "${ .staticReport }"
+                vulnReport: "${ .vulnReport }"
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  bindings:
+    - name: analyse-on-push
+      capability: staticAnalysis
+      on:
+        contextChange:
+          filter: '.repository != null and .staticReport == null'
+
+    - name: scan-on-push
+      capability: vulnerabilityScan
+      on:
+        contextChange:
+          filter: '.repository != null and .vulnReport == null'
+
+    - name: report-after-scans
+      capability: generateReport
+      on:
+        contextChange:
+          filter: '.staticReport != null and .vulnReport != null and .report == null'
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: analysisComplete
+      description: "Code analysis report generated"
+      condition: '.report != null and .report.grade != null'
+      kind: success
+
+  completion:
+    success:
+      allOf:
+        - analysisComplete

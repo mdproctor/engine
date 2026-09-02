@@ -427,7 +427,7 @@ public final class CaseDefinitionYamlMapper {
             elements, groups, resolver, adapter, 1000);
 
     com.fasterxml.jackson.databind.node.ArrayNode expanded = mapper.createArrayNode();
-    result.elements().forEach(expanded::add);
+    result.elements().values().forEach(expanded::add);
     parent.set(fieldName, expanded);
   }
 

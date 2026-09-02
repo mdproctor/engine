@@ -1,0 +1,182 @@
+##
+## Example: Sequential — Employee Onboarding
+##
+## Scenario: HR onboards a new employee through a fixed sequence of steps:
+## collect documents, run a background check, provision IT access, and
+## schedule orientation. Each step must complete before the next begins.
+##
+## Pathway: YAML (pure — no Java required)
+## See also: examples/sequential-annotated/ (annotations)
+##           examples/sequential-dsl/ (DSL)
+##
+## Key features demonstrated:
+##   - planningStrategy: sequential
+##   - sequence: on workers (ordered execution chain)
+##   - do: blocks for external HTTP dispatch
+##   - milestones tracking onboarding progress
+##   - goals and completion
+##
+
+dsl: "1.0.0"
+namespace: hr
+name: employee-onboarding
+version: "1.0.0"
+title: "Employee Onboarding"
+summary: "Onboards a new employee — collects documents, runs background check, provisions access, schedules orientation"
+types:
+  - hr/onboarding
+labels:
+  - example/sequential
+
+spec:
+
+  ## ─── Planning Strategy ────────────────────────────────────────────
+  ## Sequential: the engine dispatches bindings one at a time in the
+  ## order declared by the worker's sequence: list. Each must complete
+  ## before the next fires. Contrast with choreography (default) where
+  ## all eligible bindings fire independently.
+  planningStrategy: sequential
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: collectDocuments
+      description: "Collects and validates required employment documents"
+      inputProjection: "{ employeeId: .employee.id, requiredDocs: .employee.requiredDocuments }"
+      outputProjection: "{ documentsCollected: { complete: .complete, missing: .missing } }"
+
+    - name: backgroundCheck
+      description: "Runs employment background verification"
+      inputProjection: "{ employeeId: .employee.id, documents: .documentsCollected }"
+      outputProjection: "{ backgroundResult: { status: .status, completedAt: .completedAt } }"
+
+    - name: provisionAccess
+      description: "Provisions IT accounts, email, and system access"
+      inputProjection: "{ employeeId: .employee.id, department: .employee.department, role: .employee.role }"
+      outputProjection: "{ accessProvisioned: { email: .email, systems: .systems } }"
+
+    - name: scheduleOrientation
+      description: "Schedules the new-hire orientation session"
+      inputProjection: "{ employeeId: .employee.id, startDate: .employee.startDate, department: .employee.department }"
+      outputProjection: "{ orientation: { date: .date, location: .location, confirmed: .confirmed } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  ## The orchestrator worker declares a sequence: list that controls
+  ## execution order. Workers without sequence: are leaf executors.
+  workers:
+    - name: onboarding-orchestrator
+      description: "Orchestrates the sequential onboarding pipeline"
+      capabilities:
+        - collectDocuments
+        - backgroundCheck
+        - provisionAccess
+        - scheduleOrientation
+      sequence:
+        - doc-collector
+        - bg-checker
+        - access-provisioner
+        - orientation-scheduler
+
+    - name: doc-collector
+      description: "Collects and validates employment documents"
+      capabilities:
+        - collectDocuments
+      do:
+        - collect:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://hr-docs.internal/api/collect
+              body:
+                employeeId: "${ .employeeId }"
+                requiredDocs: "${ .requiredDocs }"
+
+    - name: bg-checker
+      description: "Runs employment background verification"
+      capabilities:
+        - backgroundCheck
+      do:
+        - check:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://background-check.internal/api/verify
+              body:
+                employeeId: "${ .employeeId }"
+
+    - name: access-provisioner
+      description: "Provisions IT accounts and system access"
+      capabilities:
+        - provisionAccess
+      do:
+        - provision:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://it-provisioning.internal/api/provision
+              body:
+                employeeId: "${ .employeeId }"
+                department: "${ .department }"
+                role: "${ .role }"
+
+    - name: orientation-scheduler
+      description: "Schedules new-hire orientation"
+      capabilities:
+        - scheduleOrientation
+      do:
+        - schedule:
+            call: http
+            with:
+              method: POST
+              endpoint:
+                uri: https://hr-calendar.internal/api/schedule-orientation
+              body:
+                employeeId: "${ .employeeId }"
+                startDate: "${ .startDate }"
+                department: "${ .department }"
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  ## With sequential planning, a single binding triggers the chain.
+  ## The sequence: list on the orchestrator worker controls the order.
+  bindings:
+    - name: start-onboarding
+      capability: collectDocuments
+      on:
+        contextChange:
+          filter: '.employee != null and .documentsCollected == null'
+
+  ## ─── Milestones ───────────────────────────────────────────────────
+  milestones:
+    - name: documentsComplete
+      description: "All required documents collected and validated"
+      condition: '.documentsCollected != null and .documentsCollected.complete == true'
+
+    - name: backgroundCleared
+      description: "Background check passed"
+      condition: '.backgroundResult != null and .backgroundResult.status == "CLEAR"'
+
+    - name: accessReady
+      description: "All IT systems provisioned"
+      condition: '.accessProvisioned != null'
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: onboardingComplete
+      description: "Employee fully onboarded — all steps complete"
+      condition: '.orientation != null and .orientation.confirmed == true'
+      kind: success
+
+    - name: backgroundFailed
+      description: "Background check failed — onboarding cannot proceed"
+      condition: '.backgroundResult != null and .backgroundResult.status == "FAIL"'
+      kind: failure
+
+  completion:
+    success:
+      allOf:
+        - onboardingComplete
+    failure:
+      allOf:
+        - backgroundFailed

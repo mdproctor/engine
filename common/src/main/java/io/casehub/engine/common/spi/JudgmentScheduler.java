@@ -49,7 +49,8 @@ public interface JudgmentScheduler {
               bp.resolvedCandidateUsers(),
               bp.payloadTypeName(),
               bp.experiences(),
-              bp.candidateScores()));
+              bp.candidateScores(),
+              null));
     }
   }
 }

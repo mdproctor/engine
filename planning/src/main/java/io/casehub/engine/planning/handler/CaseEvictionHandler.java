@@ -23,7 +23,6 @@ import io.quarkus.vertx.ConsumeEvent;
 import io.smallrye.common.annotation.RunOnVirtualThread;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import java.util.Set;
 
 /**
  * Evicts {@link io.casehub.engine.planning.plan.CasePlanModel} from {@link BlackboardRegistry} when
@@ -31,9 +30,6 @@ import java.util.Set;
  */
 @ApplicationScoped
 public class CaseEvictionHandler {
-
-  private static final Set<String> TERMINAL_STATUSES =
-      Set.of(CaseStatus.COMPLETED.name(), CaseStatus.FAULTED.name(), CaseStatus.CANCELLED.name());
 
   private final BlackboardRegistry registry;
 
@@ -45,7 +41,7 @@ public class CaseEvictionHandler {
   @ConsumeEvent(EventBusAddresses.CASE_STATUS_CHANGED)
   @RunOnVirtualThread
   public void onCaseStatusChanged(CaseStatusChanged event) {
-    if (TERMINAL_STATUSES.contains(event.newStatus())) {
+    if (CaseStatus.valueOf(event.newStatus()).isTerminal()) {
       registry.evict(event.instance().getUuid());
     }
   }

@@ -75,6 +75,14 @@ Update the relevant guide in the same session when implementation changes module
 
 Read `docs/guides/consumer-guide.md` for app-level work. Only read `docs/guides/contributor-guide.md` when modifying this repo's internals or extension points.
 
+## Generated YAML Records
+
+YAML deserialization records (`io.casehub.api.model.converter.yaml`) are generated at build time by `CasehubRecordCodegen` (codegen module). The generator reads `schema/src/main/resources/schema/CaseDefinition.yaml` + `schema/src/main/resources/schema/yaml-record-mappings.yaml` and emits Java records to `api/target/generated-sources/yaml-records/`.
+
+To add a new YAML record field: add the property to `CaseDefinition.yaml` (if schema-sourced) and/or add the field to `yaml-record-mappings.yaml` (type overrides, aliases, extra fields). Records regenerate on `mvn compile`.
+
+Hand-written exceptions: `YamlAgentDescriptor` (inner records pattern), `JsonNodeForEachAdapter` (utility).
+
 ## No Migration Tooling
 
 This project has no installed instances to migrate. Do not add:

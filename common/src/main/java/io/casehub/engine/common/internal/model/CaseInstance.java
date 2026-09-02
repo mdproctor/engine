@@ -130,9 +130,7 @@ public class CaseInstance {
   public boolean trySetTerminalState(CaseStatus newState) {
     stateLock.lock();
     try {
-      if (state == CaseStatus.COMPLETED
-          || state == CaseStatus.FAULTED
-          || state == CaseStatus.CANCELLED) {
+      if (state.isTerminal()) {
         return false;
       }
       this.state = newState;

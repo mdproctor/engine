@@ -1,0 +1,118 @@
+##
+## Example: A2A — Market Research
+##
+## Scenario: An intelligence firm conducts market research by delegating
+## to remote A2A-compliant agent services. One agent gathers competitive
+## intelligence, another analyses market trends, and a third produces
+## the final assessment.
+##
+## Pathway: YAML (pure — no Java required)
+## See also: examples/a2a-annotated/ (annotations)
+##           examples/a2a-dsl/ (DSL)
+##
+## Key features demonstrated:
+##   - a2a: block on workers with endpoint, skill, streaming, auth
+##   - remote agent invocation via A2A protocol
+##   - bearer token authentication
+##   - streaming mode for long-running analysis
+##
+
+dsl: "1.0.0"
+namespace: intelligence
+name: market-research
+version: "1.0.0"
+title: "Market Research"
+summary: "Conducts market research via remote A2A agents — gathers intelligence, analyses trends, produces assessment"
+types:
+  - intelligence/research
+labels:
+  - example/a2a
+
+spec:
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: gatherIntelligence
+      description: "Gathers competitive intelligence from public and proprietary sources"
+      inputProjection: "{ sector: .brief.sector, competitors: .brief.competitors }"
+      outputProjection: "{ intelligence: { sources: .sources, insights: .insights, confidence: .confidence } }"
+
+    - name: analyseTrends
+      description: "Analyses market trends and identifies emerging patterns"
+      inputProjection: "{ intelligence: .intelligence, timeframe: .brief.timeframe }"
+      outputProjection: "{ trends: { patterns: .patterns, forecast: .forecast, risks: .risks } }"
+
+    - name: produceAssessment
+      description: "Produces a comprehensive market assessment report"
+      inputProjection: "{ intelligence: .intelligence, trends: .trends, brief: .brief }"
+      outputProjection: "{ assessment: { summary: .summary, recommendations: .recommendations, confidence: .confidence } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  ## A2A workers invoke remote agent services via the A2A protocol.
+  ## Each a2a: block specifies the remote endpoint, optional skill
+  ## name, streaming mode, and authentication.
+  workers:
+    - name: intel-gatherer
+      description: "Remote competitive intelligence agent"
+      capabilities:
+        - gatherIntelligence
+      a2a:
+        endpoint: https://intel-agent.example.com
+        skill: competitive-analysis
+        streaming: false
+        auth:
+          type: bearer
+          tokenConfigKey: intel.agent.token
+
+    - name: trend-analyst
+      description: "Remote market trend analysis agent"
+      capabilities:
+        - analyseTrends
+      a2a:
+        endpoint: https://trends-agent.example.com
+        skill: trend-detection
+        streaming: true
+        auth:
+          type: bearer
+          tokenConfigKey: trends.agent.token
+
+    - name: report-producer
+      description: "Remote assessment report generation agent"
+      capabilities:
+        - produceAssessment
+      a2a:
+        endpoint: https://reports-agent.example.com
+        skill: market-report
+        streaming: true
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  bindings:
+    - name: gather-on-brief
+      capability: gatherIntelligence
+      on:
+        contextChange:
+          filter: '.brief != null and .intelligence == null'
+
+    - name: analyse-after-gathering
+      capability: analyseTrends
+      on:
+        contextChange:
+          filter: '.intelligence != null and .trends == null'
+
+    - name: assess-after-analysis
+      capability: produceAssessment
+      on:
+        contextChange:
+          filter: '.trends != null and .assessment == null'
+
+  ## ─── Goals & Completion ───────────────────────────────────────────
+  goals:
+    - name: researchComplete
+      description: "Market research assessment delivered"
+      condition: '.assessment != null and .assessment.recommendations != null'
+      kind: success
+
+  completion:
+    success:
+      allOf:
+        - researchComplete

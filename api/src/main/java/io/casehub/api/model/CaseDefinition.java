@@ -241,6 +241,9 @@ public class CaseDefinition {
 
   private List<CompoundDeclaration> compounds;
 
+  private io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
+      decompositionTree;
+
   public CaseDefinition(String namespace, String name, String version) {
     this.namespace = namespace;
     this.name = name;
@@ -678,6 +681,17 @@ public class CaseDefinition {
     this.recoveryPolicy = recoveryPolicy;
   }
 
+  public io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
+      getDecompositionTree() {
+    return decompositionTree;
+  }
+
+  public void setDecompositionTree(
+      io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
+          decompositionTree) {
+    this.decompositionTree = decompositionTree;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -741,6 +755,8 @@ public class CaseDefinition {
     private List<CompoundDeclaration> compounds;
     private Map<String, Set<String>> goalToEffectKeys = new java.util.HashMap<>();
     private RecoveryPolicy recoveryPolicy;
+    private io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
+        decompositionTree;
 
     private Builder() {}
 
@@ -1112,6 +1128,13 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder decompositionTree(
+        io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
+            decompositionTree) {
+      this.decompositionTree = decompositionTree;
+      return this;
+    }
+
     public CaseDefinition build() {
       CaseDefinition caseHubDefinition =
           new CaseDefinition(
@@ -1220,6 +1243,7 @@ public class CaseDefinition {
       caseHubDefinition.setRecoveryPolicy(recoveryPolicy);
       caseHubDefinition.setMonitoringConfig(monitoringConfig);
       caseHubDefinition.setPortfolioConfig(portfolioConfig);
+      caseHubDefinition.setDecompositionTree(decompositionTree);
 
       return caseHubDefinition;
     }

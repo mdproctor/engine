@@ -112,9 +112,7 @@ public class GoalReachedEventHandler {
     }
 
     CaseStatus currentState = caseInstance.getState();
-    if (currentState == CaseStatus.COMPLETED
-        || currentState == CaseStatus.FAULTED
-        || currentState == CaseStatus.CANCELLED) {
+    if (currentState.isTerminal()) {
       LOG.debugf(
           "Skipping completion evaluation — caseId=%s is already %s",
           caseInstance.getUuid(), currentState);

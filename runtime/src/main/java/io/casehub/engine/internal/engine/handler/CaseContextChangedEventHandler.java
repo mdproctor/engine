@@ -371,7 +371,8 @@ public class CaseContextChangedEventHandler {
       case SubCaseTarget st ->
           publishSubCaseSchedule(caseInstance, st.subCase(), binding.getName());
       case io.casehub.api.model.JudgmentTarget jt ->
-          publishJudgmentSchedule(caseInstance, caseDefinition, binding, jt, experiences);
+          publishJudgmentSchedule(caseInstance, caseDefinition, binding, jt, experiences,
+              triggerChannelId, triggerCorrelationId);
       case io.casehub.api.model.SignalTarget st ->
           eventBus.publish(
               EventBusAddresses.CONTEXT_SIGNAL,
@@ -684,7 +685,9 @@ public class CaseContextChangedEventHandler {
       final CaseDefinition caseDefinition,
       final Binding binding,
       final io.casehub.api.model.JudgmentTarget target,
-      final List<RetrievedExperience> experiences) {
+      final List<RetrievedExperience> experiences,
+      final String triggerChannelId,
+      final String triggerCorrelationId) {
     if (!judgmentScheduler.isResolvable()) {
       LOG.warnf(
           "No JudgmentScheduler on classpath — skipping judgment binding '%s' caseId=%s",
@@ -811,6 +814,10 @@ public class CaseContextChangedEventHandler {
       payloadTypeName = hrc.payloadType() != null ? hrc.payloadType().getName() : null;
     }
 
+    String originRef = triggerChannelId != null
+        ? "qhorus:" + triggerChannelId + "/0/" + (triggerCorrelationId != null ? triggerCorrelationId : "")
+        : null;
+
     judgmentScheduler
         .get()
         .schedule(
@@ -829,7 +836,8 @@ public class CaseContextChangedEventHandler {
                 resolvedUsers,
                 payloadTypeName,
                 experiences,
-                candidateScores));
+                candidateScores,
+                originRef));
 
     LOG.infof(
         "Judgment yield dispatched: caseId=%s binding=%s",

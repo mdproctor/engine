@@ -73,7 +73,7 @@ class JudgmentPlanItemHandlerTest {
   void reDispatch_transitionsDelegatedToDispatching() {
     PlanItem item = createDelegatedItem("review-tx");
 
-    handler.onReDispatch(reDispatchEvent("review-tx", "please provide more evidence", null));
+    handler.onReDispatch(reDispatchEvent("review-tx", "please provide more evidence"));
 
     assertThat(item.getStatus()).isEqualTo(TaskStatus.DISPATCHING);
   }
@@ -82,7 +82,7 @@ class JudgmentPlanItemHandlerTest {
   void reDispatch_schedulesJudgmentWithFeedback() {
     createDelegatedItem("review-tx");
 
-    handler.onReDispatch(reDispatchEvent("review-tx", "more evidence needed", null));
+    handler.onReDispatch(reDispatchEvent("review-tx", "more evidence needed"));
 
     assertThat(scheduler.lastRequest).isNotNull();
     assertThat(scheduler.lastRequest.bindingName()).isEqualTo("review-tx");
@@ -94,7 +94,7 @@ class JudgmentPlanItemHandlerTest {
   void reDispatch_firesStateChangedEvent() {
     createDelegatedItem("review-tx");
 
-    handler.onReDispatch(reDispatchEvent("review-tx", "feedback", null));
+    handler.onReDispatch(reDispatchEvent("review-tx", "feedback"));
 
     ArgumentCaptor<PlanItemStateChangedEvent> captor =
         ArgumentCaptor.forClass(PlanItemStateChangedEvent.class);
@@ -109,7 +109,7 @@ class JudgmentPlanItemHandlerTest {
     PlanItem item = PlanItem.create("review-tx", ExecutorRef.of("worker"), 0);
     plan.addPlanItem(item);
 
-    handler.onReDispatch(reDispatchEvent("review-tx", "feedback", null));
+    handler.onReDispatch(reDispatchEvent("review-tx", "feedback"));
 
     assertThat(item.getStatus()).isEqualTo(TaskStatus.PENDING);
     verify(stateEvents, never()).fireAsync(any());
@@ -173,9 +173,8 @@ class JudgmentPlanItemHandlerTest {
     return item;
   }
 
-  private JudgmentReDispatchEvent reDispatchEvent(
-      String bindingName, String feedback, String trustLevel) {
-    return new JudgmentReDispatchEvent(caseId, "test-tenant", bindingName, feedback, trustLevel);
+  private JudgmentReDispatchEvent reDispatchEvent(String bindingName, String feedback) {
+    return new JudgmentReDispatchEvent(caseId, "test-tenant", bindingName, feedback, null);
   }
 
   private JudgmentFaultEvent faultEvent(String bindingName, String reason) {
