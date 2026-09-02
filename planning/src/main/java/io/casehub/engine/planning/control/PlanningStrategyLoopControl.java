@@ -93,6 +93,7 @@ public class PlanningStrategyLoopControl implements LoopControl {
 
     List<Binding> allEligible = new ArrayList<>(eligible);
     allEligible.addAll(scopeActivated);
+    allEligible.removeIf(Binding::isCompensation);
 
     Set<String> allScopedNames =
         plan.getAllCompounds().stream()
