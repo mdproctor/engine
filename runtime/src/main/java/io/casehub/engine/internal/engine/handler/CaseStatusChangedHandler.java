@@ -89,7 +89,7 @@ public class CaseStatusChangedHandler {
     final CaseStatus newState = CaseStatus.valueOf(event.newStatus());
     final String oldStatus = event.oldStatus();
 
-    if (isTerminalState(newState)) {
+    if (newState.isTerminal()) {
       if (!caseInstance.trySetTerminalState(newState)) {
         LOG.infof(
             "Ignoring duplicate terminal transition for caseId=%s — already %s, rejecting %s",
@@ -123,7 +123,7 @@ public class CaseStatusChangedHandler {
     caseInstanceRepository.updateStateAndAppendEvent(
         caseInstance, eventLog, caseInstance.tenancyId);
 
-    if (isTerminalState(newState)) {
+    if (newState.isTerminal()) {
       CaseContext contextSnapshot = caseInstance.getCaseContext().snapshot();
       if (newState == CaseStatus.COMPLETED) {
         caseCompletionTracker.complete(caseInstance.getUuid(), contextSnapshot);
@@ -155,7 +155,7 @@ public class CaseStatusChangedHandler {
     }
     // Notify outcome observers on terminal state — CBR Retain step. Refs engine#477.
     // Called before event bus publishes so observer failures don't block downstream events.
-    if (isTerminalState(newState)) {
+    if (newState.isTerminal()) {
       fireOutcomeObservers(
           caseInstance, newState, event.satisfiedGoalName(), event.satisfiedGoalKind());
     }
@@ -251,12 +251,6 @@ public class CaseStatusChangedHandler {
             caseInstance.getUuid());
       }
     }
-  }
-
-  private boolean isTerminalState(CaseStatus state) {
-    return state == CaseStatus.COMPLETED
-        || state == CaseStatus.FAULTED
-        || state == CaseStatus.CANCELLED;
   }
 
   private CaseHubEventType resolveState(CaseStatus state) {

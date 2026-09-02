@@ -398,9 +398,7 @@ class CaseHubReactor {
   void cancelCase(UUID caseId) {
     final CaseInstance instance = requireInstance(caseId);
     final CaseStatus current = instance.getState();
-    if (current == CaseStatus.COMPLETED
-        || current == CaseStatus.FAULTED
-        || current == CaseStatus.CANCELLED) {
+    if (current.isTerminal()) {
       throw new IllegalStateException(
           "Cannot cancel case in terminal state " + current + ": caseId=" + caseId);
     }
