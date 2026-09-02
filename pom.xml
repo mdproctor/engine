@@ -129,6 +129,10 @@
         <module>examples/humantask-annotated</module>
         <module>examples/subcase-dsl</module>
         <module>examples/subcase-annotated</module>
+        <module>examples/a2a-dsl</module>
+        <module>examples/a2a-annotated</module>
+        <module>examples/mcp-dsl</module>
+        <module>examples/mcp-annotated</module>
         <module>examples/incident-response-annotated</module>
         <module>examples/search-rescue-annotated</module>
         <module>examples/aircraft-maintenance-annotated</module>
