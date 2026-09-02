@@ -97,5 +97,10 @@ public enum CaseHubEventType {
 
   STALL_DETECTED, // watchdog alert observed; NOTIFY action — observability only
   STALL_RECOVERY_INITIATED, // watchdog alert triggered a recovery action
-  // (retry/reroute/cancel/etc.)
+
+  COMPENSATION_STARTED, // case entered COMPENSATING
+  COMPENSATION_COMPLETED, // case entered COMPENSATED — all compensating bindings done
+  COMPENSATION_FAULTED, // case entered COMPENSATION_FAULTED — a compensating step failed
+  COMPENSATION_STEP_STARTED, // individual compensating binding fired
+  COMPENSATION_STEP_COMPLETED // individual compensating binding completed
 }
