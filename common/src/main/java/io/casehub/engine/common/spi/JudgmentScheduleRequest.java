@@ -43,7 +43,8 @@ public record JudgmentScheduleRequest(
     @Nullable Set<String> resolvedCandidateUsers,
     @Nullable String payloadTypeName,
     List<RetrievedExperience> experiences,
-    Map<String, Double> candidateScores) {
+    Map<String, Double> candidateScores,
+    @Nullable String originRef) {
 
   public JudgmentScheduleRequest(
       UUID caseId,
@@ -68,6 +69,7 @@ public record JudgmentScheduleRequest(
         null,
         null,
         List.of(),
-        Map.of());
+        Map.of(),
+        null);
   }
 }
