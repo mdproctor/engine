@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.engine.CaseCompensationService;
 import io.casehub.api.model.Binding;
+import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ExecutorRef;
@@ -27,17 +28,21 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.routing.BindingExecutorResolver;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.worker.api.Worker;
 import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.ObservesAsync;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -61,7 +66,6 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
   private final BlackboardRegistry blackboardRegistry;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final EventLogRepository eventLogRepository;
-  private final BindingExecutorResolver bindingExecutorResolver;
 
   @Inject
   public CaseCompensationServiceImpl(
@@ -69,14 +73,12 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
       EventBus eventBus,
       BlackboardRegistry blackboardRegistry,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      EventLogRepository eventLogRepository,
-      BindingExecutorResolver bindingExecutorResolver) {
+      EventLogRepository eventLogRepository) {
     this.caseInstanceCache = caseInstanceCache;
     this.eventBus = eventBus;
     this.blackboardRegistry = blackboardRegistry;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.eventLogRepository = eventLogRepository;
-    this.bindingExecutorResolver = bindingExecutorResolver;
   }
 
   @Override
@@ -89,7 +91,10 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
     CaseStatus current = instance.getState();
     if (current != CaseStatus.COMPLETED && current != CaseStatus.COMPENSATION_FAULTED) {
       throw new IllegalStateException(
-          "Cannot compensate case in state " + current + ": caseId=" + caseId
+          "Cannot compensate case in state "
+              + current
+              + ": caseId="
+              + caseId
               + ". Valid entry points: COMPLETED, COMPENSATION_FAULTED");
     }
 
@@ -119,14 +124,16 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
     }
 
     CasePlanModel plan = blackboardRegistry.getOrCreate(caseId, instance.tenancyId);
-    List<PlanItem> completedItems = plan.getAllPlanItems().stream()
-        .filter(pi -> pi.getStatus() == TaskStatus.COMPLETED)
-        .filter(pi -> !pi.isCompensation())
-        .filter(pi -> {
-          Binding b = bindingsByName.get(pi.getBindingName());
-          return b != null && b.getCompensateRef() != null;
-        })
-        .toList();
+    List<PlanItem> completedItems =
+        plan.getAllPlanItems().stream()
+            .filter(pi -> pi.getStatus() == TaskStatus.COMPLETED)
+            .filter(pi -> !pi.isCompensation())
+            .filter(
+                pi -> {
+                  Binding b = bindingsByName.get(pi.getBindingName());
+                  return b != null && b.getCompensateRef() != null;
+                })
+            .toList();
 
     if (completedItems.isEmpty()) {
       LOG.infof("No compensable PlanItems for caseId=%s — marking COMPENSATED", caseId);
@@ -136,15 +143,17 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
 
     Set<String> alreadyCompensated = new HashSet<>();
     for (PlanItem pi : plan.getAllPlanItems()) {
-      if (pi.isCompensation() && pi.getStatus() == TaskStatus.COMPLETED
+      if (pi.isCompensation()
+          && pi.getStatus() == TaskStatus.COMPLETED
           && pi.getCompensatesItemId() != null) {
         alreadyCompensated.add(pi.getCompensatesItemId());
       }
     }
 
-    List<PlanItem> remaining = completedItems.stream()
-        .filter(pi -> !alreadyCompensated.contains(pi.getPlanItemId()))
-        .toList();
+    List<PlanItem> remaining =
+        completedItems.stream()
+            .filter(pi -> !alreadyCompensated.contains(pi.getPlanItemId()))
+            .toList();
 
     if (remaining.isEmpty()) {
       LOG.infof("All compensable PlanItems already compensated for caseId=%s", caseId);
@@ -165,18 +174,98 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
       return;
     }
 
-    ExecutorRef executor = bindingExecutorResolver.resolve(compensatingBinding, null);
-    PlanItem compensatingItem = PlanItem.create(
-        compensatingBinding.getName(), executor, 0, compensatingBinding.target());
+    ExecutorRef executor = BindingExecutorResolver.resolve(compensatingBinding, definition);
+    PlanItem compensatingItem =
+        PlanItem.create(compensatingBinding.getName(), executor, 0, compensatingBinding.target());
     compensatingItem.setCompensation(true);
     compensatingItem.setCompensatesItemId(next.getPlanItemId());
     plan.addPlanItem(compensatingItem);
 
-    appendStepEvent(instance, CaseHubEventType.COMPENSATION_STEP_STARTED,
-        next.getBindingName(), compensatingBinding.getName());
+    appendStepEvent(
+        instance,
+        CaseHubEventType.COMPENSATION_STEP_STARTED,
+        next.getBindingName(),
+        compensatingBinding.getName());
 
-    LOG.infof("Fired compensating binding '%s' for original '%s' (caseId=%s)",
+    LOG.infof(
+        "Fired compensating binding '%s' for original '%s' (caseId=%s)",
         compensatingBinding.getName(), next.getBindingName(), caseId);
+
+    dispatchCompensatingBinding(instance, definition, compensatingBinding, compensatingItem);
+  }
+
+  private void dispatchCompensatingBinding(
+      CaseInstance instance,
+      CaseDefinition definition,
+      Binding compensatingBinding,
+      PlanItem compensatingItem) {
+    if (!(compensatingBinding.target() instanceof CapabilityTarget ct)) {
+      String targetType =
+          compensatingBinding.target() != null
+              ? compensatingBinding.target().getClass().getSimpleName()
+              : "null";
+      LOG.errorf(
+          "Unsupported target type '%s' for compensation binding '%s', caseId=%s",
+          targetType, compensatingBinding.getName(), instance.getUuid());
+      transitionToFaulted(instance, "Unsupported compensation target type: " + targetType);
+      return;
+    }
+
+    String executorName = compensatingItem.executorName();
+    Worker worker =
+        definition.getWorkers().stream()
+            .filter(w -> w.name().equals(executorName))
+            .findFirst()
+            .orElse(null);
+    if (worker == null) {
+      LOG.errorf(
+          "Worker '%s' not found for compensation dispatch, caseId=%s",
+          executorName, instance.getUuid());
+      transitionToFaulted(instance, "Worker '" + executorName + "' not found");
+      return;
+    }
+
+    compensatingItem.tryMarkDispatching();
+    eventBus.publish(
+        EventBusAddresses.WORKER_SCHEDULE,
+        new WorkerScheduleEvent(instance, worker, ct.capability(), compensatingBinding.getName()));
+  }
+
+  void onCompensationPlanItemStateChanged(@ObservesAsync PlanItemStateChangedEvent event) {
+    if (event.newStatus() != TaskStatus.COMPLETED && event.newStatus() != TaskStatus.FAULTED) {
+      return;
+    }
+
+    CasePlanModel plan = blackboardRegistry.get(event.caseId()).orElse(null);
+    if (plan == null) {
+      return;
+    }
+
+    PlanItem item = plan.getPlanItem(event.planItemId()).orElse(null);
+    if (item == null || !item.isCompensation()) {
+      return;
+    }
+
+    CaseInstance instance = caseInstanceCache.get(event.caseId());
+    if (instance == null || instance.getState() != CaseStatus.COMPENSATING) {
+      return;
+    }
+
+    if (event.newStatus() == TaskStatus.COMPLETED) {
+      if (item.getCompensatesItemId() != null) {
+        PlanItem originalItem = plan.getPlanItem(item.getCompensatesItemId()).orElse(null);
+        String originalBindingName =
+            originalItem != null ? originalItem.getBindingName() : "unknown";
+        appendStepEvent(
+            instance,
+            CaseHubEventType.COMPENSATION_STEP_COMPLETED,
+            originalBindingName,
+            event.bindingName());
+      }
+      fireNextCompensationStep(instance);
+    } else {
+      transitionToFaulted(instance, "Compensating binding '" + event.bindingName() + "' faulted");
+    }
   }
 
   List<PlanItem> buildReverseTopologicalOrder(
@@ -208,11 +297,16 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
     for (PlanItem pi : items) {
       topoVisit(pi.getPlanItemId(), byId, dependsOn, visited, sorted);
     }
+    java.util.Collections.reverse(sorted);
     return sorted;
   }
 
-  private void topoVisit(String id, Map<String, PlanItem> byId,
-      Map<String, Set<String>> dependsOn, Set<String> visited, List<PlanItem> sorted) {
+  private void topoVisit(
+      String id,
+      Map<String, PlanItem> byId,
+      Map<String, Set<String>> dependsOn,
+      Set<String> visited,
+      List<PlanItem> sorted) {
     if (!visited.add(id)) return;
     for (String dep : dependsOn.getOrDefault(id, Set.of())) {
       topoVisit(dep, byId, dependsOn, visited, sorted);
@@ -229,7 +323,7 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
     appendCompensationEvent(instance, CaseHubEventType.COMPENSATION_COMPLETED, null, null);
   }
 
-  private void transitionToFaulted(CaseInstance instance, String errorDetail) {
+  void transitionToFaulted(CaseInstance instance, String errorDetail) {
     eventBus.publish(
         EventBusAddresses.CASE_STATUS_CHANGED,
         new CaseStatusChanged(
@@ -252,8 +346,10 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
   }
 
   private void appendStepEvent(
-      CaseInstance instance, CaseHubEventType type,
-      String originalBindingName, String compensatingBindingName) {
+      CaseInstance instance,
+      CaseHubEventType type,
+      String originalBindingName,
+      String compensatingBindingName) {
     EventLog log = new EventLog();
     log.setCaseId(instance.getUuid());
     log.setEventType(type);
