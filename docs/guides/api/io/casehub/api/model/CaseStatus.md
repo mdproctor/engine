@@ -13,6 +13,10 @@ CNCF Serverless Workflow specification.
 `RUNNING` on creation. PENDING semantics for plan items and stages are managed by the
 `casehub-blackboard` module, not by `CaseInstance`.
 
+## Fields
+
+### `TERMINAL_STATUSES` (`java.util.Set<io.casehub.api.model.CaseStatus>`)
+
 ## Enum Constants
 
 ### `CANCELLED` (`io.casehub.api.model.CaseStatus`)
@@ -48,6 +52,12 @@ Case is blocked waiting for an external event or signal.
 ### `private CaseStatus()`
 
 ## Methods
+
+### `public boolean isActive()`
+
+### `public boolean isTerminal()`
+
+### `public static java.util.Set<io.casehub.api.model.CaseStatus> terminalStatuses()`
 
 ### `public static io.casehub.api.model.CaseStatus valueOf(java.lang.String name)`
 
