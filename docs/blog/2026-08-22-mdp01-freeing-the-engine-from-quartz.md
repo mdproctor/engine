@@ -4,7 +4,7 @@ title: "Freeing the Engine from Quartz"
 date: 2026-08-22
 entry_type: note
 subtype: diary
-projects: [casehubio/engine]
+projects: [casehub-engine]
 tags: [scheduler, quartz, db-scheduler, refactoring, spi]
 series: issue-813-alternative-scheduler-spi
 ---
