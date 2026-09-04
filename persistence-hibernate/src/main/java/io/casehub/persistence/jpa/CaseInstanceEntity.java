@@ -93,4 +93,7 @@ public class CaseInstanceEntity {
   @Column(name = "exchange_headers", columnDefinition = "jsonb")
   @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
   public java.util.Map<String, Object> exchangeHeaders;
+
+  @Column(name = "pending_action_gate", columnDefinition = "jsonb")
+  public String pendingActionGate;
 }

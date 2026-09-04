@@ -40,9 +40,9 @@ import org.jboss.logging.Logger;
  * plannedAction=null}, letting the normal completion machinery apply the deferred output, mark the
  * PlanItem COMPLETED (via blackboard), and fire CONTEXT_CHANGED.
  *
- * <p>Uses {@link CaseInstanceCache} to access the live in-memory {@link CaseInstance} because
- * {@code pendingActionGate} is an in-memory field — it is not persisted in the JPA entity, which
- * only stores structural metadata (state, caseMetaModel, waitingForWorkId, etc.).
+ * <p>Uses {@link CaseInstanceCache} to access the live in-memory {@link CaseInstance}. The {@code
+ * pendingActionGate} is persisted in the JPA entity as a jsonb column for restart resilience
+ * (engine#433). Gate clears are persisted via {@code CaseInstanceRepository.update()}.
  *
  * <p>Terminal state guard: if the case is already COMPLETED/FAULTED/CANCELLED when approval
  * arrives, the gate is cleared in memory and the deferred output discarded. Refs engine#402.
@@ -59,6 +59,7 @@ public class ActionGateApprovedHandler {
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
+  @Inject io.casehub.engine.common.spi.CaseInstanceRepository caseInstanceRepository;
 
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_APPROVED)
   public void onActionGateApproved(final ActionGateApprovedEvent event) {
@@ -75,7 +76,8 @@ public class ActionGateApprovedHandler {
       LOG.warnf(
           "Gate approved on terminated case (state=%s): caseId=%s gateId=%d — discarding",
           instance.getState(), event.caseId(), event.gateId());
-      instance.setPendingActionGate(null); // clear in-memory
+      instance.setPendingActionGate(null);
+      caseInstanceRepository.update(instance, instance.tenancyId);
       return;
     }
 
@@ -103,6 +105,7 @@ public class ActionGateApprovedHandler {
             event.gateId(),
             event.resolutionTypeName());
         instance.setPendingActionGate(null);
+        caseInstanceRepository.update(instance, instance.tenancyId);
         return;
       }
     }
@@ -120,6 +123,7 @@ public class ActionGateApprovedHandler {
                 "resolution", deserializedResolution != null ? deserializedResolution : ""));
 
     instance.setPendingActionGate(null);
+    caseInstanceRepository.update(instance, instance.tenancyId);
 
     // Write compliance EventLog entry, then re-fire the completion event
     writeResolutionEventLog(instance, gate);

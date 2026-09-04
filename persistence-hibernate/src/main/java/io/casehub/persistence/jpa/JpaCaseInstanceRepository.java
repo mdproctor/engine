@@ -87,6 +87,7 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
         instance.getExchangeHeaders().isEmpty()
             ? null
             : new java.util.LinkedHashMap<>(instance.getExchangeHeaders());
+    entity.pendingActionGate = PendingActionGateMapper.toJson(instance.getPendingActionGate());
     return instance;
   }
 
@@ -121,6 +122,7 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
     entity.parentCaseId = instance.getParentCaseId();
     entity.parentPlanItemId = instance.getParentPlanItemId();
     entity.waitingForWorkId = instance.getWaitingForWorkId();
+    entity.pendingActionGate = PendingActionGateMapper.toJson(instance.getPendingActionGate());
     em.merge(entity);
 
     EventLogEntity logEntity = new EventLogEntity();
@@ -261,6 +263,7 @@ public class JpaCaseInstanceRepository extends TenantAwareRepository
     if (entity.exchangeHeaders != null) {
       instance.setExchangeHeaders(new java.util.LinkedHashMap<>(entity.exchangeHeaders));
     }
+    instance.setPendingActionGate(PendingActionGateMapper.fromJson(entity.pendingActionGate));
     return instance;
   }
 

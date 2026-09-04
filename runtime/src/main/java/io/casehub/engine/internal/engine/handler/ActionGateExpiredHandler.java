@@ -47,9 +47,9 @@ import org.jboss.logging.Logger;
  * actionGateExpired} signal to the case context, notifies {@link WorkerStatusListener} that the
  * worker faulted (deadline missed), and fires CONTEXT_CHANGED.
  *
- * <p>Uses {@link CaseInstanceCache} — {@code pendingActionGate} is an in-memory field not persisted
- * by the JPA entity. CONTEXT_CHANGED fires immediately; EventLog write is fire-and-forget
- * (best-effort compliance record). Refs engine#402.
+ * <p>Uses {@link CaseInstanceCache} — {@code pendingActionGate} is persisted in the JPA entity as a
+ * jsonb column for restart resilience (engine#433). CONTEXT_CHANGED fires immediately; EventLog
+ * write is fire-and-forget (best-effort compliance record). Refs engine#402.
  */
 @ApplicationScoped
 public class ActionGateExpiredHandler {
@@ -60,6 +60,7 @@ public class ActionGateExpiredHandler {
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
+  @Inject io.casehub.engine.common.spi.CaseInstanceRepository caseInstanceRepository;
 
   @Inject jakarta.enterprise.inject.Instance<RoutingOutcomeRecorder> outcomeRecorder;
 
@@ -96,6 +97,7 @@ public class ActionGateExpiredHandler {
 
     // Clear gate FIRST — before writing signal (same ordering as rejected handler)
     instance.setPendingActionGate(null);
+    caseInstanceRepository.update(instance, instance.tenancyId);
 
     instance
         .getCaseContext()

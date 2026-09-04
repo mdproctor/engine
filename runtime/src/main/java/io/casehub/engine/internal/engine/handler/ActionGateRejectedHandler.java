@@ -47,8 +47,8 @@ import org.jboss.logging.Logger;
  * actionGateRejected} signal to the case context, notifies {@link WorkerStatusListener} that the
  * worker faulted, and fires CONTEXT_CHANGED.
  *
- * <p>Uses {@link CaseInstanceCache} — {@code pendingActionGate} is an in-memory field not persisted
- * by the JPA entity.
+ * <p>Uses {@link CaseInstanceCache} — {@code pendingActionGate} is persisted in the JPA entity as a
+ * jsonb column for restart resilience (engine#433).
  *
  * <p>Ordering: gate is cleared BEFORE the signal is set, preventing a race where the test observes
  * the signal but not yet the cleared gate. EventLog write is best-effort — CONTEXT_CHANGED fires
@@ -68,6 +68,7 @@ public class ActionGateRejectedHandler {
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
   @Inject io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
+  @Inject io.casehub.engine.common.spi.CaseInstanceRepository caseInstanceRepository;
 
   @Inject jakarta.enterprise.inject.Instance<RoutingOutcomeRecorder> outcomeRecorder;
 
@@ -105,6 +106,7 @@ public class ActionGateRejectedHandler {
     // Clear gate FIRST — before setting signal — prevents observer-thread race where the
     // rejectionSignal is visible in context before the gate field is cleared.
     instance.setPendingActionGate(null);
+    caseInstanceRepository.update(instance, instance.tenancyId);
 
     // Write rejection signal — case definitions react via contextChange(".actionGateRejected")
     instance
