@@ -31,8 +31,9 @@ CREATE TABLE IF NOT EXISTS case_instance (
     state                VARCHAR(50),
     parent_plan_item_id  UUID,
     parent_case_id       UUID,
-    waiting_for_work_id VARCHAR(255),
-    tenancy_id          VARCHAR(64)  NOT NULL DEFAULT '__system__',
+    waiting_for_work_id  VARCHAR(255),
+    pending_action_gate  JSONB,
+    tenancy_id           VARCHAR(64)  NOT NULL DEFAULT '__system__',
     PRIMARY KEY (id),
     CONSTRAINT uq_case_instance_uuid
     UNIQUE (uuid),

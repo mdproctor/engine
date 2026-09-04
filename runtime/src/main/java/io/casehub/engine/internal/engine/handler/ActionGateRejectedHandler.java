@@ -31,11 +31,15 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
+import io.casehub.engine.common.spi.recovery.RecoveryContext;
+import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
@@ -67,10 +71,10 @@ public class ActionGateRejectedHandler {
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
-  @Inject io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
-  @Inject io.casehub.engine.common.spi.CaseInstanceRepository caseInstanceRepository;
+  @Inject RecoveryCoordinator recoveryCoordinator;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
-  @Inject jakarta.enterprise.inject.Instance<RoutingOutcomeRecorder> outcomeRecorder;
+  @Inject Instance<RoutingOutcomeRecorder> outcomeRecorder;
 
   // blocking=true: workerStatusListener.onWorkerCompleted() may do I/O in consumer impls
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_REJECTED, blocking = true)
@@ -152,7 +156,7 @@ public class ActionGateRejectedHandler {
 
     // Try recovery before faulting — gate rejection is a Level 2 recovery trigger.
     var recoveryCtx =
-        new io.casehub.engine.common.spi.recovery.RecoveryContext(
+        new RecoveryContext(
             instance.getUuid(),
             instance.tenancyId,
             gate.bindingName(),

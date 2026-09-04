@@ -15,8 +15,11 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
@@ -24,6 +27,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Worker;
@@ -51,15 +55,14 @@ import org.jboss.logging.Logger;
 public class ActionGateApprovedHandler {
 
   private static final Logger LOG = Logger.getLogger(ActionGateApprovedHandler.class);
-  private static final com.fasterxml.jackson.databind.ObjectMapper OBJECT_MAPPER =
-      new com.fasterxml.jackson.databind.ObjectMapper();
+  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   @Inject CaseInstanceCache caseInstanceCache;
   @Inject CaseDefinitionRegistry caseDefinitionRegistry;
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
-  @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
-  @Inject io.casehub.engine.common.spi.CaseInstanceRepository caseInstanceRepository;
+  @Inject BridgeResolver bridgeResolver;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_APPROVED)
   public void onActionGateApproved(final ActionGateApprovedEvent event) {
@@ -94,7 +97,7 @@ public class ActionGateApprovedHandler {
     if (event.resolutionTypeName() != null && event.workItemResolution() != null) {
       try {
         var bridge = bridgeResolver.resolveByTypeNameStrict(event.resolutionTypeName());
-        com.fasterxml.jackson.databind.JsonNode resolutionJson =
+        JsonNode resolutionJson =
             OBJECT_MAPPER.readTree(event.workItemResolution());
         deserializedResolution = bridgeResolver.deserialise(bridge, resolutionJson);
       } catch (Exception e) {

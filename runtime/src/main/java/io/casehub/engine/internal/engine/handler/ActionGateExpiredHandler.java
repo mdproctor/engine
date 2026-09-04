@@ -31,11 +31,13 @@ import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.quarkus.vertx.ConsumeEvent;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
@@ -60,9 +62,9 @@ public class ActionGateExpiredHandler {
   @Inject EventLogRepository eventLogRepository;
   @Inject EventBus eventBus;
   @Inject WorkerStatusListener workerStatusListener;
-  @Inject io.casehub.engine.common.spi.CaseInstanceRepository caseInstanceRepository;
+  @Inject CaseInstanceRepository caseInstanceRepository;
 
-  @Inject jakarta.enterprise.inject.Instance<RoutingOutcomeRecorder> outcomeRecorder;
+  @Inject Instance<RoutingOutcomeRecorder> outcomeRecorder;
 
   // blocking=true: workerStatusListener.onWorkerCompleted() may do I/O in consumer impls
   @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_EXPIRED, blocking = true)
