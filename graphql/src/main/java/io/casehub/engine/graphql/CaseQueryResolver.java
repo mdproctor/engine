@@ -28,6 +28,8 @@ import io.casehub.engine.graphql.dto.CaseDefinitionType;
 import io.casehub.engine.graphql.dto.CaseFilterInput;
 import io.casehub.engine.graphql.dto.CaseInstanceType;
 import io.casehub.engine.graphql.dto.CasePage;
+import io.casehub.engine.graphql.dto.CompensationChainType;
+import io.casehub.engine.graphql.dto.CompensationLedgerEntryType;
 import io.casehub.engine.graphql.dto.CompensationStepType;
 import io.casehub.engine.graphql.dto.CompensationTimelineType;
 import io.casehub.engine.graphql.dto.EventLogEntry;
@@ -59,6 +61,7 @@ public class CaseQueryResolver {
   @Inject CaseHubRuntime runtime;
   @Inject CurrentPrincipal currentPrincipal;
   @Inject PlanItemStore planItemStore;
+  @Inject io.casehub.ledger.repository.CaseLedgerEntryRepository ledgerRepository;
 
   @Query
   @Description("List cases with optional filtering and pagination")
@@ -262,5 +265,43 @@ public class CaseQueryResolver {
         compensationCompletedAt,
         forwardSteps,
         compensationSteps);
+  }
+
+  @Query
+  @Description("Ledger compensation chain — entries with CompensationSupplement for a case")
+  public CompensationChainType compensationChain(UUID caseId) {
+    var entries = ledgerRepository.findByCaseId(caseId);
+    var compensationEntries = new java.util.ArrayList<CompensationLedgerEntryType>();
+    var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+    for (var entry : entries) {
+      if (entry.supplementJson == null || !entry.supplementJson.contains("\"COMPENSATION\"")) {
+        continue;
+      }
+      try {
+        var comp = mapper.readTree(entry.supplementJson).get("COMPENSATION");
+        if (comp == null) continue;
+        UUID origId =
+            comp.has("originalEntryId")
+                ? UUID.fromString(comp.get("originalEntryId").asText())
+                : null;
+        String reason =
+            comp.has("compensationReason") ? comp.get("compensationReason").asText() : null;
+        String basis = comp.has("regulatoryBasis") ? comp.get("regulatoryBasis").asText() : null;
+        String mode = comp.has("compensationMode") ? comp.get("compensationMode").asText() : null;
+        compensationEntries.add(
+            new CompensationLedgerEntryType(
+                entry.id,
+                entry.occurredAt,
+                entry.eventType,
+                entry.caseStatus,
+                entry.causedByEntryId,
+                origId,
+                reason,
+                basis,
+                mode));
+      } catch (Exception ignored) {
+      }
+    }
+    return new CompensationChainType(caseId, compensationEntries);
   }
 }
