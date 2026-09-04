@@ -29,6 +29,11 @@ for case lifecycle. Thin-adapter pattern over CaseHubRuntime.</description>
     </dependency>
     <dependency>
       <groupId>io.casehub</groupId>
+      <artifactId>casehub-engine-ledger</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>io.casehub</groupId>
       <artifactId>casehub-platform-graphql</artifactId>
     </dependency>
 
