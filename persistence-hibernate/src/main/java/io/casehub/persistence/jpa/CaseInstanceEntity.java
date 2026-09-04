@@ -32,9 +32,12 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.hibernate.annotations.DynamicUpdate;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 @Entity
 @DynamicUpdate
@@ -91,9 +94,10 @@ public class CaseInstanceEntity {
   public Set<String> types = new LinkedHashSet<>();
 
   @Column(name = "exchange_headers", columnDefinition = "jsonb")
-  @org.hibernate.annotations.JdbcTypeCode(org.hibernate.type.SqlTypes.JSON)
-  public java.util.Map<String, Object> exchangeHeaders;
+  @JdbcTypeCode(SqlTypes.JSON)
+  public Map<String, Object> exchangeHeaders;
 
   @Column(name = "pending_action_gate", columnDefinition = "jsonb")
+  @JdbcTypeCode(SqlTypes.JSON)
   public String pendingActionGate;
 }
