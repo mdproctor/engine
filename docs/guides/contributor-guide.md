@@ -20,7 +20,7 @@ The reactor POM declares 18 modules. Two orphaned directories (`blackboard/`, `q
 | `casehub-engine-resilience` | `resilience` | Optional module | Dead Letter Queue with auto-replay, PoisonPill sliding-window circuit breaker, `BackoffDelayCalculator`, `CaseTimeoutEnforcer`, `ConflictResolver` SPI |
 | `casehub-engine-ledger` | `ledger` | Optional module | Tamper-evident case lifecycle ledger; `TrustCandidateClassifier`; `TrustSignalProvider`; `TrustWeightedImplementationRoutingStrategy`; `WorkerDecisionEventCapture` |
 | `casehub-engine-ai` | `engine-ai` | Optional module | `AgentEmbeddingProvider` SPI, `SemanticSignalProvider` (cosine similarity), `EmbeddingCache` (LRU, 500 entries) |
-| `casehub-engine-actor-state` | `actor-state` | Optional module | Unified actor workload view (`GET /actors/{actorId}/state`) via `ActorStateContributor` SPI. 4 built-in contributors: engine, ledger, qhorus, work |
+| `casehub-engine-actor-state` | `actor-state` | Optional module | Unified actor workload view (`GET /actors/{actorId}/state`) via `ActorStateContributor` SPI. 3 built-in contributors: engine, ledger, qhorus |
 | `casehub-engine-scheduler-quartz` | `scheduler-quartz` | Module | Quartz-based worker execution (RAM store). `QuartzWorkerExecutionManager`, `QuartzJobScheduler`, retry service, conditional/scheduled trigger jobs, milestone SLA timeout |
 | `casehub-engine-schema` | `schema` | Build-time | `CaseDefinition.yaml` JSON Schema generated Java model via jsonschema2pojo. `CasehubRuleFactory` for typed `additionalProperties` |
 | `casehub-engine-persistence-hibernate` | `persistence-hibernate` | Module | JPA/Panache persistence (PostgreSQL). 7 repos, 5 entities, RLS policy applicator, tenant-aware base |
@@ -28,7 +28,8 @@ The reactor POM declares 18 modules. Two orphaned directories (`blackboard/`, `q
 | `casehub-engine-codegen` | `codegen` | Build-time | `CasehubCodegen` CLI + `CasehubRuleFactory` for jsonschema2pojo |
 | `casehub-engine-flow` | `flow` | Optional module | Serverless Workflow execution. `FlowWorkerFunction`, `CallableDispatcher` SPI, `FlowExecutionRegistry`, `CasehubFlow` static utility |
 | `casehub-engine-testing` | `testing` | Test module | `@Alternative @Priority(1)` wrappers for auto-selection in `@QuarkusTest`. `WorkResultSubmitter` test helper |
-| `casehub-engine-inbound` | `casehub-engine-inbound` | Optional module | `InboundSignalBridge` (connectors to case signals), `InboundWorkItemBridge` (qhorus to work items), `InboundWorkItemPolicy` SPI |
+| `casehub-engine-inbound` | `casehub-engine-inbound` | Optional module | `InboundSignalBridge` (connectors to case signals), `InboundWorkItemBridge` (qhorus to work items via `InboundWorkItemScheduler` SPI), `InboundWorkItemPolicy` SPI |
+| `casehub-engine-watchdog` | `watchdog` | Optional module | Watchdog → recovery bridge. `WatchdogAlertObserver`, `StallRecoveryDispatchHandler`, `DefaultStallRecoveryHandler` (7 recovery actions). Refs engine#1044 |
 | `casehub-examples-typed-context` | `examples/typed-context` | Example module | Demonstrates `CaseContextStore` pluggability. Not published (`deploy.skip=true`) |
 
 **Orphaned directories (not in reactor):**

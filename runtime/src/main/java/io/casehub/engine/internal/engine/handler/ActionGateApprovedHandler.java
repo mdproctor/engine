@@ -97,8 +97,7 @@ public class ActionGateApprovedHandler {
     if (event.resolutionTypeName() != null && event.workItemResolution() != null) {
       try {
         var bridge = bridgeResolver.resolveByTypeNameStrict(event.resolutionTypeName());
-        JsonNode resolutionJson =
-            OBJECT_MAPPER.readTree(event.workItemResolution());
+        JsonNode resolutionJson = OBJECT_MAPPER.readTree(event.workItemResolution());
         deserializedResolution = bridgeResolver.deserialise(bridge, resolutionJson);
       } catch (Exception e) {
         LOG.errorf(

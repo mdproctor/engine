@@ -94,4 +94,8 @@ public enum CaseHubEventType {
   JUDGMENT_RESPONDED, // judgment response received from caller (decision + evidence)
   JUDGMENT_VERIFIED, // judgment response verified (placeholder — blocks/qhorus wiring)
   JUDGMENT_ESCALATED, // judgment escalated to different caller (placeholder — blocks/qhorus wiring)
+
+  STALL_DETECTED, // watchdog alert observed; NOTIFY action — observability only
+  STALL_RECOVERY_INITIATED, // watchdog alert triggered a recovery action
+  // (retry/reroute/cancel/etc.)
 }

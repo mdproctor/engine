@@ -947,6 +947,27 @@ workers:
 
 **Test dependencies:** Full engine stack with `casehub-persistence-memory`, Mockito.
 
+## casehub-engine-watchdog Module
+
+Optional module bridging qhorus watchdog stall alerts to engine recovery actions. Activated by adding `casehub-engine-watchdog` to the consumer's classpath. Directory: `watchdog/`. Refs engine#1044.
+
+**Architecture:** `WatchdogAlertObserver` (`@ObservesAsync WatchdogAlertEvent`) resolves caseId via `CaseChannel.parseCaseId()` with fallback to `AlertContext` channel extraction (all 12 subtypes handled). Publishes `StallRecoveryContext` on Vert.x event bus. `StallRecoveryDispatchHandler` (`@ConsumeEvent(blocking=true)`) resolves binding from `PlanItemStore` by matching `executorName` against `affectedAgentIds`, invokes `StallRecoveryHandler` SPI.
+
+**`DefaultStallRecoveryHandler`** (`@ApplicationScoped`) — classifies via `StallClassifier` (resolved by `StallRecoveryPolicy.classifierId`), executes one of 7 actions:
+- **RETRY**: publish `CONTEXT_CHANGED` with 5s debounce via `_stallRecovery.lastRetryAt`
+- **REROUTE**: write stalled agent to `_diagnostics.<bindingName>.excludedAgents`, publish `CONTEXT_CHANGED`. Requires binding resolution.
+- **CANCEL**: mark PlanItem `CANCELLED` via `PlanItemStore.updateStatus()`, publish `WORKER_OUTCOME_RESOLVED(FAULT)`. Requires planItemId.
+- **EXPIRE**: publish `WORKER_OUTCOME_RESOLVED(EXHAUSTED)` — enters existing `RecoveryCoordinator` escalation path. Requires binding + planItemId.
+- **ESCALATE**: create `JudgmentRequest` with `BindingPayload` via `JudgmentScheduler`. Uses `"stall-recovery"` as synthetic binding when unresolved.
+- **NOTIFY**: write `STALL_DETECTED` EventLog only (observability).
+- **IGNORE**: no-op.
+
+Binding-level actions (REROUTE, CANCEL, EXPIRE) require successful binding resolution; fall back to NOTIFY when resolution unavailable. Idempotency guards per action (PlanItem already terminal, agent already excluded, debounce window).
+
+**Compile dependencies:** `casehub-engine-common`, `casehub-engine-api`, `casehub-qhorus-api`, `casehub-worker-api`, `quarkus-arc`, `quarkus-vertx`. No dependency on `casehub-engine` (runtime) or `casehub-eidos-api`.
+
+**`InboundWorkItemScheduler`** (`common/spi/`) — SPI decoupling `casehub-engine-inbound` from `casehub-work` runtime. `InboundWorkItemBridge` injects the SPI instead of `WorkItemService` + `TenantContextRunner`. `InboundWorkItemRequest` (engine-common) carries the essential work item fields. `NoOpInboundWorkItemScheduler` (`@DefaultBean`, runtime) logs warning when work integration absent. Work repo provides the real implementation. Refs engine#974.
+
 ## casehub-engine-work-cloudevent Module
 
 Optional CloudEvent bridge for distributed HumanTask and ActionGate dispatch. Activated by adding `casehub-engine-work-cloudevent` to the consumer's classpath. Directory: `work-cloudevent/`. Mutually exclusive with `casehub-work-engine-adapter`. Refs engine#972.

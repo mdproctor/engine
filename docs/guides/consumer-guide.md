@@ -35,7 +35,8 @@ Implements the Blackboard Architecture (Hayes-Roth, 1985) with CMMN terminology.
 | `casehub-engine-ai` | `AgentEmbeddingProvider` SPI, `SemanticSignalProvider` — cosine-similarity agent routing, `EmbeddingCache` (LRU, default 500 entries) |
 | `casehub-engine-actor-state` | Unified actor workload view (`GET /actors/{actorId}/state`) via `ActorStateContributor` SPI. Aggregates trust scores, capability scores, work items, commitments, active cases |
 | `casehub-engine-flow` | Serverless Workflow execution — `FlowWorkerFunction`, `CallableDispatcher` SPI, `CasehubFlow` static utility for dispatching capabilities from FuncDSL workflow steps |
-| `casehub-engine-inbound` | Bridges inbound messages to case signals (`InboundSignalBridge`) and to casehub-work WorkItems (`InboundWorkItemBridge`) via `InboundWorkItemPolicy` SPI |
+| `casehub-engine-inbound` | Bridges inbound messages to case signals (`InboundSignalBridge`) and to work items (`InboundWorkItemBridge`) via `InboundWorkItemScheduler` SPI + `InboundWorkItemPolicy` SPI |
+| `casehub-engine-watchdog` | Bridges qhorus watchdog stall alerts to engine recovery actions. 7 recovery actions (RETRY, REROUTE, ESCALATE, CANCEL, EXPIRE, NOTIFY, IGNORE) via `StallRecoveryHandler` SPI |
 | `casehub-engine-scheduler-quartz` | Quartz-based worker execution (RAM store). `WorkerExecutionManager`, scheduled/conditional trigger jobs, milestone SLA timeout jobs |
 
 **Test modules:**
@@ -334,11 +335,11 @@ All follow the `NamedStrategy` convention and are resolved at dispatch time via 
 
 ### Actor State Contributor SPI (`actor-state`)
 
-`ActorStateContributor` — contributes data to the unified actor state view. Built-in contributors: `EngineActorStateContributor` (active Quartz jobs), `LedgerActorStateContributor` (trust scores), `QhorusActorStateContributor` (commitments), `WorkActorStateContributor` (work items).
+`ActorStateContributor` — contributes data to the unified actor state view. Built-in contributors: `EngineActorStateContributor` (active Quartz jobs), `LedgerActorStateContributor` (trust scores), `QhorusActorStateContributor` (commitments).
 
 ### Inbound SPIs (`inbound`)
 
-`InboundWorkItemPolicy` — decides whether and how to create a WorkItem from an inbound qhorus message. No default bean — the bridge is inert without an implementation.
+`InboundWorkItemPolicy` — decides whether and how to create a WorkItem from an inbound qhorus message. Returns `Optional<InboundWorkItemRequest>` (engine-owned type). No default bean — the bridge is inert without an implementation. `InboundWorkItemScheduler` (`common/spi/`) — work-side implementation converts `InboundWorkItemRequest` to `WorkItemCreateRequest`.
 
 ### Flow SPIs (`flow`)
 

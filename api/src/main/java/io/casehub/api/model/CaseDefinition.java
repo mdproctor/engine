@@ -207,6 +207,10 @@ public class CaseDefinition {
   private RecoveryPolicy recoveryPolicy;
 
   @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Per-case stall recovery configuration — maps watchdog condition types to recovery actions.")
+  private StallRecoveryPolicy stallRecoveryPolicy;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
       "Behavioral type classifications — hierarchical path strings via Path.parse().")
   private Set<Path> types = Set.of();
 
@@ -681,6 +685,14 @@ public class CaseDefinition {
     this.recoveryPolicy = recoveryPolicy;
   }
 
+  public StallRecoveryPolicy getStallRecoveryPolicy() {
+    return stallRecoveryPolicy;
+  }
+
+  public void setStallRecoveryPolicy(StallRecoveryPolicy stallRecoveryPolicy) {
+    this.stallRecoveryPolicy = stallRecoveryPolicy;
+  }
+
   public io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
       getDecompositionTree() {
     return decompositionTree;
@@ -755,6 +767,7 @@ public class CaseDefinition {
     private List<CompoundDeclaration> compounds;
     private Map<String, Set<String>> goalToEffectKeys = new java.util.HashMap<>();
     private RecoveryPolicy recoveryPolicy;
+    private StallRecoveryPolicy stallRecoveryPolicy;
     private io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
         decompositionTree;
 
@@ -1184,6 +1197,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder stallRecoveryPolicy(StallRecoveryPolicy stallRecoveryPolicy) {
+      this.stallRecoveryPolicy = stallRecoveryPolicy;
+      return this;
+    }
+
     public Builder decompositionTree(
         io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
             decompositionTree) {
@@ -1297,6 +1315,7 @@ public class CaseDefinition {
       caseHubDefinition.setMemoryRetrieval(memoryRetrieval);
       caseHubDefinition.setPlanningConstraints(planningConstraints);
       caseHubDefinition.setRecoveryPolicy(recoveryPolicy);
+      caseHubDefinition.setStallRecoveryPolicy(stallRecoveryPolicy);
       caseHubDefinition.setMonitoringConfig(monitoringConfig);
       caseHubDefinition.setPortfolioConfig(portfolioConfig);
       caseHubDefinition.setDecompositionTree(decompositionTree);

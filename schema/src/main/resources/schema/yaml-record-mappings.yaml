@@ -65,6 +65,7 @@ types:
       authorization: { type: "Map<String, List<String>>" }
       channels: { type: "List<YamlChannel>" }
     extra:
+      - { name: stallRecoveryPolicy, type: JsonNode }
       - { name: maxEscalations, type: Integer }
       - { name: cognitiveDemands, type: "Map<String, YamlCognitiveDemand>" }
       - { name: compounds, type: "List<YamlCompound>" }

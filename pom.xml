@@ -112,6 +112,7 @@
         <module>a2a</module>
     <module>mcp</module>
         <module>react</module>
+        <module>watchdog</module>
         <module>work-cloudevent</module>
         <module>queue</module>
         <module>rest</module>
