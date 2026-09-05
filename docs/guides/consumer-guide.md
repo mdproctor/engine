@@ -11,6 +11,8 @@
 
 Implements the Blackboard Architecture (Hayes-Roth, 1985) with CMMN terminology. Coordinates workers (AI agents, humans) via case definitions, binding rules, and optional synchronous orchestration. All handlers run on virtual threads (Java 21).
 
+**Getting started:** Case definitions can be authored in [YAML or Java](three-pathways.md) (TypeScript planned). The pathways guide covers when to use each, a side-by-side walkthrough, and the full YAML DSL reference.
+
 ---
 
 ## Modules to Depend On
