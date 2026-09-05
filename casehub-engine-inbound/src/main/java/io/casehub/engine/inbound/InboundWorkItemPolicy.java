@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.inbound;
 
+import io.casehub.engine.common.spi.InboundWorkItemRequest;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
-import io.casehub.work.api.WorkItemCreateRequest;
 import java.util.Optional;
 
 /**
@@ -41,10 +41,6 @@ import java.util.Optional;
  * event.channelName()}, {@code event.messageType()}, or other fields and return {@link
  * java.util.Optional#empty()} for messages they do not handle.
  *
- * <p>Placement: this SPI lives in the bridge module, not {@code casehub-engine-api/spi/}, because
- * its parameter type {@link WorkItemCreateRequest} comes from {@code casehub-work}, which must not
- * become a transitive dependency of {@code casehub-engine-api} consumers (PP-20260601-c43112).
- *
  * <p>Note on {@code callerRef}: if set to {@code case:{caseId}/pi:{planItemId}} format and {@code
  * casehub-work-engine-adapter} is deployed, the WorkItem lifecycle will be wired back to that
  * PlanItem. Bridge-created WorkItems with no case backing should leave {@code callerRef} null.
@@ -52,5 +48,5 @@ import java.util.Optional;
 @FunctionalInterface
 public interface InboundWorkItemPolicy {
 
-  Optional<WorkItemCreateRequest> decide(MessageReceivedEvent event);
+  Optional<InboundWorkItemRequest> decide(MessageReceivedEvent event);
 }

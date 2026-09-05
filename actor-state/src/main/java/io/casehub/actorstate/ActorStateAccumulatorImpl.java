@@ -86,6 +86,12 @@ class ActorStateAccumulatorImpl implements ActorStateAccumulator {
     engineActiveCaseIds.add(caseId);
   }
 
+  @Override
+  public void capacity(
+      final double aggregatePressure, final java.util.Map<String, Double> pressureBySignalType) {
+    // no-op — capacity data is not surfaced in the actor state response yet
+  }
+
   /** Called by ActorStateAggregator after contributor.contribute() succeeds. */
   void markSucceeded(final String sourceName) {
     sources.add(sourceName);

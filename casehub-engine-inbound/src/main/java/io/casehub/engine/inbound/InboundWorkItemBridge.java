@@ -15,11 +15,10 @@
  */
 package io.casehub.engine.inbound;
 
+import io.casehub.engine.common.spi.InboundWorkItemRequest;
+import io.casehub.engine.common.spi.InboundWorkItemScheduler;
 import io.casehub.qhorus.api.gateway.MessageObserver;
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
-import io.casehub.work.api.WorkItemCreateRequest;
-import io.casehub.work.runtime.service.TenantContextRunner;
-import io.casehub.work.runtime.service.WorkItemService;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
@@ -50,15 +49,9 @@ import org.jboss.logging.Logger;
  * MessageObserverDispatcher}'s outer safety net, which catches and logs them at WARN — neither path
  * retries or produces a hard failure to the message sender.
  *
- * <p><strong>Request context:</strong> {@code TenantContextRunner.runInTenantContext()} activates a
- * CDI request context if none is active (normal case in qhorus {@code afterCompletion} callbacks),
- * sets {@code TenantHolder}, runs the work, then terminates the context. {@code
- * WorkItemService.create()} is {@code @Transactional} and manages its own transaction boundary
- * independently of the request context lifecycle.
- *
  * <p><strong>At-most-once delivery:</strong> {@code onMessage} runs in the qhorus JTA {@code
  * afterCompletion(STATUS_COMMITTED)} callback — the qhorus message is committed before observers
- * fire. If {@code WorkItemService.create()} fails, no WorkItem is created and no retry occurs.
+ * fire. If scheduling fails, no WorkItem is created and no retry occurs.
  */
 @ApplicationScoped
 public class InboundWorkItemBridge implements MessageObserver {
@@ -67,8 +60,7 @@ public class InboundWorkItemBridge implements MessageObserver {
   private static final String CREATED_BY = "casehub-engine-inbound";
 
   @Inject Instance<InboundWorkItemPolicy> policy;
-  @Inject WorkItemService workItemService;
-  @Inject TenantContextRunner tenantContextRunner;
+  @Inject InboundWorkItemScheduler scheduler;
 
   void onStartup(@Observes final StartupEvent ignored) {
     if (policy.isAmbiguous()) {
@@ -84,7 +76,7 @@ public class InboundWorkItemBridge implements MessageObserver {
       return;
     }
 
-    final Optional<WorkItemCreateRequest> decision;
+    final Optional<InboundWorkItemRequest> decision;
     try {
       decision = policy.get().decide(event);
     } catch (Exception e) {
@@ -95,13 +87,24 @@ public class InboundWorkItemBridge implements MessageObserver {
       return;
     }
 
-    decision.ifPresent(
-        request ->
-            tenantContextRunner.runInTenantContext(
-                event.tenancyId(), () -> workItemService.create(stamp(request))));
+    decision.ifPresent(request -> scheduler.schedule(stamp(request, event.tenancyId())));
   }
 
-  private WorkItemCreateRequest stamp(final WorkItemCreateRequest request) {
-    return request.toBuilder().createdBy(CREATED_BY).build();
+  private InboundWorkItemRequest stamp(
+      final InboundWorkItemRequest request, final String tenancyId) {
+    return InboundWorkItemRequest.builder()
+        .title(request.title())
+        .description(request.description())
+        .candidateGroups(request.candidateGroups())
+        .candidateUsers(request.candidateUsers())
+        .callerRef(request.callerRef())
+        .scope(request.scope())
+        .payload(request.payload())
+        .tenancyId(tenancyId)
+        .createdBy(CREATED_BY)
+        .priority(request.priority())
+        .types(request.types())
+        .expiresAt(request.expiresAt())
+        .build();
   }
 }
