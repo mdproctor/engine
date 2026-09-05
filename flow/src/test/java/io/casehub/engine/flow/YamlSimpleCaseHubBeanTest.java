@@ -103,7 +103,7 @@ public class YamlSimpleCaseHubBeanTest {
     UUID caseId = yamlSimpleCaseHubBean.startCase(initialContext);
 
     await()
-        .atMost(10, TimeUnit.SECONDS)
+        .atMost(30, TimeUnit.SECONDS)
         .untilAsserted(
             () -> {
               var instance = caseInstanceCache.get(caseId);

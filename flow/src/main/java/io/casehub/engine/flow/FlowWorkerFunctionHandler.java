@@ -36,10 +36,6 @@ import java.util.concurrent.ExecutorService;
 /**
  * {@link WorkerFunctionHandler} for Serverless Workflow workers.
  *
- * <p>Replaces {@code FlowWorkerExecutor} — merges execution logic into the handler model. Sets
- * {@link WorkerExecutionContext} around the workflow execution so casehub tasks inside the workflow
- * can access case context via {@code WorkerExecutionContext.current()}.
- *
  * <p>Plain {@code @ApplicationScoped} (no {@code @DefaultBean}) — when {@code casehub-engine-flow}
  * is on the classpath, this handler is discovered automatically.
  */
@@ -74,16 +70,31 @@ public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
       final int timeoutMs,
       final ExecutionMetadata metadata) {
     final FlowWorkerFunction flow = (FlowWorkerFunction) function;
+    @SuppressWarnings("unchecked")
     final Map<String, Object> mapInput = (Map<String, Object>) inputData;
 
-    WorkflowModel model =
+    final CompletableFuture<WorkflowModel> future =
         executeWorkflow(
-                flow.workflow(),
-                mapInput,
-                context.caseId(),
-                metadata.workerName(),
-                metadata.inputDataHash())
-            .join();
+            flow.workflow(),
+            mapInput,
+            context.caseId(),
+            metadata.workerName(),
+            metadata.inputDataHash());
+
+    final WorkflowModel model;
+    try {
+      model = future.get(timeoutMs, java.util.concurrent.TimeUnit.MILLISECONDS);
+    } catch (final java.util.concurrent.TimeoutException e) {
+      future.cancel(true);
+      return new HandlerResult(
+          WorkerResult.expired("Flow workflow timed out after " + timeoutMs + "ms"));
+    } catch (final java.util.concurrent.ExecutionException e) {
+      return new HandlerResult(
+          WorkerResult.failed("Flow workflow failed: " + e.getCause().getMessage()));
+    } catch (final InterruptedException e) {
+      Thread.currentThread().interrupt();
+      return new HandlerResult(WorkerResult.failed("Flow workflow interrupted"));
+    }
 
     Map<String, Object> outputMap =
         model

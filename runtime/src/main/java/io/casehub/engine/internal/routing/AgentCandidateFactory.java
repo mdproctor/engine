@@ -119,6 +119,7 @@ public class AgentCandidateFactory {
             case CapabilityStatus.BehavioralViolation bv -> AgentHealth.BEHAVIORAL_VIOLATION;
             case CapabilityStatus.EpistemicallyWeak ew -> AgentHealth.EPISTEMICALLY_WEAK;
             case CapabilityStatus.Degraded d -> AgentHealth.DEGRADED;
+            case CapabilityStatus.Overloaded o -> AgentHealth.DEGRADED;
             case CapabilityStatus.Unavailable u ->
                 throw new IllegalStateException("unreachable — filtered above");
             case CapabilityStatus.Excluded ex ->
