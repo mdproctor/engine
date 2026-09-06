@@ -92,6 +92,10 @@
 
 ### `SIGNAL_RECEIVED` (`io.casehub.api.model.event.CaseHubEventType`)
 
+### `STALL_DETECTED` (`io.casehub.api.model.event.CaseHubEventType`)
+
+### `STALL_RECOVERY_INITIATED` (`io.casehub.api.model.event.CaseHubEventType`)
+
 ### `SUBCASE_COMPLETED` (`io.casehub.api.model.event.CaseHubEventType`)
 
 ### `SUBCASE_STARTED` (`io.casehub.api.model.event.CaseHubEventType`)

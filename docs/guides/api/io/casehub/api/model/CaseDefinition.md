@@ -104,6 +104,8 @@
 
 ### `signals` (`java.util.List<io.casehub.api.model.SignalType<?>>`)
 
+### `stallRecoveryPolicy` (`io.casehub.api.model.StallRecoveryPolicy`)
+
 ### `summary` (`java.lang.String`)
 
 ### `title` (`java.lang.String`)
@@ -249,6 +251,8 @@
 ### `public java.util.Map<java.lang.String,java.lang.Object> getSemanticData()`
 
 ### `public java.util.List<io.casehub.api.model.SignalType<?>> getSignals()`
+
+### `public io.casehub.api.model.StallRecoveryPolicy getStallRecoveryPolicy()`
 
 ### `public java.lang.String getSummary()`
 
@@ -529,6 +533,12 @@
 #### Parameters
 
 - `signals` (`java.util.List<io.casehub.api.model.SignalType<?>>`)
+
+### `public void setStallRecoveryPolicy(io.casehub.api.model.StallRecoveryPolicy stallRecoveryPolicy)`
+
+#### Parameters
+
+- `stallRecoveryPolicy` (`io.casehub.api.model.StallRecoveryPolicy`)
 
 ### `public void setSummary(java.lang.String summary)`
 

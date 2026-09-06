@@ -222,6 +222,12 @@ hand-coded deserializers and post-processor.
 - `spec` (`YamlCaseSpec`)
 - `def` (`io.casehub.api.model.CaseDefinition`)
 
+### `private static io.casehub.api.model.StallRecoveryPolicy convertStallRecoveryPolicy(com.fasterxml.jackson.databind.JsonNode node)`
+
+#### Parameters
+
+- `node` (`com.fasterxml.jackson.databind.JsonNode`)
+
 ### `private static io.casehub.api.model.SubCase convertSubCase(YamlSubCaseTarget ys)`
 
 #### Parameters
