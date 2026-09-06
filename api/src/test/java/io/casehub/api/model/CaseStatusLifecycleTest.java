@@ -96,7 +96,7 @@ class CaseStatusLifecycleTest {
   @Test
   void terminalStatusesConstant_matchesIsTerminal() {
     var expected = Arrays.stream(CaseStatus.values()).filter(CaseStatus::isTerminal).toList();
-    assertThat(CaseStatus.TERMINAL_STATUSES)
+    assertThat(CaseStatus.terminalStatuses())
         .as("TERMINAL_STATUSES constant must match isTerminal() for all enum values")
         .containsExactlyInAnyOrderElementsOf(expected);
   }
@@ -130,7 +130,7 @@ class CaseStatusLifecycleTest {
 
   @Test
   void exactlyFourTerminalStatuses() {
-    assertThat(CaseStatus.TERMINAL_STATUSES)
+    assertThat(CaseStatus.terminalStatuses())
         .containsExactlyInAnyOrder(
             CaseStatus.COMPLETED, CaseStatus.FAULTED, CaseStatus.CANCELLED, CaseStatus.COMPENSATED);
   }

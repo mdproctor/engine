@@ -16,7 +16,7 @@
 package io.casehub.engine.graphql.dto;
 
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.engine.graphql.CompensationGraphProjection;
+import io.casehub.engine.graphql.BindingGraphProjection;
 import java.util.List;
 import org.eclipse.microprofile.graphql.Type;
 
@@ -28,16 +28,16 @@ public record CaseDefinitionType(
     String title,
     String summary,
     List<String> capabilities,
-    CompensationGraphType compensationGraph) {
+    BindingGraphType bindingGraph) {
 
   public static CaseDefinitionType from(CaseDefinition def) {
     List<String> capNames =
         def.getCapabilities() != null
             ? def.getCapabilities().stream().map(c -> c.name()).toList()
             : List.of();
-    CompensationGraphType graph =
+    BindingGraphType graph =
         def.getBindings() != null && !def.getBindings().isEmpty()
-            ? CompensationGraphProjection.project(def.getBindings())
+            ? BindingGraphProjection.project(def.getBindings())
             : null;
     return new CaseDefinitionType(
         def.getNamespace(),
