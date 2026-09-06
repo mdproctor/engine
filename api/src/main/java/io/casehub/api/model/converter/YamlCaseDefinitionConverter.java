@@ -785,6 +785,9 @@ public final class YamlCaseDefinitionConverter {
       if (!yb.producedKeys().isEmpty()) {
         builder.producedKeys(new LinkedHashSet<>(yb.producedKeys()));
       }
+      if (!yb.requiredKeys().isEmpty()) {
+        builder.requiredKeys(new LinkedHashSet<>(yb.requiredKeys()));
+      }
       if (!yb.contingency().isEmpty()) {
         builder.contingency(yb.contingency());
       }

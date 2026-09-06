@@ -49,7 +49,8 @@ public enum CaseStatus {
   /** Compensation attempted but a compensating step failed — intervention required. */
   COMPENSATION_FAULTED;
 
-  private static final Set<CaseStatus> TERMINAL_STATUSES = Set.of(COMPLETED, FAULTED, CANCELLED, COMPENSATED);
+  private static final Set<CaseStatus> TERMINAL_STATUSES =
+      Set.of(COMPLETED, FAULTED, CANCELLED, COMPENSATED);
 
   public static Set<CaseStatus> terminalStatuses() {
     return TERMINAL_STATUSES;

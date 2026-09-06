@@ -64,6 +64,10 @@ public class Binding {
   private Set<String> producedKeys;
 
   @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Context keys this binding requires to fire meaningfully — symmetric to producedKeys.")
+  private Set<String> requiredKeys;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
       "Worker lifetime scope: BINDING (single dispatch), COMPOUND, or CASE.")
   private LifecycleScope lifecycleScope;
 
@@ -141,6 +145,11 @@ public class Binding {
     this.producedKeys = producedKeys != null ? Set.copyOf(producedKeys) : Collections.emptySet();
   }
 
+  public void setRequiredKeys(Set<String> requiredKeys) {
+
+    this.requiredKeys = requiredKeys;
+  }
+
   public void setLifecycleScope(LifecycleScope lifecycleScope) {
     this.lifecycleScope = lifecycleScope;
   }
@@ -200,6 +209,11 @@ public class Binding {
    */
   public Set<String> getProducedKeys() {
     return producedKeys != null ? producedKeys : Collections.emptySet();
+  }
+
+  public Set<String> getRequiredKeys() {
+
+    return requiredKeys;
   }
 
   public LifecycleScope lifecycleScope() {
@@ -378,6 +392,7 @@ public class Binding {
     private ExpressionEvaluator inputProjectionOverride;
     private Map<String, Object> contextWrite;
     private Set<String> producedKeys;
+    private Set<String> requiredKeys;
     private LifecycleScope lifecycleScope;
     private Participation participation;
     private ExecutionMode executionMode;
@@ -480,6 +495,12 @@ public class Binding {
 
     public Builder producedKeys(Set<String> producedKeys) {
       this.producedKeys = producedKeys;
+      return this;
+    }
+
+    public Builder requiredKeys(Set<String> requiredKeys) {
+
+      this.requiredKeys = requiredKeys;
       return this;
     }
 
@@ -618,6 +639,7 @@ public class Binding {
       b.setInputProjectionOverride(inputProjectionOverride);
       b.setContextWrite(contextWrite);
       b.setProducedKeys(producedKeys);
+      b.setRequiredKeys(requiredKeys);
       b.setLifecycleScope(this.lifecycleScope);
       b.setParticipation(this.participation);
       b.setExecutionMode(this.executionMode);

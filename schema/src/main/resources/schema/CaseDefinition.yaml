@@ -71,6 +71,12 @@ $defs:
         type: array
         items:
           type: string
+      requiredKeys:
+        description: Context keys this binding requires to fire meaningfully — symmetric
+          to producedKeys, used for trigger dependency edges.
+        type: array
+        items:
+          type: string
       produces:
         type: string
         description: Output channel name for Exchange data flow.
