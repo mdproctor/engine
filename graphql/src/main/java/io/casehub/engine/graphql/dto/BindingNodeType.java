@@ -15,9 +15,7 @@
  */
 package io.casehub.engine.graphql.dto;
 
-import java.util.List;
 import org.eclipse.microprofile.graphql.Type;
 
-@Type("CompensationGraph")
-public record CompensationGraphType(
-    List<CompensationNodeType> nodes, List<CompensationEdgeType> edges, List<String> gaps) {}
+@Type("BindingNode")
+public record BindingNodeType(String bindingName, String targetType, boolean compensationOnly) {}
