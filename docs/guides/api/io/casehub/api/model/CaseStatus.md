@@ -23,6 +23,18 @@ CNCF Serverless Workflow specification.
 
 Case was stopped before completion.
 
+### `COMPENSATED` (`io.casehub.api.model.CaseStatus`)
+
+All compensating bindings completed — case effects fully reversed.
+
+### `COMPENSATING` (`io.casehub.api.model.CaseStatus`)
+
+Compensation in progress — completed case is having its effects undone.
+
+### `COMPENSATION_FAULTED` (`io.casehub.api.model.CaseStatus`)
+
+Compensation attempted but a compensating step failed — intervention required.
+
 ### `COMPLETED` (`io.casehub.api.model.CaseStatus`)
 
 Case completed successfully.

@@ -34,6 +34,16 @@
 
 ### `CASE_STATUS_CHANGED` (`io.casehub.api.model.event.CaseHubEventType`)
 
+### `COMPENSATION_COMPLETED` (`io.casehub.api.model.event.CaseHubEventType`)
+
+### `COMPENSATION_FAULTED` (`io.casehub.api.model.event.CaseHubEventType`)
+
+### `COMPENSATION_STARTED` (`io.casehub.api.model.event.CaseHubEventType`)
+
+### `COMPENSATION_STEP_COMPLETED` (`io.casehub.api.model.event.CaseHubEventType`)
+
+### `COMPENSATION_STEP_STARTED` (`io.casehub.api.model.event.CaseHubEventType`)
+
 ### `CONSTRAINTS_INFEASIBLE` (`io.casehub.api.model.event.CaseHubEventType`)
 
 ### `CONTEXT_SIGNAL_APPLIED` (`io.casehub.api.model.event.CaseHubEventType`)

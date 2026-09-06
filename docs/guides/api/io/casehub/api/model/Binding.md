@@ -6,6 +6,10 @@
 
 ## Fields
 
+### `compensateRef` (`java.lang.String`)
+
+### `compensation` (`boolean`)
+
 ### `conflictResolverStrategy` (`java.lang.String`)
 
 ### `consumes` (`java.lang.String`)
@@ -70,6 +74,8 @@
 
 ### `public io.casehub.api.model.ExecutionMode executionMode()`
 
+### `public java.lang.String getCompensateRef()`
+
 ### `public java.lang.String getConflictResolverStrategy()`
 
 Strategy name for resolving concurrent writes to the same CaseContext key. Values:
@@ -111,9 +117,23 @@ default. Overlaps within the same stage trigger a validation warning.
 
 ### `public ExpressionEvaluator getWhen()`
 
+### `public boolean isCompensation()`
+
 ### `public io.casehub.api.model.LifecycleScope lifecycleScope()`
 
 ### `public io.casehub.api.model.Participation participation()`
+
+### `public void setCompensateRef(java.lang.String compensateRef)`
+
+#### Parameters
+
+- `compensateRef` (`java.lang.String`)
+
+### `public void setCompensation(boolean compensation)`
+
+#### Parameters
+
+- `compensation` (`boolean`)
 
 ### `public void setConflictResolverStrategy(java.lang.String conflictResolverStrategy)`
 
@@ -224,3 +244,9 @@ default. Overlaps within the same stage trigger a validation warning.
 - `when` (`ExpressionEvaluator`)
 
 ### `public io.casehub.api.model.BindingTarget target()`
+
+### `public static java.util.List<java.lang.String> validateCompensationBindings(java.util.List<io.casehub.api.model.Binding> bindings)`
+
+#### Parameters
+
+- `bindings` (`java.util.List<io.casehub.api.model.Binding>`)
