@@ -146,7 +146,6 @@ public class Binding {
   }
 
   public void setRequiredKeys(Set<String> requiredKeys) {
-
     this.requiredKeys = requiredKeys;
   }
 
@@ -212,7 +211,6 @@ public class Binding {
   }
 
   public Set<String> getRequiredKeys() {
-
     return requiredKeys;
   }
 
@@ -499,7 +497,6 @@ public class Binding {
     }
 
     public Builder requiredKeys(Set<String> requiredKeys) {
-
       this.requiredKeys = requiredKeys;
       return this;
     }
