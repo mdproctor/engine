@@ -46,6 +46,8 @@
 
 ### `replanHint` (`io.casehub.api.model.ReplanHint`)
 
+### `requiredKeys` (`java.util.Set<java.lang.String>`)
+
 ### `sideEffectClassification` (`io.casehub.api.model.SideEffectClassification`)
 
 ### `target` (`io.casehub.api.model.BindingTarget`)
@@ -112,6 +114,8 @@ default. Overlaps within the same stage trigger a validation warning.
 ### `public io.casehub.api.model.RecoveryOverride getRecoveryOverride()`
 
 ### `public io.casehub.api.model.ReplanHint getReplanHint()`
+
+### `public java.util.Set<java.lang.String> getRequiredKeys()`
 
 ### `public io.casehub.api.model.SideEffectClassification getSideEffectClassification()`
 
@@ -230,6 +234,12 @@ default. Overlaps within the same stage trigger a validation warning.
 #### Parameters
 
 - `replanHint` (`io.casehub.api.model.ReplanHint`)
+
+### `public void setRequiredKeys(java.util.Set<java.lang.String> requiredKeys)`
+
+#### Parameters
+
+- `requiredKeys` (`java.util.Set<java.lang.String>`)
 
 ### `public void setSideEffectClassification(io.casehub.api.model.SideEffectClassification sideEffectClassification)`
 
