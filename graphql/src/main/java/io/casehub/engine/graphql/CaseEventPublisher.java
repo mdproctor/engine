@@ -16,8 +16,11 @@
 package io.casehub.engine.graphql;
 
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
+import io.casehub.engine.common.internal.event.CompensationStepEvent;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.smallrye.mutiny.Multi;
+import io.smallrye.mutiny.subscription.BackPressureStrategy;
+import io.smallrye.mutiny.subscription.MultiEmitter;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
 import java.util.List;
@@ -26,14 +29,12 @@ import java.util.concurrent.CopyOnWriteArrayList;
 @ApplicationScoped
 public class CaseEventPublisher {
 
-  private final List<io.smallrye.mutiny.subscription.MultiEmitter<? super CaseLifecycleEvent>>
-      lifecycleEmitters = new CopyOnWriteArrayList<>();
-  private final List<io.smallrye.mutiny.subscription.MultiEmitter<? super CaseContextChangedEvent>>
-      contextEmitters = new CopyOnWriteArrayList<>();
-  private final List<
-          io.smallrye.mutiny.subscription.MultiEmitter<
-              ? super io.casehub.engine.common.internal.event.CompensationStepEvent>>
-      compensationStepEmitters = new CopyOnWriteArrayList<>();
+  private final List<MultiEmitter<? super CaseLifecycleEvent>> lifecycleEmitters =
+      new CopyOnWriteArrayList<>();
+  private final List<MultiEmitter<? super CaseContextChangedEvent>> contextEmitters =
+      new CopyOnWriteArrayList<>();
+  private final List<MultiEmitter<? super CompensationStepEvent>> compensationStepEmitters =
+      new CopyOnWriteArrayList<>();
 
   void onLifecycleEvent(@ObservesAsync CaseLifecycleEvent event) {
     for (var emitter : lifecycleEmitters) {
@@ -47,8 +48,7 @@ public class CaseEventPublisher {
     }
   }
 
-  void onCompensationStepEvent(
-      @ObservesAsync io.casehub.engine.common.internal.event.CompensationStepEvent event) {
+  void onCompensationStepEvent(@ObservesAsync CompensationStepEvent event) {
     for (var emitter : compensationStepEmitters) {
       emitter.emit(event);
     }
@@ -61,7 +61,7 @@ public class CaseEventPublisher {
               lifecycleEmitters.add(emitter);
               emitter.onTermination(() -> lifecycleEmitters.remove(emitter));
             },
-            io.smallrye.mutiny.subscription.BackPressureStrategy.DROP);
+            BackPressureStrategy.DROP);
   }
 
   public Multi<CaseContextChangedEvent> contextChangeStream() {
@@ -71,17 +71,16 @@ public class CaseEventPublisher {
               contextEmitters.add(emitter);
               emitter.onTermination(() -> contextEmitters.remove(emitter));
             },
-            io.smallrye.mutiny.subscription.BackPressureStrategy.DROP);
+            BackPressureStrategy.DROP);
   }
 
-  public Multi<io.casehub.engine.common.internal.event.CompensationStepEvent>
-      compensationStepStream() {
+  public Multi<CompensationStepEvent> compensationStepStream() {
     return Multi.createFrom()
-        .<io.casehub.engine.common.internal.event.CompensationStepEvent>emitter(
+        .<CompensationStepEvent>emitter(
             emitter -> {
               compensationStepEmitters.add(emitter);
               emitter.onTermination(() -> compensationStepEmitters.remove(emitter));
             },
-            io.smallrye.mutiny.subscription.BackPressureStrategy.DROP);
+            BackPressureStrategy.DROP);
   }
 }
