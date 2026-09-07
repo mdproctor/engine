@@ -641,6 +641,10 @@ $defs:
         minimum: 1
         description: "Maximum adaptation count per compound before Concede. Default:\
           \ 5."
+      maxConcurrentDispatches:
+        type: integer
+        description: "Maximum concurrent binding dispatches per case. Null means unlimited."
+        minimum: 1
       maxDecompositionDepth:
         type: integer
         description: "Maximum nesting depth for dynamic decomposition. Default: 3."

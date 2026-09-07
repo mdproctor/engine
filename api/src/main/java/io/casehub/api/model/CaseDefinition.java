@@ -207,6 +207,10 @@ public class CaseDefinition {
   private RecoveryPolicy recoveryPolicy;
 
   @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Maximum concurrent binding dispatches per case. Null means unlimited.")
+  private Integer maxConcurrentDispatches;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
       "Behavioral type classifications — hierarchical path strings via Path.parse().")
   private Set<Path> types = Set.of();
 
@@ -681,6 +685,14 @@ public class CaseDefinition {
     this.recoveryPolicy = recoveryPolicy;
   }
 
+  public Integer getMaxConcurrentDispatches() {
+    return maxConcurrentDispatches;
+  }
+
+  public void setMaxConcurrentDispatches(Integer maxConcurrentDispatches) {
+    this.maxConcurrentDispatches = maxConcurrentDispatches;
+  }
+
   public io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
       getDecompositionTree() {
     return decompositionTree;
@@ -755,6 +767,8 @@ public class CaseDefinition {
     private List<CompoundDeclaration> compounds;
     private Map<String, Set<String>> goalToEffectKeys = new java.util.HashMap<>();
     private RecoveryPolicy recoveryPolicy;
+    private Integer maxConcurrentDispatches;
+
     private io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
         decompositionTree;
 
@@ -1184,6 +1198,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder maxConcurrentDispatches(Integer maxConcurrentDispatches) {
+      this.maxConcurrentDispatches = maxConcurrentDispatches;
+      return this;
+    }
+
     public Builder decompositionTree(
         io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
             decompositionTree) {
@@ -1297,6 +1316,7 @@ public class CaseDefinition {
       caseHubDefinition.setMemoryRetrieval(memoryRetrieval);
       caseHubDefinition.setPlanningConstraints(planningConstraints);
       caseHubDefinition.setRecoveryPolicy(recoveryPolicy);
+      caseHubDefinition.setMaxConcurrentDispatches(maxConcurrentDispatches);
       caseHubDefinition.setMonitoringConfig(monitoringConfig);
       caseHubDefinition.setPortfolioConfig(portfolioConfig);
       caseHubDefinition.setDecompositionTree(decompositionTree);

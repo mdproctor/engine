@@ -306,6 +306,8 @@ public final class YamlCaseDefinitionConverter {
     if (spec.candidateMatching() != null) def.setCandidateMatching(spec.candidateMatching());
     if (spec.decompositionStrategy() != null)
       def.setDecompositionStrategy(spec.decompositionStrategy());
+    if (spec.maxConcurrentDispatches() != null)
+      def.setMaxConcurrentDispatches(spec.maxConcurrentDispatches());
     if (spec.maxDecompositionDepth() != null)
       def.setMaxDecompositionDepth(spec.maxDecompositionDepth());
     if (spec.maxAdaptations() != null) def.setMaxAdaptations(spec.maxAdaptations());

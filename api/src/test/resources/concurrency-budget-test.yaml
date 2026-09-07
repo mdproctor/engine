@@ -1,0 +1,17 @@
+namespace: test
+name: throttled-case
+version: "1.0"
+spec:
+  maxConcurrentDispatches: 5
+  capabilities:
+    - name: doWork
+      inputProjection: "."
+  workers:
+    - name: worker-1
+      capabilities: [doWork]
+  bindings:
+    - name: do-work-binding
+      capability: doWork
+      on:
+        contextChange:
+          filter: '.ready == true'
