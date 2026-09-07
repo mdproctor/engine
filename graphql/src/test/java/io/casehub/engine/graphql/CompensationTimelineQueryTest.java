@@ -177,15 +177,16 @@ class CompensationTimelineQueryTest {
     assertThat(result).isNotNull();
     assertThat(result.caseId()).isEqualTo(caseId);
     assertThat(result.status()).isEqualTo("COMPENSATING");
-    assertThat(result.triggeredBy()).isEqualTo("operator");
-    assertThat(result.reason()).isEqualTo("Clinical trial withdrawn");
     assertThat(result.forwardSteps()).hasSize(1);
     assertThat(result.forwardSteps().get(0).bindingName()).isEqualTo("review");
     assertThat(result.forwardSteps().get(0).status()).isEqualTo("COMPLETED");
-    assertThat(result.compensationSteps()).hasSize(1);
-    assertThat(result.compensationSteps().get(0).bindingName()).isEqualTo("undo-review");
-    assertThat(result.compensationSteps().get(0).status()).isEqualTo("RUNNING");
-    assertThat(result.compensationSteps().get(0).compensatesBinding()).isEqualTo("review");
+    assertThat(result.attempts()).hasSize(1);
+    assertThat(result.attempts().get(0).triggeredBy()).isEqualTo("operator");
+    assertThat(result.attempts().get(0).reason()).isEqualTo("Clinical trial withdrawn");
+    assertThat(result.attempts().get(0).steps()).hasSize(1);
+    assertThat(result.attempts().get(0).steps().get(0).bindingName()).isEqualTo("undo-review");
+    assertThat(result.attempts().get(0).steps().get(0).status()).isEqualTo("RUNNING");
+    assertThat(result.attempts().get(0).steps().get(0).compensatesBinding()).isEqualTo("review");
   }
 
   @Test
@@ -220,8 +221,10 @@ class CompensationTimelineQueryTest {
 
     assertThat(result).isNotNull();
     assertThat(result.status()).isEqualTo("COMPENSATED");
-    assertThat(result.compensationStartedAt()).isEqualTo(now.minusSeconds(60));
-    assertThat(result.compensationCompletedAt()).isEqualTo(now);
+    assertThat(result.attempts()).hasSize(1);
+    assertThat(result.attempts().get(0).startedAt()).isEqualTo(now.minusSeconds(60));
+    assertThat(result.attempts().get(0).completedAt()).isEqualTo(now);
+    assertThat(result.attempts().get(0).outcome()).isEqualTo("COMPLETED");
   }
 
   private CaseInstance createInstance(UUID caseId, CaseStatus status) {

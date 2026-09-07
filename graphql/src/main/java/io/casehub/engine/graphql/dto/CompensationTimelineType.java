@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.graphql.dto;
 
-import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 import org.eclipse.microprofile.graphql.Type;
@@ -24,9 +23,6 @@ import org.eclipse.microprofile.graphql.Type;
 public record CompensationTimelineType(
     UUID caseId,
     String status,
-    String triggeredBy,
-    String reason,
-    Instant compensationStartedAt,
-    Instant compensationCompletedAt,
     List<TimelineStepType> forwardSteps,
-    List<CompensationStepType> compensationSteps) {}
+    List<CompensationAttemptType> attempts,
+    List<UUID> childCompensationCaseIds) {}

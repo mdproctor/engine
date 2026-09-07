@@ -28,6 +28,7 @@ import io.casehub.engine.graphql.dto.CaseDefinitionType;
 import io.casehub.engine.graphql.dto.CaseFilterInput;
 import io.casehub.engine.graphql.dto.CaseInstanceType;
 import io.casehub.engine.graphql.dto.CasePage;
+import io.casehub.engine.graphql.dto.CompensationAttemptType;
 import io.casehub.engine.graphql.dto.CompensationChainType;
 import io.casehub.engine.graphql.dto.CompensationLedgerEntryType;
 import io.casehub.engine.graphql.dto.CompensationStepType;
@@ -161,39 +162,28 @@ public class CaseQueryResolver {
       return null;
     }
 
-    var compensationEvents =
+    var allCompensationEvents =
         runtime.eventLog(
             caseId,
             java.util.Set.of(
                 CaseHubEventType.COMPENSATION_STARTED,
                 CaseHubEventType.COMPENSATION_COMPLETED,
-                CaseHubEventType.COMPENSATION_FAULTED));
-    if (compensationEvents.isEmpty()) {
+                CaseHubEventType.COMPENSATION_FAULTED,
+                CaseHubEventType.COMPENSATION_STEP_STARTED,
+                CaseHubEventType.COMPENSATION_STEP_COMPLETED));
+
+    var startedEvents =
+        allCompensationEvents.stream()
+            .filter(e -> e.eventType() == CaseHubEventType.COMPENSATION_STARTED)
+            .sorted(
+                java.util.Comparator.comparing(
+                    io.casehub.api.model.event.CaseEventLogRecord::timestamp))
+            .toList();
+    if (startedEvents.isEmpty()) {
       return null;
     }
 
-    String triggeredBy = null;
-    String reason = null;
-    java.time.Instant compensationStartedAt = null;
-    java.time.Instant compensationCompletedAt = null;
-    for (var event : compensationEvents) {
-      if (event.eventType() == CaseHubEventType.COMPENSATION_STARTED) {
-        compensationStartedAt = event.timestamp();
-        if (event.metadata() != null) {
-          var meta = event.metadata();
-          if (meta.has("triggeredBy")) {
-            triggeredBy = meta.get("triggeredBy").asText();
-          }
-          if (meta.has("reason")) {
-            reason = meta.get("reason").asText();
-          }
-        }
-      } else if (event.eventType() == CaseHubEventType.COMPENSATION_COMPLETED
-          || event.eventType() == CaseHubEventType.COMPENSATION_FAULTED) {
-        compensationCompletedAt = event.timestamp();
-      }
-    }
-
+    // Resolve compensation binding names and compensateRef map from definition
     java.util.Set<String> compensationBindingNames = java.util.Set.of();
     java.util.Map<String, String> compensateRefMap = java.util.Map.of();
     io.casehub.engine.common.internal.model.CaseMetaModel caseMeta = instance.getCaseMetaModel();
@@ -219,32 +209,22 @@ public class CaseQueryResolver {
       }
     }
 
+    // Partition plan items into forward and compensation
     java.util.List<io.casehub.engine.common.internal.model.PlanItemRecord> planItems =
         planItemStore.findByCaseId(caseId, tenancyId);
     java.util.List<TimelineStepType> forwardSteps = new java.util.ArrayList<>();
-    java.util.List<CompensationStepType> compensationSteps = new java.util.ArrayList<>();
+    java.util.List<io.casehub.engine.common.internal.model.PlanItemRecord> compItems =
+        new java.util.ArrayList<>();
 
     java.util.Set<String> finalCompBindingNames = compensationBindingNames;
-    java.util.Map<String, String> finalRefMap = compensateRefMap;
-
     for (var pi : planItems) {
-      String targetType =
-          pi.targetType() != null
-              ? pi.targetType().name().toLowerCase().replace('_', '-')
-              : "unknown";
       if (finalCompBindingNames.contains(pi.bindingName())) {
-        String compensatesBinding = finalRefMap.getOrDefault(pi.bindingName(), null);
-        compensationSteps.add(
-            new CompensationStepType(
-                pi.planItemId(),
-                pi.bindingName(),
-                targetType,
-                pi.status().name(),
-                pi.createdAt(),
-                pi.completedAt(),
-                compensatesBinding,
-                null));
+        compItems.add(pi);
       } else {
+        String targetType =
+            pi.targetType() != null
+                ? pi.targetType().name().toLowerCase().replace('_', '-')
+                : "unknown";
         forwardSteps.add(
             new TimelineStepType(
                 pi.planItemId(),
@@ -256,15 +236,116 @@ public class CaseQueryResolver {
       }
     }
 
+    // Read _diagnostics from case context for error enrichment
+    com.fasterxml.jackson.databind.JsonNode diagnosticsNode = null;
+    try {
+      diagnosticsNode =
+          runtime.query(caseId, "_diagnostics", com.fasterxml.jackson.databind.JsonNode.class);
+    } catch (Exception ignored) {
+    }
+
+    // Build attempts by grouping COMPENSATION_STARTED boundaries
+    java.util.List<CompensationAttemptType> attempts = new java.util.ArrayList<>();
+    java.util.Map<String, String> finalRefMap = compensateRefMap;
+    com.fasterxml.jackson.databind.JsonNode finalDiag = diagnosticsNode;
+
+    for (int i = 0; i < startedEvents.size(); i++) {
+      var started = startedEvents.get(i);
+      java.time.Instant attemptStart = started.timestamp();
+      java.time.Instant attemptEnd =
+          (i + 1 < startedEvents.size())
+              ? startedEvents.get(i + 1).timestamp()
+              : java.time.Instant.MAX;
+
+      String triggeredBy = null;
+      String reason = null;
+      if (started.metadata() != null) {
+        var meta = started.metadata();
+        if (meta.has("triggeredBy")) {
+          triggeredBy = meta.get("triggeredBy").asText();
+        }
+        if (meta.has("reason")) {
+          reason = meta.get("reason").asText();
+        }
+      }
+
+      // Find completion event for this attempt
+      java.time.Instant completedAt = null;
+      String outcome = "IN_PROGRESS";
+      for (var ev : allCompensationEvents) {
+        if ((ev.eventType() == CaseHubEventType.COMPENSATION_COMPLETED
+                || ev.eventType() == CaseHubEventType.COMPENSATION_FAULTED)
+            && !ev.timestamp().isBefore(attemptStart)
+            && ev.timestamp().isBefore(attemptEnd)) {
+          completedAt = ev.timestamp();
+          outcome =
+              ev.eventType() == CaseHubEventType.COMPENSATION_COMPLETED ? "COMPLETED" : "FAULTED";
+          break;
+        }
+      }
+
+      // Assign compensation PlanItems to this attempt by createdAt window
+      java.util.List<CompensationStepType> steps = new java.util.ArrayList<>();
+      for (var pi : compItems) {
+        if (pi.createdAt() != null
+            && !pi.createdAt().isBefore(attemptStart)
+            && pi.createdAt().isBefore(attemptEnd)) {
+          String targetType =
+              pi.targetType() != null
+                  ? pi.targetType().name().toLowerCase().replace('_', '-')
+                  : "unknown";
+          String compensatesBinding = finalRefMap.getOrDefault(pi.bindingName(), null);
+
+          String errorReason = null;
+          String failureCategory = null;
+          if ("FAULTED".equals(pi.status().name()) && finalDiag != null) {
+            var bindingDiag = finalDiag.get(pi.bindingName());
+            if (bindingDiag != null && bindingDiag.has("latestDiagnosis")) {
+              var diag = bindingDiag.get("latestDiagnosis");
+              if (diag.has("category")) {
+                failureCategory = diag.get("category").asText();
+              }
+              if (diag.has("reason")) {
+                errorReason = diag.get("reason").asText();
+              }
+            }
+          }
+
+          steps.add(
+              new CompensationStepType(
+                  pi.planItemId(),
+                  pi.bindingName(),
+                  targetType,
+                  pi.status().name(),
+                  pi.createdAt(),
+                  pi.completedAt(),
+                  compensatesBinding,
+                  null,
+                  errorReason,
+                  failureCategory));
+        }
+      }
+
+      attempts.add(
+          new CompensationAttemptType(
+              i + 1, attemptStart, completedAt, outcome, triggeredBy, reason, steps));
+    }
+
+    // Collect child compensation case IDs from STEP_STARTED metadata
+    java.util.List<UUID> childCaseIds = new java.util.ArrayList<>();
+    for (var ev : allCompensationEvents) {
+      if (ev.eventType() == CaseHubEventType.COMPENSATION_STEP_STARTED
+          && ev.metadata() != null
+          && ev.metadata().has("childCaseId")) {
+        try {
+          childCaseIds.add(UUID.fromString(ev.metadata().get("childCaseId").asText()));
+        } catch (IllegalArgumentException ignored) {
+        }
+      }
+    }
+
     return new CompensationTimelineType(
-        caseId,
-        instance.getState().name(),
-        triggeredBy,
-        reason,
-        compensationStartedAt,
-        compensationCompletedAt,
-        forwardSteps,
-        compensationSteps);
+        caseId, instance.getState().name(), forwardSteps, attempts, childCaseIds);
   }
 
   @Query

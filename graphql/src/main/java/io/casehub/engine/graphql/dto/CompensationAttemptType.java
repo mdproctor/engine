@@ -16,17 +16,15 @@
 package io.casehub.engine.graphql.dto;
 
 import java.time.Instant;
+import java.util.List;
 import org.eclipse.microprofile.graphql.Type;
 
-@Type("CompensationStep")
-public record CompensationStepType(
-    String planItemId,
-    String bindingName,
-    String targetType,
-    String status,
-    Instant createdAt,
+@Type("CompensationAttempt")
+public record CompensationAttemptType(
+    int attemptNumber,
+    Instant startedAt,
     Instant completedAt,
-    String compensatesBinding,
-    String compensatesItemId,
-    String errorReason,
-    String failureCategory) {}
+    String outcome,
+    String triggeredBy,
+    String reason,
+    List<CompensationStepType> steps) {}
