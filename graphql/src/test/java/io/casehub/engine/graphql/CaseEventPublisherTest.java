@@ -113,6 +113,56 @@ class CaseEventPublisherTest {
     assertThat(subscriber.getItems()).containsExactly(lateEvent);
   }
 
+  @Test
+  void compensation_step_event_reaches_subscriber() {
+    var subscriber =
+        publisher.compensationStepStream().subscribe().withSubscriber(AssertSubscriber.create(10));
+
+    var event =
+        new io.casehub.engine.common.internal.event.CompensationStepEvent(
+            UUID.randomUUID(),
+            "tenant-1",
+            io.casehub.api.model.event.CaseHubEventType.COMPENSATION_STEP_STARTED,
+            "irb-review",
+            "irb-review-reversal",
+            java.time.Instant.now());
+    publisher.onCompensationStepEvent(event);
+
+    subscriber.awaitItems(1, Duration.ofSeconds(1));
+    assertThat(subscriber.getItems()).containsExactly(event);
+  }
+
+  @Test
+  void disconnected_subscriber_stops_receiving_compensation_events() {
+    var subscriber =
+        publisher.compensationStepStream().subscribe().withSubscriber(AssertSubscriber.create(10));
+
+    var event1 =
+        new io.casehub.engine.common.internal.event.CompensationStepEvent(
+            UUID.randomUUID(),
+            "tenant-1",
+            io.casehub.api.model.event.CaseHubEventType.COMPENSATION_STEP_STARTED,
+            "data-export",
+            "data-export-cleanup",
+            java.time.Instant.now());
+    publisher.onCompensationStepEvent(event1);
+    subscriber.awaitItems(1, Duration.ofSeconds(1));
+
+    subscriber.cancel();
+
+    var event2 =
+        new io.casehub.engine.common.internal.event.CompensationStepEvent(
+            UUID.randomUUID(),
+            "tenant-1",
+            io.casehub.api.model.event.CaseHubEventType.COMPENSATION_STEP_COMPLETED,
+            "data-export",
+            "data-export-cleanup",
+            java.time.Instant.now());
+    publisher.onCompensationStepEvent(event2);
+
+    assertThat(subscriber.getItems()).hasSize(1);
+  }
+
   private static CaseLifecycleEvent lifecycleEvent(
       UUID caseId, String commandType, String eventType) {
     return CaseLifecycleEvent.of(
