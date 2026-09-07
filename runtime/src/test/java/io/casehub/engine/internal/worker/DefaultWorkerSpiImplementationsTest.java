@@ -423,4 +423,15 @@ class DefaultWorkerSpiImplementationsTest {
     CapabilityStatus status = health.probe(descriptor, "code-review", ProbeContext.of(null));
     assertThat(status).isInstanceOf(CapabilityStatus.Ready.class);
   }
+
+  // --- NoOpDispatchBudget ---
+
+  @Test
+  void noOpDispatchBudget_availableCapacity_returnsMaxValue() {
+    var budget = new NoOpDispatchBudget();
+    int capacity =
+        budget.availableCapacity(
+            new io.casehub.api.spi.DispatchBudgetQuery(java.util.UUID.randomUUID(), "tenant-1"));
+    assertThat(capacity).isEqualTo(Integer.MAX_VALUE);
+  }
 }
