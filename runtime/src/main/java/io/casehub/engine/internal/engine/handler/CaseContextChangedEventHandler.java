@@ -141,6 +141,8 @@ public class CaseContextChangedEventHandler {
   @Inject CaseEvaluationSerializer evaluationSerializer;
   @Inject QuiescenceTracker quiescenceTracker;
   @Inject ScopedWorkerRegistry scopedWorkerRegistry;
+  @Inject io.casehub.api.spi.DispatchBudget dispatchBudget;
+  @Inject io.casehub.engine.common.spi.PlanItemStore planItemStore;
 
   @Inject Event<CaseContextUpdatedEvent> caseContextUpdatedEvents;
 
@@ -265,6 +267,7 @@ public class CaseContextChangedEventHandler {
             (io.casehub.api.model.RetryState) null);
 
     List<Binding> selected = loopControl.select(planCtx, eligible);
+    selected = applyDispatchBudget(caseInstance, definition, selected);
     if (selected.isEmpty()) {
       return;
     }
@@ -317,6 +320,41 @@ public class CaseContextChangedEventHandler {
               .toArray(java.util.concurrent.CompletableFuture[]::new);
       java.util.concurrent.CompletableFuture.allOf(futures).join();
     }
+  }
+
+  private List<Binding> applyDispatchBudget(
+      CaseInstance caseInstance, CaseDefinition definition, List<Binding> selected) {
+    if (selected.isEmpty()) {
+      return selected;
+    }
+
+    int caseBudget = Integer.MAX_VALUE;
+    if (definition.getMaxConcurrentDispatches() != null) {
+      long active =
+          planItemStore.findByCaseId(caseInstance.getUuid(), caseInstance.tenancyId).stream()
+              .filter(
+                  pi -> {
+                    var s = pi.status();
+                    return s == io.casehub.api.model.TaskStatus.RUNNING
+                        || s == io.casehub.api.model.TaskStatus.DISPATCHING
+                        || s == io.casehub.api.model.TaskStatus.DELEGATED;
+                  })
+              .count();
+      caseBudget = definition.getMaxConcurrentDispatches() - (int) active;
+      if (caseBudget <= 0) {
+        return List.of();
+      }
+    }
+
+    int externalBudget =
+        dispatchBudget.availableCapacity(
+            new io.casehub.api.spi.DispatchBudgetQuery(
+                caseInstance.getUuid(), caseInstance.tenancyId));
+
+    int admitted = Math.min(selected.size(), Math.min(caseBudget, externalBudget));
+    return admitted >= selected.size()
+        ? selected
+        : new java.util.ArrayList<>(selected.subList(0, admitted));
   }
 
   private void goals(
