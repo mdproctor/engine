@@ -54,4 +54,14 @@ public class CaseSubscriptionResolver {
         .filter(event -> event.instance().getUuid().equals(caseId))
         .map(CaseContextChangeEventType::from);
   }
+
+  @Subscription
+  @Description("Live compensation step progress — step starts and completions")
+  public Multi<io.casehub.engine.graphql.dto.CompensationProgressEventType> compensationProgress(
+      @Name("caseId") UUID caseId) {
+    return publisher
+        .compensationStepStream()
+        .filter(event -> event.caseId().equals(caseId))
+        .map(io.casehub.engine.graphql.dto.CompensationProgressEventType::from);
+  }
 }

@@ -144,6 +144,40 @@ class CaseSubscriptionResolverTest {
     assertThat(sub2.getItems()).hasSize(1);
   }
 
+  @Test
+  void compensationProgress_filters_by_caseId() {
+    UUID targetCaseId = UUID.randomUUID();
+    UUID otherCaseId = UUID.randomUUID();
+
+    var subscriber =
+        resolver
+            .compensationProgress(targetCaseId)
+            .subscribe()
+            .withSubscriber(AssertSubscriber.create(10));
+
+    publisher.onCompensationStepEvent(
+        new io.casehub.engine.common.internal.event.CompensationStepEvent(
+            targetCaseId,
+            "tenant-1",
+            io.casehub.api.model.event.CaseHubEventType.COMPENSATION_STEP_STARTED,
+            "irb-review",
+            "irb-review-reversal",
+            java.time.Instant.now()));
+    publisher.onCompensationStepEvent(
+        new io.casehub.engine.common.internal.event.CompensationStepEvent(
+            otherCaseId,
+            "tenant-1",
+            io.casehub.api.model.event.CaseHubEventType.COMPENSATION_STEP_COMPLETED,
+            "data-export",
+            "data-export-cleanup",
+            java.time.Instant.now()));
+
+    subscriber.awaitItems(1, Duration.ofSeconds(1));
+    assertThat(subscriber.getItems()).hasSize(1);
+    assertThat(subscriber.getItems().get(0).caseId()).isEqualTo(targetCaseId);
+    assertThat(subscriber.getItems().get(0).eventType()).isEqualTo("COMPENSATION_STEP_STARTED");
+  }
+
   private static CaseLifecycleEvent lifecycleEvent(
       UUID caseId, String commandType, String eventType) {
     return CaseLifecycleEvent.of(
