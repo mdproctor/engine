@@ -67,6 +67,11 @@ class CaseCompensationServiceImplTest {
   private final jakarta.enterprise.inject.Instance<JudgmentScheduler> judgmentSchedulerInstance =
       mock(jakarta.enterprise.inject.Instance.class);
 
+  @SuppressWarnings("unchecked")
+  private final jakarta.enterprise.event.Event<
+          io.casehub.engine.common.internal.event.CompensationStepEvent>
+      compensationStepEvent = mock(jakarta.enterprise.event.Event.class);
+
   private CaseCompensationServiceImpl service;
 
   private UUID caseId;
@@ -88,7 +93,8 @@ class CaseCompensationServiceImplTest {
             blackboardRegistry,
             caseDefinitionRegistry,
             eventLogRepository,
-            judgmentSchedulerInstance);
+            judgmentSchedulerInstance,
+            compensationStepEvent);
 
     caseId = UUID.randomUUID();
     instance = new CaseInstance();

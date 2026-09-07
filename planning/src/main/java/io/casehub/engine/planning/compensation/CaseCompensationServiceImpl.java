@@ -28,6 +28,7 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
+import io.casehub.engine.common.internal.event.CompensationStepEvent;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -45,6 +46,7 @@ import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.worker.api.Worker;
 import io.vertx.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.enterprise.event.ObservesAsync;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
@@ -71,6 +73,7 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final EventLogRepository eventLogRepository;
   private final Instance<JudgmentScheduler> judgmentScheduler;
+  private final Event<CompensationStepEvent> compensationStepEvent;
 
   @Inject
   public CaseCompensationServiceImpl(
@@ -79,13 +82,15 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
       BlackboardRegistry blackboardRegistry,
       CaseDefinitionRegistry caseDefinitionRegistry,
       EventLogRepository eventLogRepository,
-      Instance<JudgmentScheduler> judgmentScheduler) {
+      Instance<JudgmentScheduler> judgmentScheduler,
+      Event<CompensationStepEvent> compensationStepEvent) {
     this.caseInstanceCache = caseInstanceCache;
     this.eventBus = eventBus;
     this.blackboardRegistry = blackboardRegistry;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.eventLogRepository = eventLogRepository;
     this.judgmentScheduler = judgmentScheduler;
+    this.compensationStepEvent = compensationStepEvent;
   }
 
   @Override
@@ -390,6 +395,15 @@ public class CaseCompensationServiceImpl implements CaseCompensationService {
     metadata.put("compensatingBinding", compensatingBindingName);
     log.setMetadata(metadata);
     eventLogRepository.append(log, instance.tenancyId);
+
+    compensationStepEvent.fireAsync(
+        new CompensationStepEvent(
+            instance.getUuid(),
+            instance.tenancyId,
+            type,
+            originalBindingName,
+            compensatingBindingName,
+            Instant.now()));
   }
 
   private CaseDefinition resolveDefinition(CaseInstance instance) {
