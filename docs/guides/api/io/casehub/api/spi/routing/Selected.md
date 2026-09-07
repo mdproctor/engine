@@ -8,9 +8,13 @@
 
 ### `assignments` (`java.util.List<io.casehub.api.spi.routing.Assignment>`)
 
+### `selectionContext` (`io.casehub.api.spi.routing.RoutingSelection`)
+
 ## Record Components
 
 ### `assignments` (`java.util.List<io.casehub.api.spi.routing.Assignment>`)
+
+### `selectionContext` (`io.casehub.api.spi.routing.RoutingSelection`)
 
 ## Constructors
 
@@ -19,6 +23,13 @@
 #### Parameters
 
 - `assignments` (`java.util.List<io.casehub.api.spi.routing.Assignment>`)
+
+### `public Selected(java.util.List<io.casehub.api.spi.routing.Assignment> assignments, io.casehub.api.spi.routing.RoutingSelection selectionContext)`
+
+#### Parameters
+
+- `assignments` (`java.util.List<io.casehub.api.spi.routing.Assignment>`)
+- `selectionContext` (`io.casehub.api.spi.routing.RoutingSelection`)
 
 ## Methods
 
@@ -31,6 +42,8 @@
 - `o` (`java.lang.Object`)
 
 ### `public final int hashCode()`
+
+### `public io.casehub.api.spi.routing.RoutingSelection selectionContext()`
 
 ### `public io.casehub.api.spi.routing.Assignment single()`
 

@@ -12,12 +12,27 @@
 
 - `assignment` (`io.casehub.api.spi.routing.Assignment`)
 
+### `public static io.casehub.api.spi.routing.RoutingResult assigned(io.casehub.api.spi.routing.Assignment assignment, io.casehub.api.spi.routing.RoutingSelection selectionContext)`
+
+#### Parameters
+
+- `assignment` (`io.casehub.api.spi.routing.Assignment`)
+- `selectionContext` (`io.casehub.api.spi.routing.RoutingSelection`)
+
 ### `public static io.casehub.api.spi.routing.RoutingResult assigned(java.lang.String executorId, java.lang.String reason)`
 
 #### Parameters
 
 - `executorId` (`java.lang.String`)
 - `reason` (`java.lang.String`)
+
+### `public static io.casehub.api.spi.routing.RoutingResult assigned(java.lang.String executorId, java.lang.String reason, io.casehub.api.spi.routing.RoutingSelection selectionContext)`
+
+#### Parameters
+
+- `executorId` (`java.lang.String`)
+- `reason` (`java.lang.String`)
+- `selectionContext` (`io.casehub.api.spi.routing.RoutingSelection`)
 
 ### `public static io.casehub.api.spi.routing.RoutingResult assigned(java.util.List<io.casehub.api.spi.routing.Assignment> assignments)`
 
