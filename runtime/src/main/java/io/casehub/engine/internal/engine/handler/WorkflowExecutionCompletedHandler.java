@@ -72,11 +72,12 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
+import org.jboss.logging.Logger;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.jboss.logging.Logger;
 
 /**
  * Applies worker output to the case context, persists the completion event, and notifies listeners
@@ -85,965 +86,1047 @@ import org.jboss.logging.Logger;
 @ApplicationScoped
 public class WorkflowExecutionCompletedHandler {
 
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
-  @Inject EventBus eventBus;
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-  @Inject Event<WorkerDecisionEvent> workerDecisionEvents;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject CaseResumptionService caseResumptionService;
-  @Inject WorkerStatusListener workerStatusListener;
-  @Inject LedgerTraceIdProvider traceIdProvider;
-  @Inject ActionRiskClassifier actionRiskClassifier;
-  @Inject CaseInstanceRepository caseInstanceRepository;
-  @Inject SignalSettlementTracker settlementTracker;
-  @Inject QuiescenceTracker quiescenceTracker;
-  @Inject PersonalitySignalRecorder personalitySignalRecorder;
-  @Inject GoalOutcomeRecorder goalOutcomeRecorder;
-  @Inject BehavioralComplianceRecorder behavioralComplianceRecorder;
-  @Inject AgentGoalCompletionMarker agentGoalCompletionMarker;
-  @Inject AgentExperienceRecorder agentExperienceRecorder;
-  @Inject GoalRevisionEvaluator goalRevisionEvaluator;
-  @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
-  @Inject ContextOutputApplier contextOutputApplier;
-  @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
-  @Inject io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
-  @Inject io.casehub.api.spi.FailureClassifier failureClassifier;
-  @Inject ExpectationValidator expectationValidator;
-  @Inject io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService;
-  @Inject SelectionContextStore selectionContextStore;
+    private static final ObjectMapper                                                       OBJECT_MAPPER = new ObjectMapper();
+    private static final com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>> MAP_TYPE      =
+            new com.fasterxml.jackson.core.type.TypeReference<>() {};
 
-  @Inject
-  jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
-      outcomeRecorder;
+    private static final Logger                                                    LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
+    @Inject
+                         EventBus                                                  eventBus;
+    @Inject
+                         Event<CaseLifecycleEvent>                                 lifecycleEvents;
+    @Inject
+                         Event<WorkerDecisionEvent>                                workerDecisionEvents;
+    @Inject
+                         EventLogRepository                                        eventLogRepository;
+    @Inject
+                         CaseDefinitionRegistry                                    caseDefinitionRegistry;
+    @Inject
+                         CaseResumptionService                                     caseResumptionService;
+    @Inject
+                         WorkerStatusListener                                      workerStatusListener;
+    @Inject
+                         LedgerTraceIdProvider                                     traceIdProvider;
+    @Inject
+                         ActionRiskClassifier                                      actionRiskClassifier;
+    @Inject
+                         CaseInstanceRepository                                    caseInstanceRepository;
+    @Inject
+                         SignalSettlementTracker                                   settlementTracker;
+    @Inject
+                         QuiescenceTracker                                         quiescenceTracker;
+    @Inject
+                         PersonalitySignalRecorder                                 personalitySignalRecorder;
+    @Inject
+                         GoalOutcomeRecorder                                       goalOutcomeRecorder;
+    @Inject
+                         BehavioralComplianceRecorder                              behavioralComplianceRecorder;
+    @Inject
+                         AgentGoalCompletionMarker                                 agentGoalCompletionMarker;
+    @Inject
+                         AgentExperienceRecorder                                   agentExperienceRecorder;
+    @Inject
+                         GoalRevisionEvaluator                                     goalRevisionEvaluator;
+    @Inject
+                         WorkerGrantOrchestrator                                   workerGrantOrchestrator;
+    @Inject
+                         ContextOutputApplier                                      contextOutputApplier;
+    @Inject
+                         io.casehub.platform.api.routing.StrategyResolver          strategyResolver;
+    @Inject
+                         io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
+    @Inject
+                         io.casehub.api.spi.FailureClassifier                      failureClassifier;
+    @Inject
+                         ExpectationValidator                                      expectationValidator;
+    @Inject
+                         io.casehub.engine.internal.worker.FailureCritiqueService  failureCritiqueService;
+    @Inject
+                         SelectionContextStore                                     selectionContextStore;
 
-  @Inject
-  jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.ActionGateScheduler>
-      actionGateScheduler;
+    @Inject
+    jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
+            outcomeRecorder;
 
-  private static Long extractDurationMs(WorkflowExecutionCompleted event) {
-    if (event.protocolMetadata() == null) {
-      return null;
+    @Inject
+    jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.ActionGateScheduler>
+            actionGateScheduler;
+
+    @Inject
+    jakarta.enterprise.inject.Instance<io.casehub.api.spi.StepOutcomeObserver> stepOutcomeObserver;
+
+    private static Long extractDurationMs(WorkflowExecutionCompleted event) {
+        if (event.protocolMetadata() == null) {
+            return null;
+        }
+        Object duration = event.protocolMetadata().get("executionDurationMs");
+        if (duration instanceof Number n) {
+            return n.longValue();
+        }
+        return null;
     }
-    Object duration = event.protocolMetadata().get("executionDurationMs");
-    if (duration instanceof Number n) {
-      return n.longValue();
-    }
-    return null;
-  }
 
-  @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED)
-  @RunOnVirtualThread
-  void onWorkflowExecutionCompletedHandler(WorkflowExecutionCompleted event) {
-    try {
-      final String traceId = traceIdProvider.currentTraceId().orElse(null);
-      final CaseInstance caseInstance = event.caseInstance();
-      final Worker worker = event.worker();
-
-      if (event.workerCredentialToken() != null) {
+    @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED)
+    @RunOnVirtualThread
+    void onWorkflowExecutionCompletedHandler(WorkflowExecutionCompleted event) {
         try {
-          workerGrantOrchestrator.revokeForWorker(
-              event.workerCredentialToken(), worker.name(), caseInstance.getUuid(), true);
-        } catch (Exception ex) {
-          LOG.warnf(
-              ex,
-              "Worker credential revocation failed for case=%s worker=%s",
-              caseInstance.getUuid(),
-              worker.name());
-        }
-      }
+            final String       traceId      = traceIdProvider.currentTraceId().orElse(null);
+            final CaseInstance caseInstance = event.caseInstance();
+            final Worker       worker       = event.worker();
 
-      // Reasoning storage — outcome-independent, before the outcome fork.
-      if (event.reasoning() != null) {
-        String capTag = extractCapabilityTag(caseInstance, worker, event.bindingName());
-        agentExperienceRecorder.storeReasoning(
-            caseInstance,
-            worker.name(),
-            capTag,
-            event.outcome(),
-            event.reasoning(),
-            event.bindingName());
-      }
-
-      // Outcome fork: non-success outcomes route to the semantic failure path.
-      // Completed is treated like Success — it signals lifecycle scope completion.
-      if (!(event.outcome() instanceof WorkerOutcome.Success)
-          && !(event.outcome() instanceof WorkerOutcome.Completed)) {
-        if (event.signalId() != null) {
-          settlementTracker.recordCompletion(event.signalId());
-        }
-        quiescenceTracker.onWorkerCompleted(event.caseInstance().getUuid());
-        handleSemanticFailure(event, traceId);
-        return;
-      }
-
-      // Gate fork: if the worker declared a PlannedAction, classify before applying output.
-      final PlannedAction topLevelAction =
-          event.outcome() instanceof WorkerOutcome.Success s ? s.plannedAction() : null;
-      if (topLevelAction != null) {
-        if (event.signalId() != null) {
-          settlementTracker.recordCompletion(event.signalId());
-        }
-        quiescenceTracker.onWorkerCompleted(event.caseInstance().getUuid());
-        handleWithPlannedAction(event, topLevelAction, traceId);
-        return;
-      }
-
-      final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
-      final String bindingName = event.bindingName();
-      final Instant now = Instant.now();
-
-      final Map<String, Object> effectiveOutput;
-      if (worker.function() instanceof io.casehub.worker.api.ExchangeAwareFunction<?, ?>) {
-        effectiveOutput = applyExchangeProjection(caseInstance, rawOutput, bindingName);
-      } else {
-        effectiveOutput = rawOutput;
-      }
-
-      JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
-      JsonNode diff = contextOutputApplier.apply(caseInstance, effectiveOutput, bindingName);
-      if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
-        EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), "COMPLETED");
-      }
-      recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
-      agentGoalCompletionMarker.markGoalsCompleted(caseInstance, worker.name());
-      goalOutcomeRecorder.record(
-          caseInstance,
-          worker.name(),
-          extractCapabilityTag(caseInstance, worker, bindingName),
-          event.outcome());
-      goalRevisionEvaluator.record(
-          caseInstance,
-          worker.name(),
-          extractCapabilityTag(caseInstance, worker, bindingName),
-          event.outcome());
-      fireOutcomeRecorder(
-          caseInstance,
-          worker,
-          bindingName,
-          io.casehub.api.spi.routing.RoutingOutcome.SUCCESS,
-          contextBefore);
-      personalitySignalRecorder.record(
-          caseInstance,
-          worker.name(),
-          extractCapabilityTag(caseInstance, worker, bindingName),
-          event.outcome());
-      agentExperienceRecorder.record(
-          caseInstance,
-          worker.name(),
-          extractCapabilityTag(caseInstance, worker, bindingName),
-          event.outcome(),
-          bindingName);
-      behavioralComplianceRecorder.record(
-          caseInstance,
-          worker.name(),
-          extractCapabilityTag(caseInstance, worker, bindingName),
-          event.outcome(),
-          extractDurationMs(event));
-
-      // Settlement recorded AFTER output application
-      if (event.signalId() != null) {
-        settlementTracker.recordCompletion(event.signalId());
-      }
-
-      EventLog eventLog =
-          buildEventLog(
-              caseInstance,
-              worker,
-              rawOutput,
-              event.idempotency(),
-              now,
-              diff,
-              event.protocolMetadata(),
-              event.reasoning());
-
-      // Expectation validation — synchronous, before CONTEXT_CHANGED
-      final CaseDefinition definition =
-          caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-      ExpectationValidationResult validationResult = null;
-      if (definition != null) {
-        validationResult =
-            expectationValidator.validate(caseInstance, definition, bindingName, null);
-      }
-      if (validationResult != null) {
-        enrichMetadataWithValidation(eventLog, validationResult);
-      }
-
-      eventLogRepository.append(eventLog, caseInstance.tenancyId);
-
-      caseResumptionService.resumeIfWaiting(
-          caseInstance,
-          event.idempotency(),
-          worker.name(),
-          rawOutput,
-          CaseHubEventType.WORK_COMPLETED);
-
-      workerStatusListener.onWorkerCompleted(
-          worker.name(),
-          WorkResult.completed(
-              event.idempotency(), rawOutput, worker.name(), caseInstance.getUuid()));
-
-      // Fire CDI audit events as true fire-and-forget
-      lifecycleEvents
-          .fireAsync(
-              CaseLifecycleEvent.of(
-                  caseInstance,
-                  "ExecuteWorker",
-                  "WorkerExecutionCompleted",
-                  "system",
-                  "SYSTEM",
-                  traceId))
-          .whenComplete(
-              (v, t) -> {
-                if (t != null) {
-                  LOG.warnf(
-                      t,
-                      "CaseLifecycleEvent observer failed for caseId=%s event=WorkerExecutionCompleted",
-                      caseInstance.getUuid());
+            if (event.workerCredentialToken() != null) {
+                try {
+                    workerGrantOrchestrator.revokeForWorker(
+                            event.workerCredentialToken(), worker.name(), caseInstance.getUuid(), true);
+                } catch (Exception ex) {
+                    LOG.warnf(
+                            ex,
+                            "Worker credential revocation failed for case=%s worker=%s",
+                            caseInstance.getUuid(),
+                            worker.name());
                 }
-              });
-      workerDecisionEvents
-          .fireAsync(
-              new WorkerDecisionEvent(
-                  caseInstance.getUuid(),
-                  caseInstance.tenancyId,
-                  worker.name(),
-                  extractCapabilityTag(caseInstance, worker, bindingName),
-                  traceId,
-                  selectionContextStore.remove(caseInstance.getUuid(), worker.name()),
-                  event.reasoning()))
-          .whenComplete(
-              (v, t) -> {
-                if (t != null) {
-                  LOG.warnf(
-                      t,
-                      "WorkerDecisionEvent observer failed for caseId=%s worker=%s",
-                      caseInstance.getUuid(),
-                      worker.name());
+            }
+
+            // Reasoning storage — outcome-independent, before the outcome fork.
+            if (event.reasoning() != null) {
+                String capTag = extractCapabilityTag(caseInstance, worker, event.bindingName());
+                agentExperienceRecorder.storeReasoning(
+                        caseInstance,
+                        worker.name(),
+                        capTag,
+                        event.outcome(),
+                        event.reasoning(),
+                        event.bindingName());
+            }
+
+            // Outcome fork: non-success outcomes route to the semantic failure path.
+            // Completed is treated like Success — it signals lifecycle scope completion.
+            if (!(event.outcome() instanceof WorkerOutcome.Success)
+                && !(event.outcome() instanceof WorkerOutcome.Completed)) {
+                if (event.signalId() != null) {
+                    settlementTracker.recordCompletion(event.signalId());
                 }
-              });
+                quiescenceTracker.onWorkerCompleted(event.caseInstance().getUuid());
+                handleSemanticFailure(event, traceId);
+                return;
+            }
 
-      // Fire violation event asynchronously if threshold exceeded
-      if (validationResult != null
-          && definition != null
-          && definition.getMonitoringConfig() != null
-          && validationResult.divergenceRatio()
-              > definition.getMonitoringConfig().perCompletionThreshold()) {
-        eventBus.publish(
-            EventBusAddresses.EXPECTATION_VIOLATED,
-            new io.casehub.engine.common.internal.event.ExpectationViolationEvent(
-                caseInstance.getUuid(),
-                caseInstance.tenancyId,
-                validationResult.compoundId(),
-                bindingName,
-                worker.name(),
-                validationResult.divergenceRatio(),
-                validationResult.violations()));
-      }
+            // Gate fork: if the worker declared a PlannedAction, classify before applying output.
+            final PlannedAction topLevelAction =
+                    event.outcome() instanceof WorkerOutcome.Success s ? s.plannedAction() : null;
+            if (topLevelAction != null) {
+                if (event.signalId() != null) {
+                    settlementTracker.recordCompletion(event.signalId());
+                }
+                quiescenceTracker.onWorkerCompleted(event.caseInstance().getUuid());
+                handleWithPlannedAction(event, topLevelAction, traceId);
+                return;
+            }
 
-      quiescenceTracker.onContextChangePublished(caseInstance.getUuid());
-      quiescenceTracker.onWorkerCompleted(caseInstance.getUuid());
-      eventBus.publish(
-          EventBusAddresses.CONTEXT_CHANGED,
-          new CaseContextChangedEvent(
-              caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
-    } catch (Exception e) {
-      LOG.errorf(
-          e,
-          "Failed to handle WorkflowExecutionCompleted for caseId=%s",
-          event.caseInstance().getUuid());
-    }
-  }
+            final Map<String, Object> rawOutput   = event.output() == null ? Map.of() : event.output();
+            final String              bindingName = event.bindingName();
+            final Instant             now         = Instant.now();
 
-  private void handleWithPlannedAction(
-      final WorkflowExecutionCompleted event,
-      final PlannedAction plannedAction,
-      final String traceId) {
-    final CaseInstance caseInstance = event.caseInstance();
-    final Worker worker = event.worker();
-    final String bindingName = event.bindingName();
+            final Map<String, Object> effectiveOutput;
+            if (worker.function() instanceof io.casehub.worker.api.ExchangeAwareFunction<?, ?>) {
+                effectiveOutput = applyExchangeProjection(caseInstance, rawOutput, bindingName);
+            } else {
+                effectiveOutput = rawOutput;
+            }
 
-    // v1 concurrent-gate constraint: only one pending gate per case.
-    if (caseInstance.getPendingActionGate() != null) {
-      LOG.errorf(
-          "Concurrent gate not supported in v1: caseId=%s worker=%s already has a pending gate"
-              + " — proceeding as Autonomous for second action",
-          caseInstance.getUuid(), worker.name());
-      final WorkflowExecutionCompleted withoutAction =
-          WorkflowExecutionCompleted.approved(
-              caseInstance, worker, event.idempotency(), event.output(), bindingName);
-      onWorkflowExecutionCompletedHandler(withoutAction);
-      return;
-    }
+            Map<String, Object> workingLayerBefore =
+                    OBJECT_MAPPER.convertValue(
+                            caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(), MAP_TYPE);
+            JsonNode contextBefore = caseInstance.getCaseContext().snapshot().asJsonNode();
+            JsonNode diff          = contextOutputApplier.apply(caseInstance, effectiveOutput, bindingName);
+            if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
+                EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), "COMPLETED");
+            }
+            recordSuccessOutcome(caseInstance, worker.name(), bindingName, now);
+            agentGoalCompletionMarker.markGoalsCompleted(caseInstance, worker.name());
+            goalOutcomeRecorder.record(
+                    caseInstance,
+                    worker.name(),
+                    extractCapabilityTag(caseInstance, worker, bindingName),
+                    event.outcome());
+            goalRevisionEvaluator.record(
+                    caseInstance,
+                    worker.name(),
+                    extractCapabilityTag(caseInstance, worker, bindingName),
+                    event.outcome());
+            fireOutcomeRecorder(
+                    caseInstance,
+                    worker,
+                    bindingName,
+                    io.casehub.api.spi.routing.RoutingOutcome.SUCCESS,
+                    contextBefore);
+            fireStepOutcomeObserver(
+                    caseInstance,
+                    worker,
+                    bindingName,
+                    io.casehub.api.spi.routing.RoutingOutcome.SUCCESS,
+                    workingLayerBefore,
+                    extractDurationMs(event));
+            personalitySignalRecorder.record(
+                    caseInstance,
+                    worker.name(),
+                    extractCapabilityTag(caseInstance, worker, bindingName),
+                    event.outcome());
+            agentExperienceRecorder.record(
+                    caseInstance,
+                    worker.name(),
+                    extractCapabilityTag(caseInstance, worker, bindingName),
+                    event.outcome(),
+                    bindingName);
+            behavioralComplianceRecorder.record(
+                    caseInstance,
+                    worker.name(),
+                    extractCapabilityTag(caseInstance, worker, bindingName),
+                    event.outcome(),
+                    extractDurationMs(event));
 
-    final CaseDefinition definition =
-        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    final io.casehub.api.spi.ClassificationContext classificationContext =
-        new io.casehub.api.spi.ClassificationContext(
-            worker.name(),
-            caseInstance.getUuid(),
-            caseInstance.tenancyId,
-            definition != null ? definition.getName() : null,
-            extractCapabilityTag(caseInstance, worker, bindingName),
-            bindingName);
+            // Settlement recorded AFTER output application
+            if (event.signalId() != null) {
+                settlementTracker.recordCompletion(event.signalId());
+            }
 
-    RiskDecision decision;
-    try {
-      decision = actionRiskClassifier.classify(plannedAction, classificationContext);
-    } catch (Exception t) {
-      LOG.errorf(
-          t,
-          "ActionRiskClassifier threw for action type='%s' caseId=%s — applying fail-safe GateRequired",
-          plannedAction.actionType(),
-          caseInstance.getUuid());
-      decision =
-          new RiskDecision.GateRequired(
-              "Classifier error — manual review required before proceeding",
-              true,
-              null,
-              null,
-              null,
-              null,
-              null);
-    }
+            EventLog eventLog =
+                    buildEventLog(
+                            caseInstance,
+                            worker,
+                            rawOutput,
+                            event.idempotency(),
+                            now,
+                            diff,
+                            event.protocolMetadata(),
+                            event.reasoning());
 
-    if (decision instanceof RiskDecision.Autonomous) {
-      final WorkflowExecutionCompleted withoutAction =
-          WorkflowExecutionCompleted.approved(
-              caseInstance, worker, event.idempotency(), event.output(), bindingName);
-      onWorkflowExecutionCompletedHandler(withoutAction);
-    } else {
-      handleGate(event, plannedAction, (RiskDecision.GateRequired) decision, traceId);
-    }
-  }
+            // Expectation validation — synchronous, before CONTEXT_CHANGED
+            final CaseDefinition definition =
+                    caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+            ExpectationValidationResult validationResult = null;
+            if (definition != null) {
+                validationResult =
+                        expectationValidator.validate(caseInstance, definition, bindingName, null);
+            }
+            if (validationResult != null) {
+                enrichMetadataWithValidation(eventLog, validationResult);
+            }
 
-  private void handleSemanticFailure(final WorkflowExecutionCompleted event, final String traceId) {
-    final CaseInstance caseInstance = event.caseInstance();
-    final Worker worker = event.worker();
-    final String bindingName = event.bindingName();
-    final Instant now = Instant.now();
+            eventLogRepository.append(eventLog, caseInstance.tenancyId);
 
-    final Binding binding = findBindingByName(caseInstance, bindingName);
-    final OutcomePolicy policy =
-        binding != null && binding.getOutcomePolicy() != null
-            ? binding.getOutcomePolicy()
-            : new OutcomePolicy();
+            caseResumptionService.resumeIfWaiting(
+                    caseInstance,
+                    event.idempotency(),
+                    worker.name(),
+                    rawOutput,
+                    CaseHubEventType.WORK_COMPLETED);
 
-    final String outcomeStatus;
-    final String reason;
-    final OutcomeAction action;
-    final CaseHubEventType eventType;
+            workerStatusListener.onWorkerCompleted(
+                    worker.name(),
+                    WorkResult.completed(
+                            event.idempotency(), rawOutput, worker.name(), caseInstance.getUuid()));
 
-    switch (event.outcome()) {
-      case WorkerOutcome.Declined d -> {
-        outcomeStatus = "DECLINED";
-        reason = d.reason();
-        action = policy.onDecline();
-        eventType = CaseHubEventType.WORKER_OUTCOME_DECLINED;
-      }
-      case WorkerOutcome.Failed f -> {
-        outcomeStatus = "FAILED";
-        reason = f.reason();
-        action = policy.onFailure();
-        eventType = CaseHubEventType.WORKER_OUTCOME_FAILED;
-      }
-      case WorkerOutcome.Expired e -> {
-        outcomeStatus = "EXPIRED";
-        reason = e.reason();
-        action = policy.onExpired();
-        eventType = CaseHubEventType.WORKER_OUTCOME_EXPIRED;
-      }
-      case WorkerOutcome.Success s ->
-          throw new IllegalStateException("Success should not reach handleSemanticFailure");
-      case WorkerOutcome.Completed c ->
-          throw new IllegalStateException("Completed should not reach handleSemanticFailure");
-    }
+            // Fire CDI audit events as true fire-and-forget
+            lifecycleEvents
+                    .fireAsync(
+                            CaseLifecycleEvent.of(
+                                    caseInstance,
+                                    "ExecuteWorker",
+                                    "WorkerExecutionCompleted",
+                                    "system",
+                                    "SYSTEM",
+                                    traceId))
+                    .whenComplete(
+                            (v, t) -> {
+                                if (t != null) {
+                                    LOG.warnf(
+                                            t,
+                                            "CaseLifecycleEvent observer failed for caseId=%s event=WorkerExecutionCompleted",
+                                            caseInstance.getUuid());
+                                }
+                            });
+            workerDecisionEvents
+                    .fireAsync(
+                            new WorkerDecisionEvent(
+                                    caseInstance.getUuid(),
+                                    caseInstance.tenancyId,
+                                    worker.name(),
+                                    extractCapabilityTag(caseInstance, worker, bindingName),
+                                    traceId,
+                                    selectionContextStore.remove(caseInstance.getUuid(), worker.name()),
+                                    event.reasoning()))
+                    .whenComplete(
+                            (v, t) -> {
+                                if (t != null) {
+                                    LOG.warnf(
+                                            t,
+                                            "WorkerDecisionEvent observer failed for caseId=%s worker=%s",
+                                            caseInstance.getUuid(),
+                                            worker.name());
+                                }
+                            });
 
-    fireOutcomeRecorder(
-        caseInstance,
-        worker,
-        bindingName,
-        io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
-        caseInstance.getCaseContext().snapshot().asJsonNode());
-    String capabilityTag = extractCapabilityTag(caseInstance, worker, bindingName);
-    personalitySignalRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
-    goalOutcomeRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
-    goalRevisionEvaluator.record(caseInstance, worker.name(), capabilityTag, event.outcome());
-    agentExperienceRecorder.record(
-        caseInstance, worker.name(), capabilityTag, event.outcome(), bindingName);
-    behavioralComplianceRecorder.record(
-        caseInstance, worker.name(), capabilityTag, event.outcome(), extractDurationMs(event));
+            // Fire violation event asynchronously if threshold exceeded
+            if (validationResult != null
+                && definition != null
+                && definition.getMonitoringConfig() != null
+                && validationResult.divergenceRatio()
+                   > definition.getMonitoringConfig().perCompletionThreshold()) {
+                eventBus.publish(
+                        EventBusAddresses.EXPECTATION_VIOLATED,
+                        new io.casehub.engine.common.internal.event.ExpectationViolationEvent(
+                                caseInstance.getUuid(),
+                                caseInstance.tenancyId,
+                                validationResult.compoundId(),
+                                bindingName,
+                                worker.name(),
+                                validationResult.divergenceRatio(),
+                                validationResult.violations()));
+            }
 
-    @SuppressWarnings("unchecked")
-    final java.util.Map<String, Object> existingOutcomes =
-        (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
-    final ObjectNode outcomesRoot =
-        existingOutcomes != null
-            ? OBJECT_MAPPER.valueToTree(existingOutcomes).deepCopy()
-            : OBJECT_MAPPER.createObjectNode();
-    ObjectNode bindingOutcome =
-        outcomesRoot.has(bindingName)
-            ? (ObjectNode) outcomesRoot.get(bindingName)
-            : OBJECT_MAPPER.createObjectNode();
-    outcomesRoot.set(bindingName, bindingOutcome);
-
-    final int attempts =
-        bindingOutcome.has("attempts") ? bindingOutcome.get("attempts").asInt() + 1 : 1;
-    final boolean exhausted =
-        action == OutcomeAction.REROUTE && attempts >= policy.maxRerouteAttempts();
-
-    final io.casehub.api.spi.FailureClassificationContext classificationCtx =
-        new io.casehub.api.spi.FailureClassificationContext(
-            worker.name(),
-            caseInstance.getUuid(),
-            caseInstance.tenancyId,
-            bindingName,
-            null,
-            attempts,
-            policy.maxRerouteAttempts());
-    final io.casehub.api.model.FailureCategory category =
-        failureClassifier.classify(event.outcome(), classificationCtx);
-
-    final CaseDefinition failureDef =
-        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    JsonNode workingLayer =
-        caseInstance.getCaseContext() != null
-            ? caseInstance
-                .getCaseContext()
-                .layer(io.casehub.api.context.ContextLayer.WORKING)
-                .asJsonNode()
-            : null;
-    String critique =
-        failureCritiqueService.generateCritique(
-            io.casehub.api.model.FailureDiagnosis.of(category, worker.name(), outcomeStatus, now),
-            workingLayer,
-            failureDef);
-
-    bindingOutcome.put("status", exhausted ? "REROUTES_EXHAUSTED" : outcomeStatus);
-    bindingOutcome.put("attempts", attempts);
-
-    ArrayNode history =
-        bindingOutcome.has("history")
-            ? (ArrayNode) bindingOutcome.get("history")
-            : OBJECT_MAPPER.createArrayNode();
-    ObjectNode historyEntry =
-        OBJECT_MAPPER
-            .createObjectNode()
-            .put("agent", worker.name())
-            .put("status", outcomeStatus)
-            .put("reason", reason)
-            .put("timestamp", now.toString())
-            .put("category", category.categoryName());
-    if (category instanceof io.casehub.api.model.FailureCategory.Knowledge k
-        && k.missingContext() != null) {
-      historyEntry.put("missingContext", k.missingContext());
-    }
-    if (critique != null) {
-      historyEntry.put("critique", critique);
-    }
-    if (event.output() != null && !event.output().isEmpty()) {
-      historyEntry.set("partialOutput", OBJECT_MAPPER.valueToTree(event.output()));
-    }
-    history.add(historyEntry);
-    bindingOutcome.set("history", history);
-
-    ObjectNode latestDiag = OBJECT_MAPPER.createObjectNode();
-    latestDiag.put("category", category.categoryName());
-    latestDiag.put("reason", category.reason());
-    latestDiag.put("workerId", worker.name());
-    latestDiag.put("outcomeStatus", outcomeStatus);
-    latestDiag.put("timestamp", now.toString());
-    if (category instanceof io.casehub.api.model.FailureCategory.Knowledge k2
-        && k2.missingContext() != null) {
-      latestDiag.put("missingContext", k2.missingContext());
-    }
-    if (critique != null) {
-      latestDiag.put("critique", critique);
-    }
-    bindingOutcome.set("latestDiagnosis", latestDiag);
-    if (critique != null) {
-      bindingOutcome.put("critique", critique);
+            quiescenceTracker.onContextChangePublished(caseInstance.getUuid());
+            quiescenceTracker.onWorkerCompleted(caseInstance.getUuid());
+            eventBus.publish(
+                    EventBusAddresses.CONTEXT_CHANGED,
+                    new CaseContextChangedEvent(
+                            caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
+        } catch (Exception e) {
+            LOG.errorf(
+                    e,
+                    "Failed to handle WorkflowExecutionCompleted for caseId=%s",
+                    event.caseInstance().getUuid());
+        }
     }
 
-    ArrayNode excluded =
-        bindingOutcome.has("excludedAgents")
-            ? (ArrayNode) bindingOutcome.get("excludedAgents")
-            : OBJECT_MAPPER.createArrayNode();
-    if (category instanceof io.casehub.api.model.FailureCategory.Transient) {
-      excluded.add(worker.name());
-      bindingOutcome.set("excludedAgents", excluded);
-      ArrayNode transientExcluded =
-          bindingOutcome.has("transientExcluded")
-              ? (ArrayNode) bindingOutcome.get("transientExcluded")
-              : OBJECT_MAPPER.createArrayNode();
-      transientExcluded.add(worker.name());
-      bindingOutcome.set("transientExcluded", transientExcluded);
-    } else {
-      excluded.add(worker.name());
-      bindingOutcome.set("excludedAgents", excluded);
-    }
+    private void handleWithPlannedAction(
+            final WorkflowExecutionCompleted event,
+            final PlannedAction plannedAction,
+            final String traceId) {
+        final CaseInstance caseInstance = event.caseInstance();
+        final Worker       worker       = event.worker();
+        final String       bindingName  = event.bindingName();
 
-    @SuppressWarnings("unchecked")
-    final java.util.Map<String, Object> outcomesMap =
-        OBJECT_MAPPER.convertValue(outcomesRoot, java.util.Map.class);
-    caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
+        // v1 concurrent-gate constraint: only one pending gate per case.
+        if (caseInstance.getPendingActionGate() != null) {
+            LOG.errorf(
+                    "Concurrent gate not supported in v1: caseId=%s worker=%s already has a pending gate"
+                    + " — proceeding as Autonomous for second action",
+                    caseInstance.getUuid(), worker.name());
+            final WorkflowExecutionCompleted withoutAction =
+                    WorkflowExecutionCompleted.approved(
+                            caseInstance, worker, event.idempotency(), event.output(), bindingName);
+            onWorkflowExecutionCompletedHandler(withoutAction);
+            return;
+        }
 
-    if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
-      EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), outcomeStatus);
-    }
+        final CaseDefinition definition =
+                caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+        final io.casehub.api.spi.ClassificationContext classificationContext =
+                new io.casehub.api.spi.ClassificationContext(
+                        worker.name(),
+                        caseInstance.getUuid(),
+                        caseInstance.tenancyId,
+                        definition != null ? definition.getName() : null,
+                        extractCapabilityTag(caseInstance, worker, bindingName),
+                        bindingName);
 
-    final EventLog eventLog = new EventLog();
-    eventLog.setCaseId(caseInstance.getUuid());
-    eventLog.setWorkerId(worker.name());
-    eventLog.setStreamType(EventStreamType.CASE);
-    eventLog.setTimestamp(now);
-    eventLog.setEventType(eventType);
-    ObjectNode failureMetadata =
-        OBJECT_MAPPER
-            .createObjectNode()
-            .put("bindingName", bindingName)
-            .put("reason", reason)
-            .put("attempts", attempts)
-            .put(
-                "disposition",
-                action == OutcomeAction.FAULT ? "FAULT" : exhausted ? "EXHAUSTED" : "REROUTE")
-            .put("failureCategory", category.categoryName());
-    if (event.reasoning() != null) {
-      failureMetadata.put("reasoning", event.reasoning());
-    }
-    eventLog.setMetadata(failureMetadata);
-
-    final OutcomeDisposition disposition =
-        action == OutcomeAction.FAULT
-            ? OutcomeDisposition.FAULT
-            : exhausted ? OutcomeDisposition.EXHAUSTED : OutcomeDisposition.REROUTE;
-
-    final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
-
-    // Expectation validation on failure path — failed workers produce no effects (ratio 1.0)
-    final CaseDefinition failureDefinition =
-        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    if (failureDefinition != null) {
-      ExpectationValidationResult failureValidation =
-          expectationValidator.validate(caseInstance, failureDefinition, bindingName, null);
-      if (failureValidation != null) {
-        enrichMetadataWithValidation(eventLog, failureValidation);
-      }
-    }
-
-    eventLogRepository.append(eventLog, caseInstance.tenancyId);
-
-    if (disposition == OutcomeDisposition.EXHAUSTED) {
-      var recoveryCtx =
-          new io.casehub.engine.common.spi.recovery.RecoveryContext(
-              caseInstance.getUuid(),
-              caseInstance.tenancyId,
-              bindingName,
-              worker.name(),
-              capabilityName,
-              event.outcome(),
-              attempts,
-              null);
-      if (recoveryCoordinator.handleFailure(recoveryCtx)) {
-        workerStatusListener.onWorkerCompleted(
-            worker.name(),
-            WorkResult.failed(event.idempotency(), worker.name(), caseInstance.getUuid()));
-        return;
-      }
-    }
-
-    final WorkResult workResult =
-        switch (event.outcome()) {
-          case WorkerOutcome.Declined d ->
-              WorkResult.declined(event.idempotency(), worker.name(), caseInstance.getUuid());
-          case WorkerOutcome.Failed f ->
-              WorkResult.failed(event.idempotency(), worker.name(), caseInstance.getUuid());
-          case WorkerOutcome.Expired e ->
-              WorkResult.expired(event.idempotency(), worker.name(), caseInstance.getUuid());
-          case WorkerOutcome.Success s ->
-              throw new IllegalStateException("Success should not reach handleSemanticFailure");
-          case WorkerOutcome.Completed c ->
-              throw new IllegalStateException("Completed should not reach handleSemanticFailure");
-        };
-    workerStatusListener.onWorkerCompleted(worker.name(), workResult);
-
-    lifecycleEvents
-        .fireAsync(
-            CaseLifecycleEvent.of(
-                caseInstance,
-                "WorkerOutcome",
-                outcomeStatus + "Outcome",
-                worker.name(),
-                "WORKER",
-                traceId))
-        .whenComplete(
-            (v, t) -> {
-              if (t != null) {
-                LOG.warnf(
+        RiskDecision decision;
+        try {
+            decision = actionRiskClassifier.classify(plannedAction, classificationContext);
+        } catch (Exception t) {
+            LOG.errorf(
                     t,
-                    "CaseLifecycleEvent observer failed for caseId=%s event=%sOutcome",
-                    caseInstance.getUuid(),
-                    outcomeStatus);
-              }
-            });
-
-    if (disposition == OutcomeDisposition.FAULT) {
-      eventBus.publish(
-          EventBusAddresses.CASE_STATUS_CHANGED,
-          new CaseStatusChanged(
-              caseInstance, caseInstance.getState().name(), CaseStatus.FAULTED.name()));
-    }
-    eventBus.publish(
-        EventBusAddresses.WORKER_OUTCOME_RESOLVED,
-        new WorkerOutcomeResolvedEvent(
-            caseInstance, worker.name(), bindingName, capabilityName, disposition, category));
-  }
-
-  private void handleGate(
-      final WorkflowExecutionCompleted event,
-      final PlannedAction plannedAction,
-      final RiskDecision.GateRequired gate,
-      final String traceId) {
-    final CaseInstance caseInstance = event.caseInstance();
-    final Worker worker = event.worker();
-    final Map<String, Object> rawOutput = event.output() == null ? Map.of() : event.output();
-    final Instant now = Instant.now();
-    final String bindingName = event.bindingName();
-    final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
-
-    if (!actionGateScheduler.isResolvable()) {
-      LOG.warnf(
-          "No ActionGateScheduler on classpath — skipping gate for caseId=%s",
-          caseInstance.getUuid());
-      return;
-    }
-
-    Set<String> resolvedGroups;
-    if (gate.candidateGroups() != null) {
-      JsonNode contextNode = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
-      try {
-        resolvedGroups = gate.candidateGroups().evaluate(new CandidateSetContext(contextNode));
-      } catch (Exception t) {
-        LOG.warnf(
-            t,
-            "CandidateSetStrategy evaluation failed for caseId=%s — proceeding with empty candidate groups",
-            caseInstance.getUuid());
-        resolvedGroups = Set.of();
-      }
-    } else {
-      resolvedGroups = Set.of();
-    }
-
-    final EventLog gateEventLog =
-        buildGateEventLog(
-            caseInstance,
-            worker,
-            rawOutput,
-            plannedAction,
-            gate,
-            event.idempotency(),
-            now,
-            event.reasoning());
-
-    eventLogRepository.append(gateEventLog, caseInstance.tenancyId);
-
-    caseInstance.setPendingActionGate(
-        new PendingActionGate(
-            gateEventLog.id,
-            worker.name(),
-            event.idempotency(),
-            rawOutput,
-            plannedAction,
-            bindingName,
-            capabilityName,
-            gate.resolutionType()));
-    caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
-
-    actionGateScheduler
-        .get()
-        .schedule(
-            new ActionGateScheduleRequest(
-                caseInstance.getUuid(),
-                caseInstance.tenancyId,
-                gateEventLog.id,
-                plannedAction,
-                gate,
-                resolvedGroups,
-                gate.resolutionType() != null ? gate.resolutionType().getName() : null));
-
-    lifecycleEvents
-        .fireAsync(
-            CaseLifecycleEvent.of(
-                caseInstance, "ActionGate", "ActionGatePending", worker.name(), "WORKER", traceId))
-        .whenComplete(
-            (v, t) -> {
-              if (t != null) {
-                LOG.warnf(
-                    t,
-                    "CaseLifecycleEvent observer failed for caseId=%s event=ActionGatePending",
+                    "ActionRiskClassifier threw for action type='%s' caseId=%s — applying fail-safe GateRequired",
+                    plannedAction.actionType(),
                     caseInstance.getUuid());
-              }
-            });
-  }
+            decision =
+                    new RiskDecision.GateRequired(
+                            "Classifier error — manual review required before proceeding",
+                            true,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null);
+        }
 
-  private EventLog buildGateEventLog(
-      final CaseInstance caseInstance,
-      final Worker worker,
-      final Map<String, Object> rawOutput,
-      final PlannedAction plannedAction,
-      final RiskDecision.GateRequired gate,
-      final String idempotency,
-      final Instant timestamp,
-      final String reasoning) {
-    final EventLog eventLog = new EventLog();
-    eventLog.setCaseId(caseInstance.getUuid());
-    eventLog.setWorkerId(worker.name());
-    eventLog.setStreamType(EventStreamType.CASE);
-    eventLog.setTimestamp(timestamp);
-    eventLog.setEventType(CaseHubEventType.ACTION_GATE_PENDING);
-    final ObjectNode payload = OBJECT_MAPPER.createObjectNode();
-    payload.put("workerId", worker.name());
-    payload.put("idempotency", idempotency);
-    payload.set("deferredOutput", OBJECT_MAPPER.valueToTree(rawOutput));
-    final ObjectNode actionNode = OBJECT_MAPPER.createObjectNode();
-    actionNode.put("description", plannedAction.description());
-    actionNode.put("actionType", plannedAction.actionType());
-    actionNode.set("context", OBJECT_MAPPER.valueToTree(plannedAction.parameters()));
-    payload.set("plannedAction", actionNode);
-    final ObjectNode gateNode = OBJECT_MAPPER.createObjectNode();
-    gateNode.put("reason", gate.reason());
-    gateNode.put("reversible", gate.reversible());
-    if (gate.expiresIn() != null) {
-      gateNode.put("expiresInSeconds", gate.expiresIn().getSeconds());
-    }
-    payload.set("gateRequired", gateNode);
-    eventLog.setPayload(payload);
-    ObjectNode gateMetadata = OBJECT_MAPPER.createObjectNode().put("inputDataHash", idempotency);
-    if (reasoning != null) {
-      gateMetadata.put("reasoning", reasoning);
-    }
-    eventLog.setMetadata(gateMetadata);
-    return eventLog;
-  }
-
-  private EventLog buildEventLog(
-      CaseInstance caseInstance,
-      Worker worker,
-      Map<String, Object> output,
-      String idempotency,
-      Instant timestamp,
-      JsonNode contextDiff,
-      Map<String, Object> protocolMetadata,
-      String reasoning) {
-    EventLog eventLog = new EventLog();
-    eventLog.setCaseId(caseInstance.getUuid());
-    eventLog.setWorkerId(worker.name());
-    eventLog.setStreamType(EventStreamType.CASE);
-    eventLog.setTimestamp(timestamp);
-    eventLog.setEventType(CaseHubEventType.WORKER_EXECUTION_COMPLETED);
-    eventLog.setPayload(OBJECT_MAPPER.valueToTree(output == null ? Map.of() : output));
-    eventLog.setMetadata(buildMetadata(idempotency, contextDiff, protocolMetadata, reasoning));
-    return eventLog;
-  }
-
-  private JsonNode buildMetadata(
-      String idempotency,
-      JsonNode contextDiff,
-      Map<String, Object> protocolMetadata,
-      String reasoning) {
-    ObjectNode metadata = OBJECT_MAPPER.createObjectNode();
-    metadata.put("inputDataHash", idempotency);
-    if (contextDiff != null) {
-      metadata.set("contextChanges", contextDiff);
-      var keys = OBJECT_MAPPER.createArrayNode();
-      contextDiff.fieldNames().forEachRemaining(keys::add);
-      if (!keys.isEmpty()) {
-        metadata.set("producedKeys", keys);
-      }
-    }
-    if (protocolMetadata != null && !protocolMetadata.isEmpty()) {
-      protocolMetadata.forEach((key, value) -> metadata.set(key, OBJECT_MAPPER.valueToTree(value)));
-    }
-    if (reasoning != null) {
-      metadata.put("reasoning", reasoning);
-    }
-    return metadata;
-  }
-
-  private void enrichMetadataWithValidation(EventLog eventLog, ExpectationValidationResult result) {
-    if (eventLog.getMetadata() instanceof com.fasterxml.jackson.databind.node.ObjectNode metadata) {
-      com.fasterxml.jackson.databind.node.ObjectNode validation = OBJECT_MAPPER.createObjectNode();
-      if (result.compoundId() != null) {
-        validation.put("compoundId", result.compoundId());
-      }
-      validation.put("totalExpectedEffects", result.expected().effects().size());
-      validation.put("violatedEffectCount", result.violations().size());
-      validation.put("divergenceRatio", result.divergenceRatio());
-      validation.put("effectSource", result.expected().source().name());
-      validation.put("adaptationGeneration", 0);
-      com.fasterxml.jackson.databind.node.ArrayNode violationsArray =
-          OBJECT_MAPPER.createArrayNode();
-      for (io.casehub.engine.plan.monitoring.ViolationRecord v : result.violations()) {
-        com.fasterxml.jackson.databind.node.ObjectNode vNode = OBJECT_MAPPER.createObjectNode();
-        vNode.put("key", v.effectKey());
-        vNode.put("expected", v.expectedValue());
-        vNode.put("actual", v.actualCondition().name());
-        violationsArray.add(vNode);
-      }
-      validation.set("violations", violationsArray);
-      metadata.set("expectationValidation", validation);
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private Map<String, Object> applyExchangeProjection(
-      CaseInstance caseInstance, Map<String, Object> rawOutput, String bindingName) {
-    Object body = rawOutput.get("body");
-    Map<String, Object> headers =
-        rawOutput.containsKey("headers")
-            ? (Map<String, Object>) rawOutput.get("headers")
-            : Map.of();
-
-    io.casehub.worker.api.Exchange<?> exchange =
-        new io.casehub.worker.api.Exchange<>(body, headers, Map.of());
-
-    if (!headers.isEmpty()) {
-      caseInstance.mergeExchangeHeaders(headers);
+        if (decision instanceof RiskDecision.Autonomous) {
+            final WorkflowExecutionCompleted withoutAction =
+                    WorkflowExecutionCompleted.approved(
+                            caseInstance, worker, event.idempotency(), event.output(), bindingName);
+            onWorkflowExecutionCompletedHandler(withoutAction);
+        } else {
+            handleGate(event, plannedAction, (RiskDecision.GateRequired) decision, traceId);
+        }
     }
 
-    Binding binding = findBindingByName(caseInstance, bindingName);
-    String strategyId = binding != null ? binding.getExchangeProjectionStrategy() : null;
-    if (strategyId == null) {
-      strategyId = "full";
-    }
-    io.casehub.api.spi.ExchangeProjectionStrategy strategy =
-        strategyResolver.resolve(io.casehub.api.spi.ExchangeProjectionStrategy.class, strategyId);
+    private void handleSemanticFailure(final WorkflowExecutionCompleted event, final String traceId) {
+        final CaseInstance caseInstance = event.caseInstance();
+        final Worker       worker       = event.worker();
+        final String       bindingName  = event.bindingName();
+        final Instant      now          = Instant.now();
 
-    String expression = binding != null ? binding.getExchangeProjectionExpression() : null;
-    return strategy.project(
-        exchange,
-        new io.casehub.api.spi.ExchangeProjectionStrategy.ProjectionContext(
-            bindingName, expression));
-  }
+        final Binding binding = findBindingByName(caseInstance, bindingName);
+        final OutcomePolicy policy =
+                binding != null && binding.getOutcomePolicy() != null
+                ? binding.getOutcomePolicy()
+                : new OutcomePolicy();
 
-  @SuppressWarnings("unchecked")
-  private void recordSuccessOutcome(
-      final CaseInstance caseInstance,
-      final String workerName,
-      final String bindingName,
-      final Instant now) {
-    if (bindingName == null) {
-      return;
-    }
-    final java.util.Map<String, Object> existingOutcomes =
-        (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
-    if (existingOutcomes == null) {
-      return;
-    }
-    final ObjectNode outcomesRoot = OBJECT_MAPPER.valueToTree(existingOutcomes).deepCopy();
-    if (!outcomesRoot.has(bindingName)) {
-      return;
-    }
-    ObjectNode bindingOutcome = (ObjectNode) outcomesRoot.get(bindingName);
-    bindingOutcome.put("status", "COMPLETED");
-    ArrayNode history =
-        bindingOutcome.has("history")
-            ? (ArrayNode) bindingOutcome.get("history")
-            : OBJECT_MAPPER.createArrayNode();
-    history.add(
-        OBJECT_MAPPER
-            .createObjectNode()
-            .put("agent", workerName)
-            .put("status", "COMPLETED")
-            .put("timestamp", now.toString()));
-    bindingOutcome.set("history", history);
-    final java.util.Map<String, Object> outcomesMap =
-        OBJECT_MAPPER.convertValue(outcomesRoot, java.util.Map.class);
-    caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
-  }
+        final String           outcomeStatus;
+        final String           reason;
+        final OutcomeAction    action;
+        final CaseHubEventType eventType;
 
-  /**
-   * Returns the binding with the specified name. Returns null if the definition is absent or no
-   * binding matches.
-   */
-  private Binding findBindingByName(final CaseInstance caseInstance, final String bindingName) {
-    final CaseDefinition definition =
-        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    if (definition == null || definition.getBindings() == null || bindingName == null) {
-      return null;
-    }
-    return definition.getBindings().stream()
-        .filter(b -> b.getName().equals(bindingName))
-        .findFirst()
-        .orElse(null);
-  }
+        switch (event.outcome()) {
+            case WorkerOutcome.Declined d -> {
+                outcomeStatus = "DECLINED";
+                reason        = d.reason();
+                action        = policy.onDecline();
+                eventType     = CaseHubEventType.WORKER_OUTCOME_DECLINED;
+            }
+            case WorkerOutcome.Failed f -> {
+                outcomeStatus = "FAILED";
+                reason        = f.reason();
+                action        = policy.onFailure();
+                eventType     = CaseHubEventType.WORKER_OUTCOME_FAILED;
+            }
+            case WorkerOutcome.Expired e -> {
+                outcomeStatus = "EXPIRED";
+                reason        = e.reason();
+                action        = policy.onExpired();
+                eventType     = CaseHubEventType.WORKER_OUTCOME_EXPIRED;
+            }
+            case WorkerOutcome.Success s ->
+                    throw new IllegalStateException("Success should not reach handleSemanticFailure");
+            case WorkerOutcome.Completed c ->
+                    throw new IllegalStateException("Completed should not reach handleSemanticFailure");
+        }
 
-  /**
-   * Returns the first binding with a {@link CapabilityTarget} whose capability name matches one of
-   * the worker's declared capabilities. Returns null if the definition is absent or no binding
-   * matches.
-   */
-  private Binding findMatchingCapabilityBinding(
-      final CaseInstance caseInstance, final Worker worker) {
-    final CaseDefinition definition =
-        caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
-    if (definition == null || definition.getBindings() == null || worker.capabilities() == null) {
-      return null;
-    }
-    for (final Binding binding : definition.getBindings()) {
-      if (!(binding.target() instanceof CapabilityTarget ct)) {
-        continue;
-      }
-      final String capabilityName = ct.capability().name();
-      if (worker.capabilities().contains(capabilityName)) {
-        return binding;
-      }
-    }
-    return null;
-  }
+        fireOutcomeRecorder(
+                caseInstance,
+                worker,
+                bindingName,
+                io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
+                caseInstance.getCaseContext().snapshot().asJsonNode());
+        fireStepOutcomeObserver(
+                caseInstance,
+                worker,
+                bindingName,
+                io.casehub.api.spi.routing.RoutingOutcome.FAILURE,
+                OBJECT_MAPPER.convertValue(
+                        caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode(), MAP_TYPE),
+                extractDurationMs(event));
+        String capabilityTag = extractCapabilityTag(caseInstance, worker, bindingName);
+        personalitySignalRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
+        goalOutcomeRecorder.record(caseInstance, worker.name(), capabilityTag, event.outcome());
+        goalRevisionEvaluator.record(caseInstance, worker.name(), capabilityTag, event.outcome());
+        agentExperienceRecorder.record(
+                caseInstance, worker.name(), capabilityTag, event.outcome(), bindingName);
+        behavioralComplianceRecorder.record(
+                caseInstance, worker.name(), capabilityTag, event.outcome(), extractDurationMs(event));
 
-  private String extractCapabilityTag(
-      final CaseInstance caseInstance, final Worker worker, final String bindingName) {
-    final Binding binding =
-        bindingName != null
-            ? findBindingByName(caseInstance, bindingName)
-            : findMatchingCapabilityBinding(caseInstance, worker);
-    return binding != null && binding.target() instanceof CapabilityTarget ct
-        ? ct.capability().name()
-        : null;
-  }
+        @SuppressWarnings("unchecked") final java.util.Map<String, Object> existingOutcomes =
+                (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
+        final ObjectNode outcomesRoot =
+                existingOutcomes != null
+                ? OBJECT_MAPPER.valueToTree(existingOutcomes).deepCopy()
+                : OBJECT_MAPPER.createObjectNode();
+        ObjectNode bindingOutcome =
+                outcomesRoot.has(bindingName)
+                ? (ObjectNode) outcomesRoot.get(bindingName)
+                : OBJECT_MAPPER.createObjectNode();
+        outcomesRoot.set(bindingName, bindingOutcome);
 
-  private void fireOutcomeRecorder(
-      CaseInstance caseInstance,
-      Worker worker,
-      String bindingName,
-      io.casehub.api.spi.routing.RoutingOutcome outcome,
-      JsonNode contextSnapshot) {
-    if (outcomeRecorder.isUnsatisfied()) {
-      return;
+        final int attempts =
+                bindingOutcome.has("attempts") ? bindingOutcome.get("attempts").asInt() + 1 : 1;
+        final boolean exhausted =
+                action == OutcomeAction.REROUTE && attempts >= policy.maxRerouteAttempts();
+
+        final io.casehub.api.spi.FailureClassificationContext classificationCtx =
+                new io.casehub.api.spi.FailureClassificationContext(
+                        worker.name(),
+                        caseInstance.getUuid(),
+                        caseInstance.tenancyId,
+                        bindingName,
+                        null,
+                        attempts,
+                        policy.maxRerouteAttempts());
+        final io.casehub.api.model.FailureCategory category =
+                failureClassifier.classify(event.outcome(), classificationCtx);
+
+        final CaseDefinition failureDef =
+                caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+        JsonNode workingLayer =
+                caseInstance.getCaseContext() != null
+                ? caseInstance
+                  .getCaseContext()
+                  .layer(io.casehub.api.context.ContextLayer.WORKING)
+                  .asJsonNode()
+                : null;
+        String critique =
+                failureCritiqueService.generateCritique(
+                        io.casehub.api.model.FailureDiagnosis.of(category, worker.name(), outcomeStatus, now),
+                        workingLayer,
+                        failureDef);
+
+        bindingOutcome.put("status", exhausted ? "REROUTES_EXHAUSTED" : outcomeStatus);
+        bindingOutcome.put("attempts", attempts);
+
+        ArrayNode history =
+                bindingOutcome.has("history")
+                ? (ArrayNode) bindingOutcome.get("history")
+                : OBJECT_MAPPER.createArrayNode();
+        ObjectNode historyEntry =
+                OBJECT_MAPPER
+                        .createObjectNode()
+                        .put("agent", worker.name())
+                        .put("status", outcomeStatus)
+                        .put("reason", reason)
+                        .put("timestamp", now.toString())
+                        .put("category", category.categoryName());
+        if (category instanceof io.casehub.api.model.FailureCategory.Knowledge k
+            && k.missingContext() != null) {
+            historyEntry.put("missingContext", k.missingContext());
+        }
+        if (critique != null) {
+            historyEntry.put("critique", critique);
+        }
+        if (event.output() != null && !event.output().isEmpty()) {
+            historyEntry.set("partialOutput", OBJECT_MAPPER.valueToTree(event.output()));
+        }
+        history.add(historyEntry);
+        bindingOutcome.set("history", history);
+
+        ObjectNode latestDiag = OBJECT_MAPPER.createObjectNode();
+        latestDiag.put("category", category.categoryName());
+        latestDiag.put("reason", category.reason());
+        latestDiag.put("workerId", worker.name());
+        latestDiag.put("outcomeStatus", outcomeStatus);
+        latestDiag.put("timestamp", now.toString());
+        if (category instanceof io.casehub.api.model.FailureCategory.Knowledge k2
+            && k2.missingContext() != null) {
+            latestDiag.put("missingContext", k2.missingContext());
+        }
+        if (critique != null) {
+            latestDiag.put("critique", critique);
+        }
+        bindingOutcome.set("latestDiagnosis", latestDiag);
+        if (critique != null) {
+            bindingOutcome.put("critique", critique);
+        }
+
+        ArrayNode excluded =
+                bindingOutcome.has("excludedAgents")
+                ? (ArrayNode) bindingOutcome.get("excludedAgents")
+                : OBJECT_MAPPER.createArrayNode();
+        if (category instanceof io.casehub.api.model.FailureCategory.Transient) {
+            excluded.add(worker.name());
+            bindingOutcome.set("excludedAgents", excluded);
+            ArrayNode transientExcluded =
+                    bindingOutcome.has("transientExcluded")
+                    ? (ArrayNode) bindingOutcome.get("transientExcluded")
+                    : OBJECT_MAPPER.createArrayNode();
+            transientExcluded.add(worker.name());
+            bindingOutcome.set("transientExcluded", transientExcluded);
+        } else {
+            excluded.add(worker.name());
+            bindingOutcome.set("excludedAgents", excluded);
+        }
+
+        @SuppressWarnings("unchecked") final java.util.Map<String, Object> outcomesMap =
+                OBJECT_MAPPER.convertValue(outcomesRoot, java.util.Map.class);
+        caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
+
+        if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
+            EpisodicLayerUpdater.recordWorkerCompletion(mctx, worker.name(), outcomeStatus);
+        }
+
+        final EventLog eventLog = new EventLog();
+        eventLog.setCaseId(caseInstance.getUuid());
+        eventLog.setWorkerId(worker.name());
+        eventLog.setStreamType(EventStreamType.CASE);
+        eventLog.setTimestamp(now);
+        eventLog.setEventType(eventType);
+        ObjectNode failureMetadata =
+                OBJECT_MAPPER
+                        .createObjectNode()
+                        .put("bindingName", bindingName)
+                        .put("reason", reason)
+                        .put("attempts", attempts)
+                        .put(
+                                "disposition",
+                                action == OutcomeAction.FAULT ? "FAULT" : exhausted ? "EXHAUSTED" : "REROUTE")
+                        .put("failureCategory", category.categoryName());
+        if (event.reasoning() != null) {
+            failureMetadata.put("reasoning", event.reasoning());
+        }
+        eventLog.setMetadata(failureMetadata);
+
+        final OutcomeDisposition disposition =
+                action == OutcomeAction.FAULT
+                ? OutcomeDisposition.FAULT
+                : exhausted ? OutcomeDisposition.EXHAUSTED : OutcomeDisposition.REROUTE;
+
+        final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
+
+        // Expectation validation on failure path — failed workers produce no effects (ratio 1.0)
+        final CaseDefinition failureDefinition =
+                caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+        if (failureDefinition != null) {
+            ExpectationValidationResult failureValidation =
+                    expectationValidator.validate(caseInstance, failureDefinition, bindingName, null);
+            if (failureValidation != null) {
+                enrichMetadataWithValidation(eventLog, failureValidation);
+            }
+        }
+
+        eventLogRepository.append(eventLog, caseInstance.tenancyId);
+
+        if (disposition == OutcomeDisposition.EXHAUSTED) {
+            var recoveryCtx =
+                    new io.casehub.engine.common.spi.recovery.RecoveryContext(
+                            caseInstance.getUuid(),
+                            caseInstance.tenancyId,
+                            bindingName,
+                            worker.name(),
+                            capabilityName,
+                            event.outcome(),
+                            attempts,
+                            null);
+            if (recoveryCoordinator.handleFailure(recoveryCtx)) {
+                workerStatusListener.onWorkerCompleted(
+                        worker.name(),
+                        WorkResult.failed(event.idempotency(), worker.name(), caseInstance.getUuid()));
+                return;
+            }
+        }
+
+        final WorkResult workResult =
+                switch (event.outcome()) {
+                    case WorkerOutcome.Declined d -> WorkResult.declined(event.idempotency(), worker.name(), caseInstance.getUuid());
+                    case WorkerOutcome.Failed f -> WorkResult.failed(event.idempotency(), worker.name(), caseInstance.getUuid());
+                    case WorkerOutcome.Expired e -> WorkResult.expired(event.idempotency(), worker.name(), caseInstance.getUuid());
+                    case WorkerOutcome.Success s ->
+                            throw new IllegalStateException("Success should not reach handleSemanticFailure");
+                    case WorkerOutcome.Completed c ->
+                            throw new IllegalStateException("Completed should not reach handleSemanticFailure");
+                };
+        workerStatusListener.onWorkerCompleted(worker.name(), workResult);
+
+        lifecycleEvents
+                .fireAsync(
+                        CaseLifecycleEvent.of(
+                                caseInstance,
+                                "WorkerOutcome",
+                                outcomeStatus + "Outcome",
+                                worker.name(),
+                                "WORKER",
+                                traceId))
+                .whenComplete(
+                        (v, t) -> {
+                            if (t != null) {
+                                LOG.warnf(
+                                        t,
+                                        "CaseLifecycleEvent observer failed for caseId=%s event=%sOutcome",
+                                        caseInstance.getUuid(),
+                                        outcomeStatus);
+                            }
+                        });
+
+        if (disposition == OutcomeDisposition.FAULT) {
+            eventBus.publish(
+                    EventBusAddresses.CASE_STATUS_CHANGED,
+                    new CaseStatusChanged(
+                            caseInstance, caseInstance.getState().name(), CaseStatus.FAULTED.name()));
+        }
+        eventBus.publish(
+                EventBusAddresses.WORKER_OUTCOME_RESOLVED,
+                new WorkerOutcomeResolvedEvent(
+                        caseInstance, worker.name(), bindingName, capabilityName, disposition, category));
     }
-    String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
-    if (capabilityName == null) {
-      return;
+
+    private void handleGate(
+            final WorkflowExecutionCompleted event,
+            final PlannedAction plannedAction,
+            final RiskDecision.GateRequired gate,
+            final String traceId) {
+        final CaseInstance        caseInstance   = event.caseInstance();
+        final Worker              worker         = event.worker();
+        final Map<String, Object> rawOutput      = event.output() == null ? Map.of() : event.output();
+        final Instant             now            = Instant.now();
+        final String              bindingName    = event.bindingName();
+        final String              capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
+
+        if (!actionGateScheduler.isResolvable()) {
+            LOG.warnf(
+                    "No ActionGateScheduler on classpath — skipping gate for caseId=%s",
+                    caseInstance.getUuid());
+            return;
+        }
+
+        Set<String> resolvedGroups;
+        if (gate.candidateGroups() != null) {
+            JsonNode contextNode = caseInstance.getCaseContext().layer(ContextLayer.WORKING).asJsonNode();
+            try {
+                resolvedGroups = gate.candidateGroups().evaluate(new CandidateSetContext(contextNode));
+            } catch (Exception t) {
+                LOG.warnf(
+                        t,
+                        "CandidateSetStrategy evaluation failed for caseId=%s — proceeding with empty candidate groups",
+                        caseInstance.getUuid());
+                resolvedGroups = Set.of();
+            }
+        } else {
+            resolvedGroups = Set.of();
+        }
+
+        final EventLog gateEventLog =
+                buildGateEventLog(
+                        caseInstance,
+                        worker,
+                        rawOutput,
+                        plannedAction,
+                        gate,
+                        event.idempotency(),
+                        now,
+                        event.reasoning());
+
+        eventLogRepository.append(gateEventLog, caseInstance.tenancyId);
+
+        caseInstance.setPendingActionGate(
+                new PendingActionGate(
+                        gateEventLog.id,
+                        worker.name(),
+                        event.idempotency(),
+                        rawOutput,
+                        plannedAction,
+                        bindingName,
+                        capabilityName,
+                        gate.resolutionType()));
+        caseInstanceRepository.update(caseInstance, caseInstance.tenancyId);
+
+        actionGateScheduler
+                .get()
+                .schedule(
+                        new ActionGateScheduleRequest(
+                                caseInstance.getUuid(),
+                                caseInstance.tenancyId,
+                                gateEventLog.id,
+                                plannedAction,
+                                gate,
+                                resolvedGroups,
+                                gate.resolutionType() != null ? gate.resolutionType().getName() : null));
+
+        lifecycleEvents
+                .fireAsync(
+                        CaseLifecycleEvent.of(
+                                caseInstance, "ActionGate", "ActionGatePending", worker.name(), "WORKER", traceId))
+                .whenComplete(
+                        (v, t) -> {
+                            if (t != null) {
+                                LOG.warnf(
+                                        t,
+                                        "CaseLifecycleEvent observer failed for caseId=%s event=ActionGatePending",
+                                        caseInstance.getUuid());
+                            }
+                        });
     }
-    var ctx =
-        new AgentRoutingContext(
-            caseInstance.getUuid(),
-            capabilityName,
-            contextSnapshot,
-            caseInstance.tenancyId,
-            List.of(),
-            null,
-            null);
-    try {
-      outcomeRecorder.get().record(ctx, worker.name(), bindingName, outcome, null);
-    } catch (Exception err) {
-      LOG.warnf(
-          err,
-          "Outcome recording failed for caseId=%s worker=%s",
-          caseInstance.getUuid(),
-          worker.name());
+
+    private EventLog buildGateEventLog(
+            final CaseInstance caseInstance,
+            final Worker worker,
+            final Map<String, Object> rawOutput,
+            final PlannedAction plannedAction,
+            final RiskDecision.GateRequired gate,
+            final String idempotency,
+            final Instant timestamp,
+            final String reasoning) {
+        final EventLog eventLog = new EventLog();
+        eventLog.setCaseId(caseInstance.getUuid());
+        eventLog.setWorkerId(worker.name());
+        eventLog.setStreamType(EventStreamType.CASE);
+        eventLog.setTimestamp(timestamp);
+        eventLog.setEventType(CaseHubEventType.ACTION_GATE_PENDING);
+        final ObjectNode payload = OBJECT_MAPPER.createObjectNode();
+        payload.put("workerId", worker.name());
+        payload.put("idempotency", idempotency);
+        payload.set("deferredOutput", OBJECT_MAPPER.valueToTree(rawOutput));
+        final ObjectNode actionNode = OBJECT_MAPPER.createObjectNode();
+        actionNode.put("description", plannedAction.description());
+        actionNode.put("actionType", plannedAction.actionType());
+        actionNode.set("context", OBJECT_MAPPER.valueToTree(plannedAction.parameters()));
+        payload.set("plannedAction", actionNode);
+        final ObjectNode gateNode = OBJECT_MAPPER.createObjectNode();
+        gateNode.put("reason", gate.reason());
+        gateNode.put("reversible", gate.reversible());
+        if (gate.expiresIn() != null) {
+            gateNode.put("expiresInSeconds", gate.expiresIn().getSeconds());
+        }
+        payload.set("gateRequired", gateNode);
+        eventLog.setPayload(payload);
+        ObjectNode gateMetadata = OBJECT_MAPPER.createObjectNode().put("inputDataHash", idempotency);
+        if (reasoning != null) {
+            gateMetadata.put("reasoning", reasoning);
+        }
+        eventLog.setMetadata(gateMetadata);
+        return eventLog;
     }
-  }
+
+    private EventLog buildEventLog(
+            CaseInstance caseInstance,
+            Worker worker,
+            Map<String, Object> output,
+            String idempotency,
+            Instant timestamp,
+            JsonNode contextDiff,
+            Map<String, Object> protocolMetadata,
+            String reasoning) {
+        EventLog eventLog = new EventLog();
+        eventLog.setCaseId(caseInstance.getUuid());
+        eventLog.setWorkerId(worker.name());
+        eventLog.setStreamType(EventStreamType.CASE);
+        eventLog.setTimestamp(timestamp);
+        eventLog.setEventType(CaseHubEventType.WORKER_EXECUTION_COMPLETED);
+        eventLog.setPayload(OBJECT_MAPPER.valueToTree(output == null ? Map.of() : output));
+        eventLog.setMetadata(buildMetadata(idempotency, contextDiff, protocolMetadata, reasoning));
+        return eventLog;
+    }
+
+    private JsonNode buildMetadata(
+            String idempotency,
+            JsonNode contextDiff,
+            Map<String, Object> protocolMetadata,
+            String reasoning) {
+        ObjectNode metadata = OBJECT_MAPPER.createObjectNode();
+        metadata.put("inputDataHash", idempotency);
+        if (contextDiff != null) {
+            metadata.set("contextChanges", contextDiff);
+            var keys = OBJECT_MAPPER.createArrayNode();
+            contextDiff.fieldNames().forEachRemaining(keys::add);
+            if (!keys.isEmpty()) {
+                metadata.set("producedKeys", keys);
+            }
+        }
+        if (protocolMetadata != null && !protocolMetadata.isEmpty()) {
+            protocolMetadata.forEach((key, value) -> metadata.set(key, OBJECT_MAPPER.valueToTree(value)));
+        }
+        if (reasoning != null) {
+            metadata.put("reasoning", reasoning);
+        }
+        return metadata;
+    }
+
+    private void enrichMetadataWithValidation(EventLog eventLog, ExpectationValidationResult result) {
+        if (eventLog.getMetadata() instanceof com.fasterxml.jackson.databind.node.ObjectNode metadata) {
+            com.fasterxml.jackson.databind.node.ObjectNode validation = OBJECT_MAPPER.createObjectNode();
+            if (result.compoundId() != null) {
+                validation.put("compoundId", result.compoundId());
+            }
+            validation.put("totalExpectedEffects", result.expected().effects().size());
+            validation.put("violatedEffectCount", result.violations().size());
+            validation.put("divergenceRatio", result.divergenceRatio());
+            validation.put("effectSource", result.expected().source().name());
+            validation.put("adaptationGeneration", 0);
+            com.fasterxml.jackson.databind.node.ArrayNode violationsArray =
+                    OBJECT_MAPPER.createArrayNode();
+            for (io.casehub.engine.plan.monitoring.ViolationRecord v : result.violations()) {
+                com.fasterxml.jackson.databind.node.ObjectNode vNode = OBJECT_MAPPER.createObjectNode();
+                vNode.put("key", v.effectKey());
+                vNode.put("expected", v.expectedValue());
+                vNode.put("actual", v.actualCondition().name());
+                violationsArray.add(vNode);
+            }
+            validation.set("violations", violationsArray);
+            metadata.set("expectationValidation", validation);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> applyExchangeProjection(
+            CaseInstance caseInstance, Map<String, Object> rawOutput, String bindingName) {
+        Object body = rawOutput.get("body");
+        Map<String, Object> headers =
+                rawOutput.containsKey("headers")
+                ? (Map<String, Object>) rawOutput.get("headers")
+                : Map.of();
+
+        io.casehub.worker.api.Exchange<?> exchange =
+                new io.casehub.worker.api.Exchange<>(body, headers, Map.of());
+
+        if (!headers.isEmpty()) {
+            caseInstance.mergeExchangeHeaders(headers);
+        }
+
+        Binding binding    = findBindingByName(caseInstance, bindingName);
+        String  strategyId = binding != null ? binding.getExchangeProjectionStrategy() : null;
+        if (strategyId == null) {
+            strategyId = "full";
+        }
+        io.casehub.api.spi.ExchangeProjectionStrategy strategy =
+                strategyResolver.resolve(io.casehub.api.spi.ExchangeProjectionStrategy.class, strategyId);
+
+        String expression = binding != null ? binding.getExchangeProjectionExpression() : null;
+        return strategy.project(
+                exchange,
+                new io.casehub.api.spi.ExchangeProjectionStrategy.ProjectionContext(
+                        bindingName, expression));
+    }
+
+    @SuppressWarnings("unchecked")
+    private void recordSuccessOutcome(
+            final CaseInstance caseInstance,
+            final String workerName,
+            final String bindingName,
+            final Instant now) {
+        if (bindingName == null) {
+            return;
+        }
+        final java.util.Map<String, Object> existingOutcomes =
+                (java.util.Map<String, Object>) caseInstance.getCaseContext().get("_diagnostics");
+        if (existingOutcomes == null) {
+            return;
+        }
+        final ObjectNode outcomesRoot = OBJECT_MAPPER.valueToTree(existingOutcomes).deepCopy();
+        if (!outcomesRoot.has(bindingName)) {
+            return;
+        }
+        ObjectNode bindingOutcome = (ObjectNode) outcomesRoot.get(bindingName);
+        bindingOutcome.put("status", "COMPLETED");
+        ArrayNode history =
+                bindingOutcome.has("history")
+                ? (ArrayNode) bindingOutcome.get("history")
+                : OBJECT_MAPPER.createArrayNode();
+        history.add(
+                OBJECT_MAPPER
+                        .createObjectNode()
+                        .put("agent", workerName)
+                        .put("status", "COMPLETED")
+                        .put("timestamp", now.toString()));
+        bindingOutcome.set("history", history);
+        final java.util.Map<String, Object> outcomesMap =
+                OBJECT_MAPPER.convertValue(outcomesRoot, java.util.Map.class);
+        caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
+    }
+
+    /**
+     * Returns the binding with the specified name. Returns null if the definition is absent or no
+     * binding matches.
+     */
+    private Binding findBindingByName(final CaseInstance caseInstance, final String bindingName) {
+        final CaseDefinition definition =
+                caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+        if (definition == null || definition.getBindings() == null || bindingName == null) {
+            return null;
+        }
+        return definition.getBindings().stream()
+                         .filter(b -> b.getName().equals(bindingName))
+                         .findFirst()
+                         .orElse(null);
+    }
+
+    /**
+     * Returns the first binding with a {@link CapabilityTarget} whose capability name matches one of
+     * the worker's declared capabilities. Returns null if the definition is absent or no binding
+     * matches.
+     */
+    private Binding findMatchingCapabilityBinding(
+            final CaseInstance caseInstance, final Worker worker) {
+        final CaseDefinition definition =
+                caseDefinitionRegistry.getCaseDefinition(caseInstance.getCaseMetaModel());
+        if (definition == null || definition.getBindings() == null || worker.capabilities() == null) {
+            return null;
+        }
+        for (final Binding binding : definition.getBindings()) {
+            if (!(binding.target() instanceof CapabilityTarget ct)) {
+                continue;
+            }
+            final String capabilityName = ct.capability().name();
+            if (worker.capabilities().contains(capabilityName)) {
+                return binding;
+            }
+        }
+        return null;
+    }
+
+    private String extractCapabilityTag(
+            final CaseInstance caseInstance, final Worker worker, final String bindingName) {
+        final Binding binding =
+                bindingName != null
+                ? findBindingByName(caseInstance, bindingName)
+                : findMatchingCapabilityBinding(caseInstance, worker);
+        return binding != null && binding.target() instanceof CapabilityTarget ct
+               ? ct.capability().name()
+               : null;
+    }
+
+    private void fireOutcomeRecorder(
+            CaseInstance caseInstance,
+            Worker worker,
+            String bindingName,
+            io.casehub.api.spi.routing.RoutingOutcome outcome,
+            JsonNode contextSnapshot) {
+        if (outcomeRecorder.isUnsatisfied()) {
+            return;
+        }
+        String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
+        if (capabilityName == null) {
+            return;
+        }
+        var ctx =
+                new AgentRoutingContext(
+                        caseInstance.getUuid(),
+                        capabilityName,
+                        contextSnapshot,
+                        caseInstance.tenancyId,
+                        List.of(),
+                        null,
+                        null);
+        try {
+            outcomeRecorder.get().record(ctx, worker.name(), bindingName, outcome, null);
+        } catch (Exception err) {
+            LOG.warnf(
+                    err,
+                    "Outcome recording failed for caseId=%s worker=%s",
+                    caseInstance.getUuid(),
+                    worker.name());
+        }
+    }
+
+    private void fireStepOutcomeObserver(
+            CaseInstance caseInstance,
+            Worker worker,
+            String bindingName,
+            io.casehub.api.spi.routing.RoutingOutcome outcome,
+            Map<String, Object> contextSnapshot,
+            Long executionDurationMs) {
+        if (stepOutcomeObserver.isUnsatisfied()) {
+            return;
+        }
+        String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
+        java.time.Duration duration =
+                executionDurationMs != null ? java.time.Duration.ofMillis(executionDurationMs) : null;
+        try {
+            stepOutcomeObserver
+                    .get()
+                    .onStepOutcome(
+                            new io.casehub.api.spi.StepOutcomeEvent(
+                                    caseInstance.getUuid(),
+                                    caseInstance.tenancyId,
+                                    caseInstance.getCaseMetaModel().getName(),
+                                    bindingName,
+                                    capabilityName,
+                                    worker.name(),
+                                    outcome,
+                                    contextSnapshot,
+                                    duration));
+        } catch (Exception err) {
+            LOG.warnf(
+                    err,
+                    "Step outcome observation failed for caseId=%s worker=%s binding=%s",
+                    caseInstance.getUuid(),
+                    worker.name(),
+                    bindingName);
+        }
+    }
 }
