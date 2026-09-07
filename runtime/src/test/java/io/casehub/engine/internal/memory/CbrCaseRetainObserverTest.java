@@ -647,14 +647,31 @@ class CbrCaseRetainObserverTest {
     }
 
     @Override
-    public void supersede(String caseId, String tenantId, String newCaseId, String reason) {}
+    public boolean supersede(String caseId, String tenantId, String newCaseId, String reason) { return false; }
 
     @Override
-    public void reinstate(String caseId, String tenantId) {}
+    public boolean reinstate(String caseId, String tenantId) { return false; }
+
+    @Override
+    public int reinstateAll(java.util.Collection<String> caseIds, String tenantId) { return 0; }
+
+    @Override
+    public int reinstateMatching(String caseType, MemoryDomain domain, String tenantId, java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters) { return 0; }
+
+    @Override
+    public int supersedeAll(java.util.Collection<String> caseIds, String tenantId, String reason) { return 0; }
+
+    @Override
+    public int supersedeMatching(String caseType, MemoryDomain domain, String tenantId, java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters, String reason) { return 0; }
 
     @Override
     public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
       return 0;
+    }
+
+    @Override
+    public List<String> findCaseIds(String caseType, MemoryDomain domain, String tenantId, java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters) {
+      return List.of();
     }
 
     @Override
