@@ -647,26 +647,68 @@ class CbrCaseRetainObserverTest {
     }
 
     @Override
-    public void supersede(String caseId, String tenantId, String newCaseId, String reason) {}
-
-    @Override
-    public void reinstate(String caseId, String tenantId) {}
-
-    @Override
-    public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
-      return 0;
+    public boolean supersede(String caseId, String tenantId, String newCaseId, String reason) {
+      return true;
     }
 
     @Override
-    public List<io.casehub.neocortex.memory.cbr.SupersessionStatus> findSupersededCases(
-        String tenantId, MemoryDomain domain) {
-      return List.of();
+    public boolean reinstate(String caseId, String tenantId) {
+      return true;
     }
 
     @Override
     public io.casehub.neocortex.memory.cbr.SupersessionStatus getSupersessionStatus(
         String caseId, String tenantId) {
       return null;
+    }
+
+    @Override
+    public java.util.List<io.casehub.neocortex.memory.cbr.SupersessionStatus> findSupersededCases(
+        String tenantId, MemoryDomain domain) {
+      return java.util.List.of();
+    }
+
+    @Override
+    public int supersedeMatching(
+        String tenantId,
+        MemoryDomain domain,
+        String reason,
+        java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters,
+        String newCaseId) {
+      return 0;
+    }
+
+    @Override
+    public int supersedeAll(java.util.Collection<String> caseIds, String tenantId, String reason) {
+      return 0;
+    }
+
+    @Override
+    public int reinstateMatching(
+        String tenantId,
+        MemoryDomain domain,
+        String reason,
+        java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters) {
+      return 0;
+    }
+
+    @Override
+    public int reinstateAll(java.util.Collection<String> caseIds, String tenantId) {
+      return 0;
+    }
+
+    @Override
+    public java.util.List<String> findCaseIds(
+        String caseType,
+        MemoryDomain domain,
+        String tenantId,
+        java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters) {
+      return java.util.List.of();
+    }
+
+    @Override
+    public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
+      return 0;
     }
   }
 }

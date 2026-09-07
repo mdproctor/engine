@@ -205,7 +205,7 @@ class CbrRetrievalServiceTest {
             List.of(planTrace),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, 0.87)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, "plan", 0.87)));
 
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
 
@@ -275,7 +275,7 @@ class CbrRetrievalServiceTest {
             Map.of("f1", FeatureValue.string("v1")),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.85)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, "feature-vector", 0.85)));
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
     assertEquals(1, result.size());
     assertEquals("problem1", result.get(0).problem());
@@ -296,7 +296,7 @@ class CbrRetrievalServiceTest {
             Map.of("f1", FeatureValue.string("v1")),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.75)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, "feature-vector", 0.75)));
     List<RetrievedExperience> result =
         service.retrieve(
             def, buildInstance(), io.casehub.neocortex.memory.cbr.FeatureVectorCbrCase.class);
@@ -337,7 +337,7 @@ class CbrRetrievalServiceTest {
             List.of(pt),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.9)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, "plan", 0.9)));
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
     assertEquals(1, result.size());
     assertEquals(1, result.get(0).planTrace().size());
@@ -392,7 +392,7 @@ class CbrRetrievalServiceTest {
             List.of(pt),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.87)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, "plan", 0.87)));
 
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
 
@@ -421,7 +421,7 @@ class CbrRetrievalServiceTest {
             List.of(new PlanTrace("b1", "c1", "w1", "SUCCESS", 0, Map.of(), null)),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, "plan", 0.8)));
 
     service.retrieve(def, buildInstance());
 
@@ -445,7 +445,7 @@ class CbrRetrievalServiceTest {
                 new PlanTrace("b2", "c2", "w2", "FAILURE", 0, Map.of(), null)),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, "plan", 0.8)));
 
     planAdapter.setResult(
         new AdaptedPlan(
@@ -486,7 +486,7 @@ class CbrRetrievalServiceTest {
             Map.of("f1", FeatureValue.string("v1")),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, 0.85)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(fvCase, "feature-vector", 0.85)));
 
     service.retrieve(def, buildInstance());
 
@@ -509,7 +509,7 @@ class CbrRetrievalServiceTest {
             List.of(pt),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, 0.8)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(planCase, "plan", 0.8)));
 
     service =
         new CbrRetrievalService(
@@ -548,7 +548,7 @@ class CbrRetrievalServiceTest {
             List.of(planTrace),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, 0.87)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, "plan", 0.87)));
 
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
 
@@ -575,7 +575,7 @@ class CbrRetrievalServiceTest {
             List.of(planTrace),
             null,
             null);
-    cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, 0.87)));
+    cbrStore.setResult(List.of(new ScoredCbrCase<>(cbrCase, "plan", 0.87)));
 
     List<RetrievedExperience> result = service.retrieve(def, buildInstance());
 
@@ -675,10 +675,14 @@ class CbrRetrievalServiceTest {
     }
 
     @Override
-    public void supersede(String caseId, String tenantId, String newCaseId, String reason) {}
+    public boolean supersede(String caseId, String tenantId, String newCaseId, String reason) {
+      return true;
+    }
 
     @Override
-    public void reinstate(String caseId, String tenantId) {}
+    public boolean reinstate(String caseId, String tenantId) {
+      return true;
+    }
 
     @Override
     public Integer eraseByScope(io.casehub.platform.api.path.Path scope, String tenantId) {
@@ -689,6 +693,44 @@ class CbrRetrievalServiceTest {
     public java.util.List<io.casehub.neocortex.memory.cbr.SupersessionStatus> findSupersededCases(
         String tenantId, io.casehub.neocortex.memory.MemoryDomain domain) {
       return java.util.List.of();
+    }
+
+    @Override
+    public java.util.List<String> findCaseIds(
+        String caseType,
+        io.casehub.neocortex.memory.MemoryDomain domain,
+        String tenantId,
+        java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters) {
+      return java.util.List.of();
+    }
+
+    @Override
+    public int supersedeMatching(
+        String tenantId,
+        io.casehub.neocortex.memory.MemoryDomain domain,
+        String reason,
+        java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters,
+        String newCaseId) {
+      return 0;
+    }
+
+    @Override
+    public int supersedeAll(java.util.Collection<String> caseIds, String tenantId, String reason) {
+      return 0;
+    }
+
+    @Override
+    public int reinstateMatching(
+        String tenantId,
+        io.casehub.neocortex.memory.MemoryDomain domain,
+        String reason,
+        java.util.Map<String, io.casehub.neocortex.memory.cbr.CbrFilter> filters) {
+      return 0;
+    }
+
+    @Override
+    public int reinstateAll(java.util.Collection<String> caseIds, String tenantId) {
+      return 0;
     }
 
     @Override
