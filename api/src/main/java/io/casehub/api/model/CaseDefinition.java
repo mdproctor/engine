@@ -211,6 +211,12 @@ public class CaseDefinition {
   private Integer maxConcurrentDispatches;
 
   @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Per-condition watchdog response policy. Null means use defaults.")
+  private java.util.Map<
+          io.casehub.qhorus.api.watchdog.WatchdogConditionType, WatchdogResponseAction>
+      watchdogPolicy;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
       "Behavioral type classifications — hierarchical path strings via Path.parse().")
   private Set<Path> types = Set.of();
 
@@ -693,6 +699,17 @@ public class CaseDefinition {
     this.maxConcurrentDispatches = maxConcurrentDispatches;
   }
 
+  public java.util.Map<io.casehub.qhorus.api.watchdog.WatchdogConditionType, WatchdogResponseAction>
+      getWatchdogPolicy() {
+    return watchdogPolicy;
+  }
+
+  public void setWatchdogPolicy(
+      java.util.Map<io.casehub.qhorus.api.watchdog.WatchdogConditionType, WatchdogResponseAction>
+          watchdogPolicy) {
+    this.watchdogPolicy = watchdogPolicy;
+  }
+
   public io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
       getDecompositionTree() {
     return decompositionTree;
@@ -768,6 +785,9 @@ public class CaseDefinition {
     private Map<String, Set<String>> goalToEffectKeys = new java.util.HashMap<>();
     private RecoveryPolicy recoveryPolicy;
     private Integer maxConcurrentDispatches;
+    private java.util.Map<
+            io.casehub.qhorus.api.watchdog.WatchdogConditionType, WatchdogResponseAction>
+        watchdogPolicy;
 
     private io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
         decompositionTree;
@@ -1203,6 +1223,13 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder watchdogPolicy(
+        java.util.Map<io.casehub.qhorus.api.watchdog.WatchdogConditionType, WatchdogResponseAction>
+            watchdogPolicy) {
+      this.watchdogPolicy = watchdogPolicy;
+      return this;
+    }
+
     public Builder decompositionTree(
         io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
             decompositionTree) {
@@ -1317,6 +1344,7 @@ public class CaseDefinition {
       caseHubDefinition.setPlanningConstraints(planningConstraints);
       caseHubDefinition.setRecoveryPolicy(recoveryPolicy);
       caseHubDefinition.setMaxConcurrentDispatches(maxConcurrentDispatches);
+      caseHubDefinition.setWatchdogPolicy(watchdogPolicy);
       caseHubDefinition.setMonitoringConfig(monitoringConfig);
       caseHubDefinition.setPortfolioConfig(portfolioConfig);
       caseHubDefinition.setDecompositionTree(decompositionTree);

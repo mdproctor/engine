@@ -645,6 +645,12 @@ $defs:
         type: integer
         description: "Maximum concurrent binding dispatches per case. Null means unlimited."
         minimum: 1
+      watchdogPolicy:
+        type: object
+        description: "Per-condition watchdog response policy. Keys are WatchdogConditionType names, values are CANCEL_AFFECTED or IGNORE."
+        additionalProperties:
+          type: string
+          enum: [CANCEL_AFFECTED, IGNORE]
       maxDecompositionDepth:
         type: integer
         description: "Maximum nesting depth for dynamic decomposition. Default: 3."

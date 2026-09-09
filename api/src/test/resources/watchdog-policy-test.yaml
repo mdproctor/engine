@@ -1,0 +1,19 @@
+namespace: test
+name: watchdog-case
+version: "1.0"
+spec:
+  watchdogPolicy:
+    AGENT_STALE: CANCEL_AFFECTED
+    LOOP_DETECTED: IGNORE
+  capabilities:
+    - name: doWork
+      inputProjection: "."
+  workers:
+    - name: worker-1
+      capabilities: [doWork]
+  bindings:
+    - name: do-work-binding
+      capability: doWork
+      on:
+        contextChange:
+          filter: '.ready == true'
