@@ -1064,6 +1064,26 @@ TESTCONTAINERS_RYUK_DISABLED=true mvn test -pl annotations/deployment
 
 `RetryState` (`api/model/`) — record tracking every retry attempt: `attemptCount`, `List<RetryAttempt>` (timestamp, errorMessage, duration, succeeded), `firstAttemptTime`, `lastAttemptTime`. Available on `PlanExecutionContext.retryState()` (nullable — present only on retries) and `DeadLetterEntry.retryState()`. Populated by `QuartzRetryService` from `WORKER_EXECUTION_FAILED` EventLog entries. Refs engine#617.
 
+## Concurrency Budget
+
+Two-layer dispatch throttle: case-level cap (engine-internal) + external budget SPI.
+
+**Case-level cap:** `CaseDefinition.maxConcurrentDispatches` (nullable Integer, null = unlimited). In `CaseContextChangedEventHandler.rules()`, after `loopControl.select()`, `applyDispatchBudget()` counts RUNNING/DISPATCHING/DELEGATED PlanItems via `PlanItemStore.findByCaseId()` and limits admitted bindings to `maxConcurrentDispatches - activeCount`. No TOCTOU race — `CaseEvaluationSerializer` guarantees one evaluation per case at a time. Deferred bindings wait for the next `CONTEXT_CHANGED` (fires when a worker completes). YAML: `spec: { maxConcurrentDispatches: 5 }`. Refs engine#1043.
+
+**External dispatch budget SPI:** `DispatchBudget` (`api/spi/`) — `int availableCapacity(DispatchBudgetQuery query)`. `DispatchBudgetQuery(UUID caseId, String tenancyId)`. Advisory semantics — prevents wasted routing/EventLog/PlanItem work when external capacity is exhausted. `NoOpDispatchBudget` (`@DefaultBean @ApplicationScoped`, runtime) returns `Integer.MAX_VALUE`. Consumer implementations (e.g. claudony session pool) provide `@ApplicationScoped` beans. Engine dispatches `min(caseBudget, externalBudget)` bindings. Refs engine#1043.
+
+## Watchdog→Recovery Bridge
+
+`WatchdogRecoveryBridge` (`runtime/internal/bridge/`, `@ApplicationScoped`) — CDI `@ObservesAsync WatchdogAlertEvent` observer that translates qhorus watchdog stall detection into synthetic `WorkerOutcome.Expired` for the existing failure pipeline. Refs engine#1044.
+
+**Scope:** Worker-hung conditions only (AGENT_STALE, BARRIER_STUCK, LOOP_DETECTED, CONVERSATION_STALL, ECHO_CHAMBER, CIRCULAR_DELEGATION). Case-level conditions (CONTEXT_PRESSURE, CHANNEL_IDLE, etc.) default to IGNORE — tracked in engine#1057.
+
+**Identity resolution:** `AlertContext.affectedAgentIds()` matched against `PlanItem.executorName()` via `PlanItemStore.findByCaseId()`. When `WatchdogAlertEvent.caseId()` is null, resolves via `WorkerExecutionManager.getActiveCaseIds(agentId)`. No match → warning logged, no action.
+
+**Cancellation mechanism:** Publishes synthetic `WorkflowExecutionCompleted(Expired("Watchdog: <condition>"))` on `EventBusAddresses.WORKER_EXECUTION_FINISHED`. The existing `WorkflowExecutionCompletedHandler` handles all side effects (PlanItem status, failure classification, `_diagnostics`, reroute, recovery). Idempotent — when the original worker eventually times out, the handler sees the PlanItem is already terminal and discards.
+
+**Per-condition response policy:** `CaseDefinition.watchdogPolicy` (`Map<WatchdogConditionType, WatchdogResponseAction>`, nullable). `WatchdogResponseAction`: `CANCEL_AFFECTED` (default for worker-hung) or `IGNORE` (default for case-level). YAML: `spec: { watchdogPolicy: { LOOP_DETECTED: IGNORE } }`. Refs engine#1044.
+
 ## ContextBridge Protocol (engine#203)
 
 `ContextBridge<T>` (`api/context/`) is the typed context protocol for worker input translation. `WorkerFunction<T, R>` carries `inputType(): Class<T>` and `outputType(): Class<R>` via the Reified Varargs Type Token pattern — `Worker.builder().<MyPojo>fn().returning(OutputPojo.class).apply((input, scope) -> ...)` captures runtime types despite erasure. Three-level DSL ceremony: Map→Map (no types, `Worker.builder().function(fn)`), T→Map (`fn().apply((input, scope) -> ...)`), T→R (`fn().returning(R.class).apply((input, scope) -> ...)`). Three built-in bridges: `MapBridge` (identity, `Map.class`), `JacksonPojoBridge<T>` (Jackson deserialisation to any POJO), `JsonNodeBridge` (raw `JsonNode`). `BridgeResolver` (`common/internal/context/`, `@ApplicationScoped`) resolves bridges via a priority chain: CaseDefinition default → CDI discovery → MapBridge fallback → JacksonPojoBridge auto-create. `BridgeResolver.resolveByType(Class<?>)` is the canonical resolution method; `resolveByTypeName(String)` delegates via `Class.forName()`. Pipeline integration: `WorkerScheduleEventHandler` calls `bridge.initialise()` + `bridge.serialise()` and writes `contextBridgeType` to EventLog metadata; `QuartzWorkerExecutionJob` reads `contextBridgeType` from metadata, calls `resolveByTypeName()` + `bridge.deserialise()` (or `initialise()` for live-view bridges), and calls `bridge.extractOutput()` for live-view output extraction. `WorkerFunctionHandler.execute()` and `WorkerExecutor.execute()` accept `Object inputData` (not `Map<String,Object>`). YAML support: `contextType:` on worker definitions creates typed `WorkerFunction.Sync<T>`. Refs engine#203.
