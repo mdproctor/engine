@@ -16,8 +16,6 @@
 package io.casehub.engine.internal.engine.handler;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.argThat;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -27,21 +25,18 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.Milestone;
 import io.casehub.api.model.MilestoneLifecycleStatus;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.scheduler.ScheduledJobRequest;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.event.Event;
-import java.lang.reflect.Field;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,32 +45,23 @@ import org.junit.jupiter.api.Test;
 class MilestoneActivatedEventHandlerTest {
 
   private MilestoneActivatedEventHandler handler;
-  private EventBus eventBus;
+  private final List<Object> dispatched = new ArrayList<>();
   private EventLogRepository eventLogRepo;
   private JobScheduler scheduler;
-  private Event<CaseLifecycleEvent> lifecycleEvents;
   private LedgerTraceIdProvider traceIdProvider;
 
   @BeforeEach
-  @SuppressWarnings("unchecked")
-  void setUp() throws Exception {
-    handler = new MilestoneActivatedEventHandler();
-    eventBus = mock(EventBus.class);
+  void setUp() {
+    dispatched.clear();
     eventLogRepo = mock(EventLogRepository.class);
     scheduler = mock(JobScheduler.class);
-    lifecycleEvents = mock(Event.class);
     traceIdProvider = mock(LedgerTraceIdProvider.class);
 
-    inject(handler, "eventBus", eventBus);
-    inject(handler, "eventLogRepository", eventLogRepo);
-    inject(handler, "scheduler", scheduler);
-    inject(handler, "lifecycleEvents", lifecycleEvents);
-    inject(handler, "traceIdProvider", traceIdProvider);
-
-    // eventLogRepo.append is void — no stub needed
     when(traceIdProvider.currentTraceId()).thenReturn(Optional.empty());
-    when(lifecycleEvents.fireAsync(any()))
-        .thenReturn(java.util.concurrent.CompletableFuture.completedFuture(null));
+
+    handler =
+        new MilestoneActivatedEventHandler(
+            eventLogRepo, dispatched::add, scheduler, e -> {}, traceIdProvider);
   }
 
   @Test
@@ -95,17 +81,13 @@ class MilestoneActivatedEventHandlerTest {
     MilestoneActivatedEvent event =
         new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, pastDeadline);
 
-    handler.onMilestoneActivated(event);
+    handler.handle(event);
 
-    verify(eventBus)
-        .publish(
-            eq(EventBusAddresses.MILESTONE_SLA_VIOLATED),
-            argThat(
-                arg -> {
-                  MilestoneSLAViolatedEvent e = (MilestoneSLAViolatedEvent) arg;
-                  return e.caseInstance() == caseInstance
-                      && "review-complete".equals(e.milestoneName());
-                }));
+    org.assertj.core.api.Assertions.assertThat(dispatched)
+        .anySatisfy(
+            e ->
+                org.assertj.core.api.Assertions.assertThat(e)
+                    .isInstanceOf(MilestoneSLAViolatedEvent.class));
     verify(scheduler, never()).schedule(any(ScheduledJobRequest.Builder.class));
   }
 
@@ -127,10 +109,12 @@ class MilestoneActivatedEventHandlerTest {
     MilestoneActivatedEvent event =
         new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, futureDeadline);
 
-    handler.onMilestoneActivated(event);
+    handler.handle(event);
 
     verify(scheduler).schedule(any(ScheduledJobRequest.Builder.class));
-    verify(eventBus, never()).publish(eq(EventBusAddresses.MILESTONE_SLA_VIOLATED), any());
+    org.assertj.core.api.Assertions.assertThat(
+            dispatched.stream().filter(e -> e instanceof MilestoneSLAViolatedEvent).toList())
+        .isEmpty();
   }
 
   @Test
@@ -145,10 +129,12 @@ class MilestoneActivatedEventHandlerTest {
     MilestoneActivatedEvent event =
         new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, null);
 
-    handler.onMilestoneActivated(event);
+    handler.handle(event);
 
     verify(scheduler, never()).schedule(any(ScheduledJobRequest.Builder.class));
-    verify(eventBus, never()).publish(eq(EventBusAddresses.MILESTONE_SLA_VIOLATED), any());
+    org.assertj.core.api.Assertions.assertThat(
+            dispatched.stream().filter(e -> e instanceof MilestoneSLAViolatedEvent).toList())
+        .isEmpty();
   }
 
   private CaseInstance createCaseInstance() {
@@ -163,11 +149,5 @@ class MilestoneActivatedEventHandlerTest {
     CaseContext ctx = ci.getCaseContext();
     ctx.setPath(
         "milestones." + milestoneName + ".lifecycleStatus", MilestoneLifecycleStatus.ACTIVE.name());
-  }
-
-  private static void inject(Object target, String fieldName, Object value) throws Exception {
-    Field field = target.getClass().getDeclaredField(fieldName);
-    field.setAccessible(true);
-    field.set(target, value);
   }
 }

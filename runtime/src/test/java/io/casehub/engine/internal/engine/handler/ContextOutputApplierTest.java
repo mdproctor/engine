@@ -67,9 +67,7 @@ class ContextOutputApplierTest {
     registry = mock(CaseDefinitionRegistry.class);
     when(registry.getCaseDefinition(any())).thenReturn(definition);
 
-    applier = new ContextOutputApplier();
-    applier.caseDefinitionRegistry = registry;
-    applier.contextDiffStrategy =
+    io.casehub.api.spi.ContextDiffStrategy diffStrategy =
         (before, after) -> {
           ObjectNode diff = MAPPER.createObjectNode();
           after
@@ -82,6 +80,7 @@ class ContextOutputApplierTest {
                   });
           return diff;
         };
+    applier = new ContextOutputApplier(registry, diffStrategy);
 
     instance = new CaseInstance();
     instance.setUuid(UUID.randomUUID());
