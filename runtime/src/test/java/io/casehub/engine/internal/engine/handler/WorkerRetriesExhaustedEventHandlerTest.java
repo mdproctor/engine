@@ -23,13 +23,13 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.RetryState;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.SignalSettlementTracker;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class WorkerRetriesExhaustedEventHandlerTest {
 
   @Mock CaseInstanceCache caseInstanceCache;
-  @Mock EventBus eventBus;
+  @Mock EventDispatcher eventDispatcher;
   @Mock CaseInstanceRepository caseInstanceRepository;
   @Mock WorkerStatusListener workerStatusListener;
   @Mock SignalSettlementTracker settlementTracker;
@@ -54,7 +54,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
   void setUp() {
     handler =
         new WorkerRetriesExhaustedEventHandler(
-            caseInstanceCache, eventBus, workerStatusListener, settlementTracker);
+            caseInstanceCache, eventDispatcher, workerStatusListener, settlementTracker);
   }
 
   @Test
@@ -64,7 +64,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
     when(caseInstanceCache.get(caseId)).thenReturn(instance);
     // caseInstanceRepository.updateStateAndAppendEvent is void — no stub needed
 
-    handler.onWorkerRetriesExhaustedEvent(
+    handler.handle(
         new WorkerRetriesExhaustedEvent(
             caseId, tenancyId, "worker-a", "hash", null, signalId, RetryState.empty()));
 
@@ -77,7 +77,7 @@ class WorkerRetriesExhaustedEventHandlerTest {
     when(caseInstanceCache.get(caseId)).thenReturn(instance);
     // caseInstanceRepository.updateStateAndAppendEvent is void — no stub needed
 
-    handler.onWorkerRetriesExhaustedEvent(
+    handler.handle(
         new WorkerRetriesExhaustedEvent(
             caseId, tenancyId, "worker-a", "hash", null, null, RetryState.empty()));
 

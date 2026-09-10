@@ -152,8 +152,7 @@ class DefaultWorkerSpiImplementationsTest {
 
   @Test
   void emptyContextProvider_buildContext_taskDescriptionMatchesCapability() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx =
         provider.buildContext("worker-1", null, WorkRequest.of("researcher", Map.of()));
     assertThat(ctx.taskDescription()).isEqualTo("researcher");
@@ -161,24 +160,23 @@ class DefaultWorkerSpiImplementationsTest {
 
   @Test
   void emptyContextProvider_buildContext_priorWorkersIsEmptyNotNull() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.priorWorkers()).isNotNull().isEmpty();
   }
 
   @Test
   void emptyContextProvider_buildContext_propagationContextIsNotNull() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
+
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.propagationContext()).isNotNull();
   }
 
   @Test
   void emptyContextProvider_buildContext_propagationContextCarriesIdentity() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
+
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.propagationContext().getAttribute("userId")).hasValue("test-user");
     assertThat(ctx.propagationContext().getAttribute("roles")).hasValue("viewer");
@@ -186,11 +184,8 @@ class DefaultWorkerSpiImplementationsTest {
 
   @Test
   void emptyContextProvider_buildContext_caseIdPopulated() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     UUID caseId = UUID.randomUUID();
-    provider.caseChannelProvider = mock(CaseChannelProvider.class);
-    when(provider.caseChannelProvider.listChannels(caseId)).thenReturn(List.of());
     WorkerContext ctx = provider.buildContext("worker-1", caseId, WorkRequest.of("task", Map.of()));
     assertThat(ctx.caseId()).isEqualTo(caseId);
   }
@@ -203,9 +198,7 @@ class DefaultWorkerSpiImplementationsTest {
     CaseChannelProvider mockProvider = mock(CaseChannelProvider.class);
     when(mockProvider.listChannels(caseId)).thenReturn(List.of(channel));
 
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
-    provider.caseChannelProvider = mockProvider;
+    var provider = new EmptyWorkerContextProvider(mockProvider, stubPrincipal());
 
     WorkerContext ctx = provider.buildContext("worker-1", caseId, WorkRequest.of("task", Map.of()));
     assertThat(ctx.channels()).containsExactly(channel);
@@ -213,8 +206,8 @@ class DefaultWorkerSpiImplementationsTest {
 
   @Test
   void emptyContextProvider_buildContext_nullCaseId_channelsEmpty() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
+
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.channels()).isEmpty();
   }
@@ -225,7 +218,7 @@ class DefaultWorkerSpiImplementationsTest {
   void emptyContextProvider_buildContextWithParent_inheritsTraceId() {
     PropagationContext parent =
         PropagationContext.createRoot("parent-trace", Map.of("userId", "alice", "roles", "admin"));
-    var provider = new EmptyWorkerContextProvider();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx =
         provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()), parent);
     assertThat(ctx.propagationContext().getTraceId()).isEqualTo("parent-trace");
@@ -235,7 +228,7 @@ class DefaultWorkerSpiImplementationsTest {
   void emptyContextProvider_buildContextWithParent_inheritsIdentityAttributes() {
     PropagationContext parent =
         PropagationContext.createRoot("t", Map.of("userId", "alice", "roles", "admin,viewer"));
-    var provider = new EmptyWorkerContextProvider();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx =
         provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()), parent);
     assertThat(ctx.propagationContext().getAttribute("userId")).hasValue("alice");
@@ -246,7 +239,7 @@ class DefaultWorkerSpiImplementationsTest {
   void emptyContextProvider_buildContextWithParent_inheritsBudget() {
     PropagationContext parent =
         PropagationContext.createRoot(Map.of("userId", "alice"), Duration.ofSeconds(30));
-    var provider = new EmptyWorkerContextProvider();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx =
         provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()), parent);
     assertThat(ctx.propagationContext().getDeadline()).isPresent();
@@ -261,8 +254,7 @@ class DefaultWorkerSpiImplementationsTest {
     when(mockProvider.listChannels(caseId)).thenReturn(List.of(channel));
 
     PropagationContext parent = PropagationContext.createRoot("t", Map.of("userId", "alice"));
-    var provider = new EmptyWorkerContextProvider();
-    provider.caseChannelProvider = mockProvider;
+    var provider = new EmptyWorkerContextProvider(mockProvider, stubPrincipal());
     WorkerContext ctx =
         provider.buildContext("worker-1", caseId, WorkRequest.of("task", Map.of()), parent);
     assertThat(ctx.channels()).containsExactly(channel);
@@ -348,8 +340,7 @@ class DefaultWorkerSpiImplementationsTest {
 
   @Test
   void emptyReactiveContextProvider_buildContext_taskDescriptionMatchesCapability() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx =
         provider.buildContext("worker-1", null, WorkRequest.of("researcher", Map.of()));
     assertThat(ctx.taskDescription()).isEqualTo("researcher");
@@ -357,24 +348,21 @@ class DefaultWorkerSpiImplementationsTest {
 
   @Test
   void emptyReactiveContextProvider_buildContext_priorWorkersIsEmpty() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx = provider.buildContext("worker-1", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.priorWorkers()).isNotNull().isEmpty();
   }
 
   @Test
   void emptyReactiveContextProvider_buildContext_propagationContextIsNotNull() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx = provider.buildContext("w", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.propagationContext()).isNotNull();
   }
 
   @Test
   void emptyReactiveContextProvider_buildContext_propagationContextCarriesIdentity() {
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
+    var provider = new EmptyWorkerContextProvider(new NoOpCaseChannelProvider(), stubPrincipal());
     WorkerContext ctx = provider.buildContext("w", null, WorkRequest.of("task", Map.of()));
     assertThat(ctx.propagationContext().getAttribute("userId")).hasValue("test-user");
     assertThat(ctx.propagationContext().getAttribute("roles")).hasValue("viewer");
@@ -385,9 +373,7 @@ class DefaultWorkerSpiImplementationsTest {
     UUID caseId = UUID.randomUUID();
     CaseChannelProvider mockProvider = mock(CaseChannelProvider.class);
     when(mockProvider.listChannels(caseId)).thenReturn(List.of());
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
-    provider.caseChannelProvider = mockProvider;
+    var provider = new EmptyWorkerContextProvider(mockProvider, stubPrincipal());
     WorkerContext ctx = provider.buildContext("worker-1", caseId, WorkRequest.of("task", Map.of()));
     assertThat(ctx.caseId()).isEqualTo(caseId);
   }
@@ -400,9 +386,7 @@ class DefaultWorkerSpiImplementationsTest {
     CaseChannelProvider mockProvider = mock(CaseChannelProvider.class);
     when(mockProvider.listChannels(caseId)).thenReturn(List.of(channel));
 
-    var provider = new EmptyWorkerContextProvider();
-    provider.currentPrincipal = stubPrincipal();
-    provider.caseChannelProvider = mockProvider;
+    var provider = new EmptyWorkerContextProvider(mockProvider, stubPrincipal());
 
     WorkerContext ctx = provider.buildContext("worker-1", caseId, WorkRequest.of("task", Map.of()));
     assertThat(ctx.channels()).containsExactly(channel);
