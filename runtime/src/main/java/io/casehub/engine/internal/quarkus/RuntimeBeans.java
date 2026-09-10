@@ -809,4 +809,75 @@ public class RuntimeBeans {
             ? java.util.Optional.of(stepOutcomeObserver.get())
             : java.util.Optional.empty());
   }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler
+      caseContextChangedEventHandler(
+          io.casehub.api.spi.event.EventDispatcher eventDispatcher,
+          io.casehub.engine.common.internal.jq.JQEvaluator jqEvaluator,
+          io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry,
+          io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry,
+          io.casehub.api.engine.LoopControl loopControl,
+          io.casehub.platform.api.routing.StrategyResolver strategyResolver,
+          io.casehub.engine.internal.routing.AgentCandidateFactory agentCandidateFactory,
+          io.casehub.engine.common.spi.scheduler.WorkerExecutionManager executionManager,
+          io.casehub.eidos.api.CapabilityHealth capabilityHealth,
+          io.casehub.api.spi.WorkerContextProvider workerContextProvider,
+          io.casehub.api.spi.WorkerProvisioner workerProvisioner,
+          jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseLifecycleEvent>
+              lifecycleEvents,
+          io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider,
+          io.casehub.engine.internal.routing.CbrRetrievalService cbrRetrievalService,
+          io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver,
+          io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker,
+          io.casehub.engine.internal.acl.WorkerGrantOrchestrator workerGrantOrchestrator,
+          @io.quarkus.virtual.threads.VirtualThreads
+              java.util.concurrent.ExecutorService virtualThreads,
+          io.casehub.engine.internal.engine.CaseEvaluationSerializer evaluationSerializer,
+          io.casehub.engine.internal.engine.QuiescenceTracker quiescenceTracker,
+          io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry,
+          io.casehub.engine.internal.routing.SelectionContextStore selectionContextStore,
+          io.casehub.api.spi.DispatchBudget dispatchBudget,
+          io.casehub.engine.common.spi.PlanItemStore planItemStore,
+          jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseContextUpdatedEvent>
+              caseContextUpdatedEvents,
+          jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.JudgmentScheduler>
+              judgmentScheduler) {
+    return new io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler(
+        eventDispatcher,
+        jqEvaluator,
+        caseDefinitionRegistry,
+        expressionEngineRegistry,
+        loopControl,
+        strategyResolver,
+        agentCandidateFactory,
+        executionManager,
+        capabilityHealth,
+        workerContextProvider,
+        workerProvisioner,
+        event -> {
+          try {
+            lifecycleEvents.fireAsync(event).toCompletableFuture().join();
+          } catch (Exception t) {
+            LOG.warnf(t, "CaseLifecycleEvent observer failed for CaseContextChanged");
+          }
+        },
+        traceIdProvider,
+        cbrRetrievalService,
+        bridgeResolver,
+        settlementTracker,
+        workerGrantOrchestrator,
+        virtualThreads,
+        evaluationSerializer,
+        quiescenceTracker,
+        scopedWorkerRegistry,
+        selectionContextStore,
+        dispatchBudget,
+        planItemStore,
+        event -> caseContextUpdatedEvents.fireAsync(event),
+        judgmentScheduler.isResolvable()
+            ? java.util.Optional.of(judgmentScheduler.get())
+            : java.util.Optional.empty());
+  }
 }

@@ -40,6 +40,7 @@ import io.casehub.api.model.event.ExecutionOrigin;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.api.spi.WorkerProvisioner;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.spi.routing.AgentCandidate;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.AgentRoutingStrategy;
@@ -57,7 +58,6 @@ import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.GoalReachedEvent;
 import io.casehub.engine.common.internal.event.OutcomeDisposition;
 import io.casehub.engine.common.internal.event.SubCaseScheduleEvent;
@@ -84,79 +84,105 @@ import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CaseContextChangedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(CaseContextChangedEventHandler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
-  @Inject EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
+  private final JQEvaluator jqEvaluator;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final ExpressionEngineRegistry expressionEngineRegistry;
+  private final LoopControl loopControl;
+  private final StrategyResolver strategyResolver;
+  private final AgentCandidateFactory agentCandidateFactory;
+  private final WorkerExecutionManager executionManager;
+  private final CapabilityHealth capabilityHealth;
+  private final WorkerContextProvider workerContextProvider;
+  private final WorkerProvisioner workerProvisioner;
+  private final Consumer<CaseLifecycleEvent> lifecycleEventConsumer;
+  private final LedgerTraceIdProvider traceIdProvider;
+  private final CbrRetrievalService cbrRetrievalService;
+  private final BridgeResolver bridgeResolver;
+  private final SignalSettlementTracker settlementTracker;
+  private final WorkerGrantOrchestrator workerGrantOrchestrator;
+  private final ExecutorService virtualThreads;
+  private final CaseEvaluationSerializer evaluationSerializer;
+  private final QuiescenceTracker quiescenceTracker;
+  private final ScopedWorkerRegistry scopedWorkerRegistry;
+  private final SelectionContextStore selectionContextStore;
+  private final io.casehub.api.spi.DispatchBudget dispatchBudget;
+  private final io.casehub.engine.common.spi.PlanItemStore planItemStore;
+  private final Consumer<CaseContextUpdatedEvent> caseContextUpdatedEventConsumer;
+  private final Optional<io.casehub.engine.common.spi.JudgmentScheduler> judgmentScheduler;
 
-  @Inject JQEvaluator jqEvaluator;
+  public CaseContextChangedEventHandler(
+      EventDispatcher eventDispatcher,
+      JQEvaluator jqEvaluator,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      ExpressionEngineRegistry expressionEngineRegistry,
+      LoopControl loopControl,
+      StrategyResolver strategyResolver,
+      AgentCandidateFactory agentCandidateFactory,
+      WorkerExecutionManager executionManager,
+      CapabilityHealth capabilityHealth,
+      WorkerContextProvider workerContextProvider,
+      WorkerProvisioner workerProvisioner,
+      Consumer<CaseLifecycleEvent> lifecycleEventConsumer,
+      LedgerTraceIdProvider traceIdProvider,
+      CbrRetrievalService cbrRetrievalService,
+      BridgeResolver bridgeResolver,
+      SignalSettlementTracker settlementTracker,
+      WorkerGrantOrchestrator workerGrantOrchestrator,
+      ExecutorService virtualThreads,
+      CaseEvaluationSerializer evaluationSerializer,
+      QuiescenceTracker quiescenceTracker,
+      ScopedWorkerRegistry scopedWorkerRegistry,
+      SelectionContextStore selectionContextStore,
+      io.casehub.api.spi.DispatchBudget dispatchBudget,
+      io.casehub.engine.common.spi.PlanItemStore planItemStore,
+      Consumer<CaseContextUpdatedEvent> caseContextUpdatedEventConsumer,
+      Optional<io.casehub.engine.common.spi.JudgmentScheduler> judgmentScheduler) {
+    this.eventDispatcher = eventDispatcher;
+    this.jqEvaluator = jqEvaluator;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.expressionEngineRegistry = expressionEngineRegistry;
+    this.loopControl = loopControl;
+    this.strategyResolver = strategyResolver;
+    this.agentCandidateFactory = agentCandidateFactory;
+    this.executionManager = executionManager;
+    this.capabilityHealth = capabilityHealth;
+    this.workerContextProvider = workerContextProvider;
+    this.workerProvisioner = workerProvisioner;
+    this.lifecycleEventConsumer = lifecycleEventConsumer;
+    this.traceIdProvider = traceIdProvider;
+    this.cbrRetrievalService = cbrRetrievalService;
+    this.bridgeResolver = bridgeResolver;
+    this.settlementTracker = settlementTracker;
+    this.workerGrantOrchestrator = workerGrantOrchestrator;
+    this.virtualThreads = virtualThreads;
+    this.evaluationSerializer = evaluationSerializer;
+    this.quiescenceTracker = quiescenceTracker;
+    this.scopedWorkerRegistry = scopedWorkerRegistry;
+    this.selectionContextStore = selectionContextStore;
+    this.dispatchBudget = dispatchBudget;
+    this.planItemStore = planItemStore;
+    this.caseContextUpdatedEventConsumer = caseContextUpdatedEventConsumer;
+    this.judgmentScheduler = judgmentScheduler;
+  }
 
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-
-  @Inject ExpressionEngineRegistry expressionEngineRegistry;
-
-  @Inject LoopControl loopControl;
-
-  @Inject StrategyResolver strategyResolver;
-
-  @Inject AgentCandidateFactory agentCandidateFactory;
-
-  @Inject WorkerExecutionManager executionManager;
-
-  @Inject CapabilityHealth capabilityHealth;
-
-  @Inject WorkerContextProvider workerContextProvider;
-
-  @Inject WorkerProvisioner workerProvisioner;
-
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-
-  @Inject LedgerTraceIdProvider traceIdProvider;
-
-  @Inject CbrRetrievalService cbrRetrievalService;
-
-  @Inject BridgeResolver bridgeResolver;
-
-  @Inject SignalSettlementTracker settlementTracker;
-
-  @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
-
-  @Inject @io.quarkus.virtual.threads.VirtualThreads
-  java.util.concurrent.ExecutorService virtualThreads;
-
-  @Inject CaseEvaluationSerializer evaluationSerializer;
-  @Inject QuiescenceTracker quiescenceTracker;
-  @Inject ScopedWorkerRegistry scopedWorkerRegistry;
-  @Inject SelectionContextStore selectionContextStore;
-  @Inject io.casehub.api.spi.DispatchBudget dispatchBudget;
-  @Inject io.casehub.engine.common.spi.PlanItemStore planItemStore;
-
-  @Inject Event<CaseContextUpdatedEvent> caseContextUpdatedEvents;
-
-  @Inject
-  jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.JudgmentScheduler>
-      judgmentScheduler;
-
-  @RunOnVirtualThread
-  @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
-  public void onCaseStateContextChangedEventHandler(final CaseContextChangedEvent event) {
+  public void handle(final CaseContextChangedEvent event) {
     final CaseInstance caseInstance = event.instance();
     final CaseStatus state = caseInstance.getState();
 
@@ -192,7 +218,7 @@ public class CaseContextChangedEventHandler {
     LOG.infof("Handling CaseStateContextChangedEvent for caseId: %s", caseInstance.getUuid());
 
     if (changedLayer != null) {
-      caseContextUpdatedEvents.fireAsync(
+      caseContextUpdatedEventConsumer.accept(
           new CaseContextUpdatedEvent(
               caseInstance.getUuid(), changedLayer, caseInstance.tenancyId));
     }
@@ -375,8 +401,7 @@ public class CaseContextChangedEventHandler {
         continue;
       }
       LOG.infof("Goal '%s' REACHED! Publishing GoalReachedEvent", goal.getName());
-      eventBus.publish(
-          EventBusAddresses.GOAL_REACHED, new GoalReachedEvent(caseInstance, List.of(goal)));
+      eventDispatcher.dispatch(new GoalReachedEvent(caseInstance, List.of(goal)));
     }
   }
 
@@ -415,8 +440,7 @@ public class CaseContextChangedEventHandler {
       case io.casehub.api.model.JudgmentTarget jt ->
           publishJudgmentSchedule(caseInstance, caseDefinition, binding, jt, experiences);
       case io.casehub.api.model.SignalTarget st ->
-          eventBus.publish(
-              EventBusAddresses.CONTEXT_SIGNAL,
+          eventDispatcher.dispatch(
               new io.casehub.engine.common.internal.event.ContextSignalEvent(
                   caseInstance, binding.getName(), st.payload()));
       case ExtensionTarget et ->
@@ -634,8 +658,7 @@ public class CaseContextChangedEventHandler {
         caseInstance.getCaseContext().set("_diagnostics", outcomesMap);
       }
     }
-    eventBus.publish(
-        EventBusAddresses.WORKER_OUTCOME_RESOLVED,
+    eventDispatcher.dispatch(
         new WorkerOutcomeResolvedEvent(
             caseInstance, null, bindingName, capabilityName, OutcomeDisposition.EXHAUSTED));
   }
@@ -706,8 +729,7 @@ public class CaseContextChangedEventHandler {
       }
     }
 
-    eventBus.publish(
-        EventBusAddresses.WORKER_SCHEDULE,
+    eventDispatcher.dispatch(
         new WorkerScheduleEvent(
             caseInstance,
             selectedWorker,
@@ -733,8 +755,7 @@ public class CaseContextChangedEventHandler {
             + " caseId=%s — publishing escalation event",
         escalation.capabilityName(), binding.getName(), caseInstance.getUuid());
 
-    eventBus.publish(
-        EventBusAddresses.AGENT_ROUTING_ESCALATION,
+    eventDispatcher.dispatch(
         new AgentRoutingEscalationEvent(
             caseInstance.getUuid(),
             caseInstance.tenancyId,
@@ -749,7 +770,7 @@ public class CaseContextChangedEventHandler {
       final Binding binding,
       final io.casehub.api.model.JudgmentTarget target,
       final List<RetrievedExperience> experiences) {
-    if (!judgmentScheduler.isResolvable()) {
+    if (!judgmentScheduler.isPresent()) {
       LOG.warnf(
           "No JudgmentScheduler on classpath — skipping judgment binding '%s' caseId=%s",
           binding.getName(), caseInstance.getUuid());
@@ -1056,19 +1077,9 @@ public class CaseContextChangedEventHandler {
       final var caps = workerProvisioner.getCapabilities();
       workerProvisioner.provision(caps, provisionContext);
 
-      try {
-        lifecycleEvents
-            .fireAsync(
-                CaseLifecycleEvent.of(
-                    caseInstance, "ProvisionWorker", "WorkerStarted", null, "System", traceId))
-            .toCompletableFuture()
-            .join();
-      } catch (Exception t) {
-        LOG.warnf(
-            t,
-            "CaseLifecycleEvent observer failed for caseId=%s event=WorkerStarted",
-            caseInstance.getUuid());
-      }
+      lifecycleEventConsumer.accept(
+          CaseLifecycleEvent.of(
+              caseInstance, "ProvisionWorker", "WorkerStarted", null, "System", traceId));
     } catch (ProvisioningException e) {
       LOG.warnf(
           e,
@@ -1123,8 +1134,7 @@ public class CaseContextChangedEventHandler {
         subCase.version(),
         subCase.waitForCompletion());
 
-    eventBus.publish(
-        EventBusAddresses.SUBCASE_SCHEDULE,
+    eventDispatcher.dispatch(
         new SubCaseScheduleEvent(caseInstance, subCase, childContext, null, bindingName));
   }
 
