@@ -100,6 +100,7 @@
         <module>scheduler-dbscheduler</module>
         <module>persistence-memory</module>
         <module>persistence-hibernate</module>
+        <module>runtime-core</module>
         <module>runtime</module>
         <module>planning</module>
         <module>resilience</module>
