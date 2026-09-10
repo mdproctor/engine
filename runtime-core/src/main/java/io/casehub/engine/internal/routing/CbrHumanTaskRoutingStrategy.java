@@ -20,23 +20,9 @@ import io.casehub.api.spi.routing.HumanTaskCandidates;
 import io.casehub.api.spi.routing.HumanTaskRoutingContext;
 import io.casehub.api.spi.routing.HumanTaskRoutingResult;
 import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * CBR-based humanTask routing strategy that scores candidate users using historical plan trace
- * data. Matches steps by {@code bindingName} (humanTask traces have null {@code capabilityName}).
- *
- * <p>Enrichment only — groups and users pass through unchanged, with {@code candidateScores} added
- * for users that have matching plan trace data. Never blocks dispatch.
- *
- * <p>Resolved via {@code StrategyResolver} when {@code CaseDefinition.getHumanTaskRouting()}
- * returns {@code "cbr"}. Refs casehubio/engine#754.
- */
-@ApplicationScoped
-@Unremovable
 public class CbrHumanTaskRoutingStrategy implements HumanTaskRoutingStrategy {
 
   @Override
@@ -46,18 +32,18 @@ public class CbrHumanTaskRoutingStrategy implements HumanTaskRoutingStrategy {
 
   @Override
   public HumanTaskRoutingResult select(
-      final HumanTaskRoutingContext context, final HumanTaskCandidates candidates) {
+      HumanTaskRoutingContext context, HumanTaskCandidates candidates) {
     if (context.experiences().isEmpty()) {
       return new HumanTaskRoutingResult.Unchanged();
     }
 
-    final Set<String> allUsers = candidates.allUsers();
+    Set<String> allUsers = candidates.allUsers();
     if (allUsers.isEmpty()) {
       return new HumanTaskRoutingResult.Unchanged();
     }
 
-    final String bindingName = context.bindingName();
-    final Map<String, Double> scores =
+    String bindingName = context.bindingName();
+    Map<String, Double> scores =
         ExperienceAnalyser.workerSuccessRates(
             context.experiences(),
             allUsers,

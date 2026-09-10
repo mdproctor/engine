@@ -18,16 +18,16 @@ package io.casehub.engine.internal.config.impl;
 import io.casehub.engine.common.internal.config.ConfigContext;
 import io.casehub.engine.common.internal.config.ConfigManager;
 import io.casehub.engine.common.internal.config.SecretManager;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
-/** Default CDI bean providing access to ConfigManager and SecretManager. */
-@ApplicationScoped
 public class DefaultConfigContext implements ConfigContext {
 
-  @Inject ConfigManager configManager;
+  private final ConfigManager configManager;
+  private final SecretManager secretManager;
 
-  @Inject SecretManager secretManager;
+  public DefaultConfigContext(ConfigManager configManager, SecretManager secretManager) {
+    this.configManager = configManager;
+    this.secretManager = secretManager;
+  }
 
   @Override
   public ConfigManager configManager() {

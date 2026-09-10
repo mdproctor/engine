@@ -20,27 +20,16 @@ import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.RoutingSignal;
 import io.casehub.api.spi.routing.RoutingSignalProvider;
 import io.casehub.eidos.api.AgentGoal;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Goal-aware routing signal provider that scores agents based on their goal engagement.
- *
- * <p>Agents with more active (non-abandoned) goals receive higher scores, indicating higher
- * engagement and relevance. Agents with all goals abandoned are excluded. Agents without goals or
- * without AgentDescriptors are skipped (absent from signal map — weight redistributed).
- */
-@ApplicationScoped
 public class GoalSignalProvider implements RoutingSignalProvider {
 
-  private final Instance<GoalAbandonmentEvaluator> evaluator;
+  private final Optional<GoalAbandonmentEvaluator> evaluator;
 
-  @Inject
-  public GoalSignalProvider(Instance<GoalAbandonmentEvaluator> evaluator) {
+  public GoalSignalProvider(Optional<GoalAbandonmentEvaluator> evaluator) {
     this.evaluator = evaluator;
   }
 
@@ -56,7 +45,6 @@ public class GoalSignalProvider implements RoutingSignalProvider {
 
     for (var candidate : eligible) {
       if (candidate.agentDescriptor() == null) {
-        // No descriptor — skip (absent from signal map)
         continue;
       }
 
@@ -64,23 +52,18 @@ public class GoalSignalProvider implements RoutingSignalProvider {
       List<AgentGoal> totalGoals = descriptor.goals();
 
       if (totalGoals.isEmpty()) {
-        // No goals declared — skip (absent from signal map)
         continue;
       }
 
       List<AgentGoal> activeGoals =
-          evaluator.isResolvable()
-              ? evaluator.get().activeGoals(descriptor)
-              : totalGoals; // No evaluator — all goals considered active
+          evaluator.isPresent() ? evaluator.get().activeGoals(descriptor) : totalGoals;
 
       if (activeGoals.isEmpty()) {
-        // All goals abandoned — exclude
         signals.put(
             candidate.workerId(), new RoutingSignal.CandidateSignal.Exclude("all goals abandoned"));
         continue;
       }
 
-      // Score = fraction of non-abandoned goals (higher = more engaged)
       double score = (double) activeGoals.size() / totalGoals.size();
       String rationale = "%d/%d active goals".formatted(activeGoals.size(), totalGoals.size());
       signals.put(candidate.workerId(), new RoutingSignal.CandidateSignal.Score(score, rationale));

@@ -20,30 +20,13 @@ import io.casehub.api.spi.DiscoveredWorker;
 import io.casehub.api.spi.WorkerFunctionProvider;
 import io.casehub.api.spi.WorkerFunctionProviderRegistry;
 import io.casehub.worker.api.WorkerFunction;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.List;
 
-/**
- * Default implementation of {@link WorkerFunctionProviderRegistry}.
- *
- * <p>Dispatches YAML worker node construction to the appropriate {@link WorkerFunctionProvider} by
- * iterating all registered providers until one handles the node. All CDI beans implementing {@link
- * WorkerFunctionProvider} are discovered automatically. Add a new provider bean to support
- * additional worker types without modifying this class or the runtime.
- */
-@ApplicationScoped
 public class DefaultWorkerFunctionProviderRegistry implements WorkerFunctionProviderRegistry {
 
   private final Iterable<WorkerFunctionProvider> providers;
 
-  @Inject
-  public DefaultWorkerFunctionProviderRegistry(Instance<WorkerFunctionProvider> providers) {
-    this.providers = providers;
-  }
-
-  DefaultWorkerFunctionProviderRegistry(Iterable<WorkerFunctionProvider> providers) {
+  public DefaultWorkerFunctionProviderRegistry(List<WorkerFunctionProvider> providers) {
     this.providers = providers;
   }
 
@@ -58,10 +41,10 @@ public class DefaultWorkerFunctionProviderRegistry implements WorkerFunctionProv
   }
 
   @Override
-  public List<DiscoveredWorker> discoverWorkers(final JsonNode rawWorkerNode) {
-    for (final WorkerFunctionProvider provider : providers) {
+  public List<DiscoveredWorker> discoverWorkers(JsonNode rawWorkerNode) {
+    for (WorkerFunctionProvider provider : providers) {
       if (provider.handles(rawWorkerNode)) {
-        final List<DiscoveredWorker> discovered = provider.discoverWorkers(rawWorkerNode);
+        List<DiscoveredWorker> discovered = provider.discoverWorkers(rawWorkerNode);
         if (!discovered.isEmpty()) {
           return discovered;
         }

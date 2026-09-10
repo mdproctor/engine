@@ -22,29 +22,21 @@ import io.casehub.api.spi.routing.RoutingSignal;
 import io.casehub.api.spi.routing.RoutingSignalProvider;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.eidos.api.DispositionHealth;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jboss.logging.Logger;
 import org.jspecify.annotations.Nullable;
 
-/**
- * Scores candidates by cognitive function alignment between the task's demand profile and the
- * agent's effective personality weights (base + accumulated activations from JPAF reinforcement).
- */
-@ApplicationScoped
 public class PersonalitySignalProvider implements RoutingSignalProvider {
 
   private static final Logger LOG = Logger.getLogger(PersonalitySignalProvider.class);
   static final String[] FUNCTIONS = {"Ti", "Te", "Fi", "Fe", "Si", "Se", "Ni", "Ne"};
 
-  private final Instance<DispositionHealth> dispositionHealth;
+  private final Optional<DispositionHealth> dispositionHealth;
 
-  @Inject
-  public PersonalitySignalProvider(Instance<DispositionHealth> dispositionHealth) {
+  public PersonalitySignalProvider(Optional<DispositionHealth> dispositionHealth) {
     this.dispositionHealth = dispositionHealth;
   }
 
@@ -56,7 +48,7 @@ public class PersonalitySignalProvider implements RoutingSignalProvider {
   @Override
   public @Nullable RoutingSignal evaluate(
       AgentRoutingContext context, List<AgentCandidate> eligible) {
-    if (!dispositionHealth.isResolvable()) return null;
+    if (dispositionHealth.isEmpty()) return null;
     CognitiveDemand demand = context.cognitiveDemand();
     if (demand == null) return null;
 

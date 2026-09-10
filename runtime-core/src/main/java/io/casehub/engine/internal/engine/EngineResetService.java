@@ -16,25 +16,16 @@
 package io.casehub.engine.internal.engine;
 
 import io.casehub.engine.common.spi.Resettable;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.List;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class EngineResetService {
 
   private static final Logger LOG = Logger.getLogger(EngineResetService.class);
 
   private final List<Resettable> resettables;
 
-  @Inject
-  public EngineResetService(Instance<Resettable> resettables) {
-    this.resettables = resettables.stream().toList();
-  }
-
-  EngineResetService(List<Resettable> resettables) {
+  public EngineResetService(List<Resettable> resettables) {
     this.resettables = resettables;
   }
 

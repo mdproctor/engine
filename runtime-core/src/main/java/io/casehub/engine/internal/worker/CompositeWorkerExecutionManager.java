@@ -18,26 +18,19 @@ package io.casehub.engine.internal.worker;
 import io.casehub.api.spi.ProvisioningException;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.spi.scheduler.WorkerBackend;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
 
   private static final Logger LOG = Logger.getLogger(CompositeWorkerExecutionManager.class);
@@ -45,19 +38,11 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
   private final WorkerExecutionRoutingStrategy routingStrategy;
   private final List<WorkerExecutionManager> backends;
 
-  @Inject
   public CompositeWorkerExecutionManager(
-      WorkerExecutionRoutingStrategy routingStrategy,
-      @WorkerBackend Instance<WorkerExecutionManager> discoveredBackends) {
-    this.routingStrategy = routingStrategy;
-    this.backends = sortByPriority(discoveredBackends);
-    LOG.infof("CompositeWorkerExecutionManager initialized with %d backend(s)", backends.size());
-  }
-
-  CompositeWorkerExecutionManager(
       WorkerExecutionRoutingStrategy routingStrategy, List<WorkerExecutionManager> backends) {
     this.routingStrategy = routingStrategy;
     this.backends = List.copyOf(backends);
+    LOG.infof("CompositeWorkerExecutionManager initialized with %d backend(s)", backends.size());
   }
 
   @Override
@@ -183,25 +168,5 @@ public class CompositeWorkerExecutionManager implements WorkerExecutionManager {
       all.addAll(backend.getActiveCaseIds(workerId));
     }
     return Collections.unmodifiableList(all);
-  }
-
-  private static List<WorkerExecutionManager> sortByPriority(
-      Instance<WorkerExecutionManager> instances) {
-    List<WorkerExecutionManager> sorted = new ArrayList<>();
-    for (WorkerExecutionManager wem : instances) {
-      sorted.add(wem);
-    }
-    sorted.sort(
-        Comparator.comparingInt(
-                (WorkerExecutionManager wem) -> {
-                  Class<?> realClass = wem.getClass();
-                  Priority p = realClass.getAnnotation(Priority.class);
-                  if (p == null && realClass.getSuperclass() != null) {
-                    p = realClass.getSuperclass().getAnnotation(Priority.class);
-                  }
-                  return p != null ? p.value() : 0;
-                })
-            .reversed());
-    return Collections.unmodifiableList(sorted);
   }
 }

@@ -954,4 +954,93 @@ public class RuntimeBeans {
     return new io.casehub.engine.internal.routing.ConstraintHumanTaskRoutingStrategy(
         expressionRegistry, workloadProvider);
   }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.EngineResetService engineResetService(
+      Instance<io.casehub.engine.common.spi.Resettable> resettables) {
+    return new io.casehub.engine.internal.engine.EngineResetService(resettables.stream().toList());
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.config.impl.ConfigSecretManager configSecretManager(
+      io.casehub.engine.common.internal.config.ConfigManager configManager) {
+    return new io.casehub.engine.internal.config.impl.ConfigSecretManager(configManager);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.worker.DefaultWorkerFunctionProviderRegistry
+      defaultWorkerFunctionProviderRegistry(
+          Instance<io.casehub.api.spi.WorkerFunctionProvider> providers) {
+    return new io.casehub.engine.internal.worker.DefaultWorkerFunctionProviderRegistry(
+        providers.stream().toList());
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.worker.CompositeWorkerExecutionManager compositeWorkerExecutionManager(
+      io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy routingStrategy,
+      @io.casehub.engine.common.spi.scheduler.WorkerBackend
+          Instance<WorkerExecutionManager> backends) {
+    return new io.casehub.engine.internal.worker.CompositeWorkerExecutionManager(
+        routingStrategy, backends.stream().toList());
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.ExperienceSignalProvider experienceSignalProvider() {
+    return new io.casehub.engine.internal.routing.ExperienceSignalProvider();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.GoalAbandonmentEvaluator goalAbandonmentEvaluator(
+      Instance<io.casehub.eidos.api.GoalSignalStore> signalStore,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.engine.goal.abandonment-threshold",
+              defaultValue = "5")
+          int threshold) {
+    return new io.casehub.engine.internal.routing.GoalAbandonmentEvaluator(
+        signalStore.isResolvable()
+            ? java.util.Optional.of(signalStore.get())
+            : java.util.Optional.empty(),
+        threshold);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.PersonalitySignalProvider personalitySignalProvider(
+      Instance<io.casehub.eidos.api.DispositionHealth> dispositionHealth) {
+    return new io.casehub.engine.internal.routing.PersonalitySignalProvider(
+        dispositionHealth.isResolvable()
+            ? java.util.Optional.of(dispositionHealth.get())
+            : java.util.Optional.empty());
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.GoalSignalProvider goalSignalProvider(
+      Instance<io.casehub.engine.internal.routing.GoalAbandonmentEvaluator> evaluator) {
+    return new io.casehub.engine.internal.routing.GoalSignalProvider(
+        evaluator.isResolvable()
+            ? java.util.Optional.of(evaluator.get())
+            : java.util.Optional.empty());
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.CbrHumanTaskRoutingStrategy cbrHumanTaskRoutingStrategy() {
+    return new io.casehub.engine.internal.routing.CbrHumanTaskRoutingStrategy();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.config.impl.DefaultConfigContext defaultConfigContext(
+      io.casehub.engine.common.internal.config.ConfigManager configManager,
+      io.casehub.engine.common.internal.config.SecretManager secretManager) {
+    return new io.casehub.engine.internal.config.impl.DefaultConfigContext(
+        configManager, secretManager);
+  }
 }

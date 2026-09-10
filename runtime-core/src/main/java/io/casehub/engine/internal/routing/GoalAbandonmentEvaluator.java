@@ -19,30 +19,22 @@ import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.AgentGoal;
 import io.casehub.eidos.api.GoalOutcomeCounts;
 import io.casehub.eidos.api.GoalSignalStore;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
+import java.util.Optional;
 
-@ApplicationScoped
 public class GoalAbandonmentEvaluator {
 
-  private final Instance<GoalSignalStore> signalStore;
+  private final Optional<GoalSignalStore> signalStore;
   private final int threshold;
 
-  @Inject
-  public GoalAbandonmentEvaluator(
-      Instance<GoalSignalStore> signalStore,
-      @ConfigProperty(name = "casehub.engine.goal.abandonment-threshold", defaultValue = "5")
-          int threshold) {
+  public GoalAbandonmentEvaluator(Optional<GoalSignalStore> signalStore, int threshold) {
     this.signalStore = signalStore;
     this.threshold = threshold;
   }
 
   public boolean isAbandoned(String agentId, String tenancyId, String goalName) {
-    if (!signalStore.isResolvable()) {
+    if (signalStore.isEmpty()) {
       return false;
     }
     Map<String, GoalOutcomeCounts> counts = signalStore.get().outcomeCounts(agentId, tenancyId);
@@ -52,7 +44,7 @@ public class GoalAbandonmentEvaluator {
   }
 
   public List<AgentGoal> activeGoals(AgentDescriptor descriptor) {
-    if (!signalStore.isResolvable()) {
+    if (signalStore.isEmpty()) {
       return descriptor.goals();
     }
     if (descriptor.goals().isEmpty()) {

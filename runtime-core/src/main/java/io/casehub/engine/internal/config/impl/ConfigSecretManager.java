@@ -18,40 +18,16 @@ package io.casehub.engine.internal.config.impl;
 import io.casehub.engine.common.internal.config.ConfigManager;
 import io.casehub.engine.common.internal.config.SecretManager;
 import io.casehub.engine.common.internal.config.SecretNotFoundException;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Builds secrets from ConfigManager by filtering properties with prefix.
- *
- * <p>Adapted from Serverless Workflow ConfigSecretManager.
- *
- * <p>Example:
- *
- * <pre>
- * openai.apiKey=sk-test
- * openai.organizationId=org-123
- * openai.model.name=gpt-4o
- * </pre>
- *
- * becomes:
- *
- * <pre>
- * {
- *   "apiKey": "sk-test",
- *   "organizationId": "org-123",
- *   "model": {
- *     "name": "gpt-4o"
- *   }
- * }
- * </pre>
- */
-@ApplicationScoped
 public class ConfigSecretManager implements SecretManager {
 
-  @Inject ConfigManager configManager;
+  private final ConfigManager configManager;
+
+  public ConfigSecretManager(ConfigManager configManager) {
+    this.configManager = configManager;
+  }
 
   @Override
   public Map<String, Object> secret(String secretName) {
@@ -74,17 +50,12 @@ public class ConfigSecretManager implements SecretManager {
     return result;
   }
 
-  /**
-   * Converts "enemy.name" -> nested map {enemy: {name: value}}.
-   *
-   * <p>Algorithm adapted from Serverless Workflow ConfigSecretManager.
-   */
+  @SuppressWarnings("unchecked")
   private void putNested(Map<String, Object> map, String key, Object value) {
     String[] parts = key.split("\\.", 2);
     if (parts.length == 1) {
       map.put(key, value);
     } else {
-      @SuppressWarnings("unchecked")
       Map<String, Object> nested =
           (Map<String, Object>) map.computeIfAbsent(parts[0], k -> new HashMap<>());
       putNested(nested, parts[1], value);
