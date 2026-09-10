@@ -15,38 +15,25 @@
  */
 package io.casehub.api.spi.routing;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.Comparator;
 import java.util.List;
 import org.jboss.logging.Logger;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Discovers all {@link RoutingPromptSection} implementations via CDI, sorts them by {@link
- * jakarta.annotation.Priority} (lower values first), and assembles their rendered output into a
- * single prompt string.
+ * Sorts {@link RoutingPromptSection} implementations by {@link jakarta.annotation.Priority} (lower
+ * values first) and assembles their rendered output into a single prompt string.
  *
  * <p>Sections returning {@code null} or blank strings are skipped. Sections that throw are logged
  * and skipped — a failing section never prevents other sections from rendering.
  *
  * <p>Non-null results are joined with double newlines ({@code \n\n}).
  */
-@ApplicationScoped
 public class RoutingPromptAssembler {
 
   private static final Logger LOG = Logger.getLogger(RoutingPromptAssembler.class);
 
   private final List<RoutingPromptSection> sections;
-
-  @Inject
-  public RoutingPromptAssembler(Instance<RoutingPromptSection> sections) {
-    this.sections =
-        sections.stream()
-            .sorted(Comparator.comparingInt(RoutingPromptAssembler::priority))
-            .toList();
-  }
 
   public RoutingPromptAssembler(List<RoutingPromptSection> sections) {
     this.sections =

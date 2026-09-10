@@ -20,26 +20,21 @@ import io.casehub.api.spi.RiskDecision.GateRequired;
 import io.casehub.api.spi.routing.CandidateSetStrategy;
 import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.worker.api.PlannedAction;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
-import java.util.stream.StreamSupport;
+import java.util.List;
 import org.jboss.logging.Logger;
 
 /**
- * Chains all {@link RiskClassifier @RiskClassifier}-qualified {@link ActionRiskClassifier} beans
- * and returns the most restrictive {@link RiskDecision}.
+ * Chains all {@link ActionRiskClassifier} implementations and returns the most restrictive {@link
+ * RiskDecision}.
  *
- * <p>When no consumer has registered any {@code @RiskClassifier} classifier, the injection point is
- * unsatisfied and the method returns {@link Autonomous} immediately.
+ * <p>When the classifier list is empty, returns {@link Autonomous} immediately.
  *
  * <p>If any classifier throws, the fail-safe {@link GateRequired} is returned — the action is gated
  * for manual review.
  *
  * <p>"Most restrictive" = fewest {@code candidateGroups}; tie → shorter {@code expiresIn}; tie →
- * CDI iteration order (first wins).
+ * iteration order (first wins).
  */
-@ApplicationScoped
 public class ChainedActionRiskClassifier implements ActionRiskClassifier {
 
   private static final Logger LOG = Logger.getLogger(ChainedActionRiskClassifier.class);
@@ -54,16 +49,20 @@ public class ChainedActionRiskClassifier implements ActionRiskClassifier {
           null,
           null);
 
-  @Inject @RiskClassifier Instance<ActionRiskClassifier> classifiers;
+  private final List<ActionRiskClassifier> classifiers;
+
+  public ChainedActionRiskClassifier(List<ActionRiskClassifier> classifiers) {
+    this.classifiers = classifiers;
+  }
 
   @Override
   public RiskDecision classify(final PlannedAction action, final ClassificationContext context) {
-    if (classifiers.isUnsatisfied()) {
+    if (classifiers.isEmpty()) {
       return new Autonomous();
     }
 
     try {
-      return StreamSupport.stream(classifiers.spliterator(), false)
+      return classifiers.stream()
           .map(c -> c.classify(action, context))
           .reduce((RiskDecision) new Autonomous(), ChainedActionRiskClassifier::mostRestrictive);
     } catch (final Exception e) {

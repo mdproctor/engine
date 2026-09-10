@@ -16,25 +16,18 @@
 package io.casehub.api.spi;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import io.casehub.api.spi.RiskDecision.Autonomous;
 import io.casehub.api.spi.RiskDecision.GateRequired;
 import io.casehub.api.spi.routing.StaticSetStrategy;
 import io.casehub.worker.api.PlannedAction;
-import jakarta.enterprise.inject.Instance;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.Spliterators;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class ChainedActionRiskClassifierTest {
-
-  private ChainedActionRiskClassifier chain;
 
   private static PlannedAction anyAction() {
     return PlannedAction.of("desc", "spend.transfer", Map.of("amount", 100));
@@ -45,14 +38,9 @@ class ChainedActionRiskClassifierTest {
         "w-1", UUID.randomUUID(), "tenant-1", "test-case", "cap", "binding");
   }
 
-  @BeforeEach
-  void setUp() {
-    chain = new ChainedActionRiskClassifier();
-  }
-
   @Test
   void emptyChain_returnsAutonomous() {
-    chain.classifiers = unsatisfied();
+    var chain = new ChainedActionRiskClassifier(List.of());
 
     RiskDecision result = chain.classify(anyAction(), anyContext());
 
@@ -61,7 +49,7 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void singleClassifier_returnsAutonomous_propagatesAutonomous() {
-    chain.classifiers = instanceOf((action, context) -> new Autonomous());
+    var chain = new ChainedActionRiskClassifier(List.of((action, context) -> new Autonomous()));
 
     RiskDecision result = chain.classify(anyAction(), anyContext());
 
@@ -79,7 +67,7 @@ class ChainedActionRiskClassifierTest {
             null,
             null,
             null);
-    chain.classifiers = instanceOf((action, context) -> gate);
+    var chain = new ChainedActionRiskClassifier(List.of((action, context) -> gate));
 
     RiskDecision result = chain.classify(anyAction(), anyContext());
 
@@ -92,8 +80,9 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_bothAutonomous_returnsAutonomous() {
-    chain.classifiers =
-        instanceOf((action, context) -> new Autonomous(), (action, context) -> new Autonomous());
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of((action, context) -> new Autonomous(), (action, context) -> new Autonomous()));
 
     RiskDecision result = chain.classify(anyAction(), anyContext());
 
@@ -102,18 +91,19 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_oneAutonomousOneGateRequired_returnsGateRequired() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) -> new Autonomous(),
-            (action, context) ->
-                new GateRequired(
-                    "SUSAR filing",
-                    false,
-                    StaticSetStrategy.of("physician"),
-                    null,
-                    null,
-                    null,
-                    null));
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) -> new Autonomous(),
+                (action, context) ->
+                    new GateRequired(
+                        "SUSAR filing",
+                        false,
+                        StaticSetStrategy.of("physician"),
+                        null,
+                        null,
+                        null,
+                        null)));
 
     RiskDecision result = chain.classify(anyAction(), anyContext());
 
@@ -125,26 +115,27 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_fewerCandidateGroupsWins_notUnion() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) ->
-                new GateRequired(
-                    "AML",
-                    false,
-                    StaticSetStrategy.of("mlro"),
-                    Duration.ofHours(24),
-                    null,
-                    null,
-                    null),
-            (action, context) ->
-                new GateRequired(
-                    "clinical",
-                    false,
-                    StaticSetStrategy.of("physician", "pharmacist"),
-                    null,
-                    null,
-                    null,
-                    null));
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) ->
+                    new GateRequired(
+                        "AML",
+                        false,
+                        StaticSetStrategy.of("mlro"),
+                        Duration.ofHours(24),
+                        null,
+                        null,
+                        null),
+                (action, context) ->
+                    new GateRequired(
+                        "clinical",
+                        false,
+                        StaticSetStrategy.of("physician", "pharmacist"),
+                        null,
+                        null,
+                        null,
+                        null)));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
@@ -155,26 +146,27 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_sameGroupCount_shorterExpiresInWins() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) ->
-                new GateRequired(
-                    "slow",
-                    false,
-                    StaticSetStrategy.of("mlro"),
-                    Duration.ofHours(48),
-                    null,
-                    null,
-                    null),
-            (action, context) ->
-                new GateRequired(
-                    "fast",
-                    false,
-                    StaticSetStrategy.of("analyst"),
-                    Duration.ofHours(24),
-                    null,
-                    null,
-                    null));
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) ->
+                    new GateRequired(
+                        "slow",
+                        false,
+                        StaticSetStrategy.of("mlro"),
+                        Duration.ofHours(48),
+                        null,
+                        null,
+                        null),
+                (action, context) ->
+                    new GateRequired(
+                        "fast",
+                        false,
+                        StaticSetStrategy.of("analyst"),
+                        Duration.ofHours(24),
+                        null,
+                        null,
+                        null)));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
@@ -184,20 +176,21 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_sameGroupCount_deadlineBeatsNoDeadline() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) ->
-                new GateRequired(
-                    "no-deadline", false, StaticSetStrategy.of("mlro"), null, null, null, null),
-            (action, context) ->
-                new GateRequired(
-                    "with-deadline",
-                    false,
-                    StaticSetStrategy.of("analyst"),
-                    Duration.ofHours(24),
-                    null,
-                    null,
-                    null));
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) ->
+                    new GateRequired(
+                        "no-deadline", false, StaticSetStrategy.of("mlro"), null, null, null, null),
+                (action, context) ->
+                    new GateRequired(
+                        "with-deadline",
+                        false,
+                        StaticSetStrategy.of("analyst"),
+                        Duration.ofHours(24),
+                        null,
+                        null,
+                        null)));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
@@ -207,13 +200,20 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_nullCandidateGroupsVsRestricted_restrictedGroupsWins() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) ->
-                new GateRequired("unrestricted", false, null, null, null, null, null),
-            (action, context) ->
-                new GateRequired(
-                    "restricted", false, StaticSetStrategy.of("mlro"), null, null, null, null));
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) ->
+                    new GateRequired("unrestricted", false, null, null, null, null, null),
+                (action, context) ->
+                    new GateRequired(
+                        "restricted",
+                        false,
+                        StaticSetStrategy.of("mlro"),
+                        null,
+                        null,
+                        null,
+                        null)));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
@@ -224,11 +224,12 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void classifierThrows_failSafeGateRequiredApplied() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) -> {
-              throw new RuntimeException("DB unavailable");
-            });
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) -> {
+                  throw new RuntimeException("DB unavailable");
+                }));
 
     RiskDecision result = chain.classify(anyAction(), anyContext());
 
@@ -241,11 +242,12 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void classifierThrows_failSafeHasNullScope() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) -> {
-              throw new IllegalStateException("config missing");
-            });
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) -> {
+                  throw new IllegalStateException("config missing");
+                }));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
@@ -256,12 +258,13 @@ class ChainedActionRiskClassifierTest {
   @Test
   void classify_passesContextToClassifiers() {
     final ClassificationContext[] captured = {null};
-    chain.classifiers =
-        instanceOf(
-            (action, context) -> {
-              captured[0] = context;
-              return new Autonomous();
-            });
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) -> {
+                  captured[0] = context;
+                  return new Autonomous();
+                }));
 
     ClassificationContext ctx =
         new ClassificationContext(
@@ -274,12 +277,20 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_quorumBeatsNoQuorum() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) -> new GateRequired("single", false, null, null, null, null, null),
-            (action, context) ->
-                new GateRequired(
-                    "multi", false, null, null, null, null, new QuorumConfig(3, 2, null, false)));
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) ->
+                    new GateRequired("single", false, null, null, null, null, null),
+                (action, context) ->
+                    new GateRequired(
+                        "multi",
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        new QuorumConfig(3, 2, null, false))));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
@@ -290,14 +301,27 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_higherRequiredWins() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) ->
-                new GateRequired(
-                    "2-of-3", false, null, null, null, null, new QuorumConfig(3, 2, null, false)),
-            (action, context) ->
-                new GateRequired(
-                    "3-of-5", false, null, null, null, null, new QuorumConfig(5, 3, null, false)));
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) ->
+                    new GateRequired(
+                        "2-of-3",
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        new QuorumConfig(3, 2, null, false)),
+                (action, context) ->
+                    new GateRequired(
+                        "3-of-5",
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        new QuorumConfig(5, 3, null, false))));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
@@ -307,40 +331,31 @@ class ChainedActionRiskClassifierTest {
 
   @Test
   void twoClassifiers_equalRequired_lowerInstancesWins() {
-    chain.classifiers =
-        instanceOf(
-            (action, context) ->
-                new GateRequired(
-                    "2-of-2 unanimous",
-                    false,
-                    null,
-                    null,
-                    null,
-                    null,
-                    new QuorumConfig(2, 2, null, false)),
-            (action, context) ->
-                new GateRequired(
-                    "2-of-5", false, null, null, null, null, new QuorumConfig(5, 2, null, false)));
+    var chain =
+        new ChainedActionRiskClassifier(
+            List.of(
+                (action, context) ->
+                    new GateRequired(
+                        "2-of-2 unanimous",
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        new QuorumConfig(2, 2, null, false)),
+                (action, context) ->
+                    new GateRequired(
+                        "2-of-5",
+                        false,
+                        null,
+                        null,
+                        null,
+                        null,
+                        new QuorumConfig(5, 2, null, false))));
 
     GateRequired result = (GateRequired) chain.classify(anyAction(), anyContext());
 
     assertThat(result.quorum().instances()).isEqualTo(2);
     assertThat(result.reason()).isEqualTo("2-of-2 unanimous");
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Instance<ActionRiskClassifier> unsatisfied() {
-    Instance<ActionRiskClassifier> inst = mock(Instance.class);
-    when(inst.isUnsatisfied()).thenReturn(true);
-    return inst;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Instance<ActionRiskClassifier> instanceOf(ActionRiskClassifier... classifiers) {
-    Instance<ActionRiskClassifier> inst = mock(Instance.class);
-    when(inst.isUnsatisfied()).thenReturn(false);
-    when(inst.spliterator())
-        .thenReturn(Spliterators.spliteratorUnknownSize(List.of(classifiers).iterator(), 0));
-    return inst;
   }
 }

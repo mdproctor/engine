@@ -15,9 +15,6 @@
  */
 package io.casehub.api.spi.routing;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,29 +22,20 @@ import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
- * Discovers all {@link RoutingSignalProvider} implementations via CDI, sorts them by {@link
- * jakarta.annotation.Priority} (lower values first), and assembles their signals into a map keyed
- * by provider {@link RoutingSignalProvider#id()}.
+ * Sorts {@link RoutingSignalProvider} implementations by {@link jakarta.annotation.Priority} (lower
+ * values first) and assembles their signals into a map keyed by provider {@link
+ * RoutingSignalProvider#id()}.
  *
  * <p>Providers returning {@code null} are skipped. Providers that throw are logged and skipped — a
  * failing provider never prevents other providers from contributing.
  *
  * <p>Out-of-range scores (outside [0.0, 1.0]) are clamped and logged.
  */
-@ApplicationScoped
 public class RoutingSignalAssembler {
 
   private static final Logger LOG = Logger.getLogger(RoutingSignalAssembler.class);
 
   private final List<RoutingSignalProvider> providers;
-
-  @Inject
-  public RoutingSignalAssembler(Instance<RoutingSignalProvider> providers) {
-    this.providers =
-        providers.stream()
-            .sorted(Comparator.comparingInt(RoutingSignalAssembler::priority))
-            .toList();
-  }
 
   public RoutingSignalAssembler(List<RoutingSignalProvider> providers) {
     this.providers =

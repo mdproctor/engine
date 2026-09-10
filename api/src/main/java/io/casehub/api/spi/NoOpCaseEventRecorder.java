@@ -15,11 +15,6 @@
  */
 package io.casehub.api.spi;
 
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
-
-@DefaultBean
-@ApplicationScoped
 public class NoOpCaseEventRecorder implements CaseEventRecorder {
   @Override
   public void record(final CaseEventRequest request) {}

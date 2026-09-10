@@ -15,10 +15,6 @@
  */
 package io.casehub.api.spi.routing;
 
-import io.quarkus.arc.DefaultBean;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -26,15 +22,11 @@ import java.util.Map;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-@DefaultBean
-@ApplicationScoped
-@Unremovable
 public class ComposableAgentRoutingStrategy implements AgentRoutingStrategy {
 
   private static final Logger LOG = Logger.getLogger(ComposableAgentRoutingStrategy.class);
   private final RoutingSignalAssembler assembler;
 
-  @Inject
   public ComposableAgentRoutingStrategy(RoutingSignalAssembler assembler) {
     this.assembler = assembler;
   }
