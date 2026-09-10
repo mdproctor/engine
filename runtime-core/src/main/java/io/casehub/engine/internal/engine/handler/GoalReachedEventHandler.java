@@ -26,8 +26,8 @@ import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.GoalReachedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -35,33 +35,38 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
-/** Records a GOAL_REACHED event and evaluates whether the case has reached a terminal state. */
-@ApplicationScoped
 public class GoalReachedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(GoalReachedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject EventBus eventBus;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-  @Inject LedgerTraceIdProvider traceIdProvider;
 
-  @ConsumeEvent(value = EventBusAddresses.GOAL_REACHED)
-  @RunOnVirtualThread
-  void onGoalReachedEventHandler(GoalReachedEvent event) {
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final EventDispatcher eventDispatcher;
+  private final EventLogRepository eventLogRepository;
+  private final Consumer<CaseLifecycleEvent> lifecycleEventConsumer;
+  private final LedgerTraceIdProvider traceIdProvider;
+
+  public GoalReachedEventHandler(
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      EventDispatcher eventDispatcher,
+      EventLogRepository eventLogRepository,
+      Consumer<CaseLifecycleEvent> lifecycleEventConsumer,
+      LedgerTraceIdProvider traceIdProvider) {
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.eventDispatcher = eventDispatcher;
+    this.eventLogRepository = eventLogRepository;
+    this.lifecycleEventConsumer = lifecycleEventConsumer;
+    this.traceIdProvider = traceIdProvider;
+  }
+
+  public void handle(GoalReachedEvent event) {
     try {
       final String traceId = traceIdProvider.currentTraceId().orElse(null);
       final CaseInstance caseInstance = event.caseInstance();
@@ -83,21 +88,9 @@ public class GoalReachedEventHandler {
 
         eventLogRepository.append(eventLog, caseInstance.tenancyId);
 
-        // Fire-and-forget — evaluateCompletion (case status change) must not be
-        // gated on optional audit observer completion. Refs casehubio/engine#491.
-        lifecycleEvents
-            .fireAsync(
-                CaseLifecycleEvent.of(
-                    caseInstance, "ReachGoal", "GoalReached", null, "System", traceId))
-            .whenComplete(
-                (v, t) -> {
-                  if (t != null) {
-                    LOG.warnf(
-                        t,
-                        "CaseLifecycleEvent observer failed for caseId=%s event=GoalReached",
-                        caseInstance.getUuid());
-                  }
-                });
+        lifecycleEventConsumer.accept(
+            CaseLifecycleEvent.of(
+                caseInstance, "ReachGoal", "GoalReached", null, "System", traceId));
       }
 
       evaluateCompletion(caseInstance, definition.getCompletion());
@@ -142,8 +135,7 @@ public class GoalReachedEventHandler {
         LOG.infof(
             "Goal kind '%s' satisfied (goal '%s'): caseId=%s",
             kind.value(), satisfiedName, caseInstance.getUuid());
-        eventBus.publish(
-            EventBusAddresses.CASE_STATUS_CHANGED,
+        eventDispatcher.dispatch(
             new CaseStatusChanged(
                 caseInstance,
                 oldStatus,
