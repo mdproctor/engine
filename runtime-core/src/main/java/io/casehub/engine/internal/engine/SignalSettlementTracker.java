@@ -15,14 +15,12 @@
  */
 package io.casehub.engine.internal.engine;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-@ApplicationScoped
 public class SignalSettlementTracker {
 
   private final ConcurrentHashMap<UUID, SettlementState> states = new ConcurrentHashMap<>();

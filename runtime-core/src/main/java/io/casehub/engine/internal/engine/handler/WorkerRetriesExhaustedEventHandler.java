@@ -17,44 +17,35 @@ package io.casehub.engine.internal.engine.handler;
 
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.SignalSettlementTracker;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class WorkerRetriesExhaustedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(WorkerRetriesExhaustedEventHandler.class);
 
   private final CaseInstanceCache caseInstanceCache;
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
   private final WorkerStatusListener workerStatusListener;
   private final SignalSettlementTracker settlementTracker;
 
-  @Inject
-  WorkerRetriesExhaustedEventHandler(
+  public WorkerRetriesExhaustedEventHandler(
       CaseInstanceCache caseInstanceCache,
-      EventBus eventBus,
+      EventDispatcher eventDispatcher,
       WorkerStatusListener workerStatusListener,
       SignalSettlementTracker settlementTracker) {
     this.caseInstanceCache = caseInstanceCache;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
     this.workerStatusListener = workerStatusListener;
     this.settlementTracker = settlementTracker;
   }
 
-  @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED)
-  @RunOnVirtualThread
-  void onWorkerRetriesExhaustedEvent(WorkerRetriesExhaustedEvent event) {
+  public void handle(WorkerRetriesExhaustedEvent event) {
     try {
       if (event.signalId() != null) {
         settlementTracker.recordCompletion(event.signalId());
@@ -66,8 +57,7 @@ public class WorkerRetriesExhaustedEventHandler {
       LOG.warnf(
           "Worker retries exhausted for caseId=%s, workerId=%s", event.caseId(), event.workerId());
       workerStatusListener.onWorkerStalled(event.workerId());
-      eventBus.publish(
-          EventBusAddresses.CASE_STATUS_CHANGED,
+      eventDispatcher.dispatch(
           new CaseStatusChanged(caseInstance, oldStatus, CaseStatus.FAULTED.name()));
     } catch (Exception e) {
       LOG.errorf(

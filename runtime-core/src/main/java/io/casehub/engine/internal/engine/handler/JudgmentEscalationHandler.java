@@ -19,36 +19,48 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.spi.judgment.VerificationResult;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.JudgmentEscalatedEvent;
+import io.casehub.engine.common.internal.event.JudgmentFaultEvent;
+import io.casehub.engine.common.internal.event.JudgmentReDispatchEvent;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.judgment.JudgmentNodeExecutor;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import io.casehub.engine.common.spi.JudgmentNodeResult;
+import io.casehub.platform.api.routing.StrategyResolver;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class JudgmentEscalationHandler {
 
   private static final Logger LOG = Logger.getLogger(JudgmentEscalationHandler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final int DEFAULT_MAX_ESCALATIONS = 3;
 
-  @Inject EventLogRepository eventLogRepository;
-  @Inject io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
-  @Inject io.vertx.mutiny.core.eventbus.EventBus eventBus;
-  @Inject io.casehub.engine.common.internal.judgment.JudgmentNodeExecutor judgmentNodeExecutor;
+  private final EventLogRepository eventLogRepository;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final StrategyResolver strategyResolver;
+  private final EventDispatcher eventDispatcher;
+  private final JudgmentNodeExecutor judgmentNodeExecutor;
 
-  @ConsumeEvent(value = EventBusAddresses.JUDGMENT_ESCALATED)
-  @RunOnVirtualThread
-  public void onJudgmentEscalated(final JudgmentEscalatedEvent event) {
+  public JudgmentEscalationHandler(
+      EventLogRepository eventLogRepository,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      StrategyResolver strategyResolver,
+      EventDispatcher eventDispatcher,
+      JudgmentNodeExecutor judgmentNodeExecutor) {
+    this.eventLogRepository = eventLogRepository;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.strategyResolver = strategyResolver;
+    this.eventDispatcher = eventDispatcher;
+    this.judgmentNodeExecutor = judgmentNodeExecutor;
+  }
+
+  public void handle(JudgmentEscalatedEvent event) {
     io.casehub.api.model.Binding binding = findBinding(event.bindingName());
     io.casehub.api.model.JudgmentTarget target =
         binding != null && binding.target() instanceof io.casehub.api.model.JudgmentTarget jt
@@ -97,44 +109,35 @@ public class JudgmentEscalationHandler {
         LOG.infof(
             "Judgment re-yield: caseId=%s binding=%s feedback=%s",
             event.caseId(), event.bindingName(), ry.feedback());
-        eventBus.publish(
-            EventBusAddresses.JUDGMENT_RE_DISPATCH,
-            new io.casehub.engine.common.internal.event.JudgmentReDispatchEvent(
+        eventDispatcher.dispatch(
+            new JudgmentReDispatchEvent(
                 event.caseId(), event.tenancyId(), event.bindingName(), ry.feedback(), null));
         judgmentNodeExecutor.enqueue(
-            event.caseId(),
-            event.bindingName(),
-            new io.casehub.engine.common.spi.JudgmentNodeResult.ReYielded());
+            event.caseId(), event.bindingName(), new JudgmentNodeResult.ReYielded());
       }
       case io.casehub.api.spi.judgment.EscalationDecision.Escalate esc -> {
         LOG.infof(
             "Judgment escalate: caseId=%s binding=%s reason=%s callerConfig=%s",
             event.caseId(), event.bindingName(), esc.reason(), esc.newCallerConfig());
-        eventBus.publish(
-            EventBusAddresses.JUDGMENT_RE_DISPATCH,
-            new io.casehub.engine.common.internal.event.JudgmentReDispatchEvent(
+        eventDispatcher.dispatch(
+            new JudgmentReDispatchEvent(
                 event.caseId(),
                 event.tenancyId(),
                 event.bindingName(),
                 esc.reason(),
                 esc.newCallerConfig()));
         judgmentNodeExecutor.enqueue(
-            event.caseId(),
-            event.bindingName(),
-            new io.casehub.engine.common.spi.JudgmentNodeResult.ReYielded());
+            event.caseId(), event.bindingName(), new JudgmentNodeResult.ReYielded());
       }
       case io.casehub.api.spi.judgment.EscalationDecision.Fault f -> {
         LOG.warnf(
             "Judgment faulted: caseId=%s binding=%s reason=%s",
             event.caseId(), event.bindingName(), f.reason());
-        eventBus.publish(
-            EventBusAddresses.JUDGMENT_FAULT,
-            new io.casehub.engine.common.internal.event.JudgmentFaultEvent(
+        eventDispatcher.dispatch(
+            new JudgmentFaultEvent(
                 event.caseId(), event.tenancyId(), event.bindingName(), f.reason()));
         judgmentNodeExecutor.enqueue(
-            event.caseId(),
-            event.bindingName(),
-            new io.casehub.engine.common.spi.JudgmentNodeResult.Faulted(f.reason()));
+            event.caseId(), event.bindingName(), new JudgmentNodeResult.Faulted(f.reason()));
       }
     }
   }
@@ -208,7 +211,9 @@ public class JudgmentEscalationHandler {
 
   private static List<io.casehub.api.spi.judgment.Evidence> toTypedEvidence(
       Map<String, Object> raw) {
-    if (raw == null || raw.isEmpty()) return List.of();
+    if (raw == null || raw.isEmpty()) {
+      return List.of();
+    }
     return raw.entrySet().stream()
         .map(
             e ->

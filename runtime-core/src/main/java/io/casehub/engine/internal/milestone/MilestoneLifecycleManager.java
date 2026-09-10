@@ -24,8 +24,8 @@ import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SlaStartFrom;
 import io.casehub.api.model.SlaStatus;
 import io.casehub.api.model.event.CaseHubEventType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
 import io.casehub.engine.common.internal.event.MilestoneCompletedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -33,11 +33,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
@@ -45,28 +40,27 @@ import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
-/**
- * Orchestrates milestone lifecycle state transitions by evaluating criteria on context changes.
- *
- * <p>Subscribes to {@link CaseContextChangedEvent} and for each milestone: - If PENDING: evaluate
- * entryCriteria → publish {@link MilestoneActivatedEvent} if true - If ACTIVE: evaluate
- * completionCriteria → publish {@link MilestoneCompletedEvent} if true
- *
- * <p>State is read from CaseContext ({@code milestones.<name>.lifecycleStatus}).
- */
-@ApplicationScoped
 public class MilestoneLifecycleManager {
 
   private static final Logger LOG = Logger.getLogger(MilestoneLifecycleManager.class);
 
-  @Inject EventLogRepository eventLogRepository;
-  @Inject EventBus eventBus;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject ExpressionEngineRegistry expressionEngineRegistry;
+  private final EventLogRepository eventLogRepository;
+  private final EventDispatcher eventDispatcher;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final ExpressionEngineRegistry expressionEngineRegistry;
 
-  @ConsumeEvent(value = EventBusAddresses.CONTEXT_CHANGED)
-  @RunOnVirtualThread
-  void onContextChanged(CaseContextChangedEvent event) {
+  public MilestoneLifecycleManager(
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      ExpressionEngineRegistry expressionEngineRegistry) {
+    this.eventLogRepository = eventLogRepository;
+    this.eventDispatcher = eventDispatcher;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.expressionEngineRegistry = expressionEngineRegistry;
+  }
+
+  public void handle(CaseContextChangedEvent event) {
     try {
       CaseInstance caseInstance = event.instance();
       CaseMetaModel caseMetaModel = caseInstance.getCaseMetaModel();
@@ -75,14 +69,12 @@ public class MilestoneLifecycleManager {
           "CONTEXT_CHANGED received for case %s, state=%s",
           caseInstance.getUuid(), caseInstance.getState());
 
-      // Skip if no metamodel attached
       if (caseMetaModel == null) {
         LOG.debugf(
             "Case %s has no CaseMetaModel, skipping milestone evaluation", caseInstance.getUuid());
         return;
       }
 
-      // Only evaluate milestones for RUNNING cases
       if (!caseInstance.getState().equals(CaseStatus.RUNNING)) {
         LOG.debugf("Case %s not RUNNING, skipping milestone evaluation", caseInstance.getUuid());
         return;
@@ -122,7 +114,6 @@ public class MilestoneLifecycleManager {
     } else if (currentStatus == MilestoneLifecycleStatus.ACTIVE) {
       evaluateCompletionCriteria(caseInstance, milestone);
     }
-    // COMPLETED — no further transitions
   }
 
   private void evaluateEntryCriteria(CaseInstance caseInstance, Milestone milestone) {
@@ -142,8 +133,7 @@ public class MilestoneLifecycleManager {
     Instant activatedAt = Instant.now();
     Instant slaDeadline = calculateSlaDeadline(caseInstance, milestone, activatedAt);
 
-    eventBus.publish(
-        EventBusAddresses.MILESTONE_ACTIVATED,
+    eventDispatcher.dispatch(
         new MilestoneActivatedEvent(caseInstance, milestone, activatedAt, slaDeadline));
   }
 
@@ -160,8 +150,7 @@ public class MilestoneLifecycleManager {
     SlaStatus slaStatus = getCurrentSlaStatus(caseInstance, milestone.getName());
     Instant completedAt = Instant.now();
 
-    eventBus.publish(
-        EventBusAddresses.MILESTONE_COMPLETED,
+    eventDispatcher.dispatch(
         new MilestoneCompletedEvent(caseInstance, milestone, completedAt, slaStatus));
   }
 
@@ -229,7 +218,6 @@ public class MilestoneLifecycleManager {
     }
 
     if (slaStartFrom == SlaStartFrom.CASE_CREATED) {
-      // Query EventLog for CASE_STARTED event to get creation timestamp
       List<EventLog> events =
           eventLogRepository.findByCaseAndTypes(
               caseInstance.getUuid(),

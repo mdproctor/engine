@@ -23,19 +23,22 @@ import io.casehub.api.model.ConflictResolver;
 import io.casehub.api.spi.ContextDiffStrategy;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-@ApplicationScoped
 public class ContextOutputApplier {
 
   private final ConcurrentHashMap<UUID, ReentrantLock> locks = new ConcurrentHashMap<>();
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject ContextDiffStrategy contextDiffStrategy;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final ContextDiffStrategy contextDiffStrategy;
+
+  public ContextOutputApplier(
+      CaseDefinitionRegistry caseDefinitionRegistry, ContextDiffStrategy contextDiffStrategy) {
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.contextDiffStrategy = contextDiffStrategy;
+  }
 
   public JsonNode apply(CaseInstance instance, Map<String, Object> output, String bindingName) {
     if (output == null || output.isEmpty()) {

@@ -16,7 +16,6 @@
 package io.casehub.engine.internal.engine.handler;
 
 import static io.casehub.api.model.event.CaseHubEventType.MILESTONE_ACTIVATED;
-import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
@@ -25,8 +24,8 @@ import io.casehub.api.model.Milestone;
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.SlaStatus;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneActivatedEvent;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -39,37 +38,38 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
-/**
- * Handles {@link MilestoneActivatedEvent}: records to EventLog, updates CaseContext, schedules SLA
- * timeout job.
- */
-@ApplicationScoped
 public class MilestoneActivatedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(MilestoneActivatedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject EventLogRepository eventLogRepository;
-  @Inject EventBus eventBus;
-  @Inject JobScheduler scheduler;
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-  @Inject LedgerTraceIdProvider traceIdProvider;
+  private final EventLogRepository eventLogRepository;
+  private final EventDispatcher eventDispatcher;
+  private final JobScheduler scheduler;
+  private final Consumer<CaseLifecycleEvent> lifecycleEventConsumer;
+  private final LedgerTraceIdProvider traceIdProvider;
 
-  @ConsumeEvent(value = EventBusAddresses.MILESTONE_ACTIVATED)
-  @RunOnVirtualThread
-  void onMilestoneActivated(MilestoneActivatedEvent event) {
+  public MilestoneActivatedEventHandler(
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      JobScheduler scheduler,
+      Consumer<CaseLifecycleEvent> lifecycleEventConsumer,
+      LedgerTraceIdProvider traceIdProvider) {
+    this.eventLogRepository = eventLogRepository;
+    this.eventDispatcher = eventDispatcher;
+    this.scheduler = scheduler;
+    this.lifecycleEventConsumer = lifecycleEventConsumer;
+    this.traceIdProvider = traceIdProvider;
+  }
+
+  public void handle(MilestoneActivatedEvent event) {
     try {
       CaseInstance caseInstance = event.caseInstance();
       Milestone milestone = event.milestone();
@@ -81,31 +81,9 @@ public class MilestoneActivatedEventHandler {
       scheduleSlaTimeoutJob(caseInstance, milestone, slaDeadline);
 
       String traceId = traceIdProvider.currentTraceId().orElse(null);
-      try {
-        lifecycleEvents
-            .fireAsync(
-                CaseLifecycleEvent.of(
-                    caseInstance,
-                    "ActivateMilestone",
-                    "MilestoneActivated",
-                    null,
-                    "System",
-                    traceId))
-            .whenComplete(
-                (v, t) -> {
-                  if (t != null) {
-                    LOG.warnf(
-                        t,
-                        "CaseLifecycleEvent observer failed for caseId=%s event=MilestoneActivated",
-                        caseInstance.getUuid());
-                  }
-                });
-      } catch (Exception ex) {
-        LOG.warnf(
-            ex,
-            "CaseLifecycleEvent observer failed for caseId=%s event=MilestoneActivated",
-            caseInstance.getUuid());
-      }
+      lifecycleEventConsumer.accept(
+          CaseLifecycleEvent.of(
+              caseInstance, "ActivateMilestone", "MilestoneActivated", null, "System", traceId));
     } catch (Exception e) {
       LOG.errorf(
           e,
@@ -171,9 +149,7 @@ public class MilestoneActivatedEventHandler {
         "Updated CaseContext for case=%s milestone=%s: %s",
         caseInstance.getUuid(), milestone.getName(), milestoneState);
 
-    // Publish CONTEXT_CHANGED event to notify other components (I3)
-    eventBus.publish(
-        CONTEXT_CHANGED,
+    eventDispatcher.dispatch(
         new CaseContextChangedEvent(
             caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
   }
@@ -199,8 +175,7 @@ public class MilestoneActivatedEventHandler {
       LOG.warnf(
           "SLA deadline already passed for milestone=%s, firing immediate violation",
           milestone.getName());
-      eventBus.publish(
-          EventBusAddresses.MILESTONE_SLA_VIOLATED,
+      eventDispatcher.dispatch(
           new MilestoneSLAViolatedEvent(caseInstance, milestone.getName(), Instant.now()));
       return;
     }
