@@ -27,25 +27,21 @@ import io.casehub.api.spi.routing.GoalRevisionStrategy;
 import io.casehub.eidos.api.AgentGoal;
 import io.casehub.eidos.api.GoalOutcomeCounts;
 import io.casehub.worker.api.WorkerResult;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class LlmGoalRevisionStrategy implements GoalRevisionStrategy {
 
   private static final Logger LOG = Logger.getLogger(LlmGoalRevisionStrategy.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  private final Instance<ChatModelProvider> chatModelProviders;
+  private final Optional<ChatModelProvider> chatModelProvider;
 
-  @Inject
-  public LlmGoalRevisionStrategy(Instance<ChatModelProvider> chatModelProviders) {
-    this.chatModelProviders = chatModelProviders;
+  public LlmGoalRevisionStrategy(Optional<ChatModelProvider> chatModelProvider) {
+    this.chatModelProvider = chatModelProvider;
   }
 
   @Override
@@ -55,7 +51,7 @@ public class LlmGoalRevisionStrategy implements GoalRevisionStrategy {
 
   @Override
   public GoalRevisionProposal revise(GoalRevisionContext context) {
-    if (chatModelProviders.isUnsatisfied()) {
+    if (chatModelProvider.isEmpty()) {
       throw new UnsupportedOperationException("No ChatModelProvider available for goal revision");
     }
 
@@ -72,7 +68,7 @@ public class LlmGoalRevisionStrategy implements GoalRevisionStrategy {
                     + "- COMPLETE: mark the goal as achieved. Only when the goal has been "
                     + "consistently met and keeping it adds no further value.\n"
                     + "Respond with JSON only.")
-            .model(chatModelProviders.get().get())
+            .model(chatModelProvider.get().get())
             .build();
 
     WorkerResult result = agent.execute(Map.of("prompt", userPrompt));

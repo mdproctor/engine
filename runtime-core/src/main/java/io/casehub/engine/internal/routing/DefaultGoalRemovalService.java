@@ -23,8 +23,6 @@ import io.casehub.eidos.api.AgentGoal;
 import io.casehub.eidos.api.AgentRegistry;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -35,7 +33,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class DefaultGoalRemovalService implements GoalRemovalService {
 
   private static final Logger LOG = Logger.getLogger(DefaultGoalRemovalService.class);
@@ -43,7 +40,6 @@ public class DefaultGoalRemovalService implements GoalRemovalService {
   private final AgentRegistry agentRegistry;
   private final EventLogRepository eventLogRepository;
 
-  @Inject
   public DefaultGoalRemovalService(
       AgentRegistry agentRegistry, EventLogRepository eventLogRepository) {
     this.agentRegistry = agentRegistry;

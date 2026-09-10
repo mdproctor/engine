@@ -63,6 +63,10 @@ import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
 import io.casehub.engine.internal.memory.AgentMemoryRetriever;
 import io.casehub.engine.internal.milestone.MilestoneLifecycleManager;
 import io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry;
+import io.casehub.engine.internal.routing.DefaultGoalFormationService;
+import io.casehub.engine.internal.routing.DefaultGoalRemovalService;
+import io.casehub.engine.internal.routing.LlmGoalFormationStrategy;
+import io.casehub.engine.internal.routing.LlmGoalRevisionStrategy;
 import io.casehub.engine.internal.routing.SelectionContextStore;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
@@ -1042,5 +1046,39 @@ public class RuntimeBeans {
       io.casehub.engine.common.internal.config.SecretManager secretManager) {
     return new io.casehub.engine.internal.config.impl.DefaultConfigContext(
         configManager, secretManager);
+  }
+
+  @Produces
+  @ApplicationScoped
+  DefaultGoalRemovalService defaultGoalRemovalService(
+      io.casehub.eidos.api.AgentRegistry agentRegistry, EventLogRepository eventLogRepository) {
+    return new DefaultGoalRemovalService(agentRegistry, eventLogRepository);
+  }
+
+  @Produces
+  @ApplicationScoped
+  DefaultGoalFormationService defaultGoalFormationService(
+      io.casehub.eidos.api.AgentRegistry agentRegistry, EventLogRepository eventLogRepository) {
+    return new DefaultGoalFormationService(agentRegistry, eventLogRepository);
+  }
+
+  @Produces
+  @ApplicationScoped
+  LlmGoalFormationStrategy llmGoalFormationStrategy(
+      Instance<io.casehub.api.model.ai.ChatModelProvider> chatModelProvider) {
+    return new LlmGoalFormationStrategy(
+        chatModelProvider.isResolvable()
+            ? java.util.Optional.of(chatModelProvider.get())
+            : java.util.Optional.empty());
+  }
+
+  @Produces
+  @ApplicationScoped
+  LlmGoalRevisionStrategy llmGoalRevisionStrategy(
+      Instance<io.casehub.api.model.ai.ChatModelProvider> chatModelProvider) {
+    return new LlmGoalRevisionStrategy(
+        chatModelProvider.isResolvable()
+            ? java.util.Optional.of(chatModelProvider.get())
+            : java.util.Optional.empty());
   }
 }

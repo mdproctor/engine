@@ -26,8 +26,6 @@ import io.casehub.eidos.api.GoalPriority;
 import io.casehub.eidos.api.Visibility;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -38,7 +36,6 @@ import java.util.Optional;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class DefaultGoalFormationService implements GoalFormationService {
 
   private static final Logger LOG = Logger.getLogger(DefaultGoalFormationService.class);
@@ -49,7 +46,6 @@ public class DefaultGoalFormationService implements GoalFormationService {
   private final AgentRegistry agentRegistry;
   private final EventLogRepository eventLogRepository;
 
-  @Inject
   public DefaultGoalFormationService(
       AgentRegistry agentRegistry, EventLogRepository eventLogRepository) {
     this.agentRegistry = agentRegistry;
