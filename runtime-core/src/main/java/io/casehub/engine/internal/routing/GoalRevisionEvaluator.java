@@ -34,10 +34,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.WorkerOutcome;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -48,20 +46,18 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class GoalRevisionEvaluator {
 
   private static final Logger LOG = Logger.getLogger(GoalRevisionEvaluator.class);
 
-  private final Instance<GoalSignalStore> goalSignalStore;
-  private final Instance<GoalEvolution> goalEvolution;
-  private final Instance<AgentRegistry> agentRegistry;
+  private final Optional<GoalSignalStore> goalSignalStore;
+  private final Optional<GoalEvolution> goalEvolution;
+  private final Optional<AgentRegistry> agentRegistry;
   private final GoalRemovalService goalRemovalService;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
-  private final EngineStrategyResolver strategyResolver;
+  private final StrategyResolver strategyResolver;
   private final EventLogRepository eventLogRepository;
   private final boolean enabled;
   private final String strategyId;
@@ -71,25 +67,18 @@ public class GoalRevisionEvaluator {
   private final ConcurrentHashMap<String, RevisionState> states = new ConcurrentHashMap<>();
   private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 
-  @Inject
   public GoalRevisionEvaluator(
-      Instance<GoalSignalStore> goalSignalStore,
-      Instance<GoalEvolution> goalEvolution,
-      Instance<AgentRegistry> agentRegistry,
+      Optional<GoalSignalStore> goalSignalStore,
+      Optional<GoalEvolution> goalEvolution,
+      Optional<AgentRegistry> agentRegistry,
       GoalRemovalService goalRemovalService,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      EngineStrategyResolver strategyResolver,
+      StrategyResolver strategyResolver,
       EventLogRepository eventLogRepository,
-      @ConfigProperty(name = "casehub.engine.goal.revision.enabled", defaultValue = "false")
-          boolean enabled,
-      @ConfigProperty(name = "casehub.engine.goal.revision.strategy", defaultValue = "llm")
-          String strategyId,
-      @ConfigProperty(name = "casehub.engine.goal.revision.min-outcomes", defaultValue = "10")
-          int minOutcomes,
-      @ConfigProperty(
-              name = "casehub.engine.goal.revision.importance-threshold",
-              defaultValue = "3.0")
-          double importanceThreshold) {
+      boolean enabled,
+      String strategyId,
+      int minOutcomes,
+      double importanceThreshold) {
     this.goalSignalStore = goalSignalStore;
     this.goalEvolution = goalEvolution;
     this.agentRegistry = agentRegistry;
@@ -127,13 +116,7 @@ public class GoalRevisionEvaluator {
     if (!enabled) {
       return;
     }
-    if (!goalSignalStore.isResolvable()) {
-      return;
-    }
-    if (!goalEvolution.isResolvable()) {
-      return;
-    }
-    if (!agentRegistry.isResolvable()) {
+    if (goalSignalStore.isEmpty() || goalEvolution.isEmpty() || agentRegistry.isEmpty()) {
       return;
     }
 
