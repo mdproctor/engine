@@ -1,0 +1,33 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.engine.internal.recovery;
+
+import io.casehub.engine.common.spi.recovery.CaseRecoveryState;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class CaseRecoveryStateRegistry {
+
+  private final ConcurrentHashMap<UUID, CaseRecoveryState> states = new ConcurrentHashMap<>();
+
+  public CaseRecoveryState getOrCreate(UUID caseId) {
+    return states.computeIfAbsent(caseId, k -> new CaseRecoveryState());
+  }
+
+  public void evict(UUID caseId) {
+    states.remove(caseId);
+  }
+}

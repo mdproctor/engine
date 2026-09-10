@@ -15,34 +15,22 @@
  */
 package io.casehub.engine.internal.engine;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.jboss.logging.Logger;
 
-/**
- * Per-case serialiser for CONTEXT_CHANGED evaluation. One evaluation at a time per case —
- * concurrent events coalesce so only the most recent context snapshot is evaluated.
- *
- * <p>Non-blocking for submitters: when an evaluation is already running, the submitter stores the
- * evaluator and returns immediately (virtual thread cost ≈ 0). The thread running the current
- * evaluation drains pending work after completing each cycle.
- *
- * <p>This restores the per-case ordering guarantee that the Vert.x event loop provided before
- * {@code @RunOnVirtualThread} opted out of its single-threaded dispatch.
- *
- * <p>Refs casehubio/engine#771, #646.
- */
-@ApplicationScoped
 public class CaseEvaluationSerializer implements io.casehub.engine.common.spi.Resettable {
 
   private static final Logger LOG = Logger.getLogger(CaseEvaluationSerializer.class);
 
-  @Inject QuiescenceTracker quiescenceTracker;
+  private final QuiescenceTracker quiescenceTracker;
 
   private final ConcurrentHashMap<UUID, CaseGate> gates = new ConcurrentHashMap<>();
+
+  public CaseEvaluationSerializer(QuiescenceTracker quiescenceTracker) {
+    this.quiescenceTracker = quiescenceTracker;
+  }
 
   public void submit(UUID caseId, Runnable evaluator) {
     CaseGate gate = gates.computeIfAbsent(caseId, CaseGate::new);

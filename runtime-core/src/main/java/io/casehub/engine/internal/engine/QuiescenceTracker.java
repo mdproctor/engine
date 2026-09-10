@@ -15,7 +15,6 @@
  */
 package io.casehub.engine.internal.engine;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,38 +23,12 @@ import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Tracks case-level quiescence — the point where no workers are executing and no context change
- * events are in-flight. Unlike {@link SignalSettlementTracker} which tracks a single signal's wave
- * of workers, this tracks ALL cascading waves until the case reaches a true idle state.
- *
- * <p>Three dimensions per case:
- *
- * <ul>
- *   <li>{@code activeWorkers} — dispatched but not yet completed workers
- *   <li>{@code pendingContextChanges} — CONTEXT_CHANGED events published but not yet received by
- *       {@code CaseContextChangedEventHandler}
- *   <li>{@code evaluationInProgress} — set when a CC handler starts processing, cleared when the
- *       evaluation serializer drains. Bridges the gap between CC receipt and worker dispatch.
- * </ul>
- *
- * <p>Quiescence is reached when at least one evaluation has drained, all counters are at or below
- * zero, no evaluation is in progress, and a future has been registered via {@link #register(UUID)}.
- *
- * <p>State is created eagerly by increment methods ({@code onWorkerDispatched}, {@code
- * onContextChangePublished}) so counter updates are never lost — even when {@code
- * awaitQuiescence()} is called after the signal has already been processed.
- *
- * <p>Refs casehubio/engine#610.
+ * events are in-flight.
  */
-@ApplicationScoped
 public class QuiescenceTracker {
 
   private final ConcurrentHashMap<UUID, QuiescenceState> trackers = new ConcurrentHashMap<>();
 
-  /**
-   * Registers interest in quiescence for the given case. Creates a future that completes when the
-   * case reaches quiescence. If activity has already been tracked and completed, resolves
-   * immediately.
-   */
   public CompletableFuture<Void> register(UUID caseId) {
     QuiescenceState state = trackers.computeIfAbsent(caseId, k -> new QuiescenceState());
     state.lock.lock();
@@ -106,12 +79,6 @@ public class QuiescenceTracker {
     }
   }
 
-  /**
-   * Called by {@link io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler} when
-   * a CONTEXT_CHANGED event is received, BEFORE submitting the evaluation to the serializer. Must
-   * be called before {@link #onContextChangeConsumed(UUID)} to ensure there is no window where both
-   * {@code pendingContextChanges} and {@code evaluationInProgress} are clear while work is pending.
-   */
   public void onEvaluationStarting(UUID caseId) {
     QuiescenceState state = trackers.get(caseId);
     if (state != null) {
@@ -124,9 +91,6 @@ public class QuiescenceTracker {
     }
   }
 
-  // Clamped to never go below zero — seed CCs (from signals/case creation) are consumed
-  // without a matching onContextChangePublished, so unclamped decrement would drive the
-  // counter negative and cause premature resolution.
   public void onContextChangeConsumed(UUID caseId) {
     QuiescenceState state = trackers.get(caseId);
     if (state != null) {
@@ -141,11 +105,6 @@ public class QuiescenceTracker {
     }
   }
 
-  /**
-   * Called by {@link CaseEvaluationSerializer} when drainPending finds no more pending work. This
-   * signals that at least one evaluation cycle has completed for the case and clears the
-   * evaluation-in-progress flag.
-   */
   public void onEvaluationDrained(UUID caseId) {
     QuiescenceState state = trackers.get(caseId);
     if (state != null) {

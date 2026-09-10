@@ -16,18 +16,9 @@
 package io.casehub.engine.internal.routing;
 
 import io.casehub.engine.common.spi.event.SelectionContext;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Bridges routing selection rationale from the routing handler to the worker completion handler.
- *
- * <p>The routing decision happens in {@code CaseContextChangedEventHandler} but the {@code
- * WorkerDecisionEvent} is fired later in {@code WorkflowExecutionCompletedHandler}. This store
- * bridges the gap — store on route, remove-and-read on completion.
- */
-@ApplicationScoped
 public class SelectionContextStore {
 
   private final ConcurrentHashMap<String, SelectionContext> contexts = new ConcurrentHashMap<>();

@@ -16,21 +16,10 @@
 package io.casehub.engine.internal.engine;
 
 import io.casehub.api.context.CaseContext;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Tracks in-flight child case completions for {@link
- * io.casehub.api.engine.WorkerRuntime#awaitCase(UUID, java.time.Duration)}.
- *
- * <p>When a parent worker spawns a child case and awaits its result, the parent registers the child
- * case ID here. When the child case reaches a terminal state, {@link
- * io.casehub.engine.internal.engine.handler.CaseStatusChangedHandler} completes the future with the
- * terminal context snapshot.
- */
-@ApplicationScoped
 public class CaseCompletionTracker {
 
   private final ConcurrentHashMap<UUID, CompletableFuture<CaseContext>> pending =

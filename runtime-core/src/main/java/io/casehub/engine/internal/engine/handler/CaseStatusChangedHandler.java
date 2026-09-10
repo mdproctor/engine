@@ -27,63 +27,83 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.CaseOutcomeEvent;
 import io.casehub.api.spi.CaseOutcomeObserver;
+import io.casehub.api.spi.event.CaseCompletedEvent;
+import io.casehub.api.spi.event.CaseFaultedEvent;
+import io.casehub.api.spi.event.EventDispatcher;
+import io.casehub.engine.common.internal.event.ActionGateCancelledEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseTerminatedException;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.engine.common.spi.recovery.CompoundLockRegistry;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.engine.CaseCompletionTracker;
+import io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
-import io.quarkus.vertx.ConsumeEvent;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
-/**
- * Persists a case status change event and atomically updates the instance state. Publishes a
- * downstream event (CASE_COMPLETED or CASE_FAULTED) after the write commits.
- */
-@ApplicationScoped
 public class CaseStatusChangedHandler {
 
   private static final Logger LOG = Logger.getLogger(CaseStatusChangedHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
-  @Inject EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final SchedulerService schedulerService;
+  private final Consumer<CaseLifecycleEvent> lifecycleEventConsumer;
+  private final CaseChannelProvider caseChannelProvider;
+  private final LedgerTraceIdProvider traceIdProvider;
+  private final List<CaseOutcomeObserver> outcomeObservers;
+  private final CaseCompletionTracker caseCompletionTracker;
+  private final io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry
+      scopedWorkerRegistry;
+  private final ContextOutputApplier contextOutputApplier;
+  private final WorkerGrantOrchestrator workerGrantOrchestrator;
+  private final io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry;
+  private final CaseRecoveryStateRegistry recoveryStateRegistry;
+  private final CompoundLockRegistry compoundLockRegistry;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  public CaseStatusChangedHandler(
+      EventDispatcher eventDispatcher,
+      CaseInstanceRepository caseInstanceRepository,
+      SchedulerService schedulerService,
+      Consumer<CaseLifecycleEvent> lifecycleEventConsumer,
+      CaseChannelProvider caseChannelProvider,
+      LedgerTraceIdProvider traceIdProvider,
+      List<CaseOutcomeObserver> outcomeObservers,
+      CaseCompletionTracker caseCompletionTracker,
+      io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry,
+      ContextOutputApplier contextOutputApplier,
+      WorkerGrantOrchestrator workerGrantOrchestrator,
+      io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry,
+      CaseRecoveryStateRegistry recoveryStateRegistry,
+      CompoundLockRegistry compoundLockRegistry) {
+    this.eventDispatcher = eventDispatcher;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.schedulerService = schedulerService;
+    this.lifecycleEventConsumer = lifecycleEventConsumer;
+    this.caseChannelProvider = caseChannelProvider;
+    this.traceIdProvider = traceIdProvider;
+    this.outcomeObservers = outcomeObservers;
+    this.caseCompletionTracker = caseCompletionTracker;
+    this.scopedWorkerRegistry = scopedWorkerRegistry;
+    this.contextOutputApplier = contextOutputApplier;
+    this.workerGrantOrchestrator = workerGrantOrchestrator;
+    this.dataChannelRegistry = dataChannelRegistry;
+    this.recoveryStateRegistry = recoveryStateRegistry;
+    this.compoundLockRegistry = compoundLockRegistry;
+  }
 
-  @Inject SchedulerService schedulerService;
-
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-
-  @Inject CaseChannelProvider caseChannelProvider;
-
-  @Inject LedgerTraceIdProvider traceIdProvider;
-
-  @Inject Instance<CaseOutcomeObserver> outcomeObservers;
-
-  @Inject CaseCompletionTracker caseCompletionTracker;
-  @Inject io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
-  @Inject ContextOutputApplier contextOutputApplier;
-  @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
-  @Inject io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry;
-  @Inject io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry recoveryStateRegistry;
-  @Inject io.casehub.engine.common.spi.recovery.CompoundLockRegistry compoundLockRegistry;
-
-  @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
-  public void onCaseStatusChangedHandler(CaseStatusChanged event) {
+  public void handle(CaseStatusChanged event) {
     final String traceId = traceIdProvider.currentTraceId().orElse(null);
     final CaseInstance caseInstance = event.instance();
     final CaseStatus newState = CaseStatus.valueOf(event.newStatus());
@@ -136,9 +156,8 @@ public class CaseStatusChangedHandler {
           .forEach(caseChannelProvider::closeChannel);
       workerGrantOrchestrator.revokeForCase(caseInstance.getUuid());
       if (caseInstance.getPendingActionGate() != null) {
-        eventBus.publish(
-            EventBusAddresses.ACTION_GATE_CANCELLED,
-            new io.casehub.engine.common.internal.event.ActionGateCancelledEvent(
+        eventDispatcher.dispatch(
+            new ActionGateCancelledEvent(
                 caseInstance.getUuid(),
                 caseInstance.tenancyId,
                 caseInstance.getPendingActionGate().gateId()));
@@ -153,61 +172,33 @@ public class CaseStatusChangedHandler {
         mctx.close();
       }
     }
-    // Notify outcome observers on terminal state — CBR Retain step. Refs engine#477.
-    // Called before event bus publishes so observer failures don't block downstream events.
     if (newState.isTerminal()) {
       fireOutcomeObservers(
           caseInstance, newState, event.satisfiedGoalName(), event.satisfiedGoalKind());
     }
 
-    // Fire-and-forget: downstream event bus consumers (CASE_COMPLETED, CASE_FAULTED,
-    // CONTEXT_CHANGED) do not need to complete before this handler returns.
-    // Wrapped in try-catch: codec may not be registered in unit test contexts
-    // where the handler is called directly without the full event bus setup.
-    String eventBusAddress = resolveStateAsString(newState);
-    if (eventBusAddress != null) {
-      try {
-        eventBus.publish(eventBusAddress, caseInstance);
-      } catch (Exception e) {
-        LOG.warnf(
-            e,
-            "Event bus publish failed for %s caseId=%s — non-fatal",
-            eventBusAddress,
-            caseInstance.getUuid());
-      }
+    if (newState == CaseStatus.COMPLETED) {
+      eventDispatcher.dispatch(new CaseCompletedEvent(caseInstance.getUuid().toString()));
+    } else if (newState == CaseStatus.FAULTED) {
+      eventDispatcher.dispatch(new CaseFaultedEvent(caseInstance.getUuid().toString()));
     }
 
-    // On resume (SUSPENDED → RUNNING), re-evaluate the context so eligible workers fire.
     if (newState == CaseStatus.RUNNING) {
-      eventBus.publish(
-          EventBusAddresses.CONTEXT_CHANGED,
+      eventDispatcher.dispatch(
           new CaseContextChangedEvent(
               caseInstance, caseInstance.getCaseContext().snapshot(), null));
     }
 
-    // Await CDI event delivery so @ObservesAsync observers run before this handler completes.
-    // Failure is logged and recovered — observer errors must not fail case completion (engine#393).
-    try {
-      lifecycleEvents
-          .fireAsync(
-              CaseLifecycleEvent.of(
-                  caseInstance,
-                  resolveCommandType(newState),
-                  resolveEventType(newState),
-                  null,
-                  "System",
-                  traceId,
-                  event.satisfiedGoalName(),
-                  event.satisfiedGoalKind()))
-          .toCompletableFuture()
-          .join();
-    } catch (Exception t) {
-      LOG.warnf(
-          t,
-          "CaseLifecycleEvent observer failed for caseId=%s event=%s",
-          caseInstance.getUuid(),
-          resolveEventType(newState));
-    }
+    lifecycleEventConsumer.accept(
+        CaseLifecycleEvent.of(
+            caseInstance,
+            resolveCommandType(newState),
+            resolveEventType(newState),
+            null,
+            "System",
+            traceId,
+            event.satisfiedGoalName(),
+            event.satisfiedGoalKind()));
   }
 
   private void fireOutcomeObservers(
@@ -259,14 +250,6 @@ public class CaseStatusChangedHandler {
       case FAULTED -> CaseHubEventType.CASE_FAULTED;
       case CANCELLED -> CaseHubEventType.CASE_CANCELLED;
       default -> CaseHubEventType.CASE_STATUS_CHANGED;
-    };
-  }
-
-  private String resolveStateAsString(CaseStatus state) {
-    return switch (state) {
-      case COMPLETED -> EventBusAddresses.CASE_COMPLETED;
-      case FAULTED -> EventBusAddresses.CASE_FAULTED;
-      default -> null;
     };
   }
 

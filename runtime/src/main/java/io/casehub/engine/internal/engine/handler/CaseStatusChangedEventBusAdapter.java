@@ -13,23 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.recovery;
+package io.casehub.engine.internal.engine.handler;
 
-import io.casehub.engine.common.spi.recovery.CaseRecoveryState;
+import io.casehub.engine.common.internal.event.CaseStatusChanged;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
-public class CaseRecoveryStateRegistry {
+public class CaseStatusChangedEventBusAdapter {
 
-  private final ConcurrentHashMap<UUID, CaseRecoveryState> states = new ConcurrentHashMap<>();
+  @Inject CaseStatusChangedHandler core;
 
-  public CaseRecoveryState getOrCreate(UUID caseId) {
-    return states.computeIfAbsent(caseId, k -> new CaseRecoveryState());
-  }
-
-  public void evict(UUID caseId) {
-    states.remove(caseId);
+  @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
+  public void handle(CaseStatusChanged event) {
+    core.handle(event);
   }
 }

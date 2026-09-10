@@ -17,6 +17,7 @@ package io.casehub.engine.internal.quarkus;
 
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.spi.CaseChannelProvider;
+import io.casehub.api.spi.CaseOutcomeObserver;
 import io.casehub.api.spi.ContextDiffStrategy;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.api.spi.event.EventDispatcher;
@@ -30,15 +31,20 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.engine.common.spi.recovery.CompoundLockRegistry;
 import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.acl.WorkerIdentityResolver;
+import io.casehub.engine.internal.engine.CaseCompletionTracker;
+import io.casehub.engine.internal.engine.CaseEvaluationSerializer;
+import io.casehub.engine.internal.engine.QuiescenceTracker;
 import io.casehub.engine.internal.engine.SignalSettlementTracker;
 import io.casehub.engine.internal.engine.handler.ActionGateApprovedHandler;
 import io.casehub.engine.internal.engine.handler.ActionGateExpiredHandler;
 import io.casehub.engine.internal.engine.handler.ActionGateRejectedHandler;
 import io.casehub.engine.internal.engine.handler.AgentRoutingEscalationHandler;
+import io.casehub.engine.internal.engine.handler.CaseStatusChangedHandler;
 import io.casehub.engine.internal.engine.handler.ContextOutputApplier;
 import io.casehub.engine.internal.engine.handler.ContextSignalEventHandler;
 import io.casehub.engine.internal.engine.handler.GoalReachedEventHandler;
@@ -51,6 +57,9 @@ import io.casehub.engine.internal.engine.handler.MilestoneSLAViolatedEventHandle
 import io.casehub.engine.internal.engine.handler.ScopedWorkerTerminationHandler;
 import io.casehub.engine.internal.engine.handler.WorkerRetriesExhaustedEventHandler;
 import io.casehub.engine.internal.milestone.MilestoneLifecycleManager;
+import io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry;
+import io.casehub.engine.internal.routing.SelectionContextStore;
+import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.WorkerAuthorizationPolicy;
@@ -60,6 +69,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
+import java.util.stream.StreamSupport;
 import org.jboss.logging.Logger;
 
 @ApplicationScoped
@@ -319,5 +329,82 @@ public class RuntimeBeans {
         outcomeRecorderInstance.isResolvable()
             ? java.util.Optional.of(outcomeRecorderInstance.get())
             : java.util.Optional.empty());
+  }
+
+  @Produces
+  @ApplicationScoped
+  QuiescenceTracker quiescenceTracker() {
+    return new QuiescenceTracker();
+  }
+
+  @Produces
+  @ApplicationScoped
+  CaseCompletionTracker caseCompletionTracker() {
+    return new CaseCompletionTracker();
+  }
+
+  @Produces
+  @ApplicationScoped
+  CaseRecoveryStateRegistry caseRecoveryStateRegistry() {
+    return new CaseRecoveryStateRegistry();
+  }
+
+  @Produces
+  @ApplicationScoped
+  SelectionContextStore selectionContextStore() {
+    return new SelectionContextStore();
+  }
+
+  @Produces
+  @ApplicationScoped
+  CaseEvaluationSerializer caseEvaluationSerializer(QuiescenceTracker quiescenceTracker) {
+    return new CaseEvaluationSerializer(quiescenceTracker);
+  }
+
+  @Produces
+  @ApplicationScoped
+  SchedulerService schedulerService(
+      JobScheduler scheduler, CaseDefinitionRegistry caseDefinitionRegistry) {
+    return new SchedulerService(scheduler, caseDefinitionRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
+  CaseStatusChangedHandler caseStatusChangedHandler(
+      EventDispatcher eventDispatcher,
+      CaseInstanceRepository caseInstanceRepository,
+      SchedulerService schedulerService,
+      Event<CaseLifecycleEvent> lifecycleEvents,
+      CaseChannelProvider caseChannelProvider,
+      LedgerTraceIdProvider traceIdProvider,
+      Instance<CaseOutcomeObserver> outcomeObservers,
+      CaseCompletionTracker caseCompletionTracker,
+      ScopedWorkerRegistry scopedWorkerRegistry,
+      ContextOutputApplier contextOutputApplier,
+      WorkerGrantOrchestrator workerGrantOrchestrator,
+      DataChannelRegistry dataChannelRegistry,
+      CaseRecoveryStateRegistry recoveryStateRegistry,
+      CompoundLockRegistry compoundLockRegistry) {
+    return new CaseStatusChangedHandler(
+        eventDispatcher,
+        caseInstanceRepository,
+        schedulerService,
+        event -> {
+          try {
+            lifecycleEvents.fireAsync(event).toCompletableFuture().join();
+          } catch (Exception t) {
+            LOG.warnf(t, "CaseLifecycleEvent observer failed for CaseStatusChanged");
+          }
+        },
+        caseChannelProvider,
+        traceIdProvider,
+        StreamSupport.stream(outcomeObservers.spliterator(), false).toList(),
+        caseCompletionTracker,
+        scopedWorkerRegistry,
+        contextOutputApplier,
+        workerGrantOrchestrator,
+        dataChannelRegistry,
+        recoveryStateRegistry,
+        compoundLockRegistry);
   }
 }

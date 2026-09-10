@@ -34,49 +34,21 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-/**
- * Service for scheduling time-based triggers for Case Hub bindings.
- *
- * <p>This service manages Quartz jobs that fire when scheduled triggers activate. It supports:
- *
- * <ul>
- *   <li><b>Unconditional scheduling</b> - worker executes when trigger fires
- *   <li><b>Conditional scheduling</b> - worker executes only if condition evaluates to true
- *   <li><b>Cancellation</b> - remove all scheduled triggers when a case completes
- * </ul>
- *
- * <p><b>Lifecycle:</b>
- *
- * <ul>
- *   <li>Register triggers when a case is created: {@link #registerScheduledTriggers(CaseInstance)}
- *   <li>Cancel all triggers when a case completes: {@link #cancelAllTriggers(UUID)}
- * </ul>
- *
- * @see ScheduleTrigger
- * @see ScheduledTriggerJob
- * @see ConditionalScheduledTriggerJob
- */
-@ApplicationScoped
 public class SchedulerService {
 
   private static final Logger LOG = Logger.getLogger(SchedulerService.class);
   private static final ObjectMapper SIGNAL_MAPPER = new ObjectMapper();
 
-  @Inject JobScheduler scheduler;
+  private final JobScheduler scheduler;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
 
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-
-  SchedulerService() {}
-
-  SchedulerService(JobScheduler scheduler, CaseDefinitionRegistry caseDefinitionRegistry) {
+  public SchedulerService(JobScheduler scheduler, CaseDefinitionRegistry caseDefinitionRegistry) {
     this.scheduler = scheduler;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
   }
