@@ -29,16 +29,14 @@ import io.casehub.engine.plan.adaptation.AdaptationContext;
 import io.casehub.engine.plan.adaptation.AdaptationSignal;
 import io.casehub.engine.plan.adaptation.AdaptationTrigger;
 import io.casehub.engine.plan.monitoring.MonitoringConfig;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+
+
 import java.util.List;
 
-@ApplicationScoped
 public class ProgressGatedTrigger implements AdaptationTrigger {
 
   private final EventLogRepository eventLogRepository;
 
-  @Inject
   public ProgressGatedTrigger(EventLogRepository eventLogRepository) {
     this.eventLogRepository = eventLogRepository;
   }

@@ -326,14 +326,14 @@ WorkerOutcomeResolvedHandler.onWorkerOutcomeResolved()
 
 ## References
 
-- `planning/src/main/java/io/casehub/engine/planning/handler/WorkerOutcomeResolvedHandler.java` — entry point
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/handler/WorkerOutcomeResolvedHandler.java` — entry point
 - `common/src/main/java/io/casehub/engine/common/internal/event/WorkerOutcomeResolvedEvent.java` — carries FailureCategory
 - `../../../planning-core/src/main/java/io/casehub/engine/planning/plan/DefaultCasePlanModel.java` — replaceCompound() pattern
 - `../../../planning-core/src/main/java/io/casehub/engine/planning/plan/PlanItemDefinition.java` — Primitive/Compound sealed hierarchy
-- `planning/src/main/java/io/casehub/engine/planning/adaptation/DefaultPlanAdaptationEvaluator.java` — existing adaptation flow
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/adaptation/DefaultPlanAdaptationEvaluator.java` — existing adaptation flow
 - `api/src/main/java/io/casehub/api/model/FailureCategory.java` — Knowledge sealed variant
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/GoapDecompositionStrategy.java` — decomposition consumer
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/DefaultGoalDecomposer.java` — initial decomposition pattern
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/GoapDecompositionStrategy.java` — decomposition consumer
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/DefaultGoalDecomposer.java` — initial decomposition pattern
 - `research/2026-08-18-adaptive-planning-intelligence.md` — epic research (Section 3, Issue 9)
 - GE-20260808-47dc40 — CasePlanModel decomposition vs adaptation structural differences
 - GE-20260809-fe93ef — Primitive executor NPE for structural children

@@ -20,13 +20,11 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
+
+
 import java.util.List;
 import java.util.Optional;
 
-@ApplicationScoped
-@Unremovable
 public class SequentialPlanningStrategy implements PlanningStrategy {
 
   @Override

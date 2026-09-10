@@ -15,23 +15,13 @@
  */
 package io.casehub.engine.planning.control;
 
-@jakarta.enterprise.context.ApplicationScoped
 public class CompoundStrategyDispatcher {
 
   private static final String DEFAULT_STRATEGY = "default";
 
   private final java.util.function.Function<String, PlanningStrategy> strategyResolver;
 
-  @jakarta.inject.Inject
   public CompoundStrategyDispatcher(
-      jakarta.enterprise.inject.Instance<PlanningStrategy> strategyBeans) {
-    java.util.Map<String, PlanningStrategy> strategies =
-        java.util.stream.StreamSupport.stream(strategyBeans.spliterator(), false)
-            .collect(java.util.stream.Collectors.toMap(PlanningStrategy::id, s -> s));
-    this.strategyResolver = strategies::get;
-  }
-
-  CompoundStrategyDispatcher(
       java.util.function.Function<String, PlanningStrategy> strategyResolver) {
     this.strategyResolver = strategyResolver;
   }

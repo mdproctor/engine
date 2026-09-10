@@ -455,10 +455,10 @@ public record GoalDecompositionContext(
 - `api/src/main/java/io/casehub/engine/plan/goap/GoapAction.java` — action record with [0,1] cost constraint
 - `api/src/main/java/io/casehub/engine/plan/goap/GoapWorldState.java` — boolean world state
 - `api/src/main/java/io/casehub/engine/plan/DecompositionStrategy.java` — SPI interface
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/LlmDecompositionStrategy.java` — reference implementation
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/LlmDecompositionStrategy.java` — reference implementation
 - `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/GoalStep.java` — reusable LeafTask type
 - `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/GoalDecompositionContext.java` — decomposition context
-- `planning/src/main/java/io/casehub/engine/planning/control/GoapPlanningStrategy.java` — dispatch-time consumer
-- `planning/src/main/java/io/casehub/engine/planning/control/AdaptivePlanningStrategy.java` — adaptive consumer
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/control/GoapPlanningStrategy.java` — dispatch-time consumer
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/control/AdaptivePlanningStrategy.java` — adaptive consumer
 - `research/2026-08-18-adaptive-planning-intelligence.md` §2, §6 — GOAP design rationale and Embabel comparison
 - Design review: `/Users/mdproctor/reviews/casehub-slots/929-goap-decomposition-20260818-044228/` — 11 issues addressed

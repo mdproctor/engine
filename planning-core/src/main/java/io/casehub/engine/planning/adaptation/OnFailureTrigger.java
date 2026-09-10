@@ -19,9 +19,8 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.plan.adaptation.AdaptationContext;
 import io.casehub.engine.plan.adaptation.AdaptationSignal;
 import io.casehub.engine.plan.adaptation.AdaptationTrigger;
-import jakarta.enterprise.context.ApplicationScoped;
 
-@ApplicationScoped
+
 public class OnFailureTrigger implements AdaptationTrigger {
 
   @Override

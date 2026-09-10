@@ -308,9 +308,9 @@ Parsed by `CaseDefinitionYamlMapper`. Validation: delegates list must not be emp
 
 - `api/src/main/java/io/casehub/engine/plan/DecompositionStrategy.java` — SPI interface
 - `api/src/main/java/io/casehub/engine/plan/DecompositionContext.java` — context interface
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/GoapDecompositionStrategy.java` — GOAP delegate (throws AgentException on failure)
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/LlmDecompositionStrategy.java` — LLM delegate (throws AgentException on failure)
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/DefaultGoalDecomposer.java` — caller that writes GOAL_DECOMPOSED EventLog
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/GoapDecompositionStrategy.java` — GOAP delegate (throws AgentException on failure)
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/LlmDecompositionStrategy.java` — LLM delegate (throws AgentException on failure)
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/DefaultGoalDecomposer.java` — caller that writes GOAL_DECOMPOSED EventLog
 - `api/src/main/java/io/casehub/api/model/AdaptationConfig.java` — config record pattern
 - `api/src/main/java/io/casehub/engine/plan/monitoring/MonitoringConfig.java` — config record pattern
 - `specs/issue-927-adaptive-planning-intelligence/decisions-933.md` — design decisions

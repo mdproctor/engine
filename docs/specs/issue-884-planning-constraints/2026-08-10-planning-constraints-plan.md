@@ -143,7 +143,7 @@ feat(#884): add costBudgets and hasHardConstraints to PlanningConstraints
 ### Task 2: Extend LLM decomposition prompt with costBudgets and weights
 
 **Files:**
-- Modify: `planning/src/main/java/io/casehub/engine/planning/decomposition/LlmDecompositionStrategy.java`
+- Modify: `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/LlmDecompositionStrategy.java`
 - Modify: `planning/src/test/java/io/casehub/engine/planning/decomposition/LlmDecompositionStrategyTest.java`
 
 **Interfaces:**
@@ -278,7 +278,7 @@ feat(#884): wire costBudgets and weights into LLM decomposition prompt
 ### Task 3: Add constraint text to ForwardReplanRevision
 
 **Files:**
-- Modify: `planning/src/main/java/io/casehub/engine/planning/adaptation/ForwardReplanRevision.java`
+- Modify: `../../../planning-core/src/main/java/io/casehub/engine/planning/adaptation/ForwardReplanRevision.java`
 - Modify: `planning/src/test/java/io/casehub/engine/planning/adaptation/ForwardReplanRevisionTest.java`
 
 **Interfaces:**
@@ -375,7 +375,7 @@ feat(#884): add constraint text to ForwardReplanRevision prompt
 
 **Files:**
 - Modify: `api/src/main/java/io/casehub/api/model/event/CaseHubEventType.java`
-- Modify: `planning/src/main/java/io/casehub/engine/planning/decomposition/DefaultGoalDecomposer.java`
+- Modify: `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/DefaultGoalDecomposer.java`
 - Modify: `planning/src/test/java/io/casehub/engine/planning/decomposition/GoalDecompositionContextTest.java`
 
 **Interfaces:**

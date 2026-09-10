@@ -639,14 +639,14 @@ public CaseDefinition.Builder maxAdaptations(int maxAdaptations) { ... }
 
 ## References
 
-- `planning/src/main/java/io/casehub/engine/planning/adaptation/DefaultPlanAdaptationEvaluator.java` — integration point
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/adaptation/DefaultPlanAdaptationEvaluator.java` — integration point
 - `api/src/main/java/io/casehub/engine/plan/adaptation/AdaptationTrigger.java` — existing trigger SPI
 - `api/src/main/java/io/casehub/engine/plan/adaptation/AdaptationSignal.java` — trigger return type
 - `api/src/main/java/io/casehub/engine/plan/adaptation/AdaptationContext.java` — existing context
 - `api/src/main/java/io/casehub/api/model/AdaptationConfig.java` — pipeline config
 - `api/src/main/java/io/casehub/api/model/FailureCategory.java` — failure taxonomy (#930)
-- `planning/src/main/java/io/casehub/engine/planning/adaptation/ProgressGatedTrigger.java` — divergence trigger
-- `planning/src/main/java/io/casehub/engine/planning/adaptation/DeeperDecompositionHandler.java` — failure-path decomposition (#936)
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/adaptation/ProgressGatedTrigger.java` — divergence trigger
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/adaptation/DeeperDecompositionHandler.java` — failure-path decomposition (#936)
 - `runtime/src/main/java/io/casehub/engine/internal/routing/EngineStrategyResolver.java` — strategy resolution
 - `common/src/main/java/io/casehub/engine/common/internal/monitoring/DivergenceScoreComputer.java` — on-demand computation pattern
 - `research/2026-08-18-adaptive-planning-intelligence.md` §2.3 — MPDF, SOFAI-LM, TART taxonomy
