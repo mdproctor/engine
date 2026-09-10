@@ -328,8 +328,8 @@ WorkerOutcomeResolvedHandler.onWorkerOutcomeResolved()
 
 - `planning/src/main/java/io/casehub/engine/planning/handler/WorkerOutcomeResolvedHandler.java` — entry point
 - `common/src/main/java/io/casehub/engine/common/internal/event/WorkerOutcomeResolvedEvent.java` — carries FailureCategory
-- `planning/src/main/java/io/casehub/engine/planning/plan/DefaultCasePlanModel.java` — replaceCompound() pattern
-- `planning/src/main/java/io/casehub/engine/planning/plan/PlanItemDefinition.java` — Primitive/Compound sealed hierarchy
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/plan/DefaultCasePlanModel.java` — replaceCompound() pattern
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/plan/PlanItemDefinition.java` — Primitive/Compound sealed hierarchy
 - `planning/src/main/java/io/casehub/engine/planning/adaptation/DefaultPlanAdaptationEvaluator.java` — existing adaptation flow
 - `api/src/main/java/io/casehub/api/model/FailureCategory.java` — Knowledge sealed variant
 - `planning/src/main/java/io/casehub/engine/planning/decomposition/GoapDecompositionStrategy.java` — decomposition consumer

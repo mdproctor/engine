@@ -286,8 +286,8 @@ Refs #84"
 ### Task 3: Remove CasePlanModel milestone tracking and deprecated infrastructure
 
 **Files:**
-- Modify: `planning/src/main/java/io/casehub/engine/planning/plan/CasePlanModel.java`
-- Modify: `planning/src/main/java/io/casehub/engine/planning/plan/DefaultCasePlanModel.java`
+- Modify: `../../planning-core/src/main/java/io/casehub/engine/planning/plan/CasePlanModel.java`
+- Modify: `../../planning-core/src/main/java/io/casehub/engine/planning/plan/DefaultCasePlanModel.java`
 - Delete: `planning/src/main/java/io/casehub/engine/planning/handler/MilestoneAchievementHandler.java`
 - Delete: `planning/src/test/java/io/casehub/engine/planning/handler/MilestoneAchievementHandlerTest.java`
 - Modify: `planning/src/test/java/io/casehub/engine/planning/plan/DefaultCasePlanModelTest.java`

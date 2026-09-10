@@ -102,6 +102,7 @@
         <module>persistence-hibernate</module>
         <module>runtime-core</module>
         <module>runtime</module>
+        <module>planning-core</module>
         <module>planning</module>
         <module>resilience</module>
         <module>ledger</module>

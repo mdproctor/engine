@@ -456,8 +456,8 @@ public record GoalDecompositionContext(
 - `api/src/main/java/io/casehub/engine/plan/goap/GoapWorldState.java` — boolean world state
 - `api/src/main/java/io/casehub/engine/plan/DecompositionStrategy.java` — SPI interface
 - `planning/src/main/java/io/casehub/engine/planning/decomposition/LlmDecompositionStrategy.java` — reference implementation
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/GoalStep.java` — reusable LeafTask type
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/GoalDecompositionContext.java` — decomposition context
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/GoalStep.java` — reusable LeafTask type
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/GoalDecompositionContext.java` — decomposition context
 - `planning/src/main/java/io/casehub/engine/planning/control/GoapPlanningStrategy.java` — dispatch-time consumer
 - `planning/src/main/java/io/casehub/engine/planning/control/AdaptivePlanningStrategy.java` — adaptive consumer
 - `research/2026-08-18-adaptive-planning-intelligence.md` §2, §6 — GOAP design rationale and Embabel comparison

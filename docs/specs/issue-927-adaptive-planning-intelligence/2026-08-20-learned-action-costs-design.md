@@ -333,7 +333,7 @@ Add to the `CbrConfig` section:
 - `api/src/main/java/io/casehub/engine/plan/goap/CostFunction.java` — dynamic cost interface
 - `planning/src/main/java/io/casehub/engine/planning/decomposition/GoapDecompositionStrategy.java` — decomposition consumer
 - `planning/src/main/java/io/casehub/engine/planning/control/GoapPlanningStrategy.java` — dispatch consumer
-- `planning/src/main/java/io/casehub/engine/planning/decomposition/GoalDecompositionContext.java` — decomposition context
+- `../../../planning-core/src/main/java/io/casehub/engine/planning/decomposition/GoalDecompositionContext.java` — decomposition context
 - `planning/src/main/java/io/casehub/engine/planning/decomposition/DefaultGoalDecomposer.java` — decomposition entry point
 - `runtime/src/main/java/io/casehub/engine/internal/routing/CbrRetrievalService.java` — CBR retrieval
 - `runtime/src/main/java/io/casehub/engine/internal/engine/handler/CaseContextChangedEventHandler.java:244` — experiences on PlanExecutionContext
