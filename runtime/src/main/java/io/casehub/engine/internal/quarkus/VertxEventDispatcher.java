@@ -41,39 +41,48 @@ import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @ApplicationScoped
 public class VertxEventDispatcher implements EventDispatcher {
 
-  private static final Map<Class<?>, String> TYPE_TO_ADDRESS =
-      Map.ofEntries(
-          Map.entry(CaseStatusChanged.class, EventBusAddresses.CASE_STATUS_CHANGED),
-          Map.entry(CaseContextChangedEvent.class, EventBusAddresses.CONTEXT_CHANGED),
-          Map.entry(GoalReachedEvent.class, EventBusAddresses.GOAL_REACHED),
-          Map.entry(WorkerScheduleEvent.class, EventBusAddresses.WORKER_SCHEDULE),
-          Map.entry(WorkflowExecutionCompleted.class, EventBusAddresses.WORKER_EXECUTION_FINISHED),
-          Map.entry(SubCaseScheduleEvent.class, EventBusAddresses.SUBCASE_SCHEDULE),
-          Map.entry(AgentRoutingEscalationEvent.class, EventBusAddresses.AGENT_ROUTING_ESCALATION),
-          Map.entry(MilestoneSLAViolatedEvent.class, EventBusAddresses.MILESTONE_SLA_VIOLATED),
-          Map.entry(MilestoneActivatedEvent.class, EventBusAddresses.MILESTONE_ACTIVATED),
-          Map.entry(MilestoneCompletedEvent.class, EventBusAddresses.MILESTONE_COMPLETED),
-          Map.entry(ContextSignalEvent.class, EventBusAddresses.CONTEXT_SIGNAL),
-          Map.entry(WorkerOutcomeResolvedEvent.class, EventBusAddresses.WORKER_OUTCOME_RESOLVED),
-          Map.entry(CompoundCompletedEvent.class, EventBusAddresses.COMPOUND_COMPLETED),
-          Map.entry(ActionGateCancelledEvent.class, EventBusAddresses.ACTION_GATE_CANCELLED),
-          Map.entry(
-              ActionGateWorkerFaultedEvent.class, EventBusAddresses.ACTION_GATE_WORKER_FAULTED),
-          Map.entry(ExpectationViolationEvent.class, EventBusAddresses.EXPECTATION_VIOLATED),
-          Map.entry(JudgmentReDispatchEvent.class, EventBusAddresses.JUDGMENT_RE_DISPATCH),
-          Map.entry(JudgmentFaultEvent.class, EventBusAddresses.JUDGMENT_FAULT),
-          Map.entry(CaseCompletedEvent.class, EventBusAddresses.CASE_COMPLETED),
-          Map.entry(CaseFaultedEvent.class, EventBusAddresses.CASE_FAULTED));
+  private final Map<Class<?>, String> typeToAddress =
+      new ConcurrentHashMap<>(
+          Map.ofEntries(
+              Map.entry(CaseStatusChanged.class, EventBusAddresses.CASE_STATUS_CHANGED),
+              Map.entry(CaseContextChangedEvent.class, EventBusAddresses.CONTEXT_CHANGED),
+              Map.entry(GoalReachedEvent.class, EventBusAddresses.GOAL_REACHED),
+              Map.entry(WorkerScheduleEvent.class, EventBusAddresses.WORKER_SCHEDULE),
+              Map.entry(
+                  WorkflowExecutionCompleted.class, EventBusAddresses.WORKER_EXECUTION_FINISHED),
+              Map.entry(SubCaseScheduleEvent.class, EventBusAddresses.SUBCASE_SCHEDULE),
+              Map.entry(
+                  AgentRoutingEscalationEvent.class, EventBusAddresses.AGENT_ROUTING_ESCALATION),
+              Map.entry(MilestoneSLAViolatedEvent.class, EventBusAddresses.MILESTONE_SLA_VIOLATED),
+              Map.entry(MilestoneActivatedEvent.class, EventBusAddresses.MILESTONE_ACTIVATED),
+              Map.entry(MilestoneCompletedEvent.class, EventBusAddresses.MILESTONE_COMPLETED),
+              Map.entry(ContextSignalEvent.class, EventBusAddresses.CONTEXT_SIGNAL),
+              Map.entry(
+                  WorkerOutcomeResolvedEvent.class, EventBusAddresses.WORKER_OUTCOME_RESOLVED),
+              Map.entry(CompoundCompletedEvent.class, EventBusAddresses.COMPOUND_COMPLETED),
+              Map.entry(ActionGateCancelledEvent.class, EventBusAddresses.ACTION_GATE_CANCELLED),
+              Map.entry(
+                  ActionGateWorkerFaultedEvent.class, EventBusAddresses.ACTION_GATE_WORKER_FAULTED),
+              Map.entry(ExpectationViolationEvent.class, EventBusAddresses.EXPECTATION_VIOLATED),
+              Map.entry(JudgmentReDispatchEvent.class, EventBusAddresses.JUDGMENT_RE_DISPATCH),
+              Map.entry(JudgmentFaultEvent.class, EventBusAddresses.JUDGMENT_FAULT),
+              Map.entry(CaseCompletedEvent.class, EventBusAddresses.CASE_COMPLETED),
+              Map.entry(CaseFaultedEvent.class, EventBusAddresses.CASE_FAULTED)));
 
   @Inject EventBus eventBus;
 
+  public void register(Class<?> eventType, String address) {
+    typeToAddress.put(eventType, address);
+  }
+
   @Override
   public void dispatch(Object event) {
-    String address = TYPE_TO_ADDRESS.get(event.getClass());
+    String address = typeToAddress.get(event.getClass());
     if (address == null) {
       throw new IllegalArgumentException(
           "No EventBus address registered for: " + event.getClass().getName());
