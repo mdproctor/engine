@@ -721,4 +721,92 @@ public class RuntimeBeans {
         agentMemoryRetriever,
         idempotencyWindow);
   }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.handler.WorkflowExecutionCompletedHandler
+      workflowExecutionCompletedHandler(
+          EventDispatcher eventDispatcher,
+          Event<CaseLifecycleEvent> lifecycleEvents,
+          Event<io.casehub.engine.common.spi.event.WorkerDecisionEvent> workerDecisionEvents,
+          EventLogRepository eventLogRepository,
+          CaseDefinitionRegistry caseDefinitionRegistry,
+          io.casehub.engine.internal.work.CaseResumptionService caseResumptionService,
+          WorkerStatusListener workerStatusListener,
+          LedgerTraceIdProvider traceIdProvider,
+          io.casehub.api.spi.ActionRiskClassifier actionRiskClassifier,
+          CaseInstanceRepository caseInstanceRepository,
+          SignalSettlementTracker settlementTracker,
+          QuiescenceTracker quiescenceTracker,
+          io.casehub.engine.internal.routing.PersonalitySignalRecorder personalitySignalRecorder,
+          io.casehub.engine.internal.routing.GoalOutcomeRecorder goalOutcomeRecorder,
+          io.casehub.engine.internal.routing.BehavioralComplianceRecorder
+              behavioralComplianceRecorder,
+          io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker,
+          io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder,
+          io.casehub.engine.internal.routing.GoalRevisionEvaluator goalRevisionEvaluator,
+          WorkerGrantOrchestrator workerGrantOrchestrator,
+          ContextOutputApplier contextOutputApplier,
+          StrategyResolver strategyResolver,
+          RecoveryCoordinator recoveryCoordinator,
+          io.casehub.api.spi.FailureClassifier failureClassifier,
+          io.casehub.engine.internal.engine.handler.ExpectationValidator expectationValidator,
+          io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService,
+          SelectionContextStore selectionContextStore,
+          Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder> outcomeRecorder,
+          Instance<io.casehub.engine.common.spi.ActionGateScheduler> actionGateScheduler,
+          Instance<io.casehub.api.spi.StepOutcomeObserver> stepOutcomeObserver) {
+    return new io.casehub.engine.internal.engine.handler.WorkflowExecutionCompletedHandler(
+        eventDispatcher,
+        event ->
+            lifecycleEvents
+                .fireAsync(event)
+                .whenComplete(
+                    (v, t) -> {
+                      if (t != null) {
+                        LOG.warnf(t, "CaseLifecycleEvent observer failed");
+                      }
+                    }),
+        event ->
+            workerDecisionEvents
+                .fireAsync(event)
+                .whenComplete(
+                    (v, t) -> {
+                      if (t != null) {
+                        LOG.warnf(t, "WorkerDecisionEvent observer failed");
+                      }
+                    }),
+        eventLogRepository,
+        caseDefinitionRegistry,
+        caseResumptionService,
+        workerStatusListener,
+        traceIdProvider,
+        actionRiskClassifier,
+        caseInstanceRepository,
+        settlementTracker,
+        quiescenceTracker,
+        personalitySignalRecorder,
+        goalOutcomeRecorder,
+        behavioralComplianceRecorder,
+        agentGoalCompletionMarker,
+        agentExperienceRecorder,
+        goalRevisionEvaluator,
+        workerGrantOrchestrator,
+        contextOutputApplier,
+        strategyResolver,
+        recoveryCoordinator,
+        failureClassifier,
+        expectationValidator,
+        failureCritiqueService,
+        selectionContextStore,
+        outcomeRecorder.isResolvable()
+            ? java.util.Optional.of(outcomeRecorder.get())
+            : java.util.Optional.empty(),
+        actionGateScheduler.isResolvable()
+            ? java.util.Optional.of(actionGateScheduler.get())
+            : java.util.Optional.empty(),
+        stepOutcomeObserver.isResolvable()
+            ? java.util.Optional.of(stepOutcomeObserver.get())
+            : java.util.Optional.empty());
+  }
 }

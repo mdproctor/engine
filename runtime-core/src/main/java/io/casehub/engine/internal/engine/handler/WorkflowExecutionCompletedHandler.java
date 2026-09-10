@@ -33,11 +33,11 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.ActionRiskClassifier;
 import io.casehub.api.spi.RiskDecision;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.CandidateSetContext;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.OutcomeDisposition;
 import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
@@ -66,23 +66,18 @@ import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.worker.api.PlannedAction;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerOutcome;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 /**
  * Applies worker output to the case context, persists the completion event, and notifies listeners
  * that the context has changed.
  */
-@ApplicationScoped
 public class WorkflowExecutionCompletedHandler {
 
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -90,43 +85,97 @@ public class WorkflowExecutionCompletedHandler {
       new com.fasterxml.jackson.core.type.TypeReference<>() {};
 
   private static final Logger LOG = Logger.getLogger(WorkflowExecutionCompletedHandler.class);
-  @Inject EventBus eventBus;
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-  @Inject Event<WorkerDecisionEvent> workerDecisionEvents;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject CaseResumptionService caseResumptionService;
-  @Inject WorkerStatusListener workerStatusListener;
-  @Inject LedgerTraceIdProvider traceIdProvider;
-  @Inject ActionRiskClassifier actionRiskClassifier;
-  @Inject CaseInstanceRepository caseInstanceRepository;
-  @Inject SignalSettlementTracker settlementTracker;
-  @Inject QuiescenceTracker quiescenceTracker;
-  @Inject PersonalitySignalRecorder personalitySignalRecorder;
-  @Inject GoalOutcomeRecorder goalOutcomeRecorder;
-  @Inject BehavioralComplianceRecorder behavioralComplianceRecorder;
-  @Inject AgentGoalCompletionMarker agentGoalCompletionMarker;
-  @Inject AgentExperienceRecorder agentExperienceRecorder;
-  @Inject GoalRevisionEvaluator goalRevisionEvaluator;
-  @Inject WorkerGrantOrchestrator workerGrantOrchestrator;
-  @Inject ContextOutputApplier contextOutputApplier;
-  @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
-  @Inject io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
-  @Inject io.casehub.api.spi.FailureClassifier failureClassifier;
-  @Inject ExpectationValidator expectationValidator;
-  @Inject io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService;
-  @Inject SelectionContextStore selectionContextStore;
 
-  @Inject
-  jakarta.enterprise.inject.Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder>
-      outcomeRecorder;
+  private final EventDispatcher eventDispatcher;
+  private final Consumer<CaseLifecycleEvent> lifecycleEventConsumer;
+  private final Consumer<WorkerDecisionEvent> workerDecisionEventConsumer;
+  private final EventLogRepository eventLogRepository;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final CaseResumptionService caseResumptionService;
+  private final WorkerStatusListener workerStatusListener;
+  private final LedgerTraceIdProvider traceIdProvider;
+  private final ActionRiskClassifier actionRiskClassifier;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final SignalSettlementTracker settlementTracker;
+  private final QuiescenceTracker quiescenceTracker;
+  private final PersonalitySignalRecorder personalitySignalRecorder;
+  private final GoalOutcomeRecorder goalOutcomeRecorder;
+  private final BehavioralComplianceRecorder behavioralComplianceRecorder;
+  private final AgentGoalCompletionMarker agentGoalCompletionMarker;
+  private final AgentExperienceRecorder agentExperienceRecorder;
+  private final GoalRevisionEvaluator goalRevisionEvaluator;
+  private final WorkerGrantOrchestrator workerGrantOrchestrator;
+  private final ContextOutputApplier contextOutputApplier;
+  private final io.casehub.platform.api.routing.StrategyResolver strategyResolver;
+  private final io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
+  private final io.casehub.api.spi.FailureClassifier failureClassifier;
+  private final ExpectationValidator expectationValidator;
+  private final io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService;
+  private final SelectionContextStore selectionContextStore;
+  private final Optional<io.casehub.api.spi.routing.RoutingOutcomeRecorder> outcomeRecorder;
+  private final Optional<io.casehub.engine.common.spi.ActionGateScheduler> actionGateScheduler;
+  private final Optional<io.casehub.api.spi.StepOutcomeObserver> stepOutcomeObserver;
 
-  @Inject
-  jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.ActionGateScheduler>
-      actionGateScheduler;
-
-  @Inject
-  jakarta.enterprise.inject.Instance<io.casehub.api.spi.StepOutcomeObserver> stepOutcomeObserver;
+  public WorkflowExecutionCompletedHandler(
+      EventDispatcher eventDispatcher,
+      Consumer<CaseLifecycleEvent> lifecycleEventConsumer,
+      Consumer<WorkerDecisionEvent> workerDecisionEventConsumer,
+      EventLogRepository eventLogRepository,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      CaseResumptionService caseResumptionService,
+      WorkerStatusListener workerStatusListener,
+      LedgerTraceIdProvider traceIdProvider,
+      ActionRiskClassifier actionRiskClassifier,
+      CaseInstanceRepository caseInstanceRepository,
+      SignalSettlementTracker settlementTracker,
+      QuiescenceTracker quiescenceTracker,
+      PersonalitySignalRecorder personalitySignalRecorder,
+      GoalOutcomeRecorder goalOutcomeRecorder,
+      BehavioralComplianceRecorder behavioralComplianceRecorder,
+      AgentGoalCompletionMarker agentGoalCompletionMarker,
+      AgentExperienceRecorder agentExperienceRecorder,
+      GoalRevisionEvaluator goalRevisionEvaluator,
+      WorkerGrantOrchestrator workerGrantOrchestrator,
+      ContextOutputApplier contextOutputApplier,
+      io.casehub.platform.api.routing.StrategyResolver strategyResolver,
+      io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator,
+      io.casehub.api.spi.FailureClassifier failureClassifier,
+      ExpectationValidator expectationValidator,
+      io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService,
+      SelectionContextStore selectionContextStore,
+      Optional<io.casehub.api.spi.routing.RoutingOutcomeRecorder> outcomeRecorder,
+      Optional<io.casehub.engine.common.spi.ActionGateScheduler> actionGateScheduler,
+      Optional<io.casehub.api.spi.StepOutcomeObserver> stepOutcomeObserver) {
+    this.eventDispatcher = eventDispatcher;
+    this.lifecycleEventConsumer = lifecycleEventConsumer;
+    this.workerDecisionEventConsumer = workerDecisionEventConsumer;
+    this.eventLogRepository = eventLogRepository;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.caseResumptionService = caseResumptionService;
+    this.workerStatusListener = workerStatusListener;
+    this.traceIdProvider = traceIdProvider;
+    this.actionRiskClassifier = actionRiskClassifier;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.settlementTracker = settlementTracker;
+    this.quiescenceTracker = quiescenceTracker;
+    this.personalitySignalRecorder = personalitySignalRecorder;
+    this.goalOutcomeRecorder = goalOutcomeRecorder;
+    this.behavioralComplianceRecorder = behavioralComplianceRecorder;
+    this.agentGoalCompletionMarker = agentGoalCompletionMarker;
+    this.agentExperienceRecorder = agentExperienceRecorder;
+    this.goalRevisionEvaluator = goalRevisionEvaluator;
+    this.workerGrantOrchestrator = workerGrantOrchestrator;
+    this.contextOutputApplier = contextOutputApplier;
+    this.strategyResolver = strategyResolver;
+    this.recoveryCoordinator = recoveryCoordinator;
+    this.failureClassifier = failureClassifier;
+    this.expectationValidator = expectationValidator;
+    this.failureCritiqueService = failureCritiqueService;
+    this.selectionContextStore = selectionContextStore;
+    this.outcomeRecorder = outcomeRecorder;
+    this.actionGateScheduler = actionGateScheduler;
+    this.stepOutcomeObserver = stepOutcomeObserver;
+  }
 
   private static Long extractDurationMs(WorkflowExecutionCompleted event) {
     if (event.protocolMetadata() == null) {
@@ -139,9 +188,7 @@ public class WorkflowExecutionCompletedHandler {
     return null;
   }
 
-  @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED)
-  @RunOnVirtualThread
-  void onWorkflowExecutionCompletedHandler(WorkflowExecutionCompleted event) {
+  public void handle(WorkflowExecutionCompleted event) {
     try {
       final String traceId = traceIdProvider.currentTraceId().orElse(null);
       final CaseInstance caseInstance = event.caseInstance();
@@ -300,45 +347,23 @@ public class WorkflowExecutionCompletedHandler {
           WorkResult.completed(
               event.idempotency(), rawOutput, worker.name(), caseInstance.getUuid()));
 
-      // Fire CDI audit events as true fire-and-forget
-      lifecycleEvents
-          .fireAsync(
-              CaseLifecycleEvent.of(
-                  caseInstance,
-                  "ExecuteWorker",
-                  "WorkerExecutionCompleted",
-                  "system",
-                  "SYSTEM",
-                  traceId))
-          .whenComplete(
-              (v, t) -> {
-                if (t != null) {
-                  LOG.warnf(
-                      t,
-                      "CaseLifecycleEvent observer failed for caseId=%s event=WorkerExecutionCompleted",
-                      caseInstance.getUuid());
-                }
-              });
-      workerDecisionEvents
-          .fireAsync(
-              new WorkerDecisionEvent(
-                  caseInstance.getUuid(),
-                  caseInstance.tenancyId,
-                  worker.name(),
-                  extractCapabilityTag(caseInstance, worker, bindingName),
-                  traceId,
-                  selectionContextStore.remove(caseInstance.getUuid(), worker.name()),
-                  event.reasoning()))
-          .whenComplete(
-              (v, t) -> {
-                if (t != null) {
-                  LOG.warnf(
-                      t,
-                      "WorkerDecisionEvent observer failed for caseId=%s worker=%s",
-                      caseInstance.getUuid(),
-                      worker.name());
-                }
-              });
+      lifecycleEventConsumer.accept(
+          CaseLifecycleEvent.of(
+              caseInstance,
+              "ExecuteWorker",
+              "WorkerExecutionCompleted",
+              "system",
+              "SYSTEM",
+              traceId));
+      workerDecisionEventConsumer.accept(
+          new WorkerDecisionEvent(
+              caseInstance.getUuid(),
+              caseInstance.tenancyId,
+              worker.name(),
+              extractCapabilityTag(caseInstance, worker, bindingName),
+              traceId,
+              selectionContextStore.remove(caseInstance.getUuid(), worker.name()),
+              event.reasoning()));
 
       // Fire violation event asynchronously if threshold exceeded
       if (validationResult != null
@@ -346,8 +371,7 @@ public class WorkflowExecutionCompletedHandler {
           && definition.getMonitoringConfig() != null
           && validationResult.divergenceRatio()
               > definition.getMonitoringConfig().perCompletionThreshold()) {
-        eventBus.publish(
-            EventBusAddresses.EXPECTATION_VIOLATED,
+        eventDispatcher.dispatch(
             new io.casehub.engine.common.internal.event.ExpectationViolationEvent(
                 caseInstance.getUuid(),
                 caseInstance.tenancyId,
@@ -360,8 +384,7 @@ public class WorkflowExecutionCompletedHandler {
 
       quiescenceTracker.onContextChangePublished(caseInstance.getUuid());
       quiescenceTracker.onWorkerCompleted(caseInstance.getUuid());
-      eventBus.publish(
-          EventBusAddresses.CONTEXT_CHANGED,
+      eventDispatcher.dispatch(
           new CaseContextChangedEvent(
               caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
     } catch (Exception e) {
@@ -389,7 +412,7 @@ public class WorkflowExecutionCompletedHandler {
       final WorkflowExecutionCompleted withoutAction =
           WorkflowExecutionCompleted.approved(
               caseInstance, worker, event.idempotency(), event.output(), bindingName);
-      onWorkflowExecutionCompletedHandler(withoutAction);
+      handle(withoutAction);
       return;
     }
 
@@ -428,7 +451,7 @@ public class WorkflowExecutionCompletedHandler {
       final WorkflowExecutionCompleted withoutAction =
           WorkflowExecutionCompleted.approved(
               caseInstance, worker, event.idempotency(), event.output(), bindingName);
-      onWorkflowExecutionCompletedHandler(withoutAction);
+      handle(withoutAction);
     } else {
       handleGate(event, plannedAction, (RiskDecision.GateRequired) decision, traceId);
     }
@@ -696,34 +719,21 @@ public class WorkflowExecutionCompletedHandler {
         };
     workerStatusListener.onWorkerCompleted(worker.name(), workResult);
 
-    lifecycleEvents
-        .fireAsync(
-            CaseLifecycleEvent.of(
-                caseInstance,
-                "WorkerOutcome",
-                outcomeStatus + "Outcome",
-                worker.name(),
-                "WORKER",
-                traceId))
-        .whenComplete(
-            (v, t) -> {
-              if (t != null) {
-                LOG.warnf(
-                    t,
-                    "CaseLifecycleEvent observer failed for caseId=%s event=%sOutcome",
-                    caseInstance.getUuid(),
-                    outcomeStatus);
-              }
-            });
+    lifecycleEventConsumer.accept(
+        CaseLifecycleEvent.of(
+            caseInstance,
+            "WorkerOutcome",
+            outcomeStatus + "Outcome",
+            worker.name(),
+            "WORKER",
+            traceId));
 
     if (disposition == OutcomeDisposition.FAULT) {
-      eventBus.publish(
-          EventBusAddresses.CASE_STATUS_CHANGED,
+      eventDispatcher.dispatch(
           new CaseStatusChanged(
               caseInstance, caseInstance.getState().name(), CaseStatus.FAULTED.name()));
     }
-    eventBus.publish(
-        EventBusAddresses.WORKER_OUTCOME_RESOLVED,
+    eventDispatcher.dispatch(
         new WorkerOutcomeResolvedEvent(
             caseInstance, worker.name(), bindingName, capabilityName, disposition, category));
   }
@@ -740,7 +750,7 @@ public class WorkflowExecutionCompletedHandler {
     final String bindingName = event.bindingName();
     final String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
 
-    if (!actionGateScheduler.isResolvable()) {
+    if (actionGateScheduler.isEmpty()) {
       LOG.warnf(
           "No ActionGateScheduler on classpath — skipping gate for caseId=%s",
           caseInstance.getUuid());
@@ -800,19 +810,9 @@ public class WorkflowExecutionCompletedHandler {
                 resolvedGroups,
                 gate.resolutionType() != null ? gate.resolutionType().getName() : null));
 
-    lifecycleEvents
-        .fireAsync(
-            CaseLifecycleEvent.of(
-                caseInstance, "ActionGate", "ActionGatePending", worker.name(), "WORKER", traceId))
-        .whenComplete(
-            (v, t) -> {
-              if (t != null) {
-                LOG.warnf(
-                    t,
-                    "CaseLifecycleEvent observer failed for caseId=%s event=ActionGatePending",
-                    caseInstance.getUuid());
-              }
-            });
+    lifecycleEventConsumer.accept(
+        CaseLifecycleEvent.of(
+            caseInstance, "ActionGate", "ActionGatePending", worker.name(), "WORKER", traceId));
   }
 
   private EventLog buildGateEventLog(
@@ -1048,7 +1048,7 @@ public class WorkflowExecutionCompletedHandler {
       String bindingName,
       io.casehub.api.spi.routing.RoutingOutcome outcome,
       JsonNode contextSnapshot) {
-    if (outcomeRecorder.isUnsatisfied()) {
+    if (outcomeRecorder.isEmpty()) {
       return;
     }
     String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
@@ -1082,7 +1082,7 @@ public class WorkflowExecutionCompletedHandler {
       io.casehub.api.spi.routing.RoutingOutcome outcome,
       Map<String, Object> contextSnapshot,
       Long executionDurationMs) {
-    if (stepOutcomeObserver.isUnsatisfied()) {
+    if (stepOutcomeObserver.isEmpty()) {
       return;
     }
     String capabilityName = extractCapabilityTag(caseInstance, worker, bindingName);
