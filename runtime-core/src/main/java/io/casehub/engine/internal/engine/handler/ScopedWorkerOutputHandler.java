@@ -22,8 +22,8 @@ import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -31,30 +31,35 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.internal.memory.AgentExperienceRecorder;
 import io.casehub.worker.api.WorkerOutcome;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class ScopedWorkerOutputHandler {
 
   private static final Logger LOG = Logger.getLogger(ScopedWorkerOutputHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject ContextOutputApplier contextOutputApplier;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject EventBus eventBus;
-  @Inject AgentExperienceRecorder agentExperienceRecorder;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
+  private final ContextOutputApplier contextOutputApplier;
+  private final EventLogRepository eventLogRepository;
+  private final EventDispatcher eventDispatcher;
+  private final AgentExperienceRecorder agentExperienceRecorder;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
 
-  @ConsumeEvent(value = EventBusAddresses.SCOPED_WORKER_OUTPUT)
-  @RunOnVirtualThread
-  public void onScopedWorkerOutput(ScopedWorkerOutputEvent event) {
+  public ScopedWorkerOutputHandler(
+      ContextOutputApplier contextOutputApplier,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      AgentExperienceRecorder agentExperienceRecorder,
+      CaseDefinitionRegistry caseDefinitionRegistry) {
+    this.contextOutputApplier = contextOutputApplier;
+    this.eventLogRepository = eventLogRepository;
+    this.eventDispatcher = eventDispatcher;
+    this.agentExperienceRecorder = agentExperienceRecorder;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+  }
+
+  public void handle(ScopedWorkerOutputEvent event) {
     try {
       CaseInstance caseInstance = event.caseInstance();
       CaseStatus state = caseInstance.getState();
@@ -100,8 +105,7 @@ public class ScopedWorkerOutputHandler {
               event.reasoning());
       eventLogRepository.append(eventLog, caseInstance.tenancyId);
 
-      eventBus.publish(
-          EventBusAddresses.CONTEXT_CHANGED,
+      eventDispatcher.dispatch(
           new CaseContextChangedEvent(
               caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
     } catch (Exception e) {

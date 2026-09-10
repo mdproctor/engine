@@ -29,18 +29,15 @@ import io.casehub.neocortex.memory.reflection.ReflectionOrchestrator;
 import io.casehub.worker.api.WorkerOutcome;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class AgentExperienceRecorder {
 
   private static final Logger LOG = Logger.getLogger(AgentExperienceRecorder.class);
@@ -49,34 +46,31 @@ public class AgentExperienceRecorder {
   private static final int DEFAULT_MAX_REASONING_LENGTH = 4096;
   private static final String TRUNCATION_MARKER = "\n[...truncated...]\n";
 
-  private final Instance<ExperienceRecorder> experienceRecorder;
-  private final Instance<ReflectionOrchestrator> reflectionOrchestrator;
+  private final Optional<ExperienceRecorder> experienceRecorder;
+  private final Optional<ReflectionOrchestrator> reflectionOrchestrator;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final GoalFormationEvaluator goalFormationEvaluator;
-  private final Instance<CaseMemoryStore> caseMemoryStore;
-  private final Instance<MeterRegistry> meterRegistry;
+  private final Optional<CaseMemoryStore> caseMemoryStore;
+  private final Optional<MeterRegistry> meterRegistry;
+  private final boolean reasoningEnabled;
   private final ConcurrentHashMap<String, ReflectionState> reflectionStates =
       new ConcurrentHashMap<>();
 
-  @org.eclipse.microprofile.config.inject.ConfigProperty(
-      name = "casehub.reasoning.enabled",
-      defaultValue = "true")
-  boolean reasoningEnabled;
-
-  @Inject
   public AgentExperienceRecorder(
-      Instance<ExperienceRecorder> experienceRecorder,
-      Instance<ReflectionOrchestrator> reflectionOrchestrator,
+      Optional<ExperienceRecorder> experienceRecorder,
+      Optional<ReflectionOrchestrator> reflectionOrchestrator,
       CaseDefinitionRegistry caseDefinitionRegistry,
       GoalFormationEvaluator goalFormationEvaluator,
-      Instance<CaseMemoryStore> caseMemoryStore,
-      Instance<MeterRegistry> meterRegistry) {
+      Optional<CaseMemoryStore> caseMemoryStore,
+      Optional<MeterRegistry> meterRegistry,
+      boolean reasoningEnabled) {
     this.experienceRecorder = experienceRecorder;
     this.reflectionOrchestrator = reflectionOrchestrator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.goalFormationEvaluator = goalFormationEvaluator;
     this.caseMemoryStore = caseMemoryStore;
     this.meterRegistry = meterRegistry;
+    this.reasoningEnabled = reasoningEnabled;
   }
 
   public void record(
@@ -85,7 +79,7 @@ public class AgentExperienceRecorder {
       String capabilityName,
       WorkerOutcome<?> outcome,
       String bindingName) {
-    if (!experienceRecorder.isResolvable()) return;
+    if (experienceRecorder.isEmpty()) return;
 
     ReflectionTriggerConfig config = lookupConfig(caseInstance);
     double importance = resolveImportance(outcome, config);
@@ -124,7 +118,7 @@ public class AgentExperienceRecorder {
       String bindingName) {
 
     if (!reasoningEnabled
-        || !caseMemoryStore.isResolvable()
+        || caseMemoryStore.isEmpty()
         || reasoning == null
         || reasoning.isBlank()) {
       return;
@@ -169,7 +163,7 @@ public class AgentExperienceRecorder {
                 "Reasoning trace storage failed for case=%s worker=%s — non-critical",
                 caseInstance.getUuid(),
                 workerName);
-            if (meterRegistry.isResolvable()) {
+            if (meterRegistry.isPresent()) {
               Counter.builder("casehub.reasoning.storage.failures")
                   .tag("worker", workerName)
                   .register(meterRegistry.get())
@@ -234,7 +228,7 @@ public class AgentExperienceRecorder {
       String workerName,
       double importance,
       ReflectionTriggerConfig config) {
-    if (config == null || !config.enabled() || !reflectionOrchestrator.isResolvable()) return;
+    if (config == null || !config.enabled() || reflectionOrchestrator.isEmpty()) return;
 
     String key = workerName + "|" + caseInstance.tenancyId;
     var shouldReflect = new boolean[] {false};

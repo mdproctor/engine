@@ -33,9 +33,7 @@ import io.casehub.neocortex.memory.Memory;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.MemoryOrder;
 import io.casehub.neocortex.memory.MemoryQuery;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
+import io.casehub.platform.api.routing.StrategyResolver;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -44,19 +42,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class GoalFormationEvaluator {
 
   private static final Logger LOG = Logger.getLogger(GoalFormationEvaluator.class);
   private static final int MAX_GOALS = 10;
-  private final Instance<AgentRegistry> agentRegistry;
-  private final Instance<GoalFormationService> goalFormationService;
-  private final Instance<CaseMemoryStore> caseMemoryStore;
+  private final Optional<AgentRegistry> agentRegistry;
+  private final Optional<GoalFormationService> goalFormationService;
+  private final Optional<CaseMemoryStore> caseMemoryStore;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
-  private final EngineStrategyResolver strategyResolver;
+  private final StrategyResolver strategyResolver;
   private final EventLogRepository eventLogRepository;
   private final boolean enabled;
   private final boolean autoApprove;
@@ -67,28 +63,19 @@ public class GoalFormationEvaluator {
 
   private final ConcurrentHashMap<String, Instant> lastFormationTime = new ConcurrentHashMap<>();
 
-  @Inject
   public GoalFormationEvaluator(
-      Instance<AgentRegistry> agentRegistry,
-      Instance<GoalFormationService> goalFormationService,
-      Instance<CaseMemoryStore> caseMemoryStore,
+      Optional<AgentRegistry> agentRegistry,
+      Optional<GoalFormationService> goalFormationService,
+      Optional<CaseMemoryStore> caseMemoryStore,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      EngineStrategyResolver strategyResolver,
+      StrategyResolver strategyResolver,
       EventLogRepository eventLogRepository,
-      @ConfigProperty(name = "casehub.engine.goal.formation.enabled", defaultValue = "false")
-          boolean enabled,
-      @ConfigProperty(name = "casehub.engine.goal.formation.auto-approve", defaultValue = "true")
-          boolean autoApprove,
-      @ConfigProperty(name = "casehub.engine.goal.formation.strategy", defaultValue = "llm")
-          String strategyId,
-      @ConfigProperty(
-              name = "casehub.engine.goal.formation.max-new-per-reflection",
-              defaultValue = "2")
-          int maxNewPerReflection,
-      @ConfigProperty(name = "casehub.engine.goal.formation.cooldown-minutes", defaultValue = "60")
-          long cooldownMinutes,
-      @ConfigProperty(name = "casehub.engine.goal.formation.max-memories", defaultValue = "20")
-          int maxMemories) {
+      boolean enabled,
+      boolean autoApprove,
+      String strategyId,
+      int maxNewPerReflection,
+      long cooldownMinutes,
+      int maxMemories) {
     this.agentRegistry = agentRegistry;
     this.goalFormationService = goalFormationService;
     this.caseMemoryStore = caseMemoryStore;
@@ -107,7 +94,7 @@ public class GoalFormationEvaluator {
     if (!enabled) {
       return;
     }
-    if (!agentRegistry.isResolvable()) {
+    if (agentRegistry.isEmpty()) {
       return;
     }
     if (insights == null || insights.isEmpty()) {
@@ -192,7 +179,7 @@ public class GoalFormationEvaluator {
           new GoalFormationProposal(trimmed, proposal.rationale());
 
       if (autoApprove) {
-        if (!goalFormationService.isResolvable()) {
+        if (goalFormationService.isEmpty()) {
           LOG.debug("GoalFormationService not resolvable, skipping registration");
           return;
         }
@@ -208,7 +195,7 @@ public class GoalFormationEvaluator {
   }
 
   private List<RetrievedMemory> retrieveMemories(String workerName, String tenancyId) {
-    if (!caseMemoryStore.isResolvable()) {
+    if (caseMemoryStore.isEmpty()) {
       return List.of();
     }
     try {

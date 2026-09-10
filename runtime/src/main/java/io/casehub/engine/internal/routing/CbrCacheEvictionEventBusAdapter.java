@@ -15,36 +15,19 @@
  */
 package io.casehub.engine.internal.routing;
 
-import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
-/**
- * Evicts CBR retrieval cache entries when a case reaches a terminal state. Prevents unbounded
- * memory growth for {@link io.casehub.api.model.cbr.CbrConfig.CbrRetrievalTiming#CASE_LIFETIME}
- * caching.
- *
- * <p>Follows the same pattern as {@code CaseEvictionHandler} in the blackboard module.
- *
- * @see CbrRetrievalService#evict(java.util.UUID)
- */
 @ApplicationScoped
-public class CbrCacheEvictionHandler {
+public class CbrCacheEvictionEventBusAdapter {
 
-  private final CbrRetrievalService cbrRetrievalService;
-
-  @Inject
-  public CbrCacheEvictionHandler(CbrRetrievalService cbrRetrievalService) {
-    this.cbrRetrievalService = cbrRetrievalService;
-  }
+  @Inject CbrCacheEvictionHandler core;
 
   @ConsumeEvent(value = EventBusAddresses.CASE_STATUS_CHANGED, blocking = true)
-  public void onCaseStatusChanged(CaseStatusChanged event) {
-    if (CaseStatus.valueOf(event.newStatus()).isTerminal()) {
-      cbrRetrievalService.evict(event.instance().getUuid());
-    }
+  public void handle(CaseStatusChanged event) {
+    core.handle(event);
   }
 }

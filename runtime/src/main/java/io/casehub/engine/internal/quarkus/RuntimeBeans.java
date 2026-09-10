@@ -425,6 +425,274 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
+  io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker(
+      CaseDefinitionRegistry caseDefinitionRegistry) {
+    return new io.casehub.engine.internal.routing.AgentGoalCompletionMarker(caseDefinitionRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.GoalOutcomeRecorder goalOutcomeRecorder(
+      Instance<io.casehub.eidos.api.GoalSignalStore> goalSignalStore,
+      CaseDefinitionRegistry caseDefinitionRegistry) {
+    return new io.casehub.engine.internal.routing.GoalOutcomeRecorder(
+        goalSignalStore.isResolvable()
+            ? java.util.Optional.of(goalSignalStore.get())
+            : java.util.Optional.empty(),
+        caseDefinitionRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.AgentCandidateFactory agentCandidateFactory(
+      StrategyResolver strategyResolver) {
+    return new io.casehub.engine.internal.routing.AgentCandidateFactory(strategyResolver);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.handler.ExpectationValidator expectationValidator(
+      io.casehub.engine.common.internal.monitoring.ExpectedEffectResolver effectResolver) {
+    return new io.casehub.engine.internal.engine.handler.ExpectationValidator(effectResolver);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService(
+      Instance<io.casehub.api.model.ai.ChatModelProvider> chatModelProvider) {
+    return new io.casehub.engine.internal.worker.FailureCritiqueService(
+        chatModelProvider.isResolvable()
+            ? java.util.Optional.of(chatModelProvider.get())
+            : java.util.Optional.empty());
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.work.PendingWorkRegistry pendingWorkRegistry(
+      @io.casehub.engine.common.qualifier.CrossTenant
+          io.casehub.engine.common.spi.CrossTenantEventLogRepository eventLogRepository) {
+    return new io.casehub.engine.internal.work.PendingWorkRegistry(eventLogRepository);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.work.CaseResumptionService caseResumptionService(
+      CaseInstanceRepository caseInstanceRepository,
+      io.casehub.engine.internal.work.PendingWorkRegistry pendingWorkRegistry) {
+    return new io.casehub.engine.internal.work.CaseResumptionService(
+        caseInstanceRepository, pendingWorkRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.PersonalitySignalRecorder personalitySignalRecorder(
+      Instance<io.casehub.eidos.api.DispositionSignalStore> signalStore,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      Instance<io.casehub.eidos.api.DispositionHealth> dispositionHealth,
+      Instance<io.casehub.eidos.api.DispositionEvolution> dispositionEvolution) {
+    return new io.casehub.engine.internal.routing.PersonalitySignalRecorder(
+        signalStore.isResolvable()
+            ? java.util.Optional.of(signalStore.get())
+            : java.util.Optional.empty(),
+        caseDefinitionRegistry,
+        dispositionHealth.isResolvable()
+            ? java.util.Optional.of(dispositionHealth.get())
+            : java.util.Optional.empty(),
+        dispositionEvolution.isResolvable()
+            ? java.util.Optional.of(dispositionEvolution.get())
+            : java.util.Optional.empty());
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.BehavioralComplianceRecorder behavioralComplianceRecorder(
+      Instance<io.casehub.eidos.api.BehavioralSignalStore> signalStore,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      Instance<io.casehub.engine.common.spi.PlanItemStore> planItemStore,
+      io.casehub.eidos.api.VocabularyRegistry vocabularyRegistry) {
+    return new io.casehub.engine.internal.routing.BehavioralComplianceRecorder(
+        signalStore.isResolvable()
+            ? java.util.Optional.of(signalStore.get())
+            : java.util.Optional.empty(),
+        caseDefinitionRegistry,
+        planItemStore.isResolvable()
+            ? java.util.Optional.of(planItemStore.get())
+            : java.util.Optional.empty(),
+        vocabularyRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.GoalRevisionEvaluator goalRevisionEvaluator(
+      Instance<io.casehub.eidos.api.GoalSignalStore> goalSignalStore,
+      Instance<io.casehub.eidos.api.GoalEvolution> goalEvolution,
+      Instance<io.casehub.eidos.api.AgentRegistry> agentRegistry,
+      io.casehub.api.spi.routing.GoalRemovalService goalRemovalService,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      StrategyResolver strategyResolver,
+      EventLogRepository eventLogRepository,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.goal-revision.enabled",
+              defaultValue = "false")
+          boolean enabled,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.goal-revision.strategy",
+              defaultValue = "default")
+          String strategyId,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.goal-revision.min-outcomes",
+              defaultValue = "3")
+          int minOutcomes,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.goal-revision.importance-threshold",
+              defaultValue = "0.3")
+          double importanceThreshold) {
+    return new io.casehub.engine.internal.routing.GoalRevisionEvaluator(
+        goalSignalStore.isResolvable()
+            ? java.util.Optional.of(goalSignalStore.get())
+            : java.util.Optional.empty(),
+        goalEvolution.isResolvable()
+            ? java.util.Optional.of(goalEvolution.get())
+            : java.util.Optional.empty(),
+        agentRegistry.isResolvable()
+            ? java.util.Optional.of(agentRegistry.get())
+            : java.util.Optional.empty(),
+        goalRemovalService,
+        caseDefinitionRegistry,
+        strategyResolver,
+        eventLogRepository,
+        enabled,
+        strategyId,
+        minOutcomes,
+        importanceThreshold);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.CbrRetrievalService cbrRetrievalService(
+      io.casehub.engine.common.internal.jq.JQEvaluator jqEvaluator,
+      io.casehub.neocortex.memory.cbr.CbrCaseMemoryStore cbrStore,
+      io.casehub.neocortex.memory.cbr.PlanAdapter planAdapter,
+      @io.quarkus.arc.All
+          Instance<io.casehub.api.model.cbr.CbrCaseTypeRegistration> registrations) {
+    return new io.casehub.engine.internal.routing.CbrRetrievalService(
+        jqEvaluator,
+        cbrStore,
+        planAdapter,
+        StreamSupport.stream(registrations.spliterator(), false).toList());
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.GoalFormationEvaluator goalFormationEvaluator(
+      Instance<io.casehub.eidos.api.AgentRegistry> agentRegistry,
+      Instance<io.casehub.api.spi.routing.GoalFormationService> goalFormationService,
+      Instance<CaseMemoryStore> caseMemoryStore,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      StrategyResolver strategyResolver,
+      EventLogRepository eventLogRepository,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.engine.goal.formation.enabled",
+              defaultValue = "false")
+          boolean enabled,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.engine.goal.formation.auto-approve",
+              defaultValue = "true")
+          boolean autoApprove,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.engine.goal.formation.strategy",
+              defaultValue = "llm")
+          String strategyId,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.engine.goal.formation.max-new-per-reflection",
+              defaultValue = "2")
+          int maxNewPerReflection,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.engine.goal.formation.cooldown-minutes",
+              defaultValue = "60")
+          long cooldownMinutes,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.engine.goal.formation.max-memories",
+              defaultValue = "20")
+          int maxMemories) {
+    return new io.casehub.engine.internal.routing.GoalFormationEvaluator(
+        agentRegistry.isResolvable()
+            ? java.util.Optional.of(agentRegistry.get())
+            : java.util.Optional.empty(),
+        goalFormationService.isResolvable()
+            ? java.util.Optional.of(goalFormationService.get())
+            : java.util.Optional.empty(),
+        caseMemoryStore.isResolvable()
+            ? java.util.Optional.of(caseMemoryStore.get())
+            : java.util.Optional.empty(),
+        caseDefinitionRegistry,
+        strategyResolver,
+        eventLogRepository,
+        enabled,
+        autoApprove,
+        strategyId,
+        maxNewPerReflection,
+        cooldownMinutes,
+        maxMemories);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder(
+      Instance<io.casehub.neocortex.memory.experience.ExperienceRecorder> experienceRecorder,
+      Instance<io.casehub.neocortex.memory.reflection.ReflectionOrchestrator>
+          reflectionOrchestrator,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      io.casehub.engine.internal.routing.GoalFormationEvaluator goalFormationEvaluator,
+      Instance<CaseMemoryStore> caseMemoryStore,
+      Instance<io.micrometer.core.instrument.MeterRegistry> meterRegistry,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(
+              name = "casehub.reasoning.enabled",
+              defaultValue = "true")
+          boolean reasoningEnabled) {
+    return new io.casehub.engine.internal.memory.AgentExperienceRecorder(
+        experienceRecorder.isResolvable()
+            ? java.util.Optional.of(experienceRecorder.get())
+            : java.util.Optional.empty(),
+        reflectionOrchestrator.isResolvable()
+            ? java.util.Optional.of(reflectionOrchestrator.get())
+            : java.util.Optional.empty(),
+        caseDefinitionRegistry,
+        goalFormationEvaluator,
+        caseMemoryStore.isResolvable()
+            ? java.util.Optional.of(caseMemoryStore.get())
+            : java.util.Optional.empty(),
+        meterRegistry.isResolvable()
+            ? java.util.Optional.of(meterRegistry.get())
+            : java.util.Optional.empty(),
+        reasoningEnabled);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.CbrCacheEvictionHandler cbrCacheEvictionHandler(
+      io.casehub.engine.internal.routing.CbrRetrievalService cbrRetrievalService) {
+    return new io.casehub.engine.internal.routing.CbrCacheEvictionHandler(cbrRetrievalService);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.handler.ScopedWorkerOutputHandler scopedWorkerOutputHandler(
+      ContextOutputApplier contextOutputApplier,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder,
+      CaseDefinitionRegistry caseDefinitionRegistry) {
+    return new io.casehub.engine.internal.engine.handler.ScopedWorkerOutputHandler(
+        contextOutputApplier,
+        eventLogRepository,
+        eventDispatcher,
+        agentExperienceRecorder,
+        caseDefinitionRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
   WorkerScheduleEventHandler workerScheduleEventHandler(
       WorkerExecutionManager workflowExecutionManager,
       WorkerExecutionGuard workerExecutionGuard,
