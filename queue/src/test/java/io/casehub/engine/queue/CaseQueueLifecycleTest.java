@@ -74,10 +74,6 @@ class CaseQueueLifecycleTest {
     InMemorySubjectViewStore viewStore = new InMemorySubjectViewStore();
     InMemoryViewMembershipTracker tracker = new InMemoryViewMembershipTracker();
     SubjectViewEvaluator viewEvaluator = new SubjectViewEvaluator();
-    orchestrator = new SubjectViewOrchestrator();
-    inject(orchestrator, "evaluator", viewEvaluator);
-    inject(orchestrator, "viewStore", viewStore);
-    inject(orchestrator, "tracker", tracker);
     io.casehub.platform.api.preferences.PreferenceProvider prefProvider =
         mock(io.casehub.platform.api.preferences.PreferenceProvider.class);
     io.casehub.platform.api.preferences.Preferences prefs =
@@ -85,7 +81,7 @@ class CaseQueueLifecycleTest {
     when(prefs.getOrDefault(any(io.casehub.platform.api.preferences.PreferenceKey.class)))
         .thenReturn(io.casehub.platform.api.preferences.IntPreference.of(300));
     when(prefProvider.resolve(any())).thenReturn(prefs);
-    inject(orchestrator, "preferenceProvider", prefProvider);
+    orchestrator = new SubjectViewOrchestrator(viewEvaluator, viewStore, tracker, prefProvider);
 
     viewManager = new CaseQueueViewManager(orchestrator, viewStore);
 

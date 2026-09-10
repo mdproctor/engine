@@ -16,13 +16,15 @@
 package io.casehub.engine.queue.view;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import io.casehub.platform.api.view.SubjectViewSpec;
 import io.casehub.platform.view.SubjectViewEvaluator;
 import io.casehub.platform.view.SubjectViewOrchestrator;
 import io.casehub.platform.view.inmem.InMemorySubjectViewStore;
 import io.casehub.platform.view.inmem.InMemoryViewMembershipTracker;
-import java.lang.reflect.Field;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,10 +37,17 @@ class CaseQueueViewManagerTest {
   @BeforeEach
   void setUp() throws Exception {
     viewStore = new InMemorySubjectViewStore();
-    SubjectViewOrchestrator orchestrator = new SubjectViewOrchestrator();
-    inject(orchestrator, "evaluator", new SubjectViewEvaluator());
-    inject(orchestrator, "viewStore", viewStore);
-    inject(orchestrator, "tracker", new InMemoryViewMembershipTracker());
+    var tracker = new InMemoryViewMembershipTracker();
+    var evaluator = new SubjectViewEvaluator();
+    io.casehub.platform.api.preferences.PreferenceProvider prefProvider =
+        mock(io.casehub.platform.api.preferences.PreferenceProvider.class);
+    io.casehub.platform.api.preferences.Preferences prefs =
+        mock(io.casehub.platform.api.preferences.Preferences.class);
+    when(prefs.getOrDefault(any(io.casehub.platform.api.preferences.PreferenceKey.class)))
+        .thenReturn(io.casehub.platform.api.preferences.IntPreference.of(300));
+    when(prefProvider.resolve(any())).thenReturn(prefs);
+    SubjectViewOrchestrator orchestrator =
+        new SubjectViewOrchestrator(evaluator, viewStore, tracker, prefProvider);
     manager = new CaseQueueViewManager(orchestrator, viewStore);
   }
 
@@ -75,11 +84,5 @@ class CaseQueueViewManagerTest {
   @Test
   void deleteQueueView_notFound_returnsFalse() {
     assertThat(manager.deleteQueueView(UUID.randomUUID())).isFalse();
-  }
-
-  private static void inject(Object target, String fieldName, Object value) throws Exception {
-    Field field = target.getClass().getDeclaredField(fieldName);
-    field.setAccessible(true);
-    field.set(target, value);
   }
 }
