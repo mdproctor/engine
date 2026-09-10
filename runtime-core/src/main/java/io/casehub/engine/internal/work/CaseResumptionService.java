@@ -24,26 +24,23 @@ import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
-/**
- * Shared logic for transitioning a WAITING case back to RUNNING after the work it was waiting for
- * has completed. Used by both {@link
- * io.casehub.engine.internal.engine.handler.WorkflowExecutionCompletedHandler} (Quartz worker path)
- * and SubCaseCompletionListener (SubCase path). See casehubio/engine#195.
- */
-@ApplicationScoped
 public class CaseResumptionService {
 
   private static final Logger LOG = Logger.getLogger(CaseResumptionService.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
-  @Inject PendingWorkRegistry pendingWorkRegistry;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final PendingWorkRegistry pendingWorkRegistry;
+
+  public CaseResumptionService(
+      CaseInstanceRepository caseInstanceRepository, PendingWorkRegistry pendingWorkRegistry) {
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.pendingWorkRegistry = pendingWorkRegistry;
+  }
 
   public void resumeIfWaiting(
       CaseInstance caseInstance,

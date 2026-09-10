@@ -26,9 +26,6 @@ import io.casehub.eidos.api.DispositionValue;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.worker.api.WorkerOutcome;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -36,27 +33,20 @@ import java.util.Optional;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-/**
- * Records disposition signals on worker task completion for JPAF personality adaptation. On
- * SUCCESS, reinforces the engaged cognitive function. On DECLINE/FAILURE/EXPIRED, activates the
- * compensatory function.
- */
-@ApplicationScoped
 public class PersonalitySignalRecorder {
 
   private static final Logger LOG = Logger.getLogger(PersonalitySignalRecorder.class);
 
-  private final Instance<DispositionSignalStore> signalStore;
+  private final Optional<DispositionSignalStore> signalStore;
   private final CaseDefinitionRegistry registry;
-  private final Instance<DispositionHealth> dispositionHealth;
-  private final Instance<DispositionEvolution> dispositionEvolution;
+  private final Optional<DispositionHealth> dispositionHealth;
+  private final Optional<DispositionEvolution> dispositionEvolution;
 
-  @Inject
   public PersonalitySignalRecorder(
-      Instance<DispositionSignalStore> signalStore,
+      Optional<DispositionSignalStore> signalStore,
       CaseDefinitionRegistry registry,
-      Instance<DispositionHealth> dispositionHealth,
-      Instance<DispositionEvolution> dispositionEvolution) {
+      Optional<DispositionHealth> dispositionHealth,
+      Optional<DispositionEvolution> dispositionEvolution) {
     this.signalStore = signalStore;
     this.registry = registry;
     this.dispositionHealth = dispositionHealth;
@@ -68,7 +58,7 @@ public class PersonalitySignalRecorder {
       String workerName,
       String capabilityName,
       WorkerOutcome<?> outcome) {
-    if (!signalStore.isResolvable()) return;
+    if (signalStore.isEmpty()) return;
     CaseDefinition definition;
     try {
       definition = registry.getCaseDefinition(caseInstance.getCaseMetaModel());
@@ -144,6 +134,9 @@ public class PersonalitySignalRecorder {
   }
 
   void checkReflection(String agentId, String tenancyId, AgentDescriptor descriptor) {
+    if (dispositionHealth.isEmpty() || dispositionEvolution.isEmpty()) {
+      return;
+    }
     try {
       var status =
           dispositionHealth

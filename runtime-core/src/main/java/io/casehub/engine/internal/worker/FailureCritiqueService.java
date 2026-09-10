@@ -21,13 +21,10 @@ import io.casehub.api.model.FailureCategory;
 import io.casehub.api.model.FailureDiagnosis;
 import io.casehub.api.model.ai.Agent;
 import io.casehub.api.model.ai.ChatModelProvider;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.Map;
+import java.util.Optional;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class FailureCritiqueService {
 
   private static final Logger LOG = Logger.getLogger(FailureCritiqueService.class);
@@ -37,7 +34,11 @@ public class FailureCritiqueService {
           + "context, produce a single sentence explaining what went wrong and what "
           + "should change on retry. Be specific and actionable.";
 
-  @Inject Instance<ChatModelProvider> chatModelProviders;
+  private final Optional<ChatModelProvider> chatModelProvider;
+
+  public FailureCritiqueService(Optional<ChatModelProvider> chatModelProvider) {
+    this.chatModelProvider = chatModelProvider;
+  }
 
   public String generateCritique(
       FailureDiagnosis diagnosis, JsonNode workingLayer, CaseDefinition definition) {
@@ -46,14 +47,14 @@ public class FailureCritiqueService {
       return diagnosis.category().reason();
     }
 
-    if (chatModelProviders == null || chatModelProviders.isUnsatisfied()) {
+    if (chatModelProvider.isEmpty()) {
       return diagnosis.category().reason();
     }
 
     try {
       String userPrompt = buildUserPrompt(diagnosis, workingLayer);
       var agent =
-          Agent.builder().systemPrompt(SYSTEM_PROMPT).model(chatModelProviders.get().get()).build();
+          Agent.builder().systemPrompt(SYSTEM_PROMPT).model(chatModelProvider.get().get()).build();
 
       var result = agent.execute(Map.of("prompt", userPrompt));
       var output = result.output();

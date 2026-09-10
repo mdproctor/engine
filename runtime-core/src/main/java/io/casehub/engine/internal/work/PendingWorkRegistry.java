@@ -16,32 +16,28 @@
 package io.casehub.engine.internal.work;
 
 import io.casehub.api.model.WorkResult;
-import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
-import io.quarkus.runtime.StartupEvent;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.locks.ReentrantLock;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class PendingWorkRegistry {
 
   private static final Logger LOG = Logger.getLogger(PendingWorkRegistry.class);
 
-  @Inject @CrossTenant CrossTenantEventLogRepository eventLogRepository;
-
+  private final CrossTenantEventLogRepository eventLogRepository;
   private final ConcurrentHashMap<String, List<CompletableFuture<WorkResult>>> pending =
       new ConcurrentHashMap<>();
-  private final java.util.concurrent.locks.ReentrantLock lock =
-      new java.util.concurrent.locks.ReentrantLock();
+  private final ReentrantLock lock = new ReentrantLock();
 
-  void onStart(@Observes @Priority(30) StartupEvent ev) {
+  public PendingWorkRegistry(CrossTenantEventLogRepository eventLogRepository) {
+    this.eventLogRepository = eventLogRepository;
+  }
+
+  public void onStart() {
     try {
       List<String> correlationKeys = eventLogRepository.findSubmittedWorkWithoutCompletion();
       for (String key : correlationKeys) {
@@ -56,10 +52,6 @@ public class PendingWorkRegistry {
     }
   }
 
-  /**
-   * Registers a new future for the given correlationKey. Multiple futures per key are supported
-   * (e.g. two callers both waiting for the same work item).
-   */
   public CompletableFuture<WorkResult> register(String correlationKey) {
     CompletableFuture<WorkResult> future = new CompletableFuture<>();
     lock.lock();
@@ -72,13 +64,6 @@ public class PendingWorkRegistry {
     return future;
   }
 
-  /**
-   * Completes all futures registered under {@code correlationKey} with the given result and removes
-   * the entry. No-op if no future is registered.
-   *
-   * <p>Futures are completed outside the lock to avoid deadlock if completion callbacks attempt to
-   * register new futures.
-   */
   public void complete(String correlationKey, WorkResult result) {
     List<CompletableFuture<WorkResult>> futures;
     lock.lock();
@@ -98,7 +83,6 @@ public class PendingWorkRegistry {
     }
   }
 
-  /** Returns true if at least one future is registered for the given key. */
   public boolean hasPending(String correlationKey) {
     lock.lock();
     try {

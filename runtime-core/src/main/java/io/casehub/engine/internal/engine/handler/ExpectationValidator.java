@@ -25,17 +25,13 @@ import io.casehub.engine.plan.goap.GoapWorldState;
 import io.casehub.engine.plan.monitoring.ExpectedEffects;
 import io.casehub.engine.plan.monitoring.MonitoringConfig;
 import io.casehub.engine.plan.monitoring.ViolationRecord;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 
-@ApplicationScoped
 public class ExpectationValidator {
 
   private final ExpectedEffectResolver effectResolver;
 
-  @Inject
   public ExpectationValidator(ExpectedEffectResolver effectResolver) {
     this.effectResolver = effectResolver;
   }

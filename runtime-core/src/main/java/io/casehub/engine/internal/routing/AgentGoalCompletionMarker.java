@@ -19,38 +19,22 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.jboss.logging.Logger;
 
-/**
- * Marks agent goal completion in the case context when workers complete successfully.
- *
- * <p>Writes {@code _agentGoals.<agentId>.<goalName>.met = true} to enable GoalExpression evaluation
- * against agent standing goals. Refs engine#785.
- */
-@ApplicationScoped
 public class AgentGoalCompletionMarker {
 
   private static final Logger LOG = Logger.getLogger(AgentGoalCompletionMarker.class);
 
   private final CaseDefinitionRegistry registry;
 
-  @Inject
   public AgentGoalCompletionMarker(CaseDefinitionRegistry registry) {
     this.registry = registry;
   }
 
-  /**
-   * Marks agent goal completion on successful worker outcome.
-   *
-   * @param caseInstance the case instance
-   * @param workerName the name of the worker that completed
-   */
   public void markGoalsCompleted(CaseInstance caseInstance, String workerName) {
     CaseDefinition definition;
     try {

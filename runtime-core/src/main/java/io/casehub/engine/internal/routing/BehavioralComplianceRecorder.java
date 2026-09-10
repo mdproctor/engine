@@ -29,30 +29,25 @@ import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.worker.api.WorkerOutcome;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class BehavioralComplianceRecorder {
 
   private static final Logger LOG = Logger.getLogger(BehavioralComplianceRecorder.class);
 
-  private final Instance<BehavioralSignalStore> signalStore;
+  private final Optional<BehavioralSignalStore> signalStore;
   private final CaseDefinitionRegistry registry;
-  private final Instance<PlanItemStore> planItemStore;
+  private final Optional<PlanItemStore> planItemStore;
   private final VocabularyRegistry vocabularyRegistry;
 
-  @Inject
   public BehavioralComplianceRecorder(
-      Instance<BehavioralSignalStore> signalStore,
+      Optional<BehavioralSignalStore> signalStore,
       CaseDefinitionRegistry registry,
-      Instance<PlanItemStore> planItemStore,
+      Optional<PlanItemStore> planItemStore,
       VocabularyRegistry vocabularyRegistry) {
     this.signalStore = signalStore;
     this.registry = registry;
@@ -66,7 +61,7 @@ public class BehavioralComplianceRecorder {
       String capabilityName,
       WorkerOutcome<?> outcome,
       Long executionDurationMs) {
-    if (!signalStore.isResolvable()) {
+    if (signalStore.isEmpty()) {
       return;
     }
 
@@ -155,7 +150,7 @@ public class BehavioralComplianceRecorder {
     if (!hasDecomposition) {
       return;
     }
-    if (!planItemStore.isResolvable()) {
+    if (planItemStore.isEmpty()) {
       return;
     }
     List<PlanItemRecord> items = planItemStore.get().findByCaseId(caseId, tenancyId);

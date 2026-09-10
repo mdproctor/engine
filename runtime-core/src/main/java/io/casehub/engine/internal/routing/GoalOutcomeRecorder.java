@@ -22,23 +22,18 @@ import io.casehub.eidos.api.GoalSignalStore;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.worker.api.WorkerOutcome;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.Optional;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class GoalOutcomeRecorder {
 
   private static final Logger LOG = Logger.getLogger(GoalOutcomeRecorder.class);
 
-  private final Instance<GoalSignalStore> signalStore;
+  private final Optional<GoalSignalStore> signalStore;
   private final CaseDefinitionRegistry registry;
 
-  @Inject
   public GoalOutcomeRecorder(
-      Instance<GoalSignalStore> signalStore, CaseDefinitionRegistry registry) {
+      Optional<GoalSignalStore> signalStore, CaseDefinitionRegistry registry) {
     this.signalStore = signalStore;
     this.registry = registry;
   }
@@ -58,7 +53,7 @@ public class GoalOutcomeRecorder {
       String workerName,
       String capabilityName,
       WorkerOutcome<?> outcome) {
-    if (!signalStore.isResolvable()) {
+    if (signalStore.isEmpty()) {
       return;
     }
     if (capabilityName == null) {
