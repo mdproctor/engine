@@ -37,6 +37,16 @@
             <groupId>io.fabric8</groupId>
             <artifactId>zjsonpatch</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-neocortex-memory-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-core</artifactId>
+            <version>1.16.3</version>
+        </dependency>
 
         <!-- Test -->
         <dependency>

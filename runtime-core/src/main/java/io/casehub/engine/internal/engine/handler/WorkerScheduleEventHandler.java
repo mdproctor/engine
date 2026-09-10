@@ -32,25 +32,23 @@ import io.casehub.api.model.event.ExecutionOrigin;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.api.spi.WorkerExecutionGuard;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.spi.routing.RetrievedExperience;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
+import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.engine.QuiescenceTracker;
+import io.casehub.engine.internal.memory.AgentMemoryRetriever;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
@@ -59,10 +57,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class WorkerScheduleEventHandler {
 
   private static final Logger LOG = Logger.getLogger(WorkerScheduleEventHandler.class);
@@ -72,29 +68,45 @@ public class WorkerScheduleEventHandler {
   private final ConcurrentHashMap<String, java.util.concurrent.locks.ReentrantLock> locks =
       new ConcurrentHashMap<>();
 
-  @Inject WorkerExecutionManager workflowExecutionManager;
+  private final WorkerExecutionManager workflowExecutionManager;
+  private final WorkerExecutionGuard workerExecutionGuard;
+  private final QuiescenceTracker quiescenceTracker;
+  private final WorkerContextProvider workerContextProvider;
+  private final CaseChannelProvider caseChannelProvider;
+  private final EventDispatcher eventDispatcher;
+  private final EventLogRepository eventLogRepository;
+  private final io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
+  private final BridgeResolver bridgeResolver;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final AgentMemoryRetriever agentMemoryRetriever;
+  private final Optional<Duration> idempotencyWindow;
 
-  @Inject WorkerExecutionGuard workerExecutionGuard;
-
-  @Inject QuiescenceTracker quiescenceTracker;
-
-  @Inject WorkerContextProvider workerContextProvider;
-
-  @Inject CaseChannelProvider caseChannelProvider;
-
-  @Inject EventBus eventBus;
-
-  @Inject EventLogRepository eventLogRepository;
-
-  @Inject io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
-
-  @Inject io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
-
-  @Inject io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject io.casehub.engine.internal.memory.AgentMemoryRetriever agentMemoryRetriever;
-
-  @ConfigProperty(name = "casehub.idempotency.window")
-  Optional<Duration> idempotencyWindow;
+  public WorkerScheduleEventHandler(
+      WorkerExecutionManager workflowExecutionManager,
+      WorkerExecutionGuard workerExecutionGuard,
+      QuiescenceTracker quiescenceTracker,
+      WorkerContextProvider workerContextProvider,
+      CaseChannelProvider caseChannelProvider,
+      EventDispatcher eventDispatcher,
+      EventLogRepository eventLogRepository,
+      io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry,
+      BridgeResolver bridgeResolver,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      AgentMemoryRetriever agentMemoryRetriever,
+      Optional<Duration> idempotencyWindow) {
+    this.workflowExecutionManager = workflowExecutionManager;
+    this.workerExecutionGuard = workerExecutionGuard;
+    this.quiescenceTracker = quiescenceTracker;
+    this.workerContextProvider = workerContextProvider;
+    this.caseChannelProvider = caseChannelProvider;
+    this.eventDispatcher = eventDispatcher;
+    this.eventLogRepository = eventLogRepository;
+    this.expressionEngineRegistry = expressionEngineRegistry;
+    this.bridgeResolver = bridgeResolver;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.agentMemoryRetriever = agentMemoryRetriever;
+    this.idempotencyWindow = idempotencyWindow;
+  }
 
   private static String serialize(final Object value) {
     try {
@@ -104,9 +116,7 @@ public class WorkerScheduleEventHandler {
     }
   }
 
-  @ConsumeEvent(value = EventBusAddresses.WORKER_SCHEDULE)
-  @RunOnVirtualThread
-  public void onWorkerScheduleEventHandler(WorkerScheduleEvent event) {
+  public void handle(WorkerScheduleEvent event) {
     try {
       CaseInstance instance = event.caseInstance();
       Worker worker = event.worker();
@@ -134,8 +144,7 @@ public class WorkerScheduleEventHandler {
             "Worker blocked by guard (quarantined?): caseId=%s worker=%s — emitting retries exhausted",
             instance.getUuid(), worker.name());
         quiescenceTracker.onWorkerCompleted(instance.getUuid());
-        eventBus.publish(
-            EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
+        eventDispatcher.dispatch(
             new WorkerRetriesExhaustedEvent(
                 instance.getUuid(),
                 instance.tenancyId,
@@ -322,8 +331,6 @@ public class WorkerScheduleEventHandler {
       Long eventLogId) {
     CaseChannel channel =
         caseChannelProvider.openChannel(instance.getUuid(), "worker:" + worker.name());
-    // ISO-8601 via Instant.toString(); consumer must use Instant.parse() to handle
-    // optional sub-second precision (e.g. "...00Z" vs "...00.123Z")
     final String deadline =
         instance.getPropagationContext().getDeadline().map(Object::toString).orElse(null);
     final CommandContent command =
@@ -361,9 +368,6 @@ public class WorkerScheduleEventHandler {
                         || eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_STARTED
                         || eventLog.getEventType() == CaseHubEventType.WORKER_EXECUTION_COMPLETED);
     if (alreadyScheduledOrStartedOrCompleted) {
-      // Live duplicate schedule events must not re-submit the same Quartz job.
-      // If a WORKER_SCHEDULED event was persisted but never executed due to a crash,
-      // WorkerExecutionRecoveryService is responsible for replaying it.
       return ScheduleAction.skip();
     }
     return ScheduleAction.createNew();

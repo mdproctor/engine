@@ -19,6 +19,8 @@ import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.CaseOutcomeObserver;
 import io.casehub.api.spi.ContextDiffStrategy;
+import io.casehub.api.spi.WorkerContextProvider;
+import io.casehub.api.spi.WorkerExecutionGuard;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.spi.routing.RoutingOutcomeRecorder;
@@ -34,6 +36,7 @@ import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.CompoundLockRegistry;
 import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
+import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
 import io.casehub.engine.internal.acl.WorkerIdentityResolver;
 import io.casehub.engine.internal.engine.CaseCompletionTracker;
@@ -56,11 +59,14 @@ import io.casehub.engine.internal.engine.handler.MilestoneCompletedEventHandler;
 import io.casehub.engine.internal.engine.handler.MilestoneSLAViolatedEventHandler;
 import io.casehub.engine.internal.engine.handler.ScopedWorkerTerminationHandler;
 import io.casehub.engine.internal.engine.handler.WorkerRetriesExhaustedEventHandler;
+import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
+import io.casehub.engine.internal.memory.AgentMemoryRetriever;
 import io.casehub.engine.internal.milestone.MilestoneLifecycleManager;
 import io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry;
 import io.casehub.engine.internal.routing.SelectionContextStore;
 import io.casehub.engine.internal.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
+import io.casehub.neocortex.memory.CaseMemoryStore;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.WorkerAuthorizationPolicy;
 import io.casehub.platform.api.acl.WorkerCredentialStore;
@@ -406,5 +412,45 @@ public class RuntimeBeans {
         dataChannelRegistry,
         recoveryStateRegistry,
         compoundLockRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
+  AgentMemoryRetriever agentMemoryRetriever(Instance<CaseMemoryStore> caseMemoryStore) {
+    return new AgentMemoryRetriever(
+        caseMemoryStore.isResolvable()
+            ? java.util.Optional.of(caseMemoryStore.get())
+            : java.util.Optional.empty());
+  }
+
+  @Produces
+  @ApplicationScoped
+  WorkerScheduleEventHandler workerScheduleEventHandler(
+      WorkerExecutionManager workflowExecutionManager,
+      WorkerExecutionGuard workerExecutionGuard,
+      QuiescenceTracker quiescenceTracker,
+      WorkerContextProvider workerContextProvider,
+      CaseChannelProvider caseChannelProvider,
+      EventDispatcher eventDispatcher,
+      EventLogRepository eventLogRepository,
+      ExpressionEngineRegistry expressionEngineRegistry,
+      BridgeResolver bridgeResolver,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      AgentMemoryRetriever agentMemoryRetriever,
+      @org.eclipse.microprofile.config.inject.ConfigProperty(name = "casehub.idempotency.window")
+          java.util.Optional<java.time.Duration> idempotencyWindow) {
+    return new WorkerScheduleEventHandler(
+        workflowExecutionManager,
+        workerExecutionGuard,
+        quiescenceTracker,
+        workerContextProvider,
+        caseChannelProvider,
+        eventDispatcher,
+        eventLogRepository,
+        expressionEngineRegistry,
+        bridgeResolver,
+        caseDefinitionRegistry,
+        agentMemoryRetriever,
+        idempotencyWindow);
   }
 }

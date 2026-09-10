@@ -23,33 +23,30 @@ import io.casehub.neocortex.memory.Memory;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.MemoryOrder;
 import io.casehub.neocortex.memory.MemoryQuery;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class AgentMemoryRetriever {
 
   private static final Logger LOG = Logger.getLogger(AgentMemoryRetriever.class);
 
-  private final Instance<CaseMemoryStore> caseMemoryStore;
+  private final Optional<CaseMemoryStore> caseMemoryStore;
 
-  @Inject
-  public AgentMemoryRetriever(Instance<CaseMemoryStore> caseMemoryStore) {
+  public AgentMemoryRetriever(Optional<CaseMemoryStore> caseMemoryStore) {
     this.caseMemoryStore = caseMemoryStore;
   }
 
   public List<RetrievedMemory> retrieve(
       String workerName,
       String tenantId,
-      java.util.UUID caseId,
+      UUID caseId,
       String capabilityName,
       CaseDefinition caseDefinition) {
-    if (!caseMemoryStore.isResolvable()) {
+    if (caseMemoryStore.isEmpty()) {
       return List.of();
     }
 
