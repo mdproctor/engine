@@ -18,32 +18,29 @@ package io.casehub.engine.internal.engine.handler;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.event.ContextSignalEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class ContextSignalEventHandler {
 
   private static final Logger LOG = Logger.getLogger(ContextSignalEventHandler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
+  private final EventLogRepository eventLogRepository;
 
-  @Inject EventLogRepository eventLogRepository;
+  public ContextSignalEventHandler(
+      EventDispatcher eventDispatcher, EventLogRepository eventLogRepository) {
+    this.eventDispatcher = eventDispatcher;
+    this.eventLogRepository = eventLogRepository;
+  }
 
-  @ConsumeEvent(EventBusAddresses.CONTEXT_SIGNAL)
-  @RunOnVirtualThread
-  public void onContextSignal(ContextSignalEvent event) {
+  public void handle(ContextSignalEvent event) {
     var caseInstance = event.caseInstance();
     var bindingName = event.bindingName();
     var payload = event.payload();
@@ -66,8 +63,7 @@ public class ContextSignalEventHandler {
             .set("signalKeys", MAPPER.valueToTree(payload.keySet())));
     eventLogRepository.append(eventLog, caseInstance.tenancyId);
 
-    eventBus.publish(
-        EventBusAddresses.CONTEXT_CHANGED,
+    eventDispatcher.dispatch(
         new CaseContextChangedEvent(caseInstance, caseInstance.getCaseContext(), null));
   }
 }

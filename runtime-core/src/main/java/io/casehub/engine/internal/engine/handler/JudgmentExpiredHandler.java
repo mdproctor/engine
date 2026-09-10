@@ -17,33 +17,34 @@ package io.casehub.engine.internal.engine.handler;
 
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.JudgmentExpiredEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class JudgmentExpiredHandler {
 
   private static final Logger LOG = Logger.getLogger(JudgmentExpiredHandler.class);
 
-  @Inject CaseInstanceCache caseInstanceCache;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject EventBus eventBus;
+  private final CaseInstanceCache caseInstanceCache;
+  private final EventLogRepository eventLogRepository;
+  private final EventDispatcher eventDispatcher;
 
-  @ConsumeEvent(value = EventBusAddresses.JUDGMENT_EXPIRED)
-  @RunOnVirtualThread
-  public void onJudgmentExpired(final JudgmentExpiredEvent event) {
+  public JudgmentExpiredHandler(
+      CaseInstanceCache caseInstanceCache,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher) {
+    this.caseInstanceCache = caseInstanceCache;
+    this.eventLogRepository = eventLogRepository;
+    this.eventDispatcher = eventDispatcher;
+  }
+
+  public void handle(JudgmentExpiredEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {
       LOG.warnf(
@@ -69,8 +70,7 @@ public class JudgmentExpiredHandler {
     log.setMetadata(metadata);
     eventLogRepository.append(log, instance.tenancyId);
 
-    eventBus.publish(
-        EventBusAddresses.CONTEXT_CHANGED,
+    eventDispatcher.dispatch(
         new CaseContextChangedEvent(instance, instance.getCaseContext(), "working"));
 
     LOG.infof("Judgment expired: caseId=%s binding=%s", event.caseId(), event.bindingName());

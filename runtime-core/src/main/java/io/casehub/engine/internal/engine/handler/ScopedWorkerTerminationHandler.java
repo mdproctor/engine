@@ -15,26 +15,26 @@
  */
 package io.casehub.engine.internal.engine.handler;
 
+import io.casehub.engine.common.internal.channel.DataChannelRegistry;
 import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
-import io.quarkus.vertx.ConsumeEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class ScopedWorkerTerminationHandler {
 
   private static final Logger LOG = Logger.getLogger(ScopedWorkerTerminationHandler.class);
 
-  @Inject ScopedWorkerRegistry scopedWorkerRegistry;
-  @Inject io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry;
+  private final ScopedWorkerRegistry scopedWorkerRegistry;
+  private final DataChannelRegistry dataChannelRegistry;
 
-  @ConsumeEvent(EventBusAddresses.COMPOUND_COMPLETED)
-  @io.smallrye.common.annotation.RunOnVirtualThread
-  public void onCompoundCompleted(CompoundCompletedEvent event) {
+  public ScopedWorkerTerminationHandler(
+      ScopedWorkerRegistry scopedWorkerRegistry, DataChannelRegistry dataChannelRegistry) {
+    this.scopedWorkerRegistry = scopedWorkerRegistry;
+    this.dataChannelRegistry = dataChannelRegistry;
+  }
+
+  public void handle(CompoundCompletedEvent event) {
     Set<String> scopedBindings = event.scopedBindingNames();
     if (scopedBindings == null || scopedBindings.isEmpty()) {
       return;

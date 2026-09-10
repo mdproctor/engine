@@ -19,44 +19,21 @@ import io.casehub.api.model.CaseChannel;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.qhorus.api.message.MessageType;
-import io.quarkus.vertx.ConsumeEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.List;
 import org.jboss.logging.Logger;
 
-/**
- * Handles agent routing escalation events. When all trust-eligible candidates for a capability are
- * borderline, this handler posts a QUERY to the case's oversight channel so a human supervisor can
- * make the routing decision.
- *
- * <p>PlanItem state during escalation: {@link
- * io.casehub.engine.planning.handler.PlanItemEscalationHandler} marks the PlanItem ESCALATED on the
- * same event bus fan-out. The response-handling loop (human COMMAND response → re-trigger routing)
- * is tracked in engine#383.
- *
- * <p>If no oversight channel is open (e.g. in deployments using the no-op channel provider), the
- * escalation is logged with a {@code [METRIC:escalation.no-oversight-channel]} prefix for log-based
- * alerting. This is expected behavior in dev/test environments.
- */
-@ApplicationScoped
 public class AgentRoutingEscalationHandler {
 
   private static final Logger LOG = Logger.getLogger(AgentRoutingEscalationHandler.class);
 
   private final CaseChannelProvider channelProvider;
 
-  @Inject
-  public AgentRoutingEscalationHandler(final CaseChannelProvider channelProvider) {
+  public AgentRoutingEscalationHandler(CaseChannelProvider channelProvider) {
     this.channelProvider = channelProvider;
   }
 
-  @ConsumeEvent(value = EventBusAddresses.AGENT_ROUTING_ESCALATION, blocking = true)
-  public void handle(final AgentRoutingEscalationEvent event) {
-    // Metric log fires unconditionally — before channel search
-    // Fires even when no oversight channel is open (that scenario is the most critical to alert on)
+  public void handle(AgentRoutingEscalationEvent event) {
     if (event.reason() == EscalationReason.NO_QUALIFIED_AGENT) {
       LOG.warnf(
           "[METRIC:escalation.no-qualified-agent] caseId=%s capability=%s binding=%s"
@@ -80,7 +57,7 @@ public class AgentRoutingEscalationHandler {
                     event.caseId(), event.capabilityName(), event.bindingName()));
   }
 
-  private void postQuery(final CaseChannel channel, final AgentRoutingEscalationEvent event) {
+  private void postQuery(CaseChannel channel, AgentRoutingEscalationEvent event) {
     final String message =
         switch (event.reason()) {
           case BORDERLINE_STALEMATE ->

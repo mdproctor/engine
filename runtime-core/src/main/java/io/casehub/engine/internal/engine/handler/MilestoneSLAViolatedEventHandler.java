@@ -16,43 +16,36 @@
 package io.casehub.engine.internal.engine.handler;
 
 import static io.casehub.api.model.event.CaseHubEventType.MILESTONE_SLA_VIOLATED;
-import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.SlaStatus;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import org.jboss.logging.Logger;
 
-/**
- * Handles {@link MilestoneSLAViolatedEvent}: records to EventLog, updates CaseContext
- * slaStatus=BREACHED.
- */
-@ApplicationScoped
 public class MilestoneSLAViolatedEventHandler {
 
   private static final Logger LOG = Logger.getLogger(MilestoneSLAViolatedEventHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject EventLogRepository eventLogRepository;
-  @Inject EventBus eventBus;
+  private final EventLogRepository eventLogRepository;
+  private final EventDispatcher eventDispatcher;
 
-  @ConsumeEvent(value = EventBusAddresses.MILESTONE_SLA_VIOLATED)
-  @RunOnVirtualThread
-  void onMilestoneSLAViolated(MilestoneSLAViolatedEvent event) {
+  public MilestoneSLAViolatedEventHandler(
+      EventLogRepository eventLogRepository, EventDispatcher eventDispatcher) {
+    this.eventLogRepository = eventLogRepository;
+    this.eventDispatcher = eventDispatcher;
+  }
+
+  public void handle(MilestoneSLAViolatedEvent event) {
     try {
       CaseInstance caseInstance = event.caseInstance();
       String milestoneName = event.milestoneName();
@@ -99,7 +92,6 @@ public class MilestoneSLAViolatedEventHandler {
       CaseInstance caseInstance, String milestoneName, Instant violatedAt) {
     CaseContext context = caseInstance.getCaseContext();
 
-    // Update only the slaStatus field within the milestone state
     String milestoneKey = "milestones." + milestoneName + ".slaStatus";
     context.setPath(milestoneKey, SlaStatus.BREACHED.name());
 
@@ -107,9 +99,7 @@ public class MilestoneSLAViolatedEventHandler {
         "Updated CaseContext for case=%s milestone=%s: slaStatus=BREACHED at %s",
         caseInstance.getUuid(), milestoneName, violatedAt);
 
-    // Publish CONTEXT_CHANGED event to notify other components
-    eventBus.publish(
-        CONTEXT_CHANGED,
+    eventDispatcher.dispatch(
         new CaseContextChangedEvent(
             caseInstance, caseInstance.getCaseContext().snapshot(), ContextLayer.WORKING));
   }

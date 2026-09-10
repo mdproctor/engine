@@ -15,11 +15,20 @@
  */
 package io.casehub.engine.internal.quarkus;
 
+import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.event.EventDispatcher;
+import io.casehub.engine.common.internal.channel.DataChannelRegistry;
+import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
+import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.engine.internal.engine.handler.AgentRoutingEscalationHandler;
+import io.casehub.engine.internal.engine.handler.ContextSignalEventHandler;
 import io.casehub.engine.internal.engine.handler.GoalReachedEventHandler;
+import io.casehub.engine.internal.engine.handler.JudgmentExpiredHandler;
+import io.casehub.engine.internal.engine.handler.MilestoneSLAViolatedEventHandler;
+import io.casehub.engine.internal.engine.handler.ScopedWorkerTerminationHandler;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -53,5 +62,41 @@ public class RuntimeBeans {
                       }
                     }),
         traceIdProvider);
+  }
+
+  @Produces
+  @ApplicationScoped
+  MilestoneSLAViolatedEventHandler milestoneSLAViolatedEventHandler(
+      EventLogRepository eventLogRepository, EventDispatcher eventDispatcher) {
+    return new MilestoneSLAViolatedEventHandler(eventLogRepository, eventDispatcher);
+  }
+
+  @Produces
+  @ApplicationScoped
+  ContextSignalEventHandler contextSignalEventHandler(
+      EventDispatcher eventDispatcher, EventLogRepository eventLogRepository) {
+    return new ContextSignalEventHandler(eventDispatcher, eventLogRepository);
+  }
+
+  @Produces
+  @ApplicationScoped
+  ScopedWorkerTerminationHandler scopedWorkerTerminationHandler(
+      ScopedWorkerRegistry scopedWorkerRegistry, DataChannelRegistry dataChannelRegistry) {
+    return new ScopedWorkerTerminationHandler(scopedWorkerRegistry, dataChannelRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
+  JudgmentExpiredHandler judgmentExpiredHandler(
+      CaseInstanceCache caseInstanceCache,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher) {
+    return new JudgmentExpiredHandler(caseInstanceCache, eventLogRepository, eventDispatcher);
+  }
+
+  @Produces
+  @ApplicationScoped
+  AgentRoutingEscalationHandler agentRoutingEscalationHandler(CaseChannelProvider channelProvider) {
+    return new AgentRoutingEscalationHandler(channelProvider);
   }
 }
