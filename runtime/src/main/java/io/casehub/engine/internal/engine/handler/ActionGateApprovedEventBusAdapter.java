@@ -13,20 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.acl;
+package io.casehub.engine.internal.engine.handler;
 
+import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
+import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.quarkus.vertx.ConsumeEvent;
 import jakarta.enterprise.context.ApplicationScoped;
-import java.util.UUID;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
-public class WorkerIdentityResolver {
+public class ActionGateApprovedEventBusAdapter {
 
-  public WorkerIdentity resolve(String serviceAccountId, UUID caseId) {
-    if (serviceAccountId != null) {
-      return new WorkerIdentity(serviceAccountId, false);
-    }
-    String shortId = UUID.randomUUID().toString().substring(0, 8);
-    String casePrefix = caseId.toString().substring(0, 8);
-    return new WorkerIdentity("agent:worker-" + casePrefix + "-" + shortId, true);
+  @Inject ActionGateApprovedHandler core;
+
+  @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_APPROVED)
+  public void handle(ActionGateApprovedEvent event) {
+    core.handle(event);
   }
 }

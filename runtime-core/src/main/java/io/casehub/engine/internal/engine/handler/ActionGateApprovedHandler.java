@@ -19,9 +19,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -31,41 +31,38 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.worker.api.Worker;
-import io.quarkus.vertx.ConsumeEvent;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
-/**
- * Resolves an approved action gate by re-firing {@link WorkflowExecutionCompleted} with {@code
- * plannedAction=null}, letting the normal completion machinery apply the deferred output, mark the
- * PlanItem COMPLETED (via blackboard), and fire CONTEXT_CHANGED.
- *
- * <p>Uses {@link CaseInstanceCache} to access the live in-memory {@link CaseInstance}. The {@code
- * pendingActionGate} is persisted in the JPA entity as a jsonb column for restart resilience
- * (engine#433). Gate clears are persisted via {@code CaseInstanceRepository.update()}.
- *
- * <p>Terminal state guard: if the case is already COMPLETED/FAULTED/CANCELLED when approval
- * arrives, the gate is cleared in memory and the deferred output discarded. Refs engine#402.
- */
-@ApplicationScoped
 public class ActionGateApprovedHandler {
 
   private static final Logger LOG = Logger.getLogger(ActionGateApprovedHandler.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject CaseInstanceCache caseInstanceCache;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject EventBus eventBus;
-  @Inject BridgeResolver bridgeResolver;
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  private final CaseInstanceCache caseInstanceCache;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final EventLogRepository eventLogRepository;
+  private final EventDispatcher eventDispatcher;
+  private final BridgeResolver bridgeResolver;
+  private final CaseInstanceRepository caseInstanceRepository;
 
-  @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_APPROVED)
-  public void onActionGateApproved(final ActionGateApprovedEvent event) {
+  public ActionGateApprovedHandler(
+      CaseInstanceCache caseInstanceCache,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      BridgeResolver bridgeResolver,
+      CaseInstanceRepository caseInstanceRepository) {
+    this.caseInstanceCache = caseInstanceCache;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.eventLogRepository = eventLogRepository;
+    this.eventDispatcher = eventDispatcher;
+    this.bridgeResolver = bridgeResolver;
+    this.caseInstanceRepository = caseInstanceRepository;
+  }
+
+  public void handle(final ActionGateApprovedEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {
       LOG.warnf(
@@ -74,7 +71,6 @@ public class ActionGateApprovedHandler {
       return;
     }
 
-    // Terminal state guard — case terminated while gate was pending
     if (instance.getState().isTerminal()) {
       LOG.warnf(
           "Gate approved on terminated case (state=%s): caseId=%s gateId=%d — discarding",
@@ -92,7 +88,6 @@ public class ActionGateApprovedHandler {
       return;
     }
 
-    // Validate and deserialise typed resolution if resolutionTypeName is declared
     Object deserializedResolution = event.workItemResolution();
     if (event.resolutionTypeName() != null && event.workItemResolution() != null) {
       try {
@@ -112,7 +107,6 @@ public class ActionGateApprovedHandler {
       }
     }
 
-    // Write actionGateApproved signal so downstream bindings can observe the approval
     instance
         .getCaseContext()
         .set(
@@ -127,7 +121,6 @@ public class ActionGateApprovedHandler {
     instance.setPendingActionGate(null);
     caseInstanceRepository.update(instance, instance.tenancyId);
 
-    // Write compliance EventLog entry, then re-fire the completion event
     writeResolutionEventLog(instance, gate);
     refireCompletion(instance, gate);
   }
@@ -140,10 +133,7 @@ public class ActionGateApprovedHandler {
           gate.workerId(), instance.getUuid());
       return;
     }
-    // Re-fire WorkflowExecutionCompleted with plannedAction=null — normal completion path runs:
-    // output applied to context, PlanItem COMPLETED (via blackboard), CONTEXT_CHANGED fired.
-    eventBus.publish(
-        EventBusAddresses.WORKER_EXECUTION_FINISHED,
+    eventDispatcher.dispatch(
         WorkflowExecutionCompleted.approved(
             instance, worker, gate.idempotency(), gate.deferredOutput(), gate.bindingName()));
     LOG.infof(

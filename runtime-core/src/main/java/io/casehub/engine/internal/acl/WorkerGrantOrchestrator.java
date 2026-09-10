@@ -27,8 +27,6 @@ import io.casehub.platform.api.acl.WorkerAuthorizationPolicy;
 import io.casehub.platform.api.acl.WorkerCredential;
 import io.casehub.platform.api.acl.WorkerCredentialStore;
 import io.casehub.platform.api.acl.WorkerPermissionRequest;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.security.SecureRandom;
 import java.time.Duration;
 import java.time.Instant;
@@ -39,7 +37,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class WorkerGrantOrchestrator {
 
   private static final Logger LOG = Logger.getLogger(WorkerGrantOrchestrator.class);
@@ -51,7 +48,6 @@ public class WorkerGrantOrchestrator {
   private final WorkerIdentityResolver identityResolver;
   private final WorkerAuthorizationPolicy authorizationPolicy;
 
-  @Inject
   public WorkerGrantOrchestrator(
       AccessControlProvider accessControlProvider,
       WorkerCredentialStore credentialStore,

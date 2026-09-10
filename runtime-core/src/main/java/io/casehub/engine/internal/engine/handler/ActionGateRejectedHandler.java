@@ -21,13 +21,13 @@ import io.casehub.api.model.WorkResult;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.spi.routing.AgentRoutingContext;
 import io.casehub.api.spi.routing.RoutingOutcome;
 import io.casehub.api.spi.routing.RoutingOutcomeRecorder;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
 import io.casehub.engine.common.internal.event.ActionGateWorkerFaultedEvent;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PendingActionGate;
@@ -36,49 +36,42 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.RecoveryContext;
 import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
-import io.quarkus.vertx.ConsumeEvent;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.jboss.logging.Logger;
 
-/**
- * Handles a rejected action gate: clears {@code pendingActionGate}, writes {@code
- * actionGateRejected} signal to the case context, notifies {@link WorkerStatusListener} that the
- * worker faulted, and fires CONTEXT_CHANGED.
- *
- * <p>Uses {@link CaseInstanceCache} — {@code pendingActionGate} is persisted in the JPA entity as a
- * jsonb column for restart resilience (engine#433).
- *
- * <p>Ordering: gate is cleared BEFORE the signal is set, preventing a race where the test observes
- * the signal but not yet the cleared gate. EventLog write is best-effort — CONTEXT_CHANGED fires
- * regardless of EventLog success.
- *
- * <p>Case definitions must include a {@code contextChange(".actionGateRejected")} binding. The
- * blackboard module also consumes ACTION_GATE_REJECTED to mark the PlanItem FAULTED, enabling stage
- * autocomplete. Refs engine#402.
- */
-@ApplicationScoped
 public class ActionGateRejectedHandler {
 
   private static final Logger LOG = Logger.getLogger(ActionGateRejectedHandler.class);
 
-  @Inject CaseInstanceCache caseInstanceCache;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject EventBus eventBus;
-  @Inject WorkerStatusListener workerStatusListener;
-  @Inject RecoveryCoordinator recoveryCoordinator;
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  private final CaseInstanceCache caseInstanceCache;
+  private final EventLogRepository eventLogRepository;
+  private final EventDispatcher eventDispatcher;
+  private final WorkerStatusListener workerStatusListener;
+  private final RecoveryCoordinator recoveryCoordinator;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final Optional<RoutingOutcomeRecorder> outcomeRecorder;
 
-  @Inject Instance<RoutingOutcomeRecorder> outcomeRecorder;
+  public ActionGateRejectedHandler(
+      CaseInstanceCache caseInstanceCache,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      WorkerStatusListener workerStatusListener,
+      RecoveryCoordinator recoveryCoordinator,
+      CaseInstanceRepository caseInstanceRepository,
+      Optional<RoutingOutcomeRecorder> outcomeRecorder) {
+    this.caseInstanceCache = caseInstanceCache;
+    this.eventLogRepository = eventLogRepository;
+    this.eventDispatcher = eventDispatcher;
+    this.workerStatusListener = workerStatusListener;
+    this.recoveryCoordinator = recoveryCoordinator;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.outcomeRecorder = outcomeRecorder;
+  }
 
-  // blocking=true: workerStatusListener.onWorkerCompleted() may do I/O in consumer impls
-  @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_REJECTED, blocking = true)
-  public void onActionGateRejected(final ActionGateRejectedEvent event) {
+  public void handle(final ActionGateRejectedEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {
       LOG.warnf(
@@ -103,16 +96,11 @@ public class ActionGateRejectedHandler {
       return;
     }
 
-    // Capture context snapshot BEFORE gate clearance and signal writes — consistent with
-    // fireOutcomeRecorder's pre-modification snapshot pattern.
     final JsonNode contextSnapshot = instance.getCaseContext().snapshot().asJsonNode();
 
-    // Clear gate FIRST — before setting signal — prevents observer-thread race where the
-    // rejectionSignal is visible in context before the gate field is cleared.
     instance.setPendingActionGate(null);
     caseInstanceRepository.update(instance, instance.tenancyId);
 
-    // Write rejection signal — case definitions react via contextChange(".actionGateRejected")
     instance
         .getCaseContext()
         .set(
@@ -131,30 +119,31 @@ public class ActionGateRejectedHandler {
         gate.workerId(),
         WorkResult.faulted(gate.idempotency(), gate.workerId(), instance.getUuid()));
 
-    if (!outcomeRecorder.isUnsatisfied() && gate.capabilityName() != null) {
-      var ctx =
-          new AgentRoutingContext(
-              instance.getUuid(),
-              gate.capabilityName(),
-              contextSnapshot,
-              instance.tenancyId,
-              List.of(),
-              null,
-              null);
-      try {
-        outcomeRecorder
-            .get()
-            .record(ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_REJECTED, null);
-      } catch (Exception err) {
-        LOG.warnf(
-            err,
-            "Outcome recording failed for gate-rejected caseId=%s worker=%s",
-            instance.getUuid(),
-            gate.workerId());
-      }
-    }
+    outcomeRecorder.ifPresent(
+        recorder -> {
+          if (gate.capabilityName() != null) {
+            var ctx =
+                new AgentRoutingContext(
+                    instance.getUuid(),
+                    gate.capabilityName(),
+                    contextSnapshot,
+                    instance.tenancyId,
+                    List.of(),
+                    null,
+                    null);
+            try {
+              recorder.record(
+                  ctx, gate.workerId(), gate.bindingName(), RoutingOutcome.GATE_REJECTED, null);
+            } catch (Exception err) {
+              LOG.warnf(
+                  err,
+                  "Outcome recording failed for gate-rejected caseId=%s worker=%s",
+                  instance.getUuid(),
+                  gate.workerId());
+            }
+          }
+        });
 
-    // Try recovery before faulting — gate rejection is a Level 2 recovery trigger.
     var recoveryCtx =
         new RecoveryContext(
             instance.getUuid(),
@@ -172,21 +161,14 @@ public class ActionGateRejectedHandler {
       return;
     }
 
-    // Fire CONTEXT_CHANGED immediately — gate is already cleared and signal written
-    eventBus.publish(
-        EventBusAddresses.CONTEXT_CHANGED,
+    eventDispatcher.dispatch(
         new CaseContextChangedEvent(
             instance, instance.getCaseContext().snapshot(), ContextLayer.WORKING));
 
-    // Notify the blackboard (if active) to mark the PlanItem FAULTED so stage autocomplete fires.
-    // Uses ACTION_GATE_WORKER_FAULTED (not WORKER_RETRIES_EXHAUSTED) to avoid case-fault
-    // transition.
-    eventBus.publish(
-        EventBusAddresses.ACTION_GATE_WORKER_FAULTED,
+    eventDispatcher.dispatch(
         new ActionGateWorkerFaultedEvent(
             instance.getUuid(), instance.tenancyId, gate.workerId(), gate.idempotency()));
 
-    // EventLog write is best-effort — failures are logged, not propagated
     try {
       writeResolutionEventLog(instance, gate);
     } catch (Exception t) {

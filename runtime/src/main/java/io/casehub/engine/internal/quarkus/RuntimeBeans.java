@@ -20,15 +20,24 @@ import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.ContextDiffStrategy;
 import io.casehub.api.spi.WorkerStatusListener;
 import io.casehub.api.spi.event.EventDispatcher;
+import io.casehub.api.spi.routing.RoutingOutcomeRecorder;
 import io.casehub.engine.common.internal.channel.DataChannelRegistry;
+import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.judgment.JudgmentNodeExecutor;
 import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
+import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
+import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
+import io.casehub.engine.internal.acl.WorkerIdentityResolver;
 import io.casehub.engine.internal.engine.SignalSettlementTracker;
+import io.casehub.engine.internal.engine.handler.ActionGateApprovedHandler;
+import io.casehub.engine.internal.engine.handler.ActionGateExpiredHandler;
+import io.casehub.engine.internal.engine.handler.ActionGateRejectedHandler;
 import io.casehub.engine.internal.engine.handler.AgentRoutingEscalationHandler;
 import io.casehub.engine.internal.engine.handler.ContextOutputApplier;
 import io.casehub.engine.internal.engine.handler.ContextSignalEventHandler;
@@ -43,9 +52,13 @@ import io.casehub.engine.internal.engine.handler.ScopedWorkerTerminationHandler;
 import io.casehub.engine.internal.engine.handler.WorkerRetriesExhaustedEventHandler;
 import io.casehub.engine.internal.milestone.MilestoneLifecycleManager;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
+import io.casehub.platform.api.acl.AccessControlProvider;
+import io.casehub.platform.api.acl.WorkerAuthorizationPolicy;
+import io.casehub.platform.api.acl.WorkerCredentialStore;
 import io.casehub.platform.api.routing.StrategyResolver;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
+import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import org.jboss.logging.Logger;
 
@@ -229,5 +242,82 @@ public class RuntimeBeans {
         strategyResolver,
         eventDispatcher,
         judgmentNodeExecutor);
+  }
+
+  @Produces
+  @ApplicationScoped
+  WorkerIdentityResolver workerIdentityResolver() {
+    return new WorkerIdentityResolver();
+  }
+
+  @Produces
+  @ApplicationScoped
+  WorkerGrantOrchestrator workerGrantOrchestrator(
+      AccessControlProvider accessControlProvider,
+      WorkerCredentialStore credentialStore,
+      WorkerIdentityResolver identityResolver,
+      WorkerAuthorizationPolicy authorizationPolicy) {
+    return new WorkerGrantOrchestrator(
+        accessControlProvider, credentialStore, identityResolver, authorizationPolicy);
+  }
+
+  @Produces
+  @ApplicationScoped
+  ActionGateApprovedHandler actionGateApprovedHandler(
+      CaseInstanceCache caseInstanceCache,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      BridgeResolver bridgeResolver,
+      CaseInstanceRepository caseInstanceRepository) {
+    return new ActionGateApprovedHandler(
+        caseInstanceCache,
+        caseDefinitionRegistry,
+        eventLogRepository,
+        eventDispatcher,
+        bridgeResolver,
+        caseInstanceRepository);
+  }
+
+  @Produces
+  @ApplicationScoped
+  ActionGateRejectedHandler actionGateRejectedHandler(
+      CaseInstanceCache caseInstanceCache,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      WorkerStatusListener workerStatusListener,
+      RecoveryCoordinator recoveryCoordinator,
+      CaseInstanceRepository caseInstanceRepository,
+      Instance<RoutingOutcomeRecorder> outcomeRecorderInstance) {
+    return new ActionGateRejectedHandler(
+        caseInstanceCache,
+        eventLogRepository,
+        eventDispatcher,
+        workerStatusListener,
+        recoveryCoordinator,
+        caseInstanceRepository,
+        outcomeRecorderInstance.isResolvable()
+            ? java.util.Optional.of(outcomeRecorderInstance.get())
+            : java.util.Optional.empty());
+  }
+
+  @Produces
+  @ApplicationScoped
+  ActionGateExpiredHandler actionGateExpiredHandler(
+      CaseInstanceCache caseInstanceCache,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      WorkerStatusListener workerStatusListener,
+      CaseInstanceRepository caseInstanceRepository,
+      Instance<RoutingOutcomeRecorder> outcomeRecorderInstance) {
+    return new ActionGateExpiredHandler(
+        caseInstanceCache,
+        eventLogRepository,
+        eventDispatcher,
+        workerStatusListener,
+        caseInstanceRepository,
+        outcomeRecorderInstance.isResolvable()
+            ? java.util.Optional.of(outcomeRecorderInstance.get())
+            : java.util.Optional.empty());
   }
 }
