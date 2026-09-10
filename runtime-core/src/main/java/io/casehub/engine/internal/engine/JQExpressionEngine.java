@@ -23,21 +23,21 @@ import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import net.thisptr.jackson.jq.JsonQuery;
 import net.thisptr.jackson.jq.Versions;
 import org.jboss.logging.Logger;
 
-/** {@link ExpressionEngine} for JQ expressions. */
-@ApplicationScoped
 public class JQExpressionEngine implements ExpressionEngine {
 
   private static final Logger LOG = Logger.getLogger(JQExpressionEngine.class);
 
-  @Inject JQEvaluator jqEvaluator;
+  private final JQEvaluator jqEvaluator;
+
+  public JQExpressionEngine(JQEvaluator jqEvaluator) {
+    this.jqEvaluator = jqEvaluator;
+  }
 
   @Override
   public String type() {
@@ -74,13 +74,6 @@ public class JQExpressionEngine implements ExpressionEngine {
     return new JQExpressionEvaluator(expression);
   }
 
-  /**
-   * {@inheritDoc}
-   *
-   * <p>Evaluates the JQ expression against the WORKING layer. When JQ produces multiple output
-   * elements, only the first is inspected — callers should use scalar expressions. Non-textual
-   * first output (null, number, boolean, array, object) returns {@link Optional#empty()} silently.
-   */
   @Override
   public Optional<String> extractString(
       final ExpressionEvaluator evaluator, final CaseContext context) {

@@ -880,4 +880,78 @@ public class RuntimeBeans {
             ? java.util.Optional.of(judgmentScheduler.get())
             : java.util.Optional.empty());
   }
+
+  // --- Task 6: Simple services ---
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.LambdaExpressionEngine lambdaExpressionEngine() {
+    return new io.casehub.engine.internal.engine.LambdaExpressionEngine();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.ExactMatchStrategy exactMatchStrategy() {
+    return new io.casehub.engine.internal.routing.ExactMatchStrategy();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.worker.AllowAllWorkerExecutionGuard allowAllWorkerExecutionGuard() {
+    return new io.casehub.engine.internal.worker.AllowAllWorkerExecutionGuard();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.worker.ReYieldEscalator reYieldEscalator() {
+    return new io.casehub.engine.internal.worker.ReYieldEscalator();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.worker.FaultEscalator faultEscalator() {
+    return new io.casehub.engine.internal.worker.FaultEscalator();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.worker.EvidencePresenceVerifier evidencePresenceVerifier() {
+    return new io.casehub.engine.internal.worker.EvidencePresenceVerifier();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.WorkloadSignalProvider workloadSignalProvider() {
+    return new io.casehub.engine.internal.routing.WorkloadSignalProvider();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.JQExpressionEngine jqExpressionEngine(
+      io.casehub.engine.common.internal.jq.JQEvaluator jqEvaluator) {
+    return new io.casehub.engine.internal.engine.JQExpressionEngine(jqEvaluator);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl caseInstanceCacheImpl() {
+    return new io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl();
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.engine.DefaultCaseEventRecorder defaultCaseEventRecorder(
+      io.casehub.engine.common.spi.EventLogRepository eventLogRepository) {
+    return new io.casehub.engine.internal.engine.DefaultCaseEventRecorder(eventLogRepository);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.routing.ConstraintHumanTaskRoutingStrategy
+      constraintHumanTaskRoutingStrategy(
+          io.casehub.api.engine.ExpressionEngineRegistry expressionRegistry,
+          io.casehub.api.spi.routing.WorkloadDataProvider workloadProvider) {
+    return new io.casehub.engine.internal.routing.ConstraintHumanTaskRoutingStrategy(
+        expressionRegistry, workloadProvider);
+  }
 }

@@ -16,14 +16,8 @@
 package io.casehub.engine.internal.worker;
 
 import io.casehub.api.spi.WorkerExecutionGuard;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 
-/**
- * Default no-op {@link WorkerExecutionGuard}: all workers are always allowed to execute. Active
- * when {@code casehub-resilience} is not on the classpath or no alternative is selected.
- */
-@ApplicationScoped
 public class AllowAllWorkerExecutionGuard implements WorkerExecutionGuard {
 
   @Override

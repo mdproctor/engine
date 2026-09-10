@@ -18,12 +18,8 @@ package io.casehub.engine.internal.routing;
 import io.casehub.api.spi.routing.CandidateMatchingContext;
 import io.casehub.api.spi.routing.CandidateMatchingStrategy;
 import io.casehub.api.spi.routing.MatchedWorker;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
-@ApplicationScoped
-@Unremovable
 public class ExactMatchStrategy implements CandidateMatchingStrategy {
 
   @Override

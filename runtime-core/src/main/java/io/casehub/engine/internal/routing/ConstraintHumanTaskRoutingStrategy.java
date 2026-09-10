@@ -24,28 +24,11 @@ import io.casehub.api.spi.routing.HumanTaskRoutingResult;
 import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
 import io.casehub.api.spi.routing.WorkloadDataProvider;
 import io.casehub.api.spi.routing.WorkloadSnapshot;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Constraint-based humanTask routing strategy that uses declarative rules for candidate filtering
- * and scoring. Supports both context-driven conditions (global, evaluated once against case state)
- * and workload/fairness balancing (per-candidate, evaluated against operational state).
- *
- * <p>Unlike {@link CbrHumanTaskRoutingStrategy} which only enriches, this strategy CAN filter
- * candidates (via Exclude and maxActiveTaskCount) and CAN escalate (when all candidates are
- * excluded).
- *
- * <p>Resolved via {@code StrategyResolver} when {@code CaseDefinition.getHumanTaskRouting()}
- * returns {@code "constraint"}. Refs casehubio/engine#755.
- */
-@ApplicationScoped
-@Unremovable
 public class ConstraintHumanTaskRoutingStrategy implements HumanTaskRoutingStrategy {
 
   private static final System.Logger LOG =
@@ -54,7 +37,6 @@ public class ConstraintHumanTaskRoutingStrategy implements HumanTaskRoutingStrat
   private final ExpressionEngineRegistry expressionRegistry;
   private final WorkloadDataProvider workloadProvider;
 
-  @Inject
   public ConstraintHumanTaskRoutingStrategy(
       ExpressionEngineRegistry expressionRegistry, WorkloadDataProvider workloadProvider) {
     this.expressionRegistry = expressionRegistry;

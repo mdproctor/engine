@@ -18,22 +18,27 @@ package io.casehub.engine.internal.worker;
 import io.casehub.api.spi.judgment.EscalationContext;
 import io.casehub.api.spi.judgment.EscalationDecision;
 import io.casehub.api.spi.judgment.JudgmentEscalator;
-import jakarta.enterprise.context.ApplicationScoped;
+import io.casehub.api.spi.judgment.VerificationResult;
 
-/**
- * Conservative escalation strategy — always faults. Use when no recovery is desired. Replaced by
- * {@link DefaultJudgmentEscalator} as the default. Refs engine#1011.
- */
-@ApplicationScoped
-public class FaultEscalator implements JudgmentEscalator {
+public class ReYieldEscalator implements JudgmentEscalator {
 
   @Override
   public EscalationDecision escalate(EscalationContext ctx) {
-    return new EscalationDecision.Fault("Verification failed: " + ctx.verificationResult());
+    if (ctx.escalationCount() < ctx.maxEscalations()) {
+      String feedback =
+          switch (ctx.verificationResult()) {
+            case VerificationResult.InsufficientEvidence ie -> ie.feedback();
+            case VerificationResult.TrustTooLow ttl ->
+                "Trust level too low: " + ttl.requiredLevel();
+            default -> "Verification failed";
+          };
+      return new EscalationDecision.ReYield(feedback);
+    }
+    return new EscalationDecision.Fault("Max escalations reached (" + ctx.maxEscalations() + ")");
   }
 
   @Override
   public String id() {
-    return "fault";
+    return "re-yield";
   }
 }

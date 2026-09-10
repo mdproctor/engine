@@ -19,10 +19,7 @@ import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngine;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
-import jakarta.enterprise.context.ApplicationScoped;
 
-/** {@link ExpressionEngine} for Java lambda expressions. */
-@ApplicationScoped
 public class LambdaExpressionEngine implements ExpressionEngine {
 
   @Override
@@ -36,8 +33,5 @@ public class LambdaExpressionEngine implements ExpressionEngine {
   }
 
   @Override
-  public void validate(final ExpressionEvaluator evaluator) {
-    // Lambda predicates are validated by the Java compiler at the call site;
-    // nothing further to check at registration time.
-  }
+  public void validate(final ExpressionEvaluator evaluator) {}
 }

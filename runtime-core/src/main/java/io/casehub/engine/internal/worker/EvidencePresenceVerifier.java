@@ -19,12 +19,10 @@ import io.casehub.api.spi.judgment.Evidence;
 import io.casehub.api.spi.judgment.JudgmentVerifier;
 import io.casehub.api.spi.judgment.VerificationContext;
 import io.casehub.api.spi.judgment.VerificationResult;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@ApplicationScoped
 public class EvidencePresenceVerifier implements JudgmentVerifier {
 
   @Override

@@ -18,29 +18,16 @@ package io.casehub.engine.internal.worker;
 import io.casehub.api.spi.judgment.EscalationContext;
 import io.casehub.api.spi.judgment.EscalationDecision;
 import io.casehub.api.spi.judgment.JudgmentEscalator;
-import io.casehub.api.spi.judgment.VerificationResult;
-import jakarta.enterprise.context.ApplicationScoped;
 
-@ApplicationScoped
-public class ReYieldEscalator implements JudgmentEscalator {
+public class FaultEscalator implements JudgmentEscalator {
 
   @Override
   public EscalationDecision escalate(EscalationContext ctx) {
-    if (ctx.escalationCount() < ctx.maxEscalations()) {
-      String feedback =
-          switch (ctx.verificationResult()) {
-            case VerificationResult.InsufficientEvidence ie -> ie.feedback();
-            case VerificationResult.TrustTooLow ttl ->
-                "Trust level too low: " + ttl.requiredLevel();
-            default -> "Verification failed";
-          };
-      return new EscalationDecision.ReYield(feedback);
-    }
-    return new EscalationDecision.Fault("Max escalations reached (" + ctx.maxEscalations() + ")");
+    return new EscalationDecision.Fault("Verification failed: " + ctx.verificationResult());
   }
 
   @Override
   public String id() {
-    return "re-yield";
+    return "fault";
   }
 }

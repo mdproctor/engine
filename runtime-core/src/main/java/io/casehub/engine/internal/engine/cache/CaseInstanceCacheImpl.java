@@ -17,13 +17,11 @@ package io.casehub.engine.internal.engine.cache;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ApplicationScoped
 public class CaseInstanceCacheImpl
     implements CaseInstanceCache, io.casehub.engine.common.spi.Resettable {
 
@@ -45,7 +43,6 @@ public class CaseInstanceCacheImpl
   }
 
   @Override
-  /** Returns a snapshot of all currently cached CaseInstances for timeout scanning. */
   public List<CaseInstance> getAll() {
     return List.copyOf(cache.values());
   }

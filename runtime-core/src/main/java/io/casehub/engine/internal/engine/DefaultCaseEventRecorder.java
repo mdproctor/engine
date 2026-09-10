@@ -19,20 +19,12 @@ import io.casehub.api.spi.CaseEventRecorder;
 import io.casehub.api.spi.CaseEventRequest;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 
-/**
- * Blocking {@link CaseEventRecorder}. Constructs {@link EventLog} domain objects internally —
- * consumers never import {@code EventLog}.
- */
-@ApplicationScoped
 public class DefaultCaseEventRecorder implements CaseEventRecorder {
 
   private final EventLogRepository eventLogRepository;
 
-  @Inject
   public DefaultCaseEventRecorder(EventLogRepository eventLogRepository) {
     this.eventLogRepository = eventLogRepository;
   }
