@@ -15,18 +15,12 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.CaseOutcomeEvent;
-import io.casehub.api.spi.CaseOutcomeObserver;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
+import io.casehub.engine.common.spi.recovery.RecoveryContext;
+import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
 
-/** Default no-op CaseOutcomeObserver. Active when no consumer provides an implementation. */
-@DefaultBean
-@ApplicationScoped
-public class NoOpCaseOutcomeObserver implements CaseOutcomeObserver {
-
+public class NoOpRecoveryCoordinator implements RecoveryCoordinator {
   @Override
-  public void onOutcome(CaseOutcomeEvent event) {
-    // intentional no-op
+  public boolean handleFailure(RecoveryContext context) {
+    return false;
   }
 }

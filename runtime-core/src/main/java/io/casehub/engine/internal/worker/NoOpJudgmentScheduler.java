@@ -18,12 +18,8 @@ package io.casehub.engine.internal.worker;
 import io.casehub.engine.common.spi.JudgmentRequest;
 import io.casehub.engine.common.spi.JudgmentScheduleRequest;
 import io.casehub.engine.common.spi.JudgmentScheduler;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 
-@DefaultBean
-@ApplicationScoped
 @SuppressWarnings("removal")
 public class NoOpJudgmentScheduler implements JudgmentScheduler {
 

@@ -19,13 +19,9 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.spi.PlanItemStore;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.UUID;
 
-@DefaultBean
-@ApplicationScoped
 public class NoOpPlanItemStore implements PlanItemStore {
 
   @Override

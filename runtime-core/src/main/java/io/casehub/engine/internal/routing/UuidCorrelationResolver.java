@@ -16,8 +16,6 @@
 package io.casehub.engine.internal.routing;
 
 import io.casehub.api.spi.CaseCorrelationResolver;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 
 /**
@@ -25,8 +23,6 @@ import java.util.UUID;
  *
  * <p>Fails with {@link IllegalArgumentException} if the value is null or not a valid UUID string.
  */
-@DefaultBean
-@ApplicationScoped
 public class UuidCorrelationResolver implements CaseCorrelationResolver {
 
   @Override

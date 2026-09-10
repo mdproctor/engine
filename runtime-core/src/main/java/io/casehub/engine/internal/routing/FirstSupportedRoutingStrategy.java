@@ -19,14 +19,10 @@ import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import io.quarkus.arc.DefaultBean;
 import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
 
-@DefaultBean
-@ApplicationScoped
 @Unremovable
 public class FirstSupportedRoutingStrategy implements WorkerExecutionRoutingStrategy {
 

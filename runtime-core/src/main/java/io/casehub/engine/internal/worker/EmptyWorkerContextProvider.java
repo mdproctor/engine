@@ -22,9 +22,6 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.platform.api.identity.CurrentPrincipal;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -35,12 +32,16 @@ import java.util.UUID;
  * CaseChannelProvider#listChannels(UUID)}. Active by default — replace with a real implementation
  * when richer context is needed.
  */
-@DefaultBean
-@ApplicationScoped
 public class EmptyWorkerContextProvider implements WorkerContextProvider {
 
-  @Inject CaseChannelProvider caseChannelProvider; // package-private for test injection
-  @Inject CurrentPrincipal currentPrincipal; // package-private for test injection
+  private final CaseChannelProvider caseChannelProvider;
+  private final CurrentPrincipal currentPrincipal;
+
+  public EmptyWorkerContextProvider(
+      CaseChannelProvider caseChannelProvider, CurrentPrincipal currentPrincipal) {
+    this.caseChannelProvider = caseChannelProvider;
+    this.currentPrincipal = currentPrincipal;
+  }
 
   @Override
   public WorkerContext buildContext(String workerId, UUID caseId, WorkRequest task) {

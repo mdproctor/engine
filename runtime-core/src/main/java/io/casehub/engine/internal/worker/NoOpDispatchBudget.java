@@ -15,23 +15,12 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.judgment.JudgmentVerifier;
-import io.casehub.api.spi.judgment.VerificationContext;
-import io.casehub.api.spi.judgment.VerificationResult;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
+import io.casehub.api.spi.DispatchBudget;
+import io.casehub.api.spi.DispatchBudgetQuery;
 
-@DefaultBean
-@ApplicationScoped
-public class AcceptAllVerifier implements JudgmentVerifier {
-
+public class NoOpDispatchBudget implements DispatchBudget {
   @Override
-  public VerificationResult verify(VerificationContext context) {
-    return new VerificationResult.Accepted();
-  }
-
-  @Override
-  public String id() {
-    return "accept-all";
+  public int availableCapacity(DispatchBudgetQuery query) {
+    return Integer.MAX_VALUE;
   }
 }

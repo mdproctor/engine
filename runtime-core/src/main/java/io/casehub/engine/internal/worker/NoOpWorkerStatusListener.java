@@ -15,27 +15,25 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.ProvisionerConfigRegistry;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
+import io.casehub.api.model.WorkResult;
+import io.casehub.api.spi.WorkerStatusListener;
 import java.util.Map;
-import java.util.Set;
 
-/**
- * No-op ProvisionerConfigRegistry. Returns empty collections for all queries. Active by default —
- * displace with an @Alternative when a real implementation is co-deployed.
- */
-@DefaultBean
-@ApplicationScoped
-public class NoOpProvisionerConfigRegistry implements ProvisionerConfigRegistry {
+/** Default no-op WorkerStatusListener. Silently ignores all lifecycle events. */
+public class NoOpWorkerStatusListener implements WorkerStatusListener {
 
   @Override
-  public Map<String, Object> configFor(String providerName, String agentId) {
-    return Map.of();
+  public void onWorkerStarted(String workerId, Map<String, String> sessionMeta) {
+    // intentional no-op
   }
 
   @Override
-  public Set<String> declaredAgentIds(String providerName) {
-    return Set.of();
+  public void onWorkerCompleted(String workerId, WorkResult result) {
+    // intentional no-op
+  }
+
+  @Override
+  public void onWorkerStalled(String workerId) {
+    // intentional no-op
   }
 }

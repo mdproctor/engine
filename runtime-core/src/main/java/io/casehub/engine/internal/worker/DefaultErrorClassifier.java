@@ -19,11 +19,7 @@ import io.casehub.api.model.RecoveryLevel;
 import io.casehub.api.spi.recovery.ErrorClassificationContext;
 import io.casehub.api.spi.recovery.ErrorClassifier;
 import io.casehub.worker.api.WorkerOutcome;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 
-@DefaultBean
-@ApplicationScoped
 public class DefaultErrorClassifier implements ErrorClassifier {
 
   private static final int ESCALATION_THRESHOLD = 3;

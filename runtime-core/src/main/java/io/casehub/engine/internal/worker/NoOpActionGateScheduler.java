@@ -13,28 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.routing;
+package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.routing.WorkloadDataProvider;
-import io.casehub.api.spi.routing.WorkloadSnapshot;
-import io.quarkus.arc.DefaultBean;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Map;
-import java.util.Set;
+import io.casehub.engine.common.spi.ActionGateScheduleRequest;
+import io.casehub.engine.common.spi.ActionGateScheduler;
 
-@DefaultBean
-@ApplicationScoped
-@Unremovable
-public class NoOpWorkloadDataProvider implements WorkloadDataProvider {
+public class NoOpActionGateScheduler implements ActionGateScheduler {
 
   @Override
-  public String id() {
-    return "default";
-  }
-
-  @Override
-  public Map<String, WorkloadSnapshot> getWorkload(Set<String> userIds, String tenancyId) {
-    return Map.of();
+  public void schedule(ActionGateScheduleRequest request) {
+    // intentional no-op — no work integration configured
   }
 }

@@ -13,28 +13,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.context;
+package io.casehub.engine.internal.worker;
 
-import io.casehub.api.context.CaseContextStore;
-import io.casehub.api.context.CaseContextStoreFactory;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
-import java.util.UUID;
+import io.casehub.api.spi.ProvisionerConfigRegistry;
+import java.util.Map;
+import java.util.Set;
 
-@DefaultBean
-@ApplicationScoped
-public class InMemoryCaseContextStoreFactory implements CaseContextStoreFactory {
-
-  public static final InMemoryCaseContextStoreFactory INSTANCE =
-      new InMemoryCaseContextStoreFactory();
+/**
+ * No-op ProvisionerConfigRegistry. Returns empty collections for all queries. Active by default —
+ * displace with an @Alternative when a real implementation is co-deployed.
+ */
+public class NoOpProvisionerConfigRegistry implements ProvisionerConfigRegistry {
 
   @Override
-  public String id() {
-    return "in-memory";
+  public Map<String, Object> configFor(String providerName, String agentId) {
+    return Map.of();
   }
 
   @Override
-  public CaseContextStore createStore(String layerName, UUID caseId) {
-    return new InMemoryCaseContextStore();
+  public Set<String> declaredAgentIds(String providerName) {
+    return Set.of();
   }
 }

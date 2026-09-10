@@ -19,17 +19,13 @@ import io.casehub.api.spi.routing.HumanTaskCandidates;
 import io.casehub.api.spi.routing.HumanTaskRoutingContext;
 import io.casehub.api.spi.routing.HumanTaskRoutingResult;
 import io.casehub.api.spi.routing.HumanTaskRoutingStrategy;
-import io.quarkus.arc.DefaultBean;
 import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
 
 /**
  * Default no-op humanTask routing — candidates pass through unchanged. Zero behaviour change
  * without a consumer strategy on the classpath. Protocol PP-20260514-engine-spi-noops-defaultbean.
  * Refs casehubio/engine#741.
  */
-@DefaultBean
-@ApplicationScoped
 @Unremovable
 public class NoOpHumanTaskRoutingStrategy implements HumanTaskRoutingStrategy {
 

@@ -13,19 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker;
+package io.casehub.engine.internal.context;
 
-import io.casehub.engine.common.spi.ActionGateScheduleRequest;
-import io.casehub.engine.common.spi.ActionGateScheduler;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
+import io.casehub.api.context.CaseContextStore;
+import io.casehub.api.context.CaseContextStoreFactory;
+import java.util.UUID;
 
-@DefaultBean
-@ApplicationScoped
-public class NoOpActionGateScheduler implements ActionGateScheduler {
+public class InMemoryCaseContextStoreFactory implements CaseContextStoreFactory {
+
+  public static final InMemoryCaseContextStoreFactory INSTANCE =
+      new InMemoryCaseContextStoreFactory();
 
   @Override
-  public void schedule(ActionGateScheduleRequest request) {
-    // intentional no-op — no work integration configured
+  public String id() {
+    return "in-memory";
+  }
+
+  @Override
+  public CaseContextStore createStore(String layerName, UUID caseId) {
+    return new InMemoryCaseContextStore();
   }
 }

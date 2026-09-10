@@ -20,8 +20,6 @@ import io.casehub.api.spi.judgment.EscalationContext;
 import io.casehub.api.spi.judgment.EscalationDecision;
 import io.casehub.api.spi.judgment.JudgmentEscalator;
 import io.casehub.api.spi.judgment.VerificationResult;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 
 /**
  * Heuristic escalation strategy. Replaces {@link FaultEscalator} as the default.
@@ -35,8 +33,6 @@ import jakarta.enterprise.context.ApplicationScoped;
  *
  * <p>Refs engine#1011, engine#994.
  */
-@DefaultBean
-@ApplicationScoped
 public class DefaultJudgmentEscalator implements JudgmentEscalator {
 
   @Override

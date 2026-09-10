@@ -13,18 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker;
+package io.casehub.engine.internal.routing;
 
-import io.casehub.api.model.TaskStatus;
-import io.casehub.engine.common.spi.PlanAdaptationEvaluator;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
-import java.util.UUID;
+import io.casehub.api.spi.routing.WorkloadDataProvider;
+import io.casehub.api.spi.routing.WorkloadSnapshot;
+import io.quarkus.arc.Unremovable;
+import java.util.Map;
+import java.util.Set;
 
-@DefaultBean
-@ApplicationScoped
-public class NoOpPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
+@Unremovable
+public class NoOpWorkloadDataProvider implements WorkloadDataProvider {
+
   @Override
-  public void evaluateAdaptation(
-      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus) {}
+  public String id() {
+    return "default";
+  }
+
+  @Override
+  public Map<String, WorkloadSnapshot> getWorkload(Set<String> userIds, String tenancyId) {
+    return Map.of();
+  }
 }

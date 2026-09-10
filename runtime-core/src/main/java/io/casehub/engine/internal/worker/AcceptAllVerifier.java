@@ -15,29 +15,19 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.model.WorkResult;
-import io.casehub.api.spi.WorkerStatusListener;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
-import java.util.Map;
+import io.casehub.api.spi.judgment.JudgmentVerifier;
+import io.casehub.api.spi.judgment.VerificationContext;
+import io.casehub.api.spi.judgment.VerificationResult;
 
-/** Default no-op WorkerStatusListener. Silently ignores all lifecycle events. */
-@DefaultBean
-@ApplicationScoped
-public class NoOpWorkerStatusListener implements WorkerStatusListener {
+public class AcceptAllVerifier implements JudgmentVerifier {
 
   @Override
-  public void onWorkerStarted(String workerId, Map<String, String> sessionMeta) {
-    // intentional no-op
+  public VerificationResult verify(VerificationContext context) {
+    return new VerificationResult.Accepted();
   }
 
   @Override
-  public void onWorkerCompleted(String workerId, WorkResult result) {
-    // intentional no-op
-  }
-
-  @Override
-  public void onWorkerStalled(String workerId) {
-    // intentional no-op
+  public String id() {
+    return "accept-all";
   }
 }

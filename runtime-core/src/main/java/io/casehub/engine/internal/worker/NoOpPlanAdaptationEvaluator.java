@@ -15,16 +15,12 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.api.spi.DispatchBudget;
-import io.casehub.api.spi.DispatchBudgetQuery;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
+import io.casehub.api.model.TaskStatus;
+import io.casehub.engine.common.spi.PlanAdaptationEvaluator;
+import java.util.UUID;
 
-@DefaultBean
-@ApplicationScoped
-public class NoOpDispatchBudget implements DispatchBudget {
+public class NoOpPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
   @Override
-  public int availableCapacity(DispatchBudgetQuery query) {
-    return Integer.MAX_VALUE;
-  }
+  public void evaluateAdaptation(
+      UUID caseId, String tenancyId, String completedBindingName, TaskStatus completedStatus) {}
 }

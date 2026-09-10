@@ -20,8 +20,6 @@ import io.casehub.eidos.api.MatchDegree;
 import io.casehub.eidos.api.VocabularyMetadata;
 import io.casehub.eidos.api.VocabularyRegistry;
 import io.casehub.eidos.api.VocabularyTerm;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -32,8 +30,6 @@ import java.util.Set;
  * casehub-eidos-runtime} is on the classpath, {@code CdiVocabularyRegistry} displaces this
  * automatically.
  */
-@DefaultBean
-@ApplicationScoped
 public class NoOpVocabularyRegistry implements VocabularyRegistry {
 
   @Override

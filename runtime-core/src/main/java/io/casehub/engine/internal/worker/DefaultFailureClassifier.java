@@ -19,13 +19,9 @@ import io.casehub.api.model.FailureCategory;
 import io.casehub.api.spi.FailureClassificationContext;
 import io.casehub.api.spi.FailureClassifier;
 import io.casehub.worker.api.WorkerOutcome;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Locale;
 
-@DefaultBean
-@ApplicationScoped
 public class DefaultFailureClassifier implements FailureClassifier {
 
   private static final List<String> TRANSIENT_PATTERNS =

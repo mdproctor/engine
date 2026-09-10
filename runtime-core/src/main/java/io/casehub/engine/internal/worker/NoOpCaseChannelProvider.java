@@ -18,8 +18,6 @@ package io.casehub.engine.internal.worker;
 import io.casehub.api.model.CaseChannel;
 import io.casehub.api.spi.CaseChannelProvider;
 import io.casehub.qhorus.api.message.MessageType;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,8 +26,6 @@ import java.util.UUID;
  * Default no-op CaseChannelProvider. Returns sentinel channels with {@code backendType = "none"}.
  * All write operations are no-ops.
  */
-@DefaultBean
-@ApplicationScoped
 public class NoOpCaseChannelProvider implements CaseChannelProvider {
 
   @Override

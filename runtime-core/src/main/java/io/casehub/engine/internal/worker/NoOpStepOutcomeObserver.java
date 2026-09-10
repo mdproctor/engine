@@ -15,29 +15,14 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.eidos.api.AgentDescriptor;
-import io.casehub.eidos.api.AgentMatch;
-import io.casehub.eidos.api.AgentQuery;
-import io.casehub.eidos.api.AgentRegistry;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
-import java.util.List;
-import java.util.Optional;
+import io.casehub.api.spi.StepOutcomeEvent;
+import io.casehub.api.spi.StepOutcomeObserver;
 
-@DefaultBean
-@ApplicationScoped
-public class NoOpAgentRegistry implements AgentRegistry {
+/** Default no-op StepOutcomeObserver. Active when no consumer provides an implementation. */
+public class NoOpStepOutcomeObserver implements StepOutcomeObserver {
 
   @Override
-  public void register(AgentDescriptor descriptor) {}
-
-  @Override
-  public Optional<AgentDescriptor> findById(String agentId, String tenancyId) {
-    return Optional.empty();
-  }
-
-  @Override
-  public List<AgentMatch> find(AgentQuery query) {
-    return List.of();
+  public void onStepOutcome(StepOutcomeEvent event) {
+    // intentional no-op
   }
 }

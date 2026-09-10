@@ -15,18 +15,13 @@
  */
 package io.casehub.engine.internal.worker;
 
-import io.casehub.eidos.api.AgentDescriptor;
-import io.casehub.eidos.api.CapabilityHealth;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
+import io.casehub.api.context.MutableCaseContext;
+import io.casehub.api.model.CaseDefinition;
+import io.casehub.engine.common.internal.model.CaseInstance;
+import io.casehub.engine.common.spi.GoalDecomposer;
 
-@DefaultBean
-@ApplicationScoped
-public class NoOpCapabilityHealth implements CapabilityHealth {
-
+public class NoOpGoalDecomposer implements GoalDecomposer {
   @Override
-  public CapabilityStatus probe(
-      AgentDescriptor descriptor, String capabilityTag, ProbeContext context) {
-    return new CapabilityStatus.Ready();
-  }
+  public void decompose(
+      CaseInstance instance, CaseDefinition definition, MutableCaseContext context) {}
 }

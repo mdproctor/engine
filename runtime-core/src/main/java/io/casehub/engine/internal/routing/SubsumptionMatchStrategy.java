@@ -22,21 +22,13 @@ import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityResolver;
 import io.casehub.eidos.api.VocabularyRegistry;
 import io.casehub.worker.api.Worker;
-import io.quarkus.arc.DefaultBean;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 
-@DefaultBean
-@ApplicationScoped
-@Unremovable
 public class SubsumptionMatchStrategy implements CandidateMatchingStrategy {
 
   private final VocabularyRegistry vocabularyRegistry;
 
-  @Inject
   public SubsumptionMatchStrategy(VocabularyRegistry vocabularyRegistry) {
     this.vocabularyRegistry = vocabularyRegistry;
   }

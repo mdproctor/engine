@@ -17,15 +17,11 @@ package io.casehub.engine.internal.worker;
 
 import io.casehub.api.spi.GateOutcome;
 import io.casehub.api.spi.OversightGateService;
-import io.quarkus.arc.DefaultBean;
 import io.quarkus.runtime.StartupEvent;
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@DefaultBean
-@ApplicationScoped
 public class NoOpOversightGateService implements OversightGateService {
 
   private static final Logger LOG = Logger.getLogger(NoOpOversightGateService.class);
