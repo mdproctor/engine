@@ -22,42 +22,51 @@ import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.JudgmentCompletedEvent;
 import io.casehub.engine.common.internal.event.JudgmentEscalatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
+import io.casehub.engine.common.internal.judgment.JudgmentNodeExecutor;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import io.casehub.platform.api.routing.StrategyResolver;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class JudgmentCompletedHandler {
 
   private static final Logger LOG = Logger.getLogger(JudgmentCompletedHandler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject CaseInstanceCache caseInstanceCache;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject EventBus eventBus;
-  @Inject io.casehub.platform.api.routing.StrategyResolver strategyResolver;
-  @Inject io.casehub.engine.common.internal.judgment.JudgmentNodeExecutor judgmentNodeExecutor;
+  private final CaseInstanceCache caseInstanceCache;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final EventLogRepository eventLogRepository;
+  private final EventDispatcher eventDispatcher;
+  private final StrategyResolver strategyResolver;
+  private final JudgmentNodeExecutor judgmentNodeExecutor;
 
-  @ConsumeEvent(value = EventBusAddresses.JUDGMENT_COMPLETED)
-  @RunOnVirtualThread
-  public void onJudgmentCompleted(final JudgmentCompletedEvent event) {
+  public JudgmentCompletedHandler(
+      CaseInstanceCache caseInstanceCache,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      StrategyResolver strategyResolver,
+      JudgmentNodeExecutor judgmentNodeExecutor) {
+    this.caseInstanceCache = caseInstanceCache;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.eventLogRepository = eventLogRepository;
+    this.eventDispatcher = eventDispatcher;
+    this.strategyResolver = strategyResolver;
+    this.judgmentNodeExecutor = judgmentNodeExecutor;
+  }
+
+  public void handle(final JudgmentCompletedEvent event) {
     final CaseInstance instance = caseInstanceCache.get(event.caseId());
     if (instance == null) {
       LOG.warnf(
@@ -113,8 +122,7 @@ public class JudgmentCompletedHandler {
         switch (result) {
           case io.casehub.api.spi.judgment.VerificationResult.Accepted a -> {}
           case io.casehub.api.spi.judgment.VerificationResult.InsufficientEvidence ie -> {
-            eventBus.publish(
-                EventBusAddresses.JUDGMENT_ESCALATED,
+            eventDispatcher.dispatch(
                 new JudgmentEscalatedEvent(
                     event.caseId(),
                     event.bindingName(),
@@ -127,8 +135,7 @@ public class JudgmentCompletedHandler {
             return;
           }
           case io.casehub.api.spi.judgment.VerificationResult.TrustTooLow ttl -> {
-            eventBus.publish(
-                EventBusAddresses.JUDGMENT_ESCALATED,
+            eventDispatcher.dispatch(
                 new JudgmentEscalatedEvent(
                     event.caseId(),
                     event.bindingName(),
@@ -152,8 +159,7 @@ public class JudgmentCompletedHandler {
                         event.response().callerId() != null
                             ? event.response().callerId()
                             : "unknown"));
-            eventBus.publish(
-                EventBusAddresses.CONTEXT_CHANGED,
+            eventDispatcher.dispatch(
                 new CaseContextChangedEvent(instance, instance.getCaseContext(), "working"));
             judgmentNodeExecutor.enqueue(
                 event.caseId(),
@@ -178,8 +184,7 @@ public class JudgmentCompletedHandler {
 
     writeRespondedEventLog(instance, event);
 
-    eventBus.publish(
-        EventBusAddresses.CONTEXT_CHANGED,
+    eventDispatcher.dispatch(
         new CaseContextChangedEvent(instance, instance.getCaseContext(), "working"));
 
     judgmentNodeExecutor.enqueue(

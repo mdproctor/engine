@@ -33,6 +33,7 @@ import io.casehub.engine.internal.engine.handler.AgentRoutingEscalationHandler;
 import io.casehub.engine.internal.engine.handler.ContextOutputApplier;
 import io.casehub.engine.internal.engine.handler.ContextSignalEventHandler;
 import io.casehub.engine.internal.engine.handler.GoalReachedEventHandler;
+import io.casehub.engine.internal.engine.handler.JudgmentCompletedHandler;
 import io.casehub.engine.internal.engine.handler.JudgmentEscalationHandler;
 import io.casehub.engine.internal.engine.handler.JudgmentExpiredHandler;
 import io.casehub.engine.internal.engine.handler.MilestoneActivatedEventHandler;
@@ -194,6 +195,24 @@ public class RuntimeBeans {
       ExpressionEngineRegistry expressionEngineRegistry) {
     return new MilestoneLifecycleManager(
         eventLogRepository, eventDispatcher, caseDefinitionRegistry, expressionEngineRegistry);
+  }
+
+  @Produces
+  @ApplicationScoped
+  JudgmentCompletedHandler judgmentCompletedHandler(
+      CaseInstanceCache caseInstanceCache,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      EventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher,
+      StrategyResolver strategyResolver,
+      JudgmentNodeExecutor judgmentNodeExecutor) {
+    return new JudgmentCompletedHandler(
+        caseInstanceCache,
+        caseDefinitionRegistry,
+        eventLogRepository,
+        eventDispatcher,
+        strategyResolver,
+        judgmentNodeExecutor);
   }
 
   @Produces
