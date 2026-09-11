@@ -21,23 +21,28 @@ import io.casehub.engine.queue.event.CaseQueueEntryReleased;
 import io.casehub.engine.queue.model.CaseQueueEntry;
 import io.casehub.engine.queue.model.QueueEntryStatus;
 import io.casehub.engine.queue.spi.CaseQueueEntryStore;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-@ApplicationScoped
 public class CaseQueueService {
 
-  @Inject CaseQueueEntryStore store;
+  private final CaseQueueEntryStore store;
+  private final Consumer<CaseQueueEntryClaimed> claimedConsumer;
+  private final Consumer<CaseQueueEntryReleased> releasedConsumer;
+  private final Consumer<CaseQueueEntryEscalated> escalatedConsumer;
 
-  @Inject Event<CaseQueueEntryClaimed> claimedEvents;
-
-  @Inject Event<CaseQueueEntryReleased> releasedEvents;
-
-  @Inject Event<CaseQueueEntryEscalated> escalatedEvents;
+  public CaseQueueService(
+      CaseQueueEntryStore store,
+      Consumer<CaseQueueEntryClaimed> claimedConsumer,
+      Consumer<CaseQueueEntryReleased> releasedConsumer,
+      Consumer<CaseQueueEntryEscalated> escalatedConsumer) {
+    this.store = store;
+    this.claimedConsumer = claimedConsumer;
+    this.releasedConsumer = releasedConsumer;
+    this.escalatedConsumer = escalatedConsumer;
+  }
 
   public CaseQueueEntry claim(UUID entryId, String tenancyId, String userId) {
     CaseQueueEntry entry = loadAndVerifyTenancy(entryId, tenancyId);
@@ -52,7 +57,7 @@ public class CaseQueueService {
                             + " is not PENDING (status: "
                             + entry.getStatus()
                             + ")"));
-    claimedEvents.fireAsync(new CaseQueueEntryClaimed(claimed, userId));
+    claimedConsumer.accept(new CaseQueueEntryClaimed(claimed, userId));
     return claimed;
   }
 
@@ -66,7 +71,7 @@ public class CaseQueueService {
     entry.setAssignedTo(null);
     entry.setClaimedAt(null);
     store.save(entry);
-    releasedEvents.fireAsync(new CaseQueueEntryReleased(entry));
+    releasedConsumer.accept(new CaseQueueEntryReleased(entry));
     return entry;
   }
 
@@ -91,7 +96,7 @@ public class CaseQueueService {
     entry.setClaimedAt(null);
     entry.setEscalatedAt(Instant.now());
     store.save(entry);
-    escalatedEvents.fireAsync(new CaseQueueEntryEscalated(entry, sourceViewId, targetViewId));
+    escalatedConsumer.accept(new CaseQueueEntryEscalated(entry, sourceViewId, targetViewId));
     return entry;
   }
 

@@ -29,16 +29,13 @@ import dev.langchain4j.model.chat.response.ChatResponse;
 import io.casehub.api.engine.WorkerRuntime;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.ai.TokenUsage;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.engine.internal.executor.WorkerRuntimeFactory;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.vertx.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -50,7 +47,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
-@ApplicationScoped
 public class ReActWorkerFunctionHandler implements WorkerFunctionHandler {
 
   private static final ObjectMapper MAPPER =
@@ -60,16 +56,15 @@ public class ReActWorkerFunctionHandler implements WorkerFunctionHandler {
       System.getLogger(ReActWorkerFunctionHandler.class.getName());
 
   private final WorkerRuntimeFactory runtimeFactory;
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
   private final ExecutorService executor;
 
-  @Inject
   public ReActWorkerFunctionHandler(
       WorkerRuntimeFactory runtimeFactory,
-      EventBus eventBus,
-      @io.quarkus.virtual.threads.VirtualThreads ExecutorService executor) {
+      EventDispatcher eventDispatcher,
+      ExecutorService executor) {
     this.runtimeFactory = runtimeFactory;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
     this.executor = executor;
   }
 
@@ -252,7 +247,7 @@ public class ReActWorkerFunctionHandler implements WorkerFunctionHandler {
 
     try {
       var json = new io.vertx.core.json.JsonObject(MAPPER.writeValueAsString(event));
-      eventBus.publish(EventBusAddresses.REACT_CYCLE, json);
+      eventDispatcher.dispatch(json);
     } catch (JsonProcessingException e) {
       LOG.log(System.Logger.Level.WARNING, "Failed to serialize ReActCycleEvent", e);
     }

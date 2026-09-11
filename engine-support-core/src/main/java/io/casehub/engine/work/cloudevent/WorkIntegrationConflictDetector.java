@@ -16,20 +16,18 @@
 package io.casehub.engine.work.cloudevent;
 
 import io.casehub.engine.common.spi.HumanTaskScheduler;
-import io.quarkus.runtime.StartupEvent;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
+import java.util.List;
 
-@ApplicationScoped
 public class WorkIntegrationConflictDetector {
 
-  @Inject Instance<HumanTaskScheduler> humanTaskSchedulers;
+  private final List<HumanTaskScheduler> humanTaskSchedulers;
 
-  void onStartup(@Observes @Priority(1) StartupEvent event) {
-    long count = humanTaskSchedulers.stream().count();
+  public WorkIntegrationConflictDetector(List<HumanTaskScheduler> humanTaskSchedulers) {
+    this.humanTaskSchedulers = humanTaskSchedulers;
+  }
+
+  public void check() {
+    long count = humanTaskSchedulers.size();
     if (count > 1) {
       throw new IllegalStateException(
           "Multiple HumanTaskScheduler implementations detected ("

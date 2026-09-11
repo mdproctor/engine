@@ -18,8 +18,6 @@ package io.casehub.actorstate;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.platform.api.actor.ActorStateAccumulator;
 import io.casehub.platform.api.actor.ActorStateContributor;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 /**
  * Contributes active Quartz job case IDs from the engine.
@@ -28,10 +26,13 @@ import jakarta.inject.Inject;
  * snapshot: a job completing between this call and the HTTP response means engineActiveCaseIds may
  * transiently contain a case whose work just finished.
  */
-@ApplicationScoped
 public class EngineActorStateContributor implements ActorStateContributor {
 
-  @Inject WorkerExecutionManager executionManager;
+  private final WorkerExecutionManager executionManager;
+
+  public EngineActorStateContributor(WorkerExecutionManager executionManager) {
+    this.executionManager = executionManager;
+  }
 
   @Override
   public String sourceName() {

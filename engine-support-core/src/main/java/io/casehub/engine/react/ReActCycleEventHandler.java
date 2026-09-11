@@ -19,25 +19,21 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
 import io.vertx.core.json.JsonObject;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.UUID;
 
-@ApplicationScoped
 public class ReActCycleEventHandler {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject EventLogRepository eventLogRepository;
+  private final EventLogRepository eventLogRepository;
 
-  @ConsumeEvent(EventBusAddresses.REACT_CYCLE)
-  @RunOnVirtualThread
+  public ReActCycleEventHandler(EventLogRepository eventLogRepository) {
+    this.eventLogRepository = eventLogRepository;
+  }
+
   public void onReactCycle(JsonObject message) {
     try {
       JsonNode root = MAPPER.readTree(message.encode());

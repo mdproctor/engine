@@ -20,25 +20,25 @@ import io.casehub.engine.queue.event.CaseQueueEvent;
 import io.casehub.engine.queue.model.CaseQueueEntry;
 import io.casehub.engine.queue.model.QueueEntryStatus;
 import io.casehub.engine.queue.spi.CaseQueueEntryStore;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.enterprise.event.Observes;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CaseQueueEntryManager {
 
   private static final Logger LOG = Logger.getLogger(CaseQueueEntryManager.class);
 
-  @Inject CaseQueueEntryStore store;
+  private final CaseQueueEntryStore store;
+  private final Consumer<CaseQueueEntryRevoked> revokedConsumer;
 
-  @Inject Event<CaseQueueEntryRevoked> revokedEvents;
+  public CaseQueueEntryManager(CaseQueueEntryStore store, Consumer<CaseQueueEntryRevoked> revokedConsumer) {
+    this.store = store;
+    this.revokedConsumer = revokedConsumer;
+  }
 
-  public void onQueueEvent(@Observes CaseQueueEvent event) {
+  public void onQueueEvent(CaseQueueEvent event) {
     switch (event.eventType()) {
       case ADDED -> handleAdded(event);
       case REMOVED -> handleRemoved(event);
@@ -94,7 +94,7 @@ public class CaseQueueEntryManager {
       String previousAssignee = entry.getAssignedTo();
       entry.setStatus(QueueEntryStatus.REVOKED);
       store.save(entry);
-      revokedEvents.fireAsync(new CaseQueueEntryRevoked(entry, previousAssignee));
+      revokedConsumer.accept(new CaseQueueEntryRevoked(entry, previousAssignee));
     }
   }
 }

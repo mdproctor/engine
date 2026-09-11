@@ -16,14 +16,10 @@
 package io.casehub.actorstate;
 
 import io.casehub.platform.api.actor.ActorStateContributor;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Any;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.eclipse.microprofile.context.ManagedExecutor;
+import java.util.concurrent.ExecutorService;
 import org.jboss.logging.Logger;
 
 /**
@@ -37,27 +33,19 @@ import org.jboss.logging.Logger;
  *
  * <p>Active only when {@code casehub.qhorus.reactive.enabled} is false or absent (default).
  */
-@ApplicationScoped
-@io.quarkus.arc.properties.UnlessBuildProperty(
-    name = "casehub.qhorus.reactive.enabled",
-    stringValue = "true",
-    enableIfMissing = true)
 public class ActorStateAggregator {
 
   private static final Logger LOG = Logger.getLogger(ActorStateAggregator.class);
 
   private final List<ActorStateContributor> contributors;
-  private final ManagedExecutor executor;
+  private final ExecutorService executor;
 
-  /** CDI constructor — injects all ActorStateContributor beans and ManagedExecutor. */
-  @Inject
   public ActorStateAggregator(
-      @Any final Instance<ActorStateContributor> contributors, final ManagedExecutor executor) {
-    this.contributors = contributors.stream().toList();
+      final List<ActorStateContributor> contributors, final ExecutorService executor) {
+    this.contributors = contributors;
     this.executor = executor;
   }
 
-  /** Test constructor — accepts an explicit contributor list; uses sequential execution. */
   ActorStateAggregator(final List<ActorStateContributor> contributors) {
     this.contributors = contributors;
     this.executor = null;

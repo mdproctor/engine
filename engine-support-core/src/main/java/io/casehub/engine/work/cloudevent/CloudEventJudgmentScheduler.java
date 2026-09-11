@@ -36,9 +36,7 @@ import io.casehub.work.api.WorkCloudEventTypes;
 import io.casehub.worker.api.PlannedAction;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.core.builder.CloudEventBuilder;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -55,15 +53,23 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Refs engine#1010, engine#994.
  */
-@ApplicationScoped
 public class CloudEventJudgmentScheduler implements JudgmentScheduler {
 
   private static final Logger LOG = Logger.getLogger(CloudEventJudgmentScheduler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject BlackboardRegistry registry;
-  @Inject PlanItemStore planItemStore;
-  @Inject Event<CloudEvent> cloudEventEmitter;
+  private final BlackboardRegistry registry;
+  private final PlanItemStore planItemStore;
+  private final Consumer<CloudEvent> cloudEventConsumer;
+
+  public CloudEventJudgmentScheduler(
+      BlackboardRegistry registry,
+      PlanItemStore planItemStore,
+      Consumer<CloudEvent> cloudEventConsumer) {
+    this.registry = registry;
+    this.planItemStore = planItemStore;
+    this.cloudEventConsumer = cloudEventConsumer;
+  }
 
   @SuppressWarnings("deprecation")
   @Override
@@ -201,7 +207,7 @@ public class CloudEventJudgmentScheduler implements JudgmentScheduler {
             .withExtension(WorkCloudEventTypes.EXT_TENANCY_ID, request.tenancyId())
             .build();
 
-    cloudEventEmitter.fireAsync(cloudEvent);
+    cloudEventConsumer.accept(cloudEvent);
 
     planItemStore.save(
         PlanItemSaveRequest.primitive(
@@ -278,7 +284,7 @@ public class CloudEventJudgmentScheduler implements JudgmentScheduler {
             .withExtension(WorkCloudEventTypes.EXT_TENANCY_ID, request.tenancyId())
             .build();
 
-    cloudEventEmitter.fireAsync(cloudEvent);
+    cloudEventConsumer.accept(cloudEvent);
 
     LOG.infof(
         "CloudEvent emitted for ActionGate callerRef=%s caseId=%s", callerRef, request.caseId());

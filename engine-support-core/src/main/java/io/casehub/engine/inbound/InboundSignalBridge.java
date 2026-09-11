@@ -32,11 +32,7 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.platform.api.routing.StrategyResolver;
-import jakarta.annotation.PostConstruct;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.ObservesAsync;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
+import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -47,7 +43,7 @@ import org.jboss.logging.Logger;
 /**
  * Bridges inbound connector messages to typed case signals.
  *
- * <p>Observes {@code @ObservesAsync InboundMessage} from {@code casehub-connectors} and routes
+ * <p>Receives {@code InboundMessage} from connectors and routes
  * matching messages to cases via {@link CaseHubRuntime#signal(UUID, SignalType, Object)}.
  *
  * <p>Maintains an in-memory index keyed by {@code connectorType} for O(1) message dispatch. Index
@@ -58,26 +54,38 @@ import org.jboss.logging.Logger;
  * connector data is external — the {@code $dataRef} discriminator is an internal engine convention
  * that external systems do not produce.
  */
-@ApplicationScoped
 public class InboundSignalBridge {
 
   private static final Logger LOG = Logger.getLogger(InboundSignalBridge.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject Instance<CaseDefinitionRegistry> registry;
-  @Inject Instance<CaseHubRuntime> runtime;
-  @Inject BridgeResolver bridgeResolver;
-  @Inject StrategyResolver strategyResolver;
-  @Inject JQEvaluator jqEvaluator;
+  private final Optional<CaseDefinitionRegistry> registry;
+  private final Optional<CaseHubRuntime> runtime;
+  private final BridgeResolver bridgeResolver;
+  private final StrategyResolver strategyResolver;
+  private final JQEvaluator jqEvaluator;
 
   private final Map<String, List<MappingEntry>> index = new ConcurrentHashMap<>();
 
   record MappingEntry(
       InboundSignalMapping mapping, CaseDefinition definition, SignalType<?> signalType) {}
 
-  @PostConstruct
+  public InboundSignalBridge(
+      Optional<CaseDefinitionRegistry> registry,
+      Optional<CaseHubRuntime> runtime,
+      BridgeResolver bridgeResolver,
+      StrategyResolver strategyResolver,
+      JQEvaluator jqEvaluator) {
+    this.registry = registry;
+    this.runtime = runtime;
+    this.bridgeResolver = bridgeResolver;
+    this.strategyResolver = strategyResolver;
+    this.jqEvaluator = jqEvaluator;
+    init();
+  }
+
   void init() {
-    if (registry.isUnsatisfied()) {
+    if (registry.isEmpty()) {
       return;
     }
     for (CaseDefinition def : registry.get().allDefinitions()) {
@@ -99,8 +107,8 @@ public class InboundSignalBridge {
     }
   }
 
-  void onInboundMessage(@ObservesAsync InboundMessage message) {
-    if (registry.isUnsatisfied() || runtime.isUnsatisfied()) {
+  public void onInboundMessage(InboundMessage message) {
+    if (registry.isEmpty() || runtime.isEmpty()) {
       return;
     }
 

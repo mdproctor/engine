@@ -17,19 +17,15 @@ package io.casehub.engine.queue.view;
 
 import io.casehub.platform.api.view.SubjectViewSpec;
 import io.casehub.platform.view.SubjectViewOrchestrator;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.UUID;
 
-@ApplicationScoped
 public class CaseQueueViewManager {
 
   private final SubjectViewOrchestrator views;
   private final io.casehub.platform.api.view.SubjectViewStore viewStore;
 
-  @Inject
   public CaseQueueViewManager(
       SubjectViewOrchestrator views, io.casehub.platform.api.view.SubjectViewStore viewStore) {
     this.views = views;

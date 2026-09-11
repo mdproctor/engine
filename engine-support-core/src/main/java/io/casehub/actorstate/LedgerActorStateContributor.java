@@ -18,16 +18,17 @@ package io.casehub.actorstate;
 import io.casehub.ledger.runtime.service.TrustGateService;
 import io.casehub.platform.api.actor.ActorStateAccumulator;
 import io.casehub.platform.api.actor.ActorStateContributor;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.OptionalDouble;
 
 /** Contributes global and capability trust scores from casehub-ledger. */
-@ApplicationScoped
 public class LedgerActorStateContributor implements ActorStateContributor {
 
-  @Inject TrustGateService trustGateService;
+  private final TrustGateService trustGateService;
+
+  public LedgerActorStateContributor(TrustGateService trustGateService) {
+    this.trustGateService = trustGateService;
+  }
 
   @Override
   public String sourceName() {

@@ -18,14 +18,13 @@ package io.casehub.engine.queue.store;
 import io.casehub.engine.queue.model.CaseQueueEntry;
 import io.casehub.engine.queue.model.QueueEntryStatus;
 import io.casehub.engine.queue.spi.CaseQueueEntryStore;
-import jakarta.enterprise.context.ApplicationScoped;
+
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ApplicationScoped
 public class InMemoryCaseQueueEntryStore implements CaseQueueEntryStore {
 
   private final ConcurrentHashMap<UUID, CaseQueueEntry> store = new ConcurrentHashMap<>();

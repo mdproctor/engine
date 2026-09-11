@@ -35,9 +35,7 @@ import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.work.api.WorkCloudEventTypes;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.core.builder.CloudEventBuilder;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -46,7 +44,6 @@ import java.util.Set;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 @Deprecated(forRemoval = true)
 @SuppressWarnings("removal")
 public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
@@ -54,9 +51,18 @@ public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
   private static final Logger LOG = Logger.getLogger(CloudEventHumanTaskScheduler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject BlackboardRegistry registry;
-  @Inject PlanItemStore planItemStore;
-  @Inject Event<CloudEvent> cloudEventEmitter;
+  private final BlackboardRegistry registry;
+  private final PlanItemStore planItemStore;
+  private final Consumer<CloudEvent> cloudEventConsumer;
+
+  public CloudEventHumanTaskScheduler(
+      BlackboardRegistry registry,
+      PlanItemStore planItemStore,
+      Consumer<CloudEvent> cloudEventConsumer) {
+    this.registry = registry;
+    this.planItemStore = planItemStore;
+    this.cloudEventConsumer = cloudEventConsumer;
+  }
 
   @Override
   public void schedule(HumanTaskScheduleRequest request) {
@@ -103,7 +109,7 @@ public class CloudEventHumanTaskScheduler implements HumanTaskScheduler {
     }
 
     CloudEvent cloudEvent = builder.build();
-    cloudEventEmitter.fireAsync(cloudEvent);
+    cloudEventConsumer.accept(cloudEvent);
 
     planItemStore.save(
         PlanItemSaveRequest.primitive(

@@ -20,30 +20,23 @@ import io.casehub.platform.api.actor.ActorStateAccumulator;
 import io.casehub.platform.api.actor.ActorStateContributor;
 import io.casehub.qhorus.api.store.ChannelStore;
 import io.casehub.qhorus.api.store.CommitmentStore;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 /** Contributes open Commitments from casehub-qhorus. Batch-loads channels to avoid N+1. */
-@ApplicationScoped
 public class QhorusActorStateContributor implements ActorStateContributor {
 
-  @Inject CommitmentStore commitmentStore;
+  private final CommitmentStore commitmentStore;
+  private final ChannelStore channelStore;
 
-  @Inject ChannelStore channelStore;
-
-  /** Test constructor. */
-  QhorusActorStateContributor(
+  public QhorusActorStateContributor(
       final CommitmentStore commitmentStore, final ChannelStore channelStore) {
     this.commitmentStore = commitmentStore;
     this.channelStore = channelStore;
   }
 
-  /** CDI constructor. */
-  QhorusActorStateContributor() {}
 
   @Override
   public String sourceName() {

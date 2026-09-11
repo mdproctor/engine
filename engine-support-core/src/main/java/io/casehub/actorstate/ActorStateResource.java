@@ -16,8 +16,6 @@
 package io.casehub.actorstate;
 
 import jakarta.annotation.security.PermitAll;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
@@ -36,10 +34,13 @@ import jakarta.ws.rs.core.MediaType;
 @PermitAll
 @Path("/actors")
 @Produces(MediaType.APPLICATION_JSON)
-@ApplicationScoped
 public class ActorStateResource {
 
-  @Inject ActorStateAggregator aggregator;
+  private final ActorStateAggregator aggregator;
+
+  public ActorStateResource(ActorStateAggregator aggregator) {
+    this.aggregator = aggregator;
+  }
 
   @GET
   @Path("/{actorId}/state")

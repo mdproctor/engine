@@ -20,8 +20,6 @@ import io.casehub.platform.api.actor.ActorStateContributor;
 import io.casehub.work.api.WorkItemQuery;
 import io.casehub.work.api.WorkItemStatus;
 import io.casehub.work.api.spi.WorkItemStore;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.UUID;
 
@@ -32,10 +30,13 @@ import java.util.UUID;
  * claimed — not active work). SUSPENDED included (actor is still obligated to complete — paused,
  * not released).
  */
-@ApplicationScoped
 public class WorkActorStateContributor implements ActorStateContributor {
 
-  @Inject WorkItemStore workItemStore;
+  private final WorkItemStore workItemStore;
+
+  public WorkActorStateContributor(WorkItemStore workItemStore) {
+    this.workItemStore = workItemStore;
+  }
 
   @Override
   public String sourceName() {

@@ -20,11 +20,7 @@ import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.work.api.WorkItemCreateRequest;
 import io.casehub.work.api.spi.TenantContextExecutor;
 import io.casehub.work.api.spi.WorkItemOperations;
-import io.quarkus.runtime.StartupEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
+import java.util.Optional;
 import java.util.Optional;
 import org.jboss.logging.Logger;
 
@@ -60,27 +56,27 @@ import org.jboss.logging.Logger;
  * afterCompletion(STATUS_COMMITTED)} callback — the qhorus message is committed before observers
  * fire. If {@code WorkItemOperations.create()} fails, no WorkItem is created and no retry occurs.
  */
-@ApplicationScoped
 public class InboundWorkItemBridge implements MessageObserver {
 
   private static final Logger LOG = Logger.getLogger(InboundWorkItemBridge.class);
   private static final String CREATED_BY = "casehub-engine-inbound";
 
-  @Inject Instance<InboundWorkItemPolicy> policy;
-  @Inject WorkItemOperations workItemOperations;
-  @Inject TenantContextExecutor tenantContextExecutor;
+  private final Optional<InboundWorkItemPolicy> policy;
+  private final WorkItemOperations workItemOperations;
+  private final TenantContextExecutor tenantContextExecutor;
 
-  void onStartup(@Observes final StartupEvent ignored) {
-    if (policy.isAmbiguous()) {
-      throw new IllegalStateException(
-          "Multiple InboundWorkItemPolicy beans found — compose them in a single"
-              + " @ApplicationScoped implementation");
-    }
+  public InboundWorkItemBridge(
+      Optional<InboundWorkItemPolicy> policy,
+      WorkItemOperations workItemOperations,
+      TenantContextExecutor tenantContextExecutor) {
+    this.policy = policy;
+    this.workItemOperations = workItemOperations;
+    this.tenantContextExecutor = tenantContextExecutor;
   }
 
   @Override
   public void onMessage(final MessageReceivedEvent event) {
-    if (policy.isUnsatisfied()) {
+    if (policy.isEmpty()) {
       return;
     }
 

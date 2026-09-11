@@ -31,19 +31,13 @@ import io.casehub.platform.api.label.LabelRule;
 import io.casehub.platform.api.view.CrossTenantSubjectViewStore;
 import io.casehub.platform.api.view.SubjectViewEvent;
 import io.casehub.platform.view.SubjectViewOrchestrator;
-import io.quarkus.runtime.StartupEvent;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.enterprise.event.Observes;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CaseLabelReconciler {
 
   private static final Logger LOG = Logger.getLogger(CaseLabelReconciler.class);
@@ -53,17 +47,26 @@ public class CaseLabelReconciler {
     CaseStatus.STARTING, CaseStatus.RUNNING, CaseStatus.WAITING, CaseStatus.SUSPENDED
   };
 
-  @Inject CaseDefinitionRegistry definitionRegistry;
+  private final CaseDefinitionRegistry definitionRegistry;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final SubjectViewOrchestrator views;
+  private final CrossTenantSubjectViewStore crossTenantViewStore;
+  private final Consumer<CaseQueueEvent> queueEventConsumer;
 
-  @Inject CaseInstanceRepository caseInstanceRepository;
+  public CaseLabelReconciler(
+      CaseDefinitionRegistry definitionRegistry,
+      CaseInstanceRepository caseInstanceRepository,
+      SubjectViewOrchestrator views,
+      CrossTenantSubjectViewStore crossTenantViewStore,
+      Consumer<CaseQueueEvent> queueEventConsumer) {
+    this.definitionRegistry = definitionRegistry;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.views = views;
+    this.crossTenantViewStore = crossTenantViewStore;
+    this.queueEventConsumer = queueEventConsumer;
+  }
 
-  @Inject SubjectViewOrchestrator views;
-
-  @Inject CrossTenantSubjectViewStore crossTenantViewStore;
-
-  @Inject Event<CaseQueueEvent> queueEvents;
-
-  void reconcile(@Observes @Priority(200) StartupEvent event) {
+  public void reconcile() {
     List<String> tenancyIds = crossTenantViewStore.findDistinctTenancyIds();
     if (tenancyIds.isEmpty()) {
       LOG.debug("No tenancies with queue views — skipping label reconciliation");
@@ -137,7 +140,7 @@ public class CaseLabelReconciler {
       List<SubjectViewEvent> viewEvents =
           views.evaluateAndTrack(instance.getUuid(), tenancyId, newLabels);
       for (SubjectViewEvent ve : viewEvents) {
-        queueEvents.fire(
+        queueEventConsumer.accept(
             new CaseQueueEvent(
                 ve.subjectId(),
                 ve.viewId(),

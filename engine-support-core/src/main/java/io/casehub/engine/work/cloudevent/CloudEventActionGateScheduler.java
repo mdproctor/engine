@@ -25,22 +25,23 @@ import io.casehub.work.api.WorkCloudEventTypes;
 import io.casehub.worker.api.PlannedAction;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.core.builder.CloudEventBuilder;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CloudEventActionGateScheduler implements ActionGateScheduler {
 
   private static final Logger LOG = Logger.getLogger(CloudEventActionGateScheduler.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject Event<CloudEvent> cloudEventEmitter;
+  private final Consumer<CloudEvent> cloudEventConsumer;
+
+  public CloudEventActionGateScheduler(Consumer<CloudEvent> cloudEventConsumer) {
+    this.cloudEventConsumer = cloudEventConsumer;
+  }
 
   @Override
   public void schedule(ActionGateScheduleRequest request) {
@@ -98,7 +99,7 @@ public class CloudEventActionGateScheduler implements ActionGateScheduler {
             .withExtension(WorkCloudEventTypes.EXT_TENANCY_ID, request.tenancyId())
             .build();
 
-    cloudEventEmitter.fireAsync(cloudEvent);
+    cloudEventConsumer.accept(cloudEvent);
 
     LOG.infof(
         "CloudEvent emitted for ActionGate callerRef=%s caseId=%s", callerRef, request.caseId());

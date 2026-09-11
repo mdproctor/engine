@@ -30,10 +30,7 @@ import io.casehub.platform.api.label.LabelAction;
 import io.casehub.platform.api.label.LabelRule;
 import io.casehub.platform.api.view.SubjectViewEvent;
 import io.casehub.platform.view.SubjectViewOrchestrator;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.enterprise.event.ObservesAsync;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +40,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CaseLabelEvaluator {
 
   private static final Logger LOG = Logger.getLogger(CaseLabelEvaluator.class);
@@ -51,17 +47,25 @@ public class CaseLabelEvaluator {
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
   private static final Set<String> TERMINAL_STATUSES = Set.of("COMPLETED", "FAULTED", "CANCELLED");
 
-  @Inject CaseDefinitionRegistry definitionRegistry;
-
-  @Inject CaseInstanceRepository caseInstanceRepository;
-
-  @Inject SubjectViewOrchestrator views;
-
-  @Inject Event<CaseQueueEvent> queueEvents;
+  private final CaseDefinitionRegistry definitionRegistry;
+  private final CaseInstanceRepository caseInstanceRepository;
+  private final SubjectViewOrchestrator views;
+  private final Consumer<CaseQueueEvent> queueEventConsumer;
 
   private final ConcurrentHashMap<UUID, ReentrantLock> caseLocks = new ConcurrentHashMap<>();
 
-  public void onCaseLifecycle(@ObservesAsync CaseLifecycleEvent event) {
+  public CaseLabelEvaluator(
+      CaseDefinitionRegistry definitionRegistry,
+      CaseInstanceRepository caseInstanceRepository,
+      SubjectViewOrchestrator views,
+      Consumer<CaseQueueEvent> queueEventConsumer) {
+    this.definitionRegistry = definitionRegistry;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.views = views;
+    this.queueEventConsumer = queueEventConsumer;
+  }
+
+  public void onCaseLifecycle(CaseLifecycleEvent event) {
     UUID caseId = event.caseId();
     String tenancyId = event.tenancyId();
     boolean isTerminal =
@@ -120,7 +124,7 @@ public class CaseLabelEvaluator {
 
         List<SubjectViewEvent> viewEvents = views.evaluateAndTrack(caseId, tenancyId, afterLabels);
         for (SubjectViewEvent ve : viewEvents) {
-          queueEvents.fire(
+          queueEventConsumer.accept(
               new CaseQueueEvent(
                   ve.subjectId(),
                   ve.viewId(),

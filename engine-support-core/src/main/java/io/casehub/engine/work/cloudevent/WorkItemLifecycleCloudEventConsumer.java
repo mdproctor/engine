@@ -25,22 +25,27 @@ import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.work.api.WorkCloudEventTypes;
 import io.cloudevents.CloudEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.ObservesAsync;
-import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class WorkItemLifecycleCloudEventConsumer {
 
   private static final Logger LOG = Logger.getLogger(WorkItemLifecycleCloudEventConsumer.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject PlanItemCompletionApplier planItemApplier;
-  @Inject GateCompletionApplier gateApplier;
-  @Inject BlackboardRegistry blackboardRegistry;
+  private final PlanItemCompletionApplier planItemApplier;
+  private final GateCompletionApplier gateApplier;
+  private final BlackboardRegistry blackboardRegistry;
 
-  public void onLifecycleCloudEvent(@ObservesAsync CloudEvent ce) {
+  public WorkItemLifecycleCloudEventConsumer(
+      PlanItemCompletionApplier planItemApplier,
+      GateCompletionApplier gateApplier,
+      BlackboardRegistry blackboardRegistry) {
+    this.planItemApplier = planItemApplier;
+    this.gateApplier = gateApplier;
+    this.blackboardRegistry = blackboardRegistry;
+  }
+
+  public void onLifecycleCloudEvent(CloudEvent ce) {
     String type = ce.getType();
     if (!type.startsWith(WorkCloudEventTypes.PREFIX)) {
       return;
