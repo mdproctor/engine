@@ -28,6 +28,10 @@ public class ExchangeSerializer {
   private final BridgeResolver bridgeResolver;
   private final ObjectMapper objectMapper;
 
+  public ExchangeSerializer(BridgeResolver bridgeResolver) {
+    this(bridgeResolver, new ObjectMapper());
+  }
+
   public ExchangeSerializer(BridgeResolver bridgeResolver, ObjectMapper objectMapper) {
     this.bridgeResolver = bridgeResolver;
     this.objectMapper = objectMapper;
