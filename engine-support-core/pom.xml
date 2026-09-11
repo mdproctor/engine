@@ -61,6 +61,12 @@
             <artifactId>casehub-eidos-api</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- Platform-view for queue module -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-view-core</artifactId>
+            <version>${version.io.casehub}</version>
+        </dependency>
         <!-- JAX-RS annotations for ActorStateResource — portable across Quarkus and Spring -->
         <dependency>
             <groupId>jakarta.ws.rs</groupId>

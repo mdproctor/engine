@@ -21,7 +21,6 @@ import io.casehub.work.api.WorkItemCreateRequest;
 import io.casehub.work.api.spi.TenantContextExecutor;
 import io.casehub.work.api.spi.WorkItemOperations;
 import java.util.Optional;
-import java.util.Optional;
 import org.jboss.logging.Logger;
 
 /**

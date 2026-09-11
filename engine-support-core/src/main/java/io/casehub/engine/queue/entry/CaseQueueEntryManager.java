@@ -20,10 +20,10 @@ import io.casehub.engine.queue.event.CaseQueueEvent;
 import io.casehub.engine.queue.model.CaseQueueEntry;
 import io.casehub.engine.queue.model.QueueEntryStatus;
 import io.casehub.engine.queue.spi.CaseQueueEntryStore;
-import java.util.function.Consumer;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 public class CaseQueueEntryManager {
@@ -33,7 +33,8 @@ public class CaseQueueEntryManager {
   private final CaseQueueEntryStore store;
   private final Consumer<CaseQueueEntryRevoked> revokedConsumer;
 
-  public CaseQueueEntryManager(CaseQueueEntryStore store, Consumer<CaseQueueEntryRevoked> revokedConsumer) {
+  public CaseQueueEntryManager(
+      CaseQueueEntryStore store, Consumer<CaseQueueEntryRevoked> revokedConsumer) {
     this.store = store;
     this.revokedConsumer = revokedConsumer;
   }

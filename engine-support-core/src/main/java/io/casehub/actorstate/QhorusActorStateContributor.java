@@ -37,7 +37,6 @@ public class QhorusActorStateContributor implements ActorStateContributor {
     this.channelStore = channelStore;
   }
 
-
   @Override
   public String sourceName() {
     return "qhorus";

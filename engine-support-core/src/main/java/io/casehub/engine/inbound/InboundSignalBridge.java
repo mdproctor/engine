@@ -32,10 +32,10 @@ import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.platform.api.routing.StrategyResolver;
-import java.util.Optional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
@@ -43,8 +43,8 @@ import org.jboss.logging.Logger;
 /**
  * Bridges inbound connector messages to typed case signals.
  *
- * <p>Receives {@code InboundMessage} from connectors and routes
- * matching messages to cases via {@link CaseHubRuntime#signal(UUID, SignalType, Object)}.
+ * <p>Receives {@code InboundMessage} from connectors and routes matching messages to cases via
+ * {@link CaseHubRuntime#signal(UUID, SignalType, Object)}.
  *
  * <p>Maintains an in-memory index keyed by {@code connectorType} for O(1) message dispatch. Index
  * is populated at startup from {@link CaseDefinitionRegistry#allDefinitions()} and updated

@@ -31,11 +31,11 @@ import io.casehub.platform.api.label.LabelRule;
 import io.casehub.platform.api.view.CrossTenantSubjectViewStore;
 import io.casehub.platform.api.view.SubjectViewEvent;
 import io.casehub.platform.view.SubjectViewOrchestrator;
-import java.util.function.Consumer;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 public class CaseLabelReconciler {

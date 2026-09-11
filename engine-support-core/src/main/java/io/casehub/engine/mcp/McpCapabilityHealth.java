@@ -27,7 +27,8 @@ public class McpCapabilityHealth implements CapabilityHealth {
   private final McpEndpointRegistry endpointRegistry;
   private final McpClientRegistry clientRegistry;
 
-  public McpCapabilityHealth(McpEndpointRegistry endpointRegistry, McpClientRegistry clientRegistry) {
+  public McpCapabilityHealth(
+      McpEndpointRegistry endpointRegistry, McpClientRegistry clientRegistry) {
     this.endpointRegistry = endpointRegistry;
     this.clientRegistry = clientRegistry;
   }

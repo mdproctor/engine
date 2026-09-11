@@ -26,7 +26,8 @@ public class A2ACapabilityHealth implements CapabilityHealth {
   private final A2AEndpointRegistry endpointRegistry;
   private final A2AClientRegistry clientRegistry;
 
-  public A2ACapabilityHealth(A2AEndpointRegistry endpointRegistry, A2AClientRegistry clientRegistry) {
+  public A2ACapabilityHealth(
+      A2AEndpointRegistry endpointRegistry, A2AClientRegistry clientRegistry) {
     this.endpointRegistry = endpointRegistry;
     this.clientRegistry = clientRegistry;
   }

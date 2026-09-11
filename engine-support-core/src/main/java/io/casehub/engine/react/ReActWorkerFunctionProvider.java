@@ -19,7 +19,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.spi.WorkerFunctionProvider;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.WorkerFunction;
-
 import java.util.ArrayList;
 import java.util.List;
 

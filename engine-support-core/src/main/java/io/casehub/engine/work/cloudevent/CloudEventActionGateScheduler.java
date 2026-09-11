@@ -25,11 +25,11 @@ import io.casehub.work.api.WorkCloudEventTypes;
 import io.casehub.worker.api.PlannedAction;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.core.builder.CloudEventBuilder;
-import java.util.function.Consumer;
 import java.net.URI;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 public class CloudEventActionGateScheduler implements ActionGateScheduler {

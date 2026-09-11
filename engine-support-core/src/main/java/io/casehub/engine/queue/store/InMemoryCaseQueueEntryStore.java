@@ -18,7 +18,6 @@ package io.casehub.engine.queue.store;
 import io.casehub.engine.queue.model.CaseQueueEntry;
 import io.casehub.engine.queue.model.QueueEntryStatus;
 import io.casehub.engine.queue.spi.CaseQueueEntryStore;
-
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;

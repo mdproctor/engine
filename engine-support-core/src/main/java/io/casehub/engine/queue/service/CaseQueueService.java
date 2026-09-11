@@ -21,10 +21,10 @@ import io.casehub.engine.queue.event.CaseQueueEntryReleased;
 import io.casehub.engine.queue.model.CaseQueueEntry;
 import io.casehub.engine.queue.model.QueueEntryStatus;
 import io.casehub.engine.queue.spi.CaseQueueEntryStore;
-import java.util.function.Consumer;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import java.util.function.Consumer;
 
 public class CaseQueueService {
 

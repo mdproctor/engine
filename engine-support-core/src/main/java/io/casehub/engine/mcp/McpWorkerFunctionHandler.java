@@ -45,8 +45,7 @@ public class McpWorkerFunctionHandler implements WorkerFunctionHandler {
   private final ExecutorService virtualThreads;
 
   public McpWorkerFunctionHandler(
-      final McpClientRegistry clientRegistry,
-      final ExecutorService virtualThreads) {
+      final McpClientRegistry clientRegistry, final ExecutorService virtualThreads) {
     this.clientRegistry = clientRegistry;
     this.virtualThreads = virtualThreads;
   }
