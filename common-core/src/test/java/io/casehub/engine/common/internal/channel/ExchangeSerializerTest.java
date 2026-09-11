@@ -18,18 +18,11 @@ package io.casehub.engine.common.internal.channel;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.api.context.ContextBridge;
-import io.casehub.api.spi.DataRefResolver;
 import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.context.DataRefRegistry;
 import io.casehub.worker.api.Exchange;
-import jakarta.enterprise.inject.Instance;
-import jakarta.enterprise.util.TypeLiteral;
-import java.lang.annotation.Annotation;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -41,8 +34,7 @@ class ExchangeSerializerTest {
 
   @BeforeEach
   void setUp() {
-    BridgeResolver bridgeResolver =
-        new BridgeResolver(emptyBridges(), new DataRefRegistry(emptyResolvers()));
+    BridgeResolver bridgeResolver = new BridgeResolver(List.of(), new DataRefRegistry(List.of()));
     serializer = new ExchangeSerializer(bridgeResolver, new ObjectMapper());
   }
 
@@ -127,131 +119,5 @@ class ExchangeSerializerTest {
     Exchange<String> restored = serializer.fromMetadata(metadata, String.class);
 
     assertThat(restored.headers()).isEmpty();
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  private static Instance<ContextBridge<?>> emptyBridges() {
-    return new Instance<>() {
-      @Override
-      public Instance<ContextBridge<?>> select(Annotation... q) {
-        return this;
-      }
-
-      @Override
-      public <U extends ContextBridge<?>> Instance<U> select(Class<U> s, Annotation... q) {
-        return null;
-      }
-
-      @Override
-      public <U extends ContextBridge<?>> Instance<U> select(TypeLiteral<U> s, Annotation... q) {
-        return null;
-      }
-
-      @Override
-      public boolean isUnsatisfied() {
-        return true;
-      }
-
-      @Override
-      public boolean isAmbiguous() {
-        return false;
-      }
-
-      @Override
-      public boolean isResolvable() {
-        return false;
-      }
-
-      @Override
-      public ContextBridge<?> get() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void destroy(ContextBridge<?> i) {}
-
-      @Override
-      public Handle<ContextBridge<?>> getHandle() {
-        return null;
-      }
-
-      @Override
-      public Iterable<Handle<ContextBridge<?>>> handles() {
-        return null;
-      }
-
-      @Override
-      public Stream<ContextBridge<?>> stream() {
-        return Stream.empty();
-      }
-
-      @Override
-      public Iterator<ContextBridge<?>> iterator() {
-        return List.<ContextBridge<?>>of().iterator();
-      }
-    };
-  }
-
-  @SuppressWarnings({"rawtypes", "unchecked"})
-  private static Instance<DataRefResolver> emptyResolvers() {
-    return new Instance<>() {
-      @Override
-      public Instance<DataRefResolver> select(Annotation... q) {
-        return this;
-      }
-
-      @Override
-      public <U extends DataRefResolver> Instance<U> select(Class<U> s, Annotation... q) {
-        return null;
-      }
-
-      @Override
-      public <U extends DataRefResolver> Instance<U> select(TypeLiteral<U> s, Annotation... q) {
-        return null;
-      }
-
-      @Override
-      public boolean isUnsatisfied() {
-        return true;
-      }
-
-      @Override
-      public boolean isAmbiguous() {
-        return false;
-      }
-
-      @Override
-      public boolean isResolvable() {
-        return false;
-      }
-
-      @Override
-      public DataRefResolver get() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void destroy(DataRefResolver i) {}
-
-      @Override
-      public Handle<DataRefResolver> getHandle() {
-        return null;
-      }
-
-      @Override
-      public Iterable<Handle<DataRefResolver>> handles() {
-        return null;
-      }
-
-      @Override
-      public Stream<DataRefResolver> stream() {
-        return Stream.empty();
-      }
-
-      @Override
-      public Iterator<DataRefResolver> iterator() {
-        return List.<DataRefResolver>of().iterator();
-      }
-    };
   }
 }

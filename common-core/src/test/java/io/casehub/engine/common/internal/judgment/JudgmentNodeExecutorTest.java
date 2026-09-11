@@ -23,9 +23,9 @@ import io.casehub.engine.common.spi.JudgmentNodeResult;
 import io.casehub.engine.common.spi.JudgmentResponse;
 import io.casehub.engine.common.spi.JudgmentScheduleRequest;
 import io.casehub.engine.common.spi.JudgmentScheduler;
-import jakarta.enterprise.inject.Instance;
 import java.time.Duration;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -39,9 +39,8 @@ class JudgmentNodeExecutorTest {
 
   @BeforeEach
   void setUp() {
-    executor = new JudgmentNodeExecutor();
     scheduler = new RecordingJudgmentScheduler();
-    executor.judgmentScheduler = new SingletonInstance<>(scheduler);
+    executor = new JudgmentNodeExecutor(Optional.of(scheduler));
   }
 
   @Test
@@ -152,71 +151,6 @@ class JudgmentNodeExecutorTest {
     @Override
     public void schedule(JudgmentScheduleRequest request) {
       lastRequest = request;
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private static class SingletonInstance<T> implements Instance<T> {
-    private final T value;
-
-    SingletonInstance(T value) {
-      this.value = value;
-    }
-
-    @Override
-    public T get() {
-      return value;
-    }
-
-    @Override
-    public boolean isResolvable() {
-      return true;
-    }
-
-    @Override
-    public boolean isAmbiguous() {
-      return false;
-    }
-
-    @Override
-    public boolean isUnsatisfied() {
-      return false;
-    }
-
-    @Override
-    public Instance<T> select(java.lang.annotation.Annotation... qualifiers) {
-      return this;
-    }
-
-    @Override
-    public <U extends T> Instance<U> select(
-        Class<U> subtype, java.lang.annotation.Annotation... qualifiers) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public <U extends T> Instance<U> select(
-        jakarta.enterprise.util.TypeLiteral<U> subtype,
-        java.lang.annotation.Annotation... qualifiers) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void destroy(T instance) {}
-
-    @Override
-    public Handle<T> getHandle() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Iterable<Handle<T>> handles() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public java.util.Iterator<T> iterator() {
-      return java.util.List.of(value).iterator();
     }
   }
 }

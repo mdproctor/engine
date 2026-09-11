@@ -41,14 +41,14 @@ class DataRefRegistryTest {
           }
         };
 
-    DataRefRegistry registry = new DataRefRegistry(new StubInstance<>(resolver));
+    DataRefRegistry registry = new DataRefRegistry(java.util.List.of(resolver));
     Object result = registry.resolve(DataRef.of("test-store", "key1", String.class));
     assertThat(result).isEqualTo("resolved:key1");
   }
 
   @Test
   void throws_on_unknown_source() {
-    DataRefRegistry registry = new DataRefRegistry(new StubInstance<>());
+    DataRefRegistry registry = new DataRefRegistry(java.util.List.of());
     assertThatThrownBy(() -> registry.resolve(DataRef.of("unknown", "key", String.class)))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessageContaining("No DataRefResolver for source: unknown");

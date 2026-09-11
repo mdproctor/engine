@@ -25,6 +25,7 @@ import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.ContextSignalEvent;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -35,7 +36,6 @@ import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -53,7 +53,7 @@ class ScheduledTriggerOrchestratorTest {
   private StubRecoveryService recoveryService;
   private StubDefinitionRegistry definitionRegistry;
   private StubExpressionEngine expressionEngine;
-  private RecordingEventBus recordingEventBus;
+  private RecordingEventDispatcher recordingDispatcher;
   private ScopedWorkerRegistry scopedWorkerRegistry;
   private ScheduledTriggerOrchestrator orchestrator;
 
@@ -62,7 +62,7 @@ class ScheduledTriggerOrchestratorTest {
     recoveryService = new StubRecoveryService();
     definitionRegistry = new StubDefinitionRegistry();
     expressionEngine = new StubExpressionEngine();
-    recordingEventBus = new RecordingEventBus();
+    recordingDispatcher = new RecordingEventDispatcher();
     scopedWorkerRegistry = new ScopedWorkerRegistry();
 
     orchestrator =
@@ -71,7 +71,7 @@ class ScheduledTriggerOrchestratorTest {
             recoveryService,
             scopedWorkerRegistry,
             expressionEngine,
-            recordingEventBus.eventBus);
+            recordingDispatcher);
   }
 
   @Test
@@ -82,11 +82,8 @@ class ScheduledTriggerOrchestratorTest {
 
     orchestrator.executeUnconditionalTrigger(triggerData());
 
-    assertThat(recordingEventBus.publishedMessages).hasSize(1);
-    var msg = recordingEventBus.publishedMessages.get(0);
-    assertThat(msg.address)
-        .isEqualTo(io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_SCHEDULE);
-    assertThat(msg.body).isInstanceOf(WorkerScheduleEvent.class);
+    assertThat(recordingDispatcher.dispatched).hasSize(1);
+    assertThat(recordingDispatcher.dispatched.get(0)).isInstanceOf(WorkerScheduleEvent.class);
   }
 
   @Test
@@ -96,7 +93,7 @@ class ScheduledTriggerOrchestratorTest {
 
     orchestrator.executeUnconditionalTrigger(triggerData());
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   @Test
@@ -105,7 +102,7 @@ class ScheduledTriggerOrchestratorTest {
 
     orchestrator.executeUnconditionalTrigger(triggerData());
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   @Test
@@ -137,7 +134,7 @@ class ScheduledTriggerOrchestratorTest {
 
     orchestrator.executeConditionalTrigger(triggerData());
 
-    assertThat(recordingEventBus.publishedMessages).hasSize(1);
+    assertThat(recordingDispatcher.dispatched).hasSize(1);
   }
 
   @Test
@@ -149,7 +146,7 @@ class ScheduledTriggerOrchestratorTest {
 
     orchestrator.executeConditionalTrigger(triggerData());
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   @Test
@@ -159,11 +156,8 @@ class ScheduledTriggerOrchestratorTest {
     var data = new ScheduledSignalData(CASE_ID, BINDING_NAME, "{\"key\":\"value\"}", false);
     orchestrator.executeSignalTrigger(data);
 
-    assertThat(recordingEventBus.publishedMessages).hasSize(1);
-    var msg = recordingEventBus.publishedMessages.get(0);
-    assertThat(msg.address)
-        .isEqualTo(io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_SIGNAL);
-    assertThat(msg.body).isInstanceOf(ContextSignalEvent.class);
+    assertThat(recordingDispatcher.dispatched).hasSize(1);
+    assertThat(recordingDispatcher.dispatched.get(0)).isInstanceOf(ContextSignalEvent.class);
   }
 
   @Test
@@ -176,7 +170,7 @@ class ScheduledTriggerOrchestratorTest {
     var data = new ScheduledSignalData(CASE_ID, BINDING_NAME, "{}", true);
     orchestrator.executeSignalTrigger(data);
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   @Test
@@ -186,7 +180,7 @@ class ScheduledTriggerOrchestratorTest {
     var data = new ScheduledSignalData(CASE_ID, BINDING_NAME, "{}", false);
     orchestrator.executeSignalTrigger(data);
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   // --- helpers ---
@@ -333,21 +327,12 @@ class ScheduledTriggerOrchestratorTest {
     }
   }
 
-  record PublishedMessage(String address, Object body) {}
+  static class RecordingEventDispatcher implements EventDispatcher {
+    final List<Object> dispatched = new ArrayList<>();
 
-  static class RecordingEventBus {
-    final List<PublishedMessage> publishedMessages = new ArrayList<>();
-    final EventBus eventBus;
-
-    RecordingEventBus() {
-      this.eventBus =
-          new EventBus(null) {
-            @Override
-            public io.vertx.mutiny.core.eventbus.EventBus publish(String address, Object body) {
-              publishedMessages.add(new PublishedMessage(address, body));
-              return this;
-            }
-          };
+    @Override
+    public void dispatch(Object event) {
+      dispatched.add(event);
     }
   }
 }

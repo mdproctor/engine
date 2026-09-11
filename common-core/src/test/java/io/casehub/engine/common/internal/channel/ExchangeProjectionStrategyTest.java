@@ -192,14 +192,10 @@ class ExchangeProjectionStrategyTest {
   }
 
   private static CustomJqProjection createJqProjection() {
-    try {
-      JQEvaluator evaluator = new JQEvaluator();
-      java.lang.reflect.Method init = JQEvaluator.class.getDeclaredMethod("init");
-      init.setAccessible(true);
-      init.invoke(evaluator);
-      return new CustomJqProjection(evaluator);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    JQEvaluator evaluator =
+        new JQEvaluator(
+            new io.casehub.engine.common.internal.config.NoOpSecretManager(),
+            new io.casehub.engine.common.internal.config.NoOpConfigManager());
+    return new CustomJqProjection(evaluator);
   }
 }

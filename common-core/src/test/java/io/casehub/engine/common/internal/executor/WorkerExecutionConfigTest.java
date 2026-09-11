@@ -27,8 +27,7 @@ class WorkerExecutionConfigTest {
 
   @BeforeEach
   void setUp() {
-    config = new WorkerExecutionConfig();
-    config.defaultTimeoutMs = defaultTimeout;
+    config = new WorkerExecutionConfig(defaultTimeout);
   }
 
   @Test

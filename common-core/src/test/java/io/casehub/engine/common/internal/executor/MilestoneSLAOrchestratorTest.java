@@ -21,13 +21,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,7 +44,7 @@ class MilestoneSLAOrchestratorTest {
   private StubCaseInstanceCache caseCache;
   private StubCaseInstanceRepo caseRepo;
   private StubEventLogRepo eventLogRepo;
-  private RecordingEventBus recordingEventBus;
+  private RecordingEventDispatcher recordingDispatcher;
   private MilestoneSLAOrchestrator orchestrator;
 
   @BeforeEach
@@ -52,10 +52,10 @@ class MilestoneSLAOrchestratorTest {
     caseCache = new StubCaseInstanceCache();
     caseRepo = new StubCaseInstanceRepo();
     eventLogRepo = new StubEventLogRepo();
-    recordingEventBus = new RecordingEventBus();
+    recordingDispatcher = new RecordingEventDispatcher();
 
     orchestrator =
-        new MilestoneSLAOrchestrator(caseCache, caseRepo, eventLogRepo, recordingEventBus.eventBus);
+        new MilestoneSLAOrchestrator(caseCache, caseRepo, eventLogRepo, recordingDispatcher);
   }
 
   @Test
@@ -65,9 +65,8 @@ class MilestoneSLAOrchestratorTest {
 
     orchestrator.execute(slaData());
 
-    assertThat(recordingEventBus.publishedMessages).hasSize(1);
-    var msg = recordingEventBus.publishedMessages.get(0);
-    assertThat(msg.body).isInstanceOf(MilestoneSLAViolatedEvent.class);
+    assertThat(recordingDispatcher.dispatched).hasSize(1);
+    assertThat(recordingDispatcher.dispatched.get(0)).isInstanceOf(MilestoneSLAViolatedEvent.class);
   }
 
   @Test
@@ -77,14 +76,14 @@ class MilestoneSLAOrchestratorTest {
 
     orchestrator.execute(slaData());
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   @Test
   void skipsWhenCaseNotFound() {
     orchestrator.execute(slaData());
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   @Test
@@ -93,7 +92,7 @@ class MilestoneSLAOrchestratorTest {
 
     orchestrator.execute(slaData());
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   @Test
@@ -102,7 +101,7 @@ class MilestoneSLAOrchestratorTest {
 
     orchestrator.execute(slaData());
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   @Test
@@ -112,7 +111,7 @@ class MilestoneSLAOrchestratorTest {
 
     orchestrator.execute(slaData());
 
-    assertThat(recordingEventBus.publishedMessages).hasSize(1);
+    assertThat(recordingDispatcher.dispatched).hasSize(1);
   }
 
   @Test
@@ -122,7 +121,7 @@ class MilestoneSLAOrchestratorTest {
 
     orchestrator.execute(slaData());
 
-    assertThat(recordingEventBus.publishedMessages).isEmpty();
+    assertThat(recordingDispatcher.dispatched).isEmpty();
   }
 
   // --- helpers ---
@@ -220,21 +219,12 @@ class MilestoneSLAOrchestratorTest {
     }
   }
 
-  record PublishedMessage(String address, Object body) {}
+  static class RecordingEventDispatcher implements EventDispatcher {
+    final List<Object> dispatched = new ArrayList<>();
 
-  static class RecordingEventBus {
-    final List<PublishedMessage> publishedMessages = new ArrayList<>();
-    final EventBus eventBus;
-
-    RecordingEventBus() {
-      this.eventBus =
-          new EventBus(null) {
-            @Override
-            public io.vertx.mutiny.core.eventbus.EventBus publish(String address, Object body) {
-              publishedMessages.add(new PublishedMessage(address, body));
-              return this;
-            }
-          };
+    @Override
+    public void dispatch(Object event) {
+      dispatched.add(event);
     }
   }
 }

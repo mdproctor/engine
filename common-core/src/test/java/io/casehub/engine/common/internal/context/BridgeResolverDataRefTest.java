@@ -23,7 +23,7 @@ import io.casehub.api.context.ContextBridge;
 import io.casehub.api.context.DataRef;
 import io.casehub.api.context.MapBridge;
 import io.casehub.api.spi.DataRefResolver;
-import jakarta.enterprise.inject.Instance;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -50,11 +50,8 @@ class BridgeResolverDataRefTest {
           }
         };
 
-    @SuppressWarnings("unchecked")
-    Instance<ContextBridge<?>> emptyBridges = new DataRefRegistryTest.StubInstance<>();
-    DataRefRegistry registry =
-        new DataRefRegistry(new DataRefRegistryTest.StubInstance<>(testResolver));
-    bridgeResolver = new BridgeResolver(emptyBridges, registry);
+    DataRefRegistry registry = new DataRefRegistry(List.of(testResolver));
+    bridgeResolver = new BridgeResolver(List.of(), registry);
   }
 
   @Test

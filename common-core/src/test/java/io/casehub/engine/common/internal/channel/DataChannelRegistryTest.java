@@ -27,7 +27,7 @@ import org.junit.jupiter.api.Test;
 class DataChannelRegistryTest {
 
   private DataChannelRegistry registry;
-  private final InMemoryDataChannelFactory factory = new InMemoryDataChannelFactory();
+  private final InMemoryDataChannelFactory factory = new InMemoryDataChannelFactory(0L);
 
   @BeforeEach
   void setUp() {

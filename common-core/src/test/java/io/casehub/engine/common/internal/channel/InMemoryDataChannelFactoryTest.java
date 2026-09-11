@@ -24,7 +24,7 @@ import org.junit.jupiter.api.Test;
 
 class InMemoryDataChannelFactoryTest {
 
-  private final InMemoryDataChannelFactory factory = new InMemoryDataChannelFactory();
+  private final InMemoryDataChannelFactory factory = new InMemoryDataChannelFactory(0L);
 
   @Test
   void createsWorkingDataChannel() {
