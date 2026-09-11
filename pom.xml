@@ -111,6 +111,7 @@
         <module>planning-spring</module>
         <module>resilience-core</module>
         <module>resilience</module>
+        <module>resilience-spring</module>
         <module>ledger-core</module>
         <module>ledger</module>
         <module>ledger-spring</module>
