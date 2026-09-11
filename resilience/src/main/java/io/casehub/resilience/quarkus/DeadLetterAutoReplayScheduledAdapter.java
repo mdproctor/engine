@@ -13,24 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.resilience.poison;
+package io.casehub.resilience.quarkus;
 
-import io.casehub.api.spi.WorkerExecutionGuard;
-import java.util.UUID;
+import io.casehub.resilience.deadletter.DeadLetterAutoReplayJob;
+import io.quarkus.scheduler.Scheduled;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
-/**
- * {@link WorkerExecutionGuard} that blocks workers quarantined by the {@link PoisonPillDetector}.
- */
-public class PoisonPillWorkerExecutionGuard implements WorkerExecutionGuard {
+@ApplicationScoped
+public class DeadLetterAutoReplayScheduledAdapter {
 
-  private final PoisonPillDetector detector;
+  @Inject DeadLetterAutoReplayJob job;
 
-  public PoisonPillWorkerExecutionGuard(PoisonPillDetector detector) {
-    this.detector = detector;
-  }
-
-  @Override
-  public boolean isBlocked(String workerId, UUID caseId) {
-    return detector.isQuarantined(workerId);
+  @Scheduled(every = "${casehub.dlq.auto-replay.interval:PT30M}")
+  void scan() {
+    job.scan();
   }
 }

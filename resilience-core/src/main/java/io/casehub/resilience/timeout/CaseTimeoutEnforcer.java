@@ -19,16 +19,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.quarkus.scheduler.Scheduled;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.UUID;
 import org.jboss.logging.Logger;
@@ -47,7 +43,6 @@ import org.jboss.logging.Logger;
  * CaseStatusChangedHandler} to persist the final state and emit {@link
  * EventBusAddresses#CASE_FAULTED}.
  */
-@ApplicationScoped
 public class CaseTimeoutEnforcer {
 
   private static final Logger LOG = Logger.getLogger(CaseTimeoutEnforcer.class);
@@ -55,14 +50,15 @@ public class CaseTimeoutEnforcer {
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
   private final CaseInstanceCache cache;
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
   private final CaseInstanceRepository caseInstanceRepository;
 
-  @Inject
   public CaseTimeoutEnforcer(
-      CaseInstanceCache cache, EventBus eventBus, CaseInstanceRepository caseInstanceRepository) {
+      CaseInstanceCache cache,
+      EventDispatcher eventDispatcher,
+      CaseInstanceRepository caseInstanceRepository) {
     this.cache = cache;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
     this.caseInstanceRepository = caseInstanceRepository;
   }
 
@@ -73,7 +69,6 @@ public class CaseTimeoutEnforcer {
    * <p>Called every second by default; override with {@code
    * casehub.resilience.timeout.check-interval}.
    */
-  @Scheduled(every = "${casehub.resilience.timeout.check-interval:1s}")
   public void scanForTimeouts() {
     Instant now = Instant.now();
     for (CaseInstance instance : cache.getAll()) {
@@ -100,8 +95,7 @@ public class CaseTimeoutEnforcer {
 
       try {
         caseInstanceRepository.updateStateAndAppendEvent(instance, eventLog, instance.tenancyId);
-        eventBus.publish(
-            EventBusAddresses.CASE_STATUS_CHANGED,
+        eventDispatcher.dispatch(
             new CaseStatusChanged(instance, oldStatus, CaseStatus.FAULTED.name()));
       } catch (Exception error) {
         LOG.errorf(

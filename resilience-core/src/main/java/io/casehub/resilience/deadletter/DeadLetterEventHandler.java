@@ -15,27 +15,24 @@
  */
 package io.casehub.resilience.deadletter;
 
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
-import io.quarkus.vertx.ConsumeEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Map;
 import org.jboss.logging.Logger;
 
 /**
- * Listens for {@link EventBusAddresses#WORKER_RETRIES_EXHAUSTED} events and routes the failing
- * execution into the {@link DeadLetterQueue}. Runs alongside the engine's {@code
- * WorkerRetriesExhaustedEventHandler} — both handlers receive the same event independently.
+ * Routes failing worker executions into the {@link DeadLetterQueue}. Runs alongside the engine's
+ * {@code WorkerRetriesExhaustedEventHandler} — both handlers receive the same event independently.
  */
-@ApplicationScoped
 public class DeadLetterEventHandler {
 
   private static final Logger LOG = Logger.getLogger(DeadLetterEventHandler.class);
 
-  @Inject DeadLetterQueue deadLetterQueue;
+  private final DeadLetterQueue deadLetterQueue;
 
-  @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED)
+  public DeadLetterEventHandler(DeadLetterQueue deadLetterQueue) {
+    this.deadLetterQueue = deadLetterQueue;
+  }
+
   public void onWorkerRetriesExhausted(WorkerRetriesExhaustedEvent event) {
     LOG.infof(
         "Routing exhausted worker to DLQ: caseId=%s, workerId=%s",

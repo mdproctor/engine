@@ -16,7 +16,6 @@
 package io.casehub.resilience.deadletter;
 
 import io.casehub.api.model.RetryState;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -31,7 +30,6 @@ import java.util.stream.Collectors;
  * <p>Thread-safe. Current implementation is in-memory; a persistent-storage hook (Redis, Hibernate)
  * can be added by providing an alternative CDI bean.
  */
-@ApplicationScoped
 public class DeadLetterQueue {
 
   private final Map<String, DeadLetterEntry> store = new ConcurrentHashMap<>();

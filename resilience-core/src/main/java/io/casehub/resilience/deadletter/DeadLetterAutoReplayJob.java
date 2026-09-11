@@ -15,14 +15,10 @@
  */
 package io.casehub.resilience.deadletter;
 
-import io.quarkus.scheduler.Scheduled;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
@@ -39,37 +35,28 @@ import org.jboss.logging.Logger;
  *   <li>{@code casehub.dlq.auto-replay.max-attempts} (default: 3)
  * </ul>
  */
-@ApplicationScoped
 public class DeadLetterAutoReplayJob {
 
   private static final Logger LOG = Logger.getLogger(DeadLetterAutoReplayJob.class);
 
-  @Inject DeadLetterQueue deadLetterQueue;
-  @Inject DeadLetterReplayService replayService;
+  private final DeadLetterQueue deadLetterQueue;
+  private final DeadLetterReplayService replayService;
+  private final boolean enabled;
+  private final int maxAttempts;
+  private final List<Duration> delays;
 
-  @ConfigProperty(name = "casehub.dlq.auto-replay.enabled", defaultValue = "false")
-  boolean enabled;
-
-  @ConfigProperty(name = "casehub.dlq.auto-replay.max-attempts", defaultValue = "3")
-  int maxAttempts;
-
-  @ConfigProperty(name = "casehub.dlq.auto-replay.delays", defaultValue = "PT30M,PT2H,PT8H")
-  List<Duration> delays;
-
-  /** Non-CDI constructor for unit tests. */
-  DeadLetterAutoReplayJob(
+  public DeadLetterAutoReplayJob(
       DeadLetterQueue deadLetterQueue,
       DeadLetterReplayService replayService,
+      boolean enabled,
       int maxAttempts,
       List<Duration> delays) {
     this.deadLetterQueue = deadLetterQueue;
     this.replayService = replayService;
+    this.enabled = enabled;
     this.maxAttempts = maxAttempts;
     this.delays = delays;
   }
-
-  /** Required by CDI. */
-  DeadLetterAutoReplayJob() {}
 
   /**
    * Scheduled scan. Iterates all PENDING_REVIEW dead-letter entries and replays those that are
@@ -78,7 +65,6 @@ public class DeadLetterAutoReplayJob {
    * <p>Runs at the interval configured via {@code casehub.dlq.auto-replay.interval} (default 30m).
    * The scan is a no-op when {@code casehub.dlq.auto-replay.enabled=false}.
    */
-  @Scheduled(every = "${casehub.dlq.auto-replay.interval:PT30M}")
   public void scan() {
     if (!enabled) {
       return;

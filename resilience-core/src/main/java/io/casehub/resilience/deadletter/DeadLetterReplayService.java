@@ -18,19 +18,15 @@ package io.casehub.resilience.deadletter;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -41,7 +37,6 @@ import org.jboss.logging.Logger;
  * a fresh {@link WorkerScheduleEvent}. Returns empty if the entry cannot be replayed (not found,
  * wrong status, EventLog missing, case terminal, definition missing).
  */
-@ApplicationScoped
 public class DeadLetterReplayService {
 
   private static final Logger LOG = Logger.getLogger(DeadLetterReplayService.class);
@@ -50,20 +45,19 @@ public class DeadLetterReplayService {
   private final CrossTenantEventLogRepository eventLogRepository;
   private final CrossTenantCaseInstanceRepository caseInstanceRepository;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
 
-  @Inject
   public DeadLetterReplayService(
       DeadLetterQueue deadLetterQueue,
-      @CrossTenant CrossTenantEventLogRepository eventLogRepository,
-      @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository,
+      CrossTenantEventLogRepository eventLogRepository,
+      CrossTenantCaseInstanceRepository caseInstanceRepository,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      EventBus eventBus) {
+      EventDispatcher eventDispatcher) {
     this.deadLetterQueue = deadLetterQueue;
     this.eventLogRepository = eventLogRepository;
     this.caseInstanceRepository = caseInstanceRepository;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
   }
 
   /**
@@ -178,9 +172,7 @@ public class DeadLetterReplayService {
       return Optional.empty();
     }
 
-    eventBus.publish(
-        EventBusAddresses.WORKER_SCHEDULE,
-        new WorkerScheduleEvent(caseInstance, worker, capability));
+    eventDispatcher.dispatch(new WorkerScheduleEvent(caseInstance, worker, capability));
 
     entry.incrementReplayAttempts();
     deadLetterQueue.markReplayed(entry.deadLetterId());

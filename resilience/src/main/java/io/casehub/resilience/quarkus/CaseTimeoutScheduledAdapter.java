@@ -13,24 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.resilience.poison;
+package io.casehub.resilience.quarkus;
 
-import io.casehub.api.spi.WorkerExecutionGuard;
-import java.util.UUID;
+import io.casehub.resilience.timeout.CaseTimeoutEnforcer;
+import io.quarkus.scheduler.Scheduled;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
-/**
- * {@link WorkerExecutionGuard} that blocks workers quarantined by the {@link PoisonPillDetector}.
- */
-public class PoisonPillWorkerExecutionGuard implements WorkerExecutionGuard {
+@ApplicationScoped
+public class CaseTimeoutScheduledAdapter {
 
-  private final PoisonPillDetector detector;
+  @Inject CaseTimeoutEnforcer enforcer;
 
-  public PoisonPillWorkerExecutionGuard(PoisonPillDetector detector) {
-    this.detector = detector;
-  }
-
-  @Override
-  public boolean isBlocked(String workerId, UUID caseId) {
-    return detector.isQuarantined(workerId);
+  @Scheduled(every = "${casehub.resilience.timeout.check-interval:1s}")
+  void scanForTimeouts() {
+    enforcer.scanForTimeouts();
   }
 }

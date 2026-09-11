@@ -15,10 +15,7 @@
  */
 package io.casehub.resilience.conflict;
 
-import jakarta.enterprise.context.ApplicationScoped;
-
 /** Default ConflictResolver — incoming value always wins. See casehubio/engine#45, #51. */
-@ApplicationScoped
 public class LastWriterWinsConflictResolver implements ConflictResolver {
 
   @Override

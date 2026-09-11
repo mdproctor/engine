@@ -15,7 +15,6 @@
  */
 package io.casehub.resilience.poison;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayDeque;
@@ -24,7 +23,6 @@ import java.util.Deque;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
 /**
@@ -37,7 +35,6 @@ import org.jboss.logging.Logger;
  *
  * <p>Thread-safe. All state is in-memory.
  */
-@ApplicationScoped
 public class PoisonPillDetector {
 
   private static final Logger LOG = Logger.getLogger(PoisonPillDetector.class);
@@ -52,14 +49,8 @@ public class PoisonPillDetector {
   /** Quarantine expiry times per worker. Absent = not quarantined. */
   private final Map<String, Instant> quarantinedUntil = new ConcurrentHashMap<>();
 
-  /** CDI no-arg constructor using config properties. */
-  PoisonPillDetector(
-      @ConfigProperty(name = "casehub.resilience.poison-pill.threshold", defaultValue = "5")
-          int failureThreshold,
-      @ConfigProperty(name = "casehub.resilience.poison-pill.window", defaultValue = "PT10M")
-          Duration failureWindow,
-      @ConfigProperty(name = "casehub.resilience.poison-pill.quarantine", defaultValue = "PT30M")
-          Duration quarantineDuration) {
+  public PoisonPillDetector(
+      int failureThreshold, Duration failureWindow, Duration quarantineDuration) {
     this.failureThreshold = failureThreshold;
     this.failureWindow = failureWindow;
     this.quarantineDuration = quarantineDuration;
