@@ -35,16 +35,17 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.PlanItemStore;
-import io.casehub.engine.internal.routing.EngineStrategyResolver;
 import io.casehub.engine.internal.routing.GoalAbandonmentEvaluator;
 import io.casehub.engine.plan.DagPlan;
 import io.casehub.engine.plan.DecompositionStrategy;
 import io.casehub.engine.plan.PlanningConstraints;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +56,7 @@ class DefaultGoalDecomposerTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private DefaultGoalDecomposer decomposer;
-  private EngineStrategyResolver strategyResolver;
+  private StrategyResolver strategyResolver;
   private GoalAbandonmentEvaluator abandonmentEvaluator;
   private BlackboardRegistry blackboardRegistry;
   private PlanItemStore planItemStore;
@@ -63,25 +64,21 @@ class DefaultGoalDecomposerTest {
 
   @BeforeEach
   void setUp() {
-    decomposer = new DefaultGoalDecomposer();
-    strategyResolver = mock(EngineStrategyResolver.class);
+    strategyResolver = mock(StrategyResolver.class);
     abandonmentEvaluator = mock(GoalAbandonmentEvaluator.class);
     blackboardRegistry = mock(BlackboardRegistry.class);
     planItemStore = mock(PlanItemStore.class);
     eventLogRepository = mock(EventLogRepository.class);
 
-    setField(decomposer, "strategyResolver", strategyResolver);
-    setField(decomposer, "abandonmentEvaluator", abandonmentEvaluator);
-    setField(decomposer, "blackboardRegistry", blackboardRegistry);
-    setField(decomposer, "planItemStore", planItemStore);
-    setField(decomposer, "eventLogRepository", eventLogRepository);
-    setField(decomposer, "timeoutMs", 30000L);
-
-    @SuppressWarnings("unchecked")
-    jakarta.enterprise.inject.Instance<io.casehub.engine.internal.routing.CbrRetrievalService>
-        cbrInstance = mock(jakarta.enterprise.inject.Instance.class);
-    when(cbrInstance.isResolvable()).thenReturn(false);
-    setField(decomposer, "cbrRetrievalServiceInstance", cbrInstance);
+    decomposer =
+        new DefaultGoalDecomposer(
+            strategyResolver,
+            abandonmentEvaluator,
+            blackboardRegistry,
+            planItemStore,
+            eventLogRepository,
+            Optional.empty(),
+            30000L);
   }
 
   @Test
@@ -440,16 +437,6 @@ class DefaultGoalDecomposerTest {
       var field = CaseDefinition.class.getDeclaredField("agentDescriptors");
       field.setAccessible(true);
       field.set(definition, descriptors);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private static void setField(Object target, String fieldName, Object value) {
-    try {
-      var field = target.getClass().getDeclaredField(fieldName);
-      field.setAccessible(true);
-      field.set(target, value);
     } catch (Exception e) {
       throw new RuntimeException(e);
     }

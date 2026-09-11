@@ -29,15 +29,14 @@ import io.casehub.api.spi.routing.ImplementationRoutingStrategy;
 import io.casehub.api.spi.routing.ImplementationSelection;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,7 +44,6 @@ import org.junit.jupiter.api.Test;
  * Tests for {@link ImplementationRoutingStrategy} integration in {@link
  * PlanningStrategyLoopControl}. Refs casehubio/engine#476.
  */
-@SuppressWarnings("unchecked")
 class ImplementationRoutingTest {
 
   private BlackboardRegistry registry;
@@ -56,15 +54,11 @@ class ImplementationRoutingTest {
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
     ChoreographyStrategy strategy = new ChoreographyStrategy();
-    @SuppressWarnings("unchecked")
-    Instance<PlanningStrategy> strategyBeans = mock(Instance.class);
     List<PlanningStrategy> strategyList = List.of(strategy);
-    when(strategyBeans.spliterator()).thenAnswer(inv -> strategyList.spliterator());
 
-    Instance<BlackboardPlanConfigurer> emptyConfigurers = mock(Instance.class);
-    when(emptyConfigurers.stream()).thenReturn(Stream.empty());
+    List<BlackboardPlanConfigurer> emptyConfigurers = List.of();
 
     routingStrategy = mock(ImplementationRoutingStrategy.class);
 

@@ -23,6 +23,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -31,7 +32,7 @@ class CaseEvictionHandlerTest {
 
   @Test
   void evicts_plan_model_on_completed_status() {
-    BlackboardRegistry registry = new BlackboardRegistry();
+    BlackboardRegistry registry = new BlackboardRegistry(new NoOpPlanItemStore());
     UUID caseId = UUID.randomUUID();
     registry.getOrCreate(caseId, "test-tenant");
 
@@ -47,7 +48,7 @@ class CaseEvictionHandlerTest {
 
   @Test
   void evicts_on_faulted_status() {
-    BlackboardRegistry registry = new BlackboardRegistry();
+    BlackboardRegistry registry = new BlackboardRegistry(new NoOpPlanItemStore());
     UUID caseId = UUID.randomUUID();
     registry.getOrCreate(caseId, "test-tenant");
     CaseEvictionHandler handler = new CaseEvictionHandler(registry);
@@ -62,7 +63,7 @@ class CaseEvictionHandlerTest {
 
   @Test
   void evicts_on_cancelled_status() {
-    BlackboardRegistry registry = new BlackboardRegistry();
+    BlackboardRegistry registry = new BlackboardRegistry(new NoOpPlanItemStore());
     UUID caseId = UUID.randomUUID();
     registry.getOrCreate(caseId, "test-tenant");
     CaseEvictionHandler handler = new CaseEvictionHandler(registry);
@@ -77,7 +78,7 @@ class CaseEvictionHandlerTest {
 
   @Test
   void does_not_evict_on_running_status() {
-    BlackboardRegistry registry = new BlackboardRegistry();
+    BlackboardRegistry registry = new BlackboardRegistry(new NoOpPlanItemStore());
     UUID caseId = UUID.randomUUID();
     registry.getOrCreate(caseId, "test-tenant");
     CaseEvictionHandler handler = new CaseEvictionHandler(registry);
@@ -92,7 +93,7 @@ class CaseEvictionHandlerTest {
 
   @Test
   void no_plan_model_does_not_throw() {
-    BlackboardRegistry registry = new BlackboardRegistry();
+    BlackboardRegistry registry = new BlackboardRegistry(new NoOpPlanItemStore());
     CaseEvictionHandler handler = new CaseEvictionHandler(registry);
     CaseInstance instance = mock(CaseInstance.class);
     when(instance.getUuid()).thenReturn(UUID.randomUUID());

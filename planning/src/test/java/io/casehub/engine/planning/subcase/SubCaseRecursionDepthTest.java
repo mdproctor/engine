@@ -41,6 +41,7 @@ import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +60,7 @@ class SubCaseRecursionDepthTest {
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
     caseHubRuntime = mock(CaseHubRuntime.class);
     CaseDefinitionRegistry definitionRegistry = mock(CaseDefinitionRegistry.class);
     CaseInstanceRepository instanceRepository = mock(CaseInstanceRepository.class);

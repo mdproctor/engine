@@ -17,13 +17,14 @@ package io.casehub.engine.planning.adaptation;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class ForwardReplanRevisionTest {
 
   @Test
   void idIsForwardReplan() {
-    assertEquals("forward-replan", new ForwardReplanRevision().id());
+    assertEquals("forward-replan", new ForwardReplanRevision(Optional.empty()).id());
   }
 
   @Test
@@ -61,14 +62,7 @@ class ForwardReplanRevisionTest {
           }
         };
 
-    var revision = new ForwardReplanRevision();
-    try {
-      var field = ForwardReplanRevision.class.getDeclaredField("chatModelProviders");
-      field.setAccessible(true);
-      field.set(revision, satisfiedInstance(provider));
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    var revision = new ForwardReplanRevision(Optional.of(provider));
 
     var constraints =
         new io.casehub.engine.plan.PlanningConstraints(
@@ -152,14 +146,7 @@ class ForwardReplanRevisionTest {
           }
         };
 
-    var revision = new ForwardReplanRevision();
-    try {
-      var field = ForwardReplanRevision.class.getDeclaredField("chatModelProviders");
-      field.setAccessible(true);
-      field.set(revision, satisfiedInstance(provider));
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    var revision = new ForwardReplanRevision(Optional.of(provider));
 
     var contextNode = new com.fasterxml.jackson.databind.ObjectMapper().createObjectNode();
     var diagnostics = contextNode.putObject("_diagnostics");
@@ -241,14 +228,7 @@ class ForwardReplanRevisionTest {
           }
         };
 
-    var revision = new ForwardReplanRevision();
-    try {
-      var field = ForwardReplanRevision.class.getDeclaredField("chatModelProviders");
-      field.setAccessible(true);
-      field.set(revision, satisfiedInstance(provider));
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    var revision = new ForwardReplanRevision(Optional.of(provider));
 
     var definition =
         io.casehub.api.model.CaseDefinition.builder()
@@ -287,75 +267,5 @@ class ForwardReplanRevisionTest {
 
     org.assertj.core.api.Assertions.assertThat(capturedPrompt.get())
         .doesNotContain("Failure analysis");
-  }
-
-  @SuppressWarnings("unchecked")
-  private static jakarta.enterprise.inject.Instance<io.casehub.api.model.ai.ChatModelProvider>
-      satisfiedInstance(io.casehub.api.model.ai.ChatModelProvider provider) {
-    return new jakarta.enterprise.inject.Instance<>() {
-      @Override
-      public io.casehub.api.model.ai.ChatModelProvider get() {
-        return provider;
-      }
-
-      @Override
-      public boolean isUnsatisfied() {
-        return false;
-      }
-
-      @Override
-      public boolean isResolvable() {
-        return true;
-      }
-
-      @Override
-      public boolean isAmbiguous() {
-        return false;
-      }
-
-      @Override
-      public jakarta.enterprise.inject.Instance<io.casehub.api.model.ai.ChatModelProvider> select(
-          java.lang.annotation.Annotation... qualifiers) {
-        return this;
-      }
-
-      @Override
-      public <U extends io.casehub.api.model.ai.ChatModelProvider>
-          jakarta.enterprise.inject.Instance<U> select(
-              Class<U> subtype, java.lang.annotation.Annotation... qualifiers) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public <U extends io.casehub.api.model.ai.ChatModelProvider>
-          jakarta.enterprise.inject.Instance<U> select(
-              jakarta.enterprise.util.TypeLiteral<U> subtype,
-              java.lang.annotation.Annotation... qualifiers) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void destroy(io.casehub.api.model.ai.ChatModelProvider instance) {}
-
-      @Override
-      public jakarta.enterprise.inject.Instance.Handle<io.casehub.api.model.ai.ChatModelProvider>
-          getHandle() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public Iterable<
-              ? extends
-                  jakarta.enterprise.inject.Instance.Handle<
-                      io.casehub.api.model.ai.ChatModelProvider>>
-          handles() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public java.util.Iterator<io.casehub.api.model.ai.ChatModelProvider> iterator() {
-        return java.util.List.of(provider).iterator();
-      }
-    };
   }
 }

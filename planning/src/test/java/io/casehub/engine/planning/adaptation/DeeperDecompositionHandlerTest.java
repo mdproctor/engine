@@ -36,7 +36,6 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.PlanItemStore;
-import io.casehub.engine.internal.routing.EngineStrategyResolver;
 import io.casehub.engine.plan.DagNode;
 import io.casehub.engine.plan.DagPlan;
 import io.casehub.engine.plan.DecompositionStrategy;
@@ -47,10 +46,11 @@ import io.casehub.engine.planning.plan.CompletionSemantics;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
-import jakarta.enterprise.inject.Instance;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,7 +62,7 @@ class DeeperDecompositionHandlerTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private DeeperDecompositionHandler handler;
-  private EngineStrategyResolver strategyResolver;
+  private StrategyResolver strategyResolver;
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private PlanItemStore planItemStore;
   private EventLogRepository eventLogRepository;
@@ -72,22 +72,20 @@ class DeeperDecompositionHandlerTest {
   @BeforeEach
   @SuppressWarnings("unchecked")
   void setUp() {
-    handler = new DeeperDecompositionHandler();
-    strategyResolver = mock(EngineStrategyResolver.class);
+    strategyResolver = mock(StrategyResolver.class);
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
     planItemStore = mock(PlanItemStore.class);
     eventLogRepository = mock(EventLogRepository.class);
     definition = mock(CaseDefinition.class);
     decompositionStrategy = mock(DecompositionStrategy.class);
 
-    setField(handler, "strategyResolver", strategyResolver);
-    setField(handler, "caseDefinitionRegistry", caseDefinitionRegistry);
-    setField(handler, "planItemStore", planItemStore);
-    setField(handler, "eventLogRepository", eventLogRepository);
-
-    Instance<?> cbrInstance = mock(Instance.class);
-    when(cbrInstance.isResolvable()).thenReturn(false);
-    setField(handler, "cbrRetrievalServiceInstance", cbrInstance);
+    handler =
+        new DeeperDecompositionHandler(
+            strategyResolver,
+            caseDefinitionRegistry,
+            planItemStore,
+            eventLogRepository,
+            Optional.empty());
   }
 
   @Test
@@ -282,15 +280,5 @@ class DeeperDecompositionHandlerTest {
     item.tryMarkRunning();
     plan.addPlanItem(item);
     return item;
-  }
-
-  private static void setField(Object target, String fieldName, Object value) {
-    try {
-      var field = target.getClass().getDeclaredField(fieldName);
-      field.setAccessible(true);
-      field.set(target, value);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to set field " + fieldName, e);
-    }
   }
 }

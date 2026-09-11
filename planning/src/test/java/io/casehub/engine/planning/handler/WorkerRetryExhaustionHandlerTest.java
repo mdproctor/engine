@@ -27,9 +27,10 @@ import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.event.Event;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -45,27 +46,22 @@ import org.junit.jupiter.api.Test;
 class WorkerRetryExhaustionHandlerTest {
 
   private BlackboardRegistry registry;
-  private EventBus eventBus;
-  private Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
+
+  @SuppressWarnings("unchecked")
+  private Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents = mock(Consumer.class);
+
   private CompoundCompletionEvaluator compoundCompletionEvaluator;
   private WorkerRetryExhaustionHandler handler;
   private UUID caseId;
   private DefaultCasePlanModel plan;
 
-  @SuppressWarnings("unchecked")
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
-    eventBus = mock(EventBus.class);
-    planItemStateChangedEvents = mock(Event.class);
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
     compoundCompletionEvaluator = mock(CompoundCompletionEvaluator.class);
-    @SuppressWarnings("unchecked")
-    jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.PlanAdaptationEvaluator>
-        mockAdaptation = mock(jakarta.enterprise.inject.Instance.class);
-    org.mockito.Mockito.when(mockAdaptation.isResolvable()).thenReturn(false);
     handler =
         new WorkerRetryExhaustionHandler(
-            registry, compoundCompletionEvaluator, planItemStateChangedEvents, mockAdaptation);
+            registry, compoundCompletionEvaluator, planItemStateChangedEvents, Optional.empty());
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
@@ -175,7 +171,7 @@ class WorkerRetryExhaustionHandlerTest {
 
     // Assert: PlanItemFaultedEvent fired via CDI
     verify(planItemStateChangedEvents)
-        .fireAsync(
+        .accept(
             new PlanItemStateChangedEvent(
                 caseId,
                 item.id(),

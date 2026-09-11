@@ -31,11 +31,10 @@ import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
 import io.casehub.platform.api.identity.TenancyConstants;
-import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -51,11 +50,9 @@ import org.junit.jupiter.api.Test;
  *   <li>Hybrid — some stages gate specific bindings; others don't
  * </ul>
  *
- * <p>The {@link PlanningStrategyLoopControl} is constructed directly (no CDI). The {@code
- * Instance<BlackboardPlanConfigurer>} dependency is mocked to return an empty stream, mirroring the
- * no-configurer case. See casehubio/engine#76.
+ * <p>The {@link PlanningStrategyLoopControl} is constructed directly (no CDI). An empty configurer
+ * list mirrors the no-configurer case. See casehubio/engine#76.
  */
-@SuppressWarnings("unchecked")
 class BindingGatingTest {
 
   private BlackboardRegistry registry;
@@ -65,20 +62,14 @@ class BindingGatingTest {
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
 
     // DefaultPlanningStrategy passes all eligible bindings through unchanged.
     ChoreographyStrategy strategy = new ChoreographyStrategy();
 
-    // Mock Instance<PlanningStrategy> returning the default strategy
-    @SuppressWarnings("unchecked")
-    Instance<PlanningStrategy> strategyBeans = mock(Instance.class);
     List<PlanningStrategy> strategyList = List.of(strategy);
-    when(strategyBeans.spliterator()).thenAnswer(inv -> strategyList.spliterator());
 
-    // Mock an empty Instance<BlackboardPlanConfigurer> — no configurers needed for gating tests.
-    Instance<BlackboardPlanConfigurer> emptyConfigurers = mock(Instance.class);
-    when(emptyConfigurers.stream()).thenReturn(Stream.empty());
+    List<BlackboardPlanConfigurer> emptyConfigurers = List.of();
 
     loopControl =
         new PlanningStrategyLoopControl(

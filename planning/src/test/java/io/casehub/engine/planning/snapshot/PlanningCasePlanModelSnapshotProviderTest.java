@@ -24,6 +24,7 @@ import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -35,7 +36,7 @@ class PlanningCasePlanModelSnapshotProviderTest {
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
     provider = new PlanningCasePlanModelSnapshotProvider(registry);
   }
 

@@ -20,39 +20,27 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.TaskStatus;
-import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.engine.plan.adaptation.AdaptationCause;
 import io.casehub.engine.plan.adaptation.AdaptationContext;
 import io.casehub.engine.plan.adaptation.RepairStrategy;
 import io.casehub.engine.plan.adaptation.RevisionContext;
-import jakarta.enterprise.inject.Instance;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class LlmRepairStrategyTest {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @SuppressWarnings("unchecked")
-  private Instance<ChatModelProvider> chatModelProviders = mock(Instance.class);
-
-  @BeforeEach
-  void setUp() {
-    chatModelProviders = mock(Instance.class);
-  }
-
   @Test
   void idReturnsLlmRepair() {
-    when(chatModelProviders.isUnsatisfied()).thenReturn(true);
-    var strategy = new LlmRepairStrategy(chatModelProviders);
+    var strategy = new LlmRepairStrategy(Optional.empty());
     assertEquals("llm-repair", strategy.id());
   }
 
@@ -63,8 +51,7 @@ class LlmRepairStrategyTest {
 
   @Test
   void throwsWhenNoChatModelProvider() {
-    when(chatModelProviders.isUnsatisfied()).thenReturn(true);
-    var strategy = new LlmRepairStrategy(chatModelProviders);
+    var strategy = new LlmRepairStrategy(Optional.empty());
 
     ObjectNode context = MAPPER.createObjectNode();
     var definition = mock(CaseDefinition.class);

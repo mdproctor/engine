@@ -29,8 +29,8 @@ import io.casehub.api.model.ai.ChatModelProvider;
 import io.casehub.api.model.ai.ModelType;
 import io.casehub.engine.plan.TaskNode;
 import io.casehub.worker.api.Capability;
-import jakarta.enterprise.inject.Instance;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 class LlmDecompositionStrategyTest {
@@ -69,8 +69,7 @@ class LlmDecompositionStrategyTest {
 
   @Test
   void failsWhenChatModelProviderAbsent() {
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", unsatisfiedInstance());
+    var strategy = new LlmDecompositionStrategy(Optional.empty());
     var context = new GoalDecompositionContext(MAPPER.createObjectNode(), 0, List.of());
     var task = new TaskNode.CompoundTask<JsonNode>("goal-1", "goal-1", List.of());
 
@@ -129,8 +128,7 @@ class LlmDecompositionStrategyTest {
           }
         };
 
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+    var strategy = new LlmDecompositionStrategy(Optional.of(provider));
 
     var constraints =
         io.casehub.engine.plan.PlanningConstraints.of(java.time.Duration.ofMinutes(30), 3);
@@ -177,8 +175,7 @@ class LlmDecompositionStrategyTest {
           }
         };
 
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+    var strategy = new LlmDecompositionStrategy(Optional.of(provider));
 
     var constraints =
         new io.casehub.engine.plan.PlanningConstraints(
@@ -226,8 +223,7 @@ class LlmDecompositionStrategyTest {
           }
         };
 
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+    var strategy = new LlmDecompositionStrategy(Optional.of(provider));
 
     var constraints =
         new io.casehub.engine.plan.PlanningConstraints(
@@ -275,8 +271,7 @@ class LlmDecompositionStrategyTest {
           }
         };
 
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+    var strategy = new LlmDecompositionStrategy(Optional.of(provider));
 
     var constraints =
         new io.casehub.engine.plan.PlanningConstraints(
@@ -324,8 +319,7 @@ class LlmDecompositionStrategyTest {
           }
         };
 
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+    var strategy = new LlmDecompositionStrategy(Optional.of(provider));
 
     var context =
         new GoalDecompositionContext(
@@ -373,8 +367,7 @@ class LlmDecompositionStrategyTest {
           }
         };
 
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+    var strategy = new LlmDecompositionStrategy(Optional.of(provider));
 
     var completed =
         List.of(
@@ -403,8 +396,7 @@ class LlmDecompositionStrategyTest {
 
   @Test
   void replanFailsWhenChatModelAbsent() {
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", unsatisfiedInstance());
+    var strategy = new LlmDecompositionStrategy(Optional.empty());
 
     var failed = new io.casehub.engine.plan.ReplanContext.FailedStep("s1", "err", null, 0);
     var replanCtx = new io.casehub.engine.plan.ReplanContext<JsonNode>(List.of(), failed, null, 0);
@@ -509,140 +501,7 @@ class LlmDecompositionStrategyTest {
           }
         };
 
-    var strategy = new LlmDecompositionStrategy();
-    setField(strategy, "chatModelProviders", satisfiedInstance(provider));
+    var strategy = new LlmDecompositionStrategy(Optional.of(provider));
     return strategy;
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Instance<ChatModelProvider> satisfiedInstance(ChatModelProvider provider) {
-    return new Instance<>() {
-      @Override
-      public ChatModelProvider get() {
-        return provider;
-      }
-
-      @Override
-      public boolean isUnsatisfied() {
-        return false;
-      }
-
-      @Override
-      public boolean isResolvable() {
-        return true;
-      }
-
-      @Override
-      public boolean isAmbiguous() {
-        return false;
-      }
-
-      @Override
-      public Instance<ChatModelProvider> select(java.lang.annotation.Annotation... qualifiers) {
-        return this;
-      }
-
-      @Override
-      public <U extends ChatModelProvider> Instance<U> select(
-          Class<U> subtype, java.lang.annotation.Annotation... qualifiers) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public <U extends ChatModelProvider> Instance<U> select(
-          jakarta.enterprise.util.TypeLiteral<U> subtype,
-          java.lang.annotation.Annotation... qualifiers) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void destroy(ChatModelProvider instance) {}
-
-      @Override
-      public Handle<ChatModelProvider> getHandle() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public Iterable<? extends Handle<ChatModelProvider>> handles() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public java.util.Iterator<ChatModelProvider> iterator() {
-        return List.of(provider).iterator();
-      }
-    };
-  }
-
-  @SuppressWarnings("unchecked")
-  private static Instance<ChatModelProvider> unsatisfiedInstance() {
-    return new Instance<>() {
-      @Override
-      public ChatModelProvider get() {
-        throw new IllegalStateException("unsatisfied");
-      }
-
-      @Override
-      public boolean isUnsatisfied() {
-        return true;
-      }
-
-      @Override
-      public boolean isResolvable() {
-        return false;
-      }
-
-      @Override
-      public boolean isAmbiguous() {
-        return false;
-      }
-
-      @Override
-      public Instance<ChatModelProvider> select(java.lang.annotation.Annotation... qualifiers) {
-        return this;
-      }
-
-      @Override
-      public <U extends ChatModelProvider> Instance<U> select(
-          Class<U> subtype, java.lang.annotation.Annotation... qualifiers) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public <U extends ChatModelProvider> Instance<U> select(
-          jakarta.enterprise.util.TypeLiteral<U> subtype,
-          java.lang.annotation.Annotation... qualifiers) {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public void destroy(ChatModelProvider instance) {}
-
-      @Override
-      public Handle<ChatModelProvider> getHandle() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public Iterable<? extends Handle<ChatModelProvider>> handles() {
-        throw new UnsupportedOperationException();
-      }
-
-      @Override
-      public java.util.Iterator<ChatModelProvider> iterator() {
-        return List.<ChatModelProvider>of().iterator();
-      }
-    };
-  }
-
-  private static void setField(Object target, String fieldName, Object value) {
-    try {
-      var field = target.getClass().getDeclaredField(fieldName);
-      field.setAccessible(true);
-      field.set(target, value);
-    } catch (Exception e) {
-      throw new RuntimeException("Failed to set field " + fieldName, e);
-    }
   }
 }

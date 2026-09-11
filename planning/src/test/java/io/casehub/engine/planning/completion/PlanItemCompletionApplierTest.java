@@ -29,6 +29,7 @@ import io.casehub.api.context.ContextLayer;
 import io.casehub.api.context.WritableLayer;
 import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
@@ -41,11 +42,10 @@ import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.event.Event;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -54,9 +54,11 @@ class PlanItemCompletionApplierTest {
   private PlanItemCompletionApplier applier;
   private BlackboardRegistry registry;
   private CrossTenantCaseInstanceRepository caseInstanceRepository;
-  private EventBus eventBus;
-  private Event<PlanItemStateChangedEvent> stateChangedEvents;
-  private Event<PlanItemObsoleteEvent> obsoleteEvents;
+  private EventDispatcher eventDispatcher;
+
+  private Consumer<PlanItemStateChangedEvent> stateChangedEvents;
+  private Consumer<PlanItemObsoleteEvent> obsoleteEvents;
+  private JQEvaluator jqEvaluator;
 
   private static final UUID CASE_ID = UUID.randomUUID();
   private static final String PLAN_ITEM_ID = "pi-001";
@@ -67,19 +69,21 @@ class PlanItemCompletionApplierTest {
   void setUp() {
     registry = mock(BlackboardRegistry.class);
     caseInstanceRepository = mock(CrossTenantCaseInstanceRepository.class);
-    eventBus = mock(EventBus.class);
-    stateChangedEvents = mock(Event.class);
-    obsoleteEvents = mock(Event.class);
+    eventDispatcher = mock(EventDispatcher.class);
+    stateChangedEvents = mock(Consumer.class);
+    obsoleteEvents = mock(Consumer.class);
+    jqEvaluator = mock(JQEvaluator.class);
 
-    applier = new PlanItemCompletionApplier();
-    applier.registry = registry;
-    applier.caseInstanceRepository = caseInstanceRepository;
-    applier.eventBus = eventBus;
-    applier.jqEvaluator = mock(JQEvaluator.class);
-    applier.bridgeResolver = mock(BridgeResolver.class);
-    applier.caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
-    applier.planItemStateChangedEvents = stateChangedEvents;
-    applier.planItemObsoleteEvents = obsoleteEvents;
+    applier =
+        new PlanItemCompletionApplier(
+            registry,
+            caseInstanceRepository,
+            eventDispatcher,
+            jqEvaluator,
+            mock(BridgeResolver.class),
+            mock(CaseDefinitionRegistry.class),
+            stateChangedEvents,
+            obsoleteEvents);
   }
 
   @Test
@@ -90,7 +94,7 @@ class PlanItemCompletionApplierTest {
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.COMPLETED, null, null);
 
     verify(item).markCompleted();
-    verify(eventBus).publish(eq("casehub.context.changed"), any(CaseContextChangedEvent.class));
+    verify(eventDispatcher).dispatch(any(CaseContextChangedEvent.class));
   }
 
   @Test
@@ -101,8 +105,8 @@ class PlanItemCompletionApplierTest {
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.REJECTED, null, null);
 
     verify(item).markRejected();
-    verify(stateChangedEvents).fireAsync(any(PlanItemStateChangedEvent.class));
-    verify(eventBus).publish(eq("casehub.context.changed"), any(CaseContextChangedEvent.class));
+    verify(stateChangedEvents).accept(any(PlanItemStateChangedEvent.class));
+    verify(eventDispatcher).dispatch(any(CaseContextChangedEvent.class));
   }
 
   @Test
@@ -113,7 +117,7 @@ class PlanItemCompletionApplierTest {
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.FAULTED, null, null);
 
     verify(item).markFaulted();
-    verify(stateChangedEvents).fireAsync(any(PlanItemStateChangedEvent.class));
+    verify(stateChangedEvents).accept(any(PlanItemStateChangedEvent.class));
   }
 
   @Test
@@ -124,7 +128,7 @@ class PlanItemCompletionApplierTest {
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.OBSOLETE, null, null);
 
     verify(item).markObsolete();
-    verify(obsoleteEvents).fireAsync(any(PlanItemObsoleteEvent.class));
+    verify(obsoleteEvents).accept(any(PlanItemObsoleteEvent.class));
   }
 
   @Test
@@ -145,7 +149,7 @@ class PlanItemCompletionApplierTest {
 
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.COMPLETED, null, null);
 
-    verify(eventBus, never()).publish(any(), any(CaseContextChangedEvent.class));
+    verify(eventDispatcher, never()).dispatch(any(CaseContextChangedEvent.class));
   }
 
   @Test
@@ -154,7 +158,7 @@ class PlanItemCompletionApplierTest {
 
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.COMPLETED, null, null);
 
-    verify(eventBus, never()).publish(any(), any(CaseContextChangedEvent.class));
+    verify(eventDispatcher, never()).dispatch(any(CaseContextChangedEvent.class));
   }
 
   @Test
@@ -165,7 +169,7 @@ class PlanItemCompletionApplierTest {
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.COMPLETED, null, null);
 
     verify(item).markCompleted();
-    verify(eventBus, never()).publish(any(), any(CaseContextChangedEvent.class));
+    verify(eventDispatcher, never()).dispatch(any(CaseContextChangedEvent.class));
   }
 
   @Test
@@ -178,7 +182,7 @@ class PlanItemCompletionApplierTest {
 
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.COMPLETED, null, null);
 
-    verify(eventBus, never()).publish(any(), any(CaseContextChangedEvent.class));
+    verify(eventDispatcher, never()).dispatch(any(CaseContextChangedEvent.class));
   }
 
   @Test
@@ -224,14 +228,13 @@ class PlanItemCompletionApplierTest {
     ValidationResult vr = mock(ValidationResult.class);
     when(vr.ok()).thenReturn(true);
     when(vr.output()).thenReturn(List.of(mapper.createObjectNode().put("status", "RESOLVED")));
-    when(applier.jqEvaluator.eval(eq("{ status: \"RESOLVED\" }"), any(JsonNode.class)))
-        .thenReturn(vr);
+    when(jqEvaluator.eval(eq("{ status: \"RESOLVED\" }"), any(JsonNode.class))).thenReturn(vr);
 
     applier.apply(CASE_ID, PLAN_ITEM_ID, TaskStatus.COMPLETED, null, null);
 
     verify(item).markCompleted();
     verify(instance.getCaseContext()).set(eq("status"), eq("RESOLVED"));
-    verify(eventBus).publish(eq("casehub.context.changed"), any(CaseContextChangedEvent.class));
+    verify(eventDispatcher).dispatch(any(CaseContextChangedEvent.class));
   }
 
   private PlanItem mockPlanItem(TaskStatus status) {

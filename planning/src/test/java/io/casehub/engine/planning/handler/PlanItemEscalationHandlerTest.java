@@ -29,7 +29,9 @@ import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -39,8 +41,7 @@ class PlanItemEscalationHandlerTest {
   private BlackboardRegistry registry;
 
   @SuppressWarnings("unchecked")
-  private final jakarta.enterprise.event.Event<PlanItemStateChangedEvent> stateEvents =
-      mock(jakarta.enterprise.event.Event.class);
+  private final Consumer<PlanItemStateChangedEvent> stateEvents = mock(Consumer.class);
 
   private PlanItemEscalationHandler handler;
   private UUID caseId;
@@ -48,7 +49,7 @@ class PlanItemEscalationHandlerTest {
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
     handler = new PlanItemEscalationHandler(registry, stateEvents);
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
@@ -85,7 +86,7 @@ class PlanItemEscalationHandlerTest {
 
     ArgumentCaptor<PlanItemStateChangedEvent> captor =
         ArgumentCaptor.forClass(PlanItemStateChangedEvent.class);
-    verify(stateEvents).fireAsync(captor.capture());
+    verify(stateEvents).accept(captor.capture());
 
     PlanItemStateChangedEvent fired = captor.getValue();
     assertThat(fired.caseId()).isEqualTo(caseId);
@@ -105,7 +106,7 @@ class PlanItemEscalationHandlerTest {
     handler.onEscalation(escalationEvent("binding-a"));
 
     assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
-    verify(stateEvents, never()).fireAsync(any());
+    verify(stateEvents, never()).accept(any());
   }
 
   @Test
@@ -118,7 +119,7 @@ class PlanItemEscalationHandlerTest {
     handler.onEscalation(escalationEvent("binding-a"));
 
     assertThat(item.getStatus()).isEqualTo(TaskStatus.DELEGATED);
-    verify(stateEvents, never()).fireAsync(any());
+    verify(stateEvents, never()).accept(any());
   }
 
   @Test

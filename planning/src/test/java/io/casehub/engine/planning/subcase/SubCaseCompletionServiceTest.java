@@ -28,6 +28,7 @@ import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.event.CaseHubEventType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -38,16 +39,15 @@ import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
-import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.event.Event;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.concurrent.CompletionStage;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -60,15 +60,16 @@ class SubCaseCompletionServiceTest {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private BlackboardRegistry registry;
-  private EventBus mockBus;
+  private EventDispatcher mockDispatcher;
   private CaseResumptionService caseResumptionService;
   private CaseInstanceCache caseInstanceCache;
   private EventLogRepository eventLogRepository;
   private CaseHubRuntime caseHubRuntime;
   private SubCaseGroupRepository subCaseGroupRepository;
 
-  @SuppressWarnings("unchecked")
-  private Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents = mock(Event.class);
+  private final List<SubCaseGroupLifecycleEvent> capturedGroupEvents = new ArrayList<>();
+  private final Consumer<SubCaseGroupLifecycleEvent> groupLifecycleEvents =
+      capturedGroupEvents::add;
 
   private SubCaseCompletionService service;
 
@@ -77,8 +78,8 @@ class SubCaseCompletionServiceTest {
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
-    mockBus = mock(EventBus.class);
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
+    mockDispatcher = mock(EventDispatcher.class);
     caseResumptionService = mock(CaseResumptionService.class);
     caseInstanceCache = mock(CaseInstanceCache.class);
     eventLogRepository = mock(EventLogRepository.class);
@@ -86,7 +87,7 @@ class SubCaseCompletionServiceTest {
 
     subCaseGroupRepository = mock(SubCaseGroupRepository.class);
 
-    when(groupLifecycleEvents.fireAsync(any())).thenReturn(mock(CompletionStage.class));
+    capturedGroupEvents.clear();
 
     service =
         new SubCaseCompletionService(
@@ -96,7 +97,7 @@ class SubCaseCompletionServiceTest {
             caseResumptionService,
             subCaseGroupRepository,
             caseHubRuntime,
-            mockBus,
+            mockDispatcher,
             registry,
             groupLifecycleEvents,
             mock(io.casehub.engine.common.spi.CaseDefinitionRegistry.class),
@@ -135,10 +136,8 @@ class SubCaseCompletionServiceTest {
 
     service.handleCompletion(completionEvent(childCaseId));
 
-    verify(mockBus)
-        .publish(
-            eq(BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED),
-            eq(new SubCaseExecutionCompleted(parentCaseId, childCaseId, null)));
+    verify(mockDispatcher)
+        .dispatch(eq(new SubCaseExecutionCompleted(parentCaseId, childCaseId, null)));
   }
 
   @Test
@@ -166,8 +165,9 @@ class SubCaseCompletionServiceTest {
 
     service.handleCompletion(completionEvent(childCaseId));
 
-    verify(groupLifecycleEvents)
-        .fireAsync(
+    assertThat(capturedGroupEvents).hasSize(1);
+    assertThat(capturedGroupEvents.get(0))
+        .isEqualTo(
             new SubCaseGroupLifecycleEvent(
                 parentCaseId,
                 null,

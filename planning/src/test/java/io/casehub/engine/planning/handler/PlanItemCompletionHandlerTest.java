@@ -17,26 +17,26 @@ package io.casehub.engine.planning.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.TaskStatus;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,26 +44,22 @@ import org.junit.jupiter.api.Test;
 class PlanItemCompletionHandlerTest {
 
   private BlackboardRegistry registry;
-  private EventBus mockBus;
+  private EventDispatcher eventDispatcher;
   private PlanItemCompletionHandler handler;
   private UUID caseId;
   private DefaultCasePlanModel plan;
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
-    mockBus = mock(EventBus.class);
-    @SuppressWarnings("unchecked")
-    jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.PlanAdaptationEvaluator>
-        mockAdaptation = mock(jakarta.enterprise.inject.Instance.class);
-    when(mockAdaptation.isResolvable()).thenReturn(false);
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
+    eventDispatcher = mock(EventDispatcher.class);
     handler =
         new PlanItemCompletionHandler(
             registry,
-            mockBus,
-            mock(jakarta.enterprise.event.Event.class),
-            new CompoundCompletionEvaluator(mockBus),
-            mockAdaptation,
+            eventDispatcher,
+            e -> {},
+            new CompoundCompletionEvaluator(eventDispatcher),
+            Optional.empty(),
             new io.casehub.engine.internal.engine.QuiescenceTracker());
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
@@ -114,7 +110,7 @@ class PlanItemCompletionHandlerTest {
     handler.onWorkerFinished(eventFor("worker-a"));
 
     assertThat(plan.getDefinitionStatus(compound.id())).isEqualTo(TaskStatus.COMPLETED);
-    verify(mockBus).publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), any());
+    verify(eventDispatcher).dispatch(any());
   }
 
   @Test
@@ -218,7 +214,7 @@ class PlanItemCompletionHandlerTest {
     handler.onSubCaseFinished(new SubCaseExecutionCompleted(caseId, childCaseId, "test-tenant"));
 
     assertThat(plan.getDefinitionStatus(compound.id())).isEqualTo(TaskStatus.COMPLETED);
-    verify(mockBus).publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), any());
+    verify(eventDispatcher).dispatch(any());
   }
 
   @Test

@@ -16,10 +16,6 @@
 package io.casehub.engine.planning.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
@@ -35,12 +31,14 @@ import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import jakarta.enterprise.inject.Instance;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 class JudgmentPlanItemHandlerTest {
 
@@ -49,20 +47,17 @@ class JudgmentPlanItemHandlerTest {
   private JudgmentPlanItemHandler handler;
   private UUID caseId;
   private DefaultCasePlanModel plan;
-
-  @SuppressWarnings("unchecked")
-  private final jakarta.enterprise.event.Event<PlanItemStateChangedEvent> stateEvents =
-      mock(jakarta.enterprise.event.Event.class);
+  private final List<PlanItemStateChangedEvent> capturedStateEvents = new ArrayList<>();
+  private final Consumer<PlanItemStateChangedEvent> stateEvents = capturedStateEvents::add;
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
     scheduler = new RecordingScheduler();
-    handler = new JudgmentPlanItemHandler();
-    handler.registry = registry;
-    handler.caseDefinitionRegistry = stubDefinitionRegistry();
-    handler.judgmentScheduler = new SingletonInstance<>(scheduler);
-    handler.planItemStateChangedEvents = stateEvents;
+    capturedStateEvents.clear();
+    handler =
+        new JudgmentPlanItemHandler(
+            registry, stubDefinitionRegistry(), Optional.of(scheduler), stateEvents);
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }
@@ -96,10 +91,8 @@ class JudgmentPlanItemHandlerTest {
 
     handler.onReDispatch(reDispatchEvent("review-tx", "feedback"));
 
-    ArgumentCaptor<PlanItemStateChangedEvent> captor =
-        ArgumentCaptor.forClass(PlanItemStateChangedEvent.class);
-    verify(stateEvents).fireAsync(captor.capture());
-    PlanItemStateChangedEvent fired = captor.getValue();
+    assertThat(capturedStateEvents).hasSize(1);
+    PlanItemStateChangedEvent fired = capturedStateEvents.get(0);
     assertThat(fired.previousStatus()).isEqualTo(TaskStatus.DELEGATED);
     assertThat(fired.newStatus()).isEqualTo(TaskStatus.DISPATCHING);
   }
@@ -112,7 +105,7 @@ class JudgmentPlanItemHandlerTest {
     handler.onReDispatch(reDispatchEvent("review-tx", "feedback"));
 
     assertThat(item.getStatus()).isEqualTo(TaskStatus.PENDING);
-    verify(stateEvents, never()).fireAsync(any());
+    assertThat(capturedStateEvents).isEmpty();
     assertThat(scheduler.lastRequest).isNull();
   }
 
@@ -139,10 +132,8 @@ class JudgmentPlanItemHandlerTest {
 
     handler.onFault(faultEvent("review-tx", "reason"));
 
-    ArgumentCaptor<PlanItemStateChangedEvent> captor =
-        ArgumentCaptor.forClass(PlanItemStateChangedEvent.class);
-    verify(stateEvents).fireAsync(captor.capture());
-    PlanItemStateChangedEvent fired = captor.getValue();
+    assertThat(capturedStateEvents).hasSize(1);
+    PlanItemStateChangedEvent fired = capturedStateEvents.get(0);
     assertThat(fired.previousStatus()).isEqualTo(TaskStatus.DELEGATED);
     assertThat(fired.newStatus()).isEqualTo(TaskStatus.FAULTED);
   }
@@ -155,7 +146,7 @@ class JudgmentPlanItemHandlerTest {
     handler.onFault(faultEvent("review-tx", "reason"));
 
     assertThat(item.getStatus()).isEqualTo(TaskStatus.COMPLETED);
-    verify(stateEvents, never()).fireAsync(any());
+    assertThat(capturedStateEvents).isEmpty();
   }
 
   @Test
@@ -228,69 +219,6 @@ class JudgmentPlanItemHandlerTest {
     @Override
     public void schedule(JudgmentScheduleRequest request) {
       lastRequest = request;
-    }
-  }
-
-  @SuppressWarnings("unchecked")
-  private static class SingletonInstance<T> implements Instance<T> {
-    private final T value;
-
-    SingletonInstance(T value) {
-      this.value = value;
-    }
-
-    @Override
-    public T get() {
-      return value;
-    }
-
-    @Override
-    public boolean isResolvable() {
-      return true;
-    }
-
-    @Override
-    public boolean isAmbiguous() {
-      return false;
-    }
-
-    @Override
-    public boolean isUnsatisfied() {
-      return false;
-    }
-
-    @Override
-    public Instance<T> select(java.lang.annotation.Annotation... q) {
-      return this;
-    }
-
-    @Override
-    public <U extends T> Instance<U> select(Class<U> s, java.lang.annotation.Annotation... q) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public <U extends T> Instance<U> select(
-        jakarta.enterprise.util.TypeLiteral<U> s, java.lang.annotation.Annotation... q) {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void destroy(T instance) {}
-
-    @Override
-    public Handle<T> getHandle() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Iterable<Handle<T>> handles() {
-      throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public java.util.Iterator<T> iterator() {
-      return List.of(value).iterator();
     }
   }
 }

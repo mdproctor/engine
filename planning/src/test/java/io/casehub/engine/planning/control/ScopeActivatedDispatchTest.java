@@ -39,7 +39,6 @@ import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -54,7 +53,6 @@ class ScopeActivatedDispatchTest {
   private UUID caseId;
 
   @BeforeEach
-  @SuppressWarnings("unchecked")
   void setUp() {
     caseId = UUID.randomUUID();
     plan = new DefaultCasePlanModel(caseId);
@@ -72,8 +70,7 @@ class ScopeActivatedDispatchTest {
     var compoundDispatcher =
         new CompoundStrategyDispatcher(
             id -> strategyList.stream().filter(s -> s.id().equals(id)).findFirst().orElse(null));
-    Instance<BlackboardPlanConfigurer> configurers = mock(Instance.class);
-    when(configurers.stream()).thenReturn(java.util.stream.Stream.empty());
+    List<BlackboardPlanConfigurer> configurers = List.of();
 
     loopControl =
         new PlanningStrategyLoopControl(

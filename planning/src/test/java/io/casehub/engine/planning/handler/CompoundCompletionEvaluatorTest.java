@@ -17,7 +17,6 @@ package io.casehub.engine.planning.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -25,13 +24,12 @@ import static org.mockito.Mockito.verify;
 
 import io.casehub.api.model.ExecutorRef;
 import io.casehub.api.model.TaskStatus;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
-import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.plan.CompletionSemantics;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.DispatchMode;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,14 +38,14 @@ import org.mockito.ArgumentCaptor;
 
 class CompoundCompletionEvaluatorTest {
 
-  private EventBus eventBus;
+  private EventDispatcher eventDispatcher;
   private CompoundCompletionEvaluator evaluator;
   private UUID caseId;
 
   @BeforeEach
   void setUp() {
-    eventBus = mock(EventBus.class);
-    evaluator = new CompoundCompletionEvaluator(eventBus);
+    eventDispatcher = mock(EventDispatcher.class);
+    evaluator = new CompoundCompletionEvaluator(eventDispatcher);
     caseId = UUID.randomUUID();
   }
 
@@ -81,7 +79,7 @@ class CompoundCompletionEvaluatorTest {
     model.registerDefinition(parent);
 
     evaluator.evaluate(caseId, "tenant-1", model, "c1");
-    verify(eventBus, never()).publish(any(), any());
+    verify(eventDispatcher, never()).dispatch(any());
   }
 
   @Test
@@ -100,7 +98,7 @@ class CompoundCompletionEvaluatorTest {
     evaluator.evaluate(caseId, "tenant-1", model, "c2");
 
     var captor = ArgumentCaptor.forClass(CompoundCompletedEvent.class);
-    verify(eventBus).publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), captor.capture());
+    verify(eventDispatcher).dispatch(captor.capture());
     assertThat(captor.getValue().compoundId()).isEqualTo("parent");
   }
 
@@ -118,7 +116,7 @@ class CompoundCompletionEvaluatorTest {
     model.tryDefinitionTransition("c2", TaskStatus.RUNNING, TaskStatus.FAULTED);
 
     evaluator.evaluate(caseId, "tenant-1", model, "c2");
-    verify(eventBus).publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), any());
+    verify(eventDispatcher).dispatch(any());
   }
 
   // ── M_OF_N semantics ──────────────────────────────────────────────────────
@@ -135,12 +133,12 @@ class CompoundCompletionEvaluatorTest {
     model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
     model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
     evaluator.evaluate(caseId, "tenant-1", model, "c1");
-    verify(eventBus, never()).publish(any(), any());
+    verify(eventDispatcher, never()).dispatch(any());
 
     model.tryDefinitionTransition("c2", TaskStatus.PENDING, TaskStatus.RUNNING);
     model.tryDefinitionTransition("c2", TaskStatus.RUNNING, TaskStatus.COMPLETED);
     evaluator.evaluate(caseId, "tenant-1", model, "c2");
-    verify(eventBus).publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), any());
+    verify(eventDispatcher).dispatch(any());
   }
 
   @Test
@@ -155,7 +153,7 @@ class CompoundCompletionEvaluatorTest {
     model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
     model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
     evaluator.evaluate(caseId, "tenant-1", model, "c1");
-    verify(eventBus, never()).publish(any(), any());
+    verify(eventDispatcher, never()).dispatch(any());
   }
 
   // ── FIRST_WINS semantics ──────────────────────────────────────────────────
@@ -171,7 +169,7 @@ class CompoundCompletionEvaluatorTest {
     model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
     model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
     evaluator.evaluate(caseId, "tenant-1", model, "c1");
-    verify(eventBus).publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), any());
+    verify(eventDispatcher).dispatch(any());
   }
 
   // ── Propagation ───────────────────────────────────────────────────────────
@@ -193,8 +191,7 @@ class CompoundCompletionEvaluatorTest {
     evaluator.evaluate(caseId, "tenant-1", model, "leaf2");
 
     var captor = ArgumentCaptor.forClass(CompoundCompletedEvent.class);
-    verify(eventBus, times(2))
-        .publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), captor.capture());
+    verify(eventDispatcher, times(2)).dispatch(captor.capture());
     var events = captor.getAllValues();
     assertThat(events)
         .extracting(CompoundCompletedEvent::compoundId)
@@ -216,8 +213,7 @@ class CompoundCompletionEvaluatorTest {
     evaluator.evaluate(caseId, "tenant-1", model, "leaf1");
 
     var captor = ArgumentCaptor.forClass(CompoundCompletedEvent.class);
-    verify(eventBus, times(1))
-        .publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), captor.capture());
+    verify(eventDispatcher, times(1)).dispatch(captor.capture());
     assertThat(captor.getValue().compoundId()).isEqualTo("inner");
   }
 
@@ -227,7 +223,7 @@ class CompoundCompletionEvaluatorTest {
   void evaluate_with_changed_item_not_in_any_compound_is_noop() {
     var model = new DefaultCasePlanModel(caseId);
     evaluator.evaluate(caseId, "tenant-1", model, "nonexistent");
-    verify(eventBus, never()).publish(any(), any());
+    verify(eventDispatcher, never()).dispatch(any());
   }
 
   @Test
@@ -243,7 +239,7 @@ class CompoundCompletionEvaluatorTest {
     model.tryDefinitionTransition("parent", TaskStatus.RUNNING, TaskStatus.COMPLETED);
 
     evaluator.evaluate(caseId, "tenant-1", model, "c1");
-    verify(eventBus, never()).publish(any(), any());
+    verify(eventDispatcher, never()).dispatch(any());
   }
 
   @Test
@@ -259,12 +255,12 @@ class CompoundCompletionEvaluatorTest {
     model.tryDefinitionTransition("c1", TaskStatus.PENDING, TaskStatus.RUNNING);
     model.tryDefinitionTransition("c1", TaskStatus.RUNNING, TaskStatus.COMPLETED);
     evaluator.evaluate(caseId, "tenant-1", model, "c1");
-    verify(eventBus, never()).publish(any(), any());
+    verify(eventDispatcher, never()).dispatch(any());
 
     model.tryDefinitionTransition("c2", TaskStatus.PENDING, TaskStatus.RUNNING);
     model.tryDefinitionTransition("c2", TaskStatus.RUNNING, TaskStatus.COMPLETED);
     evaluator.evaluate(caseId, "tenant-1", model, "c2");
-    verify(eventBus).publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), any());
+    verify(eventDispatcher).dispatch(any());
   }
 
   @Test
@@ -281,8 +277,7 @@ class CompoundCompletionEvaluatorTest {
     evaluator.evaluate(caseId, "tenant-1", model, "leaf");
 
     var captor = ArgumentCaptor.forClass(CompoundCompletedEvent.class);
-    verify(eventBus, times(2))
-        .publish(eq(BlackboardEventBusAddresses.COMPOUND_COMPLETED), captor.capture());
+    verify(eventDispatcher, times(2)).dispatch(captor.capture());
     assertThat(captor.getAllValues())
         .extracting(CompoundCompletedEvent::compoundId)
         .containsExactly("mid", "top");

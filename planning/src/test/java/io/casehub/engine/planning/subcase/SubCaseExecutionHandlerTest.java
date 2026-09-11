@@ -41,6 +41,7 @@ import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.planning.store.NoOpPlanItemStore;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,7 +64,7 @@ class SubCaseExecutionHandlerTest {
 
   @BeforeEach
   void setUp() {
-    registry = new BlackboardRegistry();
+    registry = new BlackboardRegistry(new NoOpPlanItemStore());
     caseHubRuntime = mock(CaseHubRuntime.class);
     CaseDefinitionRegistry definitionRegistry = mock(CaseDefinitionRegistry.class);
     CaseInstanceRepository instanceRepository = mock(CaseInstanceRepository.class);
@@ -208,7 +209,7 @@ class SubCaseExecutionHandlerTest {
 
   @Test
   void no_case_definition_marks_plan_item_faulted() {
-    BlackboardRegistry freshRegistry = new BlackboardRegistry();
+    BlackboardRegistry freshRegistry = new BlackboardRegistry(new NoOpPlanItemStore());
     DefaultCasePlanModel freshPlan =
         (DefaultCasePlanModel) freshRegistry.getOrCreate(parentCaseId, "test-tenant");
     PlanItem item = PlanItem.create("spawn-child", ExecutorRef.of("unknown"), 0);

@@ -48,7 +48,6 @@ import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.platform.api.routing.StrategyResolver;
-import jakarta.enterprise.inject.Instance;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -69,8 +68,7 @@ class DefaultPlanAdaptationEvaluatorTest {
   private CaseDefinitionRegistry caseDefinitionRegistry;
   private StrategyResolver strategyResolver;
 
-  @SuppressWarnings("unchecked")
-  private Instance<Object> memoryRetriever = mock(Instance.class);
+  private Optional<Object> memoryRetriever = Optional.empty();
 
   private io.casehub.engine.planning.handler.CompoundCompletionEvaluator
       compoundCompletionEvaluator;
@@ -93,7 +91,6 @@ class DefaultPlanAdaptationEvaluatorTest {
     strategyResolver = mock(StrategyResolver.class);
     compoundCompletionEvaluator =
         mock(io.casehub.engine.planning.handler.CompoundCompletionEvaluator.class);
-    when(memoryRetriever.isResolvable()).thenReturn(false);
 
     setupDefaultMetaReasoner();
 
@@ -123,11 +120,6 @@ class DefaultPlanAdaptationEvaluatorTest {
     when(registry.get(caseId)).thenReturn(Optional.of(casePlanModel));
     when(planItemStore.findByCaseId(caseId, TENANT)).thenReturn(List.of());
 
-    @SuppressWarnings("unchecked")
-    Instance<io.casehub.engine.internal.routing.CbrRetrievalService> cbrInstance =
-        mock(Instance.class);
-    when(cbrInstance.isResolvable()).thenReturn(false);
-
     evaluator =
         new DefaultPlanAdaptationEvaluator(
             registry,
@@ -137,7 +129,7 @@ class DefaultPlanAdaptationEvaluatorTest {
             caseDefinitionRegistry,
             strategyResolver,
             memoryRetriever,
-            cbrInstance,
+            Optional.empty(),
             compoundCompletionEvaluator,
             3,
             30000L);
