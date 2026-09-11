@@ -160,9 +160,8 @@ public class CommonBeans {
 
   @Produces
   @ApplicationScoped
-  ExchangeSerializer exchangeSerializer(
-      BridgeResolver bridgeResolver, com.fasterxml.jackson.databind.ObjectMapper objectMapper) {
-    return new ExchangeSerializer(bridgeResolver, objectMapper);
+  ExchangeSerializer exchangeSerializer(BridgeResolver bridgeResolver) {
+    return new ExchangeSerializer(bridgeResolver, new com.fasterxml.jackson.databind.ObjectMapper());
   }
 
   // --- Instance<T> → List<T> / Optional<T> bridging ---
@@ -186,5 +185,4 @@ public class CommonBeans {
     return new JudgmentNodeExecutor(
         scheduler.isResolvable() ? Optional.of(scheduler.get()) : Optional.empty());
   }
-
 }
