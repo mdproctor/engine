@@ -11,9 +11,19 @@
 
     <artifactId>casehub-engine-resilience</artifactId>
     <name>Case Hub :: Resilience</name>
-    <description>Optional resilience layer — Dead Letter Queue, PoisonPill detection, backoff strategies</description>
+    <description>Quarkus CDI wiring for resilience-core POJOs — @Produces, EventBus adapters, @Scheduled adapters</description>
 
     <dependencies>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-resilience-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-common</artifactId>
+            <version>${project.version}</version>
+        </dependency>
         <dependency>
             <groupId>io.casehub</groupId>
             <artifactId>casehub-engine-api</artifactId>
@@ -25,15 +35,17 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform</artifactId>
+        </dependency>
+        <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-arc</artifactId>
         </dependency>
-        <!-- Vert.x for EventBus and @ConsumeEvent -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-vertx</artifactId>
         </dependency>
-        <!-- Scheduler for @Scheduled -->
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-scheduler</artifactId>
@@ -77,10 +89,6 @@
             <artifactId>casehub-engine-ledger</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.casehub</groupId>
-            <artifactId>casehub-platform</artifactId>
         </dependency>
         <dependency>
             <groupId>org.assertj</groupId>

@@ -9,9 +9,9 @@
         <version>0.2-SNAPSHOT</version>
     </parent>
 
-    <artifactId>casehub-engine-ledger</artifactId>
-    <name>Case Hub :: Ledger</name>
-    <description>Quarkus CDI wiring for ledger-core POJOs — @Produces, observer adapters</description>
+    <artifactId>casehub-engine-ledger-core</artifactId>
+    <name>CaseHub Engine Ledger Core</name>
+    <description>Framework-neutral ledger POJOs — zero CDI, zero Spring</description>
 
     <properties>
         <maven.deploy.skip>false</maven.deploy.skip>
@@ -20,12 +20,7 @@
     <dependencies>
         <dependency>
             <groupId>io.casehub</groupId>
-            <artifactId>casehub-engine-ledger-core</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>io.casehub</groupId>
-            <artifactId>casehub-engine-common</artifactId>
+            <artifactId>casehub-engine-common-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -35,53 +30,41 @@
         </dependency>
         <dependency>
             <groupId>io.casehub</groupId>
+            <artifactId>casehub-eidos-api</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
             <artifactId>casehub-ledger</artifactId>
         </dependency>
-
-        <!-- CDI + JPA -->
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-arc</artifactId>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-qhorus-api</artifactId>
+        </dependency>
+        <!-- JPA entity annotations — portable across Quarkus and Spring -->
+        <dependency>
+            <groupId>jakarta.persistence</groupId>
+            <artifactId>jakarta.persistence-api</artifactId>
         </dependency>
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-hibernate-orm</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-flyway</artifactId>
+            <groupId>jakarta.transaction</groupId>
+            <artifactId>jakarta.transaction-api</artifactId>
         </dependency>
 
         <!-- Test -->
         <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-junit</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.quarkus</groupId>
-            <artifactId>quarkus-jdbc-h2</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.awaitility</groupId>
-            <artifactId>awaitility</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>io.casehub</groupId>
-            <artifactId>casehub-ledger-persistence-memory</artifactId>
-            <version>${version.io.casehub.ledger}</version>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

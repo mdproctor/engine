@@ -105,7 +105,9 @@
         <module>runtime</module>
         <module>planning-core</module>
         <module>planning</module>
+        <module>resilience-core</module>
         <module>resilience</module>
+        <module>ledger-core</module>
         <module>ledger</module>
         <module>testing</module>
         <module>casehub-engine-inbound</module>
