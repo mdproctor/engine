@@ -30,7 +30,7 @@ import com.github.kagkarlsson.scheduler.task.TaskInstance;
 import com.github.kagkarlsson.scheduler.task.helper.OneTimeTask;
 import com.github.kagkarlsson.scheduler.task.helper.Tasks;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.executor.RetryOrchestrator;
 import io.casehub.engine.common.internal.executor.WorkerTaskData;
@@ -47,7 +47,6 @@ import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -67,7 +66,7 @@ class DbSchedulerRetryServiceTest {
   @Mock EventLogRepository eventLogRepository;
   @Mock WorkerExecutionRecoveryService recoveryService;
   @Mock CaseDefinitionRegistry caseDefinitionRegistry;
-  @Mock EventBus eventBus;
+  @Mock EventDispatcher eventDispatcher;
   @Mock RecoveryCoordinator recoveryCoordinator;
   @Mock Scheduler scheduler;
 
@@ -86,7 +85,7 @@ class DbSchedulerRetryServiceTest {
             eventLogRepository,
             recoveryService,
             caseDefinitionRegistry,
-            eventBus,
+            eventDispatcher,
             recoveryCoordinator);
 
     workerExecutionTask =
@@ -149,7 +148,7 @@ class DbSchedulerRetryServiceTest {
 
     ArgumentCaptor<WorkerRetriesExhaustedEvent> captor =
         ArgumentCaptor.forClass(WorkerRetriesExhaustedEvent.class);
-    verify(eventBus).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), captor.capture());
+    verify(eventDispatcher).dispatch(captor.capture());
     assertThat(captor.getValue().caseId()).isEqualTo(caseId);
     verify(scheduler, never()).schedule(any(TaskInstance.class), any(Instant.class));
   }
