@@ -15,19 +15,16 @@
  */
 package io.casehub.engine.inbound;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import io.casehub.qhorus.api.gateway.MessageReceivedEvent;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.work.api.spi.TenantContextExecutor;
 import io.casehub.work.api.spi.WorkItemOperations;
-import io.quarkus.runtime.StartupEvent;
-import jakarta.enterprise.inject.Instance;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,16 +38,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class InboundWorkItemBridgeGuardTest {
 
-  @Mock Instance<InboundWorkItemPolicy> policy;
   @Mock WorkItemOperations workItemOperations;
   @Mock TenantContextExecutor tenantContextExecutor;
 
-  private InboundWorkItemBridge bridge() {
-    final InboundWorkItemBridge b = new InboundWorkItemBridge();
-    b.policy = policy;
-    b.workItemOperations = workItemOperations;
-    b.tenantContextExecutor = tenantContextExecutor;
-    return b;
+  private InboundWorkItemBridge bridge(Optional<InboundWorkItemPolicy> policy) {
+    return new InboundWorkItemBridge(policy, workItemOperations, tenantContextExecutor);
   }
 
   private static MessageReceivedEvent anyEvent() {
@@ -72,19 +64,8 @@ class InboundWorkItemBridgeGuardTest {
 
   @Test
   void noPolicy_messageReceived_silentlyIgnored() {
-    when(policy.isUnsatisfied()).thenReturn(true);
-
-    bridge().onMessage(anyEvent());
+    bridge(Optional.empty()).onMessage(anyEvent());
 
     verify(workItemOperations, never()).create(any());
-  }
-
-  @Test
-  void ambiguousPolicy_atStartup_throwsIllegalStateException() {
-    when(policy.isAmbiguous()).thenReturn(true);
-
-    assertThatThrownBy(() -> bridge().onStartup(new StartupEvent()))
-        .isInstanceOf(IllegalStateException.class)
-        .hasMessageContaining("Multiple InboundWorkItemPolicy beans");
   }
 }

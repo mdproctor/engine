@@ -16,7 +16,6 @@
 package io.casehub.engine.work.cloudevent;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -34,14 +33,12 @@ import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.work.api.WorkCloudEventTypes;
 import io.cloudevents.CloudEvent;
 import io.cloudevents.core.builder.CloudEventBuilder;
-import jakarta.enterprise.event.Event;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import org.junit.jupiter.api.Test;
 
@@ -60,14 +57,6 @@ class DistributedHumanTaskRoundTripTest {
     GateCompletionApplier gateApplier = mock(GateCompletionApplier.class);
 
     CopyOnWriteArrayList<CloudEvent> emittedEvents = new CopyOnWriteArrayList<>();
-    @SuppressWarnings("unchecked")
-    Event<CloudEvent> emitter = mock(Event.class);
-    when(emitter.fireAsync(any()))
-        .thenAnswer(
-            inv -> {
-              emittedEvents.add(inv.getArgument(0));
-              return CompletableFuture.completedFuture(null);
-            });
 
     PlanItem planItem = PlanItem.create(BINDING_NAME, null, 0);
     planItem.tryMarkDispatching();
@@ -77,10 +66,8 @@ class DistributedHumanTaskRoundTripTest {
     when(planModel.getPlanItemByBindingName(BINDING_NAME)).thenReturn(Optional.of(planItem));
 
     // --- Outbound: emit CREATE CloudEvent ---
-    CloudEventHumanTaskScheduler scheduler = new CloudEventHumanTaskScheduler();
-    scheduler.registry = registry;
-    scheduler.planItemStore = planItemStore;
-    scheduler.cloudEventEmitter = emitter;
+    CloudEventHumanTaskScheduler scheduler =
+        new CloudEventHumanTaskScheduler(registry, planItemStore, emittedEvents::add);
 
     HumanTaskTarget target =
         HumanTaskTarget.inline().title("Review document").outcomes(Set.of("approve")).build();
@@ -114,9 +101,8 @@ class DistributedHumanTaskRoundTripTest {
     assertThat(callerRef).startsWith("case:" + CASE_ID + "/pi:");
 
     // --- Inbound: simulate work-side COMPLETED response ---
-    WorkItemLifecycleCloudEventConsumer consumer = new WorkItemLifecycleCloudEventConsumer();
-    consumer.planItemApplier = planItemApplier;
-    consumer.gateApplier = gateApplier;
+    WorkItemLifecycleCloudEventConsumer consumer =
+        new WorkItemLifecycleCloudEventConsumer(planItemApplier, gateApplier, registry);
 
     com.fasterxml.jackson.databind.node.ObjectNode responseData = MAPPER.createObjectNode();
     responseData.put("callerRef", callerRef);

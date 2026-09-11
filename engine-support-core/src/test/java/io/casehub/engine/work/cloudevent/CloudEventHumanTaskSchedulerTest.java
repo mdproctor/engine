@@ -34,15 +34,14 @@ import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.work.api.WorkCloudEventTypes;
 import io.cloudevents.CloudEvent;
-import jakarta.enterprise.event.Event;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -56,12 +55,8 @@ class CloudEventHumanTaskSchedulerTest {
 
   private BlackboardRegistry registry;
   private PlanItemStore planItemStore;
-
-  @SuppressWarnings("unchecked")
-  private Event<CloudEvent> cloudEventEmitter = mock(Event.class);
-
+  private final List<CloudEvent> emittedEvents = new ArrayList<>();
   private CasePlanModel planModel;
-
   private CloudEventHumanTaskScheduler scheduler;
 
   @BeforeEach
@@ -69,13 +64,9 @@ class CloudEventHumanTaskSchedulerTest {
     registry = mock(BlackboardRegistry.class);
     planItemStore = mock(PlanItemStore.class);
     planModel = mock(CasePlanModel.class);
+    emittedEvents.clear();
 
-    when(cloudEventEmitter.fireAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
-
-    scheduler = new CloudEventHumanTaskScheduler();
-    scheduler.registry = registry;
-    scheduler.planItemStore = planItemStore;
-    scheduler.cloudEventEmitter = cloudEventEmitter;
+    scheduler = new CloudEventHumanTaskScheduler(registry, planItemStore, emittedEvents::add);
   }
 
   private PlanItem createDispatchingPlanItem() {
@@ -118,9 +109,8 @@ class CloudEventHumanTaskSchedulerTest {
 
     scheduler.schedule(request);
 
-    ArgumentCaptor<CloudEvent> ceCaptor = ArgumentCaptor.forClass(CloudEvent.class);
-    verify(cloudEventEmitter).fireAsync(ceCaptor.capture());
-    CloudEvent ce = ceCaptor.getValue();
+    assertThat(emittedEvents).hasSize(1);
+    CloudEvent ce = emittedEvents.get(0);
 
     assertThat(ce.getType()).isEqualTo(WorkCloudEventTypes.CREATE);
     assertThat(ce.getSource().toString()).isEqualTo("/engine/cases/" + CASE_ID);
@@ -180,12 +170,11 @@ class CloudEventHumanTaskSchedulerTest {
 
     scheduler.schedule(request);
 
-    ArgumentCaptor<CloudEvent> ceCaptor = ArgumentCaptor.forClass(CloudEvent.class);
-    verify(cloudEventEmitter).fireAsync(ceCaptor.capture());
-    JsonNode data = MAPPER.readTree(ceCaptor.getValue().getData().toBytes());
+    assertThat(emittedEvents).hasSize(1);
+    JsonNode data = MAPPER.readTree(emittedEvents.get(0).getData().toBytes());
 
     assertThat(data.get("templateId").asText()).isEqualTo(templateId.toString());
-    assertThat(ceCaptor.getValue().getExtension("templateid")).isEqualTo(templateId.toString());
+    assertThat(emittedEvents.get(0).getExtension("templateid")).isEqualTo(templateId.toString());
   }
 
   @Test
@@ -195,7 +184,7 @@ class CloudEventHumanTaskSchedulerTest {
 
     scheduler.schedule(minimalRequest());
 
-    verify(cloudEventEmitter, never()).fireAsync(any());
+    assertThat(emittedEvents).isEmpty();
     verify(planItemStore, never()).save(any(), any());
   }
 
@@ -208,7 +197,7 @@ class CloudEventHumanTaskSchedulerTest {
     scheduler.schedule(minimalRequest());
 
     assertThat(planItem.getStatus()).isEqualTo(TaskStatus.PENDING);
-    verify(cloudEventEmitter, never()).fireAsync(any());
+    assertThat(emittedEvents).isEmpty();
     verify(planItemStore, never()).save(any(), any());
   }
 
@@ -218,7 +207,7 @@ class CloudEventHumanTaskSchedulerTest {
 
     scheduler.schedule(minimalRequest());
 
-    verify(cloudEventEmitter, never()).fireAsync(any());
+    assertThat(emittedEvents).isEmpty();
   }
 
   @Test
@@ -251,9 +240,8 @@ class CloudEventHumanTaskSchedulerTest {
 
     scheduler.schedule(request);
 
-    ArgumentCaptor<CloudEvent> ceCaptor = ArgumentCaptor.forClass(CloudEvent.class);
-    verify(cloudEventEmitter).fireAsync(ceCaptor.capture());
-    JsonNode data = MAPPER.readTree(ceCaptor.getValue().getData().toBytes());
+    assertThat(emittedEvents).hasSize(1);
+    JsonNode data = MAPPER.readTree(emittedEvents.get(0).getData().toBytes());
 
     assertThat(data.get("expiresAt").asText()).isEqualTo(earlierDeadline.toString());
   }

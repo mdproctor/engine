@@ -50,9 +50,11 @@ class WorkItemLifecycleCloudEventConsumerTest {
     planItemApplier = mock(PlanItemCompletionApplier.class);
     gateApplier = mock(GateCompletionApplier.class);
 
-    consumer = new WorkItemLifecycleCloudEventConsumer();
-    consumer.planItemApplier = planItemApplier;
-    consumer.gateApplier = gateApplier;
+    consumer =
+        new WorkItemLifecycleCloudEventConsumer(
+            planItemApplier,
+            gateApplier,
+            mock(io.casehub.engine.planning.registry.BlackboardRegistry.class));
   }
 
   @Test

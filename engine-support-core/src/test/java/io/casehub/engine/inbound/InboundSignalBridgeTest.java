@@ -38,6 +38,7 @@ import io.casehub.platform.api.routing.StrategyResolver;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -60,12 +61,13 @@ class InboundSignalBridgeTest {
 
   @BeforeEach
   void setUp() {
-    bridge = new InboundSignalBridge();
-    bridge.registry = wrapInstance(registry);
-    bridge.runtime = wrapInstance(runtime);
-    bridge.bridgeResolver = bridgeResolver;
-    bridge.strategyResolver = strategyResolver;
-    bridge.jqEvaluator = jqEvaluator;
+    bridge =
+        new InboundSignalBridge(
+            Optional.of(registry),
+            Optional.of(runtime),
+            bridgeResolver,
+            strategyResolver,
+            jqEvaluator);
   }
 
   @Test
@@ -173,15 +175,5 @@ class InboundSignalBridgeTest {
     bridge.onInboundMessage(message);
 
     verifyNoInteractions(runtime);
-  }
-
-  @SuppressWarnings("unchecked")
-  private static <T> jakarta.enterprise.inject.Instance<T> wrapInstance(T value) {
-    var instance =
-        mock(
-            jakarta.enterprise.inject.Instance.class, org.mockito.Mockito.withSettings().lenient());
-    when(instance.isUnsatisfied()).thenReturn(false);
-    when(instance.get()).thenReturn(value);
-    return instance;
   }
 }
