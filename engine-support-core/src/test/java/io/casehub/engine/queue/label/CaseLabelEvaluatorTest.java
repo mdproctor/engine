@@ -18,7 +18,6 @@ package io.casehub.engine.queue.label;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,8 +41,6 @@ import io.casehub.platform.api.label.LabelRule;
 import io.casehub.platform.api.view.SubjectViewEvent;
 import io.casehub.platform.api.view.ViewEventType;
 import io.casehub.platform.view.SubjectViewOrchestrator;
-import jakarta.enterprise.event.Event;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -61,31 +58,16 @@ class CaseLabelEvaluatorTest {
   private CaseDefinitionRegistry definitionRegistry;
   private CaseInstanceRepository caseInstanceRepo;
   private SubjectViewOrchestrator views;
-  private Event<CaseQueueEvent> queueEvents;
   private final List<CaseQueueEvent> firedEvents = new ArrayList<>();
 
   @BeforeEach
-  @SuppressWarnings("unchecked")
-  void setUp() throws Exception {
-    evaluator = new CaseLabelEvaluator();
+  void setUp() {
     definitionRegistry = mock(CaseDefinitionRegistry.class);
     caseInstanceRepo = mock(CaseInstanceRepository.class);
     views = mock(SubjectViewOrchestrator.class);
-    queueEvents = mock(Event.class);
-
-    inject(evaluator, "definitionRegistry", definitionRegistry);
-    inject(evaluator, "caseInstanceRepository", caseInstanceRepo);
-    inject(evaluator, "views", views);
-    inject(evaluator, "queueEvents", queueEvents);
-
     firedEvents.clear();
-    doAnswer(
-            inv -> {
-              firedEvents.add(inv.getArgument(0));
-              return null;
-            })
-        .when(queueEvents)
-        .fire(any());
+    evaluator =
+        new CaseLabelEvaluator(definitionRegistry, caseInstanceRepo, views, firedEvents::add);
   }
 
   @Test
@@ -303,11 +285,5 @@ class CaseLabelEvaluatorTest {
         return true;
       }
     };
-  }
-
-  private static void inject(Object target, String fieldName, Object value) throws Exception {
-    Field field = target.getClass().getDeclaredField(fieldName);
-    field.setAccessible(true);
-    field.set(target, value);
   }
 }

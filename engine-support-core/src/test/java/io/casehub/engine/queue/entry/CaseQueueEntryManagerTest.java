@@ -16,9 +16,6 @@
 package io.casehub.engine.queue.entry;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
 
 import io.casehub.engine.queue.event.CaseQueueEntryRevoked;
 import io.casehub.engine.queue.event.CaseQueueEvent;
@@ -26,8 +23,6 @@ import io.casehub.engine.queue.event.CaseQueueEventType;
 import io.casehub.engine.queue.model.CaseQueueEntry;
 import io.casehub.engine.queue.model.QueueEntryStatus;
 import io.casehub.engine.queue.store.InMemoryCaseQueueEntryStore;
-import jakarta.enterprise.event.Event;
-import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -42,23 +37,10 @@ class CaseQueueEntryManagerTest {
   private final List<CaseQueueEntryRevoked> revokedEvents = new ArrayList<>();
 
   @BeforeEach
-  @SuppressWarnings("unchecked")
-  void setUp() throws Exception {
-    manager = new CaseQueueEntryManager();
+  void setUp() {
     store = new InMemoryCaseQueueEntryStore();
-    Event<CaseQueueEntryRevoked> revokedBus = mock(Event.class);
-
-    inject(manager, "store", store);
-    inject(manager, "revokedEvents", revokedBus);
-
     revokedEvents.clear();
-    doAnswer(
-            inv -> {
-              revokedEvents.add(inv.getArgument(0));
-              return null;
-            })
-        .when(revokedBus)
-        .fireAsync(any());
+    manager = new CaseQueueEntryManager(store, revokedEvents::add);
   }
 
   @Test
@@ -179,11 +161,5 @@ class CaseQueueEntryManagerTest {
         "test-queue",
         QueueEntryStatus.PENDING,
         Instant.now());
-  }
-
-  private static void inject(Object target, String fieldName, Object value) throws Exception {
-    Field field = target.getClass().getDeclaredField(fieldName);
-    field.setAccessible(true);
-    field.set(target, value);
   }
 }

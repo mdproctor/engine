@@ -31,12 +31,12 @@ import dev.langchain4j.model.chat.request.ChatRequest;
 import dev.langchain4j.model.chat.response.ChatResponse;
 import io.casehub.api.engine.WorkerRuntime;
 import io.casehub.api.model.WorkerContext;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.internal.executor.WorkerRuntimeFactory;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.WorkerOutcome;
 import io.casehub.worker.api.WorkerResult;
-import io.vertx.core.eventbus.EventBus;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -48,18 +48,18 @@ class ReActWorkerFunctionHandlerTest {
 
   private WorkerRuntimeFactory runtimeFactory;
   private WorkerRuntime runtime;
-  private EventBus eventBus;
+  private EventDispatcher eventDispatcher;
   private ReActWorkerFunctionHandler handler;
 
   @BeforeEach
   void setUp() {
     runtimeFactory = mock(WorkerRuntimeFactory.class);
     runtime = mock(WorkerRuntime.class);
-    eventBus = mock(EventBus.class);
+    eventDispatcher = mock(EventDispatcher.class);
     when(runtimeFactory.create(any(), any(), any())).thenReturn(runtime);
     handler =
         new ReActWorkerFunctionHandler(
-            runtimeFactory, eventBus, Executors.newVirtualThreadPerTaskExecutor());
+            runtimeFactory, eventDispatcher, Executors.newVirtualThreadPerTaskExecutor());
   }
 
   @Test
@@ -114,7 +114,7 @@ class ReActWorkerFunctionHandlerTest {
     assertThat(result.result().outcome()).isInstanceOf(WorkerOutcome.Success.class);
     assertThat(result.result().output()).isNotNull();
     verify(runtime).execute(eq("search-worker"), any());
-    verify(eventBus).publish(eq("casehub.react.cycle"), any(io.vertx.core.json.JsonObject.class));
+    verify(eventDispatcher).dispatch(any());
   }
 
   @Test

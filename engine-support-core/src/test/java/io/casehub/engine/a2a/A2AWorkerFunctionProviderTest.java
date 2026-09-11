@@ -28,15 +28,7 @@ class A2AWorkerFunctionProviderTest {
   private final ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
 
   private static A2AWorkerFunctionProvider createProvider() {
-    var p = new A2AWorkerFunctionProvider();
-    try {
-      var field = A2AWorkerFunctionProvider.class.getDeclaredField("endpointRegistry");
-      field.setAccessible(true);
-      field.set(p, new A2AEndpointRegistry());
-    } catch (ReflectiveOperationException e) {
-      throw new RuntimeException(e);
-    }
-    return p;
+    return new A2AWorkerFunctionProvider(new A2AEndpointRegistry());
   }
 
   @Test

@@ -20,7 +20,8 @@ import io.casehub.engine.common.spi.CaseInstanceRepositoryContractTest;
 
 class InMemoryCaseInstanceRepositoryContractTest extends CaseInstanceRepositoryContractTest {
 
-  private final InMemoryCaseInstanceRepository repo = new InMemoryCaseInstanceRepository();
+  private final InMemoryCaseInstanceRepository repo =
+      new InMemoryCaseInstanceRepository(new InMemoryEventLogRepository());
 
   @Override
   protected CaseInstanceRepository repository() {

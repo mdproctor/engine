@@ -17,9 +17,6 @@ package io.casehub.engine.queue.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.mock;
 
 import io.casehub.engine.queue.event.CaseQueueEntryClaimed;
 import io.casehub.engine.queue.event.CaseQueueEntryEscalated;
@@ -27,8 +24,6 @@ import io.casehub.engine.queue.event.CaseQueueEntryReleased;
 import io.casehub.engine.queue.model.CaseQueueEntry;
 import io.casehub.engine.queue.model.QueueEntryStatus;
 import io.casehub.engine.queue.store.InMemoryCaseQueueEntryStore;
-import jakarta.enterprise.event.Event;
-import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -43,41 +38,10 @@ class CaseQueueServiceTest {
   private final List<Object> firedEvents = new ArrayList<>();
 
   @BeforeEach
-  @SuppressWarnings("unchecked")
-  void setUp() throws Exception {
-    service = new CaseQueueService();
+  void setUp() {
     store = new InMemoryCaseQueueEntryStore();
-    Event<CaseQueueEntryClaimed> claimedBus = mock(Event.class);
-    Event<CaseQueueEntryReleased> releasedBus = mock(Event.class);
-    Event<CaseQueueEntryEscalated> escalatedBus = mock(Event.class);
-
-    inject(service, "store", store);
-    inject(service, "claimedEvents", claimedBus);
-    inject(service, "releasedEvents", releasedBus);
-    inject(service, "escalatedEvents", escalatedBus);
-
     firedEvents.clear();
-    doAnswer(
-            inv -> {
-              firedEvents.add(inv.getArgument(0));
-              return null;
-            })
-        .when(claimedBus)
-        .fireAsync(any());
-    doAnswer(
-            inv -> {
-              firedEvents.add(inv.getArgument(0));
-              return null;
-            })
-        .when(releasedBus)
-        .fireAsync(any());
-    doAnswer(
-            inv -> {
-              firedEvents.add(inv.getArgument(0));
-              return null;
-            })
-        .when(escalatedBus)
-        .fireAsync(any());
+    service = new CaseQueueService(store, firedEvents::add, firedEvents::add, firedEvents::add);
   }
 
   @Test
@@ -207,11 +171,5 @@ class CaseQueueServiceTest {
             QueueEntryStatus.PENDING,
             Instant.now());
     return store.save(entry);
-  }
-
-  private static void inject(Object target, String fieldName, Object value) throws Exception {
-    Field field = target.getClass().getDeclaredField(fieldName);
-    field.setAccessible(true);
-    field.set(target, value);
   }
 }

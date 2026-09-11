@@ -18,7 +18,6 @@ package io.casehub.engine.queue.reconcile;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -39,8 +38,6 @@ import io.casehub.platform.api.view.CrossTenantSubjectViewStore;
 import io.casehub.platform.api.view.SubjectViewEvent;
 import io.casehub.platform.api.view.ViewEventType;
 import io.casehub.platform.view.SubjectViewOrchestrator;
-import jakarta.enterprise.event.Event;
-import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -59,29 +56,15 @@ class CaseLabelReconcilerTest {
   private final List<CaseQueueEvent> firedEvents = new ArrayList<>();
 
   @BeforeEach
-  @SuppressWarnings("unchecked")
-  void setUp() throws Exception {
-    reconciler = new CaseLabelReconciler();
+  void setUp() {
     definitionRegistry = mock(CaseDefinitionRegistry.class);
     caseInstanceRepo = mock(CaseInstanceRepository.class);
     views = mock(SubjectViewOrchestrator.class);
     crossTenantViewStore = mock(CrossTenantSubjectViewStore.class);
-    Event<CaseQueueEvent> queueEvents = mock(Event.class);
-
-    inject(reconciler, "definitionRegistry", definitionRegistry);
-    inject(reconciler, "caseInstanceRepository", caseInstanceRepo);
-    inject(reconciler, "views", views);
-    inject(reconciler, "crossTenantViewStore", crossTenantViewStore);
-    inject(reconciler, "queueEvents", queueEvents);
-
     firedEvents.clear();
-    doAnswer(
-            inv -> {
-              firedEvents.add(inv.getArgument(0));
-              return null;
-            })
-        .when(queueEvents)
-        .fire(any());
+    reconciler =
+        new CaseLabelReconciler(
+            definitionRegistry, caseInstanceRepo, views, crossTenantViewStore, firedEvents::add);
   }
 
   @Test
@@ -115,7 +98,7 @@ class CaseLabelReconcilerTest {
                 new SubjectViewEvent(
                     caseId, viewId, "High Priority", ViewEventType.ADDED, "tenant-1")));
 
-    reconciler.reconcile(null);
+    reconciler.reconcile();
 
     assertThat(instance.getLabels()).containsExactly("priority/high");
     assertThat(firedEvents).hasSize(1);
@@ -126,7 +109,7 @@ class CaseLabelReconcilerTest {
   void no_tenancies_skips_silently() {
     when(crossTenantViewStore.findDistinctTenancyIds()).thenReturn(List.of());
 
-    reconciler.reconcile(null);
+    reconciler.reconcile();
 
     assertThat(firedEvents).isEmpty();
   }
@@ -146,7 +129,7 @@ class CaseLabelReconcilerTest {
     when(caseInstanceRepo.findByStatus(eq(CaseStatus.WAITING), any())).thenReturn((List.of()));
     when(caseInstanceRepo.findByStatus(eq(CaseStatus.SUSPENDED), any())).thenReturn((List.of()));
 
-    reconciler.reconcile(null);
+    reconciler.reconcile();
 
     assertThat(firedEvents).isEmpty();
   }
@@ -194,11 +177,5 @@ class CaseLabelReconcilerTest {
         return expected.equals(ctx.get(key));
       }
     };
-  }
-
-  private static void inject(Object target, String fieldName, Object value) throws Exception {
-    Field field = target.getClass().getDeclaredField(fieldName);
-    field.setAccessible(true);
-    field.set(target, value);
   }
 }

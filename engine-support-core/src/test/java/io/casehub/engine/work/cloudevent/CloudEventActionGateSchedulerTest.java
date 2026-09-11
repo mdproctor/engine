@@ -16,11 +16,6 @@
 package io.casehub.engine.work.cloudevent;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -31,15 +26,12 @@ import io.casehub.engine.common.spi.ActionGateScheduleRequest;
 import io.casehub.work.api.WorkCloudEventTypes;
 import io.casehub.worker.api.PlannedAction;
 import io.cloudevents.CloudEvent;
-import jakarta.enterprise.event.Event;
 import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
 
 class CloudEventActionGateSchedulerTest {
 
@@ -48,17 +40,14 @@ class CloudEventActionGateSchedulerTest {
   private static final long GATE_ID = 42L;
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @SuppressWarnings("unchecked")
-  private Event<CloudEvent> cloudEventEmitter = mock(Event.class);
+  private final java.util.List<CloudEvent> emittedEvents = new java.util.ArrayList<>();
 
   private CloudEventActionGateScheduler scheduler;
 
   @BeforeEach
   void setUp() {
-    when(cloudEventEmitter.fireAsync(any())).thenReturn(CompletableFuture.completedFuture(null));
-
-    scheduler = new CloudEventActionGateScheduler();
-    scheduler.cloudEventEmitter = cloudEventEmitter;
+    emittedEvents.clear();
+    scheduler = new CloudEventActionGateScheduler(emittedEvents::add);
   }
 
   @Test
@@ -87,9 +76,8 @@ class CloudEventActionGateSchedulerTest {
 
     scheduler.schedule(request);
 
-    ArgumentCaptor<CloudEvent> ceCaptor = ArgumentCaptor.forClass(CloudEvent.class);
-    verify(cloudEventEmitter).fireAsync(ceCaptor.capture());
-    CloudEvent ce = ceCaptor.getValue();
+    assertThat(emittedEvents).hasSize(1);
+    CloudEvent ce = emittedEvents.get(0);
 
     assertThat(ce.getType()).isEqualTo(WorkCloudEventTypes.CREATE);
     assertThat(ce.getSource().toString())
@@ -131,7 +119,7 @@ class CloudEventActionGateSchedulerTest {
 
     scheduler.schedule(request);
 
-    verify(cloudEventEmitter, never()).fireAsync(any());
+    assertThat(emittedEvents).isEmpty();
   }
 
   @Test
@@ -146,9 +134,8 @@ class CloudEventActionGateSchedulerTest {
 
     scheduler.schedule(request);
 
-    ArgumentCaptor<CloudEvent> ceCaptor = ArgumentCaptor.forClass(CloudEvent.class);
-    verify(cloudEventEmitter).fireAsync(ceCaptor.capture());
-    JsonNode data = MAPPER.readTree(ceCaptor.getValue().getData().toBytes());
+    assertThat(emittedEvents).hasSize(1);
+    JsonNode data = MAPPER.readTree(emittedEvents.get(0).getData().toBytes());
 
     assertThat(data.has("candidateGroups")).isFalse();
   }
@@ -165,9 +152,8 @@ class CloudEventActionGateSchedulerTest {
 
     scheduler.schedule(request);
 
-    ArgumentCaptor<CloudEvent> ceCaptor = ArgumentCaptor.forClass(CloudEvent.class);
-    verify(cloudEventEmitter).fireAsync(ceCaptor.capture());
-    JsonNode data = MAPPER.readTree(ceCaptor.getValue().getData().toBytes());
+    assertThat(emittedEvents).hasSize(1);
+    JsonNode data = MAPPER.readTree(emittedEvents.get(0).getData().toBytes());
 
     assertThat(data.has("expiresAt")).isTrue();
   }

@@ -41,15 +41,7 @@ class ReActCycleEventHandlerTest {
   @Test
   void writesEventLogWithCorrectFields() throws Exception {
     var repo = mock(EventLogRepository.class);
-    var handler = new ReActCycleEventHandler();
-
-    try {
-      var field = ReActCycleEventHandler.class.getDeclaredField("eventLogRepository");
-      field.setAccessible(true);
-      field.set(handler, repo);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    var handler = new ReActCycleEventHandler(repo);
 
     var caseId = UUID.randomUUID();
     var event =
@@ -91,15 +83,7 @@ class ReActCycleEventHandlerTest {
   @Test
   void handlesNullTokenUsage() throws Exception {
     var repo = mock(EventLogRepository.class);
-    var handler = new ReActCycleEventHandler();
-
-    try {
-      var field = ReActCycleEventHandler.class.getDeclaredField("eventLogRepository");
-      field.setAccessible(true);
-      field.set(handler, repo);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
+    var handler = new ReActCycleEventHandler(repo);
 
     var event =
         new ReActCycleEvent(
