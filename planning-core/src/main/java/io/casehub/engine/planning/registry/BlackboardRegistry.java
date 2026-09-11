@@ -66,6 +66,10 @@ public class BlackboardRegistry implements io.casehub.engine.common.spi.Resettab
     this.planItemStore = planItemStore;
   }
 
+  public BlackboardRegistry() {
+    this(new io.casehub.engine.planning.store.NoOpPlanItemStore());
+  }
+
   /**
    * Returns the {@link CasePlanModel} for the given case, creating it if absent. Only {@link
    * io.casehub.engine.planning.control.PlanningStrategyLoopControl} should call this method — all
