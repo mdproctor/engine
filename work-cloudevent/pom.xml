@@ -24,6 +24,11 @@
             <artifactId>casehub-engine-common</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-support-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Planning: BlackboardRegistry, PlanItem, CasePlanModel, completion appliers -->
         <dependency>
