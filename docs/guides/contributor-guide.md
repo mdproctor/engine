@@ -181,6 +181,15 @@ CBR enables experience-driven routing and planning:
 4. `ExperienceSignalProvider` and adaptation-aware CBR scoring influence routing decisions
 5. `CbrHumanTaskRoutingStrategy` uses CBR for human task candidate scoring
 
+**Unified resolution pipeline (engine#1081):** Mixed retrieval, feedback, and document ingestion:
+
+- `CbrRetrievalService.mapScoredCase()` handles both `ResolvedCase` (plan traces) and `ResolutionGuide` (documents). Cross-type queries pass `CbrCase.class` to the store. `RetrievedExperience` carries `sourceType`, `documentContent`, `documentSteps`, and `caseId` (13th field).
+- `ResolutionIngestionService` (`runtime/internal/routing/`) bridges `CorpusSourceAdapter` SPI to `CbrCaseMemoryStore`. Deterministic `caseId` via `UUID.nameUUIDFromBytes(documentId)` ensures idempotent re-ingestion. Per-document error isolation.
+- `RetrievalFeedbackObserver` (`runtime/internal/routing/`) implements `StepOutcomeObserver` — Layer 1 feedback. Reads experiences from `WORKER_SCHEDULED` EventLog metadata, maps outcome to `CbrFeedbackOutcome`. `WorkflowExecutionCompletedHandler.fireStepOutcomeObserver()` iterates all `Instance<StepOutcomeObserver>` beans. `handleSemanticFailure()` passes `RoutingOutcome.DECLINED` for `WorkerOutcome.Declined`.
+- `SelectionFeedbackRecorder` (`runtime/internal/routing/`) observes `@ObservesAsync PlanItemStateChangedEvent` — Layer 3 feedback. Validates `selectedCaseId` against `_candidates.<bindingName>`, records HIGHLY_RELEVANT/PARTIALLY_RELEVANT via `CbrRetrievalTracker`.
+- `CaseContextChangedEventHandler.populateCandidates()` writes summaries to `_candidates.<bindingName>` via `engineSet()` (suppresses CONTEXT_CHANGED) before judgment dispatch.
+- `DocumentStep` (`api/spi/routing/`) is the engine-owned mapping of neocortex `GuidanceStep`. `ResolutionSourceType` enum discriminates `PLAN_TRACE` vs `RESOLUTION_GUIDE`.
+
 ### Expression Engine
 
 Engine expression evaluation is unified with the platform hierarchy:

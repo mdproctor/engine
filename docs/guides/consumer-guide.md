@@ -246,11 +246,74 @@ CBR enables experience-driven routing and planning. Configured per case definiti
 
 `CbrCaseTypeRegistration` registers case types for CBR retention.
 
-**Document ingestion:** `CorpusSourceAdapter` (`api/spi/`, extends `NamedStrategy`) — implement to ingest knowledge base documents (runbooks, SOPs) into the CBR store as `ResolutionGuide` entries. `discover(tenancyId)` returns `List<ResolutionGuideInput>`. `NoOpCorpusSourceAdapter` (`@DefaultBean`) ships as the default. `ResolutionIngestionService` bridges the adapter to `CbrCaseMemoryStore` with idempotent re-ingestion.
+**Mixed retrieval (plan traces + documents):** Set `crossType: true` on the `cbr:` block to retrieve both past case traces and knowledge base documents in a single ranked list. Each `RetrievedExperience` carries `sourceType()` (`PLAN_TRACE` or `RESOLUTION_GUIDE`), `documentContent()` (prose solution), and `documentSteps()` (structured steps). Workers check `sourceType` to decide whether to follow a plan trace or a document procedure.
 
-**Outcome weighting:** Enabled by default (`casehub.cbr.outcome-weighting.enabled=true`). Cases with higher outcome confidence rank higher in retrieval. Tune via `casehub.cbr.outcome-weighting.influence` (default `0.3`).
+```yaml
+spec:
+  cbr:
+    domain: "soc-incidents"
+    crossType: true
+    features:
+      severity: ".alert.severity"
+      category: ".alert.category"
+```
 
-**Retrieval feedback:** `RetrievalFeedbackObserver` (Layer 1, automatic) and `SelectionFeedbackRecorder` (Layer 3, judgment bindings) record retrieval relevance signals via `CbrRetrievalTracker`. Transparent no-op when `memory-cbr-tracking` is not on the classpath.
+**Document ingestion via CorpusSourceAdapter:** Implement `CorpusSourceAdapter` to ingest knowledge base documents (runbooks, SOPs, investigation procedures) into the CBR store:
+
+```java
+@ApplicationScoped
+public class RunbookAdapter implements CorpusSourceAdapter {
+    @Override public String id() { return "runbooks"; }
+
+    @Override
+    public List<ResolutionGuideInput> discover(String tenancyId) {
+        return loadRunbooks().stream()
+            .map(doc -> new ResolutionGuideInput(
+                doc.id(),                          // documentId — stable, for idempotent ingestion
+                doc.title(),                       // problem description
+                doc.content(),                     // solution prose
+                parseSteps(doc),                   // optional List<GuidanceStepInput>
+                Map.of("category", FeatureValue.string(doc.category())),  // features for similarity matching
+                "soc-incidents",                   // domain — must match cbr.domain
+                null))                             // optional metadata
+            .toList();
+    }
+}
+```
+
+`NoOpCorpusSourceAdapter` (`@DefaultBean`) ships as the default. `ResolutionIngestionService` bridges the adapter to `CbrCaseMemoryStore` with deterministic `caseId` for idempotent re-ingestion on restart.
+
+**Human-in-the-loop resolution selection:** Use a `judgment:` binding to present ranked CBR candidates to an analyst for selection, then dispatch the selected resolution:
+
+```yaml
+spec:
+  bindings:
+    - name: select-resolution
+      judgment:
+        caller:
+          human:
+            title: "Select investigation approach"
+            candidateGroups: [soc-analysts]
+            outcomes: [approve, reject, escalate]
+        resolutionType: io.casehub.api.model.ResolutionSelection
+      on: ".alert != null and .selectedResolution == null"
+      producedKeys: [selectedResolution]
+
+    - name: investigate-alert
+      capability: investigate
+      on: ".selectedResolution != null and .verdict == null"
+```
+
+When the judgment binding fires on a case with `cbr:` config, the engine automatically populates `_candidates.<bindingName>` with ranked summaries. The human selects via `ResolutionSelection(selectedCaseId, sourceType, rationale)`. Selection feedback is recorded automatically.
+
+**Outcome weighting:** Enabled by default (`casehub.cbr.outcome-weighting.enabled=true`). Cases with higher outcome confidence rank higher in retrieval. Tune via `casehub.cbr.outcome-weighting.influence` (default `0.3`). New documents start with null confidence (no penalty — ranked purely by similarity until outcomes accumulate).
+
+**Retrieval feedback (automatic):** Three layers close the feedback loop without app code:
+- **Layer 1** — `RetrievalFeedbackObserver` records per-step relevance from worker outcomes (success → relevant, failure → not relevant)
+- **Layer 2** — `CbrCaseRetainObserver` stores resolved cases with outcome confidence (existing)
+- **Layer 3** — `SelectionFeedbackRecorder` records human selection signals (selected → highly relevant, unselected above threshold → partially relevant)
+
+Requires `casehub-neocortex-memory-cbr-tracking` on the classpath. Transparent no-op without it.
 
 ### Oversight Gate (`api/spi/`)
 
