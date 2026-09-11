@@ -25,8 +25,6 @@ import io.casehub.api.spi.routing.TrustRoutingPolicyProvider;
 import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
@@ -36,14 +34,12 @@ import org.jspecify.annotations.Nullable;
  * QUALIFIED candidates, neutral scores for BOOTSTRAP, and Exclude/Escalate for BORDERLINE/EXCLUDED.
  * Workload blending is handled by the compositor via {@code WorkloadSignalProvider}.
  */
-@ApplicationScoped
 public class TrustSignalProvider implements RoutingSignalProvider {
 
   private final TrustCandidateClassifier classifier;
   private final TrustScoreSource source;
   private final TrustRoutingPolicyProvider policyProvider;
 
-  @Inject
   public TrustSignalProvider(
       TrustCandidateClassifier classifier,
       TrustScoreSource source,

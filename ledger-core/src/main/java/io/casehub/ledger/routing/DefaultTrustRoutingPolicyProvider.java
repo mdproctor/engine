@@ -15,16 +15,11 @@
  */
 package io.casehub.ledger.routing;
 
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
-
 /**
  * Default {@link io.casehub.api.spi.routing.TrustRoutingPolicyProvider} — returns {@link
  * io.casehub.api.spi.routing.TrustRoutingPolicy#DEFAULT} for all capabilities. Yields to any
  * deployment-specific {@code @Alternative @Priority(1)} provider.
  */
-@DefaultBean
-@ApplicationScoped
 public class DefaultTrustRoutingPolicyProvider
     implements io.casehub.api.spi.routing.TrustRoutingPolicyProvider {
 

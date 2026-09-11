@@ -24,17 +24,10 @@ import io.casehub.platform.api.identity.ActorType;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.qhorus.api.spi.CommitmentAttestationPolicy;
 import io.casehub.qhorus.api.spi.CommitmentContext;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
-import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.OptionalDouble;
 import org.jboss.logging.Logger;
 
-@Alternative
-@Priority(1)
-@ApplicationScoped
 public class TrustGatedAttestationPolicy implements CommitmentAttestationPolicy {
 
   private static final Logger LOG = Logger.getLogger(TrustGatedAttestationPolicy.class);
@@ -48,7 +41,6 @@ public class TrustGatedAttestationPolicy implements CommitmentAttestationPolicy 
   private final TrustScoreSource source;
   private final TrustRoutingPolicyProvider policyProvider;
 
-  @Inject
   public TrustGatedAttestationPolicy(
       final TrustScoreSource source, final TrustRoutingPolicyProvider policyProvider) {
     this.source = source;

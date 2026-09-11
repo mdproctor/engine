@@ -17,10 +17,6 @@ package io.casehub.ledger.repository;
 
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.model.WorkerDecisionEntry;
-import io.casehub.ledger.runtime.persistence.LedgerPersistenceUnit;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import java.util.List;
@@ -37,11 +33,13 @@ import java.util.UUID;
  *
  * <p>{@code @DefaultBean} yields automatically to any explicitly selected alternative.
  */
-@DefaultBean
-@ApplicationScoped
 public class CaseLedgerEntryRepository {
 
-  @Inject @LedgerPersistenceUnit EntityManager em;
+  private final EntityManager em;
+
+  public CaseLedgerEntryRepository(EntityManager em) {
+    this.em = em;
+  }
 
   @Transactional
   public List<CaseLedgerEntry> findByCaseId(final UUID caseId) {

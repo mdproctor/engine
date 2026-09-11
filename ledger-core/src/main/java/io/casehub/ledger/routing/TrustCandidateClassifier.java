@@ -20,7 +20,6 @@ import io.casehub.api.spi.routing.EscalationReason;
 import io.casehub.api.spi.routing.RoutingResult;
 import io.casehub.api.spi.routing.TrustRoutingPolicy;
 import io.casehub.ledger.api.spi.TrustScoreSource;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,6 @@ import java.util.OptionalDouble;
  *
  * <p>No mutable state — singleton {@code @ApplicationScoped} is safe.
  */
-@ApplicationScoped
 public class TrustCandidateClassifier {
 
   /**

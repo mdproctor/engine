@@ -19,21 +19,20 @@ import io.casehub.api.spi.routing.TrustRoutingPolicyKeys;
 import io.casehub.platform.api.preferences.PreferenceConstraintKeys;
 import io.casehub.platform.api.preferences.PreferenceSchemaDescriptor;
 import io.casehub.platform.api.preferences.PreferenceSchemaRegistry;
-import io.quarkus.runtime.StartupEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import jakarta.inject.Inject;
 import java.util.Map;
 
-@ApplicationScoped
 public class TrustRoutingPreferenceRegistrar {
 
   private static final TrustRoutingPolicyKeys KEYS =
       TrustRoutingPolicyKeys.create("casehub.engine.trust-routing");
 
-  @Inject PreferenceSchemaRegistry registry;
+  private final PreferenceSchemaRegistry registry;
 
-  void onStart(@Observes StartupEvent event) {
+  public TrustRoutingPreferenceRegistrar(PreferenceSchemaRegistry registry) {
+    this.registry = registry;
+  }
+
+  public void register() {
     registry.register(
         PreferenceSchemaDescriptor.of(KEYS.threshold())
             .type("number")

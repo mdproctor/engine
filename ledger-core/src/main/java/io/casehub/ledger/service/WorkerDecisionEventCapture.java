@@ -23,9 +23,6 @@ import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.model.WorkerDecisionEntry;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.platform.api.identity.ActorType;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.ObservesAsync;
-import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -46,23 +43,30 @@ import org.jboss.logging.Logger;
  *
  * <p>If this module is absent, the event fires into the void — no coupling to the engine.
  */
-@ApplicationScoped
 public class WorkerDecisionEventCapture {
 
   private static final Logger LOG = Logger.getLogger(WorkerDecisionEventCapture.class);
   private static final int MAX_REASONING_LENGTH = 4096;
   private static final String TRUNCATION_MARKER = "\n[...truncated...]\n";
 
-  @Inject LedgerEntryRepository ledgerRepo;
+  private final LedgerEntryRepository ledgerRepo;
+  private final LedgerConfig ledgerConfig;
+  private final TrustScoreSource trustScoreSource;
+  private final TrustRoutingPolicyProvider trustRoutingPolicyProvider;
 
-  @Inject LedgerConfig ledgerConfig;
-
-  @Inject TrustScoreSource trustScoreSource;
-
-  @Inject TrustRoutingPolicyProvider trustRoutingPolicyProvider;
+  public WorkerDecisionEventCapture(
+      LedgerEntryRepository ledgerRepo,
+      LedgerConfig ledgerConfig,
+      TrustScoreSource trustScoreSource,
+      TrustRoutingPolicyProvider trustRoutingPolicyProvider) {
+    this.ledgerRepo = ledgerRepo;
+    this.ledgerConfig = ledgerConfig;
+    this.trustScoreSource = trustScoreSource;
+    this.trustRoutingPolicyProvider = trustRoutingPolicyProvider;
+  }
 
   @Transactional
-  void onWorkerDecisionEvent(@ObservesAsync WorkerDecisionEvent event) {
+  public void onWorkerDecisionEvent(WorkerDecisionEvent event) {
     if (!ledgerConfig.enabled()) {
       return;
     }

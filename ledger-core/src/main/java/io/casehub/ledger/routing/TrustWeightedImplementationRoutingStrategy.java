@@ -28,10 +28,6 @@ import io.casehub.ledger.api.spi.TrustScoreSource;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ClassifiedCandidate;
 import io.casehub.ledger.routing.TrustCandidateClassifier.Phase;
 import io.casehub.ledger.routing.TrustCandidateClassifier.ScoredCandidate;
-import jakarta.annotation.Priority;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -74,16 +70,12 @@ import java.util.stream.Collectors;
  *
  * <p>Refs casehubio/engine#625.
  */
-@Alternative
-@Priority(1)
-@ApplicationScoped
 public class TrustWeightedImplementationRoutingStrategy implements ImplementationRoutingStrategy {
 
   private final TrustCandidateClassifier classifier;
   private final TrustScoreSource source;
   private final TrustRoutingPolicyProvider policyProvider;
 
-  @Inject
   public TrustWeightedImplementationRoutingStrategy(
       final TrustCandidateClassifier classifier,
       final TrustScoreSource source,

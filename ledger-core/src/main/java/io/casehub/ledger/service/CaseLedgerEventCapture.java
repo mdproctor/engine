@@ -21,9 +21,6 @@ import io.casehub.ledger.api.spi.LedgerEntryRepository;
 import io.casehub.ledger.model.CaseLedgerEntry;
 import io.casehub.ledger.runtime.config.LedgerConfig;
 import io.casehub.platform.api.identity.ActorType;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.ObservesAsync;
-import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -39,17 +36,20 @@ import org.jboss.logging.Logger;
  *
  * <p>If this module is absent, lifecycle events fire into the void — no coupling to the engine.
  */
-@ApplicationScoped
 public class CaseLedgerEventCapture {
 
   private static final Logger LOG = Logger.getLogger(CaseLedgerEventCapture.class);
 
-  @Inject LedgerEntryRepository ledgerRepo;
+  private final LedgerEntryRepository ledgerRepo;
+  private final LedgerConfig ledgerConfig;
 
-  @Inject LedgerConfig ledgerConfig;
+  public CaseLedgerEventCapture(LedgerEntryRepository ledgerRepo, LedgerConfig ledgerConfig) {
+    this.ledgerRepo = ledgerRepo;
+    this.ledgerConfig = ledgerConfig;
+  }
 
   @Transactional
-  void onCaseLifecycleEvent(@ObservesAsync CaseLifecycleEvent event) {
+  public void onCaseLifecycleEvent(CaseLifecycleEvent event) {
     if (!ledgerConfig.enabled()) {
       return;
     }
