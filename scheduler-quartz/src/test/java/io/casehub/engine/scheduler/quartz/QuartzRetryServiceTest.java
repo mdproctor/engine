@@ -26,7 +26,7 @@ import static org.mockito.Mockito.when;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -40,15 +40,9 @@ import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.vertx.core.Vertx;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -62,35 +56,21 @@ import org.quartz.Trigger;
 class QuartzRetryServiceTest {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static Vertx vertx;
 
   @Mock EventLogRepository eventLogRepository;
   @Mock WorkerExecutionRecoveryService recoveryService;
   @Mock CaseDefinitionRegistry caseDefinitionRegistry;
   @Mock QuartzWorkerSchedulerService schedulerService;
-  @Mock EventBus eventBus;
+  @Mock EventDispatcher eventDispatcher;
   @Mock io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
 
   private QuartzRetryService retryService;
+
   private final UUID caseId = UUID.randomUUID();
   private final String workerId = "test-worker";
-  private final String inputDataHash = "hash-123";
+  private final String inputDataHash = "abc123";
   private final String tenancyId = "tenant-1";
   private final String eventLogId = "42";
-
-  @BeforeAll
-  static void startVertx() {
-    vertx = Vertx.vertx();
-  }
-
-  @AfterAll
-  static void stopVertx() throws Exception {
-    if (vertx != null) {
-      CountDownLatch latch = new CountDownLatch(1);
-      vertx.close().onComplete(ar -> latch.countDown());
-      latch.await(5, TimeUnit.SECONDS);
-    }
-  }
 
   @BeforeEach
   void setUp() {
@@ -99,7 +79,7 @@ class QuartzRetryServiceTest {
             eventLogRepository,
             recoveryService,
             caseDefinitionRegistry,
-            eventBus,
+            eventDispatcher,
             recoveryCoordinator);
     retryService = new QuartzRetryService(retryOrchestrator, schedulerService);
   }
@@ -118,7 +98,7 @@ class QuartzRetryServiceTest {
     retryService.handleFailure(ctx, "test error");
 
     verify(schedulerService).scheduleRetry(any(JobDetail.class), any(Trigger.class));
-    verify(eventBus, never()).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), any());
+    verify(eventDispatcher, never()).dispatch(any());
   }
 
   @Test
@@ -135,11 +115,12 @@ class QuartzRetryServiceTest {
 
     retryService.handleFailure(ctx, "test error");
 
-    ArgumentCaptor<WorkerRetriesExhaustedEvent> captor =
-        ArgumentCaptor.forClass(WorkerRetriesExhaustedEvent.class);
-    verify(eventBus).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), captor.capture());
-    assertThat(captor.getValue().caseId()).isEqualTo(caseId);
-    assertThat(captor.getValue().workerId()).isEqualTo(workerId);
+    ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+    verify(eventDispatcher).dispatch(captor.capture());
+    assertThat(captor.getValue()).isInstanceOf(WorkerRetriesExhaustedEvent.class);
+    WorkerRetriesExhaustedEvent event = (WorkerRetriesExhaustedEvent) captor.getValue();
+    assertThat(event.caseId()).isEqualTo(caseId);
+    assertThat(event.workerId()).isEqualTo(workerId);
     verify(schedulerService, never()).scheduleRetry(any(JobDetail.class), any(Trigger.class));
   }
 
@@ -178,7 +159,7 @@ class QuartzRetryServiceTest {
     retryService.handleFailure(ctx, "test error");
 
     verify(schedulerService, never()).scheduleRetry(any(JobDetail.class), any(Trigger.class));
-    verify(eventBus, never()).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), any());
+    verify(eventDispatcher, never()).dispatch(any());
   }
 
   @Test
@@ -189,7 +170,6 @@ class QuartzRetryServiceTest {
     CaseInstance instance = caseInstanceWithWorker(3, 1000, BackoffStrategy.FIXED);
 
     ArgumentCaptor<EventLog> logCaptor = ArgumentCaptor.forClass(EventLog.class);
-    // eventLogRepository.append is void — no stub needed (logCaptor still captures via doNothing)
     doNothing().when(eventLogRepository).append(logCaptor.capture(), eq(tenancyId));
     when(recoveryService.loadOrRestoreCaseInstance(caseId)).thenReturn(instance);
     when(eventLogRepository.findByCaseAndWorkerAndType(
@@ -242,10 +222,10 @@ class QuartzRetryServiceTest {
 
     retryService.handleFailure(ctx, "test error");
 
-    ArgumentCaptor<WorkerRetriesExhaustedEvent> captor =
-        ArgumentCaptor.forClass(WorkerRetriesExhaustedEvent.class);
-    verify(eventBus).publish(eq(EventBusAddresses.WORKER_RETRIES_EXHAUSTED), captor.capture());
-    assertThat(captor.getValue().signalId()).isEqualTo(signalId);
+    ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+    verify(eventDispatcher).dispatch(captor.capture());
+    assertThat(captor.getValue()).isInstanceOf(WorkerRetriesExhaustedEvent.class);
+    assertThat(((WorkerRetriesExhaustedEvent) captor.getValue()).signalId()).isEqualTo(signalId);
   }
 
   @Test
@@ -272,7 +252,6 @@ class QuartzRetryServiceTest {
   }
 
   private void stubPersistAndRecovery(CaseInstance instance) {
-    // eventLogRepository.append is void — no stub needed
     when(recoveryService.loadOrRestoreCaseInstance(caseId)).thenReturn(instance);
   }
 
