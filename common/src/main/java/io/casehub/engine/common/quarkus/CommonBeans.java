@@ -16,11 +16,7 @@
 package io.casehub.engine.common.quarkus;
 
 import io.casehub.api.context.ContextBridge;
-import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.spi.DataRefResolver;
-import io.casehub.api.spi.WorkerContextProvider;
-import io.casehub.api.spi.WorkerStatusListener;
-import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.channel.CustomJqProjection;
 import io.casehub.engine.common.internal.channel.DataChannelRegistry;
 import io.casehub.engine.common.internal.channel.DualWriteProjection;
@@ -34,33 +30,18 @@ import io.casehub.engine.common.internal.config.NoOpSecretManager;
 import io.casehub.engine.common.internal.config.SecretManager;
 import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.engine.common.internal.context.DataRefRegistry;
-import io.casehub.engine.common.internal.executor.MilestoneSLAOrchestrator;
-import io.casehub.engine.common.internal.executor.RetryOrchestrator;
-import io.casehub.engine.common.internal.executor.ScheduledTriggerOrchestrator;
 import io.casehub.engine.common.internal.executor.WorkerExecutionConfig;
-import io.casehub.engine.common.internal.executor.WorkerExecutionOrchestrator;
-import io.casehub.engine.common.internal.executor.WorkerExecutor;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.judgment.JudgmentNodeExecutor;
 import io.casehub.engine.common.internal.monitoring.ExpectedEffectResolver;
 import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
-import io.casehub.engine.common.qualifier.CrossTenant;
-import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
-import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
-import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.JudgmentScheduler;
-import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.CompoundLockRegistry;
-import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
-import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.plan.execution.InMemoryExecutionSnapshotStore;
 import io.casehub.engine.plan.execution.InMemoryPlanVersionStore;
 import io.casehub.engine.plan.execution.NoOpCasePlanModelSnapshotProvider;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
 import jakarta.enterprise.inject.Instance;
 import jakarta.enterprise.inject.Produces;
 import java.util.Optional;
@@ -206,80 +187,4 @@ public class CommonBeans {
         scheduler.isResolvable() ? Optional.of(scheduler.get()) : Optional.empty());
   }
 
-  // --- EventBus → EventDispatcher bridging ---
-
-  @Produces
-  @ApplicationScoped
-  MilestoneSLAOrchestrator milestoneSLAOrchestrator(
-      CaseInstanceCache caseInstanceCache,
-      @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository,
-      @CrossTenant CrossTenantEventLogRepository eventLogRepository,
-      EventDispatcher eventDispatcher) {
-    return new MilestoneSLAOrchestrator(
-        caseInstanceCache, caseInstanceRepository, eventLogRepository, eventDispatcher);
-  }
-
-  @Produces
-  @ApplicationScoped
-  RetryOrchestrator retryOrchestrator(
-      EventLogRepository eventLogRepository,
-      WorkerExecutionRecoveryService recoveryService,
-      CaseDefinitionRegistry caseDefinitionRegistry,
-      EventDispatcher eventDispatcher,
-      RecoveryCoordinator recoveryCoordinator) {
-    return new RetryOrchestrator(
-        eventLogRepository,
-        recoveryService,
-        caseDefinitionRegistry,
-        eventDispatcher,
-        recoveryCoordinator);
-  }
-
-  @Produces
-  @ApplicationScoped
-  ScheduledTriggerOrchestrator scheduledTriggerOrchestrator(
-      CaseDefinitionRegistry caseDefinitionRegistry,
-      WorkerExecutionRecoveryService recoveryService,
-      ScopedWorkerRegistry scopedWorkerRegistry,
-      ExpressionEngineRegistry expressionEngineRegistry,
-      EventDispatcher eventDispatcher) {
-    return new ScheduledTriggerOrchestrator(
-        caseDefinitionRegistry,
-        recoveryService,
-        scopedWorkerRegistry,
-        expressionEngineRegistry,
-        eventDispatcher);
-  }
-
-  // --- Complex: EventBus + Event<T> + @CrossTenant bridging ---
-
-  @Produces
-  @ApplicationScoped
-  WorkerExecutionOrchestrator workerExecutionOrchestrator(
-      WorkerExecutor workerExecutor,
-      CaseDefinitionRegistry caseDefinitionRegistry,
-      WorkerContextProvider workerContextProvider,
-      EventDispatcher eventDispatcher,
-      WorkerExecutionRecoveryService recoveryService,
-      @CrossTenant CrossTenantEventLogRepository crossTenantEventLogRepository,
-      EventLogRepository eventLogRepository,
-      WorkerExecutionConfig executionConfig,
-      BridgeResolver bridgeResolver,
-      WorkerStatusListener workerStatusListener,
-      Event<CaseLifecycleEvent> lifecycleEvents,
-      io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider) {
-    return new WorkerExecutionOrchestrator(
-        workerExecutor,
-        caseDefinitionRegistry,
-        workerContextProvider,
-        eventDispatcher,
-        recoveryService,
-        crossTenantEventLogRepository,
-        eventLogRepository,
-        executionConfig,
-        bridgeResolver,
-        workerStatusListener,
-        e -> lifecycleEvents.fireAsync(e),
-        traceIdProvider);
-  }
 }

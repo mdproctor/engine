@@ -26,15 +26,25 @@ import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.spi.routing.RoutingOutcomeRecorder;
 import io.casehub.engine.common.internal.channel.DataChannelRegistry;
 import io.casehub.engine.common.internal.context.BridgeResolver;
+import io.casehub.engine.common.internal.executor.MilestoneSLAOrchestrator;
+import io.casehub.engine.common.internal.executor.RetryOrchestrator;
+import io.casehub.engine.common.internal.executor.ScheduledTriggerOrchestrator;
+import io.casehub.engine.common.internal.executor.WorkerExecutionConfig;
+import io.casehub.engine.common.internal.executor.WorkerExecutionOrchestrator;
+import io.casehub.engine.common.internal.executor.WorkerExecutor;
 import io.casehub.engine.common.internal.judgment.JudgmentNodeExecutor;
 import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
+import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
+import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
+import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.CompoundLockRegistry;
 import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
+import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
@@ -1080,5 +1090,80 @@ public class RuntimeBeans {
         chatModelProvider.isResolvable()
             ? java.util.Optional.of(chatModelProvider.get())
             : java.util.Optional.empty());
+  }
+
+  // --- common-core EventDispatcher-dependent producers ---
+
+  @Produces
+  @ApplicationScoped
+  MilestoneSLAOrchestrator milestoneSLAOrchestrator(
+      CaseInstanceCache caseInstanceCache,
+      @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository,
+      @CrossTenant CrossTenantEventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher) {
+    return new MilestoneSLAOrchestrator(
+        caseInstanceCache, caseInstanceRepository, eventLogRepository, eventDispatcher);
+  }
+
+  @Produces
+  @ApplicationScoped
+  RetryOrchestrator retryOrchestrator(
+      EventLogRepository eventLogRepository,
+      WorkerExecutionRecoveryService recoveryService,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      EventDispatcher eventDispatcher,
+      RecoveryCoordinator recoveryCoordinator) {
+    return new RetryOrchestrator(
+        eventLogRepository,
+        recoveryService,
+        caseDefinitionRegistry,
+        eventDispatcher,
+        recoveryCoordinator);
+  }
+
+  @Produces
+  @ApplicationScoped
+  ScheduledTriggerOrchestrator scheduledTriggerOrchestrator(
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      WorkerExecutionRecoveryService recoveryService,
+      ScopedWorkerRegistry scopedWorkerRegistry,
+      io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry,
+      EventDispatcher eventDispatcher) {
+    return new ScheduledTriggerOrchestrator(
+        caseDefinitionRegistry,
+        recoveryService,
+        scopedWorkerRegistry,
+        expressionEngineRegistry,
+        eventDispatcher);
+  }
+
+  @Produces
+  @ApplicationScoped
+  WorkerExecutionOrchestrator workerExecutionOrchestrator(
+      WorkerExecutor workerExecutor,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      WorkerContextProvider workerContextProvider,
+      EventDispatcher eventDispatcher,
+      WorkerExecutionRecoveryService recoveryService,
+      @CrossTenant CrossTenantEventLogRepository crossTenantEventLogRepository,
+      EventLogRepository eventLogRepository,
+      WorkerExecutionConfig executionConfig,
+      BridgeResolver bridgeResolver,
+      WorkerStatusListener workerStatusListener,
+      Event<CaseLifecycleEvent> lifecycleEvents,
+      LedgerTraceIdProvider traceIdProvider) {
+    return new WorkerExecutionOrchestrator(
+        workerExecutor,
+        caseDefinitionRegistry,
+        workerContextProvider,
+        eventDispatcher,
+        recoveryService,
+        crossTenantEventLogRepository,
+        eventLogRepository,
+        executionConfig,
+        bridgeResolver,
+        workerStatusListener,
+        e -> lifecycleEvents.fireAsync(e),
+        traceIdProvider);
   }
 }
