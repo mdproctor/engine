@@ -16,10 +16,7 @@
 package io.casehub.resilience.deadletter;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.api.model.Binding;
@@ -28,7 +25,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ContextChangeTrigger;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -40,8 +37,8 @@ import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,7 +52,8 @@ class DeadLetterReplayServiceTest {
   private CrossTenantEventLogRepository eventLogRepository;
   private CrossTenantCaseInstanceRepository caseInstanceRepository;
   private CaseDefinitionRegistry caseDefinitionRegistry;
-  private EventBus eventBus;
+  private List<Object> dispatched;
+  private EventDispatcher eventDispatcher;
   private DeadLetterReplayService service;
 
   @BeforeEach
@@ -64,10 +62,15 @@ class DeadLetterReplayServiceTest {
     eventLogRepository = mock(CrossTenantEventLogRepository.class);
     caseInstanceRepository = mock(CrossTenantCaseInstanceRepository.class);
     caseDefinitionRegistry = mock(CaseDefinitionRegistry.class);
-    eventBus = mock(EventBus.class);
+    dispatched = new ArrayList<>();
+    eventDispatcher = dispatched::add;
     service =
         new DeadLetterReplayService(
-            queue, eventLogRepository, caseInstanceRepository, caseDefinitionRegistry, eventBus);
+            queue,
+            eventLogRepository,
+            caseInstanceRepository,
+            caseDefinitionRegistry,
+            eventDispatcher);
   }
 
   @Test
@@ -168,14 +171,13 @@ class DeadLetterReplayServiceTest {
                     .build())
             .build();
     when(caseDefinitionRegistry.getCaseDefinition(metaModel)).thenReturn(definition);
-    when(eventBus.publish(eq(EventBusAddresses.WORKER_SCHEDULE), any())).thenReturn(null);
-
     Optional<DeadLetterEntry> result = service.replay(entry.deadLetterId());
 
     assertThat(result).isPresent();
     assertThat(entry.status()).isEqualTo(DeadLetterStatus.REPLAYED);
     assertThat(entry.replayAttempts()).isEqualTo(1);
-    verify(eventBus).publish(eq(EventBusAddresses.WORKER_SCHEDULE), any(WorkerScheduleEvent.class));
+    assertThat(dispatched).hasSize(1);
+    assertThat(dispatched.get(0)).isInstanceOf(WorkerScheduleEvent.class);
   }
 
   private static EventLog scheduledLog(UUID caseId, String workerId, String hash) {

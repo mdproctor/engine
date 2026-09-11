@@ -19,7 +19,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.platform.api.preferences.PreferenceSchemaDescriptor;
 import io.casehub.platform.api.preferences.PreferenceSchemaRegistry;
-import io.quarkus.runtime.StartupEvent;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -31,10 +30,9 @@ class TrustRoutingPreferenceRegistrarTest {
   @Test
   void registers_all_five_trust_routing_keys() {
     var registry = new RecordingRegistry();
-    var registrar = new TrustRoutingPreferenceRegistrar();
-    registrar.registry = registry;
+    var registrar = new TrustRoutingPreferenceRegistrar(registry);
 
-    registrar.onStart(new StartupEvent());
+    registrar.register();
 
     assertThat(registry.registered).hasSize(5);
     var names = registry.registered.stream().map(PreferenceSchemaDescriptor::name).toList();
@@ -46,10 +44,9 @@ class TrustRoutingPreferenceRegistrarTest {
   @Test
   void all_descriptors_have_correct_namespace() {
     var registry = new RecordingRegistry();
-    var registrar = new TrustRoutingPreferenceRegistrar();
-    registrar.registry = registry;
+    var registrar = new TrustRoutingPreferenceRegistrar(registry);
 
-    registrar.onStart(new StartupEvent());
+    registrar.register();
 
     for (var d : registry.registered) {
       assertThat(d.namespace()).isEqualTo("casehub.engine.trust-routing");
@@ -59,10 +56,9 @@ class TrustRoutingPreferenceRegistrarTest {
   @Test
   void threshold_descriptor_has_correct_shape() {
     var registry = new RecordingRegistry();
-    var registrar = new TrustRoutingPreferenceRegistrar();
-    registrar.registry = registry;
+    var registrar = new TrustRoutingPreferenceRegistrar(registry);
 
-    registrar.onStart(new StartupEvent());
+    registrar.register();
 
     var threshold =
         registry.registered.stream()
@@ -80,10 +76,9 @@ class TrustRoutingPreferenceRegistrarTest {
   @Test
   void minimum_observations_is_integer_type() {
     var registry = new RecordingRegistry();
-    var registrar = new TrustRoutingPreferenceRegistrar();
-    registrar.registry = registry;
+    var registrar = new TrustRoutingPreferenceRegistrar(registry);
 
-    registrar.onStart(new StartupEvent());
+    registrar.register();
 
     var minObs =
         registry.registered.stream()

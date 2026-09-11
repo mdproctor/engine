@@ -17,21 +17,21 @@ package io.casehub.resilience.timeout;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 import io.casehub.api.context.PropagationContext;
 import io.casehub.api.model.CaseStatus;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl;
-import io.vertx.mutiny.core.eventbus.EventBus;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
@@ -45,17 +45,19 @@ import org.junit.jupiter.api.Test;
 class CaseTimeoutEnforcerTest {
 
   private CaseInstanceCache cache;
-  private EventBus eventBus;
+  private List<Object> dispatched;
+  private EventDispatcher eventDispatcher;
   private CaseInstanceRepository repository;
   private CaseTimeoutEnforcer enforcer;
 
   @BeforeEach
   void setUp() {
     cache = new CaseInstanceCacheImpl();
-    eventBus = mock(EventBus.class);
+    dispatched = new ArrayList<>();
+    eventDispatcher = dispatched::add;
     repository = mock(CaseInstanceRepository.class);
 
-    enforcer = new CaseTimeoutEnforcer(cache, eventBus, repository);
+    enforcer = new CaseTimeoutEnforcer(cache, eventDispatcher, repository);
   }
 
   // ---- Helpers ---------------------------------------------------------------
@@ -128,8 +130,8 @@ class CaseTimeoutEnforcerTest {
 
     enforcer.scanForTimeouts();
 
-    verify(eventBus)
-        .publish(eq(EventBusAddresses.CASE_STATUS_CHANGED), any(CaseStatusChanged.class));
+    assertThat(dispatched).hasSize(1);
+    assertThat(dispatched.get(0)).isInstanceOf(CaseStatusChanged.class);
   }
 
   @Test

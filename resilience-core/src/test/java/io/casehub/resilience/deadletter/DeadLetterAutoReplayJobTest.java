@@ -78,7 +78,7 @@ class DeadLetterAutoReplayJobTest {
     DeadLetterReplayService replayService = mock(DeadLetterReplayService.class);
     DeadLetterAutoReplayJob job =
         new DeadLetterAutoReplayJob(
-            queue, replayService, 3, List.of(Duration.ZERO, Duration.ofHours(1)));
+            queue, replayService, true, 3, List.of(Duration.ZERO, Duration.ofHours(1)));
 
     DeadLetterEntry e1 = queue.add(UUID.randomUUID(), "w1", "h1", Map.of(), RetryState.empty());
     DeadLetterEntry e2 = queue.add(UUID.randomUUID(), "w2", "h2", Map.of(), RetryState.empty());
