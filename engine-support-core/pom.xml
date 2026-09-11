@@ -35,6 +35,11 @@
         </dependency>
         <dependency>
             <groupId>io.casehub</groupId>
+            <artifactId>casehub-engine-planning-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
             <artifactId>casehub-platform-api</artifactId>
         </dependency>
         <!-- Actor-state contributors reference ledger/work/qhorus/eidos APIs -->
@@ -56,6 +61,42 @@
             <artifactId>casehub-eidos-api</artifactId>
             <optional>true</optional>
         </dependency>
+        <!-- JAX-RS annotations for ActorStateResource — portable across Quarkus and Spring -->
+        <dependency>
+            <groupId>jakarta.ws.rs</groupId>
+            <artifactId>jakarta.ws.rs-api</artifactId>
+        </dependency>
+        <!-- Ledger runtime types for LedgerActorStateContributor -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-ledger</artifactId>
+        </dependency>
+        <!-- Serverless Workflow types for flow module -->
+        <dependency>
+            <groupId>io.serverlessworkflow</groupId>
+            <artifactId>serverlessworkflow-impl-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.serverlessworkflow</groupId>
+            <artifactId>serverlessworkflow-experimental-types</artifactId>
+        </dependency>
+        <!-- MCP client for mcp module -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp</artifactId>
+            <version>2.0.0</version>
+        </dependency>
+        <!-- Connectors core for inbound module -->
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-connectors-core</artifactId>
+        </dependency>
+        <!-- Quarkus Flow for flow module -->
+        <dependency>
+            <groupId>io.quarkiverse.flow</groupId>
+            <artifactId>quarkus-flow</artifactId>
+            <version>${version.quarkus.flow}</version>
+        </dependency>
         <!-- CloudEvent types for work-cloudevent + inbound -->
         <dependency>
             <groupId>io.cloudevents</groupId>
@@ -65,6 +106,7 @@
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j-core</artifactId>
+            <version>${version.dev.langchain4j}</version>
             <optional>true</optional>
         </dependency>
         <!-- Inbound needs reactive types -->

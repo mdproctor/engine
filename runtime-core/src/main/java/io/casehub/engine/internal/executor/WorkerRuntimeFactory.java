@@ -20,11 +20,8 @@ import io.casehub.api.engine.WorkerRuntime;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.engine.CaseCompletionTracker;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.UUID;
 
-@ApplicationScoped
 public class WorkerRuntimeFactory {
 
   private final CaseHubRuntime caseHubRuntime;
@@ -34,7 +31,6 @@ public class WorkerRuntimeFactory {
   private final io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry;
   private final io.casehub.api.spi.DataChannelFactory defaultChannelFactory;
 
-  @Inject
   public WorkerRuntimeFactory(
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry definitionRegistry,

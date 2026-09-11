@@ -1166,4 +1166,22 @@ public class RuntimeBeans {
         e -> lifecycleEvents.fireAsync(e),
         traceIdProvider);
   }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.executor.WorkerRuntimeFactory workerRuntimeFactory(
+      io.casehub.api.engine.CaseHubRuntime caseHubRuntime,
+      CaseDefinitionRegistry definitionRegistry,
+      CaseInstanceCache caseInstanceCache,
+      io.casehub.engine.internal.engine.CaseCompletionTracker caseCompletionTracker,
+      DataChannelRegistry channelRegistry,
+      io.casehub.api.spi.DataChannelFactory defaultChannelFactory) {
+    return new io.casehub.engine.internal.executor.WorkerRuntimeFactory(
+        caseHubRuntime,
+        definitionRegistry,
+        caseInstanceCache,
+        caseCompletionTracker,
+        channelRegistry,
+        defaultChannelFactory);
+  }
 }
