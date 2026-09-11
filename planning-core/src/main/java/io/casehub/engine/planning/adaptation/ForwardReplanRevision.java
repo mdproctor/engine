@@ -25,15 +25,12 @@ import io.casehub.engine.plan.adaptation.OptimizationStrategy;
 import io.casehub.engine.plan.adaptation.PlanStepDescriptor;
 import io.casehub.engine.plan.adaptation.RevisedPlan;
 import io.casehub.engine.plan.adaptation.RevisionContext;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@ApplicationScoped
 public class ForwardReplanRevision implements OptimizationStrategy {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -49,7 +46,11 @@ public class ForwardReplanRevision implements OptimizationStrategy {
           + "and optional 'dependsOn' (array of step ids this step depends on). "
           + "Produce a sequential plan where each step depends on the previous.";
 
-  @Inject Instance<ChatModelProvider> chatModelProviders;
+  private final Optional<ChatModelProvider> chatModelProviders;
+
+  public ForwardReplanRevision(Optional<ChatModelProvider> chatModelProviders) {
+    this.chatModelProviders = chatModelProviders;
+  }
 
   @Override
   public String id() {
@@ -58,7 +59,7 @@ public class ForwardReplanRevision implements OptimizationStrategy {
 
   @Override
   public RevisedPlan revise(RevisionContext context) {
-    if (chatModelProviders.isUnsatisfied()) {
+    if (chatModelProviders.isEmpty()) {
       throw new UnsupportedOperationException("No ChatModelProvider available for plan revision");
     }
 

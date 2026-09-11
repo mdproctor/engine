@@ -19,7 +19,6 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.TaskStatus;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.JudgmentFaultEvent;
 import io.casehub.engine.common.internal.event.JudgmentReDispatchEvent;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
@@ -29,13 +28,9 @@ import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.Map;
+import java.util.Optional;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 /**
@@ -46,18 +41,26 @@ import org.jboss.logging.Logger;
  *
  * <p>Refs engine#1000, engine#999.
  */
-@ApplicationScoped
 public class JudgmentPlanItemHandler {
 
   private static final Logger LOG = Logger.getLogger(JudgmentPlanItemHandler.class);
 
-  @Inject BlackboardRegistry registry;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject Instance<JudgmentScheduler> judgmentScheduler;
-  @Inject Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
+  private final BlackboardRegistry registry;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final Optional<JudgmentScheduler> judgmentScheduler;
+  private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
 
-  @ConsumeEvent(value = EventBusAddresses.JUDGMENT_RE_DISPATCH, blocking = true)
-  @RunOnVirtualThread
+  public JudgmentPlanItemHandler(
+      BlackboardRegistry registry,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      Optional<JudgmentScheduler> judgmentScheduler,
+      Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents) {
+    this.registry = registry;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.judgmentScheduler = judgmentScheduler;
+    this.planItemStateChangedEvents = planItemStateChangedEvents;
+  }
+
   public void onReDispatch(JudgmentReDispatchEvent event) {
     CasePlanModel plan = registry.get(event.caseId()).orElse(null);
     if (plan == null) {
@@ -79,7 +82,7 @@ public class JudgmentPlanItemHandler {
                   "PlanItem %s for binding '%s' transitioned %s → DISPATCHING for re-dispatch",
                   item.id(), event.bindingName(), prevStatus);
 
-              planItemStateChangedEvents.fireAsync(
+              planItemStateChangedEvents.accept(
                   new PlanItemStateChangedEvent(
                       event.caseId(),
                       item.id(),
@@ -92,8 +95,6 @@ public class JudgmentPlanItemHandler {
             });
   }
 
-  @ConsumeEvent(value = EventBusAddresses.JUDGMENT_FAULT, blocking = true)
-  @RunOnVirtualThread
   public void onFault(JudgmentFaultEvent event) {
     CasePlanModel plan = registry.get(event.caseId()).orElse(null);
     if (plan == null) {
@@ -110,7 +111,7 @@ public class JudgmentPlanItemHandler {
                 LOG.infof(
                     "PlanItem %s for binding '%s' marked FAULTED: %s",
                     item.id(), event.bindingName(), event.reason());
-                planItemStateChangedEvents.fireAsync(
+                planItemStateChangedEvents.accept(
                     new PlanItemStateChangedEvent(
                         event.caseId(),
                         item.id(),
@@ -127,7 +128,7 @@ public class JudgmentPlanItemHandler {
   }
 
   private void scheduleJudgment(JudgmentReDispatchEvent event, PlanItem item) {
-    if (!judgmentScheduler.isResolvable()) {
+    if (!judgmentScheduler.isPresent()) {
       LOG.warnf(
           "No JudgmentScheduler available for re-dispatch — reverting PlanItem %s to DELEGATED",
           item.id());

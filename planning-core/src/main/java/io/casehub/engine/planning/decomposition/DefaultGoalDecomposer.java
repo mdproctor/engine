@@ -31,7 +31,8 @@ import io.casehub.engine.common.internal.model.TargetType;
 import io.casehub.engine.common.internal.routing.BindingExecutorResolver;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.PlanItemStore;
-import io.casehub.engine.internal.routing.EngineStrategyResolver;
+import io.casehub.engine.internal.routing.CbrRetrievalService;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.engine.internal.routing.GoalAbandonmentEvaluator;
 import io.casehub.engine.plan.DagNode;
 import io.casehub.engine.plan.DagPlan;
@@ -41,34 +42,43 @@ import io.casehub.engine.planning.plan.CompletionSemantics;
 import io.casehub.engine.planning.plan.DispatchMode;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalDecomposer {
 
   private static final Logger LOG = Logger.getLogger(DefaultGoalDecomposer.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject EngineStrategyResolver strategyResolver;
-  @Inject GoalAbandonmentEvaluator abandonmentEvaluator;
-  @Inject BlackboardRegistry blackboardRegistry;
-  @Inject PlanItemStore planItemStore;
-  @Inject EventLogRepository eventLogRepository;
+  private final StrategyResolver strategyResolver;
+  private final GoalAbandonmentEvaluator abandonmentEvaluator;
+  private final BlackboardRegistry blackboardRegistry;
+  private final PlanItemStore planItemStore;
+  private final EventLogRepository eventLogRepository;
+  private final Optional<CbrRetrievalService> cbrRetrievalServiceInstance;
+  private final long timeoutMs;
 
-  @Inject
-  jakarta.enterprise.inject.Instance<io.casehub.engine.internal.routing.CbrRetrievalService>
-      cbrRetrievalServiceInstance;
-
-  @ConfigProperty(name = "casehub.engine.decomposition.timeout-ms", defaultValue = "30000")
-  long timeoutMs;
+  public DefaultGoalDecomposer(
+      StrategyResolver strategyResolver,
+      GoalAbandonmentEvaluator abandonmentEvaluator,
+      BlackboardRegistry blackboardRegistry,
+      PlanItemStore planItemStore,
+      EventLogRepository eventLogRepository,
+      Optional<CbrRetrievalService> cbrRetrievalServiceInstance,
+      long timeoutMs) {
+    this.strategyResolver = strategyResolver;
+    this.abandonmentEvaluator = abandonmentEvaluator;
+    this.blackboardRegistry = blackboardRegistry;
+    this.planItemStore = planItemStore;
+    this.eventLogRepository = eventLogRepository;
+    this.cbrRetrievalServiceInstance = cbrRetrievalServiceInstance;
+    this.timeoutMs = timeoutMs;
+  }
 
   private record ResolvedStep(
       DagNode<TaskNode.LeafTask<JsonNode>> node,
@@ -134,7 +144,7 @@ public class DefaultGoalDecomposer implements io.casehub.engine.common.spi.GoalD
 
     java.util.List<io.casehub.api.spi.routing.RetrievedExperience> experiences =
         java.util.List.of();
-    if (cbrRetrievalServiceInstance.isResolvable() && definition.getCbrConfig() != null) {
+    if (cbrRetrievalServiceInstance.isPresent() && definition.getCbrConfig() != null) {
       try {
         experiences = cbrRetrievalServiceInstance.get().retrieve(definition, instance);
       } catch (Exception e) {

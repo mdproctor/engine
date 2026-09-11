@@ -16,18 +16,14 @@
 package io.casehub.engine.planning.handler;
 
 import io.casehub.api.model.TaskStatus;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.spi.PlanAdaptationEvaluator;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.quarkus.vertx.ConsumeEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
+import java.util.Optional;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 /**
@@ -49,29 +45,26 @@ import org.jboss.logging.Logger;
  *
  * <p>Refs engine#331, engine#369, engine#666.
  */
-@ApplicationScoped
 public class WorkerRetryExhaustionHandler {
 
   private static final Logger LOG = Logger.getLogger(WorkerRetryExhaustionHandler.class);
 
   private final BlackboardRegistry registry;
   private final CompoundCompletionEvaluator compoundCompletionEvaluator;
-  private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
-  private final Instance<PlanAdaptationEvaluator> planAdaptationEvaluator;
+  private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
+  private final Optional<PlanAdaptationEvaluator> planAdaptationEvaluator;
 
-  @Inject
   public WorkerRetryExhaustionHandler(
       final BlackboardRegistry registry,
       final CompoundCompletionEvaluator compoundCompletionEvaluator,
-      final Event<PlanItemStateChangedEvent> planItemStateChangedEvents,
-      final Instance<PlanAdaptationEvaluator> planAdaptationEvaluator) {
+      final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents,
+      final Optional<PlanAdaptationEvaluator> planAdaptationEvaluator) {
     this.registry = registry;
     this.compoundCompletionEvaluator = compoundCompletionEvaluator;
     this.planItemStateChangedEvents = planItemStateChangedEvents;
     this.planAdaptationEvaluator = planAdaptationEvaluator;
   }
 
-  @ConsumeEvent(value = EventBusAddresses.WORKER_RETRIES_EXHAUSTED, blocking = true)
   public void onWorkerRetriesExhausted(final WorkerRetriesExhaustedEvent event) {
     final CasePlanModel plan = registry.get(event.caseId()).orElse(null);
     if (plan == null) {
@@ -113,7 +106,7 @@ public class WorkerRetryExhaustionHandler {
                 return;
               }
 
-              planItemStateChangedEvents.fireAsync(
+              planItemStateChangedEvents.accept(
                   new PlanItemStateChangedEvent(
                       event.caseId(),
                       planItemId,
@@ -122,7 +115,7 @@ public class WorkerRetryExhaustionHandler {
                       TaskStatus.FAULTED,
                       event.tenancyId()));
 
-              if (planAdaptationEvaluator.isResolvable()) {
+              if (planAdaptationEvaluator.isPresent()) {
                 planAdaptationEvaluator
                     .get()
                     .evaluateAdaptation(

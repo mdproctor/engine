@@ -28,7 +28,6 @@ import io.casehub.engine.plan.goap.GoapAction;
 import io.casehub.engine.plan.goap.GoapPlanner;
 import io.casehub.engine.plan.goap.GoapWorldState;
 import io.casehub.engine.plan.goap.PlannerConfig;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -39,7 +38,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@ApplicationScoped
 public class GoapDecompositionStrategy implements DecompositionStrategy<JsonNode> {
 
   private final GoapPlanner planner = new GoapPlanner();

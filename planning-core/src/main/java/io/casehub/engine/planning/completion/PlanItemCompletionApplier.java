@@ -18,6 +18,7 @@ package io.casehub.engine.planning.completion;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.context.ContextBridge;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CaseDefinition;
@@ -36,31 +37,46 @@ import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.Map;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 import org.jspecify.annotations.Nullable;
 
-@ApplicationScoped
 public class PlanItemCompletionApplier {
 
   private static final Logger LOG = Logger.getLogger(PlanItemCompletionApplier.class);
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final TypeReference<Map<String, Object>> MAP_TYPE = new TypeReference<>() {};
 
-  @Inject BlackboardRegistry registry;
-  @Inject CrossTenantCaseInstanceRepository caseInstanceRepository;
-  @Inject EventBus eventBus;
-  @Inject JQEvaluator jqEvaluator;
-  @Inject BridgeResolver bridgeResolver;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
-  @Inject Event<PlanItemObsoleteEvent> planItemObsoleteEvents;
+  private final BlackboardRegistry registry;
+  private final CrossTenantCaseInstanceRepository caseInstanceRepository;
+  private final EventDispatcher eventDispatcher;
+  private final JQEvaluator jqEvaluator;
+  private final BridgeResolver bridgeResolver;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
+  private final Consumer<PlanItemObsoleteEvent> planItemObsoleteEvents;
+
+  public PlanItemCompletionApplier(
+      BlackboardRegistry registry,
+      CrossTenantCaseInstanceRepository caseInstanceRepository,
+      EventDispatcher eventDispatcher,
+      JQEvaluator jqEvaluator,
+      BridgeResolver bridgeResolver,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents,
+      Consumer<PlanItemObsoleteEvent> planItemObsoleteEvents) {
+    this.registry = registry;
+    this.caseInstanceRepository = caseInstanceRepository;
+    this.eventDispatcher = eventDispatcher;
+    this.jqEvaluator = jqEvaluator;
+    this.bridgeResolver = bridgeResolver;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.planItemStateChangedEvents = planItemStateChangedEvents;
+    this.planItemObsoleteEvents = planItemObsoleteEvents;
+  }
 
   public void apply(
       UUID caseId,
@@ -105,8 +121,7 @@ public class PlanItemCompletionApplier {
                       resolutionTypeName,
                       "error",
                       e.getMessage() != null ? e.getMessage() : e.getClass().getName()));
-          eventBus.publish(
-              "casehub.context.changed",
+          eventDispatcher.dispatch(
               new CaseContextChangedEvent(
                   instance, instance.getCaseContext().snapshot(), "working"));
         }
@@ -128,7 +143,7 @@ public class PlanItemCompletionApplier {
 
     String bindingName = item.getBindingName();
     if (status == TaskStatus.REJECTED) {
-      planItemStateChangedEvents.fireAsync(
+      planItemStateChangedEvents.accept(
           new PlanItemStateChangedEvent(
               caseId,
               planItemId,
@@ -138,7 +153,7 @@ public class PlanItemCompletionApplier {
               instance.tenancyId));
     }
     if (status == TaskStatus.FAULTED) {
-      planItemStateChangedEvents.fireAsync(
+      planItemStateChangedEvents.accept(
           new PlanItemStateChangedEvent(
               caseId,
               planItemId,
@@ -148,12 +163,11 @@ public class PlanItemCompletionApplier {
               instance.tenancyId));
     }
     if (status == TaskStatus.OBSOLETE) {
-      planItemObsoleteEvents.fireAsync(
+      planItemObsoleteEvents.accept(
           new PlanItemObsoleteEvent(caseId, planItemId, bindingName, instance.tenancyId));
     }
 
-    eventBus.publish(
-        "casehub.context.changed",
+    eventDispatcher.dispatch(
         new CaseContextChangedEvent(instance, instance.getCaseContext().snapshot(), "working"));
   }
 

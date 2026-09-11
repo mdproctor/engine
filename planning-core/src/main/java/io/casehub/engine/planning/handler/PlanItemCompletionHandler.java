@@ -17,8 +17,8 @@ package io.casehub.engine.planning.handler;
 
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.TaskStatus;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.PlanAdaptationEvaluator;
@@ -30,13 +30,9 @@ import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.worker.api.WorkerOutcome;
-import io.quarkus.vertx.ConsumeEvent;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.EnumSet;
+import java.util.Optional;
+import java.util.function.Consumer;
 import java.util.Set;
 import java.util.UUID;
 import org.jboss.logging.Logger;
@@ -57,7 +53,6 @@ import org.jboss.logging.Logger;
  *
  * <p>See casehubio/engine#76. Stage future alignment: casehubio/engine#84.
  */
-@ApplicationScoped
 public class PlanItemCompletionHandler {
 
   private static final Logger LOG = Logger.getLogger(PlanItemCompletionHandler.class);
@@ -66,29 +61,27 @@ public class PlanItemCompletionHandler {
       EnumSet.of(TaskStatus.RUNNING, TaskStatus.DELEGATED);
 
   private final BlackboardRegistry registry;
-  private final EventBus eventBus;
-  private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
+  private final EventDispatcher eventDispatcher;
+  private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
   private final CompoundCompletionEvaluator compoundCompletionEvaluator;
-  private final Instance<PlanAdaptationEvaluator> planAdaptationEvaluator;
+  private final Optional<PlanAdaptationEvaluator> planAdaptationEvaluator;
   private final QuiescenceTracker quiescenceTracker;
 
-  @Inject
   public PlanItemCompletionHandler(
       BlackboardRegistry registry,
-      EventBus eventBus,
-      Event<PlanItemStateChangedEvent> planItemStateChangedEvents,
+      EventDispatcher eventDispatcher,
+      Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents,
       CompoundCompletionEvaluator compoundCompletionEvaluator,
-      Instance<PlanAdaptationEvaluator> planAdaptationEvaluator,
+      Optional<PlanAdaptationEvaluator> planAdaptationEvaluator,
       QuiescenceTracker quiescenceTracker) {
     this.registry = registry;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
     this.planItemStateChangedEvents = planItemStateChangedEvents;
     this.compoundCompletionEvaluator = compoundCompletionEvaluator;
     this.planAdaptationEvaluator = planAdaptationEvaluator;
     this.quiescenceTracker = quiescenceTracker;
   }
 
-  @ConsumeEvent(value = EventBusAddresses.WORKER_EXECUTION_FINISHED, blocking = true)
   public void onWorkerFinished(WorkflowExecutionCompleted event) {
     // Non-success outcomes are handled by WorkerOutcomeResolvedHandler — skip PlanItem completion.
     if (!(event.outcome() instanceof WorkerOutcome.Success)
@@ -112,13 +105,11 @@ public class PlanItemCompletionHandler {
     CaseInstance ci = event.caseInstance();
     if (ci.getCaseContext() != null) {
       quiescenceTracker.onContextChangePublished(ci.getUuid());
-      eventBus.publish(
-          EventBusAddresses.CONTEXT_CHANGED,
+      eventDispatcher.dispatch(
           new CaseContextChangedEvent(ci, ci.getCaseContext().snapshot(), ContextLayer.WORKING));
     }
   }
 
-  @ConsumeEvent(value = BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED, blocking = true)
   public void onSubCaseFinished(SubCaseExecutionCompleted event) {
     completePlanItemByKey(event.parentCaseId(), event.childCaseId().toString(), event.tenancyId());
   }
@@ -138,13 +129,13 @@ public class PlanItemCompletionHandler {
               }
               TaskStatus prevStatus = item.getStatus();
               item.markCompleted();
-              if (planAdaptationEvaluator.isResolvable()) {
+              if (planAdaptationEvaluator.isPresent()) {
                 planAdaptationEvaluator
                     .get()
                     .evaluateAdaptation(caseId, tenancyId, bindingName, TaskStatus.COMPLETED);
               }
               compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
-              planItemStateChangedEvents.fireAsync(
+              planItemStateChangedEvents.accept(
                   new PlanItemStateChangedEvent(
                       caseId, item.id(), bindingName, prevStatus, TaskStatus.COMPLETED, tenancyId));
             },
@@ -177,14 +168,14 @@ public class PlanItemCompletionHandler {
               }
               TaskStatus prevStatus = item.getStatus();
               item.markCompleted();
-              if (planAdaptationEvaluator.isResolvable()) {
+              if (planAdaptationEvaluator.isPresent()) {
                 planAdaptationEvaluator
                     .get()
                     .evaluateAdaptation(
                         caseId, tenancyId, item.getBindingName(), TaskStatus.COMPLETED);
               }
               compoundCompletionEvaluator.evaluate(caseId, tenancyId, plan, item.getBindingName());
-              planItemStateChangedEvents.fireAsync(
+              planItemStateChangedEvents.accept(
                   new PlanItemStateChangedEvent(
                       caseId,
                       planItemId,

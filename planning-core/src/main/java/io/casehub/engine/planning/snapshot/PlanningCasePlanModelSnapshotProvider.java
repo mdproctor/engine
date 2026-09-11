@@ -38,8 +38,6 @@ import io.casehub.engine.planning.plan.CompletionSemantics;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,12 +46,10 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-@ApplicationScoped
 public class PlanningCasePlanModelSnapshotProvider implements CasePlanModelSnapshotProvider {
 
   private final BlackboardRegistry registry;
 
-  @Inject
   public PlanningCasePlanModelSnapshotProvider(BlackboardRegistry registry) {
     this.registry = registry;
   }

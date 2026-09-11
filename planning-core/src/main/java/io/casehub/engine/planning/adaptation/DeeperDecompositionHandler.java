@@ -34,7 +34,7 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.internal.routing.CbrRetrievalService;
-import io.casehub.engine.internal.routing.EngineStrategyResolver;
+import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.engine.plan.DagPlan;
 import io.casehub.engine.plan.DecompositionStrategy;
 import io.casehub.engine.plan.TaskNode;
@@ -45,9 +45,6 @@ import io.casehub.engine.planning.plan.CompletionSemantics;
 import io.casehub.engine.planning.plan.DispatchMode;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,7 +52,6 @@ import java.util.Optional;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class DeeperDecompositionHandler {
 
   private static final Logger LOG = Logger.getLogger(DeeperDecompositionHandler.class);
@@ -63,11 +59,24 @@ public class DeeperDecompositionHandler {
   private static final int DEFAULT_MAX_DEPTH = 3;
   private static final int MIN_SUB_STEPS = 2;
 
-  @Inject EngineStrategyResolver strategyResolver;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject PlanItemStore planItemStore;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject Instance<CbrRetrievalService> cbrRetrievalServiceInstance;
+  private final StrategyResolver strategyResolver;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final PlanItemStore planItemStore;
+  private final EventLogRepository eventLogRepository;
+  private final Optional<CbrRetrievalService> cbrRetrievalServiceInstance;
+
+  public DeeperDecompositionHandler(
+      StrategyResolver strategyResolver,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      PlanItemStore planItemStore,
+      EventLogRepository eventLogRepository,
+      Optional<CbrRetrievalService> cbrRetrievalServiceInstance) {
+    this.strategyResolver = strategyResolver;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.planItemStore = planItemStore;
+    this.eventLogRepository = eventLogRepository;
+    this.cbrRetrievalServiceInstance = cbrRetrievalServiceInstance;
+  }
 
   @SuppressWarnings("unchecked")
   public boolean tryDecompose(
@@ -129,7 +138,7 @@ public class DeeperDecompositionHandler {
             : OBJECT_MAPPER.createObjectNode();
 
     List<RetrievedExperience> experiences = List.of();
-    if (cbrRetrievalServiceInstance.isResolvable() && definition.getCbrConfig() != null) {
+    if (cbrRetrievalServiceInstance.isPresent() && definition.getCbrConfig() != null) {
       try {
         experiences = cbrRetrievalServiceInstance.get().retrieve(definition, instance);
       } catch (Exception e) {

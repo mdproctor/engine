@@ -17,18 +17,17 @@ package io.casehub.engine.planning.handler;
 
 import io.casehub.api.context.ContextLayer;
 import io.casehub.api.model.TaskStatus;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.OutcomeDisposition;
 import io.casehub.engine.common.internal.event.WorkerOutcomeResolvedEvent;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.internal.engine.QuiescenceTracker;
+import io.casehub.engine.planning.adaptation.DeeperDecompositionHandler;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.quarkus.vertx.ConsumeEvent;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
+import java.util.Optional;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 public class WorkerOutcomeResolvedHandler {
@@ -37,30 +36,26 @@ public class WorkerOutcomeResolvedHandler {
 
   private final BlackboardRegistry registry;
   private final CompoundCompletionEvaluator compoundCompletionEvaluator;
-  private final EventBus eventBus;
-  private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
+  private final EventDispatcher eventDispatcher;
+  private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
   private final QuiescenceTracker quiescenceTracker;
+  private final Optional<DeeperDecompositionHandler> deeperDecompositionHandler;
 
-  @jakarta.inject.Inject
-  jakarta.enterprise.inject.Instance<
-          io.casehub.engine.planning.adaptation.DeeperDecompositionHandler>
-      deeperDecompositionHandler;
-
-  @Inject
   public WorkerOutcomeResolvedHandler(
       BlackboardRegistry registry,
       CompoundCompletionEvaluator compoundCompletionEvaluator,
-      EventBus eventBus,
-      Event<PlanItemStateChangedEvent> planItemStateChangedEvents,
-      QuiescenceTracker quiescenceTracker) {
+      EventDispatcher eventDispatcher,
+      Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents,
+      QuiescenceTracker quiescenceTracker,
+      Optional<DeeperDecompositionHandler> deeperDecompositionHandler) {
     this.registry = registry;
     this.compoundCompletionEvaluator = compoundCompletionEvaluator;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
     this.planItemStateChangedEvents = planItemStateChangedEvents;
     this.quiescenceTracker = quiescenceTracker;
+    this.deeperDecompositionHandler = deeperDecompositionHandler;
   }
 
-  @ConsumeEvent(value = EventBusAddresses.WORKER_OUTCOME_RESOLVED, blocking = true)
   public void onWorkerOutcomeResolved(WorkerOutcomeResolvedEvent event) {
     CasePlanModel plan = registry.get(event.caseInstance().getUuid()).orElse(null);
     if (plan == null) {
@@ -80,13 +75,13 @@ public class WorkerOutcomeResolvedHandler {
               // Deeper decomposition check — BEFORE markFaulted()
               if (event.disposition() == OutcomeDisposition.EXHAUSTED
                   && event.category() instanceof io.casehub.api.model.FailureCategory.Knowledge k
-                  && deeperDecompositionHandler.isResolvable()) {
+                  && deeperDecompositionHandler.isPresent()) {
                 boolean decomposed =
                     deeperDecompositionHandler
                         .get()
                         .tryDecompose(event.caseInstance(), plan, item, k);
                 if (decomposed) {
-                  planItemStateChangedEvents.fireAsync(
+                  planItemStateChangedEvents.accept(
                       new PlanItemStateChangedEvent(
                           event.caseInstance().getUuid(),
                           item.id(),
@@ -94,8 +89,7 @@ public class WorkerOutcomeResolvedHandler {
                           TaskStatus.RUNNING,
                           TaskStatus.OBSOLETE,
                           event.caseInstance().tenancyId));
-                  eventBus.publish(
-                      EventBusAddresses.CONTEXT_CHANGED,
+                  eventDispatcher.dispatch(
                       new CaseContextChangedEvent(
                           event.caseInstance(),
                           event.caseInstance().getCaseContext().snapshot(),
@@ -110,7 +104,7 @@ public class WorkerOutcomeResolvedHandler {
               // Existing fault path
               TaskStatus prevStatus = item.getStatus();
               item.markFaulted();
-              planItemStateChangedEvents.fireAsync(
+              planItemStateChangedEvents.accept(
                   new PlanItemStateChangedEvent(
                       event.caseInstance().getUuid(),
                       item.id(),
@@ -130,8 +124,7 @@ public class WorkerOutcomeResolvedHandler {
 
               if (event.disposition() != OutcomeDisposition.FAULT) {
                 quiescenceTracker.onContextChangePublished(event.caseInstance().getUuid());
-                eventBus.publish(
-                    EventBusAddresses.CONTEXT_CHANGED,
+                eventDispatcher.dispatch(
                     new CaseContextChangedEvent(
                         event.caseInstance(),
                         event.caseInstance().getCaseContext().snapshot(),

@@ -28,9 +28,6 @@ import io.casehub.api.spi.routing.ImplementationSelection;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -41,7 +38,6 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class PlanningStrategyLoopControl implements LoopControl {
 
   private static final Logger LOG = Logger.getLogger(PlanningStrategyLoopControl.class);
@@ -49,16 +45,15 @@ public class PlanningStrategyLoopControl implements LoopControl {
   private final BlackboardRegistry registry;
   private final CompoundLifecycleEvaluator compoundLifecycleEvaluator;
   private final CompoundStrategyDispatcher compoundDispatcher;
-  private final Instance<BlackboardPlanConfigurer> configurers;
+  private final List<BlackboardPlanConfigurer> configurers;
   private final ImplementationRoutingStrategy implementationRoutingStrategy;
   private final io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
 
-  @Inject
   public PlanningStrategyLoopControl(
       BlackboardRegistry registry,
       CompoundLifecycleEvaluator compoundLifecycleEvaluator,
       CompoundStrategyDispatcher compoundDispatcher,
-      Instance<BlackboardPlanConfigurer> configurers,
+      List<BlackboardPlanConfigurer> configurers,
       ImplementationRoutingStrategy implementationRoutingStrategy,
       io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry) {
     this.registry = registry;

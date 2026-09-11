@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.planning.control;
 
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.TaskStatus;
@@ -22,29 +23,25 @@ import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CompoundLifecycleEvaluator {
 
   private static final Logger LOG = Logger.getLogger(CompoundLifecycleEvaluator.class);
 
   private final io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
-  private final io.vertx.mutiny.core.eventbus.EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
 
-  @Inject
   public CompoundLifecycleEvaluator(
       io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry,
-      io.vertx.mutiny.core.eventbus.EventBus eventBus) {
+      EventDispatcher eventDispatcher) {
     this.expressionEngineRegistry = expressionEngineRegistry;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
   }
 
   CompoundLifecycleEvaluator() {
     this.expressionEngineRegistry = null;
-    this.eventBus = null;
+    this.eventDispatcher = null;
   }
 
   public java.util.List<PlanItemDefinition.Compound> evaluate(
@@ -71,9 +68,8 @@ public class CompoundLifecycleEvaluator {
         if (plan.tryDefinitionTransition(compound.id(), TaskStatus.PENDING, TaskStatus.RUNNING)) {
           LOG.debugf("Compound '%s' activated for case %s", compound.name(), ctx.caseId());
           activated.add(compound);
-          if (eventBus != null) {
-            eventBus.publish(
-                io.casehub.engine.planning.event.BlackboardEventBusAddresses.COMPOUND_ACTIVATED,
+          if (eventDispatcher != null) {
+            eventDispatcher.dispatch(
                 new io.casehub.engine.common.internal.event.CompoundActivatedEvent(
                     ctx.caseId(),
                     ctx.tenancyId(),

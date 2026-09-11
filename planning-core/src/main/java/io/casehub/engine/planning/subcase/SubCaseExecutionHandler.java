@@ -24,7 +24,6 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.SubCaseScheduleEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -37,15 +36,10 @@ import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.internal.work.PendingWorkRegistry;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class SubCaseExecutionHandler {
 
   private static final Logger LOG = Logger.getLogger(SubCaseExecutionHandler.class);
@@ -60,7 +54,6 @@ public class SubCaseExecutionHandler {
   private final BlackboardRegistry registry;
   private final CaseInstanceCache caseInstanceCache;
 
-  @Inject
   public SubCaseExecutionHandler(
       CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry caseDefinitionRegistry,
@@ -80,8 +73,6 @@ public class SubCaseExecutionHandler {
     this.caseInstanceCache = caseInstanceCache;
   }
 
-  @ConsumeEvent(EventBusAddresses.SUBCASE_SCHEDULE)
-  @RunOnVirtualThread
   public void onSubCaseSchedule(SubCaseScheduleEvent event) {
     CaseInstance parent = event.parentInstance();
     SubCase subCase = event.subCase();

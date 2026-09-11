@@ -17,14 +17,10 @@ package io.casehub.engine.planning.handler;
 
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.event.AgentRoutingEscalationEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.quarkus.vertx.ConsumeEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 /**
@@ -40,22 +36,19 @@ import org.jboss.logging.Logger;
  * {@code filterAndIndexForDispatch}). {@code tryMarkEscalated()} accepts both PENDING and RUNNING
  * as source states.
  */
-@ApplicationScoped
 public class PlanItemEscalationHandler {
 
   private static final Logger LOG = Logger.getLogger(PlanItemEscalationHandler.class);
 
   private final BlackboardRegistry registry;
-  private final Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
+  private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
 
-  @Inject
   public PlanItemEscalationHandler(
-      BlackboardRegistry registry, Event<PlanItemStateChangedEvent> planItemStateChangedEvents) {
+      BlackboardRegistry registry, Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents) {
     this.registry = registry;
     this.planItemStateChangedEvents = planItemStateChangedEvents;
   }
 
-  @ConsumeEvent(value = EventBusAddresses.AGENT_ROUTING_ESCALATION, blocking = true)
   public void onEscalation(AgentRoutingEscalationEvent event) {
     CasePlanModel plan = registry.get(event.caseId()).orElse(null);
     if (plan == null) {
@@ -75,7 +68,7 @@ public class PlanItemEscalationHandler {
               LOG.infof(
                   "PlanItem %s for binding '%s' in case %s marked ESCALATED (was %s)",
                   item.id(), event.bindingName(), event.caseId(), prevStatus);
-              planItemStateChangedEvents.fireAsync(
+              planItemStateChangedEvents.accept(
                   new PlanItemStateChangedEvent(
                       event.caseId(),
                       item.id(),

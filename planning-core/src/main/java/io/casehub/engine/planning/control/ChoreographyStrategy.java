@@ -18,8 +18,6 @@ package io.casehub.engine.planning.control;
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
 import io.casehub.engine.planning.plan.CasePlanModel;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 
 /**
@@ -27,8 +25,6 @@ import java.util.List;
  * priority. Equivalent to choreography but routed through the plan model, enabling CasePlanModel
  * state to accumulate for custom strategies. See casehubio/engine#76. Epic casehubio/engine#30.
  */
-@ApplicationScoped
-@Unremovable
 public class ChoreographyStrategy implements PlanningStrategy {
 
   @Override

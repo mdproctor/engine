@@ -24,8 +24,6 @@ import io.casehub.engine.plan.DecompositionStrategy;
 import io.casehub.engine.plan.PortfolioConfig;
 import io.casehub.engine.plan.TaskNode;
 import io.casehub.platform.api.routing.StrategyResolver;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -35,14 +33,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class PortfolioDecompositionStrategy implements DecompositionStrategy<JsonNode> {
 
   private static final Logger LOG = Logger.getLogger(PortfolioDecompositionStrategy.class);
 
   private final StrategyResolver strategyResolver;
 
-  @Inject
   public PortfolioDecompositionStrategy(StrategyResolver strategyResolver) {
     this.strategyResolver = strategyResolver;
   }

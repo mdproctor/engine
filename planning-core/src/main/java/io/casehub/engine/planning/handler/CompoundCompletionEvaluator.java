@@ -16,25 +16,20 @@
 package io.casehub.engine.planning.handler;
 
 import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
-import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.planning.plan.CasePlanModel;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Optional;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CompoundCompletionEvaluator {
 
   private static final Logger LOG = Logger.getLogger(CompoundCompletionEvaluator.class);
 
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
 
-  @Inject
-  public CompoundCompletionEvaluator(EventBus eventBus) {
-    this.eventBus = eventBus;
+  public CompoundCompletionEvaluator(EventDispatcher eventDispatcher) {
+    this.eventDispatcher = eventDispatcher;
   }
 
   public void evaluate(UUID caseId, String tenancyId, CasePlanModel plan, String changedItemId) {
@@ -64,8 +59,7 @@ public class CompoundCompletionEvaluator {
               ? c2.scopedBindings().keySet()
               : java.util.Set.of();
 
-      eventBus.publish(
-          BlackboardEventBusAddresses.COMPOUND_COMPLETED,
+      eventDispatcher.dispatch(
           new CompoundCompletedEvent(caseId, tenancyId, parentId, name, scopedBindings));
 
       LOG.debugf(

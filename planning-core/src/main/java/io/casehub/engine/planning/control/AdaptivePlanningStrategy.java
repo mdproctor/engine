@@ -22,8 +22,6 @@ import io.casehub.engine.plan.goap.GoapAction;
 import io.casehub.engine.plan.goap.GoapPlanner;
 import io.casehub.engine.plan.goap.GoapWorldState;
 import io.casehub.engine.planning.plan.CasePlanModel;
-import io.quarkus.arc.Unremovable;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,8 +29,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-@ApplicationScoped
-@Unremovable
 public class AdaptivePlanningStrategy extends GoapPlanningStrategy {
 
   private final GoapPlanner planner = new GoapPlanner();

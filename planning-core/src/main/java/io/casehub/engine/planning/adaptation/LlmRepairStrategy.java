@@ -25,14 +25,11 @@ import io.casehub.engine.plan.adaptation.PlanStepDescriptor;
 import io.casehub.engine.plan.adaptation.RepairStrategy;
 import io.casehub.engine.plan.adaptation.RevisedPlan;
 import io.casehub.engine.plan.adaptation.RevisionContext;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-@ApplicationScoped
 public class LlmRepairStrategy implements RepairStrategy {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -46,10 +43,9 @@ public class LlmRepairStrategy implements RepairStrategy {
           + "'id' (unique string), 'description' (what this step does), "
           + "'capabilityName' (must match one of the available capabilities).";
 
-  private final Instance<ChatModelProvider> chatModelProviders;
+  private final Optional<ChatModelProvider> chatModelProviders;
 
-  @Inject
-  public LlmRepairStrategy(Instance<ChatModelProvider> chatModelProviders) {
+  public LlmRepairStrategy(Optional<ChatModelProvider> chatModelProviders) {
     this.chatModelProviders = chatModelProviders;
   }
 
@@ -60,7 +56,7 @@ public class LlmRepairStrategy implements RepairStrategy {
 
   @Override
   public RevisedPlan revise(RevisionContext context) {
-    if (chatModelProviders.isUnsatisfied()) {
+    if (chatModelProviders.isEmpty()) {
       throw new UnsupportedOperationException("No ChatModelProvider available for LLM repair");
     }
 

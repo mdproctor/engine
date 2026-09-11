@@ -27,18 +27,15 @@ import io.casehub.engine.plan.DecompositionStrategy;
 import io.casehub.engine.plan.JoinType;
 import io.casehub.engine.plan.TaskNode;
 import io.casehub.worker.api.Capability;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@ApplicationScoped
 public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode> {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
@@ -64,7 +61,11 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
           + "and optional 'dependsOn' (array of step ids this step depends on). "
           + "Produce a sequential plan where each step depends on the previous.";
 
-  @Inject Instance<ChatModelProvider> chatModelProviders;
+  private final Optional<ChatModelProvider> chatModelProviders;
+
+  public LlmDecompositionStrategy(Optional<ChatModelProvider> chatModelProviders) {
+    this.chatModelProviders = chatModelProviders;
+  }
 
   @Override
   public String id() {
@@ -75,7 +76,7 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
   public DagPlan<TaskNode.LeafTask<JsonNode>> decompose(
       TaskNode<JsonNode> task, DecompositionContext<JsonNode> context) {
 
-    if (chatModelProviders.isUnsatisfied()) {
+    if (chatModelProviders.isEmpty()) {
       throw new UnsupportedOperationException(
           "No ChatModelProvider available for LLM decomposition");
     }
@@ -201,7 +202,7 @@ public class LlmDecompositionStrategy implements DecompositionStrategy<JsonNode>
       DecompositionContext<JsonNode> context,
       io.casehub.engine.plan.ReplanContext<JsonNode> replanContext) {
 
-    if (chatModelProviders.isUnsatisfied()) {
+    if (chatModelProviders.isEmpty()) {
       throw new UnsupportedOperationException("No ChatModelProvider available for LLM re-planning");
     }
 

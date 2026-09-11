@@ -19,20 +19,20 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.ActionGateExpiredEvent;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import io.casehub.api.spi.event.EventDispatcher;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 import org.jspecify.annotations.Nullable;
 
-@ApplicationScoped
 public class GateCompletionApplier {
 
   private static final Logger LOG = Logger.getLogger(GateCompletionApplier.class);
 
-  @Inject EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
+
+  public GateCompletionApplier(EventDispatcher eventDispatcher) {
+    this.eventDispatcher = eventDispatcher;
+  }
 
   public void apply(
       UUID caseId,
@@ -43,16 +43,13 @@ public class GateCompletionApplier {
       @Nullable String actorId) {
     switch (status) {
       case COMPLETED ->
-          eventBus.publish(
-              EventBusAddresses.ACTION_GATE_APPROVED,
+          eventDispatcher.dispatch(
               new ActionGateApprovedEvent(caseId, tenancyId, gateId, resolution, actorId, null));
       case REJECTED, CANCELLED ->
-          eventBus.publish(
-              EventBusAddresses.ACTION_GATE_REJECTED,
+          eventDispatcher.dispatch(
               new ActionGateRejectedEvent(caseId, tenancyId, gateId, resolution, actorId));
       case FAULTED ->
-          eventBus.publish(
-              EventBusAddresses.ACTION_GATE_EXPIRED,
+          eventDispatcher.dispatch(
               new ActionGateExpiredEvent(caseId, tenancyId, gateId));
       default ->
           LOG.warnf("Unsupported gate status %s for caseId=%s gateId=%d", status, caseId, gateId);

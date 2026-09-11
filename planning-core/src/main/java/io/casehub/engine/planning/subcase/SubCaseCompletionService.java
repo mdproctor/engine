@@ -26,6 +26,7 @@ import io.casehub.api.model.OnThresholdReached;
 import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -39,12 +40,9 @@ import io.casehub.engine.internal.work.CaseResumptionService;
 import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
+import java.util.function.Consumer;
 import java.util.Map;
 import java.util.UUID;
 import org.jboss.logging.Logger;
@@ -63,7 +61,6 @@ import org.jboss.logging.Logger;
  *
  * <p>See casehubio/engine#112, engine#252, engine#322.
  */
-@ApplicationScoped
 public class SubCaseCompletionService {
 
   private static final Logger LOG = Logger.getLogger(SubCaseCompletionService.class);
@@ -76,13 +73,12 @@ public class SubCaseCompletionService {
   private final CaseResumptionService caseResumptionService;
   private final SubCaseGroupRepository subCaseGroupRepository;
   private final CaseHubRuntime caseHubRuntime;
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
   private final BlackboardRegistry registry;
-  private final Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents;
+  private final Consumer<SubCaseGroupLifecycleEvent> groupLifecycleEvents;
   private final io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
   private final io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
 
-  @Inject
   public SubCaseCompletionService(
       EventLogRepository eventLogRepository,
       JQEvaluator jqEvaluator,
@@ -90,9 +86,9 @@ public class SubCaseCompletionService {
       CaseResumptionService caseResumptionService,
       SubCaseGroupRepository subCaseGroupRepository,
       CaseHubRuntime caseHubRuntime,
-      EventBus eventBus,
+      EventDispatcher eventDispatcher,
       BlackboardRegistry registry,
-      Event<SubCaseGroupLifecycleEvent> groupLifecycleEvents,
+      Consumer<SubCaseGroupLifecycleEvent> groupLifecycleEvents,
       io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry,
       io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry) {
     this.eventLogRepository = eventLogRepository;
@@ -101,7 +97,7 @@ public class SubCaseCompletionService {
     this.caseResumptionService = caseResumptionService;
     this.subCaseGroupRepository = subCaseGroupRepository;
     this.caseHubRuntime = caseHubRuntime;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
     this.registry = registry;
     this.groupLifecycleEvents = groupLifecycleEvents;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -159,7 +155,7 @@ public class SubCaseCompletionService {
       return; // policyTriggered — already handled
     }
 
-    groupLifecycleEvents.fireAsync(
+    groupLifecycleEvents.accept(
         SubCaseGroupPolicy.toEvent(group, groupStatus, event.tenancyId()));
 
     LOG.infof(
@@ -193,8 +189,7 @@ public class SubCaseCompletionService {
         caseResumptionService.resumeIfWaiting(
             parent, groupId, childCaseId.toString(), Map.of(), CaseHubEventType.SUBCASE_COMPLETED);
 
-        eventBus.publish(
-            BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED,
+        eventDispatcher.dispatch(
             new SubCaseExecutionCompleted(parentCaseId, childCaseId, event.tenancyId()));
 
       } else {
@@ -255,8 +250,7 @@ public class SubCaseCompletionService {
     // In that case PlanItemCompletionHandler will find the status not in COMPLETABLE and log a
     // debug
     // line — harmless, no transition occurs.
-    eventBus.publish(
-        BlackboardEventBusAddresses.SUBCASE_EXECUTION_COMPLETED,
+    eventDispatcher.dispatch(
         new SubCaseExecutionCompleted(parentCaseId, childCaseId, event.tenancyId()));
   }
 

@@ -17,14 +17,10 @@ package io.casehub.engine.planning.handler;
 
 import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.event.ActionGateWorkerFaultedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.quarkus.vertx.ConsumeEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 /**
@@ -37,15 +33,20 @@ import org.jboss.logging.Logger;
  * WORKER_RETRIES_EXHAUSTED) because gate faults must NOT cause a CaseInstance state transition to
  * FAULTED — only the PlanItem should be faulted. Refs engine#402.
  */
-@ApplicationScoped
 public class ActionGateRejectedPlanItemHandler {
 
   private static final Logger LOG = Logger.getLogger(ActionGateRejectedPlanItemHandler.class);
 
-  @Inject BlackboardRegistry registry;
-  @Inject Event<PlanItemStateChangedEvent> planItemStateChangedEvents;
+  private final BlackboardRegistry registry;
+  private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
 
-  @ConsumeEvent(value = EventBusAddresses.ACTION_GATE_WORKER_FAULTED, blocking = true)
+  public ActionGateRejectedPlanItemHandler(
+      BlackboardRegistry registry,
+      Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents) {
+    this.registry = registry;
+    this.planItemStateChangedEvents = planItemStateChangedEvents;
+  }
+
   public void onActionGateWorkerFaulted(final ActionGateWorkerFaultedEvent event) {
     final String planItemId = registry.getPlanItemId(event.caseId(), event.workerId()).orElse(null);
     if (planItemId == null) {
@@ -69,7 +70,7 @@ public class ActionGateRejectedPlanItemHandler {
               }
               TaskStatus prevStatus = item.getStatus();
               item.markFaulted();
-              planItemStateChangedEvents.fireAsync(
+              planItemStateChangedEvents.accept(
                   new PlanItemStateChangedEvent(
                       event.caseId(),
                       planItemId,

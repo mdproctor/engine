@@ -17,29 +17,20 @@ package io.casehub.engine.planning.handler;
 
 import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
-import io.quarkus.vertx.ConsumeEvent;
-import io.smallrye.common.annotation.RunOnVirtualThread;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 /**
  * Evicts {@link io.casehub.engine.planning.plan.CasePlanModel} from {@link BlackboardRegistry} when
  * a case reaches a terminal state. Prevents unbounded memory growth. See casehubio/engine#76.
  */
-@ApplicationScoped
 public class CaseEvictionHandler {
 
   private final BlackboardRegistry registry;
 
-  @Inject
   public CaseEvictionHandler(BlackboardRegistry registry) {
     this.registry = registry;
   }
 
-  @ConsumeEvent(EventBusAddresses.CASE_STATUS_CHANGED)
-  @RunOnVirtualThread
   public void onCaseStatusChanged(CaseStatusChanged event) {
     if (CaseStatus.valueOf(event.newStatus()).isTerminal()) {
       registry.evict(event.instance().getUuid());

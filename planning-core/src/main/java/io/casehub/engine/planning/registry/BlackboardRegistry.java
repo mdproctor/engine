@@ -19,8 +19,6 @@ import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.DefaultCasePlanModel;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -43,7 +41,6 @@ import org.jboss.logging.Logger;
  * constraint. RUNNING items and completionIndex are not persisted — Quartz-only case recovery is a
  * separate concern. See casehubio/engine#274.
  */
-@ApplicationScoped
 public class BlackboardRegistry implements io.casehub.engine.common.spi.Resettable {
 
   private static final Logger LOG = Logger.getLogger(BlackboardRegistry.class);
@@ -63,7 +60,11 @@ public class BlackboardRegistry implements io.casehub.engine.common.spi.Resettab
   private final ConcurrentHashMap<UUID, CaseEntry> entries = new ConcurrentHashMap<>();
   private final PlanItemRestorer restorer = new PlanItemRestorer();
 
-  @Inject PlanItemStore planItemStore;
+  private final PlanItemStore planItemStore;
+
+  public BlackboardRegistry(PlanItemStore planItemStore) {
+    this.planItemStore = planItemStore;
+  }
 
   /**
    * Returns the {@link CasePlanModel} for the given case, creating it if absent. Only {@link

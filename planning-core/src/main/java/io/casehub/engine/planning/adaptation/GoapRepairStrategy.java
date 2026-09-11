@@ -29,7 +29,6 @@ import io.casehub.engine.plan.goap.GoapPlanner;
 import io.casehub.engine.plan.goap.GoapWorldState;
 import io.casehub.engine.plan.goap.PlannerConfig;
 import io.casehub.engine.planning.control.GoapCostEnricher;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -37,7 +36,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-@ApplicationScoped
 public class GoapRepairStrategy implements RepairStrategy {
 
   private final GoapPlanner planner = new GoapPlanner();

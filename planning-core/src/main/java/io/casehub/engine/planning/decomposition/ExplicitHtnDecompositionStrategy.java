@@ -19,9 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.engine.plan.DagPlan;
 import io.casehub.engine.plan.DecompositionContext;
 import io.casehub.engine.plan.TaskNode;
-import jakarta.enterprise.context.ApplicationScoped;
 
-@ApplicationScoped
 public class ExplicitHtnDecompositionStrategy
     implements io.casehub.engine.plan.DecompositionStrategy<JsonNode> {
 

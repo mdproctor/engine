@@ -24,7 +24,6 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
@@ -49,10 +48,6 @@ import io.casehub.engine.planning.plan.DispatchMode;
 import io.casehub.engine.planning.plan.PlanItemDefinition;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.platform.api.routing.StrategyResolver;
-import io.quarkus.vertx.ConsumeEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
@@ -63,10 +58,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.ReentrantLock;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
 
   private static final Logger LOG = Logger.getLogger(DefaultPlanAdaptationEvaluator.class);
@@ -78,8 +71,8 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
   private final CaseInstanceRepository caseInstanceRepository;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final StrategyResolver strategyResolver;
-  private final Instance<Object> agentMemoryRetriever;
-  private final Instance<io.casehub.engine.internal.routing.CbrRetrievalService>
+  private final Optional<Object> agentMemoryRetriever;
+  private final Optional<io.casehub.engine.internal.routing.CbrRetrievalService>
       cbrRetrievalService;
   private final io.casehub.engine.planning.handler.CompoundCompletionEvaluator
       compoundCompletionEvaluator;
@@ -88,7 +81,6 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
   // Cleaned by onCompoundCompleted and cleanLocksForCase — entries leak only if events are missed
   private final ConcurrentHashMap<String, ReentrantLock> compoundLocks = new ConcurrentHashMap<>();
 
-  @Inject
   public DefaultPlanAdaptationEvaluator(
       BlackboardRegistry registry,
       PlanItemStore planItemStore,
@@ -96,13 +88,11 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
       CaseInstanceRepository caseInstanceRepository,
       CaseDefinitionRegistry caseDefinitionRegistry,
       StrategyResolver strategyResolver,
-      Instance<Object> agentMemoryRetriever,
-      Instance<io.casehub.engine.internal.routing.CbrRetrievalService> cbrRetrievalService,
+      Optional<Object> agentMemoryRetriever,
+      Optional<io.casehub.engine.internal.routing.CbrRetrievalService> cbrRetrievalService,
       io.casehub.engine.planning.handler.CompoundCompletionEvaluator compoundCompletionEvaluator,
-      @ConfigProperty(name = "casehub.engine.adaptation.max-concurrent", defaultValue = "3")
-          int maxConcurrent,
-      @ConfigProperty(name = "casehub.engine.decomposition.timeout-ms", defaultValue = "30000")
-          long timeoutMs) {
+      int maxConcurrent,
+      long timeoutMs) {
     this.registry = registry;
     this.planItemStore = planItemStore;
     this.eventLogRepository = eventLogRepository;
@@ -585,7 +575,7 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
 
   private List<io.casehub.api.spi.routing.RetrievedExperience> retrieveExperiences(
       CaseDefinition definition, CaseInstance instance) {
-    if (!cbrRetrievalService.isResolvable()) {
+    if (!cbrRetrievalService.isPresent()) {
       return List.of();
     }
     if (definition.getCbrConfig() == null) {
@@ -599,7 +589,6 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
     }
   }
 
-  @ConsumeEvent(value = EventBusAddresses.COMPOUND_COMPLETED, blocking = true)
   public void onCompoundCompleted(CompoundCompletedEvent event) {
     String key = event.caseId() + ":" + event.compoundId();
     compoundLocks.remove(key);
