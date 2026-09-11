@@ -105,6 +105,112 @@ similarity of the problem text — which works but is less precise.
 restart, re-ingestion supersedes existing entries rather than creating
 duplicates.
 
+### Corpus Metadata — Feature Schema Design
+
+Feature metadata is the single most important decision for retrieval quality.
+Without well-designed features, the system falls back to pure semantic
+similarity on the problem text — which works for broad matching but can't
+distinguish a phishing runbook from a malware runbook when both mention
+"suspicious email."
+
+**`CbrFeatureSchema`** (neocortex `memory-api`) declares what metadata a
+corpus carries. Each schema has a `caseType` (matching the `cbr.caseType`
+in YAML), a list of typed `FeatureField` declarations, and an optional
+`learningRate` controlling how fast feature weights adapt from feedback.
+
+#### Feature Field Types
+
+| Type | Factory | Use for | Similarity |
+|------|---------|---------|------------|
+| `categorical` | `FeatureField.categorical("name")` | Tags, categories, enum values | Exact match (or vocabulary-grounded subsumption) |
+| `numeric` | `FeatureField.numeric("name", min, max)` | Severity scores, confidence, counts | Range-normalised distance |
+| `text` | `FeatureField.text("name")` | Short descriptions, titles | BM25 term matching |
+| `semanticText` | `FeatureField.semanticText("name")` | Free-form descriptions, summaries | Embedding cosine similarity |
+| `categoricalList` | `FeatureField.categoricalList("name")` | Multiple labels, IOC types, MITRE tactics | Jaccard set similarity |
+| `numericList` | `FeatureField.numericList("name", min, max)` | Score arrays, multi-valued metrics | Element-wise distance |
+| `nestedObject` | `FeatureField.nestedObject("name", subfields...)` | Structured sub-features | Recursive field-level matching |
+| `objectList` | `FeatureField.objectList("name", subfields...)` | Lists of structured items | Best-match pairing |
+| `timeSeries` | `FeatureField.timeSeries("name", tsField, valueFields...)` | Temporal patterns, event sequences | DTW (Dynamic Time Warping) |
+| `discreteSequence` | `FeatureField.discreteSequence("name")` | Step sequences, action chains | Sequence alignment |
+
+Each field type accepts an optional `SimilaritySpec` to tune comparison
+behaviour (e.g., custom distance functions, weighting within nested objects).
+
+#### Designing Features for a Knowledge Corpus
+
+The goal: features should **discriminate between resolutions that apply to
+different situations**, not just describe the document.
+
+**Good features distinguish:** "This runbook is for credential compromise
+on Windows domain accounts" vs "This runbook is for credential compromise
+on cloud SSO accounts." Both are credential compromise — the category feature
+alone doesn't help. Add `platform: categorical` and `accountType: categorical`.
+
+**Bad features are universal:** Every runbook has `hasSteps: true` and
+`language: "English"`. These features match everything equally and add noise
+without discriminative value.
+
+```java
+// SOC domain — features that discriminate between investigation approaches
+var schema = CbrFeatureSchema.of("soc-investigation",
+    FeatureField.categorical("category"),           // phishing, malware, insider-threat, etc.
+    FeatureField.categorical("attackVector"),        // email, web, usb, lateral-movement
+    FeatureField.categorical("targetPlatform"),      // windows-ad, cloud-sso, linux-server
+    FeatureField.numeric("severityScore", 0, 10),    // normalised severity
+    FeatureField.categoricalList("mitreTactics"),    // T1566, T1078, etc.
+    FeatureField.semanticText("problemSummary"));    // free-form — catches novel situations
+```
+
+#### How Feature Types Drive Retrieval
+
+When a new case arrives with `category: "phishing"` and `severityScore: 8.5`:
+
+1. **Categorical match** — `category` filters to phishing-related entries
+   (exact match or vocabulary-grounded subsumption if eidos is active)
+2. **Numeric distance** — `severityScore: 8.5` is closer to entries with
+   severity 9 than severity 3, normalised within the declared `[0, 10]` range
+3. **List similarity** — `mitreTactics: [T1566, T1534]` uses Jaccard against
+   each entry's tactic list
+4. **Semantic fallback** — `problemSummary` catches novel phishing variants
+   that don't match any categorical feature exactly
+5. **Feature weights** — `cbr.weights.category: 3.0` amplifies category's
+   influence; unweighted features default to `1.0`
+
+The combined score ranks entries that match on multiple discriminating
+features above entries that match only on semantic text.
+
+#### Feature Extraction in the Adapter
+
+The `CorpusSourceAdapter` maps from your knowledge base's metadata format
+to `FeatureValue` instances:
+
+```java
+private Map<String, Object> extractFeatures(Document doc) {
+    return Map.of(
+        "category", FeatureValue.string(doc.getCategory()),
+        "attackVector", FeatureValue.string(doc.getAttackVector()),
+        "severityScore", FeatureValue.number(doc.getSeverityScore()),
+        "mitreTactics", FeatureValue.stringList(doc.getMitreTactics()),
+        "problemSummary", FeatureValue.string(doc.getSummary()));
+}
+```
+
+`ResolutionIngestionService.mapFeatures()` converts `Map<String, Object>` to
+`Map<String, FeatureValue>` automatically — plain strings, numbers, and lists
+are converted via `FeatureValue.of()`.
+
+#### Adaptive Feature Weights
+
+`CbrFeatureSchema.learningRate` controls how fast feature weights adapt from
+retrieval feedback. When an analyst consistently selects entries that match
+on `attackVector` but ignores entries that only match on `category`, the
+system learns that `attackVector` is more discriminating for this domain.
+
+Set `learningRate` conservatively (`0.01`–`0.05`) for stable domains. Higher
+values (`0.1`+) adapt faster but risk oscillation in domains with inconsistent
+feedback patterns. Omit to disable adaptive weighting entirely (fixed weights
+from `cbr.weights` only).
+
 ### Mixed Retrieval
 
 Set `crossType: true` to retrieve both sources in a single ranked list:
