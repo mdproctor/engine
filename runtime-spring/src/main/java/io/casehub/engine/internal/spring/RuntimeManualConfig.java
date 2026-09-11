@@ -607,4 +607,49 @@ public class RuntimeManualConfig {
         channelRegistry,
         defaultChannelFactory);
   }
+
+  @Bean
+  @org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean
+  public io.casehub.api.spi.ContextDiffStrategy contextDiffStrategy(
+      @Value("${casehub.engine.diff-strategy:none}") String strategy) {
+    return switch (strategy) {
+      case "none" -> new io.casehub.engine.internal.diff.NoOpContextDiffStrategy();
+      case "top-level" -> new io.casehub.engine.internal.diff.TopLevelContextDiffStrategy();
+      case "json-patch" -> new io.casehub.engine.internal.diff.JsonPatchContextDiffStrategy();
+      default ->
+          throw new IllegalStateException(
+              "Unknown casehub.engine.diff-strategy: '"
+                  + strategy
+                  + "'. Valid values: none, top-level, json-patch");
+    };
+  }
+
+  @Bean
+  @org.springframework.beans.factory.annotation.Qualifier("yamlMapper")
+  public com.fasterxml.jackson.databind.ObjectMapper yamlObjectMapper(
+      io.casehub.engine.common.internal.config.ConfigContext configContext) {
+    com.fasterxml.jackson.databind.ObjectMapper mapper =
+        new com.fasterxml.jackson.databind.ObjectMapper(
+            new com.fasterxml.jackson.dataformat.yaml.YAMLFactory());
+    com.fasterxml.jackson.databind.module.SimpleModule module =
+        new com.fasterxml.jackson.databind.module.SimpleModule("ConfigSecretResolvingModule");
+    module.addDeserializer(
+        String.class,
+        new io.casehub.engine.internal.marshaller.ConfigSecretResolvingDeserializer(configContext));
+    mapper.registerModule(module);
+    return mapper;
+  }
+
+  @Bean
+  public io.casehub.engine.common.spi.CrossTenantEventLogRepository crossTenantEventLogRepository(
+      io.casehub.engine.common.spi.CrossTenantEventLogRepository repo) {
+    return repo;
+  }
+
+  @Bean
+  public io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository
+      crossTenantCaseInstanceRepository(
+          io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository repo) {
+    return repo;
+  }
 }

@@ -39,7 +39,7 @@ import io.casehub.api.spi.ContextDiffStrategy;
  *
  * <p>Active when {@code casehub.engine.diff-strategy=top-level}.
  */
-class TopLevelContextDiffStrategy implements ContextDiffStrategy {
+public class TopLevelContextDiffStrategy implements ContextDiffStrategy {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 

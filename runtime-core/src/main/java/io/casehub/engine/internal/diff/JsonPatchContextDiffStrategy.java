@@ -30,7 +30,7 @@ import io.fabric8.zjsonpatch.JsonDiff;
  *
  * <p>Useful as a foundation for future replay support (issues #10–#13).
  */
-class JsonPatchContextDiffStrategy implements ContextDiffStrategy {
+public class JsonPatchContextDiffStrategy implements ContextDiffStrategy {
 
   @Override
   public JsonNode compute(JsonNode before, JsonNode after) {

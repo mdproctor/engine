@@ -18,13 +18,7 @@ package io.casehub.engine.internal.diff;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.spi.ContextDiffStrategy;
 
-/**
- * No-op {@link ContextDiffStrategy}: skips diff computation entirely. {@code contextChanges} is
- * omitted from {@code WORKER_EXECUTION_COMPLETED} metadata.
- *
- * <p>Active when {@code casehub.engine.diff-strategy=none} (the default).
- */
-class NoOpContextDiffStrategy implements ContextDiffStrategy {
+public class NoOpContextDiffStrategy implements ContextDiffStrategy {
 
   @Override
   public JsonNode compute(JsonNode before, JsonNode after) {
