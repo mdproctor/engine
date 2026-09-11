@@ -108,11 +108,15 @@
         <module>runtime-spring</module>
         <module>planning-core</module>
         <module>planning</module>
+        <module>planning-spring</module>
         <module>resilience-core</module>
         <module>resilience</module>
+        <module>resilience-spring</module>
         <module>ledger-core</module>
         <module>ledger</module>
+        <module>ledger-spring</module>
         <module>engine-support-core</module>
+        <module>engine-support-spring</module>
         <module>testing</module>
         <module>casehub-engine-inbound</module>
         <module>actor-state</module>
