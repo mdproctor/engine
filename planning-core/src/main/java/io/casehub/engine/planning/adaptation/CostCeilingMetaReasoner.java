@@ -22,7 +22,6 @@ import io.casehub.engine.plan.adaptation.AdaptationMetaReasoner;
 import io.casehub.engine.plan.adaptation.MetaReasoningContext;
 import io.casehub.engine.plan.adaptation.RefineScope;
 
-
 public class CostCeilingMetaReasoner implements AdaptationMetaReasoner {
 
   static final int DEFAULT_MAX_ADAPTATIONS = 5;

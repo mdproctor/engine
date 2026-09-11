@@ -29,10 +29,10 @@ import io.casehub.engine.plan.TaskNode;
 import io.casehub.worker.api.Capability;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Optional;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 

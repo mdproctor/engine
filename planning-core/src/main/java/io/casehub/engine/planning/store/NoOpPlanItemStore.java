@@ -19,8 +19,6 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.spi.PlanItemStore;
-
-
 import java.util.List;
 import java.util.UUID;
 

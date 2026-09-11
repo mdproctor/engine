@@ -41,8 +41,7 @@ public class ActionGateRejectedPlanItemHandler {
   private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
 
   public ActionGateRejectedPlanItemHandler(
-      BlackboardRegistry registry,
-      Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents) {
+      BlackboardRegistry registry, Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents) {
     this.registry = registry;
     this.planItemStateChangedEvents = planItemStateChangedEvents;
   }

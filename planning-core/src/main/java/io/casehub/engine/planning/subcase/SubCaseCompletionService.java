@@ -37,14 +37,13 @@ import io.casehub.engine.common.spi.SubCaseGroupRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.internal.work.CaseResumptionService;
-import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
 import java.time.Instant;
 import java.util.List;
-import java.util.function.Consumer;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 /**
@@ -155,8 +154,7 @@ public class SubCaseCompletionService {
       return; // policyTriggered — already handled
     }
 
-    groupLifecycleEvents.accept(
-        SubCaseGroupPolicy.toEvent(group, groupStatus, event.tenancyId()));
+    groupLifecycleEvents.accept(SubCaseGroupPolicy.toEvent(group, groupStatus, event.tenancyId()));
 
     LOG.infof(
         "SubCaseGroup event: parentCaseId=%s groupId=%s status=%s completed=%d/%d",

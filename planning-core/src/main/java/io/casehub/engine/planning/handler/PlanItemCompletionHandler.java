@@ -24,7 +24,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.PlanAdaptationEvaluator;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
 import io.casehub.engine.internal.engine.QuiescenceTracker;
-import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
@@ -32,9 +31,9 @@ import io.casehub.engine.planning.registry.BlackboardRegistry;
 import io.casehub.worker.api.WorkerOutcome;
 import java.util.EnumSet;
 import java.util.Optional;
-import java.util.function.Consumer;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 /**

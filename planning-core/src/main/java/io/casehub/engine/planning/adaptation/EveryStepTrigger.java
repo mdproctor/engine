@@ -19,7 +19,6 @@ import io.casehub.engine.plan.adaptation.AdaptationContext;
 import io.casehub.engine.plan.adaptation.AdaptationSignal;
 import io.casehub.engine.plan.adaptation.AdaptationTrigger;
 
-
 public class EveryStepTrigger implements AdaptationTrigger {
 
   @Override

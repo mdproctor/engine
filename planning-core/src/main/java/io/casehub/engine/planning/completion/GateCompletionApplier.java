@@ -16,10 +16,10 @@
 package io.casehub.engine.planning.completion;
 
 import io.casehub.api.model.TaskStatus;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.ActionGateApprovedEvent;
 import io.casehub.engine.common.internal.event.ActionGateExpiredEvent;
 import io.casehub.engine.common.internal.event.ActionGateRejectedEvent;
-import io.casehub.api.spi.event.EventDispatcher;
 import java.util.UUID;
 import org.jboss.logging.Logger;
 import org.jspecify.annotations.Nullable;
@@ -49,8 +49,7 @@ public class GateCompletionApplier {
           eventDispatcher.dispatch(
               new ActionGateRejectedEvent(caseId, tenancyId, gateId, resolution, actorId));
       case FAULTED ->
-          eventDispatcher.dispatch(
-              new ActionGateExpiredEvent(caseId, tenancyId, gateId));
+          eventDispatcher.dispatch(new ActionGateExpiredEvent(caseId, tenancyId, gateId));
       default ->
           LOG.warnf("Unsupported gate status %s for caseId=%s gateId=%d", status, caseId, gateId);
     }

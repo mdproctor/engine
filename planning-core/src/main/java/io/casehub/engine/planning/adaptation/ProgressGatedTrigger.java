@@ -29,8 +29,6 @@ import io.casehub.engine.plan.adaptation.AdaptationContext;
 import io.casehub.engine.plan.adaptation.AdaptationSignal;
 import io.casehub.engine.plan.adaptation.AdaptationTrigger;
 import io.casehub.engine.plan.monitoring.MonitoringConfig;
-
-
 import java.util.List;
 
 public class ProgressGatedTrigger implements AdaptationTrigger {

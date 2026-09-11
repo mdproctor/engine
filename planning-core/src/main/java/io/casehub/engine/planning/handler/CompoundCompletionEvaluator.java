@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.planning.handler;
 
-import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
 import io.casehub.api.spi.event.EventDispatcher;
+import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import java.util.Optional;
 import java.util.UUID;

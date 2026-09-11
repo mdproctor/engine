@@ -41,8 +41,7 @@ public class ActionGateExpiredPlanItemHandler {
   private final Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents;
 
   public ActionGateExpiredPlanItemHandler(
-      BlackboardRegistry registry,
-      Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents) {
+      BlackboardRegistry registry, Consumer<PlanItemStateChangedEvent> planItemStateChangedEvents) {
     this.registry = registry;
     this.planItemStateChangedEvents = planItemStateChangedEvents;
   }
