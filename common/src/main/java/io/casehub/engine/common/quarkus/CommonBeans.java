@@ -161,7 +161,8 @@ public class CommonBeans {
   @Produces
   @ApplicationScoped
   ExchangeSerializer exchangeSerializer(BridgeResolver bridgeResolver) {
-    return new ExchangeSerializer(bridgeResolver, new com.fasterxml.jackson.databind.ObjectMapper());
+    return new ExchangeSerializer(
+        bridgeResolver, new com.fasterxml.jackson.databind.ObjectMapper());
   }
 
   // --- Instance<T> → List<T> / Optional<T> bridging ---
