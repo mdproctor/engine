@@ -15,14 +15,13 @@
  */
 package io.casehub.engine.common.internal.executor;
 
-import jakarta.enterprise.context.ApplicationScoped;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
-
-@ApplicationScoped
 public class WorkerExecutionConfig {
 
-  @ConfigProperty(name = "casehub.engine.worker.default-timeout-ms", defaultValue = "60000")
-  int defaultTimeoutMs;
+  private final int defaultTimeoutMs;
+
+  public WorkerExecutionConfig(int defaultTimeoutMs) {
+    this.defaultTimeoutMs = defaultTimeoutMs;
+  }
 
   public int getEffectiveTimeout(Integer workerTimeoutMs) {
     return workerTimeoutMs != null ? workerTimeoutMs : defaultTimeoutMs;

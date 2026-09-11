@@ -17,8 +17,6 @@ package io.casehub.engine.plan.execution;
 
 import io.casehub.engine.plan.snapshot.DagPlanSnapshot;
 import io.casehub.engine.plan.snapshot.DecompositionSnapshot;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
@@ -26,8 +24,6 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
-@DefaultBean
-@ApplicationScoped
 public class InMemoryExecutionSnapshotStore implements ExecutionSnapshotStore {
 
   static final Duration DEFAULT_TTL = Duration.ofMinutes(60);

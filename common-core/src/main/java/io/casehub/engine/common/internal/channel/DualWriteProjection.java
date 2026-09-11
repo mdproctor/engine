@@ -18,12 +18,8 @@ package io.casehub.engine.common.internal.channel;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.spi.ExchangeProjectionStrategy;
 import io.casehub.worker.api.Exchange;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 
-@DefaultBean
-@ApplicationScoped
 public class DualWriteProjection implements ExchangeProjectionStrategy {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();

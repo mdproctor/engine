@@ -17,12 +17,10 @@ package io.casehub.engine.common.internal.channel;
 
 import io.casehub.api.spi.DataChannelFactory;
 import io.casehub.worker.api.DataChannel;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ApplicationScoped
 public class DataChannelRegistry {
 
   private record ChannelKey(UUID caseId, String name) {}

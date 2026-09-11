@@ -15,8 +15,6 @@
  */
 package io.casehub.engine.common.internal.executor;
 
-import static io.casehub.engine.common.internal.event.EventBusAddresses.WORKER_EXECUTION_FINISHED;
-
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,14 +27,13 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.WorkerContextProvider;
 import io.casehub.api.spi.WorkerStatusListener;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.api.spi.routing.RetrievedExperience;
 import io.casehub.engine.common.internal.context.BridgeResolver;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent;
 import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
@@ -48,14 +45,11 @@ import io.casehub.worker.api.ExchangeAwareFunction;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerOutcome;
 import io.casehub.worker.api.WorkerResult;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Event;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import org.jboss.logging.Logger;
 
 /**
@@ -63,24 +57,50 @@ import org.jboss.logging.Logger;
  * job and job listener into a single reusable bean that any scheduler backend can delegate to.
  */
 @SuppressWarnings("unchecked")
-@ApplicationScoped
 public class WorkerExecutionOrchestrator {
 
   private static final Logger LOG = Logger.getLogger(WorkerExecutionOrchestrator.class);
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-  @Inject WorkerExecutor workerExecutor;
-  @Inject CaseDefinitionRegistry caseDefinitionRegistry;
-  @Inject WorkerContextProvider workerContextProvider;
-  @Inject EventBus eventBus;
-  @Inject WorkerExecutionRecoveryService workerExecutionRecoveryService;
-  @Inject @CrossTenant CrossTenantEventLogRepository crossTenantEventLogRepository;
-  @Inject EventLogRepository eventLogRepository;
-  @Inject WorkerExecutionConfig executionConfig;
-  @Inject BridgeResolver bridgeResolver;
-  @Inject WorkerStatusListener workerStatusListener;
-  @Inject Event<CaseLifecycleEvent> lifecycleEvents;
-  @Inject io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider;
+  private final WorkerExecutor workerExecutor;
+  private final CaseDefinitionRegistry caseDefinitionRegistry;
+  private final WorkerContextProvider workerContextProvider;
+  private final EventDispatcher eventDispatcher;
+  private final WorkerExecutionRecoveryService workerExecutionRecoveryService;
+  private final CrossTenantEventLogRepository crossTenantEventLogRepository;
+  private final EventLogRepository eventLogRepository;
+  private final WorkerExecutionConfig executionConfig;
+  private final BridgeResolver bridgeResolver;
+  private final WorkerStatusListener workerStatusListener;
+  private final Consumer<CaseLifecycleEvent> lifecycleEventConsumer;
+  private final io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider;
+
+  public WorkerExecutionOrchestrator(
+      WorkerExecutor workerExecutor,
+      CaseDefinitionRegistry caseDefinitionRegistry,
+      WorkerContextProvider workerContextProvider,
+      EventDispatcher eventDispatcher,
+      WorkerExecutionRecoveryService workerExecutionRecoveryService,
+      CrossTenantEventLogRepository crossTenantEventLogRepository,
+      EventLogRepository eventLogRepository,
+      WorkerExecutionConfig executionConfig,
+      BridgeResolver bridgeResolver,
+      WorkerStatusListener workerStatusListener,
+      Consumer<CaseLifecycleEvent> lifecycleEventConsumer,
+      io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider) {
+    this.workerExecutor = workerExecutor;
+    this.caseDefinitionRegistry = caseDefinitionRegistry;
+    this.workerContextProvider = workerContextProvider;
+    this.eventDispatcher = eventDispatcher;
+    this.workerExecutionRecoveryService = workerExecutionRecoveryService;
+    this.crossTenantEventLogRepository = crossTenantEventLogRepository;
+    this.eventLogRepository = eventLogRepository;
+    this.executionConfig = executionConfig;
+    this.bridgeResolver = bridgeResolver;
+    this.workerStatusListener = workerStatusListener;
+    this.lifecycleEventConsumer = lifecycleEventConsumer;
+    this.traceIdProvider = traceIdProvider;
+  }
 
   public void execute(WorkerTaskData taskData, RetryHandler retryHandler) {
     LOG.infof(
@@ -107,7 +127,7 @@ public class WorkerExecutionOrchestrator {
       workerStatusListener.onWorkerStarted(
           taskData.workerId(), Map.of("caseId", taskData.caseId().toString()));
 
-      lifecycleEvents.fireAsync(
+      lifecycleEventConsumer.accept(
           CaseLifecycleEvent.of(
               taskData.caseId(),
               taskData.tenancyId(),
@@ -296,8 +316,7 @@ public class WorkerExecutionOrchestrator {
       if (workerResult.outcome() instanceof WorkerOutcome.Success) {
         Map<String, Object> output = toMap(workerResult.output());
         if (output != null && !output.isEmpty()) {
-          eventBus.publish(
-              EventBusAddresses.SCOPED_WORKER_OUTPUT,
+          eventDispatcher.dispatch(
               new ScopedWorkerOutputEvent(
                   instance,
                   worker.name(),
@@ -312,8 +331,7 @@ public class WorkerExecutionOrchestrator {
     }
 
     Map<String, Object> output = toMap(workerResult.output());
-    eventBus.publish(
-        WORKER_EXECUTION_FINISHED,
+    eventDispatcher.dispatch(
         new WorkflowExecutionCompleted(
             instance,
             worker,

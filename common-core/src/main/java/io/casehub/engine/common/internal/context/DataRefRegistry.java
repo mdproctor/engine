@@ -17,17 +17,13 @@ package io.casehub.engine.common.internal.context;
 
 import io.casehub.api.context.DataRef;
 import io.casehub.api.spi.DataRefResolver;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
+import java.util.List;
 
-@ApplicationScoped
 public class DataRefRegistry {
 
-  private final Instance<DataRefResolver> resolvers;
+  private final List<DataRefResolver> resolvers;
 
-  @Inject
-  public DataRefRegistry(Instance<DataRefResolver> resolvers) {
+  public DataRefRegistry(List<DataRefResolver> resolvers) {
     this.resolvers = resolvers;
   }
 

@@ -19,10 +19,8 @@ import io.casehub.engine.common.spi.JudgmentNodeResult;
 import io.casehub.engine.common.spi.JudgmentResponse;
 import io.casehub.engine.common.spi.JudgmentScheduleRequest;
 import io.casehub.engine.common.spi.JudgmentScheduler;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,7 +38,6 @@ import org.jboss.logging.Logger;
  *
  * <p>Refs engine#1000.
  */
-@ApplicationScoped
 public class JudgmentNodeExecutor {
 
   private static final Logger LOG = Logger.getLogger(JudgmentNodeExecutor.class);
@@ -48,7 +45,11 @@ public class JudgmentNodeExecutor {
   private final ConcurrentHashMap<String, BlockingQueue<JudgmentNodeResult>> pending =
       new ConcurrentHashMap<>();
 
-  @Inject Instance<JudgmentScheduler> judgmentScheduler;
+  private final Optional<JudgmentScheduler> judgmentScheduler;
+
+  public JudgmentNodeExecutor(Optional<JudgmentScheduler> judgmentScheduler) {
+    this.judgmentScheduler = judgmentScheduler;
+  }
 
   public JudgmentResponse execute(JudgmentScheduleRequest request, Duration perCycleTimeout) {
     String key = key(request.caseId(), request.bindingName());
@@ -58,7 +59,7 @@ public class JudgmentNodeExecutor {
       throw new IllegalStateException("Concurrent judgment execution for the same binding: " + key);
     }
     try {
-      if (judgmentScheduler.isResolvable()) {
+      if (judgmentScheduler.isPresent()) {
         judgmentScheduler.get().schedule(request);
       } else {
         throw new IllegalStateException(

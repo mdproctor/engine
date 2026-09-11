@@ -15,15 +15,11 @@
  */
 package io.casehub.engine.common.internal.config;
 
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-@DefaultBean
-@ApplicationScoped
 public class NoOpConfigManager implements ConfigManager {
 
   @Override

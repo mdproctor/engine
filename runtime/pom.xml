@@ -62,7 +62,7 @@
 
         <dependency>
             <groupId>io.casehub</groupId>
-            <artifactId>casehub-engine-common</artifactId>
+            <artifactId>casehub-engine-common-core</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

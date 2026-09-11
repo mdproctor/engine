@@ -17,10 +17,8 @@ package io.casehub.engine.common.internal.channel;
 
 import io.casehub.api.spi.ExchangeProjectionStrategy;
 import io.casehub.worker.api.Exchange;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 
-@ApplicationScoped
 public class ExchangeOnlyProjection implements ExchangeProjectionStrategy {
 
   @Override

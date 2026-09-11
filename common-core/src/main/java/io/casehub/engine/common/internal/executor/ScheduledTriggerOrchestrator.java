@@ -26,8 +26,8 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.api.model.ExecutionMode;
 import io.casehub.api.model.LifecycleScope;
 import io.casehub.api.model.event.ExecutionOrigin;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.ContextSignalEvent;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.WorkerScheduleEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.worker.scope.ContextEvent;
@@ -37,9 +37,6 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -50,7 +47,6 @@ import org.jboss.logging.Logger;
  * ScheduledTriggerJob, ConditionalScheduledTriggerJob, and ScheduledSignalJob into a single
  * reusable bean that any scheduler backend can delegate to.
  */
-@ApplicationScoped
 public class ScheduledTriggerOrchestrator {
 
   private static final Logger LOG = Logger.getLogger(ScheduledTriggerOrchestrator.class);
@@ -60,20 +56,19 @@ public class ScheduledTriggerOrchestrator {
   private final WorkerExecutionRecoveryService recoveryService;
   private final ScopedWorkerRegistry scopedWorkerRegistry;
   private final ExpressionEngineRegistry expressionEngineRegistry;
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
 
-  @Inject
   public ScheduledTriggerOrchestrator(
       CaseDefinitionRegistry caseDefinitionRegistry,
       WorkerExecutionRecoveryService recoveryService,
       ScopedWorkerRegistry scopedWorkerRegistry,
       ExpressionEngineRegistry expressionEngineRegistry,
-      EventBus eventBus) {
+      EventDispatcher eventDispatcher) {
     this.caseDefinitionRegistry = caseDefinitionRegistry;
     this.recoveryService = recoveryService;
     this.scopedWorkerRegistry = scopedWorkerRegistry;
     this.expressionEngineRegistry = expressionEngineRegistry;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
   }
 
   public void executeUnconditionalTrigger(ScheduledTriggerData data) {
@@ -128,9 +123,7 @@ public class ScheduledTriggerOrchestrator {
     try {
       Map<String, Object> payload =
           OBJECT_MAPPER.readValue(data.signalPayload(), new TypeReference<>() {});
-      eventBus.publish(
-          EventBusAddresses.CONTEXT_SIGNAL,
-          new ContextSignalEvent(caseInstance, data.bindingName(), payload));
+      eventDispatcher.dispatch(new ContextSignalEvent(caseInstance, data.bindingName(), payload));
     } catch (Exception e) {
       throw new IllegalStateException("Failed to parse signal payload", e);
     }
@@ -199,8 +192,7 @@ public class ScheduledTriggerOrchestrator {
         "Publishing WorkerScheduleEvent for case=%s, worker=%s, capability=%s",
         caseId, data.workerName(), data.capabilityName());
 
-    eventBus.publish(
-        EventBusAddresses.WORKER_SCHEDULE,
+    eventDispatcher.dispatch(
         new WorkerScheduleEvent(
             caseInstance,
             worker,
@@ -238,8 +230,7 @@ public class ScheduledTriggerOrchestrator {
               r.executorName(), bindingName);
           return;
         }
-        eventBus.publish(
-            EventBusAddresses.WORKER_SCHEDULE,
+        eventDispatcher.dispatch(
             new WorkerScheduleEvent(
                 caseInstance,
                 sessionWorker,

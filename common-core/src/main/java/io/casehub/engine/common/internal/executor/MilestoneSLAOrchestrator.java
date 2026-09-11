@@ -17,17 +17,13 @@ package io.casehub.engine.common.internal.executor;
 
 import io.casehub.api.model.MilestoneLifecycleStatus;
 import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.MilestoneSLAViolatedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.qualifier.CrossTenant;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.Comparator;
 import java.util.EnumSet;
@@ -38,7 +34,6 @@ import org.jboss.logging.Logger;
  * Scheduler-agnostic orchestrator for milestone SLA timeout handling. Extracts all domain logic
  * from MilestoneSLATimeoutJob into a reusable bean that any scheduler backend can delegate to.
  */
-@ApplicationScoped
 public class MilestoneSLAOrchestrator {
 
   private static final Logger LOG = Logger.getLogger(MilestoneSLAOrchestrator.class);
@@ -52,18 +47,17 @@ public class MilestoneSLAOrchestrator {
   private final CaseInstanceCache caseInstanceCache;
   private final CrossTenantCaseInstanceRepository caseInstanceRepository;
   private final CrossTenantEventLogRepository eventLogRepository;
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
 
-  @Inject
   public MilestoneSLAOrchestrator(
       CaseInstanceCache caseInstanceCache,
-      @CrossTenant CrossTenantCaseInstanceRepository caseInstanceRepository,
-      @CrossTenant CrossTenantEventLogRepository eventLogRepository,
-      EventBus eventBus) {
+      CrossTenantCaseInstanceRepository caseInstanceRepository,
+      CrossTenantEventLogRepository eventLogRepository,
+      EventDispatcher eventDispatcher) {
     this.caseInstanceCache = caseInstanceCache;
     this.caseInstanceRepository = caseInstanceRepository;
     this.eventLogRepository = eventLogRepository;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
   }
 
   public void execute(MilestoneSLAData data) {
@@ -91,8 +85,7 @@ public class MilestoneSLAOrchestrator {
 
     if (currentStatus == MilestoneLifecycleStatus.ACTIVE) {
       LOG.warnf("Milestone %s SLA VIOLATED for case %s", milestoneName, caseId);
-      eventBus.publish(
-          EventBusAddresses.MILESTONE_SLA_VIOLATED,
+      eventDispatcher.dispatch(
           new MilestoneSLAViolatedEvent(caseInstance, milestoneName, Instant.now()));
     } else {
       LOG.debugf("Milestone %s already %s, skipping SLA violation", milestoneName, currentStatus);

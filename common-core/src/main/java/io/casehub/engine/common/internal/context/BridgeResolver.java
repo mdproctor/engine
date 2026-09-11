@@ -23,22 +23,18 @@ import io.casehub.api.context.JacksonPojoBridge;
 import io.casehub.api.context.MapBridge;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.worker.api.Worker;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Instance;
-import jakarta.inject.Inject;
+import java.util.List;
 import java.util.Map;
 
-@ApplicationScoped
 public class BridgeResolver {
 
   private static final MapBridge MAP_BRIDGE = new MapBridge();
   private static final com.fasterxml.jackson.databind.ObjectMapper DATA_REF_MAPPER =
       new com.fasterxml.jackson.databind.ObjectMapper();
-  private final Instance<ContextBridge<?>> bridges;
+  private final List<ContextBridge<?>> bridges;
   private final DataRefRegistry dataRefRegistry;
 
-  @Inject
-  public BridgeResolver(Instance<ContextBridge<?>> bridges, DataRefRegistry dataRefRegistry) {
+  public BridgeResolver(List<ContextBridge<?>> bridges, DataRefRegistry dataRefRegistry) {
     this.bridges = bridges;
     this.dataRefRegistry = dataRefRegistry;
   }

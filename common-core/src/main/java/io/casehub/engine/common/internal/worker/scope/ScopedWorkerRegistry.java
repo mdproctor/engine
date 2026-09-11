@@ -15,13 +15,11 @@
  */
 package io.casehub.engine.common.internal.worker.scope;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ApplicationScoped
 public class ScopedWorkerRegistry implements io.casehub.engine.common.spi.Resettable {
 
   private final ConcurrentHashMap<ScopeKey, ScopedWorkerSession> sessions =

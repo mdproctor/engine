@@ -15,12 +15,8 @@
  */
 package io.casehub.engine.common.internal.config;
 
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Map;
 
-@DefaultBean
-@ApplicationScoped
 public class NoOpSecretManager implements SecretManager {
 
   @Override

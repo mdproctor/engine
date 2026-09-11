@@ -22,7 +22,7 @@ import io.casehub.api.model.RetryState;
 import io.casehub.api.model.RetryState.RetryAttempt;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.engine.common.internal.event.EventBusAddresses;
+import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.event.WorkerRetriesExhaustedEvent;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
@@ -34,16 +34,12 @@ import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.platform.api.governance.ExecutionPolicy;
 import io.casehub.platform.api.governance.RetryPolicy;
 import io.casehub.worker.api.Worker;
-import io.vertx.mutiny.core.eventbus.EventBus;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class RetryOrchestrator {
 
   private static final Logger LOG = Logger.getLogger(RetryOrchestrator.class);
@@ -52,20 +48,19 @@ public class RetryOrchestrator {
   private final EventLogRepository eventLogRepository;
   private final WorkerExecutionRecoveryService recoveryService;
   private final CaseDefinitionRegistry caseDefinitionRegistry;
-  private final EventBus eventBus;
+  private final EventDispatcher eventDispatcher;
   private final RecoveryCoordinator recoveryCoordinator;
 
-  @Inject
   public RetryOrchestrator(
       EventLogRepository eventLogRepository,
       WorkerExecutionRecoveryService recoveryService,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      EventBus eventBus,
+      EventDispatcher eventDispatcher,
       RecoveryCoordinator recoveryCoordinator) {
     this.eventLogRepository = eventLogRepository;
     this.recoveryService = recoveryService;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
-    this.eventBus = eventBus;
+    this.eventDispatcher = eventDispatcher;
     this.recoveryCoordinator = recoveryCoordinator;
   }
 
@@ -125,8 +120,7 @@ public class RetryOrchestrator {
         }
 
         RetryState retryState = buildRetryState(taskData);
-        eventBus.publish(
-            EventBusAddresses.WORKER_RETRIES_EXHAUSTED,
+        eventDispatcher.dispatch(
             new WorkerRetriesExhaustedEvent(
                 taskData.caseId(),
                 taskData.tenancyId(),

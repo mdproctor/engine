@@ -20,18 +20,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.ContextBridge;
 import io.casehub.engine.common.internal.context.BridgeResolver;
 import io.casehub.worker.api.Exchange;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@ApplicationScoped
 public class ExchangeSerializer {
 
   private final BridgeResolver bridgeResolver;
   private final ObjectMapper objectMapper;
 
-  @Inject
   public ExchangeSerializer(BridgeResolver bridgeResolver, ObjectMapper objectMapper) {
     this.bridgeResolver = bridgeResolver;
     this.objectMapper = objectMapper;

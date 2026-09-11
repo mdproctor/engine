@@ -19,9 +19,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.engine.common.internal.config.ConfigManager;
 import io.casehub.engine.common.internal.config.SecretManager;
-import jakarta.annotation.PostConstruct;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -44,20 +41,18 @@ import net.thisptr.jackson.jq.Versions;
  *
  * <p>Inspired by CNCF Serverless Workflow JQ scope injection pattern.
  */
-@ApplicationScoped
 public class JQEvaluator {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
-  @Inject SecretManager secretManager;
+  private final SecretManager secretManager;
+  private final ConfigManager configManager;
+  private final Scope rootScope;
 
-  @Inject ConfigManager configManager;
-
-  private Scope rootScope;
-
-  @PostConstruct
-  void init() {
-    rootScope = Scope.newEmptyScope();
+  public JQEvaluator(SecretManager secretManager, ConfigManager configManager) {
+    this.secretManager = secretManager;
+    this.configManager = configManager;
+    this.rootScope = Scope.newEmptyScope();
     BuiltinFunctionLoader.getInstance().loadFunctions(Versions.JQ_1_6, rootScope);
   }
 

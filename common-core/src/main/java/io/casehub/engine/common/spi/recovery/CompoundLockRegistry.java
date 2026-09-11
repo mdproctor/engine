@@ -15,12 +15,10 @@
  */
 package io.casehub.engine.common.spi.recovery;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.locks.ReentrantLock;
 
-@ApplicationScoped
 public class CompoundLockRegistry {
   private final ConcurrentHashMap<String, ReentrantLock> locks = new ConcurrentHashMap<>();
 

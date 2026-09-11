@@ -18,11 +18,9 @@ package io.casehub.engine.common.internal.channel;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.spi.ExchangeProjectionStrategy;
 import io.casehub.worker.api.Exchange;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-@ApplicationScoped
 public class FullProjection implements ExchangeProjectionStrategy {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();

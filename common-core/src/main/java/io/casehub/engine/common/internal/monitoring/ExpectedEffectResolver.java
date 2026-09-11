@@ -20,12 +20,10 @@ import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.plan.goap.GoapAction;
 import io.casehub.engine.plan.monitoring.ExpectedEffects;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-@ApplicationScoped
 public class ExpectedEffectResolver {
 
   public ExpectedEffects resolve(CaseDefinition definition, String bindingName) {

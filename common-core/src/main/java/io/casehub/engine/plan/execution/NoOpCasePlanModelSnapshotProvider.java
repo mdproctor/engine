@@ -16,14 +16,10 @@
 package io.casehub.engine.plan.execution;
 
 import io.casehub.engine.plan.snapshot.PlanItemDefinitionSnapshot;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@DefaultBean
-@ApplicationScoped
 public class NoOpCasePlanModelSnapshotProvider implements CasePlanModelSnapshotProvider {
 
   @Override

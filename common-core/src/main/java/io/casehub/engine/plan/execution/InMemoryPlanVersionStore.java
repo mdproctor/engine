@@ -16,8 +16,6 @@
 package io.casehub.engine.plan.execution;
 
 import io.casehub.engine.common.spi.recovery.PlanVersionStore;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -26,8 +24,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
-@DefaultBean
-@ApplicationScoped
 public class InMemoryPlanVersionStore implements PlanVersionStore {
   private final Map<UUID, List<PlanVersion>> history = new ConcurrentHashMap<>();
 

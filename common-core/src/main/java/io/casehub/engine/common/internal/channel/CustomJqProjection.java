@@ -22,17 +22,13 @@ import io.casehub.api.spi.ExchangeProjectionStrategy;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
 import io.casehub.worker.api.Exchange;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Map;
 
-@ApplicationScoped
 public class CustomJqProjection implements ExchangeProjectionStrategy {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private final JQEvaluator jqEvaluator;
 
-  @Inject
   public CustomJqProjection(JQEvaluator jqEvaluator) {
     this.jqEvaluator = jqEvaluator;
   }
