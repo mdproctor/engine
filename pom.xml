@@ -95,6 +95,7 @@
         <module>api</module>
         <module>codegen</module>
         <module>schema</module>
+        <module>common-core</module>
         <module>common</module>
         <module>scheduler-quartz</module>
         <module>scheduler-dbscheduler</module>
