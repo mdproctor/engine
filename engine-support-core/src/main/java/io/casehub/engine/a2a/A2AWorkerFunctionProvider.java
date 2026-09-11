@@ -19,16 +19,18 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.spi.WorkerFunctionProvider;
 import io.casehub.engine.common.internal.auth.AuthConfig;
 import io.casehub.worker.api.WorkerFunction;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class A2AWorkerFunctionProvider implements WorkerFunctionProvider {
 
   private static final Logger LOG = Logger.getLogger(A2AWorkerFunctionProvider.class);
 
-  @jakarta.inject.Inject A2AEndpointRegistry endpointRegistry;
+  private final A2AEndpointRegistry endpointRegistry;
+
+  public A2AWorkerFunctionProvider(A2AEndpointRegistry endpointRegistry) {
+    this.endpointRegistry = endpointRegistry;
+  }
 
   @Override
   public boolean handles(final JsonNode rawWorkerNode) {

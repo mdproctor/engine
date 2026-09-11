@@ -25,12 +25,9 @@ import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.engine.ai.spi.AgentEmbeddingProvider;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.jq.ValidationResult;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.stream.Collectors;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 import org.jspecify.annotations.Nullable;
 
@@ -38,7 +35,6 @@ import org.jspecify.annotations.Nullable;
  * Semantic similarity signal provider. Scores candidates by embedding cosine similarity between the
  * case context and the agent's vocabulary/capability description.
  */
-@ApplicationScoped
 public class SemanticSignalProvider implements RoutingSignalProvider {
 
   private static final Logger LOG = Logger.getLogger(SemanticSignalProvider.class);
@@ -48,13 +44,11 @@ public class SemanticSignalProvider implements RoutingSignalProvider {
   private final JQEvaluator jqEvaluator;
   private final String contextSummaryJq;
 
-  @Inject
   public SemanticSignalProvider(
       AgentEmbeddingProvider embeddingProvider,
       EmbeddingCache embeddingCache,
       JQEvaluator jqEvaluator,
-      @ConfigProperty(name = "casehub.routing.semantic.context-jq", defaultValue = "tostring")
-          String contextSummaryJq) {
+      String contextSummaryJq) {
     this.embeddingProvider = embeddingProvider;
     this.embeddingCache = embeddingCache;
     this.jqEvaluator = jqEvaluator;

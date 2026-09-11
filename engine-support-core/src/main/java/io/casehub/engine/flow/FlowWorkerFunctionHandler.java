@@ -21,13 +21,10 @@ import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.quarkus.virtual.threads.VirtualThreads;
 import io.serverlessworkflow.api.types.Workflow;
 import io.serverlessworkflow.impl.WorkflowApplication;
 import io.serverlessworkflow.impl.WorkflowInstance;
 import io.serverlessworkflow.impl.WorkflowModel;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -43,18 +40,16 @@ import java.util.concurrent.ExecutorService;
  * <p>Plain {@code @ApplicationScoped} (no {@code @DefaultBean}) — when {@code casehub-engine-flow}
  * is on the classpath, this handler is discovered automatically.
  */
-@ApplicationScoped
 public class FlowWorkerFunctionHandler implements WorkerFunctionHandler {
 
   private final WorkflowApplication app;
   private final FlowExecutionRegistry registry;
   private final ExecutorService virtualThreads;
 
-  @Inject
   public FlowWorkerFunctionHandler(
       final WorkflowApplication app,
       final FlowExecutionRegistry registry,
-      @VirtualThreads final ExecutorService virtualThreads) {
+      final ExecutorService virtualThreads) {
     this.app = app;
     this.registry = registry;
     this.virtualThreads = virtualThreads;

@@ -18,8 +18,6 @@ package io.casehub.persistence.memory;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
 import io.casehub.engine.common.spi.query.CaseDefinitionQuery;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import java.time.Instant;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,8 +28,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * In-memory blocking {@link CaseMetaModelRepository} for engine unit tests. Canonical
  * implementation — {@link InMemoryReactiveCaseMetaModelRepository} delegates to this.
  */
-@Alternative
-@ApplicationScoped
 public class InMemoryCaseMetaModelRepository implements CaseMetaModelRepository {
 
   private final AtomicLong idSeq = new AtomicLong(0);

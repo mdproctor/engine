@@ -16,10 +16,8 @@
 package io.casehub.engine.ai.routing;
 
 import io.casehub.engine.ai.spi.AgentEmbeddingProvider;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.LinkedHashMap;
 import java.util.Map;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 /**
  * In-process LRU embedding cache for {@link SemanticAgentRoutingStrategy}.
@@ -31,15 +29,12 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
  * <p>Bounded by {@code casehub.engine.ai.embedding-cache.max-size} (default 500 entries). When
  * full, the least-recently-used entry is evicted. Thread-safe via {@code synchronized}.
  */
-@ApplicationScoped
 public class EmbeddingCache {
 
   private final Map<String, float[]> cache;
   private final int maxSize;
 
-  EmbeddingCache(
-      @ConfigProperty(name = "casehub.engine.ai.embedding-cache.max-size", defaultValue = "500")
-          final int maxSize) {
+  public EmbeddingCache(final int maxSize) {
     this.maxSize = maxSize;
     this.cache =
         new LinkedHashMap<>(maxSize, 0.75f, true) {

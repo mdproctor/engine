@@ -15,10 +15,8 @@
  */
 package io.casehub.engine.flow;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ApplicationScoped
 public class CallableDispatchRegistry {
 
   private final ConcurrentHashMap<String, CallableDispatcher> dispatchers =

@@ -17,17 +17,19 @@ package io.casehub.engine.a2a;
 
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class A2ACapabilityHealth implements CapabilityHealth {
 
   private static final Logger LOG = Logger.getLogger(A2ACapabilityHealth.class);
 
-  @Inject A2AEndpointRegistry endpointRegistry;
-  @Inject A2AClientRegistry clientRegistry;
+  private final A2AEndpointRegistry endpointRegistry;
+  private final A2AClientRegistry clientRegistry;
+
+  public A2ACapabilityHealth(A2AEndpointRegistry endpointRegistry, A2AClientRegistry clientRegistry) {
+    this.endpointRegistry = endpointRegistry;
+    this.clientRegistry = clientRegistry;
+  }
 
   @Override
   public CapabilityStatus probe(

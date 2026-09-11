@@ -25,18 +25,20 @@ import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpSchema.ClientCapabilities;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class McpWorkerFunctionProvider implements WorkerFunctionProvider {
 
   private static final Logger LOG = Logger.getLogger(McpWorkerFunctionProvider.class);
 
-  @jakarta.inject.Inject McpEndpointRegistry endpointRegistry;
+  private final McpEndpointRegistry endpointRegistry;
+
+  public McpWorkerFunctionProvider(McpEndpointRegistry endpointRegistry) {
+    this.endpointRegistry = endpointRegistry;
+  }
 
   @Override
   public boolean handles(final JsonNode rawWorkerNode) {

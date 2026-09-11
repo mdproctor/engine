@@ -27,9 +27,6 @@ import io.modelcontextprotocol.spec.McpSchema.CallToolRequest;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.Content;
 import io.modelcontextprotocol.spec.McpSchema.TextContent;
-import io.quarkus.virtual.threads.VirtualThreads;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -39,7 +36,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class McpWorkerFunctionHandler implements WorkerFunctionHandler {
 
   private static final Logger LOG = Logger.getLogger(McpWorkerFunctionHandler.class);
@@ -48,10 +44,9 @@ public class McpWorkerFunctionHandler implements WorkerFunctionHandler {
   private final McpClientRegistry clientRegistry;
   private final ExecutorService virtualThreads;
 
-  @Inject
   public McpWorkerFunctionHandler(
       final McpClientRegistry clientRegistry,
-      @VirtualThreads final ExecutorService virtualThreads) {
+      final ExecutorService virtualThreads) {
     this.clientRegistry = clientRegistry;
     this.virtualThreads = virtualThreads;
   }

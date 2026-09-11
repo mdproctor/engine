@@ -22,9 +22,6 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.query.CaseInstanceQuery;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
-import jakarta.inject.Inject;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,8 +33,6 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * CrossTenantCaseInstanceRepository} for recovery service testing. Canonical implementation —
  * {@link InMemoryReactiveCaseInstanceRepository} delegates to this.
  */
-@Alternative
-@ApplicationScoped
 public class InMemoryCaseInstanceRepository
     implements CaseInstanceRepository,
         CrossTenantCaseInstanceRepository,
@@ -46,10 +41,9 @@ public class InMemoryCaseInstanceRepository
   private final AtomicLong idSeq = new AtomicLong(0);
   private final ConcurrentHashMap<UUID, CaseInstance> store = new ConcurrentHashMap<>();
   private final ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
+  private final EventLogRepository eventLogRepository;
 
-  @Inject EventLogRepository eventLogRepository;
-
-  void setEventLogRepository(EventLogRepository eventLogRepository) {
+  public InMemoryCaseInstanceRepository(EventLogRepository eventLogRepository) {
     this.eventLogRepository = eventLogRepository;
   }
 

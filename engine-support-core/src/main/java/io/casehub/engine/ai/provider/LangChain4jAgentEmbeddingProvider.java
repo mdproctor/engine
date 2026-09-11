@@ -17,8 +17,6 @@ package io.casehub.engine.ai.provider;
 
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import io.casehub.engine.ai.spi.AgentEmbeddingProvider;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 
 /**
  * {@link AgentEmbeddingProvider} backed by the Quarkus LangChain4j {@link EmbeddingModel}.
@@ -32,12 +30,10 @@ import jakarta.inject.Inject;
  * concurrent use. Callers invoke this from the Mutiny worker pool — never from the Vert.x IO
  * thread.
  */
-@ApplicationScoped
 public class LangChain4jAgentEmbeddingProvider implements AgentEmbeddingProvider {
 
   private final EmbeddingModel embeddingModel;
 
-  @Inject
   public LangChain4jAgentEmbeddingProvider(final EmbeddingModel embeddingModel) {
     this.embeddingModel = embeddingModel;
   }

@@ -15,11 +15,9 @@
  */
 package io.casehub.engine.mcp;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ApplicationScoped
 public class McpEndpointRegistry {
 
   private final ConcurrentHashMap<String, McpTransport> entries = new ConcurrentHashMap<>();

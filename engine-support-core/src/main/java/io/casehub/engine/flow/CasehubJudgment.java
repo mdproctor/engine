@@ -19,30 +19,36 @@ import io.casehub.api.model.JudgmentTarget;
 import io.casehub.engine.common.internal.judgment.JudgmentNodeExecutor;
 import io.casehub.engine.common.spi.JudgmentResponse;
 import io.casehub.engine.common.spi.JudgmentScheduleRequest;
-import jakarta.annotation.PostConstruct;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Duration;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class CasehubJudgment {
 
   private static final Logger LOG = Logger.getLogger(CasehubJudgment.class);
   private static final Duration DEFAULT_TIMEOUT = Duration.ofHours(4);
 
-  @Inject FlowExecutionRegistry executionRegistry;
-  @Inject CallableDispatchRegistry dispatchRegistry;
-  @Inject JudgmentNodeExecutor judgmentNodeExecutor;
-  @Inject io.casehub.engine.common.spi.cache.CaseInstanceCache caseInstanceCache;
+  private final FlowExecutionRegistry executionRegistry;
+  private final CallableDispatchRegistry dispatchRegistry;
+  private final JudgmentNodeExecutor judgmentNodeExecutor;
+  private final io.casehub.engine.common.spi.cache.CaseInstanceCache caseInstanceCache;
+  private final java.util.concurrent.ExecutorService virtualThreads;
 
-  private final java.util.concurrent.ExecutorService virtualThreads =
-      java.util.concurrent.Executors.newVirtualThreadPerTaskExecutor();
+  public CasehubJudgment(
+      FlowExecutionRegistry executionRegistry,
+      CallableDispatchRegistry dispatchRegistry,
+      JudgmentNodeExecutor judgmentNodeExecutor,
+      io.casehub.engine.common.spi.cache.CaseInstanceCache caseInstanceCache,
+      java.util.concurrent.ExecutorService virtualThreads) {
+    this.executionRegistry = executionRegistry;
+    this.dispatchRegistry = dispatchRegistry;
+    this.judgmentNodeExecutor = judgmentNodeExecutor;
+    this.caseInstanceCache = caseInstanceCache;
+    this.virtualThreads = virtualThreads;
+  }
 
-  @PostConstruct
-  void register() {
+  public void register() {
     dispatchRegistry.register("casehub:judgment", this::dispatch);
   }
 

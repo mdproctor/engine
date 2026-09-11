@@ -18,17 +18,19 @@ package io.casehub.engine.mcp;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.CapabilityHealth;
 import io.modelcontextprotocol.client.McpSyncClient;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class McpCapabilityHealth implements CapabilityHealth {
 
   private static final Logger LOG = Logger.getLogger(McpCapabilityHealth.class);
 
-  @Inject McpEndpointRegistry endpointRegistry;
-  @Inject McpClientRegistry clientRegistry;
+  private final McpEndpointRegistry endpointRegistry;
+  private final McpClientRegistry clientRegistry;
+
+  public McpCapabilityHealth(McpEndpointRegistry endpointRegistry, McpClientRegistry clientRegistry) {
+    this.endpointRegistry = endpointRegistry;
+    this.clientRegistry = clientRegistry;
+  }
 
   @Override
   public CapabilityStatus probe(

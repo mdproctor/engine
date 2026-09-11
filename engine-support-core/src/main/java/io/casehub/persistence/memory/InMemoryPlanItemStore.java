@@ -19,8 +19,6 @@ import io.casehub.api.model.TaskStatus;
 import io.casehub.engine.common.internal.model.PlanItemRecord;
 import io.casehub.engine.common.internal.model.PlanItemSaveRequest;
 import io.casehub.engine.common.spi.PlanItemStore;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -30,8 +28,6 @@ import java.util.stream.Collectors;
  * In-memory {@link PlanItemStore} for use in engine unit tests. Activated via {@code
  * quarkus.arc.selected-alternatives} — never active in production.
  */
-@Alternative
-@ApplicationScoped
 public class InMemoryPlanItemStore
     implements PlanItemStore, io.casehub.engine.common.spi.Resettable {
 

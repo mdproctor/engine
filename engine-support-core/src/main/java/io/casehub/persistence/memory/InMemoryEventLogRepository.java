@@ -21,8 +21,6 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.query.EventLogQuery;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.Comparator;
@@ -39,8 +37,6 @@ import java.util.stream.Collectors;
  * In-memory blocking {@link EventLogRepository} and {@link CrossTenantEventLogRepository} for
  * tests. Canonical implementation — {@link InMemoryReactiveEventLogRepository} delegates to this.
  */
-@Alternative
-@ApplicationScoped
 public class InMemoryEventLogRepository
     implements EventLogRepository,
         CrossTenantEventLogRepository,

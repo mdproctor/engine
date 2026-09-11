@@ -16,12 +16,8 @@
 package io.casehub.engine.a2a;
 
 import io.casehub.engine.common.internal.auth.AuthConfig;
-import io.quarkus.runtime.ShutdownEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ApplicationScoped
 public class A2AClientRegistry {
 
   private final ConcurrentHashMap<String, A2AClient> clients = new ConcurrentHashMap<>();
@@ -51,7 +47,7 @@ public class A2AClientRegistry {
     }
   }
 
-  void shutdown(@Observes final ShutdownEvent event) {
+  public void shutdown() {
     clients.values().forEach(A2AClient::close);
     clients.clear();
     authConfigs.clear();

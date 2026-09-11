@@ -17,8 +17,6 @@ package io.casehub.persistence.memory;
 
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.casehub.platform.api.identity.TenancyConstants;
-import io.quarkus.arc.DefaultBean;
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Set;
 
 /**
@@ -26,8 +24,6 @@ import java.util.Set;
  * If persistence-memory is on the compile classpath in production, all operations will silently use
  * DEFAULT_TENANT_ID.
  */
-@DefaultBean
-@ApplicationScoped
 public class DefaultTestPrincipal implements CurrentPrincipal {
 
   @Override

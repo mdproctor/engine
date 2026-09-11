@@ -15,11 +15,9 @@
  */
 package io.casehub.engine.a2a;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 
-@ApplicationScoped
 public class A2AEndpointRegistry {
 
   private final ConcurrentHashMap<String, A2AWorkerFunction> entries = new ConcurrentHashMap<>();

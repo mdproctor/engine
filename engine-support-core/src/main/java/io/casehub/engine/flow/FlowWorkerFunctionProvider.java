@@ -23,7 +23,6 @@ import io.casehub.worker.api.WorkerFunction;
 import io.serverlessworkflow.api.WorkflowFormat;
 import io.serverlessworkflow.api.WorkflowReader;
 import io.serverlessworkflow.api.types.Workflow;
-import jakarta.enterprise.context.ApplicationScoped;
 
 /**
  * {@link WorkerFunctionProvider} for Serverless Workflow workers.
@@ -32,7 +31,6 @@ import jakarta.enterprise.context.ApplicationScoped;
  * node, a default document is injected (DSL 1.0.0, generated namespace/name/version) — same pattern
  * as the deleted {@code WorkerMarshaller.Deserializer}.
  */
-@ApplicationScoped
 public class FlowWorkerFunctionProvider implements WorkerFunctionProvider {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();

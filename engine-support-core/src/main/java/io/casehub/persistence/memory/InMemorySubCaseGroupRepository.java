@@ -18,8 +18,6 @@ package io.casehub.persistence.memory;
 import io.casehub.api.model.OnThresholdReached;
 import io.casehub.engine.common.internal.model.SubCaseGroup;
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.inject.Alternative;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -28,8 +26,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * In-memory blocking {@link SubCaseGroupRepository} for engine unit tests. Canonical implementation
  * — {@link InMemoryReactiveSubCaseGroupRepository} delegates to this.
  */
-@Alternative
-@ApplicationScoped
 public class InMemorySubCaseGroupRepository implements SubCaseGroupRepository {
 
   private final ConcurrentHashMap<String, SubCaseGroup> groups = new ConcurrentHashMap<>();

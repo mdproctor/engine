@@ -27,9 +27,6 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import jakarta.annotation.PostConstruct;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -44,7 +41,6 @@ import org.jboss.logging.Logger;
  * always fires regardless of outcome, ensuring every dispatched step has a terminal event. Logging
  * failures do not abort the dispatch result.
  */
-@ApplicationScoped
 public class CasehubDispatch {
 
   private static final Logger LOG = Logger.getLogger(CasehubDispatch.class);
@@ -56,7 +52,6 @@ public class CasehubDispatch {
   private final CaseInstanceCache caseInstanceCache;
   private final CallableDispatchRegistry dispatchRegistry;
 
-  @Inject
   public CasehubDispatch(
       final FlowExecutionRegistry registry,
       final WorkOrchestrator orchestrator,
@@ -70,8 +65,7 @@ public class CasehubDispatch {
     this.dispatchRegistry = dispatchRegistry;
   }
 
-  @PostConstruct
-  void register() {
+  public void register() {
     dispatchRegistry.register(
         "casehub:dispatch",
         (instanceId, args) -> {

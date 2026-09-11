@@ -23,9 +23,6 @@ import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
-import io.quarkus.virtual.threads.VirtualThreads;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -37,10 +34,8 @@ import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
-import org.eclipse.microprofile.config.inject.ConfigProperty;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class A2AWorkerFunctionHandler implements WorkerFunctionHandler {
 
   private static final Logger LOG = Logger.getLogger(A2AWorkerFunctionHandler.class);
@@ -51,14 +46,11 @@ public class A2AWorkerFunctionHandler implements WorkerFunctionHandler {
   private final int maxArtifacts;
   private final long maxArtifactBytes;
 
-  @Inject
   public A2AWorkerFunctionHandler(
       final A2AClientRegistry clientRegistry,
-      @VirtualThreads final ExecutorService virtualThreads,
-      @ConfigProperty(name = "casehub.a2a.max-artifacts", defaultValue = "100")
-          final int maxArtifacts,
-      @ConfigProperty(name = "casehub.a2a.max-artifact-bytes", defaultValue = "10485760")
-          final long maxArtifactBytes) {
+      final ExecutorService virtualThreads,
+      final int maxArtifacts,
+      final long maxArtifactBytes) {
     this.clientRegistry = clientRegistry;
     this.virtualThreads = virtualThreads;
     this.maxArtifacts = maxArtifacts;

@@ -19,13 +19,9 @@ import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
 import io.modelcontextprotocol.spec.McpClientTransport;
 import io.modelcontextprotocol.spec.McpSchema.ClientCapabilities;
-import io.quarkus.runtime.ShutdownEvent;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
-@ApplicationScoped
 public class McpClientRegistry {
 
   private static final Logger LOG = Logger.getLogger(McpClientRegistry.class);
@@ -49,7 +45,7 @@ public class McpClientRegistry {
     }
   }
 
-  void shutdown(@Observes final ShutdownEvent event) {
+  public void shutdown() {
     clients.values().forEach(this::closeQuietly);
     clients.clear();
     transportConfigs.clear();
