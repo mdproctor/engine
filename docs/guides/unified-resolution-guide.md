@@ -105,111 +105,168 @@ similarity of the problem text — which works but is less precise.
 restart, re-ingestion supersedes existing entries rather than creating
 duplicates.
 
-### Corpus Metadata — Feature Schema Design
+### Corpus Metadata — Standardised Knowledge Representation
 
-Feature metadata is the single most important decision for retrieval quality.
-Without well-designed features, the system falls back to pure semantic
-similarity on the problem text — which works for broad matching but can't
-distinguish a phishing runbook from a malware runbook when both mention
-"suspicious email."
+The resolution pipeline retrieves knowledge documents alongside case history.
+For retrieval to work well, documents need structured metadata that
+distinguishes "this runbook applies to your situation" from "this runbook
+exists." The platform provides a standardised knowledge representation with
+per-type metadata schemas.
 
-**`CbrFeatureSchema`** (neocortex `memory-api`) declares what metadata a
-corpus carries. Each schema has a `caseType` (matching the `cbr.caseType`
-in YAML), a list of typed `FeatureField` declarations, and an optional
-`learningRate` controlling how fast feature weights adapt from feedback.
+#### The Two-Layer Metadata Model
 
-#### Feature Field Types
+Knowledge metadata operates at two layers:
 
-| Type | Factory | Use for | Similarity |
-|------|---------|---------|------------|
-| `categorical` | `FeatureField.categorical("name")` | Tags, categories, enum values | Exact match (or vocabulary-grounded subsumption) |
-| `numeric` | `FeatureField.numeric("name", min, max)` | Severity scores, confidence, counts | Range-normalised distance |
-| `text` | `FeatureField.text("name")` | Short descriptions, titles | BM25 term matching |
-| `semanticText` | `FeatureField.semanticText("name")` | Free-form descriptions, summaries | Embedding cosine similarity |
-| `categoricalList` | `FeatureField.categoricalList("name")` | Multiple labels, IOC types, MITRE tactics | Jaccard set similarity |
-| `numericList` | `FeatureField.numericList("name", min, max)` | Score arrays, multi-valued metrics | Element-wise distance |
-| `nestedObject` | `FeatureField.nestedObject("name", subfields...)` | Structured sub-features | Recursive field-level matching |
-| `objectList` | `FeatureField.objectList("name", subfields...)` | Lists of structured items | Best-match pairing |
-| `timeSeries` | `FeatureField.timeSeries("name", tsField, valueFields...)` | Temporal patterns, event sequences | DTW (Dynamic Time Warping) |
-| `discreteSequence` | `FeatureField.discreteSequence("name")` | Step sequences, action chains | Sequence alignment |
+**Layer 1 — Knowledge representation (garden entry format):** Standardised
+document schemas for different types of operational knowledge. Each knowledge
+type has a defined structure with required sections and type-specific
+frontmatter fields. Six gardens cover distinct knowledge categories:
 
-Each field type accepts an optional `SimilaritySpec` to tune comparison
-behaviour (e.g., custom distance functions, weighting within nested objects).
+| Garden | Entry types | Key metadata fields | Editorial bar |
+|--------|------------|-------------------|---------------|
+| **discovery** | gotcha, technique, undocumented, convention | `symptom`, `root_cause`, `stack`, `tags`, `score` | Would a skilled developer still spend significant time? |
+| **patterns** | architectural, migration, integration, testing | `suitability`, `variants`, `stability`, `observed_in` | Would a practitioner reach for something more complex? |
+| **examples** | code | `stack`, minimal working example | Minimal, working, real use case? |
+| **evolution** | breaking, deprecation, capability | `changed_in`, `breaking`, `migration_effort` | Would change code correctness for someone on that version? |
+| **risk** | failure-mode, antipattern, incident | `severity`, `failure_pattern`, `observed_at_scale` | Caused production harm; mechanism universal enough to recur? |
+| **decisions** | architecture, technology, process | alternatives considered, reasoning, consequences | Reasoning clear enough for someone facing the same choice? |
 
-#### Designing Features for a Knowledge Corpus
+Each type carries structured body sections — a gotcha has Symptom, Root
+Cause, What Was Tried, Fix, Why Non-Obvious. A risk entry has Failure Mode,
+Root Cause, Mitigation, Detection. These sections become the `problem` and
+`solution` fields in `ResolutionGuideInput`.
 
-The goal: features should **discriminate between resolutions that apply to
-different situations**, not just describe the document.
+**Layer 2 — Similarity engine (CbrFeatureSchema):** Declares how metadata
+is compared for retrieval. `FeatureField` types determine the similarity
+algorithm per field:
 
-**Good features distinguish:** "This runbook is for credential compromise
-on Windows domain accounts" vs "This runbook is for credential compromise
-on cloud SSO accounts." Both are credential compromise — the category feature
-alone doesn't help. Add `platform: categorical` and `accountType: categorical`.
+| Feature type | Use for | Similarity |
+|-------------|---------|------------|
+| `categorical` | Tags, categories, enum values | Exact match / subsumption |
+| `numeric(min, max)` | Severity scores, confidence | Range-normalised distance |
+| `semanticText` | Free-form descriptions | Embedding cosine similarity |
+| `categoricalList` | Multiple labels, MITRE tactics | Jaccard set similarity |
+| `timeSeries` | Temporal patterns | DTW (Dynamic Time Warping) |
 
-**Bad features are universal:** Every runbook has `hasSteps: true` and
-`language: "English"`. These features match everything equally and add noise
-without discriminative value.
+Layer 1 defines WHAT metadata a document carries. Layer 2 defines HOW that
+metadata is compared. Both are required for effective retrieval.
 
-```java
-// SOC domain — features that discriminate between investigation approaches
-var schema = CbrFeatureSchema.of("soc-investigation",
-    FeatureField.categorical("category"),           // phishing, malware, insider-threat, etc.
-    FeatureField.categorical("attackVector"),        // email, web, usb, lateral-movement
-    FeatureField.categorical("targetPlatform"),      // windows-ad, cloud-sso, linux-server
-    FeatureField.numeric("severityScore", 0, 10),    // normalised severity
-    FeatureField.categoricalList("mitreTactics"),    // T1566, T1078, etc.
-    FeatureField.semanticText("problemSummary"));    // free-form — catches novel situations
-```
+#### Per-Type Feature Mapping
 
-#### How Feature Types Drive Retrieval
-
-When a new case arrives with `category: "phishing"` and `severityScore: 8.5`:
-
-1. **Categorical match** — `category` filters to phishing-related entries
-   (exact match or vocabulary-grounded subsumption if eidos is active)
-2. **Numeric distance** — `severityScore: 8.5` is closer to entries with
-   severity 9 than severity 3, normalised within the declared `[0, 10]` range
-3. **List similarity** — `mitreTactics: [T1566, T1534]` uses Jaccard against
-   each entry's tactic list
-4. **Semantic fallback** — `problemSummary` catches novel phishing variants
-   that don't match any categorical feature exactly
-5. **Feature weights** — `cbr.weights.category: 3.0` amplifies category's
-   influence; unweighted features default to `1.0`
-
-The combined score ranks entries that match on multiple discriminating
-features above entries that match only on semantic text.
-
-#### Feature Extraction in the Adapter
-
-The `CorpusSourceAdapter` maps from your knowledge base's metadata format
-to `FeatureValue` instances:
+Different knowledge types produce different feature sets. The
+`CorpusSourceAdapter` maps from the standardised entry format to CBR features:
 
 ```java
-private Map<String, Object> extractFeatures(Document doc) {
-    return Map.of(
-        "category", FeatureValue.string(doc.getCategory()),
-        "attackVector", FeatureValue.string(doc.getAttackVector()),
-        "severityScore", FeatureValue.number(doc.getSeverityScore()),
-        "mitreTactics", FeatureValue.stringList(doc.getMitreTactics()),
-        "problemSummary", FeatureValue.string(doc.getSummary()));
+@ApplicationScoped
+public class GardenCorpusAdapter implements CorpusSourceAdapter {
+
+    @Override
+    public List<ResolutionGuideInput> discover(String tenancyId) {
+        return gardenReader.readEntries(tenancyId).stream()
+            .map(entry -> new ResolutionGuideInput(
+                entry.id(),
+                extractProblem(entry),         // symptom / failure mode / what changed
+                extractSolution(entry),        // fix / mitigation / migration steps
+                extractSteps(entry),           // structured procedure if present
+                extractFeatures(entry),        // type-specific feature mapping
+                entry.domain(),
+                Map.of("garden", entry.garden(), "type", entry.type())))
+            .toList();
+    }
+
+    private Map<String, Object> extractFeatures(GardenEntry entry) {
+        var features = new LinkedHashMap<String, Object>();
+
+        // Universal features — all entry types carry these
+        features.put("domain", FeatureValue.string(entry.domain()));
+        features.put("stack", FeatureValue.string(entry.stack()));
+        features.put("tags", FeatureValue.stringList(entry.tags()));
+
+        // Type-specific features — each garden type contributes different metadata
+        switch (entry.garden()) {
+            case "risk" -> {
+                features.put("severity", FeatureValue.string(entry.field("severity")));
+                features.put("failurePattern", FeatureValue.string(entry.field("failure_pattern")));
+            }
+            case "evolution" -> {
+                features.put("changedIn", FeatureValue.string(entry.field("changed_in")));
+                features.put("migrationEffort", FeatureValue.string(entry.field("migration_effort")));
+                features.put("breaking", FeatureValue.string(String.valueOf(entry.field("breaking"))));
+            }
+            case "patterns" -> {
+                features.put("stability", FeatureValue.string(entry.field("stability")));
+                if (entry.field("suitability") != null) {
+                    features.put("suitability", FeatureValue.string(entry.field("suitability")));
+                }
+            }
+            case "discovery" -> {
+                // Gotchas: stack version matters most for matching
+                if (entry.field("verified_on") != null) {
+                    features.put("verifiedOn", FeatureValue.string(entry.field("verified_on")));
+                }
+            }
+        }
+        return features;
+    }
 }
 ```
 
-`ResolutionIngestionService.mapFeatures()` converts `Map<String, Object>` to
-`Map<String, FeatureValue>` automatically — plain strings, numbers, and lists
-are converted via `FeatureValue.of()`.
+**Why per-type features matter:** A risk entry with `severity: critical` and
+`failure_pattern: "silent data corruption"` matches differently than a gotcha
+with `stack: "Quarkus 3.32"` and `tags: [cdi, bean-resolution]`. The same
+retrieval query produces different ranked lists depending on which features
+the case context activates — severity-based for incident response, stack-based
+for debugging.
+
+#### Feature Design Principles
+
+Features should **discriminate between resolutions that apply to different
+situations**, not just describe the document.
+
+**Good features distinguish:** "This runbook is for credential compromise
+on Windows domain accounts" vs "This runbook is for credential compromise
+on cloud SSO accounts." Both are credential compromise — the `category`
+feature alone doesn't help. The `targetPlatform` and `accountType` features
+do.
+
+**Bad features are universal:** Every runbook has `hasSteps: true` and
+`language: "English"`. These match everything equally and add noise.
+
+Feature weights in `cbr.weights` amplify discriminating features:
+
+```yaml
+spec:
+  cbr:
+    weights:
+      severity: 2.0        # severity drives triage decisions
+      failurePattern: 3.0   # failure pattern is the strongest discriminator
+      stack: 1.0            # stack is useful but secondary
+```
+
+#### Staleness Metadata
+
+Garden entries carry staleness metadata that flows into the resolution
+pipeline:
+
+- `staleness_threshold` — how many days before the entry should be re-verified
+  (730 for gotchas, 3650 for conventions, 1825 for risk entries)
+- `verified_on` — version the entry was verified against
+- `last_reviewed` — date of last manual review
+- `invalidation_triggers` — what changes would make the entry wrong
+
+When `temporalDecayHalfLifeDays` is set on `CbrConfig`, older entries
+automatically score lower. Combined with explicit `OUTDATED` feedback
+(§Feedback Loop below), stale knowledge degrades gracefully.
 
 #### Adaptive Feature Weights
 
 `CbrFeatureSchema.learningRate` controls how fast feature weights adapt from
-retrieval feedback. When an analyst consistently selects entries that match
-on `attackVector` but ignores entries that only match on `category`, the
-system learns that `attackVector` is more discriminating for this domain.
+retrieval feedback. When analysts consistently select entries that match on
+`failurePattern` but ignore entries that only match on `domain`, the system
+learns that `failurePattern` is more discriminating.
 
-Set `learningRate` conservatively (`0.01`–`0.05`) for stable domains. Higher
-values (`0.1`+) adapt faster but risk oscillation in domains with inconsistent
-feedback patterns. Omit to disable adaptive weighting entirely (fixed weights
-from `cbr.weights` only).
+Set conservatively (`0.01`–`0.05`) for stable domains. Higher values adapt
+faster but risk oscillation. Omit to disable (fixed weights only).
 
 ### Mixed Retrieval
 
