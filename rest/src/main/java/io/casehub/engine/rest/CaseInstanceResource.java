@@ -15,37 +15,19 @@
  */
 package io.casehub.engine.rest;
 
-import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.engine.ExpressionEngineRegistry;
-import io.casehub.api.model.AllOfGoalExpression;
-import io.casehub.api.model.AnyOfGoalExpression;
-import io.casehub.api.model.CaseCompletion;
-import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.CaseStatus;
-import io.casehub.api.model.Goal;
-import io.casehub.api.model.GoalBasedCompletion;
-import io.casehub.api.model.GoalExpression;
-import io.casehub.api.model.GoalKind;
-import io.casehub.api.model.PredicateBasedCompletion;
-import io.casehub.api.model.SingleGoalExpression;
-import io.casehub.api.model.evaluator.JQExpressionEvaluator;
-import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.common.spi.query.CaseInstanceQuery;
 import io.casehub.engine.rest.dto.CaseInstanceResponse;
-import io.casehub.engine.rest.dto.CompletionStatus;
-import io.casehub.engine.rest.dto.CompletionSummary;
 import io.casehub.engine.rest.dto.GoalEvaluationResponse;
-import io.casehub.engine.rest.dto.GoalStatusResponse;
 import io.casehub.engine.rest.dto.PagedResponse;
 import io.casehub.engine.rest.dto.PlanItemResponse;
 import io.casehub.engine.rest.dto.ProblemDetail;
 import io.casehub.engine.rest.dto.StartCaseRequest;
-import io.casehub.engine.rest.exception.EntityNotFoundException;
 import io.casehub.engine.rest.service.CaseService;
 import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.identity.CurrentPrincipal;
@@ -64,12 +46,8 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.media.Content;
@@ -240,80 +218,6 @@ public class CaseInstanceResource {
       description = "Case not found",
       content = @Content(schema = @Schema(implementation = ProblemDetail.class)))
   public GoalEvaluationResponse getGoals(@PathParam("caseId") UUID caseId) {
-    CaseInstance instance = caseService.requireCaseAccess(caseId, AclAction.READ);
-    String tenancyId = currentPrincipal.tenancyId();
-
-    CaseMetaModel meta = instance.getCaseMetaModel();
-    CaseDefinition definition = definitionRegistry.getCaseDefinition(meta);
-    if (definition == null) {
-      throw new EntityNotFoundException("Case definition not found for case: " + caseId);
-    }
-
-    CaseContext caseContext = (CaseContext) runtime.query(caseId, ".");
-
-    List<GoalStatusResponse> goalResponses = new ArrayList<>();
-    Set<String> reachedGoalNames = new HashSet<>();
-
-    for (Goal goal : definition.getGoals()) {
-      String conditionStr = null;
-      if (goal.getCondition() instanceof JQExpressionEvaluator jq) {
-        conditionStr = jq.expression();
-      }
-
-      boolean satisfied = false;
-      String error = null;
-      try {
-        satisfied = expressionEngineRegistry.evaluate(goal.getCondition(), caseContext);
-      } catch (Exception e) {
-        error = e.getMessage();
-      }
-
-      if (satisfied && error == null) {
-        reachedGoalNames.add(goal.getName());
-      }
-
-      goalResponses.add(
-          new GoalStatusResponse(goal.getName(), goal.getKind(), satisfied, conditionStr, error));
-    }
-
-    CompletionSummary completion =
-        buildCompletionSummary(definition.getCompletion(), reachedGoalNames, caseContext);
-
-    return new GoalEvaluationResponse(goalResponses, completion);
-  }
-
-  private CompletionSummary buildCompletionSummary(
-      CaseCompletion caseCompletion, Set<String> reachedGoalNames, CaseContext caseContext) {
-    if (caseCompletion == null) {
-      return null;
-    }
-
-    if (caseCompletion instanceof GoalBasedCompletion<?> goalBased) {
-      Map<String, CompletionStatus> byKind = new LinkedHashMap<>();
-      for (var entry : goalBased.getGoals().entrySet()) {
-        GoalKind kind = entry.getKey();
-        GoalExpression expr = entry.getValue();
-        boolean sat = expr.isSatisfiedBy(reachedGoalNames);
-        String exprType =
-            switch (expr) {
-              case AllOfGoalExpression ignored -> "allOf";
-              case AnyOfGoalExpression ignored -> "anyOf";
-              case SingleGoalExpression ignored -> "single";
-            };
-        byKind.put(kind.value(), new CompletionStatus(sat, exprType));
-      }
-      return new CompletionSummary("goal-based", null, byKind);
-    }
-
-    if (caseCompletion instanceof PredicateBasedCompletion predBased) {
-      boolean sat = false;
-      try {
-        sat = expressionEngineRegistry.evaluate(predBased.getDoneWhen(), caseContext);
-      } catch (Exception ignored) {
-      }
-      return new CompletionSummary("predicate-based", sat, Map.of());
-    }
-
-    return null;
+    return caseService.evaluateGoals(caseId, currentPrincipal.tenancyId());
   }
 }
