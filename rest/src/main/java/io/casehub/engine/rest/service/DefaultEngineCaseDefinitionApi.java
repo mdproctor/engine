@@ -1,3 +1,18 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 package io.casehub.engine.rest.service;
 
 import io.casehub.api.model.CaseDefinition;
@@ -32,24 +47,26 @@ public class DefaultEngineCaseDefinitionApi implements EngineCaseDefinitionApi {
     String resolvedTenancyId = tenancyId != null ? tenancyId : currentPrincipal.tenancyId();
     int page = offset != null ? offset : 0;
     int size = limit != null ? limit : 20;
-    var query = CaseDefinitionQuery.builder()
-        .page(page)
-        .size(size)
-        .build();
+    var query = CaseDefinitionQuery.builder().page(page).size(size).build();
     var metas = metaModelRepository.query(query, resolvedTenancyId);
     String actorId = currentPrincipal.actorId();
-    var items = metas.stream()
-        .filter(meta -> accessControlProvider.canAccess(
-            actorId,
-            new ResourceId(io.casehub.api.acl.EngineResourceTypes.CASE_DEFINITION,
-                meta.getNamespace() + "/" + meta.getName() + "/" + meta.getVersion()),
-            AclAction.READ))
-        .map(meta -> {
-          CaseDefinition def = definitionRegistry.getCaseDefinition(meta);
-          return mapDefinition(meta, def);
-        })
-        .filter(Objects::nonNull)
-        .toList();
+    var items =
+        metas.stream()
+            .filter(
+                meta ->
+                    accessControlProvider.canAccess(
+                        actorId,
+                        new ResourceId(
+                            io.casehub.api.acl.EngineResourceTypes.CASE_DEFINITION,
+                            meta.getNamespace() + "/" + meta.getName() + "/" + meta.getVersion()),
+                        AclAction.READ))
+            .map(
+                meta -> {
+                  CaseDefinition def = definitionRegistry.getCaseDefinition(meta);
+                  return mapDefinition(meta, def);
+                })
+            .filter(Objects::nonNull)
+            .toList();
     return new CaseDefinitionPage(items, items.size(), false);
   }
 
@@ -57,15 +74,13 @@ public class DefaultEngineCaseDefinitionApi implements EngineCaseDefinitionApi {
   public List<CaseDefinitionView> getDefinitionsByName(
       String namespace, String name, String tenancyId) {
     String resolvedTenancyId = tenancyId != null ? tenancyId : currentPrincipal.tenancyId();
-    var query = CaseDefinitionQuery.builder()
-        .namespace(namespace)
-        .name(name)
-        .build();
+    var query = CaseDefinitionQuery.builder().namespace(namespace).name(name).build();
     return metaModelRepository.query(query, resolvedTenancyId).stream()
-        .map(meta -> {
-          CaseDefinition def = definitionRegistry.getCaseDefinition(meta);
-          return mapDefinition(meta, def);
-        })
+        .map(
+            meta -> {
+              CaseDefinition def = definitionRegistry.getCaseDefinition(meta);
+              return mapDefinition(meta, def);
+            })
         .filter(Objects::nonNull)
         .toList();
   }
@@ -73,9 +88,13 @@ public class DefaultEngineCaseDefinitionApi implements EngineCaseDefinitionApi {
   @Override
   public CaseDefinitionView getDefinitionByKey(
       String namespace, String name, String version, String tenancyId) {
-    var meta = definitionRegistry.findByIdentity(namespace, name, version)
-        .orElseThrow(() -> new EntityNotFoundException(
-            String.format("No definition for %s/%s/%s", namespace, name, version)));
+    var meta =
+        definitionRegistry
+            .findByIdentity(namespace, name, version)
+            .orElseThrow(
+                () ->
+                    new EntityNotFoundException(
+                        String.format("No definition for %s/%s/%s", namespace, name, version)));
     CaseDefinition def = definitionRegistry.getCaseDefinition(meta);
     if (def == null) {
       throw new EntityNotFoundException(
@@ -88,9 +107,10 @@ public class DefaultEngineCaseDefinitionApi implements EngineCaseDefinitionApi {
     if (def == null) {
       return null;
     }
-    List<String> capabilities = def.getCapabilities() != null
-        ? def.getCapabilities().stream().map(Capability::name).toList()
-        : List.of();
+    List<String> capabilities =
+        def.getCapabilities() != null
+            ? def.getCapabilities().stream().map(Capability::name).toList()
+            : List.of();
     return new CaseDefinitionView(
         meta.getNamespace(),
         meta.getName(),

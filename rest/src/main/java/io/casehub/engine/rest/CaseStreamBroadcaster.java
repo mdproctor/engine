@@ -15,36 +15,48 @@
  */
 package io.casehub.engine.rest;
 
+import io.casehub.api.view.CaseStreamEventView;
 import io.casehub.engine.common.spi.event.CaseContextUpdatedEvent;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
-import io.casehub.engine.rest.dto.CaseStreamEvent;
 import io.smallrye.mutiny.Multi;
 import io.smallrye.mutiny.operators.multi.processors.BroadcastProcessor;
 import io.smallrye.mutiny.subscription.BackPressureFailure;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.ObservesAsync;
+import java.util.Map;
 import java.util.UUID;
 
 @ApplicationScoped
 public class CaseStreamBroadcaster {
 
-  private final BroadcastProcessor<CaseStreamEvent> processor = BroadcastProcessor.create();
+  private final BroadcastProcessor<CaseStreamEventView> processor = BroadcastProcessor.create();
 
   void onPlanItemChanged(@ObservesAsync PlanItemStateChangedEvent event) {
     try {
-      processor.onNext(CaseStreamEvent.planItem(event));
+      processor.onNext(
+          new CaseStreamEventView(
+              event.caseId(),
+              "plan-item",
+              Map.of(
+                  "planItemId", event.planItemId(),
+                  "bindingName", event.bindingName(),
+                  "previousStatus",
+                      event.previousStatus() != null ? event.previousStatus().name() : "NONE",
+                  "newStatus", event.newStatus().name())));
     } catch (BackPressureFailure ignored) {
     }
   }
 
   void onContextUpdated(@ObservesAsync CaseContextUpdatedEvent event) {
     try {
-      processor.onNext(CaseStreamEvent.context(event));
+      processor.onNext(
+          new CaseStreamEventView(
+              event.caseId(), "context", Map.of("changedLayer", event.changedLayer())));
     } catch (BackPressureFailure ignored) {
     }
   }
 
-  public Multi<CaseStreamEvent> stream(UUID caseId) {
+  public Multi<CaseStreamEventView> stream(UUID caseId) {
     return processor.toHotStream().filter(e -> caseId.equals(e.caseId()));
   }
 }

@@ -19,25 +19,20 @@ import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.engine.ExpressionEngineRegistry;
-import io.casehub.api.model.AllOfGoalExpression;
-import io.casehub.api.model.AnyOfGoalExpression;
 import io.casehub.api.model.CaseCompletion;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalBasedCompletion;
 import io.casehub.api.model.GoalExpression;
-import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.PredicateBasedCompletion;
-import io.casehub.api.model.SingleGoalExpression;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.view.CompletionSummaryView;
+import io.casehub.api.view.GoalEvaluationView;
+import io.casehub.api.view.GoalStatusView;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
-import io.casehub.engine.rest.dto.CompletionStatus;
-import io.casehub.engine.rest.dto.CompletionSummary;
-import io.casehub.engine.rest.dto.GoalEvaluationResponse;
-import io.casehub.engine.rest.dto.GoalStatusResponse;
 import io.casehub.engine.rest.exception.EntityNotFoundException;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AccessDeniedException;
@@ -48,7 +43,6 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -120,7 +114,7 @@ public class CaseService {
     return instance;
   }
 
-  public GoalEvaluationResponse evaluateGoals(UUID caseId, String tenancyId) {
+  public GoalEvaluationView evaluateGoals(UUID caseId, String tenancyId) {
     CaseInstance instance = requireCaseAccess(caseId, AclAction.READ);
 
     CaseMetaModel meta = instance.getCaseMetaModel();
@@ -131,7 +125,7 @@ public class CaseService {
 
     CaseContext caseContext = (CaseContext) runtime.query(caseId, ".");
 
-    List<GoalStatusResponse> goalResponses = new ArrayList<>();
+    List<GoalStatusView> goals = new ArrayList<>();
     Set<String> reachedGoalNames = new HashSet<>();
 
     for (Goal goal : definition.getGoals()) {
@@ -141,48 +135,40 @@ public class CaseService {
       }
 
       boolean satisfied = false;
-      String error = null;
       try {
         satisfied = expressionEngineRegistry.evaluate(goal.getCondition(), caseContext);
-      } catch (Exception e) {
-        error = e.getMessage();
+      } catch (Exception ignored) {
       }
 
-      if (satisfied && error == null) {
+      if (satisfied) {
         reachedGoalNames.add(goal.getName());
       }
 
-      goalResponses.add(
-          new GoalStatusResponse(goal.getName(), goal.getKind(), satisfied, conditionStr, error));
+      goals.add(new GoalStatusView(goal.getName(), goal.getKind(), satisfied, conditionStr));
     }
 
-    CompletionSummary completion =
+    CompletionSummaryView completion =
         buildCompletionSummary(definition.getCompletion(), reachedGoalNames, caseContext);
 
-    return new GoalEvaluationResponse(goalResponses, completion);
+    return new GoalEvaluationView(goals, completion);
   }
 
-  private CompletionSummary buildCompletionSummary(
+  private CompletionSummaryView buildCompletionSummary(
       CaseCompletion caseCompletion, Set<String> reachedGoalNames, CaseContext caseContext) {
     if (caseCompletion == null) {
       return null;
     }
 
     if (caseCompletion instanceof GoalBasedCompletion<?> goalBased) {
-      Map<String, CompletionStatus> byKind = new LinkedHashMap<>();
+      int total = goalBased.getGoals().size();
+      int satisfied = 0;
       for (var entry : goalBased.getGoals().entrySet()) {
-        GoalKind kind = entry.getKey();
         GoalExpression expr = entry.getValue();
-        boolean sat = expr.isSatisfiedBy(reachedGoalNames);
-        String exprType =
-            switch (expr) {
-              case AllOfGoalExpression ignored -> "allOf";
-              case AnyOfGoalExpression ignored -> "anyOf";
-              case SingleGoalExpression ignored -> "single";
-            };
-        byKind.put(kind.value(), new CompletionStatus(sat, exprType));
+        if (expr.isSatisfiedBy(reachedGoalNames)) {
+          satisfied++;
+        }
       }
-      return new CompletionSummary("goal-based", null, byKind);
+      return new CompletionSummaryView(satisfied == total, satisfied, total, "goal-based");
     }
 
     if (caseCompletion instanceof PredicateBasedCompletion predBased) {
@@ -191,7 +177,7 @@ public class CaseService {
         sat = expressionEngineRegistry.evaluate(predBased.getDoneWhen(), caseContext);
       } catch (Exception ignored) {
       }
-      return new CompletionSummary("predicate-based", sat, Map.of());
+      return new CompletionSummaryView(sat, sat ? 1 : 0, 1, "predicate-based");
     }
 
     return null;
