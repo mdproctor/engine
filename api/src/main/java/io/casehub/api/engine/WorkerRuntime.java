@@ -42,4 +42,8 @@ public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
   default NeighborSpace neighbors() {
     return NeighborSpace.NOOP;
   }
+
+  default RuleSpace rules() {
+    return RuleSpace.NOOP;
+  }
 }

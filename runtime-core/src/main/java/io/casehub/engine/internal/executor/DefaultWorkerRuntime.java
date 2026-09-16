@@ -58,6 +58,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final io.casehub.api.engine.SignalSpace signalSpace;
   private final io.casehub.api.engine.InterestSpace interestSpace;
   private final io.casehub.api.engine.NeighborSpace neighborSpace;
+  private final io.casehub.api.engine.RuleSpace ruleSpace;
 
   DefaultWorkerRuntime(
       UUID caseId,
@@ -83,7 +84,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
         defaultChannelFactory,
         io.casehub.api.engine.SignalSpace.NOOP,
         io.casehub.api.engine.InterestSpace.NOOP,
-        io.casehub.api.engine.NeighborSpace.NOOP);
+        io.casehub.api.engine.NeighborSpace.NOOP,
+        io.casehub.api.engine.RuleSpace.NOOP);
   }
 
   DefaultWorkerRuntime(
@@ -99,7 +101,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
       io.casehub.api.engine.SignalSpace signalSpace,
       io.casehub.api.engine.InterestSpace interestSpace,
-      io.casehub.api.engine.NeighborSpace neighborSpace) {
+      io.casehub.api.engine.NeighborSpace neighborSpace,
+      io.casehub.api.engine.RuleSpace ruleSpace) {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
@@ -113,6 +116,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.signalSpace = signalSpace;
     this.interestSpace = interestSpace;
     this.neighborSpace = neighborSpace;
+    this.ruleSpace = ruleSpace;
   }
 
   @Override
@@ -286,5 +290,10 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   @Override
   public io.casehub.api.engine.NeighborSpace neighbors() {
     return neighborSpace;
+  }
+
+  @Override
+  public io.casehub.api.engine.RuleSpace rules() {
+    return ruleSpace;
   }
 }

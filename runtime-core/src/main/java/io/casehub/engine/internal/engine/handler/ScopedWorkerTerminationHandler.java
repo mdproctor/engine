@@ -29,14 +29,17 @@ public class ScopedWorkerTerminationHandler {
   private final DataChannelRegistry dataChannelRegistry;
   private final io.casehub.engine.common.internal.observation.ObservationRegistry
       observationRegistry;
+  private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
 
   public ScopedWorkerTerminationHandler(
       ScopedWorkerRegistry scopedWorkerRegistry,
       DataChannelRegistry dataChannelRegistry,
-      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry) {
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
     this.scopedWorkerRegistry = scopedWorkerRegistry;
     this.dataChannelRegistry = dataChannelRegistry;
     this.observationRegistry = observationRegistry;
+    this.ruleRegistry = ruleRegistry;
   }
 
   public void handle(CompoundCompletedEvent event) {
@@ -48,6 +51,7 @@ public class ScopedWorkerTerminationHandler {
     scopedWorkerRegistry.terminateByScope(event.caseId(), event.compoundId(), scopedBindings);
     dataChannelRegistry.closeByScope(event.caseId(), event.compoundId());
     observationRegistry.unregisterByBinding(event.caseId(), scopedBindings);
+    ruleRegistry.unregisterByBinding(event.caseId(), scopedBindings);
     LOG.debugf(
         "Terminated scoped workers and channels for compound '%s' case %s",
         event.compoundName(), event.caseId());

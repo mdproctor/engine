@@ -131,6 +131,7 @@ public class CaseContextChangedEventHandler {
   private final io.casehub.engine.common.internal.observation.ContextHistoryBuffer
       contextHistoryBuffer;
   private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
+  private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
 
   public CaseContextChangedEventHandler(
       EventDispatcher eventDispatcher,
@@ -161,7 +162,8 @@ public class CaseContextChangedEventHandler {
       Optional<io.casehub.engine.common.spi.JudgmentScheduler> judgmentScheduler,
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
       io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
-      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry) {
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
     this.eventDispatcher = eventDispatcher;
     this.jqEvaluator = jqEvaluator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -191,6 +193,7 @@ public class CaseContextChangedEventHandler {
     this.observationRegistry = observationRegistry;
     this.contextHistoryBuffer = contextHistoryBuffer;
     this.signalRegistry = signalRegistry;
+    this.ruleRegistry = ruleRegistry;
   }
 
   public void handle(final CaseContextChangedEvent event) {
@@ -251,6 +254,7 @@ public class CaseContextChangedEventHandler {
           traceId);
       goals(caseInstance, contextSnapshot, caseDefinition);
       observations(caseInstance, contextSnapshot, caseDefinition);
+      localRules(caseInstance, contextSnapshot, caseDefinition);
 
       if (signalId != null) {
         settlementTracker.markFullyDispatched(signalId);
@@ -1271,6 +1275,100 @@ public class CaseContextChangedEventHandler {
       }
 
       observationRegistry.storeObservations(caseInstance.getUuid(), agentId, agentObservations);
+    }
+  }
+
+  private void localRules(
+      CaseInstance caseInstance,
+      io.casehub.api.context.CaseContext contextSnapshot,
+      io.casehub.api.model.CaseDefinition definition) {
+    if (ruleRegistry.ruleCount(caseInstance.getUuid()) == 0) {
+      return;
+    }
+
+    io.casehub.api.spi.observation.RuleConfig config = definition.getRuleConfig();
+
+    java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> signals =
+        signalRegistry.perceive(
+            caseInstance.getUuid(), definition.getSignalConfig().effectiveZeroThreshold());
+
+    com.fasterxml.jackson.databind.JsonNode snapshot =
+        contextSnapshot.layer(io.casehub.api.context.ContextLayer.WORKING).asJsonNode();
+
+    java.util.Set<String> changedKeys =
+        contextHistoryBuffer.computeChangedKeys(caseInstance.getUuid(), snapshot);
+
+    io.casehub.api.spi.observation.InterestLandscape landscape =
+        observationRegistry.computeLandscape(caseInstance.getUuid());
+
+    java.util.Map<String, java.util.List<io.casehub.api.spi.observation.LocalRule>> rulesByAgent =
+        ruleRegistry.getRulesForCase(caseInstance.getUuid());
+
+    io.casehub.engine.internal.observation.LocalRuleEvaluator evaluator =
+        new io.casehub.engine.internal.observation.LocalRuleEvaluator(signalRegistry);
+
+    java.util.List<io.casehub.api.spi.observation.RuleAction.WriteContext> batchedWrites =
+        new java.util.ArrayList<>();
+
+    for (var entry : rulesByAgent.entrySet()) {
+      String agentId = entry.getKey();
+      java.util.List<io.casehub.api.spi.observation.LocalRule> agentRules = entry.getValue();
+
+      io.casehub.api.spi.observation.RuleContext ruleContext =
+          new io.casehub.api.spi.observation.RuleContext(
+              observationRegistry.getObservations(caseInstance.getUuid(), agentId),
+              signals,
+              snapshot,
+              changedKeys,
+              landscape,
+              agentId,
+              caseInstance.tenancyId,
+              caseInstance.getUuid());
+
+      try {
+        java.util.List<io.casehub.api.spi.observation.RuleFiring> firings =
+            java.util.concurrent.CompletableFuture.supplyAsync(
+                    () -> evaluator.evaluate(agentId, agentRules, ruleContext, config),
+                    virtualThreads)
+                .orTimeout(
+                    config.ruleEvaluationTimeoutMs(), java.util.concurrent.TimeUnit.MILLISECONDS)
+                .join();
+
+        ruleRegistry.storeFirings(caseInstance.getUuid(), agentId, firings);
+
+        for (io.casehub.api.spi.observation.RuleFiring firing : firings) {
+          for (io.casehub.api.spi.observation.RuleAction action : firing.executedActions()) {
+            if (action instanceof io.casehub.api.spi.observation.RuleAction.WriteContext wc) {
+              batchedWrites.add(wc);
+            }
+          }
+        }
+      } catch (java.util.concurrent.CompletionException e) {
+        if (e.getCause() instanceof java.util.concurrent.TimeoutException) {
+          LOG.warnf(
+              "Rule evaluation timed out (>%dms) for case=%s agent=%s",
+              config.ruleEvaluationTimeoutMs(), caseInstance.getUuid(), agentId);
+        } else {
+          LOG.warnf(
+              e.getCause(),
+              "Rule evaluation failed for case=%s agent=%s",
+              caseInstance.getUuid(),
+              agentId);
+        }
+      }
+    }
+
+    if (!batchedWrites.isEmpty()) {
+      io.casehub.api.context.WritableLayer workingLayer =
+          ((io.casehub.api.context.MutableCaseContext) contextSnapshot)
+              .writableLayer(io.casehub.api.context.ContextLayer.WORKING);
+      for (io.casehub.api.spi.observation.RuleAction.WriteContext wc : batchedWrites) {
+        workingLayer.set(wc.key(), wc.value());
+      }
+      LOG.debugf(
+          "Applied %d batched rule context writes for case=%s, publishing CONTEXT_CHANGED",
+          batchedWrites.size(), caseInstance.getUuid());
+      eventDispatcher.dispatch(new CaseContextChangedEvent(caseInstance, contextSnapshot, null));
     }
   }
 }

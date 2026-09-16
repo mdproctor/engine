@@ -102,5 +102,8 @@ public enum CaseHubEventType {
   PHEROMONE_EXPIRED, // pheromone signal crossed below effective-zero threshold
 
   INTEREST_REGISTERED, // agent registered a declarative interest via InterestSpace
-  INTEREST_DEREGISTERED // agent deregistered a declarative interest via InterestSpace
+  INTEREST_DEREGISTERED, // agent deregistered a declarative interest via InterestSpace
+
+  RULE_REGISTERED, // agent registered a local rule via RuleSpace
+  RULE_FIRED // local rule condition matched and actions executed
 }

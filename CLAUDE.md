@@ -1324,6 +1324,26 @@ Declarative interest API for runtime observation registration (engine#1107). Age
 
 **Signal source tracking:** `Signal` gains `Set<String> sources` (9th field) — all depositor agent IDs. `SignalRegistry.deposit()` merges sources on reinforcement (`new HashSet<>(existing.sources()); sources.add(source); Set.copyOf(mergedSources)`). Expired re-deposit resets to `Set.of(source)`. Backward-compatible 8-arg constructor defaults `sources` to `Set.of(lastSource)`. `SignalRegistry.getAllSignals(UUID caseId)` returns `Map<String, Signal>` (copy). Refs engine#1108.
 
+## Local Rule Evaluation
+
+`RuleSpace` — fourth WorkerRuntime coordination facet. Per-agent condition→action rules that turn observation into autonomous action, closing the stigmergy perceive→decide→act loop. Rules evaluate against coordination state (observations, signals, context) and produce actions (deposit signals, register interests, write context keys). Engine-side evaluation after the observation pipeline, once per cycle. Interim design — expected to be revisited for Drools vol2. Refs engine#1109.
+
+**Foundation types (engine-api, `io.casehub.api.spi.observation`):** `LocalRule` (record: `id`, `condition`, `actions`, `priority`), `RuleCondition` (sealed: `ExpressionCondition(ExpressionEvaluator)` | `PredicateCondition(Predicate<RuleContext>)`), `RuleAction` (sealed: `DepositSignal(name, strength, halfLife)` | `RegisterInterest(InterestDeclaration)` | `DeregisterInterest(interestId)` | `WriteContext(key, JsonNode value)`), `RuleContext` (record: `observations`, `signals`, `contextSnapshot`, `changedKeys`, `landscape`, `agentId`, `tenancyId`, `caseId`), `RuleFiring` (record: `ruleId`, `executedActions`, `firedAt`), `RuleRegistration` (record: `ruleId`, `rule`, `registeredAt`), `RuleConfig` (record: `maxRulesPerCase` default 50, `maxActionsPerCycle` default 100, `ruleEvaluationTimeoutMs` default 100).
+
+**WorkerRuntime facet:** `rules()` returns `RuleSpace` (default `NOOP`). `RuleSpace` interface: `register(LocalRule)`, `deregister(ruleId)`, `mine()`, `lastFired()`. `DefaultRuleSpace` (`runtime-core/internal/observation/`) delegates to `RuleRegistry`.
+
+**RuleRegistry** (`common-core/internal/observation/`, `@ApplicationScoped`, `Resettable`) — per-case, per-agent rule storage. `ConcurrentHashMap<UUID, List<RuleEntry>>` for rules, `ConcurrentHashMap<UUID, ConcurrentHashMap<String, List<RuleFiring>>>` for firings (replaced per cycle). Deduplication by `(agentId, bindingName, ruleId)`. `maxPerCase` cap enforcement.
+
+**Firing semantics:** Per-agent, all-fire (ALL matching rules fire), priority = execution order (not selection), one-shot per cycle (no intra-cycle chaining). `LocalRuleEvaluator` (`runtime-core/internal/observation/`) sorts by priority (descending), evaluates conditions, executes coordination actions (signal deposits) immediately, collects `WriteContext` actions for batched application.
+
+**Pipeline integration:** `localRules()` runs as 4th phase in `CaseContextChangedEventHandler.evaluateAndDispatch()`: `rules()` → `goals()` → `observations()` → `localRules()`. Per-agent timeout via `CompletableFuture.orTimeout()` on virtual threads. Batched `WriteContext` actions applied after all agents' rules complete; single `CONTEXT_CHANGED` published if writes occurred.
+
+**Lifecycle:** `CaseStatusChangedHandler` calls `ruleRegistry.evictByCase()` on terminal status. `ScopedWorkerTerminationHandler` calls `ruleRegistry.unregisterByBinding()` on compound completion. Scope: BINDING rejected, only COMPOUND or CASE.
+
+**Configuration:** `CaseDefinition.ruleConfig` (nullable `RuleConfig`). `getRuleConfig()` returns defaults when null. Builder: `.ruleConfig(RuleConfig)`. YAML: `ruleConfig:` block under `spec:` with `maxRulesPerCase`, `maxActionsPerCycle`, `ruleEvaluationTimeoutMs`.
+
+**Event types:** `RULE_REGISTERED`, `RULE_FIRED`. EventLog publishing deferred (same wiring pass as pheromone and interest events).
+
 ## Writing Style Guide
 
 **The writing style guide at `~/claude-workspace/writing-styles/blog-technical.md` is mandatory for all blog and diary entries.** Load it in full before drafting. Complete the pre-draft voice classification (I / we / Claude-named) before generating any prose. Do not show a draft without verifying it against the style guide.

@@ -57,7 +57,8 @@ class DefaultWorkerRuntimeSignalTest {
             null,
             signalSpace,
             InterestSpace.NOOP,
-            io.casehub.api.engine.NeighborSpace.NOOP);
+            io.casehub.api.engine.NeighborSpace.NOOP,
+            io.casehub.api.engine.RuleSpace.NOOP);
   }
 
   @Test

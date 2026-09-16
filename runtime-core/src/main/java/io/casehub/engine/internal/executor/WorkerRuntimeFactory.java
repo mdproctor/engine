@@ -34,6 +34,7 @@ public class WorkerRuntimeFactory {
       observationRegistry;
   private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
   private final io.casehub.engine.common.spi.PlanItemStore planItemStore;
+  private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
 
   public WorkerRuntimeFactory(
       CaseHubRuntime caseHubRuntime,
@@ -44,7 +45,8 @@ public class WorkerRuntimeFactory {
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
-      io.casehub.engine.common.spi.PlanItemStore planItemStore) {
+      io.casehub.engine.common.spi.PlanItemStore planItemStore,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
     this.caseHubRuntime = caseHubRuntime;
     this.definitionRegistry = definitionRegistry;
     this.caseInstanceCache = caseInstanceCache;
@@ -54,6 +56,7 @@ public class WorkerRuntimeFactory {
     this.observationRegistry = observationRegistry;
     this.signalRegistry = signalRegistry;
     this.planItemStore = planItemStore;
+    this.ruleRegistry = ruleRegistry;
   }
 
   public WorkerRuntime create(
@@ -110,6 +113,11 @@ public class WorkerRuntimeFactory {
             caseInstanceCache,
             resolvedSignalConfig);
 
+    io.casehub.api.spi.observation.RuleConfig resolvedRuleConfig = resolveRuleConfig(caseId);
+    io.casehub.api.engine.RuleSpace ruleSpace =
+        new io.casehub.engine.internal.observation.DefaultRuleSpace(
+            ruleRegistry, caseId, workerName, bindingName, resolvedRuleConfig);
+
     return new DefaultWorkerRuntime(
         caseId,
         taskId,
@@ -123,7 +131,8 @@ public class WorkerRuntimeFactory {
         defaultChannelFactory,
         signalSpace,
         interestSpace,
-        neighborSpace);
+        neighborSpace,
+        ruleSpace);
   }
 
   private io.casehub.api.model.signal.SignalConfig resolveSignalConfig(UUID caseId) {
@@ -177,5 +186,27 @@ public class WorkerRuntimeFactory {
       // Fall back to defaults on any resolution failure
     }
     return io.casehub.api.spi.observation.ObservationConfig.defaults();
+  }
+
+  private io.casehub.api.spi.observation.RuleConfig resolveRuleConfig(UUID caseId) {
+    try {
+      var caseInstance = caseInstanceCache.get(caseId);
+      if (caseInstance != null && caseInstance.getCaseMetaModel() != null) {
+        var definition =
+            definitionRegistry.findByIdentity(
+                caseInstance.getCaseMetaModel().getNamespace(),
+                caseInstance.getCaseMetaModel().getName(),
+                caseInstance.getCaseMetaModel().getVersion());
+        if (definition.isPresent()) {
+          var caseDef = definitionRegistry.getCaseDefinition(definition.get());
+          if (caseDef != null) {
+            return caseDef.getRuleConfig();
+          }
+        }
+      }
+    } catch (Exception e) {
+      // Fall back to defaults on any resolution failure
+    }
+    return io.casehub.api.spi.observation.RuleConfig.defaults();
   }
 }
