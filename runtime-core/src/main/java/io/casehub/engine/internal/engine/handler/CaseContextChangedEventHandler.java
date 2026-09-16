@@ -1216,6 +1216,9 @@ public class CaseContextChangedEventHandler {
     java.util.Map<String, java.util.List<io.casehub.api.spi.observation.EnvironmentObserver>>
         observers = observationRegistry.getObservers(caseInstance.getUuid());
 
+    io.casehub.api.spi.observation.InterestLandscape landscape =
+        observationRegistry.computeLandscape(caseInstance.getUuid());
+
     java.util.List<io.casehub.api.spi.observation.ContextSnapshot> history =
         contextHistoryBuffer.getHistory(
             caseInstance.getUuid(), config.maxHistoryEntries(), config.maxHistoryAge());
@@ -1239,7 +1242,8 @@ public class CaseContextChangedEventHandler {
                 agentId,
                 caseInstance.tenancyId,
                 caseInstance.getUuid(),
-                signals);
+                signals,
+                landscape);
 
         try {
           java.util.List<io.casehub.api.spi.observation.Observation> results =

@@ -15,27 +15,25 @@
  */
 package io.casehub.api.engine;
 
-import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.WorkerContext;
+import static org.junit.jupiter.api.Assertions.*;
+
 import java.time.Duration;
-import java.util.Map;
-import java.util.UUID;
+import org.junit.jupiter.api.Test;
 
-public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
+class SignalSpaceTest {
 
-  WorkerContext context();
-
-  UUID spawnCase(String caseType, Map<String, Object> input);
-
-  CaseContext awaitCase(UUID childCaseId, Duration timeout);
-
-  CaseContext spawnAndAwaitCase(String caseType, Map<String, Object> input, Duration timeout);
-
-  default SignalSpace signals() {
-    return SignalSpace.NOOP;
+  @Test
+  void noopDepositDoesNothing() {
+    assertDoesNotThrow(() -> SignalSpace.NOOP.deposit("test", 1.0));
   }
 
-  default InterestSpace interests() {
-    return InterestSpace.NOOP;
+  @Test
+  void noopDepositWithHalfLifeDoesNothing() {
+    assertDoesNotThrow(() -> SignalSpace.NOOP.deposit("test", 1.0, Duration.ofMinutes(5)));
+  }
+
+  @Test
+  void noopPerceiveReturnsEmpty() {
+    assertTrue(SignalSpace.NOOP.perceive().isEmpty());
   }
 }

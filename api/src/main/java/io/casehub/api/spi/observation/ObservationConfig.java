@@ -18,14 +18,21 @@ package io.casehub.api.spi.observation;
 import java.time.Duration;
 
 public record ObservationConfig(
-    int maxHistoryEntries, Duration maxHistoryAge, int maxObserversPerCase) {
+    int maxHistoryEntries,
+    Duration maxHistoryAge,
+    int maxObserversPerCase,
+    boolean allowJqInterests) {
 
   public static final int DEFAULT_MAX_HISTORY_ENTRIES = 50;
   public static final Duration DEFAULT_MAX_HISTORY_AGE = Duration.ofMinutes(5);
   public static final int DEFAULT_MAX_OBSERVERS_PER_CASE = 20;
 
+  public ObservationConfig(int maxHistoryEntries, Duration maxHistoryAge, int maxObserversPerCase) {
+    this(maxHistoryEntries, maxHistoryAge, maxObserversPerCase, true);
+  }
+
   public static ObservationConfig defaults() {
     return new ObservationConfig(
-        DEFAULT_MAX_HISTORY_ENTRIES, DEFAULT_MAX_HISTORY_AGE, DEFAULT_MAX_OBSERVERS_PER_CASE);
+        DEFAULT_MAX_HISTORY_ENTRIES, DEFAULT_MAX_HISTORY_AGE, DEFAULT_MAX_OBSERVERS_PER_CASE, true);
   }
 }

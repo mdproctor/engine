@@ -83,7 +83,17 @@ public class WorkerRuntimeFactory {
       java.util.Map<String, Object> accumulatedState,
       String workerName,
       String bindingName) {
-    io.casehub.api.model.signal.SignalConfig resolvedConfig = resolveSignalConfig(caseId);
+    io.casehub.api.model.signal.SignalConfig resolvedSignalConfig = resolveSignalConfig(caseId);
+    io.casehub.api.spi.observation.ObservationConfig resolvedObsConfig =
+        resolveObservationConfig(caseId);
+
+    io.casehub.api.engine.SignalSpace signalSpace =
+        new io.casehub.engine.internal.signal.DefaultSignalSpace(
+            signalRegistry, caseId, workerName, resolvedSignalConfig);
+    io.casehub.api.engine.InterestSpace interestSpace =
+        new io.casehub.engine.internal.observation.DefaultInterestSpace(
+            observationRegistry, caseId, workerName, bindingName, resolvedObsConfig);
+
     return new DefaultWorkerRuntime(
         caseId,
         taskId,
@@ -95,11 +105,8 @@ public class WorkerRuntimeFactory {
         caseCompletionTracker,
         channelRegistry,
         defaultChannelFactory,
-        observationRegistry,
-        workerName,
-        bindingName,
-        signalRegistry,
-        resolvedConfig);
+        signalSpace,
+        interestSpace);
   }
 
   private io.casehub.api.model.signal.SignalConfig resolveSignalConfig(UUID caseId) {
@@ -122,5 +129,27 @@ public class WorkerRuntimeFactory {
       // Fall back to defaults on any resolution failure
     }
     return io.casehub.api.model.signal.SignalConfig.defaults();
+  }
+
+  private io.casehub.api.spi.observation.ObservationConfig resolveObservationConfig(UUID caseId) {
+    try {
+      var caseInstance = caseInstanceCache.get(caseId);
+      if (caseInstance != null && caseInstance.getCaseMetaModel() != null) {
+        var definition =
+            definitionRegistry.findByIdentity(
+                caseInstance.getCaseMetaModel().getNamespace(),
+                caseInstance.getCaseMetaModel().getName(),
+                caseInstance.getCaseMetaModel().getVersion());
+        if (definition.isPresent()) {
+          var caseDef = definitionRegistry.getCaseDefinition(definition.get());
+          if (caseDef != null) {
+            return caseDef.getObservationConfig();
+          }
+        }
+      }
+    } catch (Exception e) {
+      // Fall back to defaults on any resolution failure
+    }
+    return io.casehub.api.spi.observation.ObservationConfig.defaults();
   }
 }

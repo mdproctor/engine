@@ -55,12 +55,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final Map<String, Object> accumulatedState;
   private final io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry;
   private final io.casehub.api.spi.DataChannelFactory defaultChannelFactory;
-  private final io.casehub.engine.common.internal.observation.ObservationRegistry
-      observationRegistry;
-  private final String workerName;
-  private final String bindingName;
-  private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
-  private final io.casehub.api.model.signal.SignalConfig signalConfig;
+  private final io.casehub.api.engine.SignalSpace signalSpace;
+  private final io.casehub.api.engine.InterestSpace interestSpace;
 
   DefaultWorkerRuntime(
       UUID caseId,
@@ -84,11 +80,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
         tracker,
         channelRegistry,
         defaultChannelFactory,
-        null,
-        null,
-        null,
-        null,
-        null);
+        io.casehub.api.engine.SignalSpace.NOOP,
+        io.casehub.api.engine.InterestSpace.NOOP);
   }
 
   DefaultWorkerRuntime(
@@ -102,11 +95,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       CaseCompletionTracker tracker,
       io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
-      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
-      String workerName,
-      String bindingName,
-      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
-      io.casehub.api.model.signal.SignalConfig signalConfig) {
+      io.casehub.api.engine.SignalSpace signalSpace,
+      io.casehub.api.engine.InterestSpace interestSpace) {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
@@ -117,11 +107,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.tracker = tracker;
     this.channelRegistry = channelRegistry;
     this.defaultChannelFactory = defaultChannelFactory;
-    this.observationRegistry = observationRegistry;
-    this.workerName = workerName;
-    this.bindingName = bindingName;
-    this.signalRegistry = signalRegistry;
-    this.signalConfig = signalConfig;
+    this.signalSpace = signalSpace;
+    this.interestSpace = interestSpace;
   }
 
   @Override
@@ -283,62 +270,12 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   }
 
   @Override
-  public boolean registerObserver(io.casehub.api.spi.observation.EnvironmentObserver observer) {
-    if (observationRegistry == null) {
-      return false;
-    }
-    io.casehub.engine.common.internal.model.CaseInstance instance = caseInstanceCache.get(caseId);
-    io.casehub.api.model.CaseDefinition definition =
-        definitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
-    if (bindingName != null) {
-      io.casehub.api.model.Binding binding =
-          definition.getBindings().stream()
-              .filter(b -> bindingName.equals(b.getName()))
-              .findFirst()
-              .orElse(null);
-      if (binding != null
-          && binding.lifecycleScope() == io.casehub.api.model.LifecycleScope.BINDING) {
-        throw new IllegalStateException(
-            "Cannot register observer during BINDING-scoped execution. "
-                + "Use COMPOUND or CASE scope on the binding declaration.");
-      }
-    }
-    io.casehub.api.spi.observation.ObservationConfig config = definition.getObservationConfig();
-    return observationRegistry.registerObserver(
-        caseId, workerName, bindingName, observer, config.maxObserversPerCase());
+  public io.casehub.api.engine.SignalSpace signals() {
+    return signalSpace;
   }
 
   @Override
-  public void depositSignal(String name, double strength) {
-    depositSignal(
-        name,
-        strength,
-        signalConfig != null
-            ? signalConfig.defaultHalfLife()
-            : io.casehub.api.model.signal.SignalConfig.DEFAULT_HALF_LIFE);
-  }
-
-  @Override
-  public void depositSignal(String name, double strength, java.time.Duration halfLife) {
-    if (signalRegistry == null) {
-      return;
-    }
-    int maxPerCase =
-        signalConfig != null
-            ? signalConfig.maxSignalsPerCase()
-            : io.casehub.api.model.signal.SignalConfig.DEFAULT_MAX_SIGNALS_PER_CASE;
-    signalRegistry.deposit(caseId, name, strength, halfLife, workerName, maxPerCase);
-  }
-
-  @Override
-  public java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> perceiveSignals() {
-    if (signalRegistry == null) {
-      return java.util.Map.of();
-    }
-    double threshold =
-        signalConfig != null
-            ? signalConfig.effectiveZeroThreshold()
-            : io.casehub.api.model.signal.SignalConfig.DEFAULT_EFFECTIVE_ZERO_THRESHOLD;
-    return signalRegistry.perceive(caseId, threshold);
+  public io.casehub.api.engine.InterestSpace interests() {
+    return interestSpace;
   }
 }

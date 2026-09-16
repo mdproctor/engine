@@ -41,7 +41,7 @@ class ObservationRegistryTest {
   @Test
   void registerAndRetrieveObserver() {
     var observer = testObserver("test-type", Set.of("key1"));
-    assertTrue(registry.registerObserver(caseId, "agent-1", "binding-1", observer, 20));
+    assertNotNull(registry.registerObserver(caseId, "agent-1", "binding-1", observer, 20));
     assertEquals(1, registry.observerCount(caseId));
     var observers = registry.getObservers(caseId);
     assertEquals(1, observers.get("agent-1").size());
@@ -53,7 +53,7 @@ class ObservationRegistryTest {
       registry.registerObserver(
           caseId, "agent-" + i, "binding-" + i, testObserver("type", Set.of()), 3);
     }
-    assertFalse(
+    assertNull(
         registry.registerObserver(
             caseId, "agent-4", "binding-4", testObserver("type", Set.of()), 3));
   }

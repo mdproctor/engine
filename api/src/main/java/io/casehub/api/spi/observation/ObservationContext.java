@@ -27,7 +27,8 @@ public record ObservationContext(
     String agentId,
     String tenancyId,
     UUID caseId,
-    java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> signals) {
+    java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> signals,
+    InterestLandscape interestLandscape) {
 
   public ObservationContext(
       JsonNode snapshot,
@@ -36,6 +37,33 @@ public record ObservationContext(
       String agentId,
       String tenancyId,
       UUID caseId) {
-    this(snapshot, changedKeys, history, agentId, tenancyId, caseId, java.util.Map.of());
+    this(
+        snapshot,
+        changedKeys,
+        history,
+        agentId,
+        tenancyId,
+        caseId,
+        java.util.Map.of(),
+        InterestLandscape.EMPTY);
+  }
+
+  public ObservationContext(
+      JsonNode snapshot,
+      Set<String> changedKeys,
+      List<ContextSnapshot> history,
+      String agentId,
+      String tenancyId,
+      UUID caseId,
+      java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> signals) {
+    this(
+        snapshot,
+        changedKeys,
+        history,
+        agentId,
+        tenancyId,
+        caseId,
+        signals,
+        InterestLandscape.EMPTY);
   }
 }

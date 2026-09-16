@@ -17,10 +17,13 @@ package io.casehub.engine.internal.executor;
 
 import static org.assertj.core.api.Assertions.*;
 
+import io.casehub.api.engine.InterestSpace;
+import io.casehub.api.engine.SignalSpace;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.signal.PerceivedSignal;
 import io.casehub.api.model.signal.SignalConfig;
 import io.casehub.engine.common.internal.signal.SignalRegistry;
+import io.casehub.engine.internal.signal.DefaultSignalSpace;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +42,7 @@ class DefaultWorkerRuntimeSignalTest {
     signalRegistry = new SignalRegistry();
     caseId = UUID.randomUUID();
     SignalConfig config = SignalConfig.defaults();
+    SignalSpace signalSpace = new DefaultSignalSpace(signalRegistry, caseId, "test-agent", config);
     runtime =
         new DefaultWorkerRuntime(
             caseId,
@@ -51,22 +55,19 @@ class DefaultWorkerRuntimeSignalTest {
             null,
             null,
             null,
-            null,
-            "test-agent",
-            "test-binding",
-            signalRegistry,
-            config);
+            signalSpace,
+            InterestSpace.NOOP);
   }
 
   @Test
   void depositSignal_createsSignalInRegistry() {
-    runtime.depositSignal("trail", 0.8);
+    runtime.signals().deposit("trail", 0.8);
     assertThat(signalRegistry.signalCount(caseId)).isEqualTo(1);
   }
 
   @Test
   void depositSignal_withCustomHalfLife() {
-    runtime.depositSignal("trail", 0.8, Duration.ofMinutes(10));
+    runtime.signals().deposit("trail", 0.8, Duration.ofMinutes(10));
     Map<String, PerceivedSignal> perceived = signalRegistry.perceive(caseId, 0.01);
     assertThat(perceived).containsKey("trail");
     assertThat(perceived.get("trail").effectiveStrength()).isCloseTo(0.8, within(0.01));
@@ -75,19 +76,19 @@ class DefaultWorkerRuntimeSignalTest {
   @Test
   void perceiveSignals_returnsActiveSignals() {
     signalRegistry.deposit(caseId, "trail", 0.8, Duration.ofMinutes(5), "other-agent", 100);
-    Map<String, PerceivedSignal> perceived = runtime.perceiveSignals();
+    Map<String, PerceivedSignal> perceived = runtime.signals().perceive();
     assertThat(perceived).containsKey("trail");
     assertThat(perceived.get("trail").effectiveStrength()).isGreaterThan(0.0);
   }
 
   @Test
   void perceiveSignals_emptyWhenNoSignals() {
-    Map<String, PerceivedSignal> perceived = runtime.perceiveSignals();
+    Map<String, PerceivedSignal> perceived = runtime.signals().perceive();
     assertThat(perceived).isEmpty();
   }
 
   @Test
-  void depositSignal_nullRegistry_noOp() {
+  void noopSignals_noOp() {
     DefaultWorkerRuntime runtimeNoSignals =
         new DefaultWorkerRuntime(
             caseId,
@@ -100,7 +101,7 @@ class DefaultWorkerRuntimeSignalTest {
             null,
             null,
             null);
-    runtimeNoSignals.depositSignal("trail", 0.5);
-    assertThat(runtimeNoSignals.perceiveSignals()).isEmpty();
+    runtimeNoSignals.signals().deposit("trail", 0.5);
+    assertThat(runtimeNoSignals.signals().perceive()).isEmpty();
   }
 }

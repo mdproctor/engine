@@ -1157,8 +1157,10 @@ public final class YamlCaseDefinitionConverter {
         node.has("maxObserversPerCase")
             ? node.get("maxObserversPerCase").asInt()
             : io.casehub.api.spi.observation.ObservationConfig.DEFAULT_MAX_OBSERVERS_PER_CASE;
+    boolean allowJqInterests =
+        !node.has("allowJqInterests") || node.get("allowJqInterests").asBoolean(true);
     return new io.casehub.api.spi.observation.ObservationConfig(
-        maxHistoryEntries, maxHistoryAge, maxObserversPerCase);
+        maxHistoryEntries, maxHistoryAge, maxObserversPerCase, allowJqInterests);
   }
 
   private static io.casehub.api.model.signal.SignalConfig convertSignalConfig(

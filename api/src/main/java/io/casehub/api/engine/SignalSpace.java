@@ -15,27 +15,29 @@
  */
 package io.casehub.api.engine;
 
-import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.WorkerContext;
+import io.casehub.api.model.signal.PerceivedSignal;
 import java.time.Duration;
 import java.util.Map;
-import java.util.UUID;
 
-public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
+public interface SignalSpace {
 
-  WorkerContext context();
+  void deposit(String name, double strength);
 
-  UUID spawnCase(String caseType, Map<String, Object> input);
+  void deposit(String name, double strength, Duration halfLife);
 
-  CaseContext awaitCase(UUID childCaseId, Duration timeout);
+  Map<String, PerceivedSignal> perceive();
 
-  CaseContext spawnAndAwaitCase(String caseType, Map<String, Object> input, Duration timeout);
+  SignalSpace NOOP =
+      new SignalSpace() {
+        @Override
+        public void deposit(String name, double strength) {}
 
-  default SignalSpace signals() {
-    return SignalSpace.NOOP;
-  }
+        @Override
+        public void deposit(String name, double strength, Duration halfLife) {}
 
-  default InterestSpace interests() {
-    return InterestSpace.NOOP;
-  }
+        @Override
+        public Map<String, PerceivedSignal> perceive() {
+          return Map.of();
+        }
+      };
 }

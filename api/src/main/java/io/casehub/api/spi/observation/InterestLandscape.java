@@ -13,29 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.engine;
+package io.casehub.api.spi.observation;
 
-import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.WorkerContext;
-import java.time.Duration;
 import java.util.Map;
-import java.util.UUID;
 
-public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
+public record InterestLandscape(
+    Map<String, Integer> keyObserverCounts,
+    Map<String, Integer> signalObserverCounts,
+    Map<String, Integer> interestTypeCounts,
+    int totalObserverCount) {
 
-  WorkerContext context();
-
-  UUID spawnCase(String caseType, Map<String, Object> input);
-
-  CaseContext awaitCase(UUID childCaseId, Duration timeout);
-
-  CaseContext spawnAndAwaitCase(String caseType, Map<String, Object> input, Duration timeout);
-
-  default SignalSpace signals() {
-    return SignalSpace.NOOP;
-  }
-
-  default InterestSpace interests() {
-    return InterestSpace.NOOP;
-  }
+  public static final InterestLandscape EMPTY =
+      new InterestLandscape(Map.of(), Map.of(), Map.of(), 0);
 }

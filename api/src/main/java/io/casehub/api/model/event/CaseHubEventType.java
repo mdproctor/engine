@@ -99,5 +99,8 @@ public enum CaseHubEventType {
   OBSERVATION_DETECTED, // observer produced observations during evaluation cycle
 
   PHEROMONE_DEPOSITED, // pheromone signal deposited or reinforced in SignalRegistry
-  PHEROMONE_EXPIRED // pheromone signal crossed below effective-zero threshold
+  PHEROMONE_EXPIRED, // pheromone signal crossed below effective-zero threshold
+
+  INTEREST_REGISTERED, // agent registered a declarative interest via InterestSpace
+  INTEREST_DEREGISTERED // agent deregistered a declarative interest via InterestSpace
 }
