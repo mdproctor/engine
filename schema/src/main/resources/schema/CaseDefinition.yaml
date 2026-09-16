@@ -964,6 +964,23 @@ $defs:
             type: integer
             minimum: 1
             default: 5
+      observation:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case environment observation configuration.
+        properties:
+          maxHistoryEntries:
+            type: integer
+            minimum: 1
+            default: 50
+          maxHistoryAge:
+            type: string
+            description: ISO-8601 duration for history sliding window.
+            default: PT5M
+          maxObserversPerCase:
+            type: integer
+            minimum: 1
+            default: 20
       adaptation:
         $ref: "#/$defs/AdaptationConfig"
         description: Per-case plan adaptation configuration.

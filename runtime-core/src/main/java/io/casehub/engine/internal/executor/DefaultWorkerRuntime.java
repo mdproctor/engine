@@ -55,6 +55,10 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final Map<String, Object> accumulatedState;
   private final io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry;
   private final io.casehub.api.spi.DataChannelFactory defaultChannelFactory;
+  private final io.casehub.engine.common.internal.observation.ObservationRegistry
+      observationRegistry;
+  private final String workerName;
+  private final String bindingName;
 
   DefaultWorkerRuntime(
       UUID caseId,
@@ -67,6 +71,36 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       CaseCompletionTracker tracker,
       io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory) {
+    this(
+        caseId,
+        taskId,
+        context,
+        accumulatedState,
+        caseHubRuntime,
+        definitionRegistry,
+        caseInstanceCache,
+        tracker,
+        channelRegistry,
+        defaultChannelFactory,
+        null,
+        null,
+        null);
+  }
+
+  DefaultWorkerRuntime(
+      UUID caseId,
+      String taskId,
+      WorkerContext context,
+      Map<String, Object> accumulatedState,
+      CaseHubRuntime caseHubRuntime,
+      CaseDefinitionRegistry definitionRegistry,
+      CaseInstanceCache caseInstanceCache,
+      CaseCompletionTracker tracker,
+      io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
+      io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      String workerName,
+      String bindingName) {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
@@ -77,6 +111,9 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.tracker = tracker;
     this.channelRegistry = channelRegistry;
     this.defaultChannelFactory = defaultChannelFactory;
+    this.observationRegistry = observationRegistry;
+    this.workerName = workerName;
+    this.bindingName = bindingName;
   }
 
   @Override
@@ -235,5 +272,31 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       String caseType, Map<String, Object> input, Duration timeout) {
     UUID childId = spawnCase(caseType, input);
     return awaitCase(childId, timeout);
+  }
+
+  @Override
+  public boolean registerObserver(io.casehub.api.spi.observation.EnvironmentObserver observer) {
+    if (observationRegistry == null) {
+      return false;
+    }
+    io.casehub.engine.common.internal.model.CaseInstance instance = caseInstanceCache.get(caseId);
+    io.casehub.api.model.CaseDefinition definition =
+        definitionRegistry.getCaseDefinition(instance.getCaseMetaModel());
+    if (bindingName != null) {
+      io.casehub.api.model.Binding binding =
+          definition.getBindings().stream()
+              .filter(b -> bindingName.equals(b.getName()))
+              .findFirst()
+              .orElse(null);
+      if (binding != null
+          && binding.lifecycleScope() == io.casehub.api.model.LifecycleScope.BINDING) {
+        throw new IllegalStateException(
+            "Cannot register observer during BINDING-scoped execution. "
+                + "Use COMPOUND or CASE scope on the binding declaration.");
+      }
+    }
+    io.casehub.api.spi.observation.ObservationConfig config = definition.getObservationConfig();
+    return observationRegistry.registerObserver(
+        caseId, workerName, bindingName, observer, config.maxObserversPerCase());
   }
 }

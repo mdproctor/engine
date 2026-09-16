@@ -335,6 +335,8 @@ public final class YamlCaseDefinitionConverter {
     if (spec.recoveryPolicy() != null)
       def.setRecoveryPolicy(convertRecoveryPolicy(spec.recoveryPolicy()));
     if (spec.monitoring() != null) def.setMonitoringConfig(convertMonitoring(spec.monitoring()));
+    if (spec.observation() != null)
+      def.setObservationConfig(convertObservation(spec.observation()));
     if (spec.reflectionTrigger() != null)
       def.setReflectionTrigger(convertReflection(spec.reflectionTrigger()));
     if (spec.memoryRetrieval() != null)
@@ -1138,6 +1140,24 @@ public final class YamlCaseDefinitionConverter {
     int windowSize =
         ym.windowSize() != null ? ym.windowSize() : MonitoringConfig.DEFAULT_WINDOW_SIZE;
     return new MonitoringConfig(enabled, threshold, windowSize);
+  }
+
+  private static io.casehub.api.spi.observation.ObservationConfig convertObservation(
+      com.fasterxml.jackson.databind.JsonNode node) {
+    int maxHistoryEntries =
+        node.has("maxHistoryEntries")
+            ? node.get("maxHistoryEntries").asInt()
+            : io.casehub.api.spi.observation.ObservationConfig.DEFAULT_MAX_HISTORY_ENTRIES;
+    java.time.Duration maxHistoryAge =
+        node.has("maxHistoryAge")
+            ? java.time.Duration.parse(node.get("maxHistoryAge").asText())
+            : io.casehub.api.spi.observation.ObservationConfig.DEFAULT_MAX_HISTORY_AGE;
+    int maxObserversPerCase =
+        node.has("maxObserversPerCase")
+            ? node.get("maxObserversPerCase").asInt()
+            : io.casehub.api.spi.observation.ObservationConfig.DEFAULT_MAX_OBSERVERS_PER_CASE;
+    return new io.casehub.api.spi.observation.ObservationConfig(
+        maxHistoryEntries, maxHistoryAge, maxObserversPerCase);
   }
 
   private static ReflectionTriggerConfig convertReflection(YamlReflectionTriggerConfig yr) {

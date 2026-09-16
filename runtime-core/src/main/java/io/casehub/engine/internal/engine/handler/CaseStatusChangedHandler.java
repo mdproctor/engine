@@ -71,6 +71,10 @@ public class CaseStatusChangedHandler {
   private final io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry;
   private final CaseRecoveryStateRegistry recoveryStateRegistry;
   private final CompoundLockRegistry compoundLockRegistry;
+  private final io.casehub.engine.common.internal.observation.ObservationRegistry
+      observationRegistry;
+  private final io.casehub.engine.common.internal.observation.ContextHistoryBuffer
+      contextHistoryBuffer;
 
   public CaseStatusChangedHandler(
       EventDispatcher eventDispatcher,
@@ -86,7 +90,9 @@ public class CaseStatusChangedHandler {
       WorkerGrantOrchestrator workerGrantOrchestrator,
       io.casehub.engine.common.internal.channel.DataChannelRegistry dataChannelRegistry,
       CaseRecoveryStateRegistry recoveryStateRegistry,
-      CompoundLockRegistry compoundLockRegistry) {
+      CompoundLockRegistry compoundLockRegistry,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer) {
     this.eventDispatcher = eventDispatcher;
     this.caseInstanceRepository = caseInstanceRepository;
     this.schedulerService = schedulerService;
@@ -101,6 +107,8 @@ public class CaseStatusChangedHandler {
     this.dataChannelRegistry = dataChannelRegistry;
     this.recoveryStateRegistry = recoveryStateRegistry;
     this.compoundLockRegistry = compoundLockRegistry;
+    this.observationRegistry = observationRegistry;
+    this.contextHistoryBuffer = contextHistoryBuffer;
   }
 
   public void handle(CaseStatusChanged event) {
@@ -168,6 +176,8 @@ public class CaseStatusChangedHandler {
       contextOutputApplier.evict(caseInstance.getUuid());
       recoveryStateRegistry.evict(caseInstance.getUuid());
       compoundLockRegistry.cleanForCase(caseInstance.getUuid());
+      observationRegistry.unregisterByCase(caseInstance.getUuid());
+      contextHistoryBuffer.evict(caseInstance.getUuid());
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();
       }

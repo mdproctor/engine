@@ -189,6 +189,10 @@ public class CaseDefinition {
   private io.casehub.engine.plan.monitoring.MonitoringConfig monitoringConfig;
 
   @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Per-case environment observation configuration.")
+  private io.casehub.api.spi.observation.ObservationConfig observationConfig;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
       "Cascading decomposition strategy configuration.")
   private io.casehub.engine.plan.PortfolioConfig portfolioConfig;
 
@@ -638,6 +642,17 @@ public class CaseDefinition {
     return monitoringConfig;
   }
 
+  public io.casehub.api.spi.observation.ObservationConfig getObservationConfig() {
+    return observationConfig != null
+        ? observationConfig
+        : io.casehub.api.spi.observation.ObservationConfig.defaults();
+  }
+
+  public void setObservationConfig(
+      io.casehub.api.spi.observation.ObservationConfig observationConfig) {
+    this.observationConfig = observationConfig;
+  }
+
   public void setMonitoringConfig(
       io.casehub.engine.plan.monitoring.MonitoringConfig monitoringConfig) {
     this.monitoringConfig = monitoringConfig;
@@ -777,6 +792,8 @@ public class CaseDefinition {
     private AdaptationConfig adaptationConfig;
     private io.casehub.engine.plan.PlanningConstraints planningConstraints;
     private io.casehub.engine.plan.monitoring.MonitoringConfig monitoringConfig;
+    private io.casehub.api.spi.observation.ObservationConfig observationConfig;
+
     private io.casehub.engine.plan.PortfolioConfig portfolioConfig;
 
     private List<ChannelDeclaration> channels = new java.util.ArrayList<>();
@@ -1162,6 +1179,12 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder observationConfig(
+        io.casehub.api.spi.observation.ObservationConfig observationConfig) {
+      this.observationConfig = observationConfig;
+      return this;
+    }
+
     public Builder portfolioConfig(io.casehub.engine.plan.PortfolioConfig portfolioConfig) {
       this.portfolioConfig = portfolioConfig;
       return this;
@@ -1346,6 +1369,7 @@ public class CaseDefinition {
       caseHubDefinition.setMaxConcurrentDispatches(maxConcurrentDispatches);
       caseHubDefinition.setWatchdogPolicy(watchdogPolicy);
       caseHubDefinition.setMonitoringConfig(monitoringConfig);
+      caseHubDefinition.setObservationConfig(observationConfig);
       caseHubDefinition.setPortfolioConfig(portfolioConfig);
       caseHubDefinition.setDecompositionTree(decompositionTree);
 

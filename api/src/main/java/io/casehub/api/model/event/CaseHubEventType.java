@@ -94,4 +94,7 @@ public enum CaseHubEventType {
   JUDGMENT_RESPONDED, // judgment response received from caller (decision + evidence)
   JUDGMENT_VERIFIED, // judgment response verified (placeholder — blocks/qhorus wiring)
   JUDGMENT_ESCALATED, // judgment escalated to different caller (placeholder — blocks/qhorus wiring)
+
+  OBSERVER_REGISTERED, // agent registered an EnvironmentObserver via WorkerRuntime
+  OBSERVATION_DETECTED, // observer produced observations during evaluation cycle
 }

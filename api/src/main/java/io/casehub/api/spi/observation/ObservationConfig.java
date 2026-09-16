@@ -13,25 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.engine;
+package io.casehub.api.spi.observation;
 
-import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.WorkerContext;
 import java.time.Duration;
-import java.util.Map;
-import java.util.UUID;
 
-public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
+public record ObservationConfig(
+    int maxHistoryEntries, Duration maxHistoryAge, int maxObserversPerCase) {
 
-  WorkerContext context();
+  public static final int DEFAULT_MAX_HISTORY_ENTRIES = 50;
+  public static final Duration DEFAULT_MAX_HISTORY_AGE = Duration.ofMinutes(5);
+  public static final int DEFAULT_MAX_OBSERVERS_PER_CASE = 20;
 
-  UUID spawnCase(String caseType, Map<String, Object> input);
-
-  CaseContext awaitCase(UUID childCaseId, Duration timeout);
-
-  CaseContext spawnAndAwaitCase(String caseType, Map<String, Object> input, Duration timeout);
-
-  default boolean registerObserver(io.casehub.api.spi.observation.EnvironmentObserver observer) {
-    return false;
+  public static ObservationConfig defaults() {
+    return new ObservationConfig(
+        DEFAULT_MAX_HISTORY_ENTRIES, DEFAULT_MAX_HISTORY_AGE, DEFAULT_MAX_OBSERVERS_PER_CASE);
   }
 }

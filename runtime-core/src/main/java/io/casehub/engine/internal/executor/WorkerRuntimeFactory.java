@@ -30,6 +30,8 @@ public class WorkerRuntimeFactory {
   private final CaseCompletionTracker caseCompletionTracker;
   private final io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry;
   private final io.casehub.api.spi.DataChannelFactory defaultChannelFactory;
+  private final io.casehub.engine.common.internal.observation.ObservationRegistry
+      observationRegistry;
 
   public WorkerRuntimeFactory(
       CaseHubRuntime caseHubRuntime,
@@ -37,13 +39,15 @@ public class WorkerRuntimeFactory {
       CaseInstanceCache caseInstanceCache,
       CaseCompletionTracker caseCompletionTracker,
       io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
-      io.casehub.api.spi.DataChannelFactory defaultChannelFactory) {
+      io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry) {
     this.caseHubRuntime = caseHubRuntime;
     this.definitionRegistry = definitionRegistry;
     this.caseInstanceCache = caseInstanceCache;
     this.caseCompletionTracker = caseCompletionTracker;
     this.channelRegistry = channelRegistry;
     this.defaultChannelFactory = defaultChannelFactory;
+    this.observationRegistry = observationRegistry;
   }
 
   public WorkerRuntime create(
@@ -67,5 +71,28 @@ public class WorkerRuntimeFactory {
         caseCompletionTracker,
         channelRegistry,
         defaultChannelFactory);
+  }
+
+  public WorkerRuntime create(
+      UUID caseId,
+      String taskId,
+      io.casehub.api.model.WorkerContext context,
+      java.util.Map<String, Object> accumulatedState,
+      String workerName,
+      String bindingName) {
+    return new DefaultWorkerRuntime(
+        caseId,
+        taskId,
+        context,
+        accumulatedState,
+        caseHubRuntime,
+        definitionRegistry,
+        caseInstanceCache,
+        caseCompletionTracker,
+        channelRegistry,
+        defaultChannelFactory,
+        observationRegistry,
+        workerName,
+        bindingName);
   }
 }

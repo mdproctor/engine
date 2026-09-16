@@ -126,6 +126,10 @@ public class CaseContextChangedEventHandler {
   private final io.casehub.engine.common.spi.PlanItemStore planItemStore;
   private final Consumer<CaseContextUpdatedEvent> caseContextUpdatedEventConsumer;
   private final Optional<io.casehub.engine.common.spi.JudgmentScheduler> judgmentScheduler;
+  private final io.casehub.engine.common.internal.observation.ObservationRegistry
+      observationRegistry;
+  private final io.casehub.engine.common.internal.observation.ContextHistoryBuffer
+      contextHistoryBuffer;
 
   public CaseContextChangedEventHandler(
       EventDispatcher eventDispatcher,
@@ -153,7 +157,9 @@ public class CaseContextChangedEventHandler {
       io.casehub.api.spi.DispatchBudget dispatchBudget,
       io.casehub.engine.common.spi.PlanItemStore planItemStore,
       Consumer<CaseContextUpdatedEvent> caseContextUpdatedEventConsumer,
-      Optional<io.casehub.engine.common.spi.JudgmentScheduler> judgmentScheduler) {
+      Optional<io.casehub.engine.common.spi.JudgmentScheduler> judgmentScheduler,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer) {
     this.eventDispatcher = eventDispatcher;
     this.jqEvaluator = jqEvaluator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -180,6 +186,8 @@ public class CaseContextChangedEventHandler {
     this.planItemStore = planItemStore;
     this.caseContextUpdatedEventConsumer = caseContextUpdatedEventConsumer;
     this.judgmentScheduler = judgmentScheduler;
+    this.observationRegistry = observationRegistry;
+    this.contextHistoryBuffer = contextHistoryBuffer;
   }
 
   public void handle(final CaseContextChangedEvent event) {
@@ -239,6 +247,7 @@ public class CaseContextChangedEventHandler {
           signalId,
           traceId);
       goals(caseInstance, contextSnapshot, caseDefinition);
+      observations(caseInstance, contextSnapshot, caseDefinition);
 
       if (signalId != null) {
         settlementTracker.markFullyDispatched(signalId);
@@ -1157,6 +1166,87 @@ public class CaseContextChangedEventHandler {
     } catch (Exception e) {
       LOG.warnf(e, "transform failed for expression '%s' (type=%s)", evaluator, evaluator.type());
       return Map.of();
+    }
+  }
+
+  private void observations(
+      CaseInstance caseInstance,
+      io.casehub.api.context.CaseContext contextSnapshot,
+      io.casehub.api.model.CaseDefinition definition) {
+    if (observationRegistry.observerCount(caseInstance.getUuid()) == 0) {
+      return;
+    }
+
+    io.casehub.api.spi.observation.ObservationConfig config = definition.getObservationConfig();
+
+    com.fasterxml.jackson.databind.JsonNode snapshot =
+        contextSnapshot.layer(io.casehub.api.context.ContextLayer.WORKING).asJsonNode();
+
+    java.util.Set<String> changedKeys =
+        contextHistoryBuffer.computeChangedKeys(caseInstance.getUuid(), snapshot);
+    java.util.Map<String, com.fasterxml.jackson.databind.JsonNode> changedValues =
+        contextHistoryBuffer.extractChangedValues(snapshot, changedKeys);
+
+    contextHistoryBuffer.record(
+        caseInstance.getUuid(),
+        new io.casehub.api.spi.observation.ContextSnapshot(
+            changedKeys, changedValues, java.time.Instant.now()));
+    contextHistoryBuffer.evictExpired(
+        caseInstance.getUuid(), config.maxHistoryEntries(), config.maxHistoryAge());
+
+    java.util.Map<String, java.util.List<io.casehub.api.spi.observation.EnvironmentObserver>>
+        observers = observationRegistry.getObservers(caseInstance.getUuid());
+
+    java.util.List<io.casehub.api.spi.observation.ContextSnapshot> history =
+        contextHistoryBuffer.getHistory(
+            caseInstance.getUuid(), config.maxHistoryEntries(), config.maxHistoryAge());
+
+    for (var entry : observers.entrySet()) {
+      String agentId = entry.getKey();
+      java.util.List<io.casehub.api.spi.observation.Observation> agentObservations =
+          new java.util.ArrayList<>();
+
+      for (io.casehub.api.spi.observation.EnvironmentObserver observer : entry.getValue()) {
+        if (!observer.watchedKeys().isEmpty()
+            && java.util.Collections.disjoint(observer.watchedKeys(), changedKeys)) {
+          continue;
+        }
+
+        io.casehub.api.spi.observation.ObservationContext ctx =
+            new io.casehub.api.spi.observation.ObservationContext(
+                snapshot,
+                changedKeys,
+                history,
+                agentId,
+                caseInstance.tenancyId,
+                caseInstance.getUuid());
+
+        try {
+          java.util.List<io.casehub.api.spi.observation.Observation> results =
+              java.util.concurrent.CompletableFuture.supplyAsync(
+                      () -> observer.observe(ctx), virtualThreads)
+                  .orTimeout(100, java.util.concurrent.TimeUnit.MILLISECONDS)
+                  .join();
+          if (results != null) {
+            agentObservations.addAll(results);
+          }
+        } catch (java.util.concurrent.CompletionException e) {
+          if (e.getCause() instanceof java.util.concurrent.TimeoutException) {
+            LOG.warnf(
+                "Observer %s timed out (>100ms) for case=%s agent=%s",
+                observer.observerType(), caseInstance.getUuid(), agentId);
+          } else {
+            LOG.warnf(
+                e.getCause(),
+                "Observer %s failed for case=%s agent=%s",
+                observer.observerType(),
+                caseInstance.getUuid(),
+                agentId);
+          }
+        }
+      }
+
+      observationRegistry.storeObservations(caseInstance.getUuid(), agentId, agentObservations);
     }
   }
 }

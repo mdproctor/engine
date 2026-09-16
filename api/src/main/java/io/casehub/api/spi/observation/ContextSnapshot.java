@@ -13,25 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.engine;
+package io.casehub.api.spi.observation;
 
-import io.casehub.api.context.CaseContext;
-import io.casehub.api.model.WorkerContext;
-import java.time.Duration;
+import com.fasterxml.jackson.databind.JsonNode;
+import java.time.Instant;
 import java.util.Map;
-import java.util.UUID;
+import java.util.Set;
 
-public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
-
-  WorkerContext context();
-
-  UUID spawnCase(String caseType, Map<String, Object> input);
-
-  CaseContext awaitCase(UUID childCaseId, Duration timeout);
-
-  CaseContext spawnAndAwaitCase(String caseType, Map<String, Object> input, Duration timeout);
-
-  default boolean registerObserver(io.casehub.api.spi.observation.EnvironmentObserver observer) {
-    return false;
-  }
-}
+public record ContextSnapshot(
+    Set<String> changedKeys, Map<String, JsonNode> changedValues, Instant timestamp) {}

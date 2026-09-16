@@ -604,14 +604,16 @@ public class RuntimeManualConfig {
       CaseInstanceCache caseInstanceCache,
       CaseCompletionTracker caseCompletionTracker,
       DataChannelRegistry channelRegistry,
-      DataChannelFactory defaultChannelFactory) {
+      DataChannelFactory defaultChannelFactory,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry) {
     return new WorkerRuntimeFactory(
         caseHubRuntime,
         definitionRegistry,
         caseInstanceCache,
         caseCompletionTracker,
         channelRegistry,
-        defaultChannelFactory);
+        defaultChannelFactory,
+        observationRegistry);
   }
 
   @Bean

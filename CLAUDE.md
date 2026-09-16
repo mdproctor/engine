@@ -1105,6 +1105,26 @@ Two-layer dispatch throttle: case-level cap (engine-internal) + external budget 
 
 **Per-condition response policy:** `CaseDefinition.watchdogPolicy` (`Map<WatchdogConditionType, WatchdogResponseAction>`, nullable). `WatchdogResponseAction`: `CANCEL_AFFECTED` (default for worker-hung) or `IGNORE` (default for case-level). YAML: `spec: { watchdogPolicy: { LOOP_DETECTED: IGNORE } }`. Refs engine#1044.
 
+## Environment Observation SPI
+
+`EnvironmentObserver` (`api/spi/observation/`) — per-agent perception layer for detecting patterns in `CaseContext` state. Separate from and orthogonal to the binding/trigger dispatch pipeline. Observations do NOT dispatch bindings — they produce structured results consumed by local rules (#1109). Refs engine#1105.
+
+**SPI types (engine-api, `io.casehub.api.spi.observation`):** `EnvironmentObserver` (interface: `observerType()`, `watchedKeys()`, `observe(ObservationContext)`), `ObservationContext` (record: snapshot, changedKeys, history, agentId, tenancyId, caseId), `Observation` (record: patternId, confidence [0.0-1.0], details `Map<String, JsonNode>`, timestamp), `ContextSnapshot` (record: changedKeys, changedValues, timestamp), `ObservationConfig` (record: maxHistoryEntries default 50, maxHistoryAge default 5min, maxObserversPerCase default 20).
+
+**Infrastructure (engine-common, `io.casehub.engine.common.internal.observation`):** `ObservationRegistry` (`@ApplicationScoped`, `Resettable`) — per-case observer registration with cap enforcement, binding-scoped cleanup, observation storage (latest cycle only). `ContextHistoryBuffer` (`@ApplicationScoped`, `Resettable`) — sliding window of `ContextSnapshot` entries with diff-based `computeChangedKeys()` against stored `lastProcessedSnapshot`.
+
+**Registration:** `WorkerRuntime.registerObserver(EnvironmentObserver)` — default method returning false. `DefaultWorkerRuntime` implements with BINDING-scope rejection (`IllegalStateException` — no lifecycle cleanup event for BINDING scope). Observers require COMPOUND or CASE scope. `ObservationRegistry` records both `agentId` (worker name) and `bindingName` for lifecycle management.
+
+**Pipeline integration:** `CaseContextChangedEventHandler.observations()` runs after `rules()` and `goals()` within the `CaseEvaluationSerializer` gate. Key filtering skips observers whose `watchedKeys()` are disjoint with changed keys. Per-observer timeout: 100ms via `CompletableFuture.orTimeout()` (discards result, does not interrupt thread). Results stored in `ObservationRegistry`, available for local rules (#1109) in cycle N+1.
+
+**Lifecycle cleanup:** `CaseStatusChangedHandler` calls `observationRegistry.unregisterByCase()` + `historyBuffer.evict()` on terminal status. `ScopedWorkerTerminationHandler` calls `observationRegistry.unregisterByBinding()` on `COMPOUND_COMPLETED`.
+
+**Classical observer implementations (runtime, `io.casehub.engine.internal.observation`):** Plain classes (not CDI beans), created via static factory methods. `ThresholdObserver.of(key, Operator, threshold)` — numeric threshold crossing. `CorrelationObserver.of(keys, jqCondition)` — multi-key JQ condition. `TemporalSequenceObserver.of(steps, window)` — ordered key-change sequence within time window. `SequenceStep(key, valuePredicate)`.
+
+**CaseDefinition** gains `observationConfig` (nullable `ObservationConfig`). `getObservationConfig()` returns defaults when null. Builder: `.observationConfig(ObservationConfig)`. YAML: `spec.observation:` block with `maxHistoryEntries`, `maxHistoryAge` (ISO-8601), `maxObserversPerCase`.
+
+**Event types:** `OBSERVER_REGISTERED`, `OBSERVATION_DETECTED`. Audit uses `observerType()` (not instance ID).
+
 ## SubscribableEvent Implementations
 
 Engine events implementing `SubscribableEvent` (platform-api) for the unified notification pipeline:
