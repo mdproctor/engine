@@ -1,0 +1,18 @@
+spec:
+  name: signal-test
+  namespace: test
+  version: "1.0"
+  signalConfig:
+    defaultHalfLife: PT10M
+    effectiveZeroThreshold: 0.05
+    maxSignalsPerCase: 50
+  capabilities:
+    - name: analyse
+  workers:
+    - name: analyser
+      capabilities: [analyse]
+  bindings:
+    - name: run-analyser
+      capability: analyse
+      on:
+        contextChange: ".input != null"

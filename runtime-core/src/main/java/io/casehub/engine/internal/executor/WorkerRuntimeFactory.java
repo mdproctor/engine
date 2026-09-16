@@ -32,6 +32,7 @@ public class WorkerRuntimeFactory {
   private final io.casehub.api.spi.DataChannelFactory defaultChannelFactory;
   private final io.casehub.engine.common.internal.observation.ObservationRegistry
       observationRegistry;
+  private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
 
   public WorkerRuntimeFactory(
       CaseHubRuntime caseHubRuntime,
@@ -40,7 +41,8 @@ public class WorkerRuntimeFactory {
       CaseCompletionTracker caseCompletionTracker,
       io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
-      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry) {
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry) {
     this.caseHubRuntime = caseHubRuntime;
     this.definitionRegistry = definitionRegistry;
     this.caseInstanceCache = caseInstanceCache;
@@ -48,6 +50,7 @@ public class WorkerRuntimeFactory {
     this.channelRegistry = channelRegistry;
     this.defaultChannelFactory = defaultChannelFactory;
     this.observationRegistry = observationRegistry;
+    this.signalRegistry = signalRegistry;
   }
 
   public WorkerRuntime create(
@@ -80,6 +83,7 @@ public class WorkerRuntimeFactory {
       java.util.Map<String, Object> accumulatedState,
       String workerName,
       String bindingName) {
+    io.casehub.api.model.signal.SignalConfig resolvedConfig = resolveSignalConfig(caseId);
     return new DefaultWorkerRuntime(
         caseId,
         taskId,
@@ -93,6 +97,30 @@ public class WorkerRuntimeFactory {
         defaultChannelFactory,
         observationRegistry,
         workerName,
-        bindingName);
+        bindingName,
+        signalRegistry,
+        resolvedConfig);
+  }
+
+  private io.casehub.api.model.signal.SignalConfig resolveSignalConfig(UUID caseId) {
+    try {
+      var caseInstance = caseInstanceCache.get(caseId);
+      if (caseInstance != null && caseInstance.getCaseMetaModel() != null) {
+        var definition =
+            definitionRegistry.findByIdentity(
+                caseInstance.getCaseMetaModel().getNamespace(),
+                caseInstance.getCaseMetaModel().getName(),
+                caseInstance.getCaseMetaModel().getVersion());
+        if (definition.isPresent()) {
+          var caseDef = definitionRegistry.getCaseDefinition(definition.get());
+          if (caseDef != null) {
+            return caseDef.getSignalConfig();
+          }
+        }
+      }
+    } catch (Exception e) {
+      // Fall back to defaults on any resolution failure
+    }
+    return io.casehub.api.model.signal.SignalConfig.defaults();
   }
 }

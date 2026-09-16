@@ -130,6 +130,7 @@ public class CaseContextChangedEventHandler {
       observationRegistry;
   private final io.casehub.engine.common.internal.observation.ContextHistoryBuffer
       contextHistoryBuffer;
+  private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
 
   public CaseContextChangedEventHandler(
       EventDispatcher eventDispatcher,
@@ -159,7 +160,8 @@ public class CaseContextChangedEventHandler {
       Consumer<CaseContextUpdatedEvent> caseContextUpdatedEventConsumer,
       Optional<io.casehub.engine.common.spi.JudgmentScheduler> judgmentScheduler,
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
-      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer) {
+      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry) {
     this.eventDispatcher = eventDispatcher;
     this.jqEvaluator = jqEvaluator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -188,6 +190,7 @@ public class CaseContextChangedEventHandler {
     this.judgmentScheduler = judgmentScheduler;
     this.observationRegistry = observationRegistry;
     this.contextHistoryBuffer = contextHistoryBuffer;
+    this.signalRegistry = signalRegistry;
   }
 
   public void handle(final CaseContextChangedEvent event) {
@@ -1173,6 +1176,22 @@ public class CaseContextChangedEventHandler {
       CaseInstance caseInstance,
       io.casehub.api.context.CaseContext contextSnapshot,
       io.casehub.api.model.CaseDefinition definition) {
+    io.casehub.api.model.signal.SignalConfig signalConfig = definition.getSignalConfig();
+    java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> signals =
+        signalRegistry.perceive(caseInstance.getUuid(), signalConfig.effectiveZeroThreshold());
+
+    java.util.List<io.casehub.api.model.signal.Signal> newlyExpired =
+        signalRegistry.findNewlyExpired(
+            caseInstance.getUuid(), signalConfig.effectiveZeroThreshold());
+    for (io.casehub.api.model.signal.Signal expired : newlyExpired) {
+      signalRegistry.markExpired(caseInstance.getUuid(), expired.name());
+      long lifetimeMs =
+          java.time.Duration.between(expired.firstDeposited(), java.time.Instant.now()).toMillis();
+      LOG.debugf(
+          "Signal expired: case=%s signal=%s reinforcements=%d lifetimeMs=%d",
+          caseInstance.getUuid(), expired.name(), expired.reinforcementCount(), lifetimeMs);
+    }
+
     if (observationRegistry.observerCount(caseInstance.getUuid()) == 0) {
       return;
     }
@@ -1219,7 +1238,8 @@ public class CaseContextChangedEventHandler {
                 history,
                 agentId,
                 caseInstance.tenancyId,
-                caseInstance.getUuid());
+                caseInstance.getUuid(),
+                signals);
 
         try {
           java.util.List<io.casehub.api.spi.observation.Observation> results =

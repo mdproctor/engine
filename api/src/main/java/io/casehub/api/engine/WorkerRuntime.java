@@ -34,4 +34,12 @@ public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
   default boolean registerObserver(io.casehub.api.spi.observation.EnvironmentObserver observer) {
     return false;
   }
+
+  default void depositSignal(String name, double strength) {}
+
+  default void depositSignal(String name, double strength, java.time.Duration halfLife) {}
+
+  default java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> perceiveSignals() {
+    return java.util.Map.of();
+  }
 }

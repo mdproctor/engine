@@ -59,6 +59,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       observationRegistry;
   private final String workerName;
   private final String bindingName;
+  private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
+  private final io.casehub.api.model.signal.SignalConfig signalConfig;
 
   DefaultWorkerRuntime(
       UUID caseId,
@@ -84,6 +86,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
         defaultChannelFactory,
         null,
         null,
+        null,
+        null,
         null);
   }
 
@@ -100,7 +104,9 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
       String workerName,
-      String bindingName) {
+      String bindingName,
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
+      io.casehub.api.model.signal.SignalConfig signalConfig) {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
@@ -114,6 +120,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.observationRegistry = observationRegistry;
     this.workerName = workerName;
     this.bindingName = bindingName;
+    this.signalRegistry = signalRegistry;
+    this.signalConfig = signalConfig;
   }
 
   @Override
@@ -298,5 +306,39 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     io.casehub.api.spi.observation.ObservationConfig config = definition.getObservationConfig();
     return observationRegistry.registerObserver(
         caseId, workerName, bindingName, observer, config.maxObserversPerCase());
+  }
+
+  @Override
+  public void depositSignal(String name, double strength) {
+    depositSignal(
+        name,
+        strength,
+        signalConfig != null
+            ? signalConfig.defaultHalfLife()
+            : io.casehub.api.model.signal.SignalConfig.DEFAULT_HALF_LIFE);
+  }
+
+  @Override
+  public void depositSignal(String name, double strength, java.time.Duration halfLife) {
+    if (signalRegistry == null) {
+      return;
+    }
+    int maxPerCase =
+        signalConfig != null
+            ? signalConfig.maxSignalsPerCase()
+            : io.casehub.api.model.signal.SignalConfig.DEFAULT_MAX_SIGNALS_PER_CASE;
+    signalRegistry.deposit(caseId, name, strength, halfLife, workerName, maxPerCase);
+  }
+
+  @Override
+  public java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> perceiveSignals() {
+    if (signalRegistry == null) {
+      return java.util.Map.of();
+    }
+    double threshold =
+        signalConfig != null
+            ? signalConfig.effectiveZeroThreshold()
+            : io.casehub.api.model.signal.SignalConfig.DEFAULT_EFFECTIVE_ZERO_THRESHOLD;
+    return signalRegistry.perceive(caseId, threshold);
   }
 }

@@ -337,6 +337,7 @@ public final class YamlCaseDefinitionConverter {
     if (spec.monitoring() != null) def.setMonitoringConfig(convertMonitoring(spec.monitoring()));
     if (spec.observation() != null)
       def.setObservationConfig(convertObservation(spec.observation()));
+    if (spec.signalConfig() != null) def.setSignalConfig(convertSignalConfig(spec.signalConfig()));
     if (spec.reflectionTrigger() != null)
       def.setReflectionTrigger(convertReflection(spec.reflectionTrigger()));
     if (spec.memoryRetrieval() != null)
@@ -1158,6 +1159,24 @@ public final class YamlCaseDefinitionConverter {
             : io.casehub.api.spi.observation.ObservationConfig.DEFAULT_MAX_OBSERVERS_PER_CASE;
     return new io.casehub.api.spi.observation.ObservationConfig(
         maxHistoryEntries, maxHistoryAge, maxObserversPerCase);
+  }
+
+  private static io.casehub.api.model.signal.SignalConfig convertSignalConfig(
+      com.fasterxml.jackson.databind.JsonNode node) {
+    java.time.Duration defaultHalfLife =
+        node.has("defaultHalfLife")
+            ? java.time.Duration.parse(node.get("defaultHalfLife").asText())
+            : io.casehub.api.model.signal.SignalConfig.DEFAULT_HALF_LIFE;
+    double effectiveZeroThreshold =
+        node.has("effectiveZeroThreshold")
+            ? node.get("effectiveZeroThreshold").asDouble()
+            : io.casehub.api.model.signal.SignalConfig.DEFAULT_EFFECTIVE_ZERO_THRESHOLD;
+    int maxSignalsPerCase =
+        node.has("maxSignalsPerCase")
+            ? node.get("maxSignalsPerCase").asInt()
+            : io.casehub.api.model.signal.SignalConfig.DEFAULT_MAX_SIGNALS_PER_CASE;
+    return new io.casehub.api.model.signal.SignalConfig(
+        defaultHalfLife, effectiveZeroThreshold, maxSignalsPerCase);
   }
 
   private static ReflectionTriggerConfig convertReflection(YamlReflectionTriggerConfig yr) {

@@ -981,6 +981,24 @@ $defs:
             type: integer
             minimum: 1
             default: 20
+      signalConfig:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case pheromone signal configuration for stigmergic coordination.
+        properties:
+          defaultHalfLife:
+            type: string
+            description: ISO-8601 duration for signal decay half-life.
+            default: PT5M
+          effectiveZeroThreshold:
+            type: number
+            minimum: 0
+            maximum: 1
+            default: 0.01
+          maxSignalsPerCase:
+            type: integer
+            minimum: 1
+            default: 100
       adaptation:
         $ref: "#/$defs/AdaptationConfig"
         description: Per-case plan adaptation configuration.

@@ -193,6 +193,10 @@ public class CaseDefinition {
   private io.casehub.api.spi.observation.ObservationConfig observationConfig;
 
   @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Per-case pheromone signal configuration for stigmergic coordination.")
+  private io.casehub.api.model.signal.SignalConfig signalConfig;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
       "Cascading decomposition strategy configuration.")
   private io.casehub.engine.plan.PortfolioConfig portfolioConfig;
 
@@ -653,6 +657,16 @@ public class CaseDefinition {
     this.observationConfig = observationConfig;
   }
 
+  public io.casehub.api.model.signal.SignalConfig getSignalConfig() {
+    return signalConfig != null
+        ? signalConfig
+        : io.casehub.api.model.signal.SignalConfig.defaults();
+  }
+
+  public void setSignalConfig(io.casehub.api.model.signal.SignalConfig signalConfig) {
+    this.signalConfig = signalConfig;
+  }
+
   public void setMonitoringConfig(
       io.casehub.engine.plan.monitoring.MonitoringConfig monitoringConfig) {
     this.monitoringConfig = monitoringConfig;
@@ -793,6 +807,7 @@ public class CaseDefinition {
     private io.casehub.engine.plan.PlanningConstraints planningConstraints;
     private io.casehub.engine.plan.monitoring.MonitoringConfig monitoringConfig;
     private io.casehub.api.spi.observation.ObservationConfig observationConfig;
+    private io.casehub.api.model.signal.SignalConfig signalConfig;
 
     private io.casehub.engine.plan.PortfolioConfig portfolioConfig;
 
@@ -1185,6 +1200,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder signalConfig(io.casehub.api.model.signal.SignalConfig signalConfig) {
+      this.signalConfig = signalConfig;
+      return this;
+    }
+
     public Builder portfolioConfig(io.casehub.engine.plan.PortfolioConfig portfolioConfig) {
       this.portfolioConfig = portfolioConfig;
       return this;
@@ -1370,6 +1390,7 @@ public class CaseDefinition {
       caseHubDefinition.setWatchdogPolicy(watchdogPolicy);
       caseHubDefinition.setMonitoringConfig(monitoringConfig);
       caseHubDefinition.setObservationConfig(observationConfig);
+      caseHubDefinition.setSignalConfig(signalConfig);
       caseHubDefinition.setPortfolioConfig(portfolioConfig);
       caseHubDefinition.setDecompositionTree(decompositionTree);
 

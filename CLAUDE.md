@@ -1269,6 +1269,26 @@ Bridges inbound connector messages from `casehub-connectors` to typed case signa
 
 `DelegatingJudgmentScheduler` deleted — replaced by `NoOpJudgmentScheduler` (`@DefaultBean`) + `CloudEventJudgmentScheduler`. Refs engine#1012.
 
+## Signal/Pheromone Model
+
+Temporal signal model for stigmergic coordination (engine#1106). Agents deposit named signals with strength values that decay exponentially over time and are reinforced when multiple agents confirm the same signal.
+
+**Foundation types (engine-api, `io.casehub.api.model.signal`):** `Signal` (stored value — name, strength, firstDeposited, lastReinforced, halfLife, lastSource, reinforcementCount, expired), `PerceivedSignal` (read model — name, effectiveStrength, reinforcementCount, lastSource, age), `SignalConfig` (per-case config — defaultHalfLife, effectiveZeroThreshold, maxSignalsPerCase), `SignalDecay` (static utility — `effectiveStrength(strength, lastReinforced, halfLife, now)`).
+
+**Decay model:** `effectiveStrength = strength * e^(-λ * elapsed)` where `λ = ln(2) / halfLife.toMillis()`. Computed lazily at read time — stored signal retains original strength and timestamp. Half-life parameterization: "loses half its strength every N minutes."
+
+**SignalRegistry** (`common/internal/signal/`, `@ApplicationScoped`, `Resettable`) — per-case in-memory signal storage. NOT in CaseContext (avoids feedback loops per #1105 D7). `deposit()` with reinforcement (max of current effective + new, resets timestamp, increments count). `perceive()` returns only signals above effectiveZeroThreshold. `findNewlyExpired()` detects signals crossing below threshold. `markExpired()` flags signals (never physically deleted within case lifetime). `evictByCase()` on terminal case status. All read methods accept `Instant now` overload for deterministic tests.
+
+**Worker API:** `WorkerRuntime.depositSignal(String name, double strength)` / `depositSignal(name, strength, Duration halfLife)` / `perceiveSignals() → Map<String, PerceivedSignal>`. Default methods (no-op/empty). `DefaultWorkerRuntime` delegates to `SignalRegistry`. `WorkerRuntimeFactory` resolves `SignalConfig` from `CaseDefinition` via caseInstanceCache → definitionRegistry lookup chain.
+
+**Observation integration:** `ObservationContext` gains `signals()` field (7th, backward-compat 6-arg ctor). `CaseContextChangedEventHandler.observations()` reads from `SignalRegistry`, computes effective strengths, filters below threshold, detects expiry (BEFORE observer-count guard — signal expiry is independent of observer registration). `SignalStrengthObserver` (`runtime/internal/observation/`) — classical observer for signal strength thresholds, follows `ThresholdObserver` pattern with `watchedKeys()` returning empty (signal observers fire on every cycle).
+
+**Configuration:** `CaseDefinition.signalConfig` (nullable `SignalConfig`, defaults when null). Builder: `.signalConfig(SignalConfig)`. YAML: `signalConfig:` block under `spec:` with `defaultHalfLife` (ISO-8601 Duration), `effectiveZeroThreshold` (double), `maxSignalsPerCase` (int). Parsed by `YamlCaseDefinitionConverter.convertSignalConfig()`. JSON schema property on `CaseDefinitionSpec`.
+
+**Event types:** `CaseHubEventType.PHEROMONE_DEPOSITED`, `PHEROMONE_EXPIRED`. Named `PHEROMONE_*` (not `SIGNAL_*`) to avoid confusion with existing `SIGNAL_RECEIVED` (external signals) and `CONTEXT_SIGNAL_APPLIED` (SignalTarget binding payload).
+
+**Lifecycle:** Case start: no initialization (dynamic). Running: agents deposit/reinforce via WorkerRuntime, observation pipeline computes decay and detects expiry. Terminal: `CaseStatusChangedHandler` calls `signalRegistry.evictByCase()`. Reset: `EngineResetService` discovers via `Instance<Resettable>`. Refs engine#1106.
+
 ## Writing Style Guide
 
 **The writing style guide at `~/claude-workspace/writing-styles/blog-technical.md` is mandatory for all blog and diary entries.** Load it in full before drafting. Complete the pre-draft voice classification (I / we / Claude-named) before generating any prose. Do not show a draft without verifying it against the style guide.

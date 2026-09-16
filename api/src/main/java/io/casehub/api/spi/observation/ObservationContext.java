@@ -26,4 +26,16 @@ public record ObservationContext(
     List<ContextSnapshot> history,
     String agentId,
     String tenancyId,
-    UUID caseId) {}
+    UUID caseId,
+    java.util.Map<String, io.casehub.api.model.signal.PerceivedSignal> signals) {
+
+  public ObservationContext(
+      JsonNode snapshot,
+      Set<String> changedKeys,
+      List<ContextSnapshot> history,
+      String agentId,
+      String tenancyId,
+      UUID caseId) {
+    this(snapshot, changedKeys, history, agentId, tenancyId, caseId, java.util.Map.of());
+  }
+}

@@ -75,6 +75,7 @@ public class CaseStatusChangedHandler {
       observationRegistry;
   private final io.casehub.engine.common.internal.observation.ContextHistoryBuffer
       contextHistoryBuffer;
+  private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
 
   public CaseStatusChangedHandler(
       EventDispatcher eventDispatcher,
@@ -92,7 +93,8 @@ public class CaseStatusChangedHandler {
       CaseRecoveryStateRegistry recoveryStateRegistry,
       CompoundLockRegistry compoundLockRegistry,
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
-      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer) {
+      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry) {
     this.eventDispatcher = eventDispatcher;
     this.caseInstanceRepository = caseInstanceRepository;
     this.schedulerService = schedulerService;
@@ -109,6 +111,7 @@ public class CaseStatusChangedHandler {
     this.compoundLockRegistry = compoundLockRegistry;
     this.observationRegistry = observationRegistry;
     this.contextHistoryBuffer = contextHistoryBuffer;
+    this.signalRegistry = signalRegistry;
   }
 
   public void handle(CaseStatusChanged event) {
@@ -178,6 +181,7 @@ public class CaseStatusChangedHandler {
       compoundLockRegistry.cleanForCase(caseInstance.getUuid());
       observationRegistry.unregisterByCase(caseInstance.getUuid());
       contextHistoryBuffer.evict(caseInstance.getUuid());
+      signalRegistry.evictByCase(caseInstance.getUuid());
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();
       }

@@ -97,4 +97,7 @@ public enum CaseHubEventType {
 
   OBSERVER_REGISTERED, // agent registered an EnvironmentObserver via WorkerRuntime
   OBSERVATION_DETECTED, // observer produced observations during evaluation cycle
+
+  PHEROMONE_DEPOSITED, // pheromone signal deposited or reinforced in SignalRegistry
+  PHEROMONE_EXPIRED // pheromone signal crossed below effective-zero threshold
 }
