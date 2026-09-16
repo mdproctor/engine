@@ -605,7 +605,9 @@ public class RuntimeManualConfig {
       CaseCompletionTracker caseCompletionTracker,
       DataChannelRegistry channelRegistry,
       DataChannelFactory defaultChannelFactory,
-      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry) {
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
+      io.casehub.engine.common.spi.PlanItemStore planItemStore) {
     return new WorkerRuntimeFactory(
         caseHubRuntime,
         definitionRegistry,
@@ -613,7 +615,9 @@ public class RuntimeManualConfig {
         caseCompletionTracker,
         channelRegistry,
         defaultChannelFactory,
-        observationRegistry);
+        observationRegistry,
+        signalRegistry,
+        planItemStore);
   }
 
   @Bean

@@ -1305,6 +1305,25 @@ Declarative interest API for runtime observation registration (engine#1107). Age
 
 **Event types:** `CaseHubEventType.INTEREST_REGISTERED`, `INTEREST_DEREGISTERED`. EventLog publishing deferred (same wiring pass as PHEROMONE events from #1106). Refs engine#1107.
 
+## Agent Discovery & Neighbor Awareness
+
+`NeighborSpace` — third WorkerRuntime coordination facet. Pure read-only query facade over existing engine registries. No new storage — all neighbor data computed on-demand. Proximity is emergent from shared activity, not pre-computed capability similarity. Refs engine#1108.
+
+**WorkerRuntime facet:** `neighbors()` returns `NeighborSpace` (default `NOOP`). `DefaultNeighborSpace` (`runtime-core/internal/observation/`) constructed per-invocation by `WorkerRuntimeFactory` with `PlanItemStore`, `ObservationRegistry`, `SignalRegistry`, `CaseDefinitionRegistry`, `CaseInstanceCache`, `SignalConfig`.
+
+**SPI types (engine-api, `io.casehub.api.spi.observation`):** `Neighbor` record `(agentId, capabilities, currentStatus, bindingName, relations)`. `NeighborRelation` enum: `COACTIVE`, `SHARED_INTEREST`, `SHARED_SIGNAL`, `COMPLEMENTARY`.
+
+**NeighborSpace** (`api/engine/`) — interface with four named query methods:
+
+| Method | Data Source | Logic |
+|--------|-----------|-------|
+| `active()` | `PlanItemStore.findByCaseId()` | RUNNING/DISPATCHING PlanItems, grouped by executorName, self-excluded. COACTIVE relation. |
+| `withSharedInterests()` | `ObservationRegistry.getObservers()` | Intersect `watchedKeys()` between self and each other agent. Non-empty → SHARED_INTEREST. |
+| `withSharedSignals()` | `SignalRegistry.getAllSignals()` | Signals where `sources` contains both self and another agent. SHARED_SIGNAL. |
+| `complementary()` | `CaseDefinition.getBindings()` + `ObservationRegistry` | Self's `producedKeys` overlap with their `watchedKeys`, or vice versa. COMPLEMENTARY. |
+
+**Signal source tracking:** `Signal` gains `Set<String> sources` (9th field) — all depositor agent IDs. `SignalRegistry.deposit()` merges sources on reinforcement (`new HashSet<>(existing.sources()); sources.add(source); Set.copyOf(mergedSources)`). Expired re-deposit resets to `Set.of(source)`. Backward-compatible 8-arg constructor defaults `sources` to `Set.of(lastSource)`. `SignalRegistry.getAllSignals(UUID caseId)` returns `Map<String, Signal>` (copy). Refs engine#1108.
+
 ## Writing Style Guide
 
 **The writing style guide at `~/claude-workspace/writing-styles/blog-technical.md` is mandatory for all blog and diary entries.** Load it in full before drafting. Complete the pre-draft voice classification (I / we / Claude-named) before generating any prose. Do not show a draft without verifying it against the style guide.

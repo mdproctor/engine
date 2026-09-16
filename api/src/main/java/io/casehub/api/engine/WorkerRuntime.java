@@ -38,4 +38,8 @@ public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
   default InterestSpace interests() {
     return InterestSpace.NOOP;
   }
+
+  default NeighborSpace neighbors() {
+    return NeighborSpace.NOOP;
+  }
 }

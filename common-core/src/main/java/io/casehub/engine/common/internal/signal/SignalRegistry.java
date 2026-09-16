@@ -57,6 +57,8 @@ public class SignalRegistry implements Resettable {
           SignalDecay.effectiveStrength(
               existing.strength(), existing.lastReinforced(), existing.halfLife(), now);
       double newStrength = Math.max(currentEffective, strength);
+      Set<String> mergedSources = new HashSet<>(existing.sources());
+      mergedSources.add(source);
       caseSignals.put(
           name,
           new Signal(
@@ -67,12 +69,14 @@ public class SignalRegistry implements Resettable {
               halfLife,
               source,
               existing.reinforcementCount() + 1,
-              false));
+              false,
+              Set.copyOf(mergedSources)));
       return true;
     }
 
     if (existing != null && existing.expired()) {
-      caseSignals.put(name, new Signal(name, strength, now, now, halfLife, source, 1, false));
+      caseSignals.put(
+          name, new Signal(name, strength, now, now, halfLife, source, 1, false, Set.of(source)));
       return true;
     }
 
@@ -82,7 +86,8 @@ public class SignalRegistry implements Resettable {
       return false;
     }
 
-    caseSignals.put(name, new Signal(name, strength, now, now, halfLife, source, 1, false));
+    caseSignals.put(
+        name, new Signal(name, strength, now, now, halfLife, source, 1, false, Set.of(source)));
     return true;
   }
 
@@ -150,7 +155,13 @@ public class SignalRegistry implements Resettable {
             existing.halfLife(),
             existing.lastSource(),
             existing.reinforcementCount(),
-            true));
+            true,
+            existing.sources()));
+  }
+
+  public Map<String, Signal> getAllSignals(UUID caseId) {
+    ConcurrentHashMap<String, Signal> caseSignals = signals.get(caseId);
+    return caseSignals == null ? Map.of() : Map.copyOf(caseSignals);
   }
 
   public void evictByCase(UUID caseId) {

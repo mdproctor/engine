@@ -17,6 +17,7 @@ package io.casehub.api.model.signal;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Set;
 
 public record Signal(
     String name,
@@ -26,12 +27,34 @@ public record Signal(
     Duration halfLife,
     String lastSource,
     int reinforcementCount,
-    boolean expired) {
+    boolean expired,
+    Set<String> sources) {
 
   public Signal {
     if (strength < 0.0 || strength > 1.0)
       throw new IllegalArgumentException("strength must be in [0.0, 1.0], got: " + strength);
     if (halfLife.isNegative() || halfLife.isZero())
       throw new IllegalArgumentException("halfLife must be positive, got: " + halfLife);
+  }
+
+  public Signal(
+      String name,
+      double strength,
+      Instant firstDeposited,
+      Instant lastReinforced,
+      Duration halfLife,
+      String lastSource,
+      int reinforcementCount,
+      boolean expired) {
+    this(
+        name,
+        strength,
+        firstDeposited,
+        lastReinforced,
+        halfLife,
+        lastSource,
+        reinforcementCount,
+        expired,
+        lastSource != null ? Set.of(lastSource) : Set.of());
   }
 }

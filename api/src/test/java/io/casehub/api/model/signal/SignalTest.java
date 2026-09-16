@@ -19,6 +19,7 @@ import static org.assertj.core.api.Assertions.*;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class SignalTest {
@@ -69,5 +70,28 @@ class SignalTest {
             () ->
                 new Signal(
                     "x", 0.5, Instant.now(), Instant.now(), Duration.ofMinutes(-1), "a", 1, false));
+  }
+
+  @Test
+  void sourcesFieldPresent() {
+    Instant now = Instant.now();
+    Signal signal =
+        new Signal(
+            "test", 1.0, now, now, Duration.ofMinutes(5), "agent-1", 1, false, Set.of("agent-1"));
+    assertThat(signal.sources()).isEqualTo(Set.of("agent-1"));
+  }
+
+  @Test
+  void backwardCompatConstructor_defaultsSourcesToLastSource() {
+    Instant now = Instant.now();
+    Signal signal = new Signal("test", 1.0, now, now, Duration.ofMinutes(5), "agent-1", 1, false);
+    assertThat(signal.sources()).isEqualTo(Set.of("agent-1"));
+  }
+
+  @Test
+  void backwardCompatConstructor_nullLastSource_emptySources() {
+    Instant now = Instant.now();
+    Signal signal = new Signal("test", 1.0, now, now, Duration.ofMinutes(5), null, 1, false);
+    assertThat(signal.sources()).isEmpty();
   }
 }

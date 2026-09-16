@@ -57,6 +57,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final io.casehub.api.spi.DataChannelFactory defaultChannelFactory;
   private final io.casehub.api.engine.SignalSpace signalSpace;
   private final io.casehub.api.engine.InterestSpace interestSpace;
+  private final io.casehub.api.engine.NeighborSpace neighborSpace;
 
   DefaultWorkerRuntime(
       UUID caseId,
@@ -81,7 +82,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
         channelRegistry,
         defaultChannelFactory,
         io.casehub.api.engine.SignalSpace.NOOP,
-        io.casehub.api.engine.InterestSpace.NOOP);
+        io.casehub.api.engine.InterestSpace.NOOP,
+        io.casehub.api.engine.NeighborSpace.NOOP);
   }
 
   DefaultWorkerRuntime(
@@ -96,7 +98,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
       io.casehub.api.engine.SignalSpace signalSpace,
-      io.casehub.api.engine.InterestSpace interestSpace) {
+      io.casehub.api.engine.InterestSpace interestSpace,
+      io.casehub.api.engine.NeighborSpace neighborSpace) {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
@@ -109,6 +112,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.defaultChannelFactory = defaultChannelFactory;
     this.signalSpace = signalSpace;
     this.interestSpace = interestSpace;
+    this.neighborSpace = neighborSpace;
   }
 
   @Override
@@ -277,5 +281,10 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   @Override
   public io.casehub.api.engine.InterestSpace interests() {
     return interestSpace;
+  }
+
+  @Override
+  public io.casehub.api.engine.NeighborSpace neighbors() {
+    return neighborSpace;
   }
 }

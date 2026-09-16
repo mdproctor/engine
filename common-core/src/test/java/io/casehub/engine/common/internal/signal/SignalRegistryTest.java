@@ -23,6 +23,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -165,5 +166,49 @@ class SignalRegistryTest {
     Instant later = start.plus(Duration.ofMinutes(6));
     Map<String, PerceivedSignal> perceived = registry.perceive(caseId, 0.01, later);
     assertThat(perceived).isEmpty();
+  }
+
+  @Test
+  void deposit_tracksSources() {
+    registry.deposit(caseId, "food", 1.0, Duration.ofMinutes(5), "ant-1", 100);
+    Map<String, Signal> allSignals = registry.getAllSignals(caseId);
+    assertThat(allSignals.get("food").sources()).isEqualTo(Set.of("ant-1"));
+  }
+
+  @Test
+  void reinforcement_addsSources() {
+    Instant now = Instant.now();
+    registry.deposit(caseId, "food", 1.0, Duration.ofMinutes(5), "ant-1", 100, now);
+    registry.deposit(caseId, "food", 0.8, Duration.ofMinutes(5), "ant-2", 100, now.plusMillis(100));
+    Map<String, Signal> allSignals = registry.getAllSignals(caseId);
+    assertThat(allSignals.get("food").sources()).isEqualTo(Set.of("ant-1", "ant-2"));
+  }
+
+  @Test
+  void reinforcement_sameSource_doesNotDuplicate() {
+    Instant now = Instant.now();
+    registry.deposit(caseId, "food", 1.0, Duration.ofMinutes(5), "ant-1", 100, now);
+    registry.deposit(caseId, "food", 0.8, Duration.ofMinutes(5), "ant-1", 100, now.plusMillis(100));
+    Map<String, Signal> allSignals = registry.getAllSignals(caseId);
+    assertThat(allSignals.get("food").sources()).isEqualTo(Set.of("ant-1"));
+  }
+
+  @Test
+  void getAllSignals_emptyCase_returnsEmpty() {
+    assertThat(registry.getAllSignals(UUID.randomUUID())).isEmpty();
+  }
+
+  @Test
+  void expiredRedepositResetsSources() {
+    Instant now = Instant.now();
+    registry.deposit(caseId, "trail", 0.5, Duration.ofMinutes(5), "ant-1", 100, now);
+    registry.deposit(caseId, "trail", 0.5, Duration.ofMinutes(5), "ant-2", 100, now.plusMillis(50));
+    assertThat(registry.getAllSignals(caseId).get("trail").sources())
+        .isEqualTo(Set.of("ant-1", "ant-2"));
+
+    registry.markExpired(caseId, "trail");
+    registry.deposit(
+        caseId, "trail", 0.9, Duration.ofMinutes(5), "ant-3", 100, now.plusMillis(100));
+    assertThat(registry.getAllSignals(caseId).get("trail").sources()).isEqualTo(Set.of("ant-3"));
   }
 }
