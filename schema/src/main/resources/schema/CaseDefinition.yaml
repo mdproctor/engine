@@ -999,6 +999,73 @@ $defs:
             type: integer
             minimum: 1
             default: 100
+      budgetConfig:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case cumulative activity budget caps.
+        properties:
+          maxDispatches:
+            type: integer
+            minimum: 0
+          maxSignalDeposits:
+            type: integer
+            minimum: 0
+          maxContextMutations:
+            type: integer
+            minimum: 0
+          maxEvaluationCycles:
+            type: integer
+            minimum: 0
+      convergenceThresholdConfig:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case convergence detection thresholds and timing.
+        properties:
+          dispatchRateThreshold:
+            type: number
+            minimum: 0
+            default: 0.1
+          signalDepositRateThreshold:
+            type: number
+            minimum: 0
+            default: 0.1
+          contextMutationRateThreshold:
+            type: number
+            minimum: 0
+            default: 0.1
+          evaluationRateThreshold:
+            type: number
+            minimum: 0
+            default: 0.5
+          stabilityWindow:
+            type: string
+            description: ISO-8601 duration for sustained quiescence before convergence fires.
+            default: PT30S
+          rateWindow:
+            type: string
+            description: ISO-8601 duration for sliding window rate computation.
+            default: PT60S
+          maxWindowEntries:
+            type: integer
+            minimum: 1
+      outputConvergenceConfig:
+        type: object
+        unevaluatedProperties: false
+        description: Per-case output structural convergence monitoring.
+        properties:
+          convergenceThreshold:
+            type: number
+            minimum: 0
+            maximum: 1
+            default: 0.9
+          convergenceMinSamples:
+            type: integer
+            minimum: 2
+            default: 3
+          outputWindowSize:
+            type: integer
+            minimum: 2
+            default: 10
       adaptation:
         $ref: "#/$defs/AdaptationConfig"
         description: Per-case plan adaptation configuration.

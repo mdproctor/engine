@@ -1,0 +1,86 @@
+/*
+ * Copyright 2026-Present The Case Hub Authors
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package io.casehub.engine.internal.convergence;
+
+import io.casehub.api.model.convergence.ConvergenceThresholdConfig;
+import io.casehub.engine.common.internal.convergence.CaseActivityState;
+import io.casehub.engine.common.spi.Resettable;
+import jakarta.annotation.Nullable;
+import jakarta.enterprise.context.ApplicationScoped;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
+@ApplicationScoped
+public class ConvergenceDetector implements Resettable {
+
+  private final ConcurrentHashMap<UUID, ConvergenceState> states = new ConcurrentHashMap<>();
+
+  public boolean evaluate(
+      UUID caseId,
+      CaseActivityState activity,
+      @Nullable ConvergenceThresholdConfig config,
+      Instant now) {
+    if (config == null) return false;
+
+    var state = states.computeIfAbsent(caseId, k -> new ConvergenceState());
+    if (state.converged) return false;
+
+    Duration rateWindow = config.effectiveRateWindow();
+
+    boolean allQuiet =
+        activity.dispatchRate(rateWindow, now) < config.effectiveDispatchRateThreshold()
+            && activity.signalDepositRate(rateWindow, now)
+                < config.effectiveSignalDepositRateThreshold()
+            && activity.contextMutationRate(rateWindow, now)
+                < config.effectiveContextMutationRateThreshold()
+            && activity.evaluationRate(rateWindow, now) < config.effectiveEvaluationRateThreshold();
+
+    if (!allQuiet) {
+      state.firstQuietCycle = null;
+      return false;
+    }
+
+    if (state.firstQuietCycle == null) {
+      state.firstQuietCycle = now;
+      return false;
+    }
+
+    Duration quietDuration = Duration.between(state.firstQuietCycle, now);
+    Duration stabilityWindow = config.effectiveStabilityWindow();
+
+    if (quietDuration.compareTo(stabilityWindow) >= 0) {
+      state.converged = true;
+      return true;
+    }
+    return false;
+  }
+
+  public void evictByCase(UUID caseId) {
+    states.remove(caseId);
+  }
+
+  @Override
+  public void reset() {
+    states.clear();
+  }
+
+  private static class ConvergenceState {
+    Instant firstQuietCycle;
+    boolean converged;
+  }
+}

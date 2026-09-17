@@ -77,6 +77,8 @@ public class CaseStatusChangedHandler {
       contextHistoryBuffer;
   private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
   private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
+  private final io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker;
+  private final io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector;
 
   public CaseStatusChangedHandler(
       EventDispatcher eventDispatcher,
@@ -96,7 +98,9 @@ public class CaseStatusChangedHandler {
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
       io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
-      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
+      io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
+      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector) {
     this.eventDispatcher = eventDispatcher;
     this.caseInstanceRepository = caseInstanceRepository;
     this.schedulerService = schedulerService;
@@ -115,6 +119,8 @@ public class CaseStatusChangedHandler {
     this.contextHistoryBuffer = contextHistoryBuffer;
     this.signalRegistry = signalRegistry;
     this.ruleRegistry = ruleRegistry;
+    this.activityTracker = activityTracker;
+    this.convergenceDetector = convergenceDetector;
   }
 
   public void handle(CaseStatusChanged event) {
@@ -186,6 +192,8 @@ public class CaseStatusChangedHandler {
       contextHistoryBuffer.evict(caseInstance.getUuid());
       signalRegistry.evictByCase(caseInstance.getUuid());
       ruleRegistry.evictByCase(caseInstance.getUuid());
+      activityTracker.evictByCase(caseInstance.getUuid());
+      convergenceDetector.evictByCase(caseInstance.getUuid());
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();
       }

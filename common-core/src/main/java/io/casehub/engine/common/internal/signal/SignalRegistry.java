@@ -34,6 +34,10 @@ public class SignalRegistry implements Resettable {
   private final ConcurrentHashMap<UUID, ConcurrentHashMap<String, Signal>> signals =
       new ConcurrentHashMap<>();
 
+  @jakarta.inject.Inject
+  jakarta.enterprise.inject.Instance<io.casehub.engine.common.internal.convergence.ActivityTracker>
+      activityTrackerInstance;
+
   public boolean deposit(
       UUID caseId, String name, double strength, Duration halfLife, String source, int maxPerCase) {
     return deposit(caseId, name, strength, halfLife, source, maxPerCase, Instant.now());
@@ -71,12 +75,14 @@ public class SignalRegistry implements Resettable {
               existing.reinforcementCount() + 1,
               false,
               Set.copyOf(mergedSources)));
+      recordSignalDeposit(caseId);
       return true;
     }
 
     if (existing != null && existing.expired()) {
       caseSignals.put(
           name, new Signal(name, strength, now, now, halfLife, source, 1, false, Set.of(source)));
+      recordSignalDeposit(caseId);
       return true;
     }
 
@@ -88,7 +94,14 @@ public class SignalRegistry implements Resettable {
 
     caseSignals.put(
         name, new Signal(name, strength, now, now, halfLife, source, 1, false, Set.of(source)));
+    recordSignalDeposit(caseId);
     return true;
+  }
+
+  private void recordSignalDeposit(UUID caseId) {
+    if (activityTrackerInstance != null && activityTrackerInstance.isResolvable()) {
+      activityTrackerInstance.get().recordSignalDeposit(caseId);
+    }
   }
 
   public Map<String, PerceivedSignal> perceive(UUID caseId, double effectiveZeroThreshold) {

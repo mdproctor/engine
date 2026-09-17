@@ -105,5 +105,9 @@ public enum CaseHubEventType {
   INTEREST_DEREGISTERED, // agent deregistered a declarative interest via InterestSpace
 
   RULE_REGISTERED, // agent registered a local rule via RuleSpace
-  RULE_FIRED // local rule condition matched and actions executed
+  RULE_FIRED, // local rule condition matched and actions executed
+
+  BUDGET_EXHAUSTED, // cumulative activity budget exceeded — case faulted
+  CONVERGENCE_DETECTED, // all activity rates below threshold for stability window
+  OUTPUT_CONVERGENCE_DETECTED // per-binding output structural similarity exceeds threshold
 }

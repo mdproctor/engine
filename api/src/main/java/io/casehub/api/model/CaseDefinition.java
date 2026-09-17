@@ -201,6 +201,18 @@ public class CaseDefinition {
   private io.casehub.api.spi.observation.RuleConfig ruleConfig;
 
   @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Per-case cumulative activity budget caps.")
+  private io.casehub.api.model.convergence.BudgetConfig budgetConfig;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Per-case convergence detection thresholds and timing.")
+  private io.casehub.api.model.convergence.ConvergenceThresholdConfig convergenceThresholdConfig;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
+      "Per-case output structural convergence monitoring.")
+  private io.casehub.api.model.convergence.OutputConvergenceConfig outputConvergenceConfig;
+
+  @com.fasterxml.jackson.annotation.JsonPropertyDescription(
       "Cascading decomposition strategy configuration.")
   private io.casehub.engine.plan.PortfolioConfig portfolioConfig;
 
@@ -679,6 +691,33 @@ public class CaseDefinition {
     this.ruleConfig = ruleConfig;
   }
 
+  public io.casehub.api.model.convergence.BudgetConfig getBudgetConfig() {
+    return budgetConfig;
+  }
+
+  public void setBudgetConfig(io.casehub.api.model.convergence.BudgetConfig budgetConfig) {
+    this.budgetConfig = budgetConfig;
+  }
+
+  public io.casehub.api.model.convergence.ConvergenceThresholdConfig
+      getConvergenceThresholdConfig() {
+    return convergenceThresholdConfig;
+  }
+
+  public void setConvergenceThresholdConfig(
+      io.casehub.api.model.convergence.ConvergenceThresholdConfig convergenceThresholdConfig) {
+    this.convergenceThresholdConfig = convergenceThresholdConfig;
+  }
+
+  public io.casehub.api.model.convergence.OutputConvergenceConfig getOutputConvergenceConfig() {
+    return outputConvergenceConfig;
+  }
+
+  public void setOutputConvergenceConfig(
+      io.casehub.api.model.convergence.OutputConvergenceConfig outputConvergenceConfig) {
+    this.outputConvergenceConfig = outputConvergenceConfig;
+  }
+
   public void setMonitoringConfig(
       io.casehub.engine.plan.monitoring.MonitoringConfig monitoringConfig) {
     this.monitoringConfig = monitoringConfig;
@@ -821,6 +860,9 @@ public class CaseDefinition {
     private io.casehub.api.spi.observation.ObservationConfig observationConfig;
     private io.casehub.api.model.signal.SignalConfig signalConfig;
     private io.casehub.api.spi.observation.RuleConfig ruleConfig;
+    private io.casehub.api.model.convergence.BudgetConfig budgetConfig;
+    private io.casehub.api.model.convergence.ConvergenceThresholdConfig convergenceThresholdConfig;
+    private io.casehub.api.model.convergence.OutputConvergenceConfig outputConvergenceConfig;
 
     private io.casehub.engine.plan.PortfolioConfig portfolioConfig;
 
@@ -1223,6 +1265,23 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder budgetConfig(io.casehub.api.model.convergence.BudgetConfig budgetConfig) {
+      this.budgetConfig = budgetConfig;
+      return this;
+    }
+
+    public Builder convergenceThresholdConfig(
+        io.casehub.api.model.convergence.ConvergenceThresholdConfig convergenceThresholdConfig) {
+      this.convergenceThresholdConfig = convergenceThresholdConfig;
+      return this;
+    }
+
+    public Builder outputConvergenceConfig(
+        io.casehub.api.model.convergence.OutputConvergenceConfig outputConvergenceConfig) {
+      this.outputConvergenceConfig = outputConvergenceConfig;
+      return this;
+    }
+
     public Builder portfolioConfig(io.casehub.engine.plan.PortfolioConfig portfolioConfig) {
       this.portfolioConfig = portfolioConfig;
       return this;
@@ -1410,6 +1469,9 @@ public class CaseDefinition {
       caseHubDefinition.setObservationConfig(observationConfig);
       caseHubDefinition.setSignalConfig(signalConfig);
       caseHubDefinition.setRuleConfig(ruleConfig);
+      caseHubDefinition.setBudgetConfig(budgetConfig);
+      caseHubDefinition.setConvergenceThresholdConfig(convergenceThresholdConfig);
+      caseHubDefinition.setOutputConvergenceConfig(outputConvergenceConfig);
       caseHubDefinition.setPortfolioConfig(portfolioConfig);
       caseHubDefinition.setDecompositionTree(decompositionTree);
 

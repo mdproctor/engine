@@ -338,6 +338,18 @@ public final class YamlCaseDefinitionConverter {
     if (spec.observation() != null)
       def.setObservationConfig(convertObservation(spec.observation()));
     if (spec.signalConfig() != null) def.setSignalConfig(convertSignalConfig(spec.signalConfig()));
+    if (spec.budgetConfig() != null)
+      def.setBudgetConfig(
+          MAPPER.convertValue(
+              spec.budgetConfig(), io.casehub.api.model.convergence.BudgetConfig.class));
+    if (spec.convergenceThresholdConfig() != null)
+      def.setConvergenceThresholdConfig(
+          convertConvergenceThresholdConfig(spec.convergenceThresholdConfig()));
+    if (spec.outputConvergenceConfig() != null)
+      def.setOutputConvergenceConfig(
+          MAPPER.convertValue(
+              spec.outputConvergenceConfig(),
+              io.casehub.api.model.convergence.OutputConvergenceConfig.class));
     if (spec.reflectionTrigger() != null)
       def.setReflectionTrigger(convertReflection(spec.reflectionTrigger()));
     if (spec.memoryRetrieval() != null)
@@ -1179,6 +1191,32 @@ public final class YamlCaseDefinitionConverter {
             : io.casehub.api.model.signal.SignalConfig.DEFAULT_MAX_SIGNALS_PER_CASE;
     return new io.casehub.api.model.signal.SignalConfig(
         defaultHalfLife, effectiveZeroThreshold, maxSignalsPerCase);
+  }
+
+  private static io.casehub.api.model.convergence.ConvergenceThresholdConfig
+      convertConvergenceThresholdConfig(com.fasterxml.jackson.databind.JsonNode node) {
+    Double dispatchRate =
+        node.has("dispatchRateThreshold") ? node.get("dispatchRateThreshold").asDouble() : null;
+    Double signalRate =
+        node.has("signalDepositRateThreshold")
+            ? node.get("signalDepositRateThreshold").asDouble()
+            : null;
+    Double ctxRate =
+        node.has("contextMutationRateThreshold")
+            ? node.get("contextMutationRateThreshold").asDouble()
+            : null;
+    Double evalRate =
+        node.has("evaluationRateThreshold") ? node.get("evaluationRateThreshold").asDouble() : null;
+    java.time.Duration stabilityWindow =
+        node.has("stabilityWindow")
+            ? java.time.Duration.parse(node.get("stabilityWindow").asText())
+            : null;
+    java.time.Duration rateWindow =
+        node.has("rateWindow") ? java.time.Duration.parse(node.get("rateWindow").asText()) : null;
+    Integer maxWindowEntries =
+        node.has("maxWindowEntries") ? node.get("maxWindowEntries").asInt() : null;
+    return new io.casehub.api.model.convergence.ConvergenceThresholdConfig(
+        dispatchRate, signalRate, ctxRate, evalRate, stabilityWindow, rateWindow, maxWindowEntries);
   }
 
   private static ReflectionTriggerConfig convertReflection(YamlReflectionTriggerConfig yr) {

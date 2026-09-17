@@ -132,6 +132,9 @@ public class CaseContextChangedEventHandler {
       contextHistoryBuffer;
   private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
   private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
+  private final io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker;
+  private final io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector;
+  private final io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer;
 
   public CaseContextChangedEventHandler(
       EventDispatcher eventDispatcher,
@@ -163,7 +166,10 @@ public class CaseContextChangedEventHandler {
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
       io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
-      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
+      io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
+      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
+      io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer) {
     this.eventDispatcher = eventDispatcher;
     this.jqEvaluator = jqEvaluator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -194,6 +200,9 @@ public class CaseContextChangedEventHandler {
     this.contextHistoryBuffer = contextHistoryBuffer;
     this.signalRegistry = signalRegistry;
     this.ruleRegistry = ruleRegistry;
+    this.activityTracker = activityTracker;
+    this.convergenceDetector = convergenceDetector;
+    this.budgetEnforcer = budgetEnforcer;
   }
 
   public void handle(final CaseContextChangedEvent event) {
@@ -231,6 +240,9 @@ public class CaseContextChangedEventHandler {
 
     LOG.infof("Handling CaseStateContextChangedEvent for caseId: %s", caseInstance.getUuid());
 
+    activityTracker.recordEvaluationCycle(caseInstance.getUuid());
+    activityTracker.recordContextMutation(caseInstance.getUuid(), 1);
+
     if (changedLayer != null) {
       caseContextUpdatedEventConsumer.accept(
           new CaseContextUpdatedEvent(
@@ -255,6 +267,7 @@ public class CaseContextChangedEventHandler {
       goals(caseInstance, contextSnapshot, caseDefinition);
       observations(caseInstance, contextSnapshot, caseDefinition);
       localRules(caseInstance, contextSnapshot, caseDefinition);
+      convergenceDetection(caseInstance, caseDefinition);
 
       if (signalId != null) {
         settlementTracker.markFullyDispatched(signalId);
@@ -1369,6 +1382,49 @@ public class CaseContextChangedEventHandler {
           "Applied %d batched rule context writes for case=%s, publishing CONTEXT_CHANGED",
           batchedWrites.size(), caseInstance.getUuid());
       eventDispatcher.dispatch(new CaseContextChangedEvent(caseInstance, contextSnapshot, null));
+    }
+  }
+
+  private void convergenceDetection(CaseInstance caseInstance, CaseDefinition caseDefinition) {
+    var budgetConfig = caseDefinition.getBudgetConfig();
+    var convergenceConfig = caseDefinition.getConvergenceThresholdConfig();
+    if (budgetConfig == null && convergenceConfig == null) {
+      return;
+    }
+
+    var state = activityTracker.getState(caseInstance.getUuid());
+    var now = java.time.Instant.now();
+
+    if (budgetEnforcer.isExhausted(
+        budgetConfig,
+        state.totalDispatches(),
+        state.totalSignalDeposits(),
+        state.totalContextMutations(),
+        state.totalEvaluationCycles())) {
+      String metric =
+          budgetEnforcer.exhaustedMetric(
+              budgetConfig,
+              state.totalDispatches(),
+              state.totalSignalDeposits(),
+              state.totalContextMutations(),
+              state.totalEvaluationCycles());
+      LOG.warnf("Budget exhausted for caseId=%s metric=%s", caseInstance.getUuid(), metric);
+      eventDispatcher.dispatch(
+          new io.casehub.engine.common.internal.event.CaseStatusChanged(
+              caseInstance,
+              caseInstance.getState().name(),
+              "FAULTED",
+              null,
+              "Budget exhausted: " + metric));
+      return;
+    }
+
+    if (convergenceDetector.evaluate(caseInstance.getUuid(), state, convergenceConfig, now)) {
+      LOG.infof("Convergence detected for caseId=%s", caseInstance.getUuid());
+      var convergedGoal = new io.casehub.api.model.Goal("_converged", null, "success");
+      eventDispatcher.dispatch(
+          new io.casehub.engine.common.internal.event.GoalReachedEvent(
+              caseInstance, java.util.List.of(convergedGoal)));
     }
   }
 }
