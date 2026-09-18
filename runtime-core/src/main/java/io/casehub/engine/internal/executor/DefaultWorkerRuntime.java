@@ -59,6 +59,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final io.casehub.api.engine.InterestSpace interestSpace;
   private final io.casehub.api.engine.NeighborSpace neighborSpace;
   private final io.casehub.api.engine.RuleSpace ruleSpace;
+  private final io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator;
 
   DefaultWorkerRuntime(
       UUID caseId,
@@ -85,7 +86,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
         io.casehub.api.engine.SignalSpace.NOOP,
         io.casehub.api.engine.InterestSpace.NOOP,
         io.casehub.api.engine.NeighborSpace.NOOP,
-        io.casehub.api.engine.RuleSpace.NOOP);
+        io.casehub.api.engine.RuleSpace.NOOP,
+        null);
   }
 
   DefaultWorkerRuntime(
@@ -103,6 +105,40 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       io.casehub.api.engine.InterestSpace interestSpace,
       io.casehub.api.engine.NeighborSpace neighborSpace,
       io.casehub.api.engine.RuleSpace ruleSpace) {
+    this(
+        caseId,
+        taskId,
+        context,
+        accumulatedState,
+        caseHubRuntime,
+        definitionRegistry,
+        caseInstanceCache,
+        tracker,
+        channelRegistry,
+        defaultChannelFactory,
+        signalSpace,
+        interestSpace,
+        neighborSpace,
+        ruleSpace,
+        null);
+  }
+
+  DefaultWorkerRuntime(
+      UUID caseId,
+      String taskId,
+      WorkerContext context,
+      Map<String, Object> accumulatedState,
+      CaseHubRuntime caseHubRuntime,
+      CaseDefinitionRegistry definitionRegistry,
+      CaseInstanceCache caseInstanceCache,
+      CaseCompletionTracker tracker,
+      io.casehub.engine.common.internal.channel.DataChannelRegistry channelRegistry,
+      io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
+      io.casehub.api.engine.SignalSpace signalSpace,
+      io.casehub.api.engine.InterestSpace interestSpace,
+      io.casehub.api.engine.NeighborSpace neighborSpace,
+      io.casehub.api.engine.RuleSpace ruleSpace,
+      io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator) {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
@@ -117,6 +153,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.interestSpace = interestSpace;
     this.neighborSpace = neighborSpace;
     this.ruleSpace = ruleSpace;
+    this.stigmergyCoordinator = stigmergyCoordinator;
   }
 
   @Override
@@ -295,5 +332,12 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   @Override
   public io.casehub.api.engine.RuleSpace rules() {
     return ruleSpace;
+  }
+
+  @Override
+  public void leave() {
+    // Departure is handled by the evaluation pipeline when RuleAction.Leave fires.
+    // The localRules() handler knows the agentId from the rule context and calls
+    // coordinator.agentDeparted() directly.
   }
 }

@@ -13,22 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.spi.observation;
+package io.casehub.api.model.stigmergy;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.annotation.Nullable;
-import java.time.Duration;
+import java.time.Instant;
 
-public sealed interface RuleAction {
-
-  record DepositSignal(String name, double strength, @Nullable Duration halfLife)
-      implements RuleAction {}
-
-  record RegisterInterest(InterestDeclaration declaration) implements RuleAction {}
-
-  record DeregisterInterest(String interestId) implements RuleAction {}
-
-  record WriteContext(String key, JsonNode value) implements RuleAction {}
-
-  record Leave() implements RuleAction {}
-}
+public record AgentState(
+    String agentId,
+    String bindingName,
+    AgentLifecycleState state,
+    Instant joinedAt,
+    @Nullable Instant activatedAt,
+    @Nullable Instant departedAt,
+    Instant lastActivity) {}

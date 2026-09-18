@@ -17,6 +17,7 @@ package io.casehub.api.model;
 
 import io.casehub.api.model.cbr.CbrConfig;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
+import io.casehub.api.model.stigmergy.StigmergyConfig;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.platform.api.acl.AclAction;
 import io.casehub.platform.api.label.LabelRule;
@@ -274,6 +275,7 @@ public class CaseDefinition {
   private List<InboundSignalMapping> inboundMappings = List.of();
 
   private List<CompoundDeclaration> compounds;
+  private StigmergyConfig stigmergyConfig;
 
   private io.casehub.engine.plan.TaskNode.CompoundTask<com.fasterxml.jackson.databind.JsonNode>
       decompositionTree;
@@ -755,6 +757,14 @@ public class CaseDefinition {
     this.compounds = compounds != null ? List.copyOf(compounds) : null;
   }
 
+  public StigmergyConfig getStigmergyConfig() {
+    return stigmergyConfig;
+  }
+
+  public void setStigmergyConfig(StigmergyConfig stigmergyConfig) {
+    this.stigmergyConfig = stigmergyConfig;
+  }
+
   public Map<String, Set<String>> getGoalToEffectKeys() {
     return goalToEffectKeys;
   }
@@ -869,6 +879,8 @@ public class CaseDefinition {
     private List<ChannelDeclaration> channels = new java.util.ArrayList<>();
     private List<io.casehub.engine.plan.goap.GoapAction> goapActions;
     private List<CompoundDeclaration> compounds;
+    private StigmergyConfig stigmergyConfig;
+
     private Map<String, Set<String>> goalToEffectKeys = new java.util.HashMap<>();
     private RecoveryPolicy recoveryPolicy;
     private Integer maxConcurrentDispatches;
@@ -1328,6 +1340,11 @@ public class CaseDefinition {
       return this;
     }
 
+    public Builder stigmergyConfig(StigmergyConfig stigmergyConfig) {
+      this.stigmergyConfig = stigmergyConfig;
+      return this;
+    }
+
     public Builder goalToEffectKey(String goalName, Set<String> effectKeys) {
       this.goalToEffectKeys.put(goalName, Set.copyOf(effectKeys));
       return this;
@@ -1474,6 +1491,7 @@ public class CaseDefinition {
       caseHubDefinition.setOutputConvergenceConfig(outputConvergenceConfig);
       caseHubDefinition.setPortfolioConfig(portfolioConfig);
       caseHubDefinition.setDecompositionTree(decompositionTree);
+      caseHubDefinition.setStigmergyConfig(stigmergyConfig);
 
       return caseHubDefinition;
     }

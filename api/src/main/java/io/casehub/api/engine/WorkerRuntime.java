@@ -46,4 +46,6 @@ public interface WorkerRuntime extends io.casehub.worker.api.WorkerScope {
   default RuleSpace rules() {
     return RuleSpace.NOOP;
   }
+
+  default void leave() {}
 }

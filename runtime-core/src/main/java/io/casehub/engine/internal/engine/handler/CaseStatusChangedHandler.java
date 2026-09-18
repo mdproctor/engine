@@ -79,6 +79,9 @@ public class CaseStatusChangedHandler {
   private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
   private final io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker;
   private final io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector;
+  private final jakarta.enterprise.inject.Instance<
+          io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+      stigmergyCoordinator;
 
   public CaseStatusChangedHandler(
       EventDispatcher eventDispatcher,
@@ -100,7 +103,9 @@ public class CaseStatusChangedHandler {
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector) {
+      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+          stigmergyCoordinator) {
     this.eventDispatcher = eventDispatcher;
     this.caseInstanceRepository = caseInstanceRepository;
     this.schedulerService = schedulerService;
@@ -121,6 +126,7 @@ public class CaseStatusChangedHandler {
     this.ruleRegistry = ruleRegistry;
     this.activityTracker = activityTracker;
     this.convergenceDetector = convergenceDetector;
+    this.stigmergyCoordinator = stigmergyCoordinator;
   }
 
   public void handle(CaseStatusChanged event) {
@@ -194,6 +200,9 @@ public class CaseStatusChangedHandler {
       ruleRegistry.evictByCase(caseInstance.getUuid());
       activityTracker.evictByCase(caseInstance.getUuid());
       convergenceDetector.evictByCase(caseInstance.getUuid());
+      if (stigmergyCoordinator.isResolvable()) {
+        stigmergyCoordinator.get().evictByCase(caseInstance.getUuid());
+      }
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();
       }

@@ -135,6 +135,9 @@ public class CaseContextChangedEventHandler {
   private final io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker;
   private final io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector;
   private final io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer;
+  private final jakarta.enterprise.inject.Instance<
+          io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+      stigmergyCoordinator;
 
   public CaseContextChangedEventHandler(
       EventDispatcher eventDispatcher,
@@ -169,7 +172,9 @@ public class CaseContextChangedEventHandler {
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
       io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
-      io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer) {
+      io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+          stigmergyCoordinator) {
     this.eventDispatcher = eventDispatcher;
     this.jqEvaluator = jqEvaluator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -203,6 +208,7 @@ public class CaseContextChangedEventHandler {
     this.activityTracker = activityTracker;
     this.convergenceDetector = convergenceDetector;
     this.budgetEnforcer = budgetEnforcer;
+    this.stigmergyCoordinator = stigmergyCoordinator;
   }
 
   public void handle(final CaseContextChangedEvent event) {
@@ -1386,6 +1392,19 @@ public class CaseContextChangedEventHandler {
   }
 
   private void convergenceDetection(CaseInstance caseInstance, CaseDefinition caseDefinition) {
+    if (stigmergyCoordinator.isResolvable()) {
+      var coordinator = stigmergyCoordinator.get();
+      if (coordinator.isStigmergyCase(caseInstance.getUuid())) {
+        var patterns =
+            coordinator.detectPatterns(caseInstance.getUuid(), caseDefinition.getStigmergyConfig());
+        for (var pattern : patterns) {
+          LOG.debugf(
+              "Coordination pattern detected for caseId=%s type=%s",
+              caseInstance.getUuid(), pattern.type());
+        }
+      }
+    }
+
     var budgetConfig = caseDefinition.getBudgetConfig();
     var convergenceConfig = caseDefinition.getConvergenceThresholdConfig();
     if (budgetConfig == null && convergenceConfig == null) {

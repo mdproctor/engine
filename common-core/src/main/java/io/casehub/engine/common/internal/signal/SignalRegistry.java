@@ -22,7 +22,14 @@ import io.casehub.engine.common.spi.Resettable;
 import jakarta.enterprise.context.ApplicationScoped;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
@@ -175,6 +182,35 @@ public class SignalRegistry implements Resettable {
   public Map<String, Signal> getAllSignals(UUID caseId) {
     ConcurrentHashMap<String, Signal> caseSignals = signals.get(caseId);
     return caseSignals == null ? Map.of() : Map.copyOf(caseSignals);
+  }
+
+  public Map<String, Signal> consensusSignals(
+      UUID caseId, int minSources, double effectiveZeroThreshold) {
+    return consensusSignals(caseId, minSources, effectiveZeroThreshold, Instant.now());
+  }
+
+  public Map<String, Signal> consensusSignals(
+      UUID caseId, int minSources, double effectiveZeroThreshold, Instant now) {
+    ConcurrentHashMap<String, Signal> caseSignals = signals.get(caseId);
+    if (caseSignals == null) {
+      return Map.of();
+    }
+    Map<String, Signal> result = new LinkedHashMap<>();
+    for (Signal signal : caseSignals.values()) {
+      if (signal.expired()) {
+        continue;
+      }
+      double effective =
+          SignalDecay.effectiveStrength(
+              signal.strength(), signal.lastReinforced(), signal.halfLife(), now);
+      if (effective < effectiveZeroThreshold) {
+        continue;
+      }
+      if (signal.sources().size() >= minSources) {
+        result.put(signal.name(), signal);
+      }
+    }
+    return Collections.unmodifiableMap(result);
   }
 
   public void evictByCase(UUID caseId) {

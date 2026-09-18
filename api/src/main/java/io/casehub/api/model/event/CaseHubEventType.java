@@ -109,5 +109,13 @@ public enum CaseHubEventType {
 
   BUDGET_EXHAUSTED, // cumulative activity budget exceeded — case faulted
   CONVERGENCE_DETECTED, // all activity rates below threshold for stability window
-  OUTPUT_CONVERGENCE_DETECTED // per-binding output structural similarity exceeds threshold
+  OUTPUT_CONVERGENCE_DETECTED, // per-binding output structural similarity exceeds threshold
+
+  STIGMERGY_CASE_INITIALIZED, // case started with stigmergy coordination mode
+  STIGMERGY_AGENT_JOINED, // stigmergy agent dispatched — entering JOINING state
+  STIGMERGY_AGENT_ACTIVATED, // stigmergy agent setup complete — entering ACTIVE state
+  STIGMERGY_AGENT_DEPARTED, // stigmergy agent voluntarily departed — entering DEPARTED state
+  SIGNAL_CONSENSUS_DETECTED, // signal reinforced by N agents — pheromone trail formation
+  COORDINATION_STORM_DETECTED, // activity rates exceed storm thresholds — pathological coordination
+  INTEREST_CONVERGENCE_DETECTED // collective attention focusing on specific keys
 }

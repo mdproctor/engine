@@ -138,8 +138,12 @@ public class RuntimeBeans {
   @Produces
   @ApplicationScoped
   ScopedWorkerTerminationHandler scopedWorkerTerminationHandler(
-      ScopedWorkerRegistry scopedWorkerRegistry, DataChannelRegistry dataChannelRegistry) {
-    return new ScopedWorkerTerminationHandler(scopedWorkerRegistry, dataChannelRegistry);
+      ScopedWorkerRegistry scopedWorkerRegistry,
+      DataChannelRegistry dataChannelRegistry,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
+    return new ScopedWorkerTerminationHandler(
+        scopedWorkerRegistry, dataChannelRegistry, observationRegistry, ruleRegistry);
   }
 
   @Produces
@@ -404,7 +408,14 @@ public class RuntimeBeans {
       WorkerGrantOrchestrator workerGrantOrchestrator,
       DataChannelRegistry dataChannelRegistry,
       CaseRecoveryStateRegistry recoveryStateRegistry,
-      CompoundLockRegistry compoundLockRegistry) {
+      CompoundLockRegistry compoundLockRegistry,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
+      io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
+      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
+      Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator) {
     return new CaseStatusChangedHandler(
         eventDispatcher,
         caseInstanceRepository,
@@ -425,7 +436,14 @@ public class RuntimeBeans {
         workerGrantOrchestrator,
         dataChannelRegistry,
         recoveryStateRegistry,
-        compoundLockRegistry);
+        compoundLockRegistry,
+        observationRegistry,
+        contextHistoryBuffer,
+        signalRegistry,
+        ruleRegistry,
+        activityTracker,
+        convergenceDetector,
+        stigmergyCoordinator);
   }
 
   @Produces
@@ -861,7 +879,16 @@ public class RuntimeBeans {
           jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseContextUpdatedEvent>
               caseContextUpdatedEvents,
           jakarta.enterprise.inject.Instance<io.casehub.engine.common.spi.JudgmentScheduler>
-              judgmentScheduler) {
+              judgmentScheduler,
+          io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+          io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
+          io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
+          io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
+          io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
+          io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
+          io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer,
+          Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+              stigmergyCoordinator) {
     return new io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler(
         eventDispatcher,
         jqEvaluator,
@@ -896,7 +923,21 @@ public class RuntimeBeans {
         event -> caseContextUpdatedEvents.fireAsync(event),
         judgmentScheduler.isResolvable()
             ? java.util.Optional.of(judgmentScheduler.get())
-            : java.util.Optional.empty());
+            : java.util.Optional.empty(),
+        observationRegistry,
+        contextHistoryBuffer,
+        signalRegistry,
+        ruleRegistry,
+        activityTracker,
+        convergenceDetector,
+        budgetEnforcer,
+        stigmergyCoordinator);
+  }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer() {
+    return new io.casehub.engine.internal.convergence.BudgetEnforcer();
   }
 
   // --- Task 6: Simple services ---
@@ -1182,7 +1223,8 @@ public class RuntimeBeans {
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
-      io.casehub.engine.common.spi.PlanItemStore planItemStore) {
+      io.casehub.engine.common.spi.PlanItemStore planItemStore,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
     return new io.casehub.engine.internal.executor.WorkerRuntimeFactory(
         caseHubRuntime,
         definitionRegistry,
@@ -1192,6 +1234,7 @@ public class RuntimeBeans {
         defaultChannelFactory,
         observationRegistry,
         signalRegistry,
-        planItemStore);
+        planItemStore,
+        ruleRegistry);
   }
 }

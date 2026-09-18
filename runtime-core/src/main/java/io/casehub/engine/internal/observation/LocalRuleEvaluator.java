@@ -107,6 +107,7 @@ public class LocalRuleEvaluator {
       case RuleAction.WriteContext wc -> {} // collected by caller, applied after all rules
       case RuleAction.RegisterInterest ri -> {} // deferred to handler context
       case RuleAction.DeregisterInterest di -> {} // deferred to handler context
+      case RuleAction.Leave l -> {} // handled by caller after rule evaluation
     }
   }
 }

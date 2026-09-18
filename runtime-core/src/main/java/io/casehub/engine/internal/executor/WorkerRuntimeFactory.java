@@ -35,6 +35,12 @@ public class WorkerRuntimeFactory {
   private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
   private final io.casehub.engine.common.spi.PlanItemStore planItemStore;
   private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
+  private io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator;
+
+  public void setStigmergyCoordinator(
+      io.casehub.engine.internal.stigmergy.StigmergyCoordinator coordinator) {
+    this.stigmergyCoordinator = coordinator;
+  }
 
   public WorkerRuntimeFactory(
       CaseHubRuntime caseHubRuntime,
@@ -132,7 +138,8 @@ public class WorkerRuntimeFactory {
         signalSpace,
         interestSpace,
         neighborSpace,
-        ruleSpace);
+        ruleSpace,
+        stigmergyCoordinator);
   }
 
   private io.casehub.api.model.signal.SignalConfig resolveSignalConfig(UUID caseId) {
