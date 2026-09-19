@@ -39,6 +39,7 @@ public class RoleTracker implements Resettable {
   private final SignalRegistry signalRegistry;
   private final RuleRegistry ruleRegistry;
   private final StigmergyCoordinator coordinator;
+  private volatile SwarmProvisioner swarmProvisioner;
 
   private final ConcurrentHashMap<UUID, CaseRoleState> cases = new ConcurrentHashMap<>();
 
@@ -54,12 +55,24 @@ public class RoleTracker implements Resettable {
     this.coordinator = coordinator;
   }
 
+  public void setSwarmProvisioner(SwarmProvisioner swarmProvisioner) {
+    this.swarmProvisioner = swarmProvisioner;
+  }
+
   public void accumulate(UUID caseId) {
     var state = cases.computeIfAbsent(caseId, k -> new CaseRoleState());
     state.cycleCount++;
+    state.agentsInDelay.clear();
     var agents = coordinator.activeAgents(caseId);
     for (var agent : agents) {
-      accumulateAgent(caseId, agent.agentId(), state);
+      if (swarmProvisioner != null
+          && swarmProvisioner.isInIntegrationDelay(caseId, agent.agentId())) {
+        accumulateAgent(caseId, agent.agentId(), state);
+        swarmProvisioner.decrementIntegrationDelay(caseId, agent.agentId());
+        state.agentsInDelay.add(agent.agentId());
+      } else {
+        accumulateAgent(caseId, agent.agentId(), state);
+      }
     }
   }
 
@@ -198,6 +211,7 @@ public class RoleTracker implements Resettable {
 
     Map<String, BehavioralFingerprint> fingerprints = new HashMap<>();
     for (var agent : agents) {
+      if (state.agentsInDelay.contains(agent.agentId())) continue;
       fingerprints.put(agent.agentId(), getFingerprint(caseId, agent.agentId()));
     }
 
@@ -443,6 +457,7 @@ public class RoleTracker implements Resettable {
     List<DetectedRole> previousRoles = List.of();
     final ConcurrentHashMap<String, BehavioralFingerprint> originalCentroids =
         new ConcurrentHashMap<>();
+    final Set<String> agentsInDelay = ConcurrentHashMap.newKeySet();
   }
 
   private static class AgentAccumulator {

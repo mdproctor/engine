@@ -418,7 +418,8 @@ public class RuntimeBeans {
       Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator,
       Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
       Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
-      Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker> swarmProgressTracker) {
+      Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker> swarmProgressTracker,
+      Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner> swarmProvisioner) {
     return new CaseStatusChangedHandler(
         eventDispatcher,
         caseInstanceRepository,
@@ -449,7 +450,8 @@ public class RuntimeBeans {
         stigmergyCoordinator,
         roleTracker,
         teamDetector,
-        swarmProgressTracker);
+        swarmProgressTracker,
+        swarmProvisioner);
   }
 
   @Produces
@@ -897,7 +899,9 @@ public class RuntimeBeans {
           Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
           Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
           Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
-              swarmProgressTracker) {
+              swarmProgressTracker,
+          Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+              swarmProvisioner) {
     return new io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler(
         eventDispatcher,
         jqEvaluator,
@@ -943,7 +947,8 @@ public class RuntimeBeans {
         stigmergyCoordinator,
         roleTracker,
         teamDetector,
-        swarmProgressTracker);
+        swarmProgressTracker,
+        swarmProvisioner);
   }
 
   @Produces

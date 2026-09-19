@@ -146,6 +146,9 @@ public class CaseContextChangedEventHandler {
   private final jakarta.enterprise.inject.Instance<
           io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
       swarmProgressTrackerInstance;
+  private final jakarta.enterprise.inject.Instance<
+          io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+      swarmProvisionerInstance;
 
   public CaseContextChangedEventHandler(
       EventDispatcher eventDispatcher,
@@ -188,7 +191,9 @@ public class CaseContextChangedEventHandler {
       jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.TeamDetector>
           teamDetectorInstance,
       jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
-          swarmProgressTrackerInstance) {
+          swarmProgressTrackerInstance,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+          swarmProvisionerInstance) {
     this.eventDispatcher = eventDispatcher;
     this.jqEvaluator = jqEvaluator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -226,6 +231,7 @@ public class CaseContextChangedEventHandler {
     this.roleTrackerInstance = roleTrackerInstance;
     this.teamDetectorInstance = teamDetectorInstance;
     this.swarmProgressTrackerInstance = swarmProgressTrackerInstance;
+    this.swarmProvisionerInstance = swarmProvisionerInstance;
   }
 
   public void handle(final CaseContextChangedEvent event) {
@@ -1439,6 +1445,32 @@ public class CaseContextChangedEventHandler {
               }
             }
             spt.evaluate(caseInstance.getUuid(), stigConfig);
+
+            if (swarmProvisionerInstance.isResolvable()) {
+              var provisioner = swarmProvisionerInstance.get();
+              provisioner.incrementCycleCount(caseInstance.getUuid());
+              var consensus = signalRegistry.consensusSignals(caseInstance.getUuid(), 2, 0.01);
+              boolean hasProvisioningConsensus =
+                  consensus.keySet().stream()
+                      .anyMatch(name -> name.startsWith("swarm:need-capacity"));
+              if (hasProvisioningConsensus) {
+                var provEvents =
+                    provisioner.evaluateAndProvision(
+                        caseInstance.getUuid(), swarmConfig, stigConfig);
+                for (var e : provEvents) {
+                  LOG.debugf(
+                      "Swarm provisioning event for caseId=%s type=%s",
+                      caseInstance.getUuid(), e.type());
+                }
+              }
+              var deprovEvents =
+                  provisioner.evaluateDeprovisioning(caseInstance.getUuid(), swarmConfig);
+              for (var e : deprovEvents) {
+                LOG.debugf(
+                    "Swarm de-provisioning event for caseId=%s type=%s",
+                    caseInstance.getUuid(), e.type());
+              }
+            }
           }
         }
       }

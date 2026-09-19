@@ -90,6 +90,9 @@ public class CaseStatusChangedHandler {
   private final jakarta.enterprise.inject.Instance<
           io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
       swarmProgressTrackerInstance;
+  private final jakarta.enterprise.inject.Instance<
+          io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+      swarmProvisionerInstance;
 
   public CaseStatusChangedHandler(
       EventDispatcher eventDispatcher,
@@ -119,7 +122,9 @@ public class CaseStatusChangedHandler {
       jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.TeamDetector>
           teamDetectorInstance,
       jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
-          swarmProgressTrackerInstance) {
+          swarmProgressTrackerInstance,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+          swarmProvisionerInstance) {
     this.eventDispatcher = eventDispatcher;
     this.caseInstanceRepository = caseInstanceRepository;
     this.schedulerService = schedulerService;
@@ -144,6 +149,7 @@ public class CaseStatusChangedHandler {
     this.roleTrackerInstance = roleTrackerInstance;
     this.teamDetectorInstance = teamDetectorInstance;
     this.swarmProgressTrackerInstance = swarmProgressTrackerInstance;
+    this.swarmProvisionerInstance = swarmProvisionerInstance;
   }
 
   public void handle(CaseStatusChanged event) {
@@ -228,6 +234,9 @@ public class CaseStatusChangedHandler {
       }
       if (swarmProgressTrackerInstance.isResolvable()) {
         swarmProgressTrackerInstance.get().evictByCase(caseInstance.getUuid());
+      }
+      if (swarmProvisionerInstance.isResolvable()) {
+        swarmProvisionerInstance.get().evictByCase(caseInstance.getUuid());
       }
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();

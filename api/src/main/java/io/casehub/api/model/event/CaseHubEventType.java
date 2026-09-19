@@ -125,5 +125,12 @@ public enum CaseHubEventType {
   SWARM_TEAM_FORMED, // team affinity cluster detected from shared coordination
   SWARM_TEAM_DISSOLVED, // team cluster no longer exists
   SWARM_TEAM_SHIFT, // agent moved from one team cluster to another
-  SWARM_PROGRESS // swarm progress scores changed significantly
+  SWARM_PROGRESS, // swarm progress scores changed significantly
+
+  SWARM_PROVISION_REQUESTED, // consensus detected, provisioning initiated
+  SWARM_PROVISION_COMPLETED, // agent successfully provisioned and joined swarm
+  SWARM_PROVISION_FAILED, // WorkerProvisioner.provision() threw ProvisioningException
+  SWARM_PROVISION_VETOED, // SwarmProvisioningAdvisor vetoed the provision
+  SWARM_PROVISION_BUDGET_EXHAUSTED, // budget check failed (any of the 3 layers)
+  SWARM_AGENT_TERMINATED // idle agent de-provisioned
 }

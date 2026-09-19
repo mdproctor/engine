@@ -385,6 +385,7 @@ public class RuntimeManualConfig {
         notResolvable(),
         notResolvable(),
         notResolvable(),
+        notResolvable(),
         notResolvable());
   }
 
@@ -547,6 +548,7 @@ public class RuntimeManualConfig {
         activityTracker,
         convergenceDetector,
         budgetEnforcer,
+        notResolvable(),
         notResolvable(),
         notResolvable(),
         notResolvable(),

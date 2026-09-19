@@ -26,7 +26,37 @@ public record SwarmConfig(
     @Nullable RoleDomainWeights domainWeights,
     @Nullable Double teamAffinityThreshold,
     @Nullable Integer teamMinSize,
-    @Nullable Double progressChangeThreshold) {
+    @Nullable Double progressChangeThreshold,
+    @Nullable ProvisionBudget provisionBudget,
+    @Nullable IntegrationPolicy integrationPolicy) {
+
+  public SwarmConfig(
+      @Nullable Integer maxSwarmSize,
+      @Nullable Double roleSimilarityThreshold,
+      @Nullable Integer roleMinClusterSize,
+      @Nullable Integer roleDetectionWindow,
+      @Nullable Integer detectionInterval,
+      @Nullable RoleDomainWeights domainWeights,
+      @Nullable Double teamAffinityThreshold,
+      @Nullable Integer teamMinSize,
+      @Nullable Double progressChangeThreshold) {
+    this(
+        maxSwarmSize,
+        roleSimilarityThreshold,
+        roleMinClusterSize,
+        roleDetectionWindow,
+        detectionInterval,
+        domainWeights,
+        teamAffinityThreshold,
+        teamMinSize,
+        progressChangeThreshold,
+        null,
+        null);
+  }
+
+  public int effectiveMaxSwarmSize() {
+    return maxSwarmSize != null ? maxSwarmSize : 20;
+  }
 
   public double effectiveRoleSimilarityThreshold() {
     return roleSimilarityThreshold != null ? roleSimilarityThreshold : 0.7;
