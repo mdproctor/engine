@@ -64,14 +64,14 @@ class StigmergyConfigTest {
   void stigmergyConfigComposesSubRecords() {
     var defaults = new StigmergyDefaults(null, null, null, null, null, null, null, null, null);
     var coord = new CoordinationConfig(null, null, null);
-    var config = new StigmergyConfig(defaults, coord);
+    var config = new StigmergyConfig(defaults, coord, null);
     assertNotNull(config.defaults());
     assertNotNull(config.coordination());
   }
 
   @Test
   void stigmergyConfigAllowsNullSubRecords() {
-    var config = new StigmergyConfig(null, null);
+    var config = new StigmergyConfig(null, null, null);
     assertNull(config.defaults());
     assertNull(config.coordination());
   }

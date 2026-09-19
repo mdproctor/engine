@@ -59,7 +59,7 @@ class StigmergyStrategyTest {
             .namespace("test")
             .name("test")
             .version("1.0.0")
-            .stigmergyConfig(new StigmergyConfig(null, null))
+            .stigmergyConfig(new StigmergyConfig(null, null, null))
             .build();
     var plan = new DefaultCasePlanModel(caseId);
     var ctx = new PlanExecutionContext(caseId, def, null, null, null, List.of(), null, null);
@@ -76,7 +76,7 @@ class StigmergyStrategyTest {
             .namespace("test")
             .name("test")
             .version("1.0.0")
-            .stigmergyConfig(new StigmergyConfig(null, null))
+            .stigmergyConfig(new StigmergyConfig(null, null, null))
             .build();
     var plan = new DefaultCasePlanModel(caseId);
     var ctx = new PlanExecutionContext(caseId, def, null, null, null, List.of(), null, null);

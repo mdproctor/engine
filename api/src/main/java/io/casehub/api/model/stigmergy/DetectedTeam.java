@@ -15,9 +15,18 @@
  */
 package io.casehub.api.model.stigmergy;
 
-import jakarta.annotation.Nullable;
+import io.casehub.api.spi.observation.NeighborRelation;
+import java.util.Set;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm) {}
+public record DetectedTeam(
+    String teamId,
+    Set<String> memberAgents,
+    Set<NeighborRelation> dominantRelations,
+    double avgAffinity,
+    int stabilityCount) {
+
+  public DetectedTeam {
+    memberAgents = Set.copyOf(memberAgents);
+    dominantRelations = Set.copyOf(dominantRelations);
+  }
+}

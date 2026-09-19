@@ -415,7 +415,10 @@ public class RuntimeBeans {
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
       io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
-      Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator) {
+      Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator,
+      Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
+      Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
+      Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker> swarmProgressTracker) {
     return new CaseStatusChangedHandler(
         eventDispatcher,
         caseInstanceRepository,
@@ -443,7 +446,10 @@ public class RuntimeBeans {
         ruleRegistry,
         activityTracker,
         convergenceDetector,
-        stigmergyCoordinator);
+        stigmergyCoordinator,
+        roleTracker,
+        teamDetector,
+        swarmProgressTracker);
   }
 
   @Produces
@@ -887,8 +893,11 @@ public class RuntimeBeans {
           io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
           io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
           io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer,
-          Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
-              stigmergyCoordinator) {
+          Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator,
+          Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
+          Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
+          Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+              swarmProgressTracker) {
     return new io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler(
         eventDispatcher,
         jqEvaluator,
@@ -931,7 +940,10 @@ public class RuntimeBeans {
         activityTracker,
         convergenceDetector,
         budgetEnforcer,
-        stigmergyCoordinator);
+        stigmergyCoordinator,
+        roleTracker,
+        teamDetector,
+        swarmProgressTracker);
   }
 
   @Produces
@@ -1224,17 +1236,31 @@ public class RuntimeBeans {
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
       io.casehub.engine.common.spi.PlanItemStore planItemStore,
-      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
-    return new io.casehub.engine.internal.executor.WorkerRuntimeFactory(
-        caseHubRuntime,
-        definitionRegistry,
-        caseInstanceCache,
-        caseCompletionTracker,
-        channelRegistry,
-        defaultChannelFactory,
-        observationRegistry,
-        signalRegistry,
-        planItemStore,
-        ruleRegistry);
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
+      io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
+      Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
+      Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
+      Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker> swarmProgressTracker,
+      Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator) {
+    var factory =
+        new io.casehub.engine.internal.executor.WorkerRuntimeFactory(
+            caseHubRuntime,
+            definitionRegistry,
+            caseInstanceCache,
+            caseCompletionTracker,
+            channelRegistry,
+            defaultChannelFactory,
+            observationRegistry,
+            signalRegistry,
+            planItemStore,
+            ruleRegistry);
+    if (stigmergyCoordinator.isResolvable()) {
+      factory.setStigmergyCoordinator(stigmergyCoordinator.get());
+    }
+    if (roleTracker.isResolvable()) {
+      factory.setSwarmTrackers(
+          activityTracker, roleTracker.get(), teamDetector.get(), swarmProgressTracker.get());
+    }
+    return factory;
   }
 }

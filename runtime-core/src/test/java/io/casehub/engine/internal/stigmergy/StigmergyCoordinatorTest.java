@@ -43,7 +43,7 @@ class StigmergyCoordinatorTest {
     activityTracker = new ActivityTracker();
     coordinator = new StigmergyCoordinator(signalRegistry, observationRegistry, activityTracker);
     caseId = UUID.randomUUID();
-    config = new StigmergyConfig(null, new CoordinationConfig(2, 10.0, 0.6));
+    config = new StigmergyConfig(null, new CoordinationConfig(2, 10.0, 0.6), null);
   }
 
   @Test

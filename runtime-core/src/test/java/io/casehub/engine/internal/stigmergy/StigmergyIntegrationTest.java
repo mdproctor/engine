@@ -36,7 +36,7 @@ class StigmergyIntegrationTest {
     var coordinator =
         new StigmergyCoordinator(signalRegistry, observationRegistry, activityTracker);
     var caseId = UUID.randomUUID();
-    var config = new StigmergyConfig(null, new CoordinationConfig(2, 10.0, 0.6));
+    var config = new StigmergyConfig(null, new CoordinationConfig(2, 10.0, 0.6), null);
 
     coordinator.initializeCase(caseId, List.of("temp-monitor", "pressure-monitor"), config);
     assertTrue(coordinator.isStigmergyCase(caseId));

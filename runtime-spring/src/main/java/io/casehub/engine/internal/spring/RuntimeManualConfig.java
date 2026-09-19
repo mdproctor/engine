@@ -354,7 +354,13 @@ public class RuntimeManualConfig {
       WorkerGrantOrchestrator workerGrantOrchestrator,
       DataChannelRegistry dataChannelRegistry,
       CaseRecoveryStateRegistry recoveryStateRegistry,
-      CompoundLockRegistry compoundLockRegistry) {
+      CompoundLockRegistry compoundLockRegistry,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
+      io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
+      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector) {
     return new CaseStatusChangedHandler(
         eventDispatcher,
         caseInstanceRepository,
@@ -369,7 +375,17 @@ public class RuntimeManualConfig {
         workerGrantOrchestrator,
         dataChannelRegistry,
         recoveryStateRegistry,
-        compoundLockRegistry);
+        compoundLockRegistry,
+        observationRegistry,
+        contextHistoryBuffer,
+        signalRegistry,
+        ruleRegistry,
+        activityTracker,
+        convergenceDetector,
+        notResolvable(),
+        notResolvable(),
+        notResolvable(),
+        notResolvable());
   }
 
   @Bean
@@ -489,7 +505,14 @@ public class RuntimeManualConfig {
       SelectionContextStore selectionContextStore,
       DispatchBudget dispatchBudget,
       PlanItemStore planItemStore,
-      Optional<JudgmentScheduler> judgmentScheduler) {
+      Optional<JudgmentScheduler> judgmentScheduler,
+      io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
+      io.casehub.engine.common.internal.observation.ContextHistoryBuffer contextHistoryBuffer,
+      io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
+      io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
+      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
+      io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer) {
     return new CaseContextChangedEventHandler(
         eventDispatcher,
         jqEvaluator,
@@ -516,7 +539,18 @@ public class RuntimeManualConfig {
         dispatchBudget,
         planItemStore,
         event -> publisher.publishEvent(event),
-        judgmentScheduler);
+        judgmentScheduler,
+        observationRegistry,
+        contextHistoryBuffer,
+        signalRegistry,
+        ruleRegistry,
+        activityTracker,
+        convergenceDetector,
+        budgetEnforcer,
+        notResolvable(),
+        notResolvable(),
+        notResolvable(),
+        notResolvable());
   }
 
   @Bean
@@ -607,7 +641,8 @@ public class RuntimeManualConfig {
       DataChannelFactory defaultChannelFactory,
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
-      io.casehub.engine.common.spi.PlanItemStore planItemStore) {
+      io.casehub.engine.common.spi.PlanItemStore planItemStore,
+      io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry) {
     return new WorkerRuntimeFactory(
         caseHubRuntime,
         definitionRegistry,
@@ -617,7 +652,8 @@ public class RuntimeManualConfig {
         defaultChannelFactory,
         observationRegistry,
         signalRegistry,
-        planItemStore);
+        planItemStore,
+        ruleRegistry);
   }
 
   @Bean
@@ -663,5 +699,68 @@ public class RuntimeManualConfig {
       crossTenantCaseInstanceRepository(
           io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository repo) {
     return repo;
+  }
+
+  @SuppressWarnings("unchecked")
+  private static <T> jakarta.enterprise.inject.Instance<T> notResolvable() {
+    return (jakarta.enterprise.inject.Instance<T>)
+        new jakarta.enterprise.inject.Instance<Object>() {
+          @Override
+          public Object get() {
+            throw new IllegalStateException("Not resolvable in Spring context");
+          }
+
+          @Override
+          public boolean isResolvable() {
+            return false;
+          }
+
+          @Override
+          public boolean isAmbiguous() {
+            return false;
+          }
+
+          @Override
+          public boolean isUnsatisfied() {
+            return true;
+          }
+
+          @Override
+          public void destroy(Object instance) {}
+
+          @Override
+          public Handle<Object> getHandle() {
+            throw new UnsupportedOperationException();
+          }
+
+          @Override
+          public Iterable<? extends Handle<Object>> handles() {
+            return java.util.List.of();
+          }
+
+          @Override
+          public jakarta.enterprise.inject.Instance<Object> select(
+              java.lang.annotation.Annotation... qualifiers) {
+            return this;
+          }
+
+          @Override
+          public <U extends Object> jakarta.enterprise.inject.Instance<U> select(
+              Class<U> subtype, java.lang.annotation.Annotation... qualifiers) {
+            return notResolvable();
+          }
+
+          @Override
+          public <U extends Object> jakarta.enterprise.inject.Instance<U> select(
+              jakarta.enterprise.util.TypeLiteral<U> subtype,
+              java.lang.annotation.Annotation... qualifiers) {
+            return notResolvable();
+          }
+
+          @Override
+          public java.util.Iterator<Object> iterator() {
+            return java.util.Collections.emptyIterator();
+          }
+        };
   }
 }

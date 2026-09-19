@@ -36,10 +36,25 @@ public class WorkerRuntimeFactory {
   private final io.casehub.engine.common.spi.PlanItemStore planItemStore;
   private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
   private io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator;
+  private io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker;
+  private io.casehub.engine.internal.stigmergy.RoleTracker roleTracker;
+  private io.casehub.engine.internal.stigmergy.TeamDetector teamDetector;
+  private io.casehub.engine.internal.stigmergy.SwarmProgressTracker swarmProgressTracker;
 
   public void setStigmergyCoordinator(
       io.casehub.engine.internal.stigmergy.StigmergyCoordinator coordinator) {
     this.stigmergyCoordinator = coordinator;
+  }
+
+  public void setSwarmTrackers(
+      io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
+      io.casehub.engine.internal.stigmergy.RoleTracker roleTracker,
+      io.casehub.engine.internal.stigmergy.TeamDetector teamDetector,
+      io.casehub.engine.internal.stigmergy.SwarmProgressTracker swarmProgressTracker) {
+    this.activityTracker = activityTracker;
+    this.roleTracker = roleTracker;
+    this.teamDetector = teamDetector;
+    this.swarmProgressTracker = swarmProgressTracker;
   }
 
   public WorkerRuntimeFactory(
@@ -124,6 +139,13 @@ public class WorkerRuntimeFactory {
         new io.casehub.engine.internal.observation.DefaultRuleSpace(
             ruleRegistry, caseId, workerName, bindingName, resolvedRuleConfig);
 
+    io.casehub.api.engine.MetricsSpace metricsSpace = io.casehub.api.engine.MetricsSpace.NOOP;
+    if (roleTracker != null && teamDetector != null && swarmProgressTracker != null) {
+      metricsSpace =
+          new io.casehub.engine.internal.stigmergy.DefaultMetricsSpace(
+              caseId, workerName, activityTracker, roleTracker, teamDetector, swarmProgressTracker);
+    }
+
     return new DefaultWorkerRuntime(
         caseId,
         taskId,
@@ -139,7 +161,8 @@ public class WorkerRuntimeFactory {
         interestSpace,
         neighborSpace,
         ruleSpace,
-        stigmergyCoordinator);
+        stigmergyCoordinator,
+        metricsSpace);
   }
 
   private io.casehub.api.model.signal.SignalConfig resolveSignalConfig(UUID caseId) {

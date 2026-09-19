@@ -13,11 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.model.stigmergy;
+package io.casehub.engine.internal.stigmergy;
 
-import jakarta.annotation.Nullable;
+import io.casehub.api.model.event.CaseHubEventType;
+import java.util.Map;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm) {}
+public record SwarmEvent(CaseHubEventType type, Map<String, Object> metadata) {
+
+  public SwarmEvent {
+    metadata = Map.copyOf(metadata);
+  }
+}

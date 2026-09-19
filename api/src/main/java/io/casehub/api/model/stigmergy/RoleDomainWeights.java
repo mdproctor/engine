@@ -17,7 +17,21 @@ package io.casehub.api.model.stigmergy;
 
 import jakarta.annotation.Nullable;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm) {}
+public record RoleDomainWeights(
+    @Nullable Double perception,
+    @Nullable Double communication,
+    @Nullable Double decision,
+    @Nullable Double effect) {
+
+  public static final RoleDomainWeights EQUAL = new RoleDomainWeights(0.25, 0.25, 0.25, 0.25);
+
+  public double[] normalized() {
+    double p = perception != null ? perception : 0.25;
+    double c = communication != null ? communication : 0.25;
+    double d = decision != null ? decision : 0.25;
+    double e = effect != null ? effect : 0.25;
+    double sum = p + c + d + e;
+    if (sum <= 0) return new double[] {0.25, 0.25, 0.25, 0.25};
+    return new double[] {p / sum, c / sum, d / sum, e / sum};
+  }
+}

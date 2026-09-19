@@ -15,9 +15,19 @@
  */
 package io.casehub.api.model.stigmergy;
 
-import jakarta.annotation.Nullable;
+import java.util.List;
+import java.util.Set;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm) {}
+public record DetectedRole(
+    String roleId,
+    Set<String> memberAgents,
+    BehavioralFingerprint centroid,
+    List<String> dominantFeatures,
+    int stabilityCount,
+    double centroidDrift) {
+
+  public DetectedRole {
+    memberAgents = Set.copyOf(memberAgents);
+    dominantFeatures = List.copyOf(dominantFeatures);
+  }
+}

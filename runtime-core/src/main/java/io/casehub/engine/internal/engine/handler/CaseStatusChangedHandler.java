@@ -82,6 +82,14 @@ public class CaseStatusChangedHandler {
   private final jakarta.enterprise.inject.Instance<
           io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
       stigmergyCoordinator;
+  private final jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.RoleTracker>
+      roleTrackerInstance;
+  private final jakarta.enterprise.inject.Instance<
+          io.casehub.engine.internal.stigmergy.TeamDetector>
+      teamDetectorInstance;
+  private final jakarta.enterprise.inject.Instance<
+          io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+      swarmProgressTrackerInstance;
 
   public CaseStatusChangedHandler(
       EventDispatcher eventDispatcher,
@@ -105,7 +113,13 @@ public class CaseStatusChangedHandler {
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
       io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
       jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
-          stigmergyCoordinator) {
+          stigmergyCoordinator,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.RoleTracker>
+          roleTrackerInstance,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.TeamDetector>
+          teamDetectorInstance,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+          swarmProgressTrackerInstance) {
     this.eventDispatcher = eventDispatcher;
     this.caseInstanceRepository = caseInstanceRepository;
     this.schedulerService = schedulerService;
@@ -127,6 +141,9 @@ public class CaseStatusChangedHandler {
     this.activityTracker = activityTracker;
     this.convergenceDetector = convergenceDetector;
     this.stigmergyCoordinator = stigmergyCoordinator;
+    this.roleTrackerInstance = roleTrackerInstance;
+    this.teamDetectorInstance = teamDetectorInstance;
+    this.swarmProgressTrackerInstance = swarmProgressTrackerInstance;
   }
 
   public void handle(CaseStatusChanged event) {
@@ -202,6 +219,15 @@ public class CaseStatusChangedHandler {
       convergenceDetector.evictByCase(caseInstance.getUuid());
       if (stigmergyCoordinator.isResolvable()) {
         stigmergyCoordinator.get().evictByCase(caseInstance.getUuid());
+      }
+      if (roleTrackerInstance.isResolvable()) {
+        roleTrackerInstance.get().evictByCase(caseInstance.getUuid());
+      }
+      if (teamDetectorInstance.isResolvable()) {
+        teamDetectorInstance.get().evictByCase(caseInstance.getUuid());
+      }
+      if (swarmProgressTrackerInstance.isResolvable()) {
+        swarmProgressTrackerInstance.get().evictByCase(caseInstance.getUuid());
       }
       if (caseInstance.getCaseContext() instanceof MutableCaseContext mctx) {
         mctx.close();

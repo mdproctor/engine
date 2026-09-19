@@ -138,6 +138,14 @@ public class CaseContextChangedEventHandler {
   private final jakarta.enterprise.inject.Instance<
           io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
       stigmergyCoordinator;
+  private final jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.RoleTracker>
+      roleTrackerInstance;
+  private final jakarta.enterprise.inject.Instance<
+          io.casehub.engine.internal.stigmergy.TeamDetector>
+      teamDetectorInstance;
+  private final jakarta.enterprise.inject.Instance<
+          io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+      swarmProgressTrackerInstance;
 
   public CaseContextChangedEventHandler(
       EventDispatcher eventDispatcher,
@@ -174,7 +182,13 @@ public class CaseContextChangedEventHandler {
       io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
       io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer,
       jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
-          stigmergyCoordinator) {
+          stigmergyCoordinator,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.RoleTracker>
+          roleTrackerInstance,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.TeamDetector>
+          teamDetectorInstance,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+          swarmProgressTrackerInstance) {
     this.eventDispatcher = eventDispatcher;
     this.jqEvaluator = jqEvaluator;
     this.caseDefinitionRegistry = caseDefinitionRegistry;
@@ -209,6 +223,9 @@ public class CaseContextChangedEventHandler {
     this.convergenceDetector = convergenceDetector;
     this.budgetEnforcer = budgetEnforcer;
     this.stigmergyCoordinator = stigmergyCoordinator;
+    this.roleTrackerInstance = roleTrackerInstance;
+    this.teamDetectorInstance = teamDetectorInstance;
+    this.swarmProgressTrackerInstance = swarmProgressTrackerInstance;
   }
 
   public void handle(final CaseContextChangedEvent event) {
@@ -1401,6 +1418,28 @@ public class CaseContextChangedEventHandler {
           LOG.debugf(
               "Coordination pattern detected for caseId=%s type=%s",
               caseInstance.getUuid(), pattern.type());
+        }
+
+        if (roleTrackerInstance.isResolvable()) {
+          var rt = roleTrackerInstance.get();
+          var td = teamDetectorInstance.get();
+          var spt = swarmProgressTrackerInstance.get();
+          var stigConfig = caseDefinition.getStigmergyConfig();
+          var swarmConfig = stigConfig != null ? stigConfig.swarm() : null;
+          if (swarmConfig != null) {
+            rt.accumulate(caseInstance.getUuid());
+            if (rt.shouldDetect(caseInstance.getUuid(), swarmConfig)) {
+              var roleEvents = rt.detect(caseInstance.getUuid(), swarmConfig);
+              for (var e : roleEvents) {
+                LOG.debugf("Swarm event for caseId=%s type=%s", caseInstance.getUuid(), e.type());
+              }
+              var teamEvents = td.detect(caseInstance.getUuid(), swarmConfig);
+              for (var e : teamEvents) {
+                LOG.debugf("Swarm event for caseId=%s type=%s", caseInstance.getUuid(), e.type());
+              }
+            }
+            spt.evaluate(caseInstance.getUuid(), stigConfig);
+          }
         }
       }
     }

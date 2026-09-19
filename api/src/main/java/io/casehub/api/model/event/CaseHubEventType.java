@@ -117,5 +117,13 @@ public enum CaseHubEventType {
   STIGMERGY_AGENT_DEPARTED, // stigmergy agent voluntarily departed — entering DEPARTED state
   SIGNAL_CONSENSUS_DETECTED, // signal reinforced by N agents — pheromone trail formation
   COORDINATION_STORM_DETECTED, // activity rates exceed storm thresholds — pathological coordination
-  INTEREST_CONVERGENCE_DETECTED // collective attention focusing on specific keys
+  INTEREST_CONVERGENCE_DETECTED, // collective attention focusing on specific keys
+
+  SWARM_ROLE_EMERGED, // new role cluster detected from behavioral fingerprinting
+  SWARM_ROLE_DISSOLVED, // role cluster no longer meets minimum membership
+  SWARM_ROLE_SHIFT, // agent moved from one role cluster to another
+  SWARM_TEAM_FORMED, // team affinity cluster detected from shared coordination
+  SWARM_TEAM_DISSOLVED, // team cluster no longer exists
+  SWARM_TEAM_SHIFT, // agent moved from one team cluster to another
+  SWARM_PROGRESS // swarm progress scores changed significantly
 }

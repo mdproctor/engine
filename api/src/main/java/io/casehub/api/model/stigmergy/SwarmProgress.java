@@ -15,9 +15,10 @@
  */
 package io.casehub.api.model.stigmergy;
 
-import jakarta.annotation.Nullable;
+import java.time.Instant;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm) {}
+public record SwarmProgress(
+    double explorationPace, double consensusScore, double stabilityScore, Instant computedAt) {
+
+  public static final SwarmProgress EMPTY = new SwarmProgress(0.0, 0.0, 0.0, Instant.EPOCH);
+}

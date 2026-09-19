@@ -60,6 +60,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final io.casehub.api.engine.NeighborSpace neighborSpace;
   private final io.casehub.api.engine.RuleSpace ruleSpace;
   private final io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator;
+  private final io.casehub.api.engine.MetricsSpace metricsSpace;
 
   DefaultWorkerRuntime(
       UUID caseId,
@@ -87,7 +88,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
         io.casehub.api.engine.InterestSpace.NOOP,
         io.casehub.api.engine.NeighborSpace.NOOP,
         io.casehub.api.engine.RuleSpace.NOOP,
-        null);
+        null,
+        io.casehub.api.engine.MetricsSpace.NOOP);
   }
 
   DefaultWorkerRuntime(
@@ -120,7 +122,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
         interestSpace,
         neighborSpace,
         ruleSpace,
-        null);
+        null,
+        io.casehub.api.engine.MetricsSpace.NOOP);
   }
 
   DefaultWorkerRuntime(
@@ -138,7 +141,8 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       io.casehub.api.engine.InterestSpace interestSpace,
       io.casehub.api.engine.NeighborSpace neighborSpace,
       io.casehub.api.engine.RuleSpace ruleSpace,
-      io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator) {
+      io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator,
+      io.casehub.api.engine.MetricsSpace metricsSpace) {
     this.caseId = caseId;
     this.taskId = taskId;
     this.context = context;
@@ -154,6 +158,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     this.neighborSpace = neighborSpace;
     this.ruleSpace = ruleSpace;
     this.stigmergyCoordinator = stigmergyCoordinator;
+    this.metricsSpace = metricsSpace;
   }
 
   @Override
@@ -339,5 +344,10 @@ class DefaultWorkerRuntime implements WorkerRuntime {
     // Departure is handled by the evaluation pipeline when RuleAction.Leave fires.
     // The localRules() handler knows the agentId from the rule context and calls
     // coordinator.agentDeparted() directly.
+  }
+
+  @Override
+  public io.casehub.api.engine.MetricsSpace metrics() {
+    return metricsSpace;
   }
 }
