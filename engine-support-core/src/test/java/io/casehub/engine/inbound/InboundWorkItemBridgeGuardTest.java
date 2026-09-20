@@ -64,6 +64,6 @@ class InboundWorkItemBridgeGuardTest {
   void noPolicy_messageReceived_silentlyIgnored() {
     bridge(Optional.empty()).onMessage(anyEvent());
 
-    verify(workItemOperations, never()).create(any());
+    verify(workItemOperations, never()).createInTenantContext(any(), any());
   }
 }

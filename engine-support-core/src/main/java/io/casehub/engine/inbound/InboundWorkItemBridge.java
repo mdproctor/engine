@@ -79,7 +79,8 @@ public class InboundWorkItemBridge implements MessageObserver {
       return;
     }
 
-    decision.ifPresent(request -> workItemOperations.create(stamp(request)));
+    decision.ifPresent(
+        request -> workItemOperations.createInTenantContext(event.tenancyId(), stamp(request)));
   }
 
   private WorkItemCreateRequest stamp(final WorkItemCreateRequest request) {
