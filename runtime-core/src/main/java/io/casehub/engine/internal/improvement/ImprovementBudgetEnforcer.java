@@ -37,9 +37,21 @@ public class ImprovementBudgetEnforcer implements Resettable {
           "ImprovementBudgetEnforcer",
           "ImprovementConfig",
           "SafetyConfig",
-          "improvement-case-template");
+          "improvement-case-template",
+          "EvolutionTicker",
+          "ImprovementCircuitBreaker",
+          "RegressionDetector",
+          "ConfidenceScorer",
+          "HealthScoreTracker",
+          "HealthPolicy",
+          "RollbackPolicy",
+          "ConflictDetector",
+          "ImprovementCategoryTracker",
+          "RollbackHistory",
+          "self-improvement-rollback");
 
-  private final ConcurrentHashMap<UUID, Instant> activeImprovements = new ConcurrentHashMap<>();
+  private final ConcurrentHashMap<UUID, ImprovementRequest> activeImprovements =
+      new ConcurrentHashMap<>();
   private final ConcurrentHashMap<LocalDate, AtomicInteger> dailyCounts = new ConcurrentHashMap<>();
   private volatile Instant lastCompletionTime = Instant.EPOCH;
 
@@ -108,11 +120,15 @@ public class ImprovementBudgetEnforcer implements Resettable {
     return new BudgetCheck.Allowed();
   }
 
-  public void recordStart(UUID improvementCaseId) {
-    activeImprovements.put(improvementCaseId, Instant.now());
+  public void recordStart(UUID improvementCaseId, ImprovementRequest request) {
+    activeImprovements.put(improvementCaseId, request);
     dailyCounts
         .computeIfAbsent(LocalDate.now(ZoneOffset.UTC), k -> new AtomicInteger(0))
         .incrementAndGet();
+  }
+
+  public java.util.Map<UUID, ImprovementRequest> activeImprovementRequests() {
+    return java.util.Map.copyOf(activeImprovements);
   }
 
   public void recordCompletion(UUID improvementCaseId) {

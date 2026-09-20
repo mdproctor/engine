@@ -89,7 +89,16 @@ class SelfImprovementIntegrationTest {
     assertThat(goal.attributes()).containsEntry("improvement.category", "dependency-update");
 
     var improvementCaseId = UUID.randomUUID();
-    budgetEnforcer.recordStart(improvementCaseId);
+    budgetEnforcer.recordStart(
+        improvementCaseId,
+        new ImprovementRequest(
+            "operational",
+            "dependency-update",
+            "hibernate-core",
+            "casehubio/engine",
+            List.of("pom.xml"),
+            20,
+            Map.of()));
 
     var outcome =
         new ImprovementOutcome(

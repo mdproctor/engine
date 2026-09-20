@@ -26,17 +26,39 @@ public class ImprovementOutcomeEventCapture {
   private final ImprovementSignalProjector signalProjector;
   private final ImprovementCbrProjector cbrProjector;
   private final ImprovementBudgetEnforcer budgetEnforcer;
+  private final ImprovementCategoryTracker categoryTracker;
+  private final RegressionDetector regressionDetector;
 
   @Inject
   public ImprovementOutcomeEventCapture(
       ImprovementOutcomeRecorder outcomeRecorder,
       ImprovementSignalProjector signalProjector,
       ImprovementCbrProjector cbrProjector,
-      ImprovementBudgetEnforcer budgetEnforcer) {
+      ImprovementBudgetEnforcer budgetEnforcer,
+      ImprovementCategoryTracker categoryTracker,
+      RegressionDetector regressionDetector) {
     this.outcomeRecorder = outcomeRecorder;
     this.signalProjector = signalProjector;
     this.cbrProjector = cbrProjector;
     this.budgetEnforcer = budgetEnforcer;
+    this.categoryTracker = categoryTracker;
+    this.regressionDetector = regressionDetector;
+  }
+
+  public ImprovementOutcomeEventCapture(
+      ImprovementOutcomeRecorder outcomeRecorder,
+      ImprovementSignalProjector signalProjector,
+      ImprovementCbrProjector cbrProjector,
+      ImprovementBudgetEnforcer budgetEnforcer) {
+    this(
+        outcomeRecorder,
+        signalProjector,
+        cbrProjector,
+        budgetEnforcer,
+        new ImprovementCategoryTracker(),
+        new RegressionDetector(
+            new ConfidenceScorer(), new ImprovementCategoryTracker(),
+            new RollbackHistory(), new HealthScoreTracker(new CapabilityAreaRegistry())));
   }
 
   public void onImprovementComplete(@ObservesAsync ImprovementCaseCompleted event) {
@@ -45,5 +67,7 @@ public class ImprovementOutcomeEventCapture {
     signalProjector.project(event.caseId(), outcome);
     cbrProjector.project(event.tenancyId(), outcome);
     budgetEnforcer.recordCompletion(outcome.improvementCaseId());
+    categoryTracker.recordOutcome(event.caseId(), outcome.category(), outcome.status());
+    regressionDetector.onOutcome(event.caseId(), outcome);
   }
 }

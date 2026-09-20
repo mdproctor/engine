@@ -124,7 +124,7 @@ class ImprovementBudgetEnforcerTest {
             10,
             Map.of());
 
-    enforcer.recordStart(caseId);
+    enforcer.recordStart(caseId, request);
 
     var result = enforcer.check(UUID.randomUUID(), budget, request);
 
@@ -146,7 +146,7 @@ class ImprovementBudgetEnforcerTest {
             10,
             Map.of());
 
-    enforcer.recordStart(caseId);
+    enforcer.recordStart(caseId, request);
     enforcer.recordCompletion(caseId);
 
     var result = enforcer.check(UUID.randomUUID(), budget, request);
@@ -237,8 +237,17 @@ class ImprovementBudgetEnforcerTest {
 
   @Test
   void activeCountTracksState() {
+    var request =
+        new ImprovementRequest(
+            "operational",
+            "lint-fix",
+            "target",
+            "casehubio/engine",
+            List.of("src/Foo.java"),
+            10,
+            Map.of());
     assertThat(enforcer.activeCount()).isEqualTo(0);
-    enforcer.recordStart(caseId);
+    enforcer.recordStart(caseId, request);
     assertThat(enforcer.activeCount()).isEqualTo(1);
     enforcer.recordCompletion(caseId);
     assertThat(enforcer.activeCount()).isEqualTo(0);

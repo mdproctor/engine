@@ -23,7 +23,33 @@ public record ImprovementConfig(
     @Nullable Integer consensusMinSources,
     @Nullable List<String> enabledCategories,
     @Nullable ImprovementBudget budget,
-    @Nullable String caseTemplateId) {
+    @Nullable String caseTemplateId,
+    @Nullable Boolean evolutionEnabled,
+    @Nullable Integer evolutionTickIntervalMinutes,
+    @Nullable RollbackPolicy rollbackPolicy,
+    @Nullable HealthPolicy healthPolicy,
+    @Nullable ResearchMethodology researchMethodology,
+    @Nullable Integer conflictTrivialThreshold) {
+
+  public ImprovementConfig(
+      @Nullable String signalNamespace,
+      @Nullable Integer consensusMinSources,
+      @Nullable List<String> enabledCategories,
+      @Nullable ImprovementBudget budget,
+      @Nullable String caseTemplateId) {
+    this(
+        signalNamespace,
+        consensusMinSources,
+        enabledCategories,
+        budget,
+        caseTemplateId,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null);
+  }
 
   public String effectiveSignalNamespace() {
     return signalNamespace != null ? signalNamespace : "improvement";
@@ -47,5 +73,35 @@ public record ImprovementConfig(
 
   public String effectiveCaseTemplateId() {
     return caseTemplateId != null ? caseTemplateId : "self-improvement";
+  }
+
+  public boolean effectiveEvolutionEnabled() {
+    return evolutionEnabled != null ? evolutionEnabled : false;
+  }
+
+  public int effectiveEvolutionTickIntervalMinutes() {
+    return evolutionTickIntervalMinutes != null ? evolutionTickIntervalMinutes : 60;
+  }
+
+  public RollbackPolicy effectiveRollbackPolicy() {
+    return rollbackPolicy != null
+        ? rollbackPolicy
+        : new RollbackPolicy(null, null, null, null, null, null);
+  }
+
+  public HealthPolicy effectiveHealthPolicy() {
+    return healthPolicy != null
+        ? healthPolicy
+        : new HealthPolicy(null, null, null, null, null, null);
+  }
+
+  public ResearchMethodology effectiveResearchMethodology() {
+    return researchMethodology != null
+        ? researchMethodology
+        : new ResearchMethodology(null, null, null, null, null, null);
+  }
+
+  public int effectiveConflictTrivialThreshold() {
+    return conflictTrivialThreshold != null ? conflictTrivialThreshold : 10;
   }
 }

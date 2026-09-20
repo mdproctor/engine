@@ -136,5 +136,13 @@ public enum CaseHubEventType {
 
   IMPROVEMENT_GOAL_FORMED, // improvement signal consensus → goal proposed
   IMPROVEMENT_BUDGET_DENIED, // budget enforcer rejected improvement request
-  IMPROVEMENT_OUTCOME // improvement case completed — outcome recorded
+  IMPROVEMENT_OUTCOME, // improvement case completed — outcome recorded
+
+  CIRCUIT_BREAKER_TRIPPED, // health circuit breaker CLOSED → OPEN
+  CIRCUIT_BREAKER_RECOVERING, // health circuit breaker OPEN → HALF_OPEN
+  CIRCUIT_BREAKER_RESET, // health circuit breaker HALF_OPEN → CLOSED (or manual reset)
+  CAPABILITY_AREA_CHANGED, // capability area registered, deprecated, or assessment updated
+  REGRESSION_DETECTED, // regression detector identified health degradation after improvement
+  ROLLBACK_STARTED, // rollback case spawned for a regressed improvement
+  IMPROVEMENT_CONFLICT_DETECTED // concurrent improvement paths overlap — serialised
 }

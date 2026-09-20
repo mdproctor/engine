@@ -90,7 +90,10 @@ class ImprovementGoalFormationStrategyTest {
     var config = new ImprovementConfig(null, 2, null, budget, null);
     String signalName = "improvement:quality:lint:violation";
 
-    budgetEnforcer.recordStart(UUID.randomUUID());
+    budgetEnforcer.recordStart(
+        UUID.randomUUID(),
+        new ImprovementRequest(
+            "operational", "lint-fix", "checkstyle", "casehubio/engine", List.of(), 10, Map.of()));
 
     signalRegistry.deposit(caseId, signalName, 1.0, Duration.ofHours(1), "agent-1", 100);
     signalRegistry.deposit(caseId, signalName, 1.0, Duration.ofHours(1), "agent-2", 100);

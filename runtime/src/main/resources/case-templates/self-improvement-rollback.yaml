@@ -1,0 +1,41 @@
+id: self-improvement-rollback
+name: Improvement Rollback
+description: Revert a regressed improvement
+
+bindings:
+  - name: confirm-regression
+    trigger:
+      type: on-create
+    capability: improvement-introspect
+
+  - name: revert
+    trigger:
+      type: on-complete
+      source: confirm-regression
+    when: "context.layer('WORKING').get('regressionConfirmed') == 'true'"
+    capability: improvement-revert
+
+  - name: submit-pr
+    trigger:
+      type: on-complete
+      source: revert
+    capability: improvement-submit-pr
+
+  - name: fast-track-review
+    trigger:
+      type: on-signal
+      signal: "improvement:pr-submitted"
+    capability: code-review
+
+  - name: integrate
+    trigger:
+      type: on-complete
+      source: fast-track-review
+    when: "context.layer('WORKING').get('reviewOutcome') == 'approved'"
+    capability: improvement-integrate
+
+  - name: record-outcome
+    trigger:
+      type: on-complete
+      source: integrate
+    capability: improvement-outcome

@@ -32,15 +32,37 @@ public class ImprovementGoalFormationStrategy implements GoalFormationStrategy {
   private final ImprovementBudgetEnforcer budgetEnforcer;
   private final SignalRegistry signalRegistry;
   private final ImprovementSignalContext signalContext;
+  private final ImprovementCategoryTracker categoryTracker;
+  private final RollbackHistory rollbackHistory;
+  private final ConflictDetector conflictDetector;
 
   @Inject
   public ImprovementGoalFormationStrategy(
       ImprovementBudgetEnforcer budgetEnforcer,
       SignalRegistry signalRegistry,
-      ImprovementSignalContext signalContext) {
+      ImprovementSignalContext signalContext,
+      ImprovementCategoryTracker categoryTracker,
+      RollbackHistory rollbackHistory,
+      ConflictDetector conflictDetector) {
     this.budgetEnforcer = budgetEnforcer;
     this.signalRegistry = signalRegistry;
     this.signalContext = signalContext;
+    this.categoryTracker = categoryTracker;
+    this.rollbackHistory = rollbackHistory;
+    this.conflictDetector = conflictDetector;
+  }
+
+  public ImprovementGoalFormationStrategy(
+      ImprovementBudgetEnforcer budgetEnforcer,
+      SignalRegistry signalRegistry,
+      ImprovementSignalContext signalContext) {
+    this(
+        budgetEnforcer,
+        signalRegistry,
+        signalContext,
+        new ImprovementCategoryTracker(),
+        new RollbackHistory(),
+        new ConflictDetector());
   }
 
   @Override
@@ -75,8 +97,30 @@ public class ImprovementGoalFormationStrategy implements GoalFormationStrategy {
         continue;
       }
 
+      if (categoryTracker.isSuppressed(caseId, request.category())) {
+        continue;
+      }
+
+      if (rollbackHistory.wasRecentlyRolledBack(
+          caseId,
+          request.category(),
+          request.target(),
+          java.time.Duration.ofMinutes(
+              config.effectiveRollbackPolicy().effectiveRegressionWindowMinutes()))) {
+        continue;
+      }
+
       var budgetCheck = budgetEnforcer.check(caseId, config.effectiveBudget(), request);
       if (budgetCheck instanceof ImprovementBudgetEnforcer.BudgetCheck.Denied) {
+        continue;
+      }
+
+      var conflictCheck =
+          conflictDetector.check(
+              request,
+              budgetEnforcer.activeImprovementRequests(),
+              config.effectiveConflictTrivialThreshold());
+      if (conflictCheck instanceof ConflictDetector.ConflictCheck.Conflicting) {
         continue;
       }
 

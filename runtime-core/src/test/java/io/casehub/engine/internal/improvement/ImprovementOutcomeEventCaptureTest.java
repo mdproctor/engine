@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import io.casehub.api.model.stigmergy.ImprovementRequest;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.signal.SignalRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
@@ -54,7 +55,16 @@ class ImprovementOutcomeEventCaptureTest {
   @Test
   void captureRecordsAllThreeLayers() {
     var improvementCaseId = UUID.randomUUID();
-    budgetEnforcer.recordStart(improvementCaseId);
+    budgetEnforcer.recordStart(
+        improvementCaseId,
+        new ImprovementRequest(
+            "operational",
+            "dependency-update",
+            "hibernate-core",
+            "casehubio/engine",
+            java.util.List.of("pom.xml"),
+            20,
+            java.util.Map.of()));
 
     var outcome =
         new ImprovementOutcome(
