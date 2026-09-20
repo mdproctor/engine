@@ -898,10 +898,8 @@ public class RuntimeBeans {
           Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator,
           Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
           Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
-          Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
-              swarmProgressTracker,
-          Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner>
-              swarmProvisioner) {
+          Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker> swarmProgressTracker,
+          Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner> swarmProvisioner) {
     return new io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler(
         eventDispatcher,
         jqEvaluator,

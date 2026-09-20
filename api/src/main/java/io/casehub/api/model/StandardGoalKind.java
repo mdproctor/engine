@@ -17,7 +17,8 @@ package io.casehub.api.model;
 
 public enum StandardGoalKind implements GoalKind {
   SUCCESS("success", CaseStatus.COMPLETED),
-  FAILURE("failure", CaseStatus.FAULTED);
+  FAILURE("failure", CaseStatus.FAULTED),
+  SELF_IMPROVEMENT("self_improvement", CaseStatus.COMPLETED);
 
   private final String value;
   private final CaseStatus terminalStatus;

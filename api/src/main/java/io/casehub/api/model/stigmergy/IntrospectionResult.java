@@ -15,18 +15,13 @@
  */
 package io.casehub.api.model.stigmergy;
 
-import jakarta.annotation.Nullable;
+import java.util.List;
+import java.util.Map;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm,
-    @Nullable ImprovementConfig improvement) {
-
-  public StigmergyConfig(
-      @Nullable StigmergyDefaults defaults,
-      @Nullable CoordinationConfig coordination,
-      @Nullable SwarmConfig swarm) {
-    this(defaults, coordination, swarm, null);
-  }
-}
+public record IntrospectionResult(
+    String category,
+    String description,
+    List<String> affectedPaths,
+    int estimatedSize,
+    String proposedChange,
+    Map<String, String> metadata) {}

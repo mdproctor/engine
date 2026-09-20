@@ -13,20 +13,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.model.stigmergy;
+package io.casehub.engine.internal.improvement;
 
-import jakarta.annotation.Nullable;
+import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import jakarta.enterprise.context.ApplicationScoped;
+import org.jboss.logging.Logger;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm,
-    @Nullable ImprovementConfig improvement) {
+@ApplicationScoped
+public class ImprovementCbrProjector {
 
-  public StigmergyConfig(
-      @Nullable StigmergyDefaults defaults,
-      @Nullable CoordinationConfig coordination,
-      @Nullable SwarmConfig swarm) {
-    this(defaults, coordination, swarm, null);
+  private static final Logger LOG = Logger.getLogger(ImprovementCbrProjector.class);
+
+  public void project(String tenancyId, ImprovementOutcome outcome) {
+    LOG.debugf(
+        "CBR trace for improvement outcome: category=%s target=%s status=%s tenancyId=%s",
+        outcome.category(), outcome.target(), outcome.status(), tenancyId);
   }
 }

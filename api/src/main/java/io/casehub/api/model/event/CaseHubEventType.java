@@ -132,5 +132,9 @@ public enum CaseHubEventType {
   SWARM_PROVISION_FAILED, // WorkerProvisioner.provision() threw ProvisioningException
   SWARM_PROVISION_VETOED, // SwarmProvisioningAdvisor vetoed the provision
   SWARM_PROVISION_BUDGET_EXHAUSTED, // budget check failed (any of the 3 layers)
-  SWARM_AGENT_TERMINATED // idle agent de-provisioned
+  SWARM_AGENT_TERMINATED, // idle agent de-provisioned
+
+  IMPROVEMENT_GOAL_FORMED, // improvement signal consensus → goal proposed
+  IMPROVEMENT_BUDGET_DENIED, // budget enforcer rejected improvement request
+  IMPROVEMENT_OUTCOME // improvement case completed — outcome recorded
 }

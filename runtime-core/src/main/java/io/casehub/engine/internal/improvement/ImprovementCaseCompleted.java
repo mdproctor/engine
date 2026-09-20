@@ -13,20 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.model.stigmergy;
+package io.casehub.engine.internal.improvement;
 
-import jakarta.annotation.Nullable;
+import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import java.util.UUID;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm,
-    @Nullable ImprovementConfig improvement) {
-
-  public StigmergyConfig(
-      @Nullable StigmergyDefaults defaults,
-      @Nullable CoordinationConfig coordination,
-      @Nullable SwarmConfig swarm) {
-    this(defaults, coordination, swarm, null);
-  }
-}
+public record ImprovementCaseCompleted(UUID caseId, String tenancyId, ImprovementOutcome outcome) {}

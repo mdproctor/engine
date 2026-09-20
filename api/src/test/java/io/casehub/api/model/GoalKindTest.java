@@ -138,6 +138,15 @@ class GoalKindTest {
     }
 
     @Test
+    @DisplayName(
+        "fromValue('self_improvement') returns SELF_IMPROVEMENT with COMPLETED terminal status")
+    void fromValue_selfImprovement() {
+      GoalKind kind = GoalKind.fromValue("self_improvement");
+      assertEquals(StandardGoalKind.SELF_IMPROVEMENT, kind);
+      assertEquals(CaseStatus.COMPLETED, kind.terminalStatus());
+    }
+
+    @Test
     @DisplayName("fromValue('unknown') throws")
     void fromValue_unknown_throws() {
       assertThrows(IllegalArgumentException.class, () -> StandardGoalKind.fromValue("unknown"));

@@ -16,17 +16,28 @@
 package io.casehub.api.model.stigmergy;
 
 import jakarta.annotation.Nullable;
+import java.time.Instant;
+import java.util.Map;
+import java.util.UUID;
 
-public record StigmergyConfig(
-    @Nullable StigmergyDefaults defaults,
-    @Nullable CoordinationConfig coordination,
-    @Nullable SwarmConfig swarm,
-    @Nullable ImprovementConfig improvement) {
+public record ImprovementOutcome(
+    UUID caseId,
+    UUID improvementCaseId,
+    String category,
+    String target,
+    OutcomeStatus status,
+    @Nullable String prUrl,
+    @Nullable Integer ciDelta,
+    @Nullable Double coverageDelta,
+    @Nullable Integer lintDelta,
+    Instant completedAt,
+    Map<String, String> metadata) {
 
-  public StigmergyConfig(
-      @Nullable StigmergyDefaults defaults,
-      @Nullable CoordinationConfig coordination,
-      @Nullable SwarmConfig swarm) {
-    this(defaults, coordination, swarm, null);
+  public enum OutcomeStatus {
+    MERGED,
+    REJECTED,
+    REGRESSION,
+    FAILED,
+    ABANDONED
   }
 }
