@@ -15,10 +15,10 @@
  */
 package io.casehub.engine.internal.improvement;
 
+import io.casehub.api.model.improvement.ImprovementOutcome;
+import io.casehub.api.model.improvement.RollbackPolicy;
 import io.casehub.api.model.stigmergy.HealthScoreSnapshot;
-import io.casehub.api.model.stigmergy.ImprovementOutcome;
 import io.casehub.api.model.stigmergy.RegressionVerdict;
-import io.casehub.api.model.stigmergy.RollbackPolicy;
 import io.casehub.engine.common.spi.Resettable;
 import io.casehub.engine.common.spi.event.RegressionDetectedEvent;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -15,13 +15,13 @@
  */
 package io.casehub.api.spi.improvement;
 
+import io.casehub.api.model.improvement.ComplianceLevel;
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ReadinessReport;
 import io.casehub.api.model.stigmergy.ArtifactManifest;
 import io.casehub.api.model.stigmergy.CategoryDescriptor;
-import io.casehub.api.model.stigmergy.ComplianceLevel;
 import io.casehub.api.model.stigmergy.ConductorInboxEntry;
 import io.casehub.api.model.stigmergy.GatePolicy;
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ReadinessReport;
 import io.casehub.api.model.stigmergy.StageDescriptor;
 import io.casehub.api.model.stigmergy.TickTrace;
 import io.casehub.api.model.stigmergy.WatchPattern;

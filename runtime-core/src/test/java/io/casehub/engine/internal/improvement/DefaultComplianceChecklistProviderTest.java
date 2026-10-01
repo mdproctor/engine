@@ -17,8 +17,8 @@ package io.casehub.engine.internal.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.api.model.stigmergy.ComplianceChecklist.CheckRequirement.CheckType;
-import io.casehub.api.model.stigmergy.ComplianceLevel;
+import io.casehub.api.model.improvement.ComplianceChecklist.CheckRequirement.CheckType;
+import io.casehub.api.model.improvement.ComplianceLevel;
 import org.junit.jupiter.api.Test;
 
 class DefaultComplianceChecklistProviderTest {

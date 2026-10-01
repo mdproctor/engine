@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.improvement;
 
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ImprovementRequest;
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import io.casehub.api.spi.improvement.ImprovementProposalSource;
 import io.casehub.engine.common.internal.signal.SignalRegistry;
 import jakarta.enterprise.context.ApplicationScoped;

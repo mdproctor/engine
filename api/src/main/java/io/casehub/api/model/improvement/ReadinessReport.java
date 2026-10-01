@@ -13,19 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.model.stigmergy;
+package io.casehub.api.model.improvement;
 
+import jakarta.annotation.Nullable;
+import java.time.Instant;
 import java.util.List;
 
-public record ComplianceChecklist(
-    String areaId, ComplianceLevel level, List<CheckRequirement> requirements) {
+public record ReadinessReport(
+    ComplianceLevel targetLevel,
+    ComplianceLevel projectLevel,
+    List<AreaCompliance> areas,
+    boolean passed,
+    Instant evaluatedAt) {
 
-  public record CheckRequirement(String name, String description, CheckType type) {
+  public record AreaCompliance(
+      String areaId, ComplianceLevel areaLevel, List<CheckResult> checks) {}
 
-    public enum CheckType {
-      DATA_FLOW,
-      CONFIGURATION,
-      INFRASTRUCTURE
-    }
-  }
+  public record CheckResult(
+      String name,
+      boolean satisfied,
+      String expected,
+      String actual,
+      @Nullable String remediation) {}
 }

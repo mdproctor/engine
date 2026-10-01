@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.internal.improvement;
 
-import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import io.casehub.api.model.improvement.ImprovementOutcome;
 import java.util.UUID;
 
 public record ImprovementCaseCompleted(UUID caseId, String tenancyId, ImprovementOutcome outcome) {}

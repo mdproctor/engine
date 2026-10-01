@@ -17,8 +17,8 @@ package io.casehub.engine.internal.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ImprovementRequest;
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import io.casehub.engine.common.internal.signal.SignalRegistry;
 import java.time.Duration;
 import java.util.Map;

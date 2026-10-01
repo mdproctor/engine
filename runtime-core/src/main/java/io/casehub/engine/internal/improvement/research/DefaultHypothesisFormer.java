@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.improvement.research;
 
+import io.casehub.api.model.improvement.ImprovementHypothesis;
 import io.casehub.api.model.stigmergy.CapabilityAreaAssessment;
-import io.casehub.api.model.stigmergy.ImprovementHypothesis;
 import io.casehub.api.model.stigmergy.ResearchAnalysis;
 import io.casehub.api.spi.improvement.HypothesisFormer;
 import jakarta.enterprise.context.ApplicationScoped;

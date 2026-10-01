@@ -15,8 +15,8 @@
  */
 package io.casehub.api.spi.improvement;
 
-import io.casehub.api.model.stigmergy.ComplianceChecklist;
-import io.casehub.api.model.stigmergy.ComplianceLevel;
+import io.casehub.api.model.improvement.ComplianceChecklist;
+import io.casehub.api.model.improvement.ComplianceLevel;
 
 public interface ComplianceChecklistProvider {
   ComplianceChecklist checklistFor(String areaId, ComplianceLevel level);

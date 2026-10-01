@@ -17,7 +17,7 @@ package io.casehub.engine.internal.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.api.model.stigmergy.ImprovementRequest;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

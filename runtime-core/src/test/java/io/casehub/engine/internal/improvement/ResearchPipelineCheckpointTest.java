@@ -17,11 +17,11 @@ package io.casehub.engine.internal.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.model.improvement.ImprovementHypothesis;
 import io.casehub.api.model.stigmergy.CapabilityAreaAssessment;
 import io.casehub.api.model.stigmergy.EscalationPolicy;
 import io.casehub.api.model.stigmergy.GatePolicy;
 import io.casehub.api.model.stigmergy.GatePolicy.GateMode;
-import io.casehub.api.model.stigmergy.ImprovementHypothesis;
 import io.casehub.api.model.stigmergy.ResearchPipelineResult;
 import io.casehub.api.model.stigmergy.ResearchScope;
 import io.casehub.api.spi.improvement.ResearchDepth;

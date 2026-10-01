@@ -15,8 +15,8 @@
  */
 package io.casehub.api.view;
 
+import io.casehub.api.model.improvement.ComplianceLevel;
 import io.casehub.api.model.stigmergy.CircuitBreakerState;
-import io.casehub.api.model.stigmergy.ComplianceLevel;
 import io.casehub.api.model.stigmergy.TickTrace;
 import jakarta.annotation.Nullable;
 import java.time.Instant;

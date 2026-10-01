@@ -17,9 +17,9 @@ package io.casehub.engine.internal.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.api.model.stigmergy.ImprovementBudget;
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ImprovementRequest;
+import io.casehub.api.model.improvement.ImprovementBudget;
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import io.casehub.engine.common.spi.DenyPatternStore;
 import java.util.HashSet;
 import java.util.List;

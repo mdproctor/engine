@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.internal.improvement;
 
-import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import io.casehub.api.model.improvement.ImprovementOutcome;
 import jakarta.enterprise.context.ApplicationScoped;
 import org.jboss.logging.Logger;
 

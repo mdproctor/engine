@@ -18,7 +18,7 @@ package io.casehub.engine.internal.improvement;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import io.casehub.api.model.improvement.ImprovementOutcome;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.spi.EventLogRepository;
 import jakarta.enterprise.context.ApplicationScoped;

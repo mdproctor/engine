@@ -15,10 +15,10 @@
  */
 package io.casehub.engine.internal.improvement;
 
-import io.casehub.api.model.stigmergy.ComplianceChecklist;
-import io.casehub.api.model.stigmergy.ComplianceChecklist.CheckRequirement;
-import io.casehub.api.model.stigmergy.ComplianceChecklist.CheckRequirement.CheckType;
-import io.casehub.api.model.stigmergy.ComplianceLevel;
+import io.casehub.api.model.improvement.ComplianceChecklist;
+import io.casehub.api.model.improvement.ComplianceChecklist.CheckRequirement;
+import io.casehub.api.model.improvement.ComplianceChecklist.CheckRequirement.CheckType;
+import io.casehub.api.model.improvement.ComplianceLevel;
 import io.casehub.api.spi.improvement.ComplianceChecklistProvider;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;

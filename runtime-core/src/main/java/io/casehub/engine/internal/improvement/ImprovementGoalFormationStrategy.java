@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.internal.improvement;
 
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import io.casehub.api.model.stigmergy.CategoryDescriptor;
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ImprovementRequest;
 import io.casehub.api.spi.improvement.ConflictStrategy;
 import io.casehub.api.spi.routing.GoalFormationContext;
 import io.casehub.api.spi.routing.GoalFormationProposal;

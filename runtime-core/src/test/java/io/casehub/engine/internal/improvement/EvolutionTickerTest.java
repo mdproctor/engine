@@ -17,10 +17,10 @@ package io.casehub.engine.internal.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.model.improvement.HealthPolicy;
+import io.casehub.api.model.improvement.ImprovementConfig;
 import io.casehub.api.model.stigmergy.CapabilityAreaAssessment;
 import io.casehub.api.model.stigmergy.CircuitBreakerState;
-import io.casehub.api.model.stigmergy.HealthPolicy;
-import io.casehub.api.model.stigmergy.ImprovementConfig;
 import io.casehub.api.model.stigmergy.TickTrace;
 import io.casehub.api.model.stigmergy.TickTrace.GateResult.GateVerdict;
 import io.casehub.api.spi.improvement.CapabilityArea;

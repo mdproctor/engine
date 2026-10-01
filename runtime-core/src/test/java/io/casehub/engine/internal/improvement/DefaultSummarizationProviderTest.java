@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
-import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import io.casehub.api.model.improvement.ImprovementOutcome;
 import io.casehub.api.model.stigmergy.SummaryScope;
 import io.casehub.api.view.EvolutionSummary;
 import io.casehub.engine.common.internal.history.EventLog;

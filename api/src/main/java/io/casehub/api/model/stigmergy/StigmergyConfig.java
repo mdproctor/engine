@@ -15,6 +15,7 @@
  */
 package io.casehub.api.model.stigmergy;
 
+import io.casehub.api.model.improvement.ImprovementConfig;
 import jakarta.annotation.Nullable;
 
 public record StigmergyConfig(

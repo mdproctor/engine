@@ -13,10 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.model.stigmergy;
+package io.casehub.api.model.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.model.stigmergy.StigmergyConfig;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 

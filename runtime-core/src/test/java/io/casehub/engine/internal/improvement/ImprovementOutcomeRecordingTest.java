@@ -18,7 +18,7 @@ package io.casehub.engine.internal.improvement;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import io.casehub.api.model.improvement.ImprovementOutcome;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.signal.SignalRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;

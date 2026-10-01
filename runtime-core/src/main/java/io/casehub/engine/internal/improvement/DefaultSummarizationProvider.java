@@ -17,7 +17,7 @@ package io.casehub.engine.internal.improvement;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.model.event.CaseHubEventType;
-import io.casehub.api.model.stigmergy.ImprovementOutcome;
+import io.casehub.api.model.improvement.ImprovementOutcome;
 import io.casehub.api.model.stigmergy.SummaryScope;
 import io.casehub.api.spi.improvement.SummarizationProvider;
 import io.casehub.api.view.EvolutionSummary;

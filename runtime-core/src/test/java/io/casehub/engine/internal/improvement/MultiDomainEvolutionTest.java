@@ -17,10 +17,10 @@ package io.casehub.engine.internal.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import io.casehub.api.model.stigmergy.CategoryDescriptor;
 import io.casehub.api.model.stigmergy.HealthScoreSnapshot;
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ImprovementRequest;
 import io.casehub.api.model.stigmergy.RegressionVerdict;
 import io.casehub.api.model.stigmergy.StageDescriptor;
 import io.casehub.api.spi.improvement.ImprovementCategoryProvider;

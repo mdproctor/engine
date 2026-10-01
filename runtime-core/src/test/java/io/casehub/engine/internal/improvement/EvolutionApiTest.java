@@ -19,6 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
+import io.casehub.api.model.improvement.ComplianceLevel;
+import io.casehub.api.model.improvement.HealthPolicy;
+import io.casehub.api.model.improvement.ImprovementConfig;
 import io.casehub.api.model.stigmergy.ConductorInboxEntry;
 import io.casehub.api.model.stigmergy.ConductorInboxEntry.Status;
 import io.casehub.engine.common.internal.history.EventLog;
@@ -201,8 +204,7 @@ class EvolutionApiTest {
   @Test
   void resetCircuitBreakerDelegatesToBreaker() {
     var healthTracker = new HealthScoreTracker(new CapabilityAreaRegistry());
-    var policy =
-        new io.casehub.api.model.stigmergy.HealthPolicy(null, null, null, null, null, null);
+    var policy = new HealthPolicy(null, null, null, null, null, null);
     circuitBreaker.evaluate(caseId, "test-tenant", healthTracker, policy);
     circuitBreaker.evaluate(caseId, "test-tenant", healthTracker, policy);
 
@@ -214,28 +216,19 @@ class EvolutionApiTest {
   @Test
   void getReadinessReportDelegatesToValidator() {
     var config =
-        new io.casehub.api.model.stigmergy.ImprovementConfig(
-            null, null, null, null, null, null, null, null, null, null, null);
-    var report =
-        api.getReadinessReport(
-            caseId,
-            "test-tenant",
-            io.casehub.api.model.stigmergy.ComplianceLevel.L1_OBSERVE,
-            config);
+        new ImprovementConfig(null, null, null, null, null, null, null, null, null, null, null);
+    var report = api.getReadinessReport(caseId, "test-tenant", ComplianceLevel.L1_OBSERVE, config);
     assertThat(report).isNotNull();
-    assertThat(report.targetLevel())
-        .isEqualTo(io.casehub.api.model.stigmergy.ComplianceLevel.L1_OBSERVE);
+    assertThat(report.targetLevel()).isEqualTo(ComplianceLevel.L1_OBSERVE);
     assertThat(report.evaluatedAt()).isNotNull();
   }
 
   @Test
   void triggerReadinessValidationReturnsReport() {
     var config =
-        new io.casehub.api.model.stigmergy.ImprovementConfig(
-            null, null, null, null, null, null, null, null, null, null, null);
+        new ImprovementConfig(null, null, null, null, null, null, null, null, null, null, null);
     var report =
-        api.triggerReadinessValidation(
-            caseId, "test-tenant", io.casehub.api.model.stigmergy.ComplianceLevel.L0_INERT, config);
+        api.triggerReadinessValidation(caseId, "test-tenant", ComplianceLevel.L0_INERT, config);
     assertThat(report).isNotNull();
     assertThat(report.passed()).isTrue();
   }
@@ -243,8 +236,7 @@ class EvolutionApiTest {
   @Test
   void getEvolutionStateComposesSnapshot() {
     var config =
-        new io.casehub.api.model.stigmergy.ImprovementConfig(
-            null, null, null, null, null, null, null, null, null, null, null);
+        new ImprovementConfig(null, null, null, null, null, null, null, null, null, null, null);
     var snapshot = api.getEvolutionState(caseId, "test-tenant", config);
     assertThat(snapshot).isNotNull();
     assertThat(snapshot.caseId()).isEqualTo(caseId);

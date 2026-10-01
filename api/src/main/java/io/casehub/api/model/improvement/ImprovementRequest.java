@@ -13,11 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.api.model.stigmergy;
+package io.casehub.api.model.improvement;
 
-public enum ComplianceLevel {
-  L0_INERT,
-  L1_OBSERVE,
-  L2_PROPOSE,
-  L3_AUTONOMOUS
-}
+import jakarta.annotation.Nullable;
+import java.util.Map;
+
+public record ImprovementRequest(
+    String improvementType,
+    String category,
+    String target,
+    int estimatedSize,
+    Map<String, String> metadata,
+    @Nullable String domainId) {}

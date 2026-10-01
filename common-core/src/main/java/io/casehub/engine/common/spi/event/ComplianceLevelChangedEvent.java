@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.common.spi.event;
 
-import io.casehub.api.model.stigmergy.ComplianceLevel;
+import io.casehub.api.model.improvement.ComplianceLevel;
 import java.util.UUID;
 
 public record ComplianceLevelChangedEvent(

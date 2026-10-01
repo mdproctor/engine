@@ -15,8 +15,8 @@
  */
 package io.casehub.api.spi.improvement;
 
+import io.casehub.api.model.improvement.ImprovementHypothesis;
 import io.casehub.api.model.stigmergy.CapabilityAreaAssessment;
-import io.casehub.api.model.stigmergy.ImprovementHypothesis;
 import io.casehub.api.model.stigmergy.ResearchAnalysis;
 import java.util.List;
 

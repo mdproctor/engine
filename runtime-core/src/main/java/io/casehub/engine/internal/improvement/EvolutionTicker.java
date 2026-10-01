@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.improvement;
 
+import io.casehub.api.model.improvement.ImprovementConfig;
 import io.casehub.api.model.stigmergy.CircuitBreakerState;
-import io.casehub.api.model.stigmergy.ImprovementConfig;
 import io.casehub.api.model.stigmergy.TickTrace;
 import io.casehub.api.model.stigmergy.TickTrace.GateResult;
 import io.casehub.api.model.stigmergy.TickTrace.GateResult.GateVerdict;

@@ -15,8 +15,8 @@
  */
 package io.casehub.api.spi.improvement;
 
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ImprovementRequest;
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import java.util.List;
 import java.util.UUID;
 

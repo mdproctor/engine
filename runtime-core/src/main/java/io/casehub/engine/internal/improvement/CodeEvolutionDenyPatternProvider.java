@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.improvement;
 
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ImprovementRequest;
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import io.casehub.api.spi.improvement.DenyPatternProvider;
 import io.casehub.engine.common.spi.DenyPatternStore;
 import jakarta.enterprise.context.ApplicationScoped;

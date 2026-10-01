@@ -18,8 +18,8 @@ package io.casehub.engine.internal.improvement;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import io.casehub.api.model.improvement.HealthPolicy;
 import io.casehub.api.model.stigmergy.CapabilityAreaAssessment;
-import io.casehub.api.model.stigmergy.HealthPolicy;
 import io.casehub.api.spi.improvement.CapabilityArea;
 import java.time.Instant;
 import java.util.Map;

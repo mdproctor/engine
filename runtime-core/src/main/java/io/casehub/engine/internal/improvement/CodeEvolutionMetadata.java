@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.internal.improvement;
 
-import io.casehub.api.model.stigmergy.ImprovementRequest;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

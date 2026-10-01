@@ -17,13 +17,13 @@ package io.casehub.engine.internal.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.model.improvement.HealthPolicy;
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ImprovementOutcome;
+import io.casehub.api.model.improvement.ImprovementRequest;
+import io.casehub.api.model.improvement.RollbackPolicy;
 import io.casehub.api.model.stigmergy.CapabilityAreaAssessment;
 import io.casehub.api.model.stigmergy.CircuitBreakerState;
-import io.casehub.api.model.stigmergy.HealthPolicy;
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ImprovementOutcome;
-import io.casehub.api.model.stigmergy.ImprovementRequest;
-import io.casehub.api.model.stigmergy.RollbackPolicy;
 import io.casehub.api.spi.improvement.CapabilityArea;
 import io.casehub.api.spi.routing.GoalFormationResult;
 import io.casehub.api.spi.routing.GoalFormationService;

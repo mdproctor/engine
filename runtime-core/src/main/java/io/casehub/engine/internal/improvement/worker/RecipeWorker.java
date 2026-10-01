@@ -15,7 +15,7 @@
  */
 package io.casehub.engine.internal.improvement.worker;
 
-import io.casehub.api.model.stigmergy.ImprovementRequest;
+import io.casehub.api.model.improvement.ImprovementRequest;
 import io.casehub.api.model.stigmergy.IntrospectionResult;
 import io.casehub.engine.internal.improvement.CodeEvolutionMetadata;
 import jakarta.enterprise.context.ApplicationScoped;

@@ -15,12 +15,12 @@
  */
 package io.casehub.engine.internal.improvement;
 
-import io.casehub.api.model.stigmergy.ComplianceChecklist.CheckRequirement;
-import io.casehub.api.model.stigmergy.ComplianceLevel;
-import io.casehub.api.model.stigmergy.ImprovementConfig;
-import io.casehub.api.model.stigmergy.ReadinessReport;
-import io.casehub.api.model.stigmergy.ReadinessReport.AreaCompliance;
-import io.casehub.api.model.stigmergy.ReadinessReport.CheckResult;
+import io.casehub.api.model.improvement.ComplianceChecklist.CheckRequirement;
+import io.casehub.api.model.improvement.ComplianceLevel;
+import io.casehub.api.model.improvement.ImprovementConfig;
+import io.casehub.api.model.improvement.ReadinessReport;
+import io.casehub.api.model.improvement.ReadinessReport.AreaCompliance;
+import io.casehub.api.model.improvement.ReadinessReport.CheckResult;
 import io.casehub.api.spi.improvement.CapabilityArea;
 import io.casehub.api.spi.improvement.ComplianceChecklistProvider;
 import io.casehub.engine.common.spi.event.ComplianceLevelChangedEvent;

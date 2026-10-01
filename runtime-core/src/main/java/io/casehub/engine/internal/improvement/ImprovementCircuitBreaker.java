@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.internal.improvement;
 
+import io.casehub.api.model.improvement.HealthPolicy;
 import io.casehub.api.model.stigmergy.CircuitBreakerState;
-import io.casehub.api.model.stigmergy.HealthPolicy;
 import io.casehub.engine.common.spi.Resettable;
 import io.casehub.engine.common.spi.event.CircuitBreakerStateChangedEvent;
 import jakarta.enterprise.context.ApplicationScoped;
