@@ -7,7 +7,7 @@
 Engine-owned SPI for agent worker selection. Replaces the borrowed `WorkerSelectionStrategy` from casehub-work.
 
 <p>Implement as `@ApplicationScoped @Alternative @Priority(N)` where N > 0 to override
-`io.casehub.engine.internal.routing.LeastLoadedAgentStrategy`. Higher priority wins.
+`io.casehub.engine.runtime.routing.LeastLoadedAgentStrategy`. Higher priority wins.
 
 <p>Implementations that do only in-memory work (e.g. trust scoring against a local cache) should
 return `Uni.createFrom().item(result)`. Implementations that make blocking calls (e.g. an

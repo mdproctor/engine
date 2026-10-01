@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.signal;
+package io.casehub.engine.runtime.signal;
 
 import io.casehub.api.engine.SignalSpace;
 import io.casehub.api.model.signal.PerceivedSignal;

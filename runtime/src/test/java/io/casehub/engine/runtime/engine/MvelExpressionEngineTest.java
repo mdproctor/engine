@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -22,7 +22,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.model.evaluator.TypedMvelExpressionEvaluator;
-import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import io.casehub.platform.api.expression.MvelExpressionEvaluator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

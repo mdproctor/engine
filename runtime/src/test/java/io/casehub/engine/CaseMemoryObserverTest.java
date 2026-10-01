@@ -25,7 +25,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
-import io.casehub.engine.internal.memory.CaseMemoryObserver;
+import io.casehub.engine.runtime.memory.CaseMemoryObserver;
 import io.casehub.memory.runtime.MemoryEmitterCore;
 import io.casehub.neocortex.memory.MemoryInput;
 import jakarta.enterprise.inject.Instance;

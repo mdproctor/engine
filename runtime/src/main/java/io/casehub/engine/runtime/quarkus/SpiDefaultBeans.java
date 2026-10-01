@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.quarkus;
+package io.casehub.engine.runtime.quarkus;
 
 import io.casehub.api.context.CaseContextStoreFactory;
 import io.casehub.api.engine.LoopControl;
@@ -44,27 +44,27 @@ import io.casehub.engine.common.spi.PlanItemStore;
 import io.casehub.engine.common.spi.recovery.CompoundLockRegistry;
 import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy;
-import io.casehub.engine.internal.context.InMemoryCaseContextStoreFactory;
-import io.casehub.engine.internal.engine.ChoreographyLoopControl;
-import io.casehub.engine.internal.routing.FirstSupportedRoutingStrategy;
-import io.casehub.engine.internal.routing.NoOpHumanTaskRoutingStrategy;
-import io.casehub.engine.internal.routing.NoOpImplementationRoutingStrategy;
-import io.casehub.engine.internal.routing.NoOpWorkloadDataProvider;
-import io.casehub.engine.internal.worker.DefaultErrorClassifier;
-import io.casehub.engine.internal.worker.DefaultFailureClassifier;
-import io.casehub.engine.internal.worker.DefaultJudgmentEscalator;
-import io.casehub.engine.internal.worker.EmptyWorkerContextProvider;
-import io.casehub.engine.internal.worker.NoOpAgentRegistry;
-import io.casehub.engine.internal.worker.NoOpCapabilityHealth;
-import io.casehub.engine.internal.worker.NoOpCaseChannelProvider;
-import io.casehub.engine.internal.worker.NoOpDispatchBudget;
-import io.casehub.engine.internal.worker.NoOpGoalDecomposer;
-import io.casehub.engine.internal.worker.NoOpPlanAdaptationEvaluator;
-import io.casehub.engine.internal.worker.NoOpPlanItemStore;
-import io.casehub.engine.internal.worker.NoOpRecoveryCoordinator;
-import io.casehub.engine.internal.worker.NoOpVocabularyRegistry;
-import io.casehub.engine.internal.worker.NoOpWorkerProvisioner;
-import io.casehub.engine.internal.worker.NoOpWorkerStatusListener;
+import io.casehub.engine.runtime.context.InMemoryCaseContextStoreFactory;
+import io.casehub.engine.runtime.engine.ChoreographyLoopControl;
+import io.casehub.engine.runtime.routing.FirstSupportedRoutingStrategy;
+import io.casehub.engine.runtime.routing.NoOpHumanTaskRoutingStrategy;
+import io.casehub.engine.runtime.routing.NoOpImplementationRoutingStrategy;
+import io.casehub.engine.runtime.routing.NoOpWorkloadDataProvider;
+import io.casehub.engine.runtime.worker.DefaultErrorClassifier;
+import io.casehub.engine.runtime.worker.DefaultFailureClassifier;
+import io.casehub.engine.runtime.worker.DefaultJudgmentEscalator;
+import io.casehub.engine.runtime.worker.EmptyWorkerContextProvider;
+import io.casehub.engine.runtime.worker.NoOpAgentRegistry;
+import io.casehub.engine.runtime.worker.NoOpCapabilityHealth;
+import io.casehub.engine.runtime.worker.NoOpCaseChannelProvider;
+import io.casehub.engine.runtime.worker.NoOpDispatchBudget;
+import io.casehub.engine.runtime.worker.NoOpGoalDecomposer;
+import io.casehub.engine.runtime.worker.NoOpPlanAdaptationEvaluator;
+import io.casehub.engine.runtime.worker.NoOpPlanItemStore;
+import io.casehub.engine.runtime.worker.NoOpRecoveryCoordinator;
+import io.casehub.engine.runtime.worker.NoOpVocabularyRegistry;
+import io.casehub.engine.runtime.worker.NoOpWorkerProvisioner;
+import io.casehub.engine.runtime.worker.NoOpWorkerStatusListener;
 import io.casehub.platform.api.identity.CurrentPrincipal;
 import io.quarkus.arc.DefaultBean;
 import jakarta.enterprise.context.ApplicationScoped;

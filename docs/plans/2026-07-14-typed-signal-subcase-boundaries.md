@@ -479,7 +479,7 @@ Refs #691"
 - [ ] **Step 1: Write validation tests for CaseHubRuntimeImpl**
 
 ```java
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.assertj.core.api.Assertions.*;
 import io.casehub.api.model.CaseDefinition;

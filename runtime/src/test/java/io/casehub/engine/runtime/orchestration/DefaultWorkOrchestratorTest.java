@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.orchestration;
+package io.casehub.engine.runtime.orchestration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -46,9 +46,9 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
-import io.casehub.engine.internal.routing.CbrRetrievalService;
-import io.casehub.engine.internal.routing.SubsumptionMatchStrategy;
-import io.casehub.engine.internal.work.PendingWorkRegistry;
+import io.casehub.engine.runtime.routing.CbrRetrievalService;
+import io.casehub.engine.runtime.routing.SubsumptionMatchStrategy;
+import io.casehub.engine.runtime.work.PendingWorkRegistry;
 import io.casehub.platform.api.routing.NamedStrategy;
 import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
@@ -88,8 +88,7 @@ class DefaultWorkOrchestratorTest {
 
   private static StrategyResolver testStrategyResolver() {
     final SubsumptionMatchStrategy matchStrategy =
-        new SubsumptionMatchStrategy(
-            new io.casehub.engine.internal.worker.NoOpVocabularyRegistry());
+        new SubsumptionMatchStrategy(new io.casehub.engine.runtime.worker.NoOpVocabularyRegistry());
     return new StrategyResolver() {
       @Override
       @SuppressWarnings("unchecked")
@@ -148,7 +147,7 @@ class DefaultWorkOrchestratorTest {
 
     orchestrator =
         new DefaultWorkOrchestrator(
-            new io.casehub.engine.internal.routing.AgentCandidateFactory(testStrategyResolver()),
+            new io.casehub.engine.runtime.routing.AgentCandidateFactory(testStrategyResolver()),
             agentRoutingStrategy,
             executionManager,
             capabilityHealth,

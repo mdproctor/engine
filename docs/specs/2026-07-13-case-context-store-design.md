@@ -185,7 +185,7 @@ a store containing the persisted state — no EventLog replay needed.
 ### Default implementation
 
 ```java
-package io.casehub.engine.internal.context;
+package io.casehub.engine.runtime.context;
 
 @DefaultBean
 @ApplicationScoped

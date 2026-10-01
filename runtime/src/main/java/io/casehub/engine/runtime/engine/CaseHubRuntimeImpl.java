@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,7 +32,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.time.Duration;

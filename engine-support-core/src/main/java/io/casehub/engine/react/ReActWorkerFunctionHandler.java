@@ -33,7 +33,7 @@ import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
-import io.casehub.engine.internal.executor.WorkerRuntimeFactory;
+import io.casehub.engine.runtime.executor.WorkerRuntimeFactory;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import java.time.Duration;

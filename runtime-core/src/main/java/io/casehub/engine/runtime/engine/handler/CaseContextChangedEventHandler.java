@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -73,14 +73,14 @@ import io.casehub.engine.common.spi.event.CaseContextUpdatedEvent;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.SelectionContext;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
-import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
-import io.casehub.engine.internal.engine.CaseEvaluationSerializer;
-import io.casehub.engine.internal.engine.QuiescenceTracker;
-import io.casehub.engine.internal.engine.SignalSettlementTracker;
-import io.casehub.engine.internal.improvement.ImprovementGoalFormationStrategy;
-import io.casehub.engine.internal.routing.AgentCandidateFactory;
-import io.casehub.engine.internal.routing.CbrRetrievalService;
-import io.casehub.engine.internal.routing.SelectionContextStore;
+import io.casehub.engine.runtime.acl.WorkerGrantOrchestrator;
+import io.casehub.engine.runtime.engine.CaseEvaluationSerializer;
+import io.casehub.engine.runtime.engine.QuiescenceTracker;
+import io.casehub.engine.runtime.engine.SignalSettlementTracker;
+import io.casehub.engine.runtime.improvement.ImprovementGoalFormationStrategy;
+import io.casehub.engine.runtime.routing.AgentCandidateFactory;
+import io.casehub.engine.runtime.routing.CbrRetrievalService;
+import io.casehub.engine.runtime.routing.SelectionContextStore;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.platform.api.routing.StrategyResolver;
@@ -135,21 +135,20 @@ public class CaseContextChangedEventHandler {
   private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
   private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
   private final io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker;
-  private final io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector;
-  private final io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer;
+  private final io.casehub.engine.runtime.convergence.ConvergenceDetector convergenceDetector;
+  private final io.casehub.engine.runtime.convergence.BudgetEnforcer budgetEnforcer;
   private final jakarta.enterprise.inject.Instance<
-          io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+          io.casehub.engine.runtime.stigmergy.StigmergyCoordinator>
       stigmergyCoordinator;
-  private final jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.RoleTracker>
+  private final jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.RoleTracker>
       roleTrackerInstance;
-  private final jakarta.enterprise.inject.Instance<
-          io.casehub.engine.internal.stigmergy.TeamDetector>
+  private final jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.TeamDetector>
       teamDetectorInstance;
   private final jakarta.enterprise.inject.Instance<
-          io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+          io.casehub.engine.runtime.stigmergy.SwarmProgressTracker>
       swarmProgressTrackerInstance;
   private final jakarta.enterprise.inject.Instance<
-          io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+          io.casehub.engine.runtime.stigmergy.SwarmProvisioner>
       swarmProvisionerInstance;
   private final jakarta.enterprise.inject.Instance<ImprovementGoalFormationStrategy>
       improvementStrategyInstance;
@@ -188,17 +187,17 @@ public class CaseContextChangedEventHandler {
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
-      io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+      io.casehub.engine.runtime.convergence.ConvergenceDetector convergenceDetector,
+      io.casehub.engine.runtime.convergence.BudgetEnforcer budgetEnforcer,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.StigmergyCoordinator>
           stigmergyCoordinator,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.RoleTracker>
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.RoleTracker>
           roleTrackerInstance,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.TeamDetector>
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.TeamDetector>
           teamDetectorInstance,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.SwarmProgressTracker>
           swarmProgressTrackerInstance,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.SwarmProvisioner>
           swarmProvisionerInstance,
       jakarta.enterprise.inject.Instance<ImprovementGoalFormationStrategy>
           improvementStrategyInstance,
@@ -359,7 +358,7 @@ public class CaseContextChangedEventHandler {
         && caseInstance.getCaseContext()
             instanceof io.casehub.api.context.MutableCaseContext mctx) {
       var layer =
-          (io.casehub.engine.internal.context.WritableLayerImpl)
+          (io.casehub.engine.runtime.context.WritableLayerImpl)
               mctx.writableLayer(ContextLayer.WORKING);
       layer.engineSet("cbrEnsemble", MAPPER.convertValue(cbrResult.ensemble(), MAP_TYPE));
     }
@@ -1034,7 +1033,7 @@ public class CaseContextChangedEventHandler {
 
     var mutableCtx = (io.casehub.api.context.MutableCaseContext) caseInstance.getCaseContext();
     var layer =
-        (io.casehub.engine.internal.context.WritableLayerImpl)
+        (io.casehub.engine.runtime.context.WritableLayerImpl)
             mutableCtx.writableLayer(ContextLayer.WORKING);
 
     Map<String, Object> existing =
@@ -1366,8 +1365,8 @@ public class CaseContextChangedEventHandler {
     java.util.Map<String, java.util.List<io.casehub.api.spi.observation.LocalRule>> rulesByAgent =
         ruleRegistry.getRulesForCase(caseInstance.getUuid());
 
-    io.casehub.engine.internal.observation.LocalRuleEvaluator evaluator =
-        new io.casehub.engine.internal.observation.LocalRuleEvaluator(signalRegistry);
+    io.casehub.engine.runtime.observation.LocalRuleEvaluator evaluator =
+        new io.casehub.engine.runtime.observation.LocalRuleEvaluator(signalRegistry);
 
     java.util.List<io.casehub.api.spi.observation.RuleAction.WriteContext> batchedWrites =
         new java.util.ArrayList<>();

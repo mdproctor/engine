@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -73,7 +73,7 @@ class BulkSignalEventLogAuditTest {
             lifecycleEvents,
             traceIdProvider,
             bridgeResolver,
-            new io.casehub.engine.internal.engine.QuiescenceTracker());
+            new io.casehub.engine.runtime.engine.QuiescenceTracker());
     when(traceIdProvider.currentTraceId()).thenReturn(Optional.empty());
   }
 
@@ -112,7 +112,7 @@ class BulkSignalEventLogAuditTest {
     instance.setUuid(caseId);
     instance.tenancyId = tenancyId;
     instance.setState(CaseStatus.RUNNING);
-    instance.setCaseContext(new io.casehub.engine.internal.context.CaseContextImpl());
+    instance.setCaseContext(new io.casehub.engine.runtime.context.CaseContextImpl());
     CaseMetaModel meta = new CaseMetaModel();
     meta.setName("test");
     meta.setNamespace("test");

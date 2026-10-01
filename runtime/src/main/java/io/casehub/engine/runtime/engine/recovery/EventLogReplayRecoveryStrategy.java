@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.recovery;
+package io.casehub.engine.runtime.engine.recovery;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -25,8 +25,8 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.recovery.CaseContextRecoveryStrategy;
-import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.engine.internal.context.EpisodicLayerUpdater;
+import io.casehub.engine.runtime.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.EpisodicLayerUpdater;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Typed;
 import java.util.EnumSet;

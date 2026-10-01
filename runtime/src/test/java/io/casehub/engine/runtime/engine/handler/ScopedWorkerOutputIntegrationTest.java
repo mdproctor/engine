@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -21,7 +21,7 @@ import io.casehub.api.model.CaseStatus;
 import io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import java.util.Map;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.recovery;
+package io.casehub.engine.runtime.engine.recovery;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -21,8 +21,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.casehub.api.context.CaseContext;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.recovery.CaseContextRecoveryStrategy;
-import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.persistence.memory.InMemoryEventLogRepository;
+import io.casehub.engine.persistence.memory.InMemoryEventLogRepository;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import jakarta.enterprise.inject.Typed;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;

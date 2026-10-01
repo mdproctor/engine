@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CONTEXT_CHANGED;
 
@@ -33,7 +33,7 @@ import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
-import io.casehub.engine.internal.engine.QuiescenceTracker;
+import io.casehub.engine.runtime.engine.QuiescenceTracker;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.context.ApplicationScoped;

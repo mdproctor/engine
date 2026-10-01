@@ -26,7 +26,7 @@ Goal.builder().name("loan-approved").condition(".decision == \"approved\"").kind
 Goal.builder().name("loan-rejected").condition(".decision == \"rejected\"").kind(GoalKind.FAILURE).build()`</pre>
 
 <p>When a goal's condition becomes true, a `GoalReachedEvent` is published and recorded in
-the `io.casehub.engine.internal.history.EventLog`. If the goal is referenced by a `io.casehub.api.model.GoalBasedCompletion`, the engine evaluates whether the case should
+the `io.casehub.engine.runtime.history.EventLog`. If the goal is referenced by a `io.casehub.api.model.GoalBasedCompletion`, the engine evaluates whether the case should
 transition to COMPLETED or FAILED. Goals are always terminal — use `Milestone` for
 non-terminal checkpoints.
 

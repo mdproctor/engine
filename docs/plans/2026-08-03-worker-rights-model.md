@@ -674,7 +674,7 @@ Refs #833"
 - [ ] **Step 1: Write WorkerIdentityResolver test**
 
 ```java
-package io.casehub.engine.internal.acl;
+package io.casehub.engine.runtime.acl;
 
 import static org.junit.jupiter.api.Assertions.*;
 import java.util.UUID;
@@ -720,14 +720,14 @@ Expected: FAIL — class not found
 
 Create `runtime/src/main/java/io/casehub/engine/internal/acl/WorkerIdentity.java`:
 ```java
-package io.casehub.engine.internal.acl;
+package io.casehub.engine.runtime.acl;
 
 public record WorkerIdentity(String actorId, boolean ephemeral) {}
 ```
 
 Create `runtime/src/main/java/io/casehub/engine/internal/acl/WorkerIdentityResolver.java`:
 ```java
-package io.casehub.engine.internal.acl;
+package io.casehub.engine.runtime.acl;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;
@@ -754,7 +754,7 @@ Expected: PASS
 - [ ] **Step 5: Write WorkerGrantOrchestrator test**
 
 ```java
-package io.casehub.engine.internal.acl;
+package io.casehub.engine.runtime.acl;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -881,7 +881,7 @@ Expected: FAIL — `WorkerGrantOrchestrator` not found
 
 Create `runtime/src/main/java/io/casehub/engine/internal/acl/WorkerGrantOrchestrator.java`:
 ```java
-package io.casehub.engine.internal.acl;
+package io.casehub.engine.runtime.acl;
 
 import io.casehub.engine.common.acl.*;
 import io.casehub.platform.api.acl.*;

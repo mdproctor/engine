@@ -30,7 +30,7 @@ import io.casehub.api.model.GoalKind;
 import io.casehub.api.model.Milestone;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.persistence.memory.InMemoryCaseInstanceRepository;
+import io.casehub.engine.persistence.memory.InMemoryCaseInstanceRepository;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerResult;

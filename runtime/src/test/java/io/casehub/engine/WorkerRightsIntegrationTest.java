@@ -19,9 +19,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.acl.EngineResourceTypes;
 import io.casehub.api.acl.EngineWorkerActions;
-import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
-import io.casehub.engine.internal.acl.WorkerIdentity;
-import io.casehub.engine.internal.acl.WorkerIdentityResolver;
+import io.casehub.engine.runtime.acl.WorkerGrantOrchestrator;
+import io.casehub.engine.runtime.acl.WorkerIdentity;
+import io.casehub.engine.runtime.acl.WorkerIdentityResolver;
 import io.casehub.platform.acl.inmem.InMemoryWorkerCredentialStore;
 import io.casehub.platform.api.acl.AccessControlProvider;
 import io.casehub.platform.api.acl.AclAction;

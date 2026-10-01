@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -29,7 +29,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.engine.SignalSettlementTracker;
+import io.casehub.engine.runtime.engine.SignalSettlementTracker;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

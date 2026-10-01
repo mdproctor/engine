@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker.scope;
+package io.casehub.engine.runtime.worker.scope;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -23,7 +23,7 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.engine.common.internal.event.EventBusAddresses;
 import io.casehub.engine.common.internal.event.ScopedWorkerOutputEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.internal.executor.WorkerRuntimeFactory;
+import io.casehub.engine.runtime.executor.WorkerRuntimeFactory;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.PersistentScope;
 import io.casehub.worker.api.ScopeTerminatedException;

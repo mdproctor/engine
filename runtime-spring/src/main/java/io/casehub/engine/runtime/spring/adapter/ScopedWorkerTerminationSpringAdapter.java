@@ -13,10 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.spring.adapter;
+package io.casehub.engine.runtime.spring.adapter;
 
 import io.casehub.engine.common.internal.event.CompoundCompletedEvent;
-import io.casehub.engine.internal.engine.handler.ScopedWorkerTerminationHandler;
+import io.casehub.engine.runtime.engine.handler.ScopedWorkerTerminationHandler;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 

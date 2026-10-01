@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.recovery;
+package io.casehub.engine.runtime.recovery;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.any;
@@ -30,8 +30,8 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.engine.CaseCompletionTracker;
-import io.casehub.engine.internal.scheduler.SchedulerService;
+import io.casehub.engine.runtime.engine.CaseCompletionTracker;
+import io.casehub.engine.runtime.scheduler.SchedulerService;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

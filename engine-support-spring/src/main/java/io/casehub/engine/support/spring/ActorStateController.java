@@ -15,8 +15,8 @@
  */
 package io.casehub.engine.support.spring;
 
-import io.casehub.actorstate.ActorStateResource;
-import io.casehub.actorstate.ActorStateResponse;
+import io.casehub.engine.actorstate.ActorStateResource;
+import io.casehub.engine.actorstate.ActorStateResponse;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

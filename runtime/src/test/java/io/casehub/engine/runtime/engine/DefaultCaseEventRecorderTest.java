@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -25,7 +25,7 @@ import io.casehub.api.model.event.CaseHubEventType;
 import io.casehub.api.model.event.EventStreamType;
 import io.casehub.api.spi.CaseEventRequest;
 import io.casehub.engine.common.internal.history.EventLog;
-import io.casehub.persistence.memory.InMemoryEventLogRepository;
+import io.casehub.engine.persistence.memory.InMemoryEventLogRepository;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.WorkerContext;

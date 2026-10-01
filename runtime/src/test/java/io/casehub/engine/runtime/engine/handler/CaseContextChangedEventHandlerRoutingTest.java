@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -85,22 +85,22 @@ class CaseContextChangedEventHandlerRoutingTest {
   @Mock CapabilityHealth capabilityHealth;
 
   @org.mockito.Spy
-  io.casehub.engine.internal.routing.AgentCandidateFactory agentCandidateFactory =
-      new io.casehub.engine.internal.routing.AgentCandidateFactory(new TestStrategyResolver());
+  io.casehub.engine.runtime.routing.AgentCandidateFactory agentCandidateFactory =
+      new io.casehub.engine.runtime.routing.AgentCandidateFactory(new TestStrategyResolver());
 
   @Mock io.casehub.api.spi.WorkerContextProvider workerContextProvider;
   @Mock io.casehub.api.spi.WorkerProvisioner workerProvisioner;
   @Mock Consumer<io.casehub.engine.common.spi.event.CaseLifecycleEvent> lifecycleEventConsumer;
   @Mock io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider;
-  @Mock io.casehub.engine.internal.routing.CbrRetrievalService cbrRetrievalService;
+  @Mock io.casehub.engine.runtime.routing.CbrRetrievalService cbrRetrievalService;
   @Mock io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver;
-  @Mock io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker;
-  @Mock io.casehub.engine.internal.acl.WorkerGrantOrchestrator workerGrantOrchestrator;
+  @Mock io.casehub.engine.runtime.engine.SignalSettlementTracker settlementTracker;
+  @Mock io.casehub.engine.runtime.acl.WorkerGrantOrchestrator workerGrantOrchestrator;
   @Mock java.util.concurrent.ExecutorService virtualThreads;
-  @Mock io.casehub.engine.internal.engine.CaseEvaluationSerializer evaluationSerializer;
-  @Mock io.casehub.engine.internal.engine.QuiescenceTracker quiescenceTracker;
+  @Mock io.casehub.engine.runtime.engine.CaseEvaluationSerializer evaluationSerializer;
+  @Mock io.casehub.engine.runtime.engine.QuiescenceTracker quiescenceTracker;
   @Mock io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry;
-  @Mock io.casehub.engine.internal.routing.SelectionContextStore selectionContextStore;
+  @Mock io.casehub.engine.runtime.routing.SelectionContextStore selectionContextStore;
   @Mock io.casehub.api.spi.DispatchBudget dispatchBudget;
   @Mock io.casehub.engine.common.spi.PlanItemStore planItemStore;
 
@@ -153,8 +153,8 @@ class CaseContextChangedEventHandlerRoutingTest {
             org.mockito.Mockito.mock(
                 io.casehub.engine.common.internal.convergence.ActivityTracker.class),
             org.mockito.Mockito.mock(
-                io.casehub.engine.internal.convergence.ConvergenceDetector.class),
-            org.mockito.Mockito.mock(io.casehub.engine.internal.convergence.BudgetEnforcer.class),
+                io.casehub.engine.runtime.convergence.ConvergenceDetector.class),
+            org.mockito.Mockito.mock(io.casehub.engine.runtime.convergence.BudgetEnforcer.class),
             org.mockito.Mockito.mock(jakarta.enterprise.inject.Instance.class),
             org.mockito.Mockito.mock(jakarta.enterprise.inject.Instance.class),
             org.mockito.Mockito.mock(jakarta.enterprise.inject.Instance.class),
@@ -494,9 +494,9 @@ class CaseContextChangedEventHandlerRoutingTest {
    * default SubsumptionMatchStrategy with NoOpVocabularyRegistry.
    */
   static class TestStrategyResolver implements StrategyResolver {
-    private final io.casehub.engine.internal.routing.SubsumptionMatchStrategy defaultMatching =
-        new io.casehub.engine.internal.routing.SubsumptionMatchStrategy(
-            new io.casehub.engine.internal.worker.NoOpVocabularyRegistry());
+    private final io.casehub.engine.runtime.routing.SubsumptionMatchStrategy defaultMatching =
+        new io.casehub.engine.runtime.routing.SubsumptionMatchStrategy(
+            new io.casehub.engine.runtime.worker.NoOpVocabularyRegistry());
 
     @Override
     @SuppressWarnings("unchecked")

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
@@ -24,7 +24,7 @@ import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.signal.PerceivedSignal;
 import io.casehub.api.model.signal.SignalConfig;
 import io.casehub.engine.common.internal.signal.SignalRegistry;
-import io.casehub.engine.internal.signal.DefaultSignalSpace;
+import io.casehub.engine.runtime.signal.DefaultSignalSpace;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;

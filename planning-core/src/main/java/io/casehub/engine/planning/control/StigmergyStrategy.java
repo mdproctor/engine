@@ -17,8 +17,8 @@ package io.casehub.engine.planning.control;
 
 import io.casehub.api.engine.PlanExecutionContext;
 import io.casehub.api.model.Binding;
-import io.casehub.engine.internal.stigmergy.StigmergyCoordinator;
 import io.casehub.engine.planning.plan.CasePlanModel;
+import io.casehub.engine.runtime.stigmergy.StigmergyCoordinator;
 import java.util.List;
 import java.util.UUID;
 import org.jboss.logging.Logger;

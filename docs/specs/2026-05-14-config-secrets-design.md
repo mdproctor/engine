@@ -150,7 +150,7 @@ ServerlessWorkflow ConfigManager/SecretManager classes
 ### ConfigManager
 
 ```java
-package io.casehub.engine.internal.config;
+package io.casehub.engine.runtime.config;
 
 import java.util.Collection;
 import java.util.Optional;
@@ -196,7 +196,7 @@ public interface ConfigManager {
 ### SecretManager
 
 ```java
-package io.casehub.engine.internal.config;
+package io.casehub.engine.runtime.config;
 
 import java.util.Map;
 
@@ -235,7 +235,7 @@ public interface SecretManager {
 ### ConfigContext
 
 ```java
-package io.casehub.engine.internal.config;
+package io.casehub.engine.runtime.config;
 
 /**
  * Holder for ConfigManager and SecretManager instances.
@@ -254,7 +254,7 @@ public interface ConfigContext {
 ### Exceptions
 
 ```java
-package io.casehub.engine.internal.config;
+package io.casehub.engine.runtime.config;
 
 /**
  * Thrown when a requested secret does not exist.
@@ -278,7 +278,7 @@ public class SecretNotFoundException extends RuntimeException {
 ```
 
 ```java
-package io.casehub.engine.internal.config;
+package io.casehub.engine.runtime.config;
 
 /**
  * Thrown when config resolution fails (type conversion, validation, etc.).
@@ -304,9 +304,9 @@ public class ConfigResolutionException extends RuntimeException {
 **Location:** `runtime/src/main/java/io/casehub/engine/internal/config/impl/QuarkusConfigManager.java`
 
 ```java
-package io.casehub.engine.internal.config.impl;
+package io.casehub.engine.runtime.config.impl;
 
-import io.casehub.engine.internal.config.ConfigManager;
+import io.casehub.engine.runtime.config.ConfigManager;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.Config;
@@ -358,11 +358,11 @@ public class QuarkusConfigManager implements ConfigManager {
 **Location:** `runtime/src/main/java/io/casehub/engine/internal/config/impl/ConfigSecretManager.java`
 
 ```java
-package io.casehub.engine.internal.config.impl;
+package io.casehub.engine.runtime.config.impl;
 
-import io.casehub.engine.internal.config.ConfigManager;
-import io.casehub.engine.internal.config.SecretManager;
-import io.casehub.engine.internal.config.SecretNotFoundException;
+import io.casehub.engine.runtime.config.ConfigManager;
+import io.casehub.engine.runtime.config.SecretManager;
+import io.casehub.engine.runtime.config.SecretNotFoundException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.*;
@@ -447,11 +447,11 @@ public class ConfigSecretManager implements SecretManager {
 **Location:** `runtime/src/main/java/io/casehub/engine/internal/config/impl/DefaultConfigContext.java`
 
 ```java
-package io.casehub.engine.internal.config.impl;
+package io.casehub.engine.runtime.config.impl;
 
-import io.casehub.engine.internal.config.ConfigContext;
-import io.casehub.engine.internal.config.ConfigManager;
-import io.casehub.engine.internal.config.SecretManager;
+import io.casehub.engine.runtime.config.ConfigContext;
+import io.casehub.engine.runtime.config.ConfigManager;
+import io.casehub.engine.runtime.config.SecretManager;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -486,7 +486,7 @@ public class DefaultConfigContext implements ConfigContext {
 **Location:** `runtime/src/main/java/io/casehub/engine/internal/config/impl/ServerlessWorkflowAdapter.java`
 
 ```java
-package io.casehub.engine.internal.config.impl;
+package io.casehub.engine.runtime.config.impl;
 
 import io.serverlessworkflow.impl.config.ConfigManager as SwConfigManager;
 import io.serverlessworkflow.impl.config.SecretManager as SwSecretManager;
@@ -507,7 +507,7 @@ class ServerlessWorkflowAdapter {
    * Adapt our ConfigManager to SW's interface.
    */
   static SwConfigManager adaptConfigManager(
-      io.casehub.engine.internal.config.ConfigManager our) {
+      io.casehub.engine.runtime.config.ConfigManager our) {
     
     return new SwConfigManager() {
       @Override
@@ -531,7 +531,7 @@ class ServerlessWorkflowAdapter {
    * Adapt our SecretManager to SW's interface.
    */
   static SwSecretManager adaptSecretManager(
-      io.casehub.engine.internal.config.SecretManager our) {
+      io.casehub.engine.runtime.config.SecretManager our) {
     
     return new SwSecretManager() {
       @Override
@@ -554,10 +554,10 @@ class ServerlessWorkflowAdapter {
 **Location:** `runtime/src/main/java/io/casehub/engine/internal/config/decorator/AuditingSecretManager.java`
 
 ```java
-package io.casehub.engine.internal.config.decorator;
+package io.casehub.engine.runtime.config.decorator;
 
-import io.casehub.engine.internal.config.SecretManager;
-import io.casehub.engine.internal.config.SecretNotFoundException;
+import io.casehub.engine.runtime.config.SecretManager;
+import io.casehub.engine.runtime.config.SecretNotFoundException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.decorator.Decorator;
 import jakarta.decorator.Delegate;
@@ -586,7 +586,7 @@ public abstract class AuditingSecretManager implements SecretManager {
   SecretManager delegate;
 
   @Inject
-  io.casehub.engine.internal.config.ConfigManager configManager;
+  io.casehub.engine.runtime.config.ConfigManager configManager;
 
   @Override
   public Map<String, Object> secret(String secretName) {
@@ -639,9 +639,9 @@ public abstract class AuditingSecretManager implements SecretManager {
 **Location:** `runtime/src/main/java/io/casehub/engine/internal/config/decorator/CachedSecretManager.java`
 
 ```java
-package io.casehub.engine.internal.config.decorator;
+package io.casehub.engine.runtime.config.decorator;
 
-import io.casehub.engine.internal.config.SecretManager;
+import io.casehub.engine.runtime.config.SecretManager;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.decorator.Decorator;
 import jakarta.decorator.Delegate;
@@ -671,7 +671,7 @@ public abstract class CachedSecretManager implements SecretManager {
   SecretManager delegate;
 
   @Inject
-  io.casehub.engine.internal.config.ConfigManager configManager;
+  io.casehub.engine.runtime.config.ConfigManager configManager;
 
   private final Map<String, CacheEntry> cache = new ConcurrentHashMap<>();
 
@@ -733,12 +733,12 @@ public abstract class CachedSecretManager implements SecretManager {
 **Location:** `runtime/src/main/java/io/casehub/engine/internal/marshaller/CaseHubObjectMapperProducer.java`
 
 ```java
-package io.casehub.engine.internal.marshaller;
+package io.casehub.engine.runtime.marshaller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import io.casehub.engine.internal.config.ConfigContext;
-import io.casehub.engine.internal.marshaller.jq.JqScopeInjector;
+import io.casehub.engine.runtime.config.ConfigContext;
+import io.casehub.engine.runtime.marshaller.jq.JqScopeInjector;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
@@ -787,11 +787,11 @@ public class CaseHubObjectMapperProducer {
 **Location:** `runtime/src/main/java/io/casehub/engine/internal/marshaller/jq/JqScopeInjector.java`
 
 ```java
-package io.casehub.engine.internal.marshaller.jq;
+package io.casehub.engine.runtime.marshaller.jq;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.engine.internal.config.ConfigContext;
+import io.casehub.engine.runtime.config.ConfigContext;
 import net.thisptr.jackson.jq.JsonQuery;
 import net.thisptr.jackson.jq.Scope;
 import net.thisptr.jackson.jq.Function;
@@ -1981,8 +1981,8 @@ casehub.config.secrets.validate-at-load=true
 ```java
 package io.casehub.secrets.kubernetes;
 
-import io.casehub.engine.internal.config.SecretManager;
-import io.casehub.engine.internal.config.SecretNotFoundException;
+import io.casehub.engine.runtime.config.SecretManager;
+import io.casehub.engine.runtime.config.SecretNotFoundException;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.models.V1Secret;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -2110,8 +2110,8 @@ package io.casehub.secrets.vault;
 import com.bettercloud.vault.Vault;
 import com.bettercloud.vault.VaultConfig;
 import com.bettercloud.vault.response.LogicalResponse;
-import io.casehub.engine.internal.config.SecretManager;
-import io.casehub.engine.internal.config.SecretNotFoundException;
+import io.casehub.engine.runtime.config.SecretManager;
+import io.casehub.engine.runtime.config.SecretNotFoundException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
@@ -2219,10 +2219,10 @@ vault kv put secret/openai \
 **Implementation:**
 
 ```java
-package io.casehub.engine.internal.config.impl;
+package io.casehub.engine.runtime.config.impl;
 
-import io.casehub.engine.internal.config.SecretManager;
-import io.casehub.engine.internal.config.SecretNotFoundException;
+import io.casehub.engine.runtime.config.SecretManager;
+import io.casehub.engine.runtime.config.SecretNotFoundException;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;
 import java.util.List;

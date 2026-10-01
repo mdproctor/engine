@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.spring;
+package io.casehub.engine.runtime.spring;
 
 import io.casehub.api.spi.event.EventDispatcher;
 import org.springframework.context.ApplicationEventPublisher;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.spring;
+package io.casehub.engine.runtime.spring;
 
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.engine.ExpressionEngineRegistry;
@@ -62,45 +62,45 @@ import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy;
-import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
-import io.casehub.engine.internal.engine.CaseCompletionTracker;
-import io.casehub.engine.internal.engine.CaseEvaluationSerializer;
-import io.casehub.engine.internal.engine.QuiescenceTracker;
-import io.casehub.engine.internal.engine.SignalSettlementTracker;
-import io.casehub.engine.internal.engine.handler.ActionGateExpiredHandler;
-import io.casehub.engine.internal.engine.handler.ActionGateRejectedHandler;
-import io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler;
-import io.casehub.engine.internal.engine.handler.CaseStatusChangedHandler;
-import io.casehub.engine.internal.engine.handler.ContextOutputApplier;
-import io.casehub.engine.internal.engine.handler.ExpectationValidator;
-import io.casehub.engine.internal.engine.handler.GoalReachedEventHandler;
-import io.casehub.engine.internal.engine.handler.MilestoneActivatedEventHandler;
-import io.casehub.engine.internal.engine.handler.MilestoneCompletedEventHandler;
-import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
-import io.casehub.engine.internal.engine.handler.WorkflowExecutionCompletedHandler;
-import io.casehub.engine.internal.executor.WorkerRuntimeFactory;
-import io.casehub.engine.internal.memory.AgentExperienceRecorder;
-import io.casehub.engine.internal.memory.AgentMemoryRetriever;
-import io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry;
-import io.casehub.engine.internal.routing.AgentCandidateFactory;
-import io.casehub.engine.internal.routing.AgentGoalCompletionMarker;
-import io.casehub.engine.internal.routing.BehavioralComplianceRecorder;
-import io.casehub.engine.internal.routing.CbrRetrievalService;
-import io.casehub.engine.internal.routing.GoalAbandonmentEvaluator;
-import io.casehub.engine.internal.routing.GoalFormationEvaluator;
-import io.casehub.engine.internal.routing.GoalOutcomeRecorder;
-import io.casehub.engine.internal.routing.GoalRevisionEvaluator;
-import io.casehub.engine.internal.routing.GoalSignalProvider;
-import io.casehub.engine.internal.routing.LlmGoalFormationStrategy;
-import io.casehub.engine.internal.routing.LlmGoalRevisionStrategy;
-import io.casehub.engine.internal.routing.PersonalitySignalProvider;
-import io.casehub.engine.internal.routing.PersonalitySignalRecorder;
-import io.casehub.engine.internal.routing.SelectionContextStore;
-import io.casehub.engine.internal.scheduler.SchedulerService;
-import io.casehub.engine.internal.work.CaseResumptionService;
-import io.casehub.engine.internal.worker.CompositeWorkerExecutionManager;
-import io.casehub.engine.internal.worker.DefaultWorkerFunctionProviderRegistry;
-import io.casehub.engine.internal.worker.FailureCritiqueService;
+import io.casehub.engine.runtime.acl.WorkerGrantOrchestrator;
+import io.casehub.engine.runtime.engine.CaseCompletionTracker;
+import io.casehub.engine.runtime.engine.CaseEvaluationSerializer;
+import io.casehub.engine.runtime.engine.QuiescenceTracker;
+import io.casehub.engine.runtime.engine.SignalSettlementTracker;
+import io.casehub.engine.runtime.engine.handler.ActionGateExpiredHandler;
+import io.casehub.engine.runtime.engine.handler.ActionGateRejectedHandler;
+import io.casehub.engine.runtime.engine.handler.CaseContextChangedEventHandler;
+import io.casehub.engine.runtime.engine.handler.CaseStatusChangedHandler;
+import io.casehub.engine.runtime.engine.handler.ContextOutputApplier;
+import io.casehub.engine.runtime.engine.handler.ExpectationValidator;
+import io.casehub.engine.runtime.engine.handler.GoalReachedEventHandler;
+import io.casehub.engine.runtime.engine.handler.MilestoneActivatedEventHandler;
+import io.casehub.engine.runtime.engine.handler.MilestoneCompletedEventHandler;
+import io.casehub.engine.runtime.engine.handler.WorkerScheduleEventHandler;
+import io.casehub.engine.runtime.engine.handler.WorkflowExecutionCompletedHandler;
+import io.casehub.engine.runtime.executor.WorkerRuntimeFactory;
+import io.casehub.engine.runtime.memory.AgentExperienceRecorder;
+import io.casehub.engine.runtime.memory.AgentMemoryRetriever;
+import io.casehub.engine.runtime.recovery.CaseRecoveryStateRegistry;
+import io.casehub.engine.runtime.routing.AgentCandidateFactory;
+import io.casehub.engine.runtime.routing.AgentGoalCompletionMarker;
+import io.casehub.engine.runtime.routing.BehavioralComplianceRecorder;
+import io.casehub.engine.runtime.routing.CbrRetrievalService;
+import io.casehub.engine.runtime.routing.GoalAbandonmentEvaluator;
+import io.casehub.engine.runtime.routing.GoalFormationEvaluator;
+import io.casehub.engine.runtime.routing.GoalOutcomeRecorder;
+import io.casehub.engine.runtime.routing.GoalRevisionEvaluator;
+import io.casehub.engine.runtime.routing.GoalSignalProvider;
+import io.casehub.engine.runtime.routing.LlmGoalFormationStrategy;
+import io.casehub.engine.runtime.routing.LlmGoalRevisionStrategy;
+import io.casehub.engine.runtime.routing.PersonalitySignalProvider;
+import io.casehub.engine.runtime.routing.PersonalitySignalRecorder;
+import io.casehub.engine.runtime.routing.SelectionContextStore;
+import io.casehub.engine.runtime.scheduler.SchedulerService;
+import io.casehub.engine.runtime.work.CaseResumptionService;
+import io.casehub.engine.runtime.worker.CompositeWorkerExecutionManager;
+import io.casehub.engine.runtime.worker.DefaultWorkerFunctionProviderRegistry;
+import io.casehub.engine.runtime.worker.FailureCritiqueService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.neocortex.memory.CaseMemoryStore;
 import io.casehub.neocortex.memory.cbr.CbrPlanAdapter;
@@ -360,7 +360,7 @@ public class RuntimeManualConfig {
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector) {
+      io.casehub.engine.runtime.convergence.ConvergenceDetector convergenceDetector) {
     return new CaseStatusChangedHandler(
         eventDispatcher,
         caseInstanceRepository,
@@ -512,8 +512,8 @@ public class RuntimeManualConfig {
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
-      io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer) {
+      io.casehub.engine.runtime.convergence.ConvergenceDetector convergenceDetector,
+      io.casehub.engine.runtime.convergence.BudgetEnforcer budgetEnforcer) {
     return new CaseContextChangedEventHandler(
         eventDispatcher,
         jqEvaluator,
@@ -558,9 +558,9 @@ public class RuntimeManualConfig {
   }
 
   @Bean
-  public io.casehub.engine.internal.engine.EngineResetService engineResetService(
+  public io.casehub.engine.runtime.engine.EngineResetService engineResetService(
       List<Resettable> resettables) {
-    return new io.casehub.engine.internal.engine.EngineResetService(resettables);
+    return new io.casehub.engine.runtime.engine.EngineResetService(resettables);
   }
 
   @Bean
@@ -665,9 +665,9 @@ public class RuntimeManualConfig {
   public io.casehub.api.spi.ContextDiffStrategy contextDiffStrategy(
       @Value("${casehub.engine.diff-strategy:none}") String strategy) {
     return switch (strategy) {
-      case "none" -> new io.casehub.engine.internal.diff.NoOpContextDiffStrategy();
-      case "top-level" -> new io.casehub.engine.internal.diff.TopLevelContextDiffStrategy();
-      case "json-patch" -> new io.casehub.engine.internal.diff.JsonPatchContextDiffStrategy();
+      case "none" -> new io.casehub.engine.runtime.diff.NoOpContextDiffStrategy();
+      case "top-level" -> new io.casehub.engine.runtime.diff.TopLevelContextDiffStrategy();
+      case "json-patch" -> new io.casehub.engine.runtime.diff.JsonPatchContextDiffStrategy();
       default ->
           throw new IllegalStateException(
               "Unknown casehub.engine.diff-strategy: '"
@@ -687,7 +687,7 @@ public class RuntimeManualConfig {
         new com.fasterxml.jackson.databind.module.SimpleModule("ConfigSecretResolvingModule");
     module.addDeserializer(
         String.class,
-        new io.casehub.engine.internal.marshaller.ConfigSecretResolvingDeserializer(configContext));
+        new io.casehub.engine.runtime.marshaller.ConfigSecretResolvingDeserializer(configContext));
     mapper.registerModule(module);
     return mapper;
   }

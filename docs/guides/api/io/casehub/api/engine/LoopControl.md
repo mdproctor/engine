@@ -8,7 +8,7 @@ SPI for controlling which eligible bindings are selected for execution.
 
 <p>Returns `List<Binding>` to allow synchronous selection. See casehubio/engine#76.
 
-<p>The default implementation (`io.casehub.engine.internal.engine.ChoreographyLoopControl`)
+<p>The default implementation (`io.casehub.engine.runtime.engine.ChoreographyLoopControl`)
 wraps with a simple pass-through — no behaviour change.
 
 ## Methods

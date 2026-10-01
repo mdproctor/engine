@@ -13,6 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.acl;
+package io.casehub.engine.runtime.acl;
 
 public record WorkerIdentity(String actorId, boolean ephemeral) {}

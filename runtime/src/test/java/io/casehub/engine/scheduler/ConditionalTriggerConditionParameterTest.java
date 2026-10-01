@@ -37,8 +37,8 @@ import org.junit.jupiter.api.Test;
  * <ul>
  *   <li>scheduleConditionalWorker NO LONGER has a redundant condition parameter
  *   <li>The condition is retrieved from {@link Binding#getWhen()}
- *   <li>{@link io.casehub.engine.internal.scheduler.quartz.ConditionalScheduledTriggerJob}
- *       retrieves the condition from the binding at execution time
+ *   <li>{@link io.casehub.engine.runtime.scheduler.quartz.ConditionalScheduledTriggerJob} retrieves
+ *       the condition from the binding at execution time
  * </ul>
  */
 class ConditionalTriggerConditionParameterTest {

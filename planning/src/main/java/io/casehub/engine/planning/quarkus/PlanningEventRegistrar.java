@@ -15,9 +15,9 @@
  */
 package io.casehub.engine.planning.quarkus;
 
-import io.casehub.engine.internal.quarkus.VertxEventDispatcher;
 import io.casehub.engine.planning.event.BlackboardEventBusAddresses;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
+import io.casehub.engine.runtime.quarkus.VertxEventDispatcher;
 import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;

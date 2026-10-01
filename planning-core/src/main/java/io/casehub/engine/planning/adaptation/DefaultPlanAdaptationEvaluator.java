@@ -72,8 +72,7 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
   private final CaseDefinitionRegistry caseDefinitionRegistry;
   private final StrategyResolver strategyResolver;
   private final Optional<Object> agentMemoryRetriever;
-  private final Optional<io.casehub.engine.internal.routing.CbrRetrievalService>
-      cbrRetrievalService;
+  private final Optional<io.casehub.engine.runtime.routing.CbrRetrievalService> cbrRetrievalService;
   private final io.casehub.engine.planning.handler.CompoundCompletionEvaluator
       compoundCompletionEvaluator;
   private final Semaphore semaphore;
@@ -89,7 +88,7 @@ public class DefaultPlanAdaptationEvaluator implements PlanAdaptationEvaluator {
       CaseDefinitionRegistry caseDefinitionRegistry,
       StrategyResolver strategyResolver,
       Optional<Object> agentMemoryRetriever,
-      Optional<io.casehub.engine.internal.routing.CbrRetrievalService> cbrRetrievalService,
+      Optional<io.casehub.engine.runtime.routing.CbrRetrievalService> cbrRetrievalService,
       io.casehub.engine.planning.handler.CompoundCompletionEvaluator compoundCompletionEvaluator,
       int maxConcurrent,
       long timeoutMs) {

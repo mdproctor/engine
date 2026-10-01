@@ -16,7 +16,7 @@
 package io.casehub.testing;
 
 import io.casehub.engine.common.spi.SubCaseGroupRepository;
-import io.casehub.persistence.memory.InMemorySubCaseGroupRepository;
+import io.casehub.engine.persistence.memory.InMemorySubCaseGroupRepository;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;

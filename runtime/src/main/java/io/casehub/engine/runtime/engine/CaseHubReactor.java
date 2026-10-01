@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static io.casehub.engine.common.internal.event.EventBusAddresses.CASE_STATUS_CHANGED;
 
@@ -42,10 +42,10 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.context.EpisodicLayerUpdater;
-import io.casehub.engine.internal.context.WritableLayerImpl;
-import io.casehub.engine.internal.engine.handler.CaseStartedEventHandler;
-import io.casehub.engine.internal.engine.handler.SignalReceivedEventHandler;
+import io.casehub.engine.runtime.context.EpisodicLayerUpdater;
+import io.casehub.engine.runtime.context.WritableLayerImpl;
+import io.casehub.engine.runtime.engine.handler.CaseStartedEventHandler;
+import io.casehub.engine.runtime.engine.handler.SignalReceivedEventHandler;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.neocortex.memory.CaseMemoryStore;
 import io.casehub.neocortex.memory.Memory;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.recovery;
+package io.casehub.engine.runtime.engine.recovery;
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.CaseContextStoreFactory;
@@ -29,7 +29,7 @@ import io.casehub.engine.common.spi.CrossTenantEventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
-import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import java.util.EnumSet;

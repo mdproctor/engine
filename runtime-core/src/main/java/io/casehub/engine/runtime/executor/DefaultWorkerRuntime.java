@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.context.PropagationContext;
@@ -28,7 +28,7 @@ import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseTerminatedException;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.engine.CaseCompletionTracker;
+import io.casehub.engine.runtime.engine.CaseCompletionTracker;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
@@ -59,7 +59,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
   private final io.casehub.api.engine.InterestSpace interestSpace;
   private final io.casehub.api.engine.NeighborSpace neighborSpace;
   private final io.casehub.api.engine.RuleSpace ruleSpace;
-  private final io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator;
+  private final io.casehub.engine.runtime.stigmergy.StigmergyCoordinator stigmergyCoordinator;
   private final io.casehub.api.engine.MetricsSpace metricsSpace;
 
   DefaultWorkerRuntime(
@@ -141,7 +141,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
       io.casehub.api.engine.InterestSpace interestSpace,
       io.casehub.api.engine.NeighborSpace neighborSpace,
       io.casehub.api.engine.RuleSpace ruleSpace,
-      io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator,
+      io.casehub.engine.runtime.stigmergy.StigmergyCoordinator stigmergyCoordinator,
       io.casehub.api.engine.MetricsSpace metricsSpace) {
     this.caseId = caseId;
     this.taskId = taskId;

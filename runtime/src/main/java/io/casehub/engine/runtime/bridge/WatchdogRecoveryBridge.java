@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.bridge;
+package io.casehub.engine.runtime.bridge;
 
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.api.model.TaskStatus;

@@ -465,7 +465,7 @@ Refs #485, #484"
 
 ```java
 // runtime/src/test/java/io/casehub/engine/internal/executor/DefaultWorkerRuntimeTest.java
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -587,7 +587,7 @@ Expected: FAIL — `DefaultWorkerRuntime` does not exist
 
 ```java
 // runtime/src/main/java/io/casehub/engine/internal/executor/DefaultWorkerRuntime.java
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.CaseHubRuntime;
@@ -721,7 +721,7 @@ class DefaultWorkerRuntime implements WorkerRuntime {
 
 ```java
 // runtime/src/main/java/io/casehub/engine/internal/executor/WorkerRuntimeFactory.java
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.engine.WorkerRuntime;
@@ -865,7 +865,7 @@ default CaseContext signalAndAwaitSync(
 
 ```java
 // runtime/src/test/java/io/casehub/engine/internal/engine/SignalSettlementTrackerTest.java
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -959,7 +959,7 @@ Expected: FAIL — `SignalSettlementTracker` does not exist
 
 ```java
 // runtime/src/main/java/io/casehub/engine/internal/engine/SignalSettlementTracker.java
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import java.util.UUID;

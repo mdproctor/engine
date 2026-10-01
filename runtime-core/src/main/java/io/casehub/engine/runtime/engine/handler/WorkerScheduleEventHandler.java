@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -43,8 +43,8 @@ import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
-import io.casehub.engine.internal.engine.QuiescenceTracker;
-import io.casehub.engine.internal.memory.AgentMemoryRetriever;
+import io.casehub.engine.runtime.engine.QuiescenceTracker;
+import io.casehub.engine.runtime.memory.AgentMemoryRetriever;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.qhorus.api.message.MessageType;
 import io.casehub.worker.api.Capability;

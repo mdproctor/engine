@@ -60,7 +60,7 @@ class PlanItemCompletionHandlerTest {
             e -> {},
             new CompoundCompletionEvaluator(eventDispatcher),
             Optional.empty(),
-            new io.casehub.engine.internal.engine.QuiescenceTracker());
+            new io.casehub.engine.runtime.engine.QuiescenceTracker());
     caseId = UUID.randomUUID();
     plan = (DefaultCasePlanModel) registry.getOrCreate(caseId, "test-tenant");
   }

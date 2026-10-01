@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.scheduler;
+package io.casehub.engine.runtime.scheduler;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;

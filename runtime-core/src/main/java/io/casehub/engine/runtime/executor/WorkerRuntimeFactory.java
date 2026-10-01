@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.engine.WorkerRuntime;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.engine.CaseCompletionTracker;
+import io.casehub.engine.runtime.engine.CaseCompletionTracker;
 import java.util.UUID;
 
 public class WorkerRuntimeFactory {
@@ -35,22 +35,22 @@ public class WorkerRuntimeFactory {
   private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
   private final io.casehub.engine.common.spi.PlanItemStore planItemStore;
   private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
-  private io.casehub.engine.internal.stigmergy.StigmergyCoordinator stigmergyCoordinator;
+  private io.casehub.engine.runtime.stigmergy.StigmergyCoordinator stigmergyCoordinator;
   private io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker;
-  private io.casehub.engine.internal.stigmergy.RoleTracker roleTracker;
-  private io.casehub.engine.internal.stigmergy.TeamDetector teamDetector;
-  private io.casehub.engine.internal.stigmergy.SwarmProgressTracker swarmProgressTracker;
+  private io.casehub.engine.runtime.stigmergy.RoleTracker roleTracker;
+  private io.casehub.engine.runtime.stigmergy.TeamDetector teamDetector;
+  private io.casehub.engine.runtime.stigmergy.SwarmProgressTracker swarmProgressTracker;
 
   public void setStigmergyCoordinator(
-      io.casehub.engine.internal.stigmergy.StigmergyCoordinator coordinator) {
+      io.casehub.engine.runtime.stigmergy.StigmergyCoordinator coordinator) {
     this.stigmergyCoordinator = coordinator;
   }
 
   public void setSwarmTrackers(
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      io.casehub.engine.internal.stigmergy.RoleTracker roleTracker,
-      io.casehub.engine.internal.stigmergy.TeamDetector teamDetector,
-      io.casehub.engine.internal.stigmergy.SwarmProgressTracker swarmProgressTracker) {
+      io.casehub.engine.runtime.stigmergy.RoleTracker roleTracker,
+      io.casehub.engine.runtime.stigmergy.TeamDetector teamDetector,
+      io.casehub.engine.runtime.stigmergy.SwarmProgressTracker swarmProgressTracker) {
     this.activityTracker = activityTracker;
     this.roleTracker = roleTracker;
     this.teamDetector = teamDetector;
@@ -115,14 +115,14 @@ public class WorkerRuntimeFactory {
         resolveObservationConfig(caseId);
 
     io.casehub.api.engine.SignalSpace signalSpace =
-        new io.casehub.engine.internal.signal.DefaultSignalSpace(
+        new io.casehub.engine.runtime.signal.DefaultSignalSpace(
             signalRegistry, caseId, workerName, resolvedSignalConfig);
     io.casehub.api.engine.InterestSpace interestSpace =
-        new io.casehub.engine.internal.observation.DefaultInterestSpace(
+        new io.casehub.engine.runtime.observation.DefaultInterestSpace(
             observationRegistry, caseId, workerName, bindingName, resolvedObsConfig);
 
     io.casehub.api.engine.NeighborSpace neighborSpace =
-        new io.casehub.engine.internal.observation.DefaultNeighborSpace(
+        new io.casehub.engine.runtime.observation.DefaultNeighborSpace(
             caseId,
             tenancyId(caseId),
             workerName,
@@ -136,13 +136,13 @@ public class WorkerRuntimeFactory {
 
     io.casehub.api.spi.observation.RuleConfig resolvedRuleConfig = resolveRuleConfig(caseId);
     io.casehub.api.engine.RuleSpace ruleSpace =
-        new io.casehub.engine.internal.observation.DefaultRuleSpace(
+        new io.casehub.engine.runtime.observation.DefaultRuleSpace(
             ruleRegistry, caseId, workerName, bindingName, resolvedRuleConfig);
 
     io.casehub.api.engine.MetricsSpace metricsSpace = io.casehub.api.engine.MetricsSpace.NOOP;
     if (roleTracker != null && teamDetector != null && swarmProgressTracker != null) {
       metricsSpace =
-          new io.casehub.engine.internal.stigmergy.DefaultMetricsSpace(
+          new io.casehub.engine.runtime.stigmergy.DefaultMetricsSpace(
               caseId, workerName, activityTracker, roleTracker, teamDetector, swarmProgressTracker);
     }
 

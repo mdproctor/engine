@@ -278,7 +278,7 @@ public class SubCaseOutputMappingRecoveryTest {
     instance.setUuid(UUID.randomUUID());
     instance.setState(status);
     instance.setCaseMetaModel(savedMeta);
-    instance.setCaseContext(new io.casehub.engine.internal.context.CaseContextImpl());
+    instance.setCaseContext(new io.casehub.engine.runtime.context.CaseContextImpl());
     return instance;
   }
 

@@ -16,7 +16,7 @@
 package io.casehub.testing;
 
 import io.casehub.engine.common.spi.CaseMetaModelRepository;
-import io.casehub.persistence.memory.InMemoryCaseMetaModelRepository;
+import io.casehub.engine.persistence.memory.InMemoryCaseMetaModelRepository;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.routing;
+package io.casehub.engine.runtime.routing;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -26,7 +26,7 @@ import io.casehub.api.model.cbr.CbrConfig.CbrRetrievalTiming;
 import io.casehub.engine.common.internal.event.CaseStatusChanged;
 import io.casehub.engine.common.internal.jq.JQEvaluator;
 import io.casehub.engine.common.internal.model.CaseInstance;
-import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import io.casehub.neocortex.memory.EraseRequest;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.cbr.CbrMatch;

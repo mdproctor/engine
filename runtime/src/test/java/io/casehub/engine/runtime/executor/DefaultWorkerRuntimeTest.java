@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -34,7 +34,7 @@ import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.internal.model.CaseTerminatedException;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.engine.CaseCompletionTracker;
+import io.casehub.engine.runtime.engine.CaseCompletionTracker;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerOutcome;
 import io.casehub.worker.api.WorkerResult;
@@ -286,7 +286,7 @@ class DefaultWorkerRuntimeTest {
     childInstance.setUuid(childId);
     childInstance.setState(CaseStatus.COMPLETED);
     childInstance.setCaseContext(
-        new io.casehub.engine.internal.context.CaseContextImpl(Map.of("result", "done")));
+        new io.casehub.engine.runtime.context.CaseContextImpl(Map.of("result", "done")));
 
     CaseInstanceCache cache = new StubCaseInstanceCache(childId, childInstance);
 
@@ -305,7 +305,7 @@ class DefaultWorkerRuntimeTest {
     CaseInstance childInstance = new CaseInstance();
     childInstance.setUuid(childId);
     childInstance.setState(CaseStatus.FAULTED);
-    childInstance.setCaseContext(new io.casehub.engine.internal.context.CaseContextImpl());
+    childInstance.setCaseContext(new io.casehub.engine.runtime.context.CaseContextImpl());
 
     CaseInstanceCache cache = new StubCaseInstanceCache(childId, childInstance);
 

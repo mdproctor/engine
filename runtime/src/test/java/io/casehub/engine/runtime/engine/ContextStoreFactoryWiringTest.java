@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
@@ -30,7 +30,7 @@ import io.casehub.api.model.Goal;
 import io.casehub.api.model.GoalExpression;
 import io.casehub.api.model.GoalKind;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
-import io.casehub.engine.internal.context.InMemoryCaseContextStoreFactory;
+import io.casehub.engine.runtime.context.InMemoryCaseContextStoreFactory;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;
 import io.casehub.worker.api.WorkerResult;

@@ -23,11 +23,11 @@ import io.casehub.engine.common.internal.event.WorkflowExecutionCompleted;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.PlanAdaptationEvaluator;
 import io.casehub.engine.common.spi.event.PlanItemStateChangedEvent;
-import io.casehub.engine.internal.engine.QuiescenceTracker;
 import io.casehub.engine.planning.event.SubCaseExecutionCompleted;
 import io.casehub.engine.planning.plan.CasePlanModel;
 import io.casehub.engine.planning.plan.PlanItem;
 import io.casehub.engine.planning.registry.BlackboardRegistry;
+import io.casehub.engine.runtime.engine.QuiescenceTracker;
 import io.casehub.worker.api.WorkerOutcome;
 import java.util.EnumSet;
 import java.util.Optional;
@@ -42,7 +42,7 @@ import org.jboss.logging.Logger;
  *
  * <p>Subscribes to {@code WORKER_EXECUTION_FINISHED} which is published via {@code
  * eventBus.publish()} — fan-out. Coexists with {@link
- * io.casehub.engine.internal.engine.handler.WorkflowExecutionCompletedHandler}.
+ * io.casehub.engine.runtime.engine.handler.WorkflowExecutionCompletedHandler}.
  *
  * <p><strong>Internal Event Use:</strong> {@link WorkflowExecutionCompleted} is in the {@code
  * engine.internal.event} package. For event consumption via {@code @ConsumeEvent}, the handler must

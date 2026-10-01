@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.convergence;
+package io.casehub.engine.runtime.convergence;
 
 import io.casehub.api.model.convergence.ConvergenceThresholdConfig;
 import io.casehub.engine.common.internal.convergence.CaseActivityState;

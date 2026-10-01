@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.quarkus;
+package io.casehub.engine.runtime.quarkus;
 
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.spi.CaseChannelProvider;
@@ -47,38 +47,38 @@ import io.casehub.engine.common.spi.recovery.RecoveryCoordinator;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
 import io.casehub.engine.common.spi.scheduler.JobScheduler;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
-import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
-import io.casehub.engine.internal.acl.WorkerIdentityResolver;
-import io.casehub.engine.internal.engine.CaseCompletionTracker;
-import io.casehub.engine.internal.engine.CaseEvaluationSerializer;
-import io.casehub.engine.internal.engine.QuiescenceTracker;
-import io.casehub.engine.internal.engine.SignalSettlementTracker;
-import io.casehub.engine.internal.engine.handler.ActionGateApprovedHandler;
-import io.casehub.engine.internal.engine.handler.ActionGateExpiredHandler;
-import io.casehub.engine.internal.engine.handler.ActionGateRejectedHandler;
-import io.casehub.engine.internal.engine.handler.AgentRoutingEscalationHandler;
-import io.casehub.engine.internal.engine.handler.CaseStatusChangedHandler;
-import io.casehub.engine.internal.engine.handler.ContextOutputApplier;
-import io.casehub.engine.internal.engine.handler.ContextSignalEventHandler;
-import io.casehub.engine.internal.engine.handler.GoalReachedEventHandler;
-import io.casehub.engine.internal.engine.handler.JudgmentCompletedHandler;
-import io.casehub.engine.internal.engine.handler.JudgmentEscalationHandler;
-import io.casehub.engine.internal.engine.handler.JudgmentExpiredHandler;
-import io.casehub.engine.internal.engine.handler.MilestoneActivatedEventHandler;
-import io.casehub.engine.internal.engine.handler.MilestoneCompletedEventHandler;
-import io.casehub.engine.internal.engine.handler.MilestoneSLAViolatedEventHandler;
-import io.casehub.engine.internal.engine.handler.ScopedWorkerTerminationHandler;
-import io.casehub.engine.internal.engine.handler.WorkerRetriesExhaustedEventHandler;
-import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
-import io.casehub.engine.internal.memory.AgentMemoryRetriever;
-import io.casehub.engine.internal.milestone.MilestoneLifecycleManager;
-import io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry;
-import io.casehub.engine.internal.routing.DefaultGoalFormationService;
-import io.casehub.engine.internal.routing.DefaultGoalRemovalService;
-import io.casehub.engine.internal.routing.LlmGoalFormationStrategy;
-import io.casehub.engine.internal.routing.LlmGoalRevisionStrategy;
-import io.casehub.engine.internal.routing.SelectionContextStore;
-import io.casehub.engine.internal.scheduler.SchedulerService;
+import io.casehub.engine.runtime.acl.WorkerGrantOrchestrator;
+import io.casehub.engine.runtime.acl.WorkerIdentityResolver;
+import io.casehub.engine.runtime.engine.CaseCompletionTracker;
+import io.casehub.engine.runtime.engine.CaseEvaluationSerializer;
+import io.casehub.engine.runtime.engine.QuiescenceTracker;
+import io.casehub.engine.runtime.engine.SignalSettlementTracker;
+import io.casehub.engine.runtime.engine.handler.ActionGateApprovedHandler;
+import io.casehub.engine.runtime.engine.handler.ActionGateExpiredHandler;
+import io.casehub.engine.runtime.engine.handler.ActionGateRejectedHandler;
+import io.casehub.engine.runtime.engine.handler.AgentRoutingEscalationHandler;
+import io.casehub.engine.runtime.engine.handler.CaseStatusChangedHandler;
+import io.casehub.engine.runtime.engine.handler.ContextOutputApplier;
+import io.casehub.engine.runtime.engine.handler.ContextSignalEventHandler;
+import io.casehub.engine.runtime.engine.handler.GoalReachedEventHandler;
+import io.casehub.engine.runtime.engine.handler.JudgmentCompletedHandler;
+import io.casehub.engine.runtime.engine.handler.JudgmentEscalationHandler;
+import io.casehub.engine.runtime.engine.handler.JudgmentExpiredHandler;
+import io.casehub.engine.runtime.engine.handler.MilestoneActivatedEventHandler;
+import io.casehub.engine.runtime.engine.handler.MilestoneCompletedEventHandler;
+import io.casehub.engine.runtime.engine.handler.MilestoneSLAViolatedEventHandler;
+import io.casehub.engine.runtime.engine.handler.ScopedWorkerTerminationHandler;
+import io.casehub.engine.runtime.engine.handler.WorkerRetriesExhaustedEventHandler;
+import io.casehub.engine.runtime.engine.handler.WorkerScheduleEventHandler;
+import io.casehub.engine.runtime.memory.AgentMemoryRetriever;
+import io.casehub.engine.runtime.milestone.MilestoneLifecycleManager;
+import io.casehub.engine.runtime.recovery.CaseRecoveryStateRegistry;
+import io.casehub.engine.runtime.routing.DefaultGoalFormationService;
+import io.casehub.engine.runtime.routing.DefaultGoalRemovalService;
+import io.casehub.engine.runtime.routing.LlmGoalFormationStrategy;
+import io.casehub.engine.runtime.routing.LlmGoalRevisionStrategy;
+import io.casehub.engine.runtime.routing.SelectionContextStore;
+import io.casehub.engine.runtime.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.neocortex.memory.CaseMemoryStore;
 import io.casehub.platform.api.acl.AccessControlProvider;
@@ -375,15 +375,15 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.recovery.CaseRecoveryService caseRecoveryService(
+  io.casehub.engine.runtime.recovery.CaseRecoveryService caseRecoveryService(
       io.casehub.engine.common.spi.cache.CaseInstanceCache caseInstanceCache,
       io.casehub.engine.common.spi.CrossTenantCaseInstanceRepository crossTenantRepository,
       CaseCompletionTracker caseCompletionTracker,
       io.casehub.api.spi.event.EventDispatcher eventDispatcher,
       io.casehub.engine.common.spi.CaseInstanceRepository caseInstanceRepository,
       io.casehub.api.spi.CaseChannelProvider caseChannelProvider,
-      io.casehub.engine.internal.scheduler.SchedulerService schedulerService) {
-    return new io.casehub.engine.internal.recovery.CaseRecoveryService(
+      io.casehub.engine.runtime.scheduler.SchedulerService schedulerService) {
+    return new io.casehub.engine.runtime.recovery.CaseRecoveryService(
         caseInstanceCache,
         crossTenantRepository,
         caseCompletionTracker,
@@ -434,12 +434,12 @@ public class RuntimeBeans {
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
-      Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator,
-      Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
-      Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
-      Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker> swarmProgressTracker,
-      Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner> swarmProvisioner) {
+      io.casehub.engine.runtime.convergence.ConvergenceDetector convergenceDetector,
+      Instance<io.casehub.engine.runtime.stigmergy.StigmergyCoordinator> stigmergyCoordinator,
+      Instance<io.casehub.engine.runtime.stigmergy.RoleTracker> roleTracker,
+      Instance<io.casehub.engine.runtime.stigmergy.TeamDetector> teamDetector,
+      Instance<io.casehub.engine.runtime.stigmergy.SwarmProgressTracker> swarmProgressTracker,
+      Instance<io.casehub.engine.runtime.stigmergy.SwarmProvisioner> swarmProvisioner) {
     return new CaseStatusChangedHandler(
         eventDispatcher,
         caseInstanceRepository,
@@ -485,17 +485,17 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker(
+  io.casehub.engine.runtime.routing.AgentGoalCompletionMarker agentGoalCompletionMarker(
       CaseDefinitionRegistry caseDefinitionRegistry) {
-    return new io.casehub.engine.internal.routing.AgentGoalCompletionMarker(caseDefinitionRegistry);
+    return new io.casehub.engine.runtime.routing.AgentGoalCompletionMarker(caseDefinitionRegistry);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.GoalOutcomeRecorder goalOutcomeRecorder(
+  io.casehub.engine.runtime.routing.GoalOutcomeRecorder goalOutcomeRecorder(
       Instance<io.casehub.eidos.api.GoalSignalStore> goalSignalStore,
       CaseDefinitionRegistry caseDefinitionRegistry) {
-    return new io.casehub.engine.internal.routing.GoalOutcomeRecorder(
+    return new io.casehub.engine.runtime.routing.GoalOutcomeRecorder(
         goalSignalStore.isResolvable()
             ? java.util.Optional.of(goalSignalStore.get())
             : java.util.Optional.empty(),
@@ -504,23 +504,23 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.AgentCandidateFactory agentCandidateFactory(
+  io.casehub.engine.runtime.routing.AgentCandidateFactory agentCandidateFactory(
       StrategyResolver strategyResolver) {
-    return new io.casehub.engine.internal.routing.AgentCandidateFactory(strategyResolver);
+    return new io.casehub.engine.runtime.routing.AgentCandidateFactory(strategyResolver);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.handler.ExpectationValidator expectationValidator(
+  io.casehub.engine.runtime.engine.handler.ExpectationValidator expectationValidator(
       io.casehub.engine.common.internal.monitoring.ExpectedEffectResolver effectResolver) {
-    return new io.casehub.engine.internal.engine.handler.ExpectationValidator(effectResolver);
+    return new io.casehub.engine.runtime.engine.handler.ExpectationValidator(effectResolver);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService(
+  io.casehub.engine.runtime.worker.FailureCritiqueService failureCritiqueService(
       Instance<io.casehub.api.model.ai.ChatModelProvider> chatModelProvider) {
-    return new io.casehub.engine.internal.worker.FailureCritiqueService(
+    return new io.casehub.engine.runtime.worker.FailureCritiqueService(
         chatModelProvider.isResolvable()
             ? java.util.Optional.of(chatModelProvider.get())
             : java.util.Optional.empty());
@@ -528,29 +528,29 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.work.PendingWorkRegistry pendingWorkRegistry(
+  io.casehub.engine.runtime.work.PendingWorkRegistry pendingWorkRegistry(
       @io.casehub.engine.common.qualifier.CrossTenant
           io.casehub.engine.common.spi.CrossTenantEventLogRepository eventLogRepository) {
-    return new io.casehub.engine.internal.work.PendingWorkRegistry(eventLogRepository);
+    return new io.casehub.engine.runtime.work.PendingWorkRegistry(eventLogRepository);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.work.CaseResumptionService caseResumptionService(
+  io.casehub.engine.runtime.work.CaseResumptionService caseResumptionService(
       CaseInstanceRepository caseInstanceRepository,
-      io.casehub.engine.internal.work.PendingWorkRegistry pendingWorkRegistry) {
-    return new io.casehub.engine.internal.work.CaseResumptionService(
+      io.casehub.engine.runtime.work.PendingWorkRegistry pendingWorkRegistry) {
+    return new io.casehub.engine.runtime.work.CaseResumptionService(
         caseInstanceRepository, pendingWorkRegistry);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.PersonalitySignalRecorder personalitySignalRecorder(
+  io.casehub.engine.runtime.routing.PersonalitySignalRecorder personalitySignalRecorder(
       Instance<io.casehub.eidos.api.DispositionSignalStore> signalStore,
       CaseDefinitionRegistry caseDefinitionRegistry,
       Instance<io.casehub.eidos.api.DispositionHealth> dispositionHealth,
       Instance<io.casehub.eidos.api.DispositionEvolution> dispositionEvolution) {
-    return new io.casehub.engine.internal.routing.PersonalitySignalRecorder(
+    return new io.casehub.engine.runtime.routing.PersonalitySignalRecorder(
         signalStore.isResolvable()
             ? java.util.Optional.of(signalStore.get())
             : java.util.Optional.empty(),
@@ -565,12 +565,12 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.BehavioralComplianceRecorder behavioralComplianceRecorder(
+  io.casehub.engine.runtime.routing.BehavioralComplianceRecorder behavioralComplianceRecorder(
       Instance<io.casehub.eidos.api.BehavioralSignalStore> signalStore,
       CaseDefinitionRegistry caseDefinitionRegistry,
       Instance<io.casehub.engine.common.spi.PlanItemStore> planItemStore,
       io.casehub.eidos.api.VocabularyRegistry vocabularyRegistry) {
-    return new io.casehub.engine.internal.routing.BehavioralComplianceRecorder(
+    return new io.casehub.engine.runtime.routing.BehavioralComplianceRecorder(
         signalStore.isResolvable()
             ? java.util.Optional.of(signalStore.get())
             : java.util.Optional.empty(),
@@ -583,7 +583,7 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.GoalRevisionEvaluator goalRevisionEvaluator(
+  io.casehub.engine.runtime.routing.GoalRevisionEvaluator goalRevisionEvaluator(
       Instance<io.casehub.eidos.api.GoalSignalStore> goalSignalStore,
       Instance<io.casehub.eidos.api.GoalEvolution> goalEvolution,
       Instance<io.casehub.eidos.api.AgentRegistry> agentRegistry,
@@ -607,7 +607,7 @@ public class RuntimeBeans {
               name = "casehub.goal-revision.importance-threshold",
               defaultValue = "0.3")
           double importanceThreshold) {
-    return new io.casehub.engine.internal.routing.GoalRevisionEvaluator(
+    return new io.casehub.engine.runtime.routing.GoalRevisionEvaluator(
         goalSignalStore.isResolvable()
             ? java.util.Optional.of(goalSignalStore.get())
             : java.util.Optional.empty(),
@@ -629,7 +629,7 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.CbrRetrievalService cbrRetrievalService(
+  io.casehub.engine.runtime.routing.CbrRetrievalService cbrRetrievalService(
       io.casehub.engine.common.internal.jq.JQEvaluator jqEvaluator,
       io.casehub.neocortex.memory.cbr.CbrRecordStore cbrStore,
       io.casehub.neocortex.memory.cbr.CbrPlanAdapter planAdapter,
@@ -639,7 +639,7 @@ public class RuntimeBeans {
               name = "casehub.engine.cbr.ensemble-timeout-ms",
               defaultValue = "5000")
           long ensembleTimeoutMs) {
-    return new io.casehub.engine.internal.routing.CbrRetrievalService(
+    return new io.casehub.engine.runtime.routing.CbrRetrievalService(
         jqEvaluator,
         cbrStore,
         planAdapter,
@@ -650,7 +650,7 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.GoalFormationEvaluator goalFormationEvaluator(
+  io.casehub.engine.runtime.routing.GoalFormationEvaluator goalFormationEvaluator(
       Instance<io.casehub.eidos.api.AgentRegistry> agentRegistry,
       Instance<io.casehub.api.spi.routing.GoalFormationService> goalFormationService,
       Instance<CaseMemoryStore> caseMemoryStore,
@@ -681,7 +681,7 @@ public class RuntimeBeans {
               name = "casehub.engine.goal.formation.max-memories",
               defaultValue = "20")
           int maxMemories) {
-    return new io.casehub.engine.internal.routing.GoalFormationEvaluator(
+    return new io.casehub.engine.runtime.routing.GoalFormationEvaluator(
         agentRegistry.isResolvable()
             ? java.util.Optional.of(agentRegistry.get())
             : java.util.Optional.empty(),
@@ -704,19 +704,19 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder(
+  io.casehub.engine.runtime.memory.AgentExperienceRecorder agentExperienceRecorder(
       Instance<io.casehub.neocortex.memory.experience.ExperienceRecorder> experienceRecorder,
       Instance<io.casehub.neocortex.memory.reflection.ReflectionOrchestrator>
           reflectionOrchestrator,
       CaseDefinitionRegistry caseDefinitionRegistry,
-      io.casehub.engine.internal.routing.GoalFormationEvaluator goalFormationEvaluator,
+      io.casehub.engine.runtime.routing.GoalFormationEvaluator goalFormationEvaluator,
       Instance<CaseMemoryStore> caseMemoryStore,
       Instance<io.micrometer.core.instrument.MeterRegistry> meterRegistry,
       @org.eclipse.microprofile.config.inject.ConfigProperty(
               name = "casehub.reasoning.enabled",
               defaultValue = "true")
           boolean reasoningEnabled) {
-    return new io.casehub.engine.internal.memory.AgentExperienceRecorder(
+    return new io.casehub.engine.runtime.memory.AgentExperienceRecorder(
         experienceRecorder.isResolvable()
             ? java.util.Optional.of(experienceRecorder.get())
             : java.util.Optional.empty(),
@@ -736,20 +736,20 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.CbrCacheEvictionHandler cbrCacheEvictionHandler(
-      io.casehub.engine.internal.routing.CbrRetrievalService cbrRetrievalService) {
-    return new io.casehub.engine.internal.routing.CbrCacheEvictionHandler(cbrRetrievalService);
+  io.casehub.engine.runtime.routing.CbrCacheEvictionHandler cbrCacheEvictionHandler(
+      io.casehub.engine.runtime.routing.CbrRetrievalService cbrRetrievalService) {
+    return new io.casehub.engine.runtime.routing.CbrCacheEvictionHandler(cbrRetrievalService);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.handler.ScopedWorkerOutputHandler scopedWorkerOutputHandler(
+  io.casehub.engine.runtime.engine.handler.ScopedWorkerOutputHandler scopedWorkerOutputHandler(
       ContextOutputApplier contextOutputApplier,
       EventLogRepository eventLogRepository,
       EventDispatcher eventDispatcher,
-      io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder,
+      io.casehub.engine.runtime.memory.AgentExperienceRecorder agentExperienceRecorder,
       CaseDefinitionRegistry caseDefinitionRegistry) {
-    return new io.casehub.engine.internal.engine.handler.ScopedWorkerOutputHandler(
+    return new io.casehub.engine.runtime.engine.handler.ScopedWorkerOutputHandler(
         contextOutputApplier,
         eventLogRepository,
         eventDispatcher,
@@ -790,39 +790,39 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.handler.WorkflowExecutionCompletedHandler
+  io.casehub.engine.runtime.engine.handler.WorkflowExecutionCompletedHandler
       workflowExecutionCompletedHandler(
           EventDispatcher eventDispatcher,
           Event<CaseLifecycleEvent> lifecycleEvents,
           Event<io.casehub.engine.common.spi.event.WorkerDecisionEvent> workerDecisionEvents,
           EventLogRepository eventLogRepository,
           CaseDefinitionRegistry caseDefinitionRegistry,
-          io.casehub.engine.internal.work.CaseResumptionService caseResumptionService,
+          io.casehub.engine.runtime.work.CaseResumptionService caseResumptionService,
           WorkerStatusListener workerStatusListener,
           LedgerTraceIdProvider traceIdProvider,
           io.casehub.api.spi.ActionRiskClassifier actionRiskClassifier,
           CaseInstanceRepository caseInstanceRepository,
           SignalSettlementTracker settlementTracker,
           QuiescenceTracker quiescenceTracker,
-          io.casehub.engine.internal.routing.PersonalitySignalRecorder personalitySignalRecorder,
-          io.casehub.engine.internal.routing.GoalOutcomeRecorder goalOutcomeRecorder,
-          io.casehub.engine.internal.routing.BehavioralComplianceRecorder
+          io.casehub.engine.runtime.routing.PersonalitySignalRecorder personalitySignalRecorder,
+          io.casehub.engine.runtime.routing.GoalOutcomeRecorder goalOutcomeRecorder,
+          io.casehub.engine.runtime.routing.BehavioralComplianceRecorder
               behavioralComplianceRecorder,
-          io.casehub.engine.internal.routing.AgentGoalCompletionMarker agentGoalCompletionMarker,
-          io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder,
-          io.casehub.engine.internal.routing.GoalRevisionEvaluator goalRevisionEvaluator,
+          io.casehub.engine.runtime.routing.AgentGoalCompletionMarker agentGoalCompletionMarker,
+          io.casehub.engine.runtime.memory.AgentExperienceRecorder agentExperienceRecorder,
+          io.casehub.engine.runtime.routing.GoalRevisionEvaluator goalRevisionEvaluator,
           WorkerGrantOrchestrator workerGrantOrchestrator,
           ContextOutputApplier contextOutputApplier,
           StrategyResolver strategyResolver,
           RecoveryCoordinator recoveryCoordinator,
           io.casehub.api.spi.FailureClassifier failureClassifier,
-          io.casehub.engine.internal.engine.handler.ExpectationValidator expectationValidator,
-          io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService,
+          io.casehub.engine.runtime.engine.handler.ExpectationValidator expectationValidator,
+          io.casehub.engine.runtime.worker.FailureCritiqueService failureCritiqueService,
           SelectionContextStore selectionContextStore,
           Instance<io.casehub.api.spi.routing.RoutingOutcomeRecorder> outcomeRecorder,
           Instance<io.casehub.engine.common.spi.ActionGateScheduler> actionGateScheduler,
           Instance<io.casehub.api.spi.StepOutcomeObserver> stepOutcomeObserver) {
-    return new io.casehub.engine.internal.engine.handler.WorkflowExecutionCompletedHandler(
+    return new io.casehub.engine.runtime.engine.handler.WorkflowExecutionCompletedHandler(
         eventDispatcher,
         event ->
             lifecycleEvents
@@ -876,7 +876,7 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler
+  io.casehub.engine.runtime.engine.handler.CaseContextChangedEventHandler
       caseContextChangedEventHandler(
           io.casehub.api.spi.event.EventDispatcher eventDispatcher,
           io.casehub.engine.common.internal.jq.JQEvaluator jqEvaluator,
@@ -884,7 +884,7 @@ public class RuntimeBeans {
           io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry,
           io.casehub.api.engine.LoopControl loopControl,
           io.casehub.platform.api.routing.StrategyResolver strategyResolver,
-          io.casehub.engine.internal.routing.AgentCandidateFactory agentCandidateFactory,
+          io.casehub.engine.runtime.routing.AgentCandidateFactory agentCandidateFactory,
           io.casehub.engine.common.spi.scheduler.WorkerExecutionManager executionManager,
           io.casehub.eidos.api.CapabilityHealth capabilityHealth,
           io.casehub.api.spi.WorkerContextProvider workerContextProvider,
@@ -892,16 +892,16 @@ public class RuntimeBeans {
           jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseLifecycleEvent>
               lifecycleEvents,
           io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider,
-          io.casehub.engine.internal.routing.CbrRetrievalService cbrRetrievalService,
+          io.casehub.engine.runtime.routing.CbrRetrievalService cbrRetrievalService,
           io.casehub.engine.common.internal.context.BridgeResolver bridgeResolver,
-          io.casehub.engine.internal.engine.SignalSettlementTracker settlementTracker,
-          io.casehub.engine.internal.acl.WorkerGrantOrchestrator workerGrantOrchestrator,
+          io.casehub.engine.runtime.engine.SignalSettlementTracker settlementTracker,
+          io.casehub.engine.runtime.acl.WorkerGrantOrchestrator workerGrantOrchestrator,
           @io.quarkus.virtual.threads.VirtualThreads
               java.util.concurrent.ExecutorService virtualThreads,
-          io.casehub.engine.internal.engine.CaseEvaluationSerializer evaluationSerializer,
-          io.casehub.engine.internal.engine.QuiescenceTracker quiescenceTracker,
+          io.casehub.engine.runtime.engine.CaseEvaluationSerializer evaluationSerializer,
+          io.casehub.engine.runtime.engine.QuiescenceTracker quiescenceTracker,
           io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry scopedWorkerRegistry,
-          io.casehub.engine.internal.routing.SelectionContextStore selectionContextStore,
+          io.casehub.engine.runtime.routing.SelectionContextStore selectionContextStore,
           io.casehub.api.spi.DispatchBudget dispatchBudget,
           io.casehub.engine.common.spi.PlanItemStore planItemStore,
           jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.CaseContextUpdatedEvent>
@@ -913,17 +913,17 @@ public class RuntimeBeans {
           io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
           io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
           io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-          io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
-          io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer,
-          Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator,
-          Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
-          Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
-          Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker> swarmProgressTracker,
-          Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner> swarmProvisioner,
-          Instance<io.casehub.engine.internal.improvement.ImprovementGoalFormationStrategy>
+          io.casehub.engine.runtime.convergence.ConvergenceDetector convergenceDetector,
+          io.casehub.engine.runtime.convergence.BudgetEnforcer budgetEnforcer,
+          Instance<io.casehub.engine.runtime.stigmergy.StigmergyCoordinator> stigmergyCoordinator,
+          Instance<io.casehub.engine.runtime.stigmergy.RoleTracker> roleTracker,
+          Instance<io.casehub.engine.runtime.stigmergy.TeamDetector> teamDetector,
+          Instance<io.casehub.engine.runtime.stigmergy.SwarmProgressTracker> swarmProgressTracker,
+          Instance<io.casehub.engine.runtime.stigmergy.SwarmProvisioner> swarmProvisioner,
+          Instance<io.casehub.engine.runtime.improvement.ImprovementGoalFormationStrategy>
               improvementStrategy,
           Instance<io.casehub.api.spi.routing.GoalFormationService> goalFormationService) {
-    return new io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler(
+    return new io.casehub.engine.runtime.engine.handler.CaseContextChangedEventHandler(
         eventDispatcher,
         jqEvaluator,
         caseDefinitionRegistry,
@@ -976,132 +976,132 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.convergence.BudgetEnforcer budgetEnforcer() {
-    return new io.casehub.engine.internal.convergence.BudgetEnforcer();
+  io.casehub.engine.runtime.convergence.BudgetEnforcer budgetEnforcer() {
+    return new io.casehub.engine.runtime.convergence.BudgetEnforcer();
   }
 
   // --- Task 6: Simple services ---
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.LambdaExpressionEngine lambdaExpressionEngine() {
-    return new io.casehub.engine.internal.engine.LambdaExpressionEngine();
+  io.casehub.engine.runtime.engine.LambdaExpressionEngine lambdaExpressionEngine() {
+    return new io.casehub.engine.runtime.engine.LambdaExpressionEngine();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.ExactMatchStrategy exactMatchStrategy() {
-    return new io.casehub.engine.internal.routing.ExactMatchStrategy();
+  io.casehub.engine.runtime.routing.ExactMatchStrategy exactMatchStrategy() {
+    return new io.casehub.engine.runtime.routing.ExactMatchStrategy();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.worker.AllowAllWorkerExecutionGuard allowAllWorkerExecutionGuard() {
-    return new io.casehub.engine.internal.worker.AllowAllWorkerExecutionGuard();
+  io.casehub.engine.runtime.worker.AllowAllWorkerExecutionGuard allowAllWorkerExecutionGuard() {
+    return new io.casehub.engine.runtime.worker.AllowAllWorkerExecutionGuard();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.worker.ReYieldEscalator reYieldEscalator() {
-    return new io.casehub.engine.internal.worker.ReYieldEscalator();
+  io.casehub.engine.runtime.worker.ReYieldEscalator reYieldEscalator() {
+    return new io.casehub.engine.runtime.worker.ReYieldEscalator();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.worker.FaultEscalator faultEscalator() {
-    return new io.casehub.engine.internal.worker.FaultEscalator();
+  io.casehub.engine.runtime.worker.FaultEscalator faultEscalator() {
+    return new io.casehub.engine.runtime.worker.FaultEscalator();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.worker.EvidencePresenceVerifier evidencePresenceVerifier() {
-    return new io.casehub.engine.internal.worker.EvidencePresenceVerifier();
+  io.casehub.engine.runtime.worker.EvidencePresenceVerifier evidencePresenceVerifier() {
+    return new io.casehub.engine.runtime.worker.EvidencePresenceVerifier();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.WorkloadSignalProvider workloadSignalProvider() {
-    return new io.casehub.engine.internal.routing.WorkloadSignalProvider();
+  io.casehub.engine.runtime.routing.WorkloadSignalProvider workloadSignalProvider() {
+    return new io.casehub.engine.runtime.routing.WorkloadSignalProvider();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.JQExpressionEngine jqExpressionEngine(
+  io.casehub.engine.runtime.engine.JQExpressionEngine jqExpressionEngine(
       io.casehub.engine.common.internal.jq.JQEvaluator jqEvaluator) {
-    return new io.casehub.engine.internal.engine.JQExpressionEngine(jqEvaluator);
+    return new io.casehub.engine.runtime.engine.JQExpressionEngine(jqEvaluator);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl caseInstanceCacheImpl() {
-    return new io.casehub.engine.internal.engine.cache.CaseInstanceCacheImpl();
+  io.casehub.engine.runtime.engine.cache.CaseInstanceCacheImpl caseInstanceCacheImpl() {
+    return new io.casehub.engine.runtime.engine.cache.CaseInstanceCacheImpl();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.DefaultCaseEventRecorder defaultCaseEventRecorder(
+  io.casehub.engine.runtime.engine.DefaultCaseEventRecorder defaultCaseEventRecorder(
       io.casehub.engine.common.spi.EventLogRepository eventLogRepository) {
-    return new io.casehub.engine.internal.engine.DefaultCaseEventRecorder(eventLogRepository);
+    return new io.casehub.engine.runtime.engine.DefaultCaseEventRecorder(eventLogRepository);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.ConstraintHumanTaskRoutingStrategy
+  io.casehub.engine.runtime.routing.ConstraintHumanTaskRoutingStrategy
       constraintHumanTaskRoutingStrategy(
           io.casehub.api.engine.ExpressionEngineRegistry expressionRegistry,
           io.casehub.api.spi.routing.WorkloadDataProvider workloadProvider) {
-    return new io.casehub.engine.internal.routing.ConstraintHumanTaskRoutingStrategy(
+    return new io.casehub.engine.runtime.routing.ConstraintHumanTaskRoutingStrategy(
         expressionRegistry, workloadProvider);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.engine.EngineResetService engineResetService(
+  io.casehub.engine.runtime.engine.EngineResetService engineResetService(
       Instance<io.casehub.engine.common.spi.Resettable> resettables) {
-    return new io.casehub.engine.internal.engine.EngineResetService(resettables.stream().toList());
+    return new io.casehub.engine.runtime.engine.EngineResetService(resettables.stream().toList());
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.config.impl.ConfigSecretManager configSecretManager(
+  io.casehub.engine.runtime.config.impl.ConfigSecretManager configSecretManager(
       io.casehub.engine.common.internal.config.ConfigManager configManager) {
-    return new io.casehub.engine.internal.config.impl.ConfigSecretManager(configManager);
+    return new io.casehub.engine.runtime.config.impl.ConfigSecretManager(configManager);
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.worker.DefaultWorkerFunctionProviderRegistry
+  io.casehub.engine.runtime.worker.DefaultWorkerFunctionProviderRegistry
       defaultWorkerFunctionProviderRegistry(
           Instance<io.casehub.api.spi.WorkerFunctionProvider> providers) {
-    return new io.casehub.engine.internal.worker.DefaultWorkerFunctionProviderRegistry(
+    return new io.casehub.engine.runtime.worker.DefaultWorkerFunctionProviderRegistry(
         providers.stream().toList());
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.worker.CompositeWorkerExecutionManager compositeWorkerExecutionManager(
+  io.casehub.engine.runtime.worker.CompositeWorkerExecutionManager compositeWorkerExecutionManager(
       io.casehub.engine.common.spi.scheduler.WorkerExecutionRoutingStrategy routingStrategy,
       @io.casehub.engine.common.spi.scheduler.WorkerBackend
           Instance<WorkerExecutionManager> backends) {
-    return new io.casehub.engine.internal.worker.CompositeWorkerExecutionManager(
+    return new io.casehub.engine.runtime.worker.CompositeWorkerExecutionManager(
         routingStrategy, backends.stream().toList());
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.ExperienceSignalProvider experienceSignalProvider() {
-    return new io.casehub.engine.internal.routing.ExperienceSignalProvider();
+  io.casehub.engine.runtime.routing.ExperienceSignalProvider experienceSignalProvider() {
+    return new io.casehub.engine.runtime.routing.ExperienceSignalProvider();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.GoalAbandonmentEvaluator goalAbandonmentEvaluator(
+  io.casehub.engine.runtime.routing.GoalAbandonmentEvaluator goalAbandonmentEvaluator(
       Instance<io.casehub.eidos.api.GoalSignalStore> signalStore,
       @org.eclipse.microprofile.config.inject.ConfigProperty(
               name = "casehub.engine.goal.abandonment-threshold",
               defaultValue = "5")
           int threshold) {
-    return new io.casehub.engine.internal.routing.GoalAbandonmentEvaluator(
+    return new io.casehub.engine.runtime.routing.GoalAbandonmentEvaluator(
         signalStore.isResolvable()
             ? java.util.Optional.of(signalStore.get())
             : java.util.Optional.empty(),
@@ -1110,9 +1110,9 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.PersonalitySignalProvider personalitySignalProvider(
+  io.casehub.engine.runtime.routing.PersonalitySignalProvider personalitySignalProvider(
       Instance<io.casehub.eidos.api.DispositionHealth> dispositionHealth) {
-    return new io.casehub.engine.internal.routing.PersonalitySignalProvider(
+    return new io.casehub.engine.runtime.routing.PersonalitySignalProvider(
         dispositionHealth.isResolvable()
             ? java.util.Optional.of(dispositionHealth.get())
             : java.util.Optional.empty());
@@ -1120,9 +1120,9 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.GoalSignalProvider goalSignalProvider(
-      Instance<io.casehub.engine.internal.routing.GoalAbandonmentEvaluator> evaluator) {
-    return new io.casehub.engine.internal.routing.GoalSignalProvider(
+  io.casehub.engine.runtime.routing.GoalSignalProvider goalSignalProvider(
+      Instance<io.casehub.engine.runtime.routing.GoalAbandonmentEvaluator> evaluator) {
+    return new io.casehub.engine.runtime.routing.GoalSignalProvider(
         evaluator.isResolvable()
             ? java.util.Optional.of(evaluator.get())
             : java.util.Optional.empty());
@@ -1130,16 +1130,16 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.routing.CbrHumanTaskRoutingStrategy cbrHumanTaskRoutingStrategy() {
-    return new io.casehub.engine.internal.routing.CbrHumanTaskRoutingStrategy();
+  io.casehub.engine.runtime.routing.CbrHumanTaskRoutingStrategy cbrHumanTaskRoutingStrategy() {
+    return new io.casehub.engine.runtime.routing.CbrHumanTaskRoutingStrategy();
   }
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.config.impl.DefaultConfigContext defaultConfigContext(
+  io.casehub.engine.runtime.config.impl.DefaultConfigContext defaultConfigContext(
       io.casehub.engine.common.internal.config.ConfigManager configManager,
       io.casehub.engine.common.internal.config.SecretManager secretManager) {
-    return new io.casehub.engine.internal.config.impl.DefaultConfigContext(
+    return new io.casehub.engine.runtime.config.impl.DefaultConfigContext(
         configManager, secretManager);
   }
 
@@ -1254,11 +1254,11 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.executor.WorkerRuntimeFactory workerRuntimeFactory(
+  io.casehub.engine.runtime.executor.WorkerRuntimeFactory workerRuntimeFactory(
       io.casehub.api.engine.CaseHubRuntime caseHubRuntime,
       CaseDefinitionRegistry definitionRegistry,
       CaseInstanceCache caseInstanceCache,
-      io.casehub.engine.internal.engine.CaseCompletionTracker caseCompletionTracker,
+      io.casehub.engine.runtime.engine.CaseCompletionTracker caseCompletionTracker,
       DataChannelRegistry channelRegistry,
       io.casehub.api.spi.DataChannelFactory defaultChannelFactory,
       io.casehub.engine.common.internal.observation.ObservationRegistry observationRegistry,
@@ -1266,12 +1266,12 @@ public class RuntimeBeans {
       io.casehub.engine.common.spi.PlanItemStore planItemStore,
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      Instance<io.casehub.engine.internal.stigmergy.RoleTracker> roleTracker,
-      Instance<io.casehub.engine.internal.stigmergy.TeamDetector> teamDetector,
-      Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker> swarmProgressTracker,
-      Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator> stigmergyCoordinator) {
+      Instance<io.casehub.engine.runtime.stigmergy.RoleTracker> roleTracker,
+      Instance<io.casehub.engine.runtime.stigmergy.TeamDetector> teamDetector,
+      Instance<io.casehub.engine.runtime.stigmergy.SwarmProgressTracker> swarmProgressTracker,
+      Instance<io.casehub.engine.runtime.stigmergy.StigmergyCoordinator> stigmergyCoordinator) {
     var factory =
-        new io.casehub.engine.internal.executor.WorkerRuntimeFactory(
+        new io.casehub.engine.runtime.executor.WorkerRuntimeFactory(
             caseHubRuntime,
             definitionRegistry,
             caseInstanceCache,
@@ -1294,17 +1294,17 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.stigmergy.SwarmProvisioner swarmProvisioner(
+  io.casehub.engine.runtime.stigmergy.SwarmProvisioner swarmProvisioner(
       io.casehub.api.spi.WorkerProvisioner workerProvisioner,
-      io.casehub.engine.internal.stigmergy.StigmergyCoordinator coordinator,
+      io.casehub.engine.runtime.stigmergy.StigmergyCoordinator coordinator,
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      io.casehub.engine.internal.stigmergy.RoleTracker roleTracker,
-      io.casehub.engine.internal.stigmergy.TeamDetector teamDetector,
-      io.casehub.engine.internal.stigmergy.SwarmProgressTracker progressTracker,
+      io.casehub.engine.runtime.stigmergy.RoleTracker roleTracker,
+      io.casehub.engine.runtime.stigmergy.TeamDetector teamDetector,
+      io.casehub.engine.runtime.stigmergy.SwarmProgressTracker progressTracker,
       io.casehub.api.spi.DispatchBudget dispatchBudget,
       Instance<io.casehub.api.spi.stigmergy.SwarmProvisioningAdvisor> advisorInstance) {
-    return new io.casehub.engine.internal.stigmergy.SwarmProvisioner(
+    return new io.casehub.engine.runtime.stigmergy.SwarmProvisioner(
         workerProvisioner,
         coordinator,
         signalRegistry,
@@ -1318,16 +1318,16 @@ public class RuntimeBeans {
 
   @Produces
   @ApplicationScoped
-  io.casehub.engine.internal.improvement.EvolutionTicker evolutionTicker(
-      io.casehub.engine.internal.improvement.ImprovementGoalFormationStrategy goalFormation,
-      io.casehub.engine.internal.improvement.ImprovementCircuitBreaker circuitBreaker,
-      io.casehub.engine.internal.improvement.HealthScoreTracker healthTracker,
-      io.casehub.engine.internal.improvement.RegressionDetector regressionDetector,
+  io.casehub.engine.runtime.improvement.EvolutionTicker evolutionTicker(
+      io.casehub.engine.runtime.improvement.ImprovementGoalFormationStrategy goalFormation,
+      io.casehub.engine.runtime.improvement.ImprovementCircuitBreaker circuitBreaker,
+      io.casehub.engine.runtime.improvement.HealthScoreTracker healthTracker,
+      io.casehub.engine.runtime.improvement.RegressionDetector regressionDetector,
       io.casehub.api.spi.routing.GoalFormationService goalFormationService,
-      io.casehub.engine.internal.improvement.TickTraceBuffer traceBuffer,
+      io.casehub.engine.runtime.improvement.TickTraceBuffer traceBuffer,
       jakarta.enterprise.event.Event<io.casehub.engine.common.spi.event.TickEvaluatedEvent>
           tickEvaluatedEvent) {
-    return new io.casehub.engine.internal.improvement.EvolutionTicker(
+    return new io.casehub.engine.runtime.improvement.EvolutionTicker(
         goalFormation,
         circuitBreaker,
         healthTracker,

@@ -165,7 +165,7 @@ maxTokens: "${$config.\"model-params\".maxTokens | tonumber}"
 ### ConfigManager
 
 ```java
-import io.casehub.engine.internal.config.ConfigContext;
+import io.casehub.engine.runtime.config.ConfigContext;
 import jakarta.inject.Inject;
 
 @ApplicationScoped

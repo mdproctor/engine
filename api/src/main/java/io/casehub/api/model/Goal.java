@@ -48,7 +48,7 @@ import java.util.function.Predicate;
  * }</pre>
  *
  * <p>When a goal's condition becomes true, a {@code GoalReachedEvent} is published and recorded in
- * the {@link io.casehub.engine.internal.history.EventLog}. If the goal is referenced by a {@link
+ * the {@link io.casehub.engine.runtime.history.EventLog}. If the goal is referenced by a {@link
  * io.casehub.api.model.GoalBasedCompletion}, the engine evaluates whether the case should
  * transition to COMPLETED or FAILED. Goals are always terminal — use {@link Milestone} for
  * non-terminal checkpoints.

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.convergence;
+package io.casehub.engine.runtime.convergence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.improvement.research;
+package io.casehub.engine.runtime.improvement.research;
 
 import io.casehub.api.model.stigmergy.CapabilityAreaAssessment;
 import io.casehub.api.model.stigmergy.ResearchScope;

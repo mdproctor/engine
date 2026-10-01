@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,11 +40,11 @@ import io.casehub.eidos.api.CapabilityHealth;
 import io.casehub.engine.common.internal.event.CaseContextChangedEvent;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
-import io.casehub.engine.internal.context.WritableLayerImpl;
-import io.casehub.engine.internal.routing.AgentCandidateFactory;
-import io.casehub.engine.internal.routing.CbrRetrievalService;
-import io.casehub.engine.internal.routing.SubsumptionMatchStrategy;
-import io.casehub.engine.internal.worker.NoOpVocabularyRegistry;
+import io.casehub.engine.runtime.context.WritableLayerImpl;
+import io.casehub.engine.runtime.routing.AgentCandidateFactory;
+import io.casehub.engine.runtime.routing.CbrRetrievalService;
+import io.casehub.engine.runtime.routing.SubsumptionMatchStrategy;
+import io.casehub.engine.runtime.worker.NoOpVocabularyRegistry;
 import io.casehub.platform.api.routing.NamedStrategy;
 import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;
@@ -70,7 +70,7 @@ class CaseContextChangedEnsembleTest {
   private LoopControl loopControl;
   private AgentRoutingStrategy agentRoutingStrategy;
   private CbrRetrievalService cbrRetrievalService;
-  private io.casehub.engine.internal.engine.CaseEvaluationSerializer evaluationSerializer;
+  private io.casehub.engine.runtime.engine.CaseEvaluationSerializer evaluationSerializer;
   private io.casehub.api.spi.DispatchBudget dispatchBudget;
   private io.casehub.ledger.api.spi.LedgerTraceIdProvider traceIdProvider;
   private io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
@@ -92,7 +92,7 @@ class CaseContextChangedEnsembleTest {
     executionManager = mock(io.casehub.engine.common.spi.scheduler.WorkerExecutionManager.class);
     capabilityHealth = mock(CapabilityHealth.class);
     cbrRetrievalService = mock(CbrRetrievalService.class);
-    evaluationSerializer = mock(io.casehub.engine.internal.engine.CaseEvaluationSerializer.class);
+    evaluationSerializer = mock(io.casehub.engine.runtime.engine.CaseEvaluationSerializer.class);
     dispatchBudget = mock(io.casehub.api.spi.DispatchBudget.class);
     traceIdProvider = mock(io.casehub.ledger.api.spi.LedgerTraceIdProvider.class);
 
@@ -115,13 +115,13 @@ class CaseContextChangedEnsembleTest {
             traceIdProvider,
             cbrRetrievalService,
             mock(io.casehub.engine.common.internal.context.BridgeResolver.class),
-            mock(io.casehub.engine.internal.engine.SignalSettlementTracker.class),
-            mock(io.casehub.engine.internal.acl.WorkerGrantOrchestrator.class),
+            mock(io.casehub.engine.runtime.engine.SignalSettlementTracker.class),
+            mock(io.casehub.engine.runtime.acl.WorkerGrantOrchestrator.class),
             mock(java.util.concurrent.ExecutorService.class),
             evaluationSerializer,
-            mock(io.casehub.engine.internal.engine.QuiescenceTracker.class),
+            mock(io.casehub.engine.runtime.engine.QuiescenceTracker.class),
             mock(io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry.class),
-            mock(io.casehub.engine.internal.routing.SelectionContextStore.class),
+            mock(io.casehub.engine.runtime.routing.SelectionContextStore.class),
             dispatchBudget,
             mock(io.casehub.engine.common.spi.PlanItemStore.class),
             mock(java.util.function.Consumer.class),
@@ -131,8 +131,8 @@ class CaseContextChangedEnsembleTest {
             mock(io.casehub.engine.common.internal.signal.SignalRegistry.class),
             mock(io.casehub.engine.common.internal.observation.RuleRegistry.class),
             mock(io.casehub.engine.common.internal.convergence.ActivityTracker.class),
-            mock(io.casehub.engine.internal.convergence.ConvergenceDetector.class),
-            mock(io.casehub.engine.internal.convergence.BudgetEnforcer.class),
+            mock(io.casehub.engine.runtime.convergence.ConvergenceDetector.class),
+            mock(io.casehub.engine.runtime.convergence.BudgetEnforcer.class),
             mock(jakarta.enterprise.inject.Instance.class),
             mock(jakarta.enterprise.inject.Instance.class),
             mock(jakarta.enterprise.inject.Instance.class),

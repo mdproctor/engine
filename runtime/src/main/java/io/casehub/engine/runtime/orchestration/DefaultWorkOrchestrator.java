@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.orchestration;
+package io.casehub.engine.runtime.orchestration;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -46,9 +46,9 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.WorkOrchestrator;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
-import io.casehub.engine.internal.routing.AgentCandidateFactory;
-import io.casehub.engine.internal.routing.CbrRetrievalService;
-import io.casehub.engine.internal.work.PendingWorkRegistry;
+import io.casehub.engine.runtime.routing.AgentCandidateFactory;
+import io.casehub.engine.runtime.routing.CbrRetrievalService;
+import io.casehub.engine.runtime.work.PendingWorkRegistry;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;

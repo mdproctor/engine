@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.cache;
+package io.casehub.engine.runtime.engine.cache;
 
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;

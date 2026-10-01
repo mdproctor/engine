@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.work;
+package io.casehub.engine.runtime.work;
 
 import io.casehub.api.model.WorkResult;
 import io.casehub.engine.common.spi.CrossTenantEventLogRepository;

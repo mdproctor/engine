@@ -29,7 +29,7 @@ import org.jboss.logging.Logger;
  *
  * <p>Subscribes to {@code AGENT_ROUTING_ESCALATION} which is published via {@code
  * eventBus.publish()} — fan-out. Coexists with {@link
- * io.casehub.engine.internal.engine.handler.AgentRoutingEscalationHandler} which posts the QUERY to
+ * io.casehub.engine.runtime.engine.handler.AgentRoutingEscalationHandler} which posts the QUERY to
  * the oversight channel.
  *
  * <p>For CapabilityTarget bindings, the PlanItem is already RUNNING at escalation time (marked by

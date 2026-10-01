@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker;
+package io.casehub.engine.runtime.worker;
 
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.AgentMatch;

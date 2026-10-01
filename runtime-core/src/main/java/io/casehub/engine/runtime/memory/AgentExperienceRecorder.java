@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.memory;
+package io.casehub.engine.runtime.memory;
 
 import io.casehub.api.model.MemoryRetrievalConfig;
 import io.casehub.api.model.ReflectionTriggerConfig;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.internal.routing.GoalFormationEvaluator;
+import io.casehub.engine.runtime.routing.GoalFormationEvaluator;
 import io.casehub.neocortex.memory.CaseMemoryStore;
 import io.casehub.neocortex.memory.MemoryDomain;
 import io.casehub.neocortex.memory.MemoryInput;

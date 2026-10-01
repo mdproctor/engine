@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -53,7 +53,7 @@ class ScopedWorkerOutputHandlerTest {
   private ContextOutputApplier applier;
   private EventLogRepository eventLogRepository;
   private io.casehub.api.spi.event.EventDispatcher eventDispatcher;
-  private io.casehub.engine.internal.memory.AgentExperienceRecorder agentExperienceRecorder;
+  private io.casehub.engine.runtime.memory.AgentExperienceRecorder agentExperienceRecorder;
   private io.casehub.engine.common.spi.CaseDefinitionRegistry caseDefinitionRegistry;
 
   private CaseInstance instance;
@@ -63,7 +63,7 @@ class ScopedWorkerOutputHandlerTest {
     applier = mock(ContextOutputApplier.class);
     eventLogRepository = mock(EventLogRepository.class);
     eventDispatcher = mock(io.casehub.api.spi.event.EventDispatcher.class);
-    agentExperienceRecorder = mock(io.casehub.engine.internal.memory.AgentExperienceRecorder.class);
+    agentExperienceRecorder = mock(io.casehub.engine.runtime.memory.AgentExperienceRecorder.class);
     caseDefinitionRegistry = mock(io.casehub.engine.common.spi.CaseDefinitionRegistry.class);
 
     handler =
@@ -84,7 +84,7 @@ class ScopedWorkerOutputHandlerTest {
     instance.setCaseMetaModel(metaModel);
     instance.setState(CaseStatus.RUNNING);
     instance.tenancyId = "tenant-1";
-    instance.setCaseContext(new io.casehub.engine.internal.context.CaseContextImpl());
+    instance.setCaseContext(new io.casehub.engine.runtime.context.CaseContextImpl());
   }
 
   @Test

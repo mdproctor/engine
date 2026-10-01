@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.improvement;
+package io.casehub.engine.runtime.improvement;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -26,7 +26,7 @@ import io.casehub.api.model.improvement.ImprovementRequest;
 import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.signal.SignalRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.casehub.engine.internal.improvement.worker.ImprovementIntegrationWorker;
+import io.casehub.engine.runtime.improvement.worker.ImprovementIntegrationWorker;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;

@@ -23,7 +23,7 @@ import java.util.List;
  *
  * <p>Returns {@code List<Binding>} to allow synchronous selection. See casehubio/engine#76.
  *
- * <p>The default implementation ({@link io.casehub.engine.internal.engine.ChoreographyLoopControl})
+ * <p>The default implementation ({@link io.casehub.engine.runtime.engine.ChoreographyLoopControl})
  * wraps with a simple pass-through — no behaviour change.
  */
 public interface LoopControl {

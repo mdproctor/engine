@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.memory;
+package io.casehub.engine.runtime.memory;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.model.MemoryRetrievalConfig;

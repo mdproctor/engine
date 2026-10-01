@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.memory;
+package io.casehub.engine.runtime.memory;
 
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.memory.runtime.MemoryEmitterCore;

@@ -685,7 +685,7 @@ getter `getDefaultWorkerBridge()`, and builder method
 - [ ] **Step 4: Implement BridgeResolver**
 
 ```java
-package io.casehub.engine.internal.context;
+package io.casehub.engine.runtime.context;
 
 import io.casehub.api.context.*;
 import io.casehub.api.model.CaseDefinition;

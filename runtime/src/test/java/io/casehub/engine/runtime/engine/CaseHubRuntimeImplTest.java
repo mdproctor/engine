@@ -13,15 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import io.casehub.api.context.CaseContextStore;
 import io.casehub.api.context.CaseContextStoreFactory;
-import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.engine.internal.context.InMemoryCaseContextStoreFactory;
+import io.casehub.engine.runtime.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.InMemoryCaseContextStoreFactory;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -27,10 +27,10 @@ import static org.mockito.Mockito.when;
 import io.casehub.api.model.CaseDefinition;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.monitoring.ExpectedEffectResolver;
-import io.casehub.engine.internal.context.CaseContextImpl;
 import io.casehub.engine.plan.goap.Condition;
 import io.casehub.engine.plan.monitoring.ExpectedEffects;
 import io.casehub.engine.plan.monitoring.MonitoringConfig;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import java.util.Map;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;

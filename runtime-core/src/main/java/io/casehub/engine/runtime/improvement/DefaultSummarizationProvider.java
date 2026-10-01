@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.improvement;
+package io.casehub.engine.runtime.improvement;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.model.event.CaseHubEventType;

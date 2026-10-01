@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.identity;
+package io.casehub.engine.runtime.identity;
 
 import io.casehub.engine.common.qualifier.EngineSystem;
 import io.casehub.platform.api.identity.CurrentPrincipal;

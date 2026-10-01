@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.executor;
+package io.casehub.engine.runtime.executor;
 
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.CapabilityTarget;
@@ -29,7 +29,7 @@ import io.casehub.engine.common.internal.worker.scope.ScopedWorkerRegistry;
 import io.casehub.engine.common.internal.worker.scope.ScopedWorkerSession;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
-import io.casehub.engine.internal.worker.scope.DefaultPersistentScope;
+import io.casehub.engine.runtime.worker.scope.DefaultPersistentScope;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.casehub.worker.api.PersistentScope;
 import io.casehub.worker.api.ScopeTerminatedException;

@@ -15,7 +15,7 @@
  */
 package io.casehub.work.engine;
 
-import io.casehub.engine.internal.routing.EngineStrategyResolver;
+import io.casehub.engine.runtime.routing.EngineStrategyResolver;
 import io.casehub.work.api.spi.ClaimSlaPolicy;
 import io.casehub.work.api.spi.InstanceAssignmentStrategy;
 import io.casehub.work.api.spi.SlaBreachPolicy;

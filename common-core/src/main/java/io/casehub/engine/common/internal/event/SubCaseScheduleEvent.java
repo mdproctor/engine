@@ -19,9 +19,9 @@ import io.casehub.api.model.SubCase;
 import io.casehub.engine.common.internal.model.CaseInstance;
 
 /**
- * Published by {@link io.casehub.engine.internal.engine.handler.CaseContextChangedEventHandler}
- * when a binding with a SubCase definition fires. Carries the evaluated child initial context
- * (result of SubCase.inputMapping applied to the parent CaseContext) and the binding name so {@link
+ * Published by {@link io.casehub.engine.runtime.engine.handler.CaseContextChangedEventHandler} when
+ * a binding with a SubCase definition fires. Carries the evaluated child initial context (result of
+ * SubCase.inputMapping applied to the parent CaseContext) and the binding name so {@link
  * io.casehub.engine.planning.subcase.SubCaseExecutionHandler} can locate the correct PlanItem.
  *
  * @param bindingName the name of the Binding in the parent CaseDefinition that fired

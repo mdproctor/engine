@@ -23,7 +23,7 @@ import java.util.List;
  * WorkerSelectionStrategy} from casehub-work.
  *
  * <p>Implement as {@code @ApplicationScoped @Alternative @Priority(N)} where N > 0 to override
- * {@link io.casehub.engine.internal.routing.LeastLoadedAgentStrategy}. Higher priority wins.
+ * {@link io.casehub.engine.runtime.routing.LeastLoadedAgentStrategy}. Higher priority wins.
  *
  * <p>Implementations that do only in-memory work (e.g. trust scoring against a local cache) should
  * return {@code Uni.createFrom().item(result)}. Implementations that make blocking calls (e.g. an

@@ -291,7 +291,7 @@ test via the `@QuarkusTest` integration path in the runtime module.
 Create a focused test class:
 
 ```java
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -299,7 +299,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import io.casehub.api.context.CaseContextStore;
 import io.casehub.api.context.CaseContextStoreFactory;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.engine.internal.context.InMemoryCaseContextStoreFactory;
+import io.casehub.engine.runtime.context.InMemoryCaseContextStoreFactory;
 import io.casehub.platform.api.routing.StrategyResolver;
 import java.util.Map;
 import java.util.UUID;
@@ -361,7 +361,7 @@ class CaseHubRuntimeImplTest {
     void createContext_withFactory_usesFactoryForAllLayers() {
         var recording = new RecordingFactory();
         UUID caseId = UUID.randomUUID();
-        var context = new io.casehub.engine.internal.context.CaseContextImpl(recording, caseId);
+        var context = new io.casehub.engine.runtime.context.CaseContextImpl(recording, caseId);
 
         // Factory should have been called for WORKING, SEMANTIC, EPISODIC
         assertThat(recording.calls).containsExactlyInAnyOrder("working", "semantic", "episodic");
@@ -372,7 +372,7 @@ class CaseHubRuntimeImplTest {
     void createContext_withInputData_populatesWorkingLayer() {
         var factory = InMemoryCaseContextStoreFactory.INSTANCE;
         UUID caseId = UUID.randomUUID();
-        var context = new io.casehub.engine.internal.context.CaseContextImpl(factory, caseId);
+        var context = new io.casehub.engine.runtime.context.CaseContextImpl(factory, caseId);
         context.setAll(Map.of("key1", "value1", "key2", 42));
 
         assertThat(context.get("key1")).isEqualTo("value1");
@@ -383,16 +383,16 @@ class CaseHubRuntimeImplTest {
     void createContext_emptyInputData_noError() {
         var factory = InMemoryCaseContextStoreFactory.INSTANCE;
         UUID caseId = UUID.randomUUID();
-        var context = new io.casehub.engine.internal.context.CaseContextImpl(factory, caseId);
+        var context = new io.casehub.engine.runtime.context.CaseContextImpl(factory, caseId);
         context.setAll(Map.of());
 
         assertThat(context.isEmpty()).isTrue();
     }
 
     private StrategyResolver testResolver(CaseContextStoreFactory factory) {
-        return io.casehub.engine.internal.routing.EngineStrategyResolver.forTest(
+        return io.casehub.engine.runtime.routing.EngineStrategyResolver.forTest(
             java.util.List.of(
-                new io.casehub.engine.internal.routing.EngineStrategyResolver.TestHandle<>(
+                new io.casehub.engine.runtime.routing.EngineStrategyResolver.TestHandle<>(
                     factory, true)));
     }
 }
@@ -429,7 +429,7 @@ This is a `@QuarkusTest` that defines a CaseHub with `contextStoreFactory: "reco
 starts a case, and verifies the recording factory was used.
 
 ```java
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -437,7 +437,7 @@ import io.casehub.api.context.CaseContextStore;
 import io.casehub.api.context.CaseContextStoreFactory;
 import io.casehub.api.engine.CaseHubRuntime;
 import io.casehub.api.model.CaseDefinition;
-import io.casehub.engine.internal.context.InMemoryCaseContextStoreFactory;
+import io.casehub.engine.runtime.context.InMemoryCaseContextStoreFactory;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;

@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.stigmergy;
+package io.casehub.engine.runtime.stigmergy;
 
 import io.casehub.api.engine.MetricsSpace;
 import io.casehub.api.model.stigmergy.BehavioralFingerprint;

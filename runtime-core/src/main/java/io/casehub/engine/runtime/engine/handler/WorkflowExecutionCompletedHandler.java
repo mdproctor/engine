@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,18 +50,18 @@ import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.event.WorkerDecisionEvent;
-import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
-import io.casehub.engine.internal.context.EpisodicLayerUpdater;
-import io.casehub.engine.internal.engine.QuiescenceTracker;
-import io.casehub.engine.internal.engine.SignalSettlementTracker;
-import io.casehub.engine.internal.memory.AgentExperienceRecorder;
-import io.casehub.engine.internal.routing.AgentGoalCompletionMarker;
-import io.casehub.engine.internal.routing.BehavioralComplianceRecorder;
-import io.casehub.engine.internal.routing.GoalOutcomeRecorder;
-import io.casehub.engine.internal.routing.GoalRevisionEvaluator;
-import io.casehub.engine.internal.routing.PersonalitySignalRecorder;
-import io.casehub.engine.internal.routing.SelectionContextStore;
-import io.casehub.engine.internal.work.CaseResumptionService;
+import io.casehub.engine.runtime.acl.WorkerGrantOrchestrator;
+import io.casehub.engine.runtime.context.EpisodicLayerUpdater;
+import io.casehub.engine.runtime.engine.QuiescenceTracker;
+import io.casehub.engine.runtime.engine.SignalSettlementTracker;
+import io.casehub.engine.runtime.memory.AgentExperienceRecorder;
+import io.casehub.engine.runtime.routing.AgentGoalCompletionMarker;
+import io.casehub.engine.runtime.routing.BehavioralComplianceRecorder;
+import io.casehub.engine.runtime.routing.GoalOutcomeRecorder;
+import io.casehub.engine.runtime.routing.GoalRevisionEvaluator;
+import io.casehub.engine.runtime.routing.PersonalitySignalRecorder;
+import io.casehub.engine.runtime.routing.SelectionContextStore;
+import io.casehub.engine.runtime.work.CaseResumptionService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.casehub.worker.api.PlannedAction;
 import io.casehub.worker.api.Worker;
@@ -110,7 +110,7 @@ public class WorkflowExecutionCompletedHandler {
   private final io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator;
   private final io.casehub.api.spi.FailureClassifier failureClassifier;
   private final ExpectationValidator expectationValidator;
-  private final io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService;
+  private final io.casehub.engine.runtime.worker.FailureCritiqueService failureCritiqueService;
   private final SelectionContextStore selectionContextStore;
   private final Optional<io.casehub.api.spi.routing.RoutingOutcomeRecorder> outcomeRecorder;
   private final Optional<io.casehub.engine.common.spi.ActionGateScheduler> actionGateScheduler;
@@ -141,7 +141,7 @@ public class WorkflowExecutionCompletedHandler {
       io.casehub.engine.common.spi.recovery.RecoveryCoordinator recoveryCoordinator,
       io.casehub.api.spi.FailureClassifier failureClassifier,
       ExpectationValidator expectationValidator,
-      io.casehub.engine.internal.worker.FailureCritiqueService failureCritiqueService,
+      io.casehub.engine.runtime.worker.FailureCritiqueService failureCritiqueService,
       SelectionContextStore selectionContextStore,
       Optional<io.casehub.api.spi.routing.RoutingOutcomeRecorder> outcomeRecorder,
       Optional<io.casehub.engine.common.spi.ActionGateScheduler> actionGateScheduler,

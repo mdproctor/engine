@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.worker;
+package io.casehub.engine.runtime.worker;
 
 import io.casehub.api.context.MutableCaseContext;
 import io.casehub.api.model.CaseDefinition;

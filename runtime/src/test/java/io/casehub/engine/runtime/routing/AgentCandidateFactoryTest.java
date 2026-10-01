@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.routing;
+package io.casehub.engine.runtime.routing;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -33,7 +33,7 @@ import io.casehub.eidos.api.MatchDegree;
 import io.casehub.eidos.api.VocabularyRegistry;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.scheduler.WorkerExecutionManager;
-import io.casehub.engine.internal.worker.NoOpVocabularyRegistry;
+import io.casehub.engine.runtime.worker.NoOpVocabularyRegistry;
 import io.casehub.platform.api.routing.NamedStrategy;
 import io.casehub.platform.api.routing.StrategyResolver;
 import io.casehub.worker.api.Capability;

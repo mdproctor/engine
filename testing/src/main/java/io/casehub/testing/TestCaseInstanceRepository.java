@@ -17,7 +17,7 @@ package io.casehub.testing;
 
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.recovery.CaseContextRecoveryStrategy;
-import io.casehub.persistence.memory.InMemoryCaseInstanceRepository;
+import io.casehub.engine.persistence.memory.InMemoryCaseInstanceRepository;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;

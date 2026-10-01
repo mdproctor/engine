@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static io.casehub.api.model.event.CaseHubEventType.MILESTONE_SLA_VIOLATED;
 

@@ -16,7 +16,7 @@
 package io.casehub.testing;
 
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.casehub.persistence.memory.InMemoryEventLogRepository;
+import io.casehub.engine.persistence.memory.InMemoryEventLogRepository;
 import jakarta.annotation.Priority;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Alternative;

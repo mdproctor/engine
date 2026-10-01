@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.improvement.worker;
+package io.casehub.engine.runtime.improvement.worker;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 import io.casehub.api.model.improvement.ImprovementRequest;
-import io.casehub.engine.internal.improvement.CodeEvolutionMetadata;
+import io.casehub.engine.runtime.improvement.CodeEvolutionMetadata;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;

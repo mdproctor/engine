@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.acl;
+package io.casehub.engine.runtime.acl;
 
 import io.casehub.api.acl.EngineAuthorizationContext;
 import io.casehub.api.acl.EngineResourceTypes;

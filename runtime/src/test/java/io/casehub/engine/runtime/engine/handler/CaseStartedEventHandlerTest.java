@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -34,9 +34,9 @@ import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
-import io.casehub.engine.internal.context.CaseContextImpl;
-import io.casehub.engine.internal.routing.CbrRetrievalService;
-import io.casehub.engine.internal.scheduler.SchedulerService;
+import io.casehub.engine.runtime.context.CaseContextImpl;
+import io.casehub.engine.runtime.routing.CbrRetrievalService;
+import io.casehub.engine.runtime.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import io.vertx.mutiny.core.eventbus.EventBus;
 import jakarta.enterprise.event.Event;

@@ -31,7 +31,7 @@ import org.jboss.logging.Logger;
  * blocked by the execution guard.
  *
  * <p>Listens to {@code WORKER_RETRIES_EXHAUSTED} — the same event published by both {@link
- * io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler} (guard-blocked path) and
+ * io.casehub.engine.runtime.engine.handler.WorkerScheduleEventHandler} (guard-blocked path) and
  * {@link io.casehub.engine.scheduler.quartz.QuartzWorkerExecutionJobListener} (retry-exhausted
  * path). Both fire-sites use {@code worker.getName()} as the {@code workerId} field, which equals
  * the tracking key stored by {@link BlackboardRegistry#indexForCompletion}.

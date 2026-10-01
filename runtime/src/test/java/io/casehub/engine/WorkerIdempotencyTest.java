@@ -33,7 +33,7 @@ import io.casehub.engine.common.internal.utils.WorkerExecutionKeys;
 import io.casehub.engine.common.spi.EventLogRepository;
 import io.casehub.engine.common.spi.cache.CaseInstanceCache;
 import io.casehub.engine.common.spi.recovery.WorkerExecutionRecoveryService;
-import io.casehub.engine.internal.engine.handler.WorkerScheduleEventHandler;
+import io.casehub.engine.runtime.engine.handler.WorkerScheduleEventHandler;
 import io.casehub.platform.api.identity.TenancyConstants;
 import io.casehub.worker.api.Capability;
 import io.casehub.worker.api.Worker;

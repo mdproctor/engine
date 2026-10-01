@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
@@ -28,7 +28,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.evaluator.JQExpressionEvaluator;
 import io.casehub.api.model.evaluator.LambdaExpressionEvaluator;
-import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;

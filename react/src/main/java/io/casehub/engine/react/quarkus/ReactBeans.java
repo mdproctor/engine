@@ -17,10 +17,10 @@ package io.casehub.engine.react.quarkus;
 
 import io.casehub.api.spi.event.EventDispatcher;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.casehub.engine.internal.executor.WorkerRuntimeFactory;
 import io.casehub.engine.react.ReActCycleEventHandler;
 import io.casehub.engine.react.ReActWorkerFunctionHandler;
 import io.casehub.engine.react.ReActWorkerFunctionProvider;
+import io.casehub.engine.runtime.executor.WorkerRuntimeFactory;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import java.util.concurrent.ExecutorService;

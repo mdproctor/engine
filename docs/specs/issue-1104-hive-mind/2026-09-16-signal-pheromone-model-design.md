@@ -272,7 +272,7 @@ In `CaseContextChangedEventHandler.observations()`:
 ### SignalStrengthObserver (classical observer)
 
 ```java
-package io.casehub.engine.internal.observation;
+package io.casehub.engine.runtime.observation;
 
 public final class SignalStrengthObserver implements EnvironmentObserver {
   private final String signalName;

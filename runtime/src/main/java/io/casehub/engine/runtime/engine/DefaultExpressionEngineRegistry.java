@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine;
+package io.casehub.engine.runtime.engine;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.context.CaseContext;
 import io.casehub.api.engine.ExpressionEngine;
 import io.casehub.api.engine.ExpressionEngineRegistry;
-import io.casehub.engine.internal.context.CaseContextImpl;
+import io.casehub.engine.runtime.context.CaseContextImpl;
 import io.casehub.platform.api.expression.ExpressionEvaluator;
 import jakarta.annotation.PostConstruct;
 import jakarta.enterprise.context.ApplicationScoped;

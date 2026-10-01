@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.memory;
+package io.casehub.engine.runtime.memory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -24,7 +24,7 @@ import io.casehub.api.model.ReflectionTriggerConfig;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.internal.model.CaseMetaModel;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
-import io.casehub.engine.internal.routing.GoalFormationEvaluator;
+import io.casehub.engine.runtime.routing.GoalFormationEvaluator;
 import io.casehub.neocortex.memory.experience.ExperienceEvent;
 import io.casehub.neocortex.memory.experience.ExperienceRecorder;
 import io.casehub.neocortex.memory.experience.Outcome;

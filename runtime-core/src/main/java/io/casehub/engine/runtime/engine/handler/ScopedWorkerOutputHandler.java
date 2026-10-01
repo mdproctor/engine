@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -29,7 +29,7 @@ import io.casehub.engine.common.internal.history.EventLog;
 import io.casehub.engine.common.internal.model.CaseInstance;
 import io.casehub.engine.common.spi.CaseDefinitionRegistry;
 import io.casehub.engine.common.spi.EventLogRepository;
-import io.casehub.engine.internal.memory.AgentExperienceRecorder;
+import io.casehub.engine.runtime.memory.AgentExperienceRecorder;
 import io.casehub.worker.api.WorkerOutcome;
 import java.time.Instant;
 import java.util.Map;

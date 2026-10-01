@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import static io.casehub.api.model.event.CaseHubEventType.GOAL_REACHED;
 
@@ -90,7 +90,7 @@ public class GoalReachedEventHandler {
 
         if (caseInstance.getCaseContext()
             instanceof io.casehub.api.context.MutableCaseContext mctx) {
-          io.casehub.engine.internal.context.EpisodicLayerUpdater.recordGoalReached(
+          io.casehub.engine.runtime.context.EpisodicLayerUpdater.recordGoalReached(
               mctx, goal.getName());
         }
 

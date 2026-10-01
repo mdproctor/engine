@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.internal.engine.handler;
+package io.casehub.engine.runtime.engine.handler;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -39,10 +39,10 @@ import io.casehub.engine.common.internal.model.CaseTerminatedException;
 import io.casehub.engine.common.spi.CaseInstanceRepository;
 import io.casehub.engine.common.spi.event.CaseLifecycleEvent;
 import io.casehub.engine.common.spi.recovery.CompoundLockRegistry;
-import io.casehub.engine.internal.acl.WorkerGrantOrchestrator;
-import io.casehub.engine.internal.engine.CaseCompletionTracker;
-import io.casehub.engine.internal.recovery.CaseRecoveryStateRegistry;
-import io.casehub.engine.internal.scheduler.SchedulerService;
+import io.casehub.engine.runtime.acl.WorkerGrantOrchestrator;
+import io.casehub.engine.runtime.engine.CaseCompletionTracker;
+import io.casehub.engine.runtime.recovery.CaseRecoveryStateRegistry;
+import io.casehub.engine.runtime.scheduler.SchedulerService;
 import io.casehub.ledger.api.spi.LedgerTraceIdProvider;
 import java.time.Instant;
 import java.util.List;
@@ -78,20 +78,19 @@ public class CaseStatusChangedHandler {
   private final io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry;
   private final io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry;
   private final io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker;
-  private final io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector;
+  private final io.casehub.engine.runtime.convergence.ConvergenceDetector convergenceDetector;
   private final jakarta.enterprise.inject.Instance<
-          io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+          io.casehub.engine.runtime.stigmergy.StigmergyCoordinator>
       stigmergyCoordinator;
-  private final jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.RoleTracker>
+  private final jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.RoleTracker>
       roleTrackerInstance;
-  private final jakarta.enterprise.inject.Instance<
-          io.casehub.engine.internal.stigmergy.TeamDetector>
+  private final jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.TeamDetector>
       teamDetectorInstance;
   private final jakarta.enterprise.inject.Instance<
-          io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+          io.casehub.engine.runtime.stigmergy.SwarmProgressTracker>
       swarmProgressTrackerInstance;
   private final jakarta.enterprise.inject.Instance<
-          io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+          io.casehub.engine.runtime.stigmergy.SwarmProvisioner>
       swarmProvisionerInstance;
 
   public CaseStatusChangedHandler(
@@ -114,16 +113,16 @@ public class CaseStatusChangedHandler {
       io.casehub.engine.common.internal.signal.SignalRegistry signalRegistry,
       io.casehub.engine.common.internal.observation.RuleRegistry ruleRegistry,
       io.casehub.engine.common.internal.convergence.ActivityTracker activityTracker,
-      io.casehub.engine.internal.convergence.ConvergenceDetector convergenceDetector,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.StigmergyCoordinator>
+      io.casehub.engine.runtime.convergence.ConvergenceDetector convergenceDetector,
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.StigmergyCoordinator>
           stigmergyCoordinator,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.RoleTracker>
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.RoleTracker>
           roleTrackerInstance,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.TeamDetector>
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.TeamDetector>
           teamDetectorInstance,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProgressTracker>
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.SwarmProgressTracker>
           swarmProgressTrackerInstance,
-      jakarta.enterprise.inject.Instance<io.casehub.engine.internal.stigmergy.SwarmProvisioner>
+      jakarta.enterprise.inject.Instance<io.casehub.engine.runtime.stigmergy.SwarmProvisioner>
           swarmProvisionerInstance) {
     this.eventDispatcher = eventDispatcher;
     this.caseInstanceRepository = caseInstanceRepository;
