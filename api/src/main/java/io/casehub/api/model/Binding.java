@@ -321,6 +321,63 @@ public class Binding {
     this.compensation = compensation;
   }
 
+  public static java.util.List<String> validateCompensationBindings(
+      java.util.List<Binding> bindings) {
+    java.util.List<String> errors = new java.util.ArrayList<>();
+    java.util.Map<String, Binding> byName = new java.util.LinkedHashMap<>();
+    for (Binding b : bindings) {
+      byName.put(b.getName(), b);
+    }
+    java.util.Set<String> referencedAsCompensation = new java.util.HashSet<>();
+    for (Binding b : bindings) {
+      String ref = b.getCompensatedBy();
+      if (ref == null) {
+        continue;
+      }
+      if (ref.equals(b.getName())) {
+        errors.add(
+            "Binding '" + b.getName() + "' references itself as its own compensating binding");
+        continue;
+      }
+      if (!byName.containsKey(ref)) {
+        errors.add(
+            "Binding '"
+                + b.getName()
+                + "' references compensating binding '"
+                + ref
+                + "' which does not exist");
+        continue;
+      }
+      referencedAsCompensation.add(ref);
+    }
+    for (Binding b : bindings) {
+      String ref = b.getCompensatedBy();
+      if (ref == null || ref.equals(b.getName())) {
+        continue;
+      }
+      java.util.Set<String> visited = new java.util.HashSet<>();
+      visited.add(b.getName());
+      String current = ref;
+      while (current != null) {
+        if (!visited.add(current)) {
+          errors.add("Circular compensation reference detected involving '" + b.getName() + "'");
+          break;
+        }
+        Binding target = byName.get(current);
+        current = (target != null) ? target.getCompensatedBy() : null;
+      }
+    }
+    for (Binding b : bindings) {
+      if (b.isCompensation() && !referencedAsCompensation.contains(b.getName())) {
+        errors.add(
+            "Binding '"
+                + b.getName()
+                + "' is marked compensation: true but is not referenced by any compensatedBy");
+      }
+    }
+    return errors;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
