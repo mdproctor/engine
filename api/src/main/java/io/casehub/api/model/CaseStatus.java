@@ -41,9 +41,16 @@ public enum CaseStatus {
   /** Case terminated due to an error. */
   FAULTED,
   /** Case was stopped before completion. */
-  CANCELLED;
+  CANCELLED,
+  /** Compensation in progress — completed case is having its effects undone. */
+  COMPENSATING,
+  /** All compensating bindings completed — case effects fully reversed. */
+  COMPENSATED,
+  /** Compensation attempted but a compensating step failed — intervention required. */
+  COMPENSATION_FAULTED;
 
-  private static final Set<CaseStatus> TERMINAL_STATUSES = Set.of(COMPLETED, FAULTED, CANCELLED);
+  private static final Set<CaseStatus> TERMINAL_STATUSES =
+      Set.of(COMPLETED, FAULTED, CANCELLED, COMPENSATED);
 
   public static Set<CaseStatus> terminalStatuses() {
     return TERMINAL_STATUSES;
@@ -54,6 +61,10 @@ public enum CaseStatus {
   }
 
   public boolean isActive() {
-    return this == STARTING || this == RUNNING || this == WAITING;
+    return this == STARTING
+        || this == RUNNING
+        || this == WAITING
+        || this == COMPENSATING
+        || this == COMPENSATION_FAULTED;
   }
 }

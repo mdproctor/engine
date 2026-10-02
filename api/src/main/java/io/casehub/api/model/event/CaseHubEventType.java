@@ -22,6 +22,12 @@ public enum CaseHubEventType {
   CASE_CANCELLED,
   CASE_STATUS_CHANGED,
 
+  COMPENSATION_STARTED, // case entered COMPENSATING
+  COMPENSATION_COMPLETED, // case entered COMPENSATED — all compensating bindings done
+  COMPENSATION_FAULTED, // case entered COMPENSATION_FAULTED — a compensating step failed
+  COMPENSATION_STEP_STARTED, // individual compensating binding fired
+  COMPENSATION_STEP_COMPLETED, // individual compensating binding completed
+
   TASK_CREATED,
   TASK_COMPLETED,
   TASK_FAILED,

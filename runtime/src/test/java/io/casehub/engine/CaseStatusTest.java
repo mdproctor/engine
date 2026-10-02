@@ -38,7 +38,10 @@ class CaseStatusTest {
             CaseStatus.SUSPENDED,
             CaseStatus.COMPLETED,
             CaseStatus.FAULTED,
-            CaseStatus.CANCELLED);
+            CaseStatus.CANCELLED,
+            CaseStatus.COMPENSATING,
+            CaseStatus.COMPENSATED,
+            CaseStatus.COMPENSATION_FAULTED);
   }
 
   @Test
@@ -70,6 +73,7 @@ class CaseStatusTest {
     assertThat(CaseStatus.COMPLETED.isTerminal()).isTrue();
     assertThat(CaseStatus.FAULTED.isTerminal()).isTrue();
     assertThat(CaseStatus.CANCELLED.isTerminal()).isTrue();
+    assertThat(CaseStatus.COMPENSATED.isTerminal()).isTrue();
   }
 
   @Test
@@ -78,6 +82,8 @@ class CaseStatusTest {
     assertThat(CaseStatus.RUNNING.isTerminal()).isFalse();
     assertThat(CaseStatus.WAITING.isTerminal()).isFalse();
     assertThat(CaseStatus.SUSPENDED.isTerminal()).isFalse();
+    assertThat(CaseStatus.COMPENSATING.isTerminal()).isFalse();
+    assertThat(CaseStatus.COMPENSATION_FAULTED.isTerminal()).isFalse();
   }
 
   @Test
@@ -85,6 +91,8 @@ class CaseStatusTest {
     assertThat(CaseStatus.STARTING.isActive()).isTrue();
     assertThat(CaseStatus.RUNNING.isActive()).isTrue();
     assertThat(CaseStatus.WAITING.isActive()).isTrue();
+    assertThat(CaseStatus.COMPENSATING.isActive()).isTrue();
+    assertThat(CaseStatus.COMPENSATION_FAULTED.isActive()).isTrue();
   }
 
   @Test
@@ -93,12 +101,14 @@ class CaseStatusTest {
     assertThat(CaseStatus.COMPLETED.isActive()).isFalse();
     assertThat(CaseStatus.FAULTED.isActive()).isFalse();
     assertThat(CaseStatus.CANCELLED.isActive()).isFalse();
+    assertThat(CaseStatus.COMPENSATED.isActive()).isFalse();
   }
 
   @Test
   void terminalStatuses_containsExactlyTerminalValues() {
     assertThat(CaseStatus.terminalStatuses())
-        .containsExactlyInAnyOrder(CaseStatus.COMPLETED, CaseStatus.FAULTED, CaseStatus.CANCELLED);
+        .containsExactlyInAnyOrder(
+            CaseStatus.COMPLETED, CaseStatus.FAULTED, CaseStatus.CANCELLED, CaseStatus.COMPENSATED);
   }
 
   @Test
