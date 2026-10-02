@@ -118,6 +118,8 @@ public class Binding {
       "Explicit compensation ordering when topological sort is ambiguous.")
   private Integer compensationOrder;
 
+  private boolean compensation;
+
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
     this.target = target;
@@ -311,6 +313,14 @@ public class Binding {
     this.compensationOrder = compensationOrder;
   }
 
+  public boolean isCompensation() {
+    return compensation;
+  }
+
+  public void setCompensation(boolean compensation) {
+    this.compensation = compensation;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -340,6 +350,7 @@ public class Binding {
     private List<String> contingency;
     private String compensatedBy;
     private Integer compensationOrder;
+    private boolean compensation;
 
     private Builder() {}
 
@@ -527,6 +538,11 @@ public class Binding {
       return this;
     }
 
+    public Builder compensation(boolean compensation) {
+      this.compensation = compensation;
+      return this;
+    }
+
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -590,6 +606,7 @@ public class Binding {
       b.setContingency(this.contingency);
       b.setCompensatedBy(this.compensatedBy);
       b.setCompensationOrder(this.compensationOrder);
+      b.setCompensation(this.compensation);
       return b;
     }
   }
