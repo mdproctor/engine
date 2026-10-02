@@ -489,8 +489,8 @@ Set `ImprovementConfig.evolutionEnabled = true`, configure signal sources (`impr
 
 - `api/src/main/java/io/casehub/api/spi/improvement/CapabilityArea.java` — existing SPI interface
 - `api/src/main/java/io/casehub/api/model/stigmergy/CapabilityAreaAssessment.java` — assessment record
-- `../../../api/src/main/java/io/casehub/api/model/improvement/HealthPolicy.java` — weights (needs update 8→10)
-- `../../../api/src/main/java/io/casehub/api/model/improvement/ImprovementConfig.java` — evolution config
+- `../../../../platform/api/src/main/java/io/casehub/api/model/improvement/HealthPolicy.java` — weights (needs update 8→10)
+- `../../../../platform/api/src/main/java/io/casehub/api/model/improvement/ImprovementConfig.java` — evolution config
 - `runtime-core/src/main/java/io/casehub/engine/internal/improvement/CapabilityAreaRegistry.java` — area registry
 - `runtime-core/src/main/java/io/casehub/engine/internal/improvement/HealthScoreTracker.java` — score aggregation
 - `runtime-core/src/main/java/io/casehub/engine/internal/improvement/EvolutionTicker.java` — tick pipeline
