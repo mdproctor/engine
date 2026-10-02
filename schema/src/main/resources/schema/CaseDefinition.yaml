@@ -53,6 +53,10 @@ $defs:
       compensationOrder:
         type: integer
         description: Explicit compensation ordering when topological sort is ambiguous.
+      compensation:
+        type: boolean
+        description: Marks this binding as a compensating binding — excluded from forward execution planning.
+        default: false
       contingency:
         description: Alternative capability names activated on primary node failure.
         type: array

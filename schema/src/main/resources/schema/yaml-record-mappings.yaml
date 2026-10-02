@@ -97,6 +97,7 @@ types:
       - { name: recoveryOverride, type: YamlRecoveryOverride }
       - { name: compensatedBy, type: String }
       - { name: compensationOrder, type: Integer }
+      - { name: compensation, type: boolean }
 
   # ── Worker ──
   Worker:

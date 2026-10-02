@@ -837,6 +837,7 @@ public final class YamlCaseDefinitionConverter {
       }
       if (yb.compensatedBy() != null) builder.compensatedBy(yb.compensatedBy());
       if (yb.compensationOrder() != null) builder.compensationOrder(yb.compensationOrder());
+      builder.compensation(yb.compensation());
       if (yb.recoveryOverride() != null) {
         builder.recoveryOverride(convertRecoveryOverride(yb.recoveryOverride()));
       }
