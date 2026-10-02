@@ -19,6 +19,7 @@ import io.casehub.api.model.Binding;
 import io.casehub.api.model.BindingTarget;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.ExtensionTarget;
+import io.casehub.api.model.HumanTaskTarget;
 import io.casehub.api.model.JudgmentTarget;
 import io.casehub.api.model.SignalTarget;
 import io.casehub.api.model.SubCaseTarget;
@@ -55,6 +56,7 @@ public final class CompensationGraphProjection {
       case CapabilityTarget ignored -> "capability";
       case JudgmentTarget ignored -> "judgment";
       case SubCaseTarget ignored -> "sub-case";
+      case HumanTaskTarget ignored -> "human-task";
       case SignalTarget ignored -> "signal";
       case ExtensionTarget ignored -> "extension";
     };
