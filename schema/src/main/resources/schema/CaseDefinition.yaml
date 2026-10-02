@@ -53,6 +53,16 @@ $defs:
       contextWrite:
         type: object
         additionalProperties: true
+      compensatedBy:
+        type: string
+        description: Name of the binding to execute as compensation during saga reversal.
+      compensationOrder:
+        type: integer
+        description: Explicit compensation ordering when topological sort is ambiguous.
+      compensation:
+        type: boolean
+        description: Marks this binding as a compensating binding — excluded from forward execution planning.
+        default: false
       contingency:
         description: Alternative capability names activated on primary node failure.
         type: array

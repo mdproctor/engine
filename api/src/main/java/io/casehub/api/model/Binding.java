@@ -118,6 +118,8 @@ public class Binding {
       "Explicit compensation ordering when topological sort is ambiguous.")
   private Integer compensationOrder;
 
+  private boolean compensation;
+
   private Binding(String name, BindingTarget target, Trigger on) {
     this.name = name;
     this.target = target;
@@ -311,6 +313,71 @@ public class Binding {
     this.compensationOrder = compensationOrder;
   }
 
+  public boolean isCompensation() {
+    return compensation;
+  }
+
+  public void setCompensation(boolean compensation) {
+    this.compensation = compensation;
+  }
+
+  public static java.util.List<String> validateCompensationBindings(
+      java.util.List<Binding> bindings) {
+    java.util.List<String> errors = new java.util.ArrayList<>();
+    java.util.Map<String, Binding> byName = new java.util.LinkedHashMap<>();
+    for (Binding b : bindings) {
+      byName.put(b.getName(), b);
+    }
+    java.util.Set<String> referencedAsCompensation = new java.util.HashSet<>();
+    for (Binding b : bindings) {
+      String ref = b.getCompensatedBy();
+      if (ref == null) {
+        continue;
+      }
+      if (ref.equals(b.getName())) {
+        errors.add(
+            "Binding '" + b.getName() + "' references itself as its own compensating binding");
+        continue;
+      }
+      if (!byName.containsKey(ref)) {
+        errors.add(
+            "Binding '"
+                + b.getName()
+                + "' references compensating binding '"
+                + ref
+                + "' which does not exist");
+        continue;
+      }
+      referencedAsCompensation.add(ref);
+    }
+    for (Binding b : bindings) {
+      String ref = b.getCompensatedBy();
+      if (ref == null || ref.equals(b.getName())) {
+        continue;
+      }
+      java.util.Set<String> visited = new java.util.HashSet<>();
+      visited.add(b.getName());
+      String current = ref;
+      while (current != null) {
+        if (!visited.add(current)) {
+          errors.add("Circular compensation reference detected involving '" + b.getName() + "'");
+          break;
+        }
+        Binding target = byName.get(current);
+        current = (target != null) ? target.getCompensatedBy() : null;
+      }
+    }
+    for (Binding b : bindings) {
+      if (b.isCompensation() && !referencedAsCompensation.contains(b.getName())) {
+        errors.add(
+            "Binding '"
+                + b.getName()
+                + "' is marked compensation: true but is not referenced by any compensatedBy");
+      }
+    }
+    return errors;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -340,6 +407,7 @@ public class Binding {
     private List<String> contingency;
     private String compensatedBy;
     private Integer compensationOrder;
+    private boolean compensation;
 
     private Builder() {}
 
@@ -527,6 +595,11 @@ public class Binding {
       return this;
     }
 
+    public Builder compensation(boolean compensation) {
+      this.compensation = compensation;
+      return this;
+    }
+
     public Binding build() {
       Objects.requireNonNull(name);
       Objects.requireNonNull(on);
@@ -590,6 +663,7 @@ public class Binding {
       b.setContingency(this.contingency);
       b.setCompensatedBy(this.compensatedBy);
       b.setCompensationOrder(this.compensationOrder);
+      b.setCompensation(this.compensation);
       return b;
     }
   }
