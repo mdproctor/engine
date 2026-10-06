@@ -39,6 +39,8 @@ class CaseServiceAclTest {
   private UUID caseId;
   private CaseInstance instance;
   private boolean aclAllowed;
+  private CaseInstanceRepository repository;
+  private CurrentPrincipal principal;
 
   @BeforeEach
   void setUp() {
@@ -48,8 +50,7 @@ class CaseServiceAclTest {
     instance.setState(CaseStatus.RUNNING);
     aclAllowed = true;
 
-    caseService = new CaseService();
-    caseService.instanceRepository =
+    repository =
         new CaseInstanceRepository() {
           @Override
           public CaseInstance save(CaseInstance i, String t) {
@@ -72,14 +73,14 @@ class CaseServiceAclTest {
           public void updateStateAndAppendEvent(
               CaseInstance i, io.casehub.engine.common.internal.history.EventLog e, String t) {}
         };
-    caseService.accessControlProvider =
+    AccessControlProvider aclProvider =
         new AccessControlProvider() {
           @Override
           public boolean canAccess(String actorId, ResourceId resourceId, AclAction action) {
             return aclAllowed;
           }
         };
-    caseService.currentPrincipal =
+    principal =
         new CurrentPrincipal() {
           @Override
           public String actorId() {
@@ -101,6 +102,7 @@ class CaseServiceAclTest {
             return false;
           }
         };
+    caseService = new CaseService(aclProvider, principal, null, null, repository, null, null, null);
   }
 
   @Test
@@ -126,7 +128,7 @@ class CaseServiceAclTest {
   @Test
   void requireCaseAccess_checksCorrectResourceId() {
     final ResourceId[] capturedResourceId = {null};
-    caseService.accessControlProvider =
+    AccessControlProvider capturingProvider =
         new AccessControlProvider() {
           @Override
           public boolean canAccess(String actorId, ResourceId resourceId, AclAction action) {
@@ -135,7 +137,9 @@ class CaseServiceAclTest {
           }
         };
 
-    caseService.requireCaseAccess(caseId, AclAction.ADMIN);
+    CaseService serviceWithCapture =
+        new CaseService(capturingProvider, principal, null, null, repository, null, null, null);
+    serviceWithCapture.requireCaseAccess(caseId, AclAction.ADMIN);
     assertThat(capturedResourceId[0])
         .isEqualTo(new ResourceId(EngineResourceTypes.CASE, caseId.toString()));
   }

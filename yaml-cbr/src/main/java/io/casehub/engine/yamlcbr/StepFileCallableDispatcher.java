@@ -16,12 +16,12 @@
 package io.casehub.engine.yamlcbr;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.casehub.yaml.jackson.YamlMappers;
 import io.casehub.engine.flow.CallableDispatchRegistry;
 import io.casehub.engine.flow.CallableDispatcher;
 import io.casehub.yaml.core.condition.ConditionEvaluator;
 import io.casehub.yaml.core.resolver.VariableResolver;
 import io.casehub.yaml.core.resolver.VariableSource;
+import io.casehub.yaml.jackson.YamlMappers;
 import io.casehub.yaml.plugin.api.PluginRegistry;
 import io.casehub.yaml.plugin.api.Result;
 import io.casehub.yaml.step.catalog.ResolvedStep;

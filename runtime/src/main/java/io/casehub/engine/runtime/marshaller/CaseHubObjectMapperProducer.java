@@ -17,8 +17,8 @@ package io.casehub.engine.runtime.marshaller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
-import io.casehub.yaml.jackson.YamlMappers;
 import io.casehub.engine.common.internal.config.ConfigContext;
+import io.casehub.yaml.jackson.YamlMappers;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.inject.Produces;
 import jakarta.inject.Inject;
