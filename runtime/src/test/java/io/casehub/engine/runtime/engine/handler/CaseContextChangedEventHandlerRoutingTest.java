@@ -209,10 +209,10 @@ class CaseContextChangedEventHandlerRoutingTest {
     org.mockito.Mockito.doAnswer(
             inv -> {
               ((Runnable) inv.getArgument(1)).run();
-              return null;
+              return java.util.Set.of();
             })
         .when(evaluationSerializer)
-        .submit(any(), any());
+        .submit(any(), any(), any());
     when(strategyResolver.resolve(eq(AgentRoutingStrategy.class), any()))
         .thenReturn(agentRoutingStrategy);
 

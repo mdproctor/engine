@@ -177,10 +177,10 @@ class CaseContextChangedEnsembleTest {
     Mockito.doAnswer(
             inv -> {
               ((Runnable) inv.getArgument(1)).run();
-              return null;
+              return java.util.Set.of();
             })
         .when(evaluationSerializer)
-        .submit(any(), any());
+        .submit(any(), any(), any());
     when(agentRoutingStrategy.select(any(), any()))
         .thenReturn(RoutingResult.assigned("agent-1", "test"));
     when(loopControl.select(any(), any())).thenReturn(List.of(binding));

@@ -253,7 +253,12 @@ public class CaseContextChangedEventHandler {
 
     quiescenceTracker.onEvaluationStarting(caseInstance.getUuid());
     quiescenceTracker.onContextChangeConsumed(caseInstance.getUuid());
-    evaluationSerializer.submit(caseInstance.getUuid(), () -> evaluateAndDispatch(event));
+    Set<UUID> settledSignals =
+        evaluationSerializer.submit(
+            caseInstance.getUuid(), () -> evaluateAndDispatch(event), event.signalId());
+    for (UUID settled : settledSignals) {
+      settlementTracker.markFullyDispatched(settled);
+    }
   }
 
   private void evaluateAndDispatch(final CaseContextChangedEvent event) {
@@ -300,9 +305,6 @@ public class CaseContextChangedEventHandler {
       localRules(caseInstance, contextSnapshot, caseDefinition);
       convergenceDetection(caseInstance, caseDefinition);
 
-      if (signalId != null) {
-        settlementTracker.markFullyDispatched(signalId);
-      }
       LOG.debugf("Rules+goals processed for caseId: %s", caseInstance.getUuid());
     } catch (Exception t) {
       LOG.errorf(t, "Failed handling context changed for caseId: %s", caseInstance.getUuid());

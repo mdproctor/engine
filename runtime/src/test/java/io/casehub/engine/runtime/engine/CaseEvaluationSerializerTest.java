@@ -17,7 +17,9 @@ package io.casehub.engine.runtime.engine;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -34,7 +36,7 @@ class CaseEvaluationSerializerTest {
   @Test
   void runsEvaluatorImmediatelyWhenIdle() {
     AtomicInteger count = new AtomicInteger();
-    serializer.submit(UUID.randomUUID(), count::incrementAndGet);
+    serializer.submit(UUID.randomUUID(), count::incrementAndGet, null);
     assertThat(count.get()).isEqualTo(1);
   }
 
@@ -58,7 +60,8 @@ class CaseEvaluationSerializerTest {
                     firstStarted.countDown();
                     awaitQuietly(firstCanProceed);
                     running.decrementAndGet();
-                  }));
+                  },
+                  null));
 
       assertThat(firstStarted.await(2, TimeUnit.SECONDS)).isTrue();
 
@@ -71,7 +74,8 @@ class CaseEvaluationSerializerTest {
                   maxConcurrent.updateAndGet(cur -> Math.max(cur, r));
                   running.decrementAndGet();
                   secondCompleted.countDown();
-                });
+                },
+                null);
           });
 
       Thread.sleep(100);
@@ -100,7 +104,8 @@ class CaseEvaluationSerializerTest {
                     totalEvaluations.incrementAndGet();
                     firstStarted.countDown();
                     awaitQuietly(firstCanProceed);
-                  }));
+                  },
+                  null));
 
       assertThat(firstStarted.await(2, TimeUnit.SECONDS)).isTrue();
 
@@ -109,7 +114,8 @@ class CaseEvaluationSerializerTest {
           () -> {
             totalEvaluations.incrementAndGet();
             lastEvaluated.set("second");
-          });
+          },
+          null);
 
       serializer.submit(
           caseId,
@@ -117,7 +123,8 @@ class CaseEvaluationSerializerTest {
             totalEvaluations.incrementAndGet();
             lastEvaluated.set("third");
             allDone.countDown();
-          });
+          },
+          null);
 
       firstCanProceed.countDown();
       assertThat(allDone.await(2, TimeUnit.SECONDS)).isTrue();
@@ -142,7 +149,8 @@ class CaseEvaluationSerializerTest {
                   () -> {
                     bothRunning.countDown();
                     awaitQuietly(proceed);
-                  }));
+                  },
+                  null));
       executor.submit(
           () ->
               serializer.submit(
@@ -150,7 +158,8 @@ class CaseEvaluationSerializerTest {
                   () -> {
                     bothRunning.countDown();
                     awaitQuietly(proceed);
-                  }));
+                  },
+                  null));
 
       assertThat(bothRunning.await(2, TimeUnit.SECONDS)).isTrue();
       proceed.countDown();
@@ -161,10 +170,181 @@ class CaseEvaluationSerializerTest {
   void evictCleansUpState() {
     UUID caseId = UUID.randomUUID();
     AtomicInteger count = new AtomicInteger();
-    serializer.submit(caseId, count::incrementAndGet);
+    serializer.submit(caseId, count::incrementAndGet, null);
     serializer.evict(caseId);
-    serializer.submit(caseId, count::incrementAndGet);
+    serializer.submit(caseId, count::incrementAndGet, null);
     assertThat(count.get()).isEqualTo(2);
+  }
+
+  @Test
+  void coalescedSubmissions_accumulateSignalIds() throws Exception {
+    UUID caseId = UUID.randomUUID();
+    UUID signal1 = UUID.randomUUID();
+    UUID signal2 = UUID.randomUUID();
+    UUID signal3 = UUID.randomUUID();
+    CountDownLatch firstStarted = new CountDownLatch(1);
+    CountDownLatch firstCanProceed = new CountDownLatch(1);
+    Set<UUID> collectedSignals = ConcurrentHashMap.newKeySet();
+    CountDownLatch allDone = new CountDownLatch(1);
+
+    try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      executor.submit(
+          () -> {
+            Set<UUID> signals =
+                serializer.submit(
+                    caseId,
+                    () -> {
+                      firstStarted.countDown();
+                      awaitQuietly(firstCanProceed);
+                    },
+                    signal1);
+            collectedSignals.addAll(signals);
+          });
+
+      assertThat(firstStarted.await(2, TimeUnit.SECONDS)).isTrue();
+
+      // These two will be coalesced — second overwrites first
+      serializer.submit(caseId, () -> {}, signal2);
+      serializer.submit(
+          caseId,
+          () -> {
+            allDone.countDown();
+          },
+          signal3);
+
+      firstCanProceed.countDown();
+      assertThat(allDone.await(2, TimeUnit.SECONDS)).isTrue();
+
+      // Wait for executor thread to finish collecting
+      Thread.sleep(100);
+    }
+
+    // signal1 returned from first submit; signal2 + signal3 accumulated and returned from drain
+    assertThat(collectedSignals).containsExactlyInAnyOrder(signal1, signal2, signal3);
+  }
+
+  @Test
+  void reset_drainsInFlightEvaluations() throws Exception {
+    UUID caseId = UUID.randomUUID();
+    CountDownLatch evalStarted = new CountDownLatch(1);
+    CountDownLatch evalCanProceed = new CountDownLatch(1);
+    AtomicInteger evalCount = new AtomicInteger();
+
+    try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      executor.submit(
+          () ->
+              serializer.submit(
+                  caseId,
+                  () -> {
+                    evalCount.incrementAndGet();
+                    evalStarted.countDown();
+                    awaitQuietly(evalCanProceed);
+                  },
+                  null));
+
+      assertThat(evalStarted.await(2, TimeUnit.SECONDS)).isTrue();
+
+      // Start reset in background — should block until evaluation completes
+      var resetFuture = executor.submit(() -> serializer.reset());
+
+      // Give reset a moment to set closed flag
+      Thread.sleep(50);
+
+      // Submissions during reset should be silently dropped
+      AtomicInteger droppedCount = new AtomicInteger();
+      serializer.submit(caseId, droppedCount::incrementAndGet, null);
+      assertThat(droppedCount.get()).isEqualTo(0);
+
+      // Let the evaluation finish — reset should then complete
+      evalCanProceed.countDown();
+      resetFuture.get(5, TimeUnit.SECONDS);
+
+      // After reset, submissions work again
+      AtomicInteger postResetCount = new AtomicInteger();
+      serializer.submit(caseId, postResetCount::incrementAndGet, null);
+      assertThat(postResetCount.get()).isEqualTo(1);
+    }
+  }
+
+  @Test
+  void reset_withNoInFlightWork_completesImmediately() {
+    serializer.reset();
+
+    AtomicInteger count = new AtomicInteger();
+    serializer.submit(UUID.randomUUID(), count::incrementAndGet, null);
+    assertThat(count.get()).isEqualTo(1);
+  }
+
+  @Test
+  void stressTest_concurrentSubmissionsWithInterleavedResets() throws Exception {
+    int caseCount = 5;
+    int writerCount = 10;
+    int iterations = 100;
+    UUID[] caseIds = new UUID[caseCount];
+    for (int i = 0; i < caseCount; i++) {
+      caseIds[i] = UUID.randomUUID();
+    }
+
+    AtomicInteger totalEvaluations = new AtomicInteger();
+    AtomicInteger totalResets = new AtomicInteger();
+    java.util.List<String> errors = new java.util.concurrent.CopyOnWriteArrayList<>();
+    CountDownLatch startLatch = new CountDownLatch(1);
+    CountDownLatch doneLatch = new CountDownLatch(writerCount + 1);
+
+    try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+      for (int w = 0; w < writerCount; w++) {
+        executor.submit(
+            () -> {
+              try {
+                startLatch.await();
+                for (int i = 0; i < iterations; i++) {
+                  UUID caseId = caseIds[i % caseCount];
+                  UUID signalId = UUID.randomUUID();
+                  try {
+                    Set<UUID> signals =
+                        serializer.submit(caseId, totalEvaluations::incrementAndGet, signalId);
+                    if (signals == null) {
+                      errors.add("submit returned null");
+                    }
+                  } catch (Exception e) {
+                    errors.add("Submit error: " + e.getMessage());
+                  }
+                }
+              } catch (Exception e) {
+                errors.add("Writer error: " + e.getMessage());
+              } finally {
+                doneLatch.countDown();
+              }
+            });
+      }
+
+      executor.submit(
+          () -> {
+            try {
+              startLatch.await();
+              for (int i = 0; i < 10; i++) {
+                Thread.sleep(5);
+                try {
+                  serializer.reset();
+                  totalResets.incrementAndGet();
+                } catch (Exception e) {
+                  errors.add("Reset error: " + e.getMessage());
+                }
+              }
+            } catch (Exception e) {
+              errors.add("Resetter error: " + e.getMessage());
+            } finally {
+              doneLatch.countDown();
+            }
+          });
+
+      startLatch.countDown();
+      assertThat(doneLatch.await(60, TimeUnit.SECONDS)).isTrue();
+    }
+
+    assertThat(errors).as("No errors during concurrent stress test").isEmpty();
+    assertThat(totalEvaluations.get()).as("Some evaluations should have run").isGreaterThan(0);
+    assertThat(totalResets.get()).as("Some resets should have run").isGreaterThan(0);
   }
 
   private static void awaitQuietly(CountDownLatch latch) {
