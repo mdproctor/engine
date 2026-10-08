@@ -52,11 +52,11 @@ import jakarta.enterprise.event.Observes;
 import jakarta.enterprise.inject.Instance;
 import jakarta.inject.Inject;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import org.jboss.logging.Logger;
 
 /**
@@ -77,7 +77,7 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
    */
   private static final ObjectMapper metadataMapper = createMetadataMapper();
 
-  private final Map<CaseKey, RegistryEntry> registry = new ConcurrentHashMap<>();
+  private volatile Map<CaseKey, RegistryEntry> registry = Map.of();
   @Inject Instance<CaseHub> caseHubInstance;
   @Inject CaseMetaModelRepository caseMetaModelRepository;
   @Inject ExpressionEngineRegistry expressionEngineRegistry;
@@ -118,12 +118,15 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
       seen.put(key, beanName);
     }
 
+    Map<CaseKey, RegistryEntry> snapshot = new HashMap<>();
     for (CaseHub hub : caseHubInstance) {
-      registerCaseDefinitionBlocking(hub.getDefinition());
+      registerSingle(hub.getDefinition(), snapshot);
     }
+    this.registry = Map.copyOf(snapshot);
   }
 
-  private CaseMetaModel registerCaseDefinitionBlocking(CaseDefinition model) {
+  private RegistryEntry registerSingle(
+      CaseDefinition model, Map<CaseKey, RegistryEntry> targetMap) {
     validateExpressions(model);
 
     LOG.info(
@@ -136,9 +139,9 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
 
     CaseKey key = CaseKey.of(model);
 
-    RegistryEntry existing = registry.get(key);
+    RegistryEntry existing = targetMap.get(key);
     if (existing != null) {
-      return existing.metaModel();
+      return existing;
     }
 
     CaseMetaModel metaModel = new CaseMetaModel();
@@ -156,21 +159,27 @@ public class DefaultCaseDefinitionRegistry implements CaseDefinitionRegistry {
             currentPrincipal.tenancyId());
     if (persisted.isPresent()) {
       CaseMetaModel dbModel = persisted.get();
-      registry.put(CaseKey.of(dbModel), new RegistryEntry(model, dbModel));
-      return dbModel;
+      RegistryEntry entry = new RegistryEntry(model, dbModel);
+      targetMap.put(CaseKey.of(dbModel), entry);
+      return entry;
     }
     metaModel.setDsl(model.getDsl());
     metaModel.setDefinition(definitionJson);
     metaModel.setCreatedAt(Instant.now());
     CaseMetaModel saved = caseMetaModelRepository.save(metaModel, currentPrincipal.tenancyId());
-    registry.put(CaseKey.of(saved), new RegistryEntry(model, saved));
-    return saved;
+    RegistryEntry entry = new RegistryEntry(model, saved);
+    targetMap.put(CaseKey.of(saved), entry);
+    return entry;
   }
 
   @Override
   public CaseMetaModel registerCaseDefinition(CaseDefinition model) {
     try {
-      return registerCaseDefinitionBlocking(model);
+      Map<CaseKey, RegistryEntry> current = this.registry;
+      Map<CaseKey, RegistryEntry> updated = new HashMap<>(current);
+      RegistryEntry entry = registerSingle(model, updated);
+      this.registry = Map.copyOf(updated);
+      return entry.metaModel();
     } catch (IllegalArgumentException e) {
       LOG.errorf("Case definition '%s' rejected: %s", model.getName(), e.getMessage());
       throw e;
