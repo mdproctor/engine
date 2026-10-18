@@ -47,6 +47,7 @@ public class YamlCaseHub extends CaseHub {
   @Inject @YamlMapper ObjectMapper objectMapper;
 
   @Inject WorkerFunctionProviderRegistry workerFunctionProviderRegistry;
+  @Inject io.casehub.api.model.ai.ChatModelProviderResolver chatModelProviderResolver;
 
   private final String path;
   private final String overlayPath;
@@ -76,7 +77,9 @@ public class YamlCaseHub extends CaseHub {
                     objectMapper,
                     expressionEngineRegistry,
                     workerFunctionProviderRegistry,
-                    io.casehub.api.model.ai.InlineChatModelProviderResolver.INSTANCE);
+                    chatModelProviderResolver != null
+                        ? chatModelProviderResolver
+                        : io.casehub.api.model.ai.InlineChatModelProviderResolver.INSTANCE);
             augment(loaded);
             definition = loaded;
           } catch (RuntimeException e) {

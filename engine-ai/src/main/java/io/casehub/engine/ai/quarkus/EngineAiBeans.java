@@ -54,4 +54,14 @@ public class EngineAiBeans {
     return new SemanticSignalProvider(
         embeddingProvider, embeddingCache, jqEvaluator, contextSummaryJq);
   }
+
+  @Produces
+  @ApplicationScoped
+  io.casehub.api.model.ai.ChatModelProviderResolver chatModelProviderResolver(
+      jakarta.enterprise.inject.Instance<dev.langchain4j.model.chat.ChatModel> chatModelInstance) {
+    if (chatModelInstance.isResolvable()) {
+      return new io.casehub.api.model.ai.PlatformChatModelProviderResolver(chatModelInstance.get());
+    }
+    return io.casehub.api.model.ai.InlineChatModelProviderResolver.INSTANCE;
+  }
 }
