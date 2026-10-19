@@ -76,14 +76,9 @@ public final class PlatformChatModelProviderResolver implements ChatModelProvide
         return delegate.chat(request);
       }
       ChatRequestParameters params =
-          DefaultChatRequestParameters.builder()
-              .modelName(modelName)
-              .toolSpecifications(request.parameters().toolSpecifications())
-              .responseFormat(request.parameters().responseFormat())
-              .maxOutputTokens(request.parameters().maxOutputTokens())
-              .temperature(request.parameters().temperature())
-              .topP(request.parameters().topP())
-              .build();
+          request
+              .parameters()
+              .overrideWith(DefaultChatRequestParameters.builder().modelName(modelName).build());
       ChatRequest modified =
           ChatRequest.builder().messages(request.messages()).parameters(params).build();
       return delegate.chat(modified);
