@@ -17,53 +17,9 @@ package io.casehub.engine.react;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.casehub.worker.api.Capability;
-import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 class ToolSpecificationBuilderTest {
-
-  @Test
-  void buildsToolSpecFromWorkerTool() {
-    var cap = new Capability("web-search", ".query", ".results", "Search the web for information");
-    var tool = new ToolSource.WorkerTool(cap, "search-worker");
-
-    var specs = ToolSpecificationBuilder.buildAll(List.of(tool));
-
-    assertThat(specs).hasSize(1);
-    assertThat(specs.getFirst().name()).isEqualTo("web-search");
-    assertThat(specs.getFirst().description()).isEqualTo("Search the web for information");
-  }
-
-  @Test
-  void buildsToolSpecFromLocalTool() {
-    var tool =
-        new ToolSource.LocalTool(
-            "calculate",
-            "Run a calculation",
-            args -> Map.of("result", 42),
-            Map.of("expression", Map.of("type", "string")));
-
-    var specs = ToolSpecificationBuilder.buildAll(List.of(tool));
-
-    assertThat(specs).hasSize(1);
-    assertThat(specs.getFirst().name()).isEqualTo("calculate");
-    assertThat(specs.getFirst().description()).isEqualTo("Run a calculation");
-  }
-
-  @Test
-  void buildsToolMapKeyedByName() {
-    var cap = new Capability("search", ".", ".", "Search");
-    var wt = new ToolSource.WorkerTool(cap, "searcher");
-    var lt = new ToolSource.LocalTool("calc", "Calculate", args -> Map.of(), Map.of());
-
-    var map = ToolSpecificationBuilder.buildToolMap(List.of(wt, lt));
-
-    assertThat(map).containsKeys("search", "calc");
-    assertThat(map.get("search")).isInstanceOf(ToolSource.WorkerTool.class);
-    assertThat(map.get("calc")).isInstanceOf(ToolSource.LocalTool.class);
-  }
 
   @Test
   void extractsFieldNamesFromJqExpression() {
@@ -84,13 +40,8 @@ class ToolSpecificationBuilderTest {
   }
 
   @Test
-  void workerToolWithDescriptionButNoSchema() {
-    var cap = new Capability("analyse", ".", ".", "Analyse documents");
-    var tool = new ToolSource.WorkerTool(cap, "analyser");
-
-    var specs = ToolSpecificationBuilder.buildAll(List.of(tool));
-
-    assertThat(specs.getFirst().name()).isEqualTo("analyse");
-    assertThat(specs.getFirst().description()).isEqualTo("Analyse documents");
+  void nullInputReturnsEmptyFields() {
+    var fields = ToolSpecificationBuilder.extractFieldNames(null);
+    assertThat(fields).isEmpty();
   }
 }

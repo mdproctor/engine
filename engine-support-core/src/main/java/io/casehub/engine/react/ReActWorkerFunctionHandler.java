@@ -166,27 +166,44 @@ public class ReActWorkerFunctionHandler implements WorkerFunctionHandler {
   private List<Tool> buildTools(List<ToolSource> sources, WorkerRuntime runtime) {
     return sources.stream()
         .map(
-            source -> {
-              var spec = ToolSpecificationBuilder.buildAll(List.of(source)).getFirst();
-              return switch (source) {
-                case ToolSource.WorkerTool wt ->
-                    new Tool(
-                        spec,
-                        (name, argsJson) -> {
-                          var args = parseArgs(argsJson);
-                          var workerResult = runtime.execute(wt.workerName(), args);
-                          return serializeOutput(extractOutput(workerResult));
-                        });
-                case ToolSource.LocalTool lt ->
-                    new Tool(
-                        spec,
-                        (name, argsJson) -> {
-                          var args = parseArgs(argsJson);
-                          var output = lt.fn().apply(args);
-                          return serializeOutput(output);
-                        });
-              };
-            })
+            source ->
+                switch (source) {
+                  case ToolSource.WorkerTool wt -> {
+                    var builder =
+                        Tool.builder()
+                            .name(wt.capability().name())
+                            .description(wt.capability().description());
+                    for (var field :
+                        ToolSpecificationBuilder.extractFieldNames(
+                            wt.capability().inputProjection())) {
+                      builder.stringParameter(field);
+                    }
+                    yield builder
+                        .executor(
+                            (name, argsJson) -> {
+                              var args = parseArgs(argsJson);
+                              var workerResult = runtime.execute(wt.workerName(), args);
+                              return serializeOutput(extractOutput(workerResult));
+                            })
+                        .build();
+                  }
+                  case ToolSource.LocalTool lt -> {
+                    var builder = Tool.builder().name(lt.name()).description(lt.description());
+                    if (lt.parameterSchema() != null) {
+                      for (var key : lt.parameterSchema().keySet()) {
+                        builder.stringParameter(key);
+                      }
+                    }
+                    yield builder
+                        .executor(
+                            (name, argsJson) -> {
+                              var args = parseArgs(argsJson);
+                              var output = lt.fn().apply(args);
+                              return serializeOutput(output);
+                            })
+                        .build();
+                  }
+                })
         .toList();
   }
 
