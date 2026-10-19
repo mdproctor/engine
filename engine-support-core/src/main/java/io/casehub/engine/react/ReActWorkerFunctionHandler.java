@@ -18,14 +18,6 @@ package io.casehub.engine.react;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import dev.langchain4j.agent.tool.ToolExecutionRequest;
-import dev.langchain4j.data.message.AiMessage;
-import dev.langchain4j.data.message.ChatMessage;
-import dev.langchain4j.data.message.SystemMessage;
-import dev.langchain4j.data.message.ToolExecutionResultMessage;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.model.chat.request.ChatRequest;
-import dev.langchain4j.model.chat.response.ChatResponse;
 import io.casehub.api.engine.WorkerRuntime;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.ai.TokenUsage;
@@ -34,11 +26,15 @@ import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.HandlerResult;
 import io.casehub.engine.common.internal.executor.WorkerFunctionHandler;
 import io.casehub.engine.runtime.executor.WorkerRuntimeFactory;
+import io.casehub.platform.agent.react.TerminationReason;
+import io.casehub.platform.agent.react.Tool;
+import io.casehub.platform.agent.react.ToolUseConfig;
+import io.casehub.platform.agent.react.ToolUseListener;
+import io.casehub.platform.agent.react.ToolUseLoop;
+import io.casehub.platform.agent.react.ToolUseResult;
 import io.casehub.worker.api.WorkerFunction;
 import io.casehub.worker.api.WorkerResult;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +54,7 @@ public class ReActWorkerFunctionHandler implements WorkerFunctionHandler {
   private final WorkerRuntimeFactory runtimeFactory;
   private final EventDispatcher eventDispatcher;
   private final ExecutorService executor;
+  private final ToolUseLoop toolUseLoop = new ToolUseLoop();
 
   public ReActWorkerFunctionHandler(
       WorkerRuntimeFactory runtimeFactory,
@@ -106,158 +103,106 @@ public class ReActWorkerFunctionHandler implements WorkerFunctionHandler {
 
     var runtime = runtimeFactory.create(context.caseId(), metadata.workerName(), context);
 
-    var toolSpecs = ToolSpecificationBuilder.buildAll(reactFn.tools());
-    var toolMap = ToolSpecificationBuilder.buildToolMap(reactFn.tools());
+    List<Tool> tools = buildTools(reactFn.tools(), runtime);
 
-    var messages = new ArrayList<ChatMessage>();
-    messages.add(SystemMessage.from(reactFn.systemPrompt()));
-    messages.add(UserMessage.from(formatInput(inputData)));
+    ToolUseListener listener =
+        event -> {
+          var engineToolCalls =
+              event.toolCalls().stream()
+                  .map(
+                      tc ->
+                          new ToolCallRecord(
+                              tc.name(),
+                              parseArgs(tc.arguments()),
+                              parseArgs(tc.output()),
+                              tc.error() ? "error" : resolveSourceType(tc.name(), reactFn.tools()),
+                              tc.duration()))
+                  .toList();
 
-    int cycleCount = 0;
-    int totalInputTokens = 0;
-    int totalOutputTokens = 0;
-    var toolsUsed = new LinkedHashSet<String>();
-    var loopStart = Instant.now();
+          var tokenUsage = new TokenUsage((int) event.inputTokens(), (int) event.outputTokens());
 
-    while (cycleCount < reactFn.maxCycles()) {
-      if (Thread.interrupted()) {
-        return toExpiredResult("cancelled", reactFn, cycleCount);
-      }
+          var cycleEvent =
+              new ReActCycleEvent(
+                  context.caseId(),
+                  metadata.workerName(),
+                  metadata.tenancyId(),
+                  event.cycleIndex(),
+                  event.reasoningText(),
+                  engineToolCalls,
+                  tokenUsage);
 
-      var request = ChatRequest.builder().messages(messages).toolSpecifications(toolSpecs).build();
+          try {
+            var json = new io.vertx.core.json.JsonObject(MAPPER.writeValueAsString(cycleEvent));
+            eventDispatcher.dispatch(json);
+          } catch (Exception e) {
+            LOG.log(System.Logger.Level.WARNING, "Failed to publish ReActCycleEvent", e);
+          }
+        };
 
-      ChatResponse response;
-      try {
-        response = reactFn.model().chat(request);
-      } catch (Exception e) {
-        LOG.log(System.Logger.Level.ERROR, "LLM call failed at cycle " + cycleCount, e);
-        return new HandlerResult(WorkerResult.failed("LLM call failed: " + e.getMessage()));
-      }
+    var config =
+        new ToolUseConfig(
+            reactFn.model(), reactFn.systemPrompt(), tools, reactFn.maxCycles(), listener);
 
-      var aiMessage = response.aiMessage();
-      messages.add(aiMessage);
+    ToolUseResult result = toolUseLoop.run(config, formatInput(inputData));
 
-      if (response.tokenUsage() != null) {
-        var usage = response.tokenUsage();
-        if (usage.inputTokenCount() != null) totalInputTokens += usage.inputTokenCount();
-        if (usage.outputTokenCount() != null) totalOutputTokens += usage.outputTokenCount();
-      }
-
-      if (!aiMessage.hasToolExecutionRequests()) {
-        var elapsed = Duration.between(loopStart, Instant.now());
-        return toCompletedResult(
-            aiMessage.text(), cycleCount, totalInputTokens, totalOutputTokens, toolsUsed, elapsed);
-      }
-
-      var toolResults = executeToolCalls(aiMessage.toolExecutionRequests(), toolMap, runtime);
-
-      for (var msg : toolResults.messages()) {
-        messages.add(msg);
-      }
-      toolResults.results().forEach(r -> toolsUsed.add(r.name()));
-
-      publishCycleEvent(
-          context.caseId(), metadata, cycleCount, aiMessage, toolResults, response.tokenUsage());
-
-      cycleCount++;
+    if (result.reason() == TerminationReason.COMPLETED) {
+      var toolsUsed = new LinkedHashSet<String>();
+      result.toolCalls().forEach(tc -> toolsUsed.add(tc.name()));
+      return toCompletedResult(
+          result.text(),
+          result.cycleCount(),
+          result.inputTokens(),
+          result.outputTokens(),
+          toolsUsed,
+          result.elapsed());
     }
 
-    return toExpiredResult("maxCycles", reactFn, cycleCount);
+    return toExpiredResult(
+        result.reason() == TerminationReason.INTERRUPTED ? "cancelled" : "maxCycles",
+        reactFn,
+        result.cycleCount());
   }
 
-  private ToolCallResults executeToolCalls(
-      List<ToolExecutionRequest> requests, Map<String, ToolSource> toolMap, WorkerRuntime runtime) {
-
-    var resultMessages = new ArrayList<ToolExecutionResultMessage>();
-    var results = new ArrayList<ToolCallRecord>();
-
-    for (var request : requests) {
-      var tool = toolMap.get(request.name());
-
-      if (tool == null) {
-        var errorMsg = "Unknown tool: " + request.name() + ". Available tools: " + toolMap.keySet();
-        resultMessages.add(ToolExecutionResultMessage.from(request, errorMsg));
-        results.add(
-            new ToolCallRecord(
-                request.name(), Map.of(), Map.of("error", errorMsg), "unknown", Duration.ZERO));
-        continue;
-      }
-
-      var args = parseArgs(request.arguments());
-      var start = Instant.now();
-      Map<String, Object> output;
-      String sourceType;
-
-      try {
-        switch (tool) {
-          case ToolSource.WorkerTool wt -> {
-            var result = runtime.execute(wt.workerName(), args);
-            output = extractOutput(result);
-            sourceType = "worker";
-          }
-          case ToolSource.LocalTool lt -> {
-            output = lt.fn().apply(args);
-            sourceType = "local";
-          }
-        }
-      } catch (Exception e) {
-        LOG.log(System.Logger.Level.WARNING, "Tool execution failed: " + request.name(), e);
-        output = Map.of("error", e.getMessage() != null ? e.getMessage() : "unknown error");
-        sourceType = tool instanceof ToolSource.WorkerTool ? "worker" : "local";
-      }
-
-      var duration = Duration.between(start, Instant.now());
-      String outputJson;
-      try {
-        outputJson = MAPPER.writeValueAsString(output);
-      } catch (JsonProcessingException e) {
-        outputJson = output.toString();
-      }
-      resultMessages.add(ToolExecutionResultMessage.from(request, outputJson));
-      results.add(new ToolCallRecord(request.name(), args, output, sourceType, duration));
-    }
-    return new ToolCallResults(resultMessages, results);
+  private List<Tool> buildTools(List<ToolSource> sources, WorkerRuntime runtime) {
+    return sources.stream()
+        .map(
+            source -> {
+              var spec = ToolSpecificationBuilder.buildAll(List.of(source)).getFirst();
+              return switch (source) {
+                case ToolSource.WorkerTool wt ->
+                    new Tool(
+                        spec,
+                        (name, argsJson) -> {
+                          var args = parseArgs(argsJson);
+                          var workerResult = runtime.execute(wt.workerName(), args);
+                          return serializeOutput(extractOutput(workerResult));
+                        });
+                case ToolSource.LocalTool lt ->
+                    new Tool(
+                        spec,
+                        (name, argsJson) -> {
+                          var args = parseArgs(argsJson);
+                          var output = lt.fn().apply(args);
+                          return serializeOutput(output);
+                        });
+              };
+            })
+        .toList();
   }
 
-  private void publishCycleEvent(
-      java.util.UUID caseId,
-      ExecutionMetadata metadata,
-      int cycleIndex,
-      AiMessage aiMessage,
-      ToolCallResults toolResults,
-      dev.langchain4j.model.output.TokenUsage tokenUsage) {
-
-    TokenUsage usage = null;
-    if (tokenUsage != null) {
-      usage =
-          new TokenUsage(
-              tokenUsage.inputTokenCount() != null ? tokenUsage.inputTokenCount() : 0,
-              tokenUsage.outputTokenCount() != null ? tokenUsage.outputTokenCount() : 0);
-    }
-
-    var event =
-        new ReActCycleEvent(
-            caseId,
-            metadata.workerName(),
-            metadata.tenancyId(),
-            cycleIndex,
-            aiMessage.text() != null ? aiMessage.text() : "",
-            toolResults.results(),
-            usage);
-
-    try {
-      var json = new io.vertx.core.json.JsonObject(MAPPER.writeValueAsString(event));
-      eventDispatcher.dispatch(json);
-    } catch (Exception e) {
-      LOG.log(System.Logger.Level.WARNING, "Failed to publish ReActCycleEvent", e);
-    }
+  private String resolveSourceType(String toolName, List<ToolSource> sources) {
+    return sources.stream()
+        .filter(s -> s.name().equals(toolName))
+        .findFirst()
+        .map(s -> s instanceof ToolSource.WorkerTool ? "worker" : "local")
+        .orElse("unknown");
   }
 
   private HandlerResult toCompletedResult(
       String text,
       int cycleCount,
-      int totalInputTokens,
-      int totalOutputTokens,
+      long totalInputTokens,
+      long totalOutputTokens,
       LinkedHashSet<String> toolsUsed,
       Duration elapsed) {
 
@@ -318,10 +263,15 @@ public class ReActWorkerFunctionHandler implements WorkerFunctionHandler {
     try {
       return MAPPER.readValue(arguments, MAP_TYPE);
     } catch (JsonProcessingException e) {
-      LOG.log(System.Logger.Level.WARNING, "Failed to parse tool arguments: " + arguments, e);
-      return Map.of();
+      return Map.of("raw", arguments);
     }
   }
 
-  record ToolCallResults(List<ToolExecutionResultMessage> messages, List<ToolCallRecord> results) {}
+  private String serializeOutput(Map<String, Object> output) {
+    try {
+      return MAPPER.writeValueAsString(output);
+    } catch (JsonProcessingException e) {
+      return output.toString();
+    }
+  }
 }

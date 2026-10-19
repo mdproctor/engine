@@ -42,6 +42,10 @@
             <groupId>io.casehub</groupId>
             <artifactId>casehub-platform-api</artifactId>
         </dependency>
+        <dependency>
+            <groupId>io.casehub</groupId>
+            <artifactId>casehub-platform-agent-react-core</artifactId>
+        </dependency>
         <!-- Actor-state contributors reference ledger/work/qhorus/eidos APIs -->
         <dependency>
             <groupId>io.casehub</groupId>

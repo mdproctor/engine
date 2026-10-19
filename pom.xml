@@ -253,6 +253,11 @@
             </dependency>
             <dependency>
                 <groupId>io.casehub</groupId>
+                <artifactId>casehub-platform-agent-react-core</artifactId>
+                <version>${version.io.casehub}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.casehub</groupId>
                 <artifactId>casehub-platform-graphql</artifactId>
                 <version>${version.io.casehub}</version>
             </dependency>

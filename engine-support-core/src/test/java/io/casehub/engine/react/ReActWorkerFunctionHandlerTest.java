@@ -256,8 +256,8 @@ class ReActWorkerFunctionHandlerTest {
         handler.execute(
             fn, Map.of(), context, 30000, new ExecutionMetadata("w", null, null, null, null));
 
-    assertThat(result.protocolMetadata()).containsEntry("reactTotalInputTokens", 100);
-    assertThat(result.protocolMetadata()).containsEntry("reactTotalOutputTokens", 50);
+    assertThat(result.protocolMetadata()).containsEntry("reactTotalInputTokens", 100L);
+    assertThat(result.protocolMetadata()).containsEntry("reactTotalOutputTokens", 50L);
     assertThat(result.protocolMetadata()).containsEntry("reactCycleCount", 0);
   }
 }
