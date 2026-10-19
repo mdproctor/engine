@@ -112,13 +112,6 @@
             <groupId>io.cloudevents</groupId>
             <artifactId>cloudevents-core</artifactId>
         </dependency>
-        <!-- Engine-AI embedding provider -->
-        <dependency>
-            <groupId>dev.langchain4j</groupId>
-            <artifactId>langchain4j-core</artifactId>
-            <version>${version.dev.langchain4j}</version>
-            <optional>true</optional>
-        </dependency>
         <!-- Inbound needs reactive types -->
         <dependency>
             <groupId>io.smallrye.reactive</groupId>
