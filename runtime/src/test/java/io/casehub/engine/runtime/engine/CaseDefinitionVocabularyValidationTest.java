@@ -236,14 +236,6 @@ class CaseDefinitionVocabularyValidationTest {
     }
 
     @Override
-    public void register(
-        String uri,
-        String name,
-        String description,
-        String version,
-        List<? extends VocabularyTerm> terms) {}
-
-    @Override
     public Set<String> registeredUris() {
       return Set.of();
     }
