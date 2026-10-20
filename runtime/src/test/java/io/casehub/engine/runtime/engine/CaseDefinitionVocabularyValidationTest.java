@@ -236,6 +236,19 @@ class CaseDefinitionVocabularyValidationTest {
     }
 
     @Override
+    public void register(
+        String uri,
+        String name,
+        String description,
+        String version,
+        List<? extends VocabularyTerm> terms) {}
+
+    @Override
+    public Set<String> registeredUris() {
+      return Set.of();
+    }
+
+    @Override
     public Optional<VocabularyInfo> vocabularyMetadata(String uri) {
       return Optional.empty();
     }
@@ -263,11 +276,6 @@ class CaseDefinitionVocabularyValidationTest {
     @Override
     public Map<String, Set<String>> expandForMatchingByVocabulary(String value) {
       return Map.of();
-    }
-
-    @Override
-    public Set<String> registeredUris() {
-      return Set.of();
     }
   }
 
