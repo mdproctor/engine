@@ -57,7 +57,18 @@ class ViewRecordTest {
   @Test
   void caseDefinitionPage_wrapsDefinitions() {
     var def =
-        new CaseDefinitionView("ns", "name", "1.0", "Title", "Summary", List.of("cap1", "cap2"));
+        new CaseDefinitionView(
+            "ns",
+            "name",
+            "1.0",
+            "Title",
+            "Summary",
+            List.of("cap1", "cap2"),
+            List.of(),
+            List.of(),
+            List.of(),
+            List.of(),
+            null);
     var page = new CaseDefinitionPage(List.of(def), 1, false);
     assertEquals("ns", page.items().get(0).namespace());
     assertEquals(2, page.items().get(0).capabilities().size());

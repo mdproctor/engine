@@ -133,14 +133,8 @@ Classpath YAML bootstrap via `casehub-platform-bootstrap` SPI. Registrars in `ru
 
 | Registrar | Section | Priority | Registers via |
 |-----------|---------|----------|---------------|
-| AgentYamlRegistrar | `agents` | 100 | AgentDefinitionRegistry |
 | CaseHubClassRegistrar | — | 150 (StartupEvent) | CaseDefinitionRegistry (Jandex scan, non-CDI only) |
 | CaseYamlRegistrar | `cases` | 200 | CaseDefinitionRegistry |
-| SituationYamlRegistrar | `situations` | 300 | SituationRegistrar (optional — defers if ras runtime absent) |
-
-`DefaultAgentDefinitionRegistry` (`@DefaultBean`) — in-memory agent definition store, replaceable by app-specific implementations.
-
-SPIs in `common-core`: `AgentDefinition` (record), `AgentDefinitionRegistry` (interface).
 
 ---
 

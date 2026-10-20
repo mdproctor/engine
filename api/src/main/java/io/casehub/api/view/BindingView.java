@@ -13,16 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.api.view;
 
-import java.util.Collection;
-import java.util.Optional;
-
-public interface AgentDefinitionRegistry {
-
-  void registerAgent(AgentDefinition agent);
-
-  Optional<AgentDefinition> findByName(String name);
-
-  Collection<AgentDefinition> allAgents();
-}
+public record BindingView(
+    String name,
+    String targetType,
+    String targetName,
+    String triggerType,
+    String triggerExpression,
+    String when) {}

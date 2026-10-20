@@ -1,0 +1,114 @@
+##
+## Case Definition: KYC Onboarding
+##
+## Multi-agent coordination for customer identity verification.
+## Three agents work in sequence: extract identity data, screen against
+## sanctions lists, assess overall risk. A milestone gates the transition
+## from data collection to assessment.
+##
+## Key features demonstrated:
+##   - Full project structure (app.yaml + case + agents)
+##   - Agent descriptors in eidos format (separate files)
+##   - Milestones as coordination barriers
+##   - Goal-based completion
+##   - Channel declarations for inter-agent communication
+##
+
+dsl: "1.0.0"
+namespace: compliance
+name: kyc-onboarding
+version: "1.0.0"
+title: "KYC Onboarding"
+summary: "Verifies customer identity, screens against sanctions, and assesses risk"
+types:
+  - compliance/kyc
+labels:
+  - example/pipeline
+
+spec:
+
+  ## ─── Capabilities ─────────────────────────────────────────────────
+  capabilities:
+    - name: extractIdentity
+      description: "Extracts structured identity data from submitted documents"
+      inputProjection: "{ documents: .documents }"
+      outputProjection: "{ identity: { name: .fullName, dob: .dateOfBirth, nationality: .nationality, documentType: .documentType } }"
+
+    - name: screenSanctions
+      description: "Screens extracted identity against sanctions and PEP lists"
+      inputProjection: "{ identity: .identity }"
+      outputProjection: "{ screening: { matched: .matched, lists: .matchedLists, confidence: .confidence } }"
+
+    - name: assessRisk
+      description: "Produces a risk score and recommendation from identity and screening data"
+      inputProjection: "{ identity: .identity, screening: .screening }"
+      outputProjection: "{ assessment: { score: .riskScore, level: .riskLevel, recommendation: .recommendation } }"
+
+  ## ─── Workers ──────────────────────────────────────────────────────
+  workers:
+    - name: identity-extractor
+      description: "LLM-powered document parser for identity extraction"
+      capabilities:
+        - extractIdentity
+      definitionRef: "agent:identity-extractor"
+
+    - name: sanctions-screener
+      description: "Screens against OFAC, EU, and UN sanctions lists"
+      capabilities:
+        - screenSanctions
+      definitionRef: "agent:sanctions-screener"
+
+    - name: risk-assessor
+      description: "ML-based risk scoring engine"
+      capabilities:
+        - assessRisk
+      definitionRef: "agent:risk-assessor"
+
+  ## ─── Bindings ─────────────────────────────────────────────────────
+  bindings:
+    - name: extract
+      capability: extractIdentity
+      on:
+        type: scopeActivated
+
+    - name: screen
+      capability: screenSanctions
+      on:
+        type: contextChange
+        filter: ".identity != null"
+      when: ".identity.name != null"
+
+    - name: assess
+      capability: assessRisk
+      on:
+        type: contextChange
+        filter: ".screening != null"
+
+  ## ─── Milestones ───────────────────────────────────────────────────
+  milestones:
+    - name: data-collected
+      description: "Identity extracted and screening complete"
+      entryCriteria: ".identity != null"
+      completionCriteria: ".screening != null"
+
+  ## ─── Goals ────────────────────────────────────────────────────────
+  goals:
+    - name: risk-assessed
+      description: "Risk assessment produced a recommendation"
+      condition: ".assessment.recommendation != null"
+      kind: SUCCESS
+
+    - name: sanctions-hit
+      description: "Sanctions screening found a match"
+      condition: ".screening.matched == true"
+      kind: FAILURE
+
+  ## ─── Completion ───────────────────────────────────────────────────
+  completion:
+    success: risk-assessed
+    failure: sanctions-hit
+
+  ## ─── Channels ─────────────────────────────────────────────────────
+  channels:
+    - name: audit-trail
+      type: io.casehub.compliance.AuditEvent

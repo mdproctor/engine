@@ -23,4 +23,9 @@ public record CaseDefinitionView(
     String version,
     String title,
     String summary,
-    List<String> capabilities) {}
+    List<String> capabilities,
+    List<WorkerView> workers,
+    List<BindingView> bindings,
+    List<MilestoneView> milestones,
+    List<GoalView> goals,
+    CompletionView completion) {}

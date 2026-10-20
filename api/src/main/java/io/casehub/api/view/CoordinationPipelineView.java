@@ -13,14 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.casehub.engine.common.spi;
+package io.casehub.api.view;
 
-import java.util.Map;
+import java.util.List;
 
-public record AgentDefinition(
-    String name, String type, String description, Map<String, Object> configuration) {
-
-  public AgentDefinition {
-    configuration = configuration != null ? Map.copyOf(configuration) : Map.of();
-  }
-}
+public record CoordinationPipelineView(
+    String name,
+    String description,
+    int agentCount,
+    int barrierCount,
+    int channelCount,
+    List<PhaseItemView> phases) {}

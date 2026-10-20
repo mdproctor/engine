@@ -1,0 +1,15 @@
+##
+## Application manifest — KYC Pipeline
+##
+## Declares the project namespace, scanning roots, and metadata
+## for the casehub-platform-bootstrap scanner.
+##
+
+name: kyc-pipeline
+namespace: compliance
+version: "1.0.0"
+description: "Know-Your-Customer pipeline — multi-agent identity verification, sanctions screening, and risk assessment"
+
+scan:
+  cases: casehub/
+  agents: agents/
