@@ -193,7 +193,7 @@ All changes in `casehub-agency` (`/Users/mdproctor/claude/casehub/blocks`). Sepa
 ### Core Type — ExecutionPlan
 
 ```java
-package io.casehub.agency.agentic.plan;
+package io.casehub.agency.core.plan;
 
 public record ExecutionPlan<T>(
     Map<String, ExecutionNode<T>> nodes
@@ -311,7 +311,7 @@ The promotion path to a shared type depends on blocks#51 (`LeafTask implements T
 
 ### Package
 
-`io.casehub.agency.agentic.plan` — new package for `ExecutionPlan`, `ExecutionNode`, `JoinType`.
+`io.casehub.agency.core.plan` — new package for `ExecutionPlan`, `ExecutionNode`, `JoinType`.
 
 ### Files Changed
 

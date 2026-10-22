@@ -6,7 +6,7 @@
 
 ## Problem
 
-The agentic pattern infrastructure (blocks `io.casehub.agency.agentic`) has a rich
+The agentic pattern infrastructure (blocks `io.casehub.agency.core`) has a rich
 builder DSL (`debate().debaters(a,b,c).judge(j).build()`) and a five-strategy
 composition model (routing × decomposition × activation × aggregation × termination).
 But execution is in-process only — `OrchestratedDriver` runs a while loop in memory

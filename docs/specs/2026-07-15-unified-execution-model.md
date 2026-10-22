@@ -1166,11 +1166,11 @@ choreography("reactive-mesh")
 Each concern has its own factory class for static import:
 
 ```java
-import static io.casehub.agency.agentic.Routing.*;
-import static io.casehub.agency.agentic.Decomposition.*;
-import static io.casehub.agency.agentic.Activation.*;
-import static io.casehub.agency.agentic.Aggregation.*;
-import static io.casehub.agency.agentic.Termination.*;
+import static io.casehub.agency.core.Routing.*;
+import static io.casehub.agency.core.Decomposition.*;
+import static io.casehub.agency.core.Activation.*;
+import static io.casehub.agency.core.Aggregation.*;
+import static io.casehub.agency.core.Termination.*;
 ```
 
 ### 9.4 Expression overloads (CaseHub convention)
