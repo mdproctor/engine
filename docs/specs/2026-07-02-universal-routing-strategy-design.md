@@ -447,7 +447,7 @@ RiskDecision.GateRequired(reason, reversible, StaticSetStrategy.of("compliance-t
 | quarkmind | `DispositionAwareRoutingStrategy` adds `id()="disposition"`, `QuarkMindTrustRoutingPolicyProvider` adds `id()="quarkmind"` | XS |
 | casehub-ops | `DeploymentTrustRoutingPolicyProvider` adds `id()="deployment"` | XS |
 | casehub-work (runtime) | 4 `WorkerSelectionStrategy` impls add `id()`. 4 `InstanceAssignmentStrategy` impls: `@Named` → `id()`. 4 `ClaimSlaPolicy` impls add `id()`. | S |
-| casehub-blocks | Future — blocks#30. `LlmSelectedRouting` wrapper adds `id()="llm-selected"` | Deferred |
+| casehub-agency | Future — blocks#30. `LlmSelectedRouting` wrapper adds `id()="llm-selected"` | Deferred |
 
 Every consumer change is the same pattern: add one `id()` method returning a string literal, or wrap a `List<String>` in `StaticSetStrategy.of(...)`. No logic changes, no behavioural changes.
 

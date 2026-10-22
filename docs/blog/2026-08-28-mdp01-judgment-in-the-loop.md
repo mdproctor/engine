@@ -4,7 +4,7 @@ title: "Judgment in the Loop"
 date: 2026-08-28
 entry_type: note
 subtype: diary
-projects: [casehubio/engine, casehubio/blocks]
+projects: [casehubio/engine, casehubio/agency]
 tags: [architecture, judgment, patterns, execution-model, complex-systems]
 series: issue-994-governed-yield
 ---

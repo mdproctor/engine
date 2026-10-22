@@ -524,7 +524,7 @@ workers:
 - `dev.langchain4j:langchain4j-core` (ChatModel, ToolSpecification, ToolExecutionRequest)
 - `quarkus-arc`, `quarkus-virtual-threads`
 
-No dependency on `casehub-eidos-api` or `casehub-blocks`.
+No dependency on `casehub-eidos-api` or `casehub-agency`.
 
 ## Testing
 

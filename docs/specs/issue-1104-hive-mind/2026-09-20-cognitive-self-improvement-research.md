@@ -141,7 +141,7 @@ Every component described in this section is **shipping code** — not planned, 
 
 ### 3.1 CognitionCore: The Central Orchestrator
 
-`CognitionCore` (`blocks-core`, `io.casehub.blocks.agentic.social`) composes eight cognitive subsystems into a unified tick-based lifecycle. Each cognitive cycle evaluates, in order: mood → memory hygiene → narrative → drives → strategy → user/mental model per subject → goals.
+`CognitionCore` (`blocks-core`, `io.casehub.agency.agentic.social`) composes eight cognitive subsystems into a unified tick-based lifecycle. Each cognitive cycle evaluates, in order: mood → memory hygiene → narrative → drives → strategy → user/mental model per subject → goals.
 
 `CognitionConfig` enables selective cognition: a lightweight agent can run mood+drives only; a full cognitive agent runs everything. `CognitionConfig.all()` activates the complete stack; `CognitionConfig.none()` disables everything for engine-only fallback.
 

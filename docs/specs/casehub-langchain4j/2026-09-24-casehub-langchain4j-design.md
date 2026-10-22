@@ -363,7 +363,7 @@ on-ramp — a developer arrives via LC4j and discovers the platform.
 - [ADR-0004](../../blocks/docs/adr/0004-own-orchestration-annotations.md) — dual-track LC4j strategy
 - [Engine #101](https://github.com/casehubio/engine/issues/101) — LC4j supervisor pattern mapping
 - [Engine #209](https://github.com/casehubio/engine/issues/209) — LC4j agentic integration epic
-- [Blocks #150](https://github.com/casehubio/blocks/issues/150) — LC4j agent→worker bridge
+- [Blocks #150](https://github.com/casehubio/agency/issues/150) — LC4j agent→worker bridge
 - [Platform interop spec](../../platform/docs/specs/2026-06-26-agent-langchain4j-interop-design.md) — ChatModel ↔ AgentProvider bridge
 - [Neocortex architecture-justification.md](../../neocortex/docs/architecture-justification.md) — hybrid search evidence base
 - [Parent new-repo-checklist.md](../../parent/docs/new-repo-checklist.md) — 22-step repo creation

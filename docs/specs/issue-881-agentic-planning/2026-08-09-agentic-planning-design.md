@@ -6,7 +6,7 @@
 
 ## Problem
 
-The agentic pattern infrastructure (blocks `io.casehub.blocks.agentic`) has a rich
+The agentic pattern infrastructure (blocks `io.casehub.agency.agentic`) has a rich
 builder DSL (`debate().debaters(a,b,c).judge(j).build()`) and a five-strategy
 composition model (routing × decomposition × activation × aggregation × termination).
 But execution is in-process only — `OrchestratedDriver` runs a while loop in memory
@@ -75,7 +75,7 @@ New optional module (directory: `agentic-engine/`). Follows the same pattern as
 `casehub-engine-flow` — activated by adding it to the consumer's classpath.
 
 **Compile dependencies:**
-- `casehub-blocks` (ExecutionModel, drivers, AgentRef)
+- `casehub-agency` (ExecutionModel, drivers, AgentRef)
 - `casehub-engine-common` (WorkerFunctionHandler SPI, WorkerExecutor)
 - `casehub-engine-api` (WorkerFunction, DecompositionStrategy, WorkerRuntime)
 - `casehub-engine` (runtime) — for `WorkerRuntimeFactory` (same pattern as

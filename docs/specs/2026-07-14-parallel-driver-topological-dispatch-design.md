@@ -2,7 +2,7 @@
 
 **Date:** 2026-07-14
 **Issue:** casehubio/engine#695
-**Parent:** casehubio/blocks#44, casehubio/engine#700
+**Parent:** casehubio/agency#44, casehubio/engine#700
 
 ## Related Issues
 

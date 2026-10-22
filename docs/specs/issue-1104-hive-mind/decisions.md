@@ -1910,7 +1910,7 @@ This creates an architectural requirement: signals are the inter-agent communica
 
 ## D103: Improvement prioritisation — Drive system integration, not rigid hierarchy
 
-**Choice:** Self-improvement prioritisation uses the existing Drive system (`blocks-core`, `io.casehub.blocks.agentic.social.drive`) rather than a rigid tier hierarchy. The Drive system models four competing axes (CURIOSITY, COMPETENCE, AFFILIATION, AUTONOMY) as balanced needs that compete dynamically, modulated by mood and personality. The **dominant drive** emerges from context — no axis has hardcoded priority over another.
+**Choice:** Self-improvement prioritisation uses the existing Drive system (`blocks-core`, `io.casehub.agency.agentic.social.drive`) rather than a rigid tier hierarchy. The Drive system models four competing axes (CURIOSITY, COMPETENCE, AFFILIATION, AUTONOMY) as balanced needs that compete dynamically, modulated by mood and personality. The **dominant drive** emerges from context — no axis has hardcoded priority over another.
 
 Self-improvement maps onto the Drive axes:
 - **COMPETENCE drive** — rises when quality/stability metrics degrade (CI failures, test regressions, coverage gaps, lint violations). The swarm feels "I need to get my house in order."
@@ -1942,7 +1942,7 @@ The key insight: the Drive system found that "one doesn't take priority over the
 
 **Trade-offs:** Depends on blocks-core for the Drive system. In engine-only mode (no blocks), `ImprovementBudgetEnforcer` falls back to proportional allocation based on raw signal counts — simpler but still responsive. The Drive system adds personality, mood, and narrative modulation that pure signal counting cannot provide.
 
-**Sources:** DriveAxis.java, DriveComposer.java, DriveOrchestrator.java, DriveConfig.java, DriveProfile.java, DriveGoalFormationStrategy.java, DriveGoalFormationContext.java, DriveGoalProposal.java (all in blocks-core `io.casehub.blocks.agentic.social.drive`/`.goal`), neocortex#345 (goal cognition epic), issue #1114, issue #1115
+**Sources:** DriveAxis.java, DriveComposer.java, DriveOrchestrator.java, DriveConfig.java, DriveProfile.java, DriveGoalFormationStrategy.java, DriveGoalFormationContext.java, DriveGoalProposal.java (all in blocks-core `io.casehub.agency.agentic.social.drive`/`.goal`), neocortex#345 (goal cognition epic), issue #1114, issue #1115
 **Depends on:** D92 (improvement signals feed drive sources), D97 (budget enforcer respects drive profile), D99 (GoalKind.SELF_IMPROVEMENT goals proposed by DriveGoalFormationStrategy)
 **Exploration:** deep-analysis
 **Status:** revised — replaced rigid tier hierarchy with Drive system integration; balanced competing needs instead of strict priority ordering. Further revised to include centralised cognitive agent model (D104).

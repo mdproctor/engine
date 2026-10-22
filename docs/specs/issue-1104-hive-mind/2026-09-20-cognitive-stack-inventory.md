@@ -7,7 +7,7 @@ Comprehensive inventory of the blocks social cognition and neocortex memory subs
 ## 1. Cognition Core (Central Orchestrator)
 
 ### CognitionCore
-**Package:** `io.casehub.blocks.agentic.social`
+**Package:** `io.casehub.agency.agentic.social`
 **Role:** Central orchestrator that composes all cognitive subsystems into a unified tick-based lifecycle. Each cognitive cycle (`tick()`) evaluates mood, drives, narrative, strategy, user models, mental models, goals, and memory hygiene. Also handles interaction recording with automatic mood appraisal (via LLM) and BDI extraction from conversation.
 
 **Key methods:**

@@ -81,7 +81,7 @@ Activated by adding to the consumer's classpath — same CDI/Spring discovery pa
 ### Cross-Repo Adapter Modules
 
 - `casehub-engine-work-adapter` (`work-adapter`) — engine-side human task and compensation bridge; casehub-work also has `casehub-work-engine-adapter`
-- `casehub-blocks-engine-adapter` — lives in the casehub-blocks repo (not in engine)
+- `casehub-agency-engine-adapter` — lives in the casehub-agency repo (not in engine)
 
 ---
 

@@ -5,7 +5,7 @@ graph, and one runtime — and why that's enough for every execution
 model we've encountered.
 
 **Companion documents:**
-- Blocks migration spec: [casehubio/blocks#60](https://github.com/casehubio/blocks/issues/60)
+- Blocks migration spec: [casehubio/agency#60](https://github.com/casehubio/agency/issues/60)
 - Engine spec (reviewed): [unified-execution-model-design.md](2026-07-15-unified-execution-model-design.md)
 - Execution backend architecture: [execution-backend-architecture.md](../../../blocks/docs/execution-backend-architecture.md)
 - Agentic orchestration research: [agentic-orchestration-research.md](../../../blocks/docs/agentic-orchestration-research.md)
@@ -1166,11 +1166,11 @@ choreography("reactive-mesh")
 Each concern has its own factory class for static import:
 
 ```java
-import static io.casehub.blocks.agentic.Routing.*;
-import static io.casehub.blocks.agentic.Decomposition.*;
-import static io.casehub.blocks.agentic.Activation.*;
-import static io.casehub.blocks.agentic.Aggregation.*;
-import static io.casehub.blocks.agentic.Termination.*;
+import static io.casehub.agency.agentic.Routing.*;
+import static io.casehub.agency.agentic.Decomposition.*;
+import static io.casehub.agency.agentic.Activation.*;
+import static io.casehub.agency.agentic.Aggregation.*;
+import static io.casehub.agency.agentic.Termination.*;
 ```
 
 ### 9.4 Expression overloads (CaseHub convention)

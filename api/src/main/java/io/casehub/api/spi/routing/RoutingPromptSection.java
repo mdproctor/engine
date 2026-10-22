@@ -34,7 +34,7 @@ import org.jspecify.annotations.Nullable;
  * <p>Known implementations:
  *
  * <ul>
- *   <li>{@code CbrRoutingPromptSection} (casehub-blocks) — renders historical CBR outcomes per
+ *   <li>{@code CbrRoutingPromptSection} (casehub-agency) — renders historical CBR outcomes per
  *       eligible agent
  * </ul>
  */

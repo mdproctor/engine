@@ -3,7 +3,7 @@
 **Date:** 2026-08-16
 **Status:** Draft
 **Scope:** Holistic design (all layers). Implementation: engine-annotations first, then eidos, work, blocks, desiredstate, ledger.
-**Epic:** casehubio/blocks#115
+**Epic:** casehubio/agency#115
 **Engine issue:** casehubio/engine#909
 
 ## Motivation
@@ -758,7 +758,7 @@ RiskAssessment assessRisk(AnalysisResult analysis, List<Clause> clauses);
 
 The work build extension wraps the worker dispatch with `HumanTaskTarget` and configures the `WorkItem` lifecycle.
 
-### Blocks — Governance (casehub-blocks-annotations)
+### Blocks — Governance (casehub-agency-annotations)
 
 **Annotations:** `@OversightGate`, `@TrustRouted`, `@CbrRouted`, `@Attestation`, `@OnFailure`
 **Target:** METHOD (compose onto any `@Worker` method)
@@ -774,7 +774,7 @@ RiskAssessment assessRisk(AnalysisResult analysis, List<Clause> clauses);
 
 The blocks build extension generates `ActionRiskClassifier` chain wiring and `TrustRoutingPolicyResolver` configuration.
 
-### Blocks — Orchestration Patterns (casehub-blocks-annotations)
+### Blocks — Orchestration Patterns (casehub-agency-annotations)
 
 **Annotations:** `@DebateAgent`, `@VotingAgent`, `@HtnAgent`
 **Target:** METHOD (on separate pattern interfaces, not on `@Case` interfaces)
@@ -975,14 +975,14 @@ Workers registered via builders, YAML, A2A discovery, or MCP tool discovery auto
 
 ## Epic Structure
 
-### Epic: Annotation-Driven Agent Programming Model (casehubio/blocks#115)
+### Epic: Annotation-Driven Agent Programming Model (casehubio/agency#115)
 
 | Issue | Repo | Module | Layer | Dependencies | Scale |
 |---|---|---|---|---|---|
 | engine#909 | engine | `casehub-engine-annotations` | 1 | None | L |
 | eidos#139 | eidos | `casehub-eidos-annotations` | 2 | engine#909 | M |
 | work#356 | work | `casehub-work-annotations` | 2 | engine#909 | M |
-| blocks#116 | blocks | `casehub-blocks-annotations` | 2 | engine#909, eidos#139 | L |
+| blocks#116 | blocks | `casehub-agency-annotations` | 2 | engine#909, eidos#139 | L |
 | blocks#117 | blocks | `casehub-desiredstate-annotations` | 2 | engine#909 | M |
 | ledger#195 | ledger | `casehub-ledger-annotations` | 2 | engine#909 | S |
 

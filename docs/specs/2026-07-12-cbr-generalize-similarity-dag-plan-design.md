@@ -188,12 +188,12 @@ Compact constructor: `featureSimilarities = featureSimilarities != null ? Map.co
 
 ### Repository
 
-All changes in `casehub-blocks` (`/Users/mdproctor/claude/casehub/blocks`). Separate branch `issue-694-dag-plan-structure` in blocks.
+All changes in `casehub-agency` (`/Users/mdproctor/claude/casehub/blocks`). Separate branch `issue-694-dag-plan-structure` in blocks.
 
 ### Core Type — ExecutionPlan
 
 ```java
-package io.casehub.blocks.agentic.plan;
+package io.casehub.agency.agentic.plan;
 
 public record ExecutionPlan<T>(
     Map<String, ExecutionNode<T>> nodes
@@ -311,7 +311,7 @@ The promotion path to a shared type depends on blocks#51 (`LeafTask implements T
 
 ### Package
 
-`io.casehub.blocks.agentic.plan` — new package for `ExecutionPlan`, `ExecutionNode`, `JoinType`.
+`io.casehub.agency.agentic.plan` — new package for `ExecutionPlan`, `ExecutionNode`, `JoinType`.
 
 ### Files Changed
 

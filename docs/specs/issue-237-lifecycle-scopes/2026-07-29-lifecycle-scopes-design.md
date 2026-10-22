@@ -501,7 +501,7 @@ Map<String, Object> accumulatedState();  // empty for TRANSIENT, prior output fo
 - `WorkflowExecutionCompletedHandler.handleSemanticFailure()` (runtime): add `case WorkerOutcome.Completed` → throw `IllegalStateException` (same pattern as `Success` — `Completed` should not reach failure handling).
 - `PlanItemCompletionHandler.onWorkerFinished()` (planning): extend the `Success` check to also accept `Completed` — both trigger PlanItem completion. The PlanItem's `TaskStatus.COMPLETED` is the authoritative completion signal; `evaluateCompletion` reads it via `latestByBinding.get(bindingName).getStatus()`. No separate session-level flag is needed.
 
-No changes to `casehub-engine-common`, `casehubio/blocks`, or `casehubio/platform`.
+No changes to `casehub-engine-common`, `casehubio/agency`, or `casehubio/platform`.
 
 ## Cross-Repo Impact
 
@@ -509,7 +509,7 @@ No changes to `casehub-engine-common`, `casehubio/blocks`, or `casehubio/platfor
 |------|--------|
 | `casehubio/engine` | All engine changes |
 | `casehubio/worker` | `WorkerFunction.Persistent`, `PersistentScope`, `ScopeTerminatedException`, `WorkerOutcome.Completed`, `WorkerScope.accumulatedState()` |
-| `casehubio/blocks` | None |
+| `casehubio/agency` | None |
 | `casehubio/platform` | None |
 | Consumer repos | None until they opt into scoped bindings |
 

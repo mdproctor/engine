@@ -11,7 +11,7 @@
 In April 2026, two design specs were written to plan the merger of casehub-poc
 (synchronous Blackboard/CMMN) and casehub-engine (async reactive choreography)
 into a unified hybrid system. This document analyses what was planned, what was
-actually built, and what remains — including the casehub-blocks patterns library
+actually built, and what remains — including the casehub-agency patterns library
 which has since emerged as a third relevant codebase.
 
 ---
@@ -82,7 +82,7 @@ CaseFile changes (any source) →
 
 **Strengths:** Non-blocking, handles external stimuli naturally, durable execution, rich event history, agent routing and provisioning.
 
-### casehub-blocks (`~/claude/casehub/blocks`)
+### casehub-agency (`~/claude/casehub/blocks`)
 
 Reusable agentic control patterns composing from engine, qhorus, and work primitives.
 
@@ -225,7 +225,7 @@ This simplification is valid in the reactive model. The four conditions were nee
 blocks sits above the engine in the dependency chain:
 
 ```
-casehub-blocks
+casehub-agency
 ├── casehub-qhorus-api    (channels, commitments, speech acts)
 ├── casehub-work-api      (work items, task lifecycle)
 └── casehub-engine-api    (cases, plans, routing)

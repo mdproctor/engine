@@ -6,7 +6,7 @@
 
 ## Problem
 
-The blocks-ui queue board component (casehubio/blocks-ui#7) computes queue summary
+The blocks-ui queue board component (casehubio/agency-ui#7) computes queue summary
 metrics client-side from the full item list returned by `GET /queues/{id}`. This
 works for typical queue sizes but won't scale past ~500 items. A dedicated summary
 endpoint returning pre-computed aggregates avoids sending the full list.

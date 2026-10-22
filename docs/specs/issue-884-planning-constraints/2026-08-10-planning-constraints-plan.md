@@ -18,7 +18,7 @@
 ## Global Constraints
 
 - Pre-release platform — breaking changes cost nothing
-- Engine-only scope — blocks companion tracked as casehubio/blocks#100
+- Engine-only scope — blocks companion tracked as casehubio/agency#100
 - v1 cost enforcement is prompt-hint-only — no runtime metering
 - IntelliJ MCP mandatory for all Java edits
 

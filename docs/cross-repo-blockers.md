@@ -17,7 +17,7 @@ Last updated: 2026-07-10
 | clinical | #86 | Wire ProtocolAmendmentAdvisor to LlmPlanningStrategy | — | — |
 | blocks | #10 | Full supervisor mode — LLM-driven orchestration | — | — |
 | blocks | #13 | LlmDecomposition — goal-to-plan decomposition | — | — |
-| parent | #310 | Umbrella epic for casehub-blocks | — | — |
+| parent | #310 | Umbrella epic for casehub-agency | — | — |
 
 ### Agentic Planning Primitives — engine#694-698
 

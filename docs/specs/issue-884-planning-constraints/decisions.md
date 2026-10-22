@@ -39,7 +39,7 @@
 
 ## D4: Static decomposition constraint awareness
 
-**Choice:** Blocks companion issue casehubio/blocks#100 adds `PlanningConstraints` to `AgenticDecompositionContext`. Engine-side `GoalDecompositionContext` already overrides `constraints()` and works correctly.
+**Choice:** Blocks companion issue casehubio/agency#100 adds `PlanningConstraints` to `AgenticDecompositionContext`. Engine-side `GoalDecompositionContext` already overrides `constraints()` and works correctly.
 **Alternatives:**
 - Add `estimatedCost`/`estimatedDuration` metadata to `DecompositionMethod` — changes the blocks API, requires authors to estimate costs upfront
 - Change `DecompositionMethod.guard` from `Predicate<T>` to `BiPredicate<T, PlanningConstraints>` — enables guard-based constraint rejection but is a blocks API break; defer to blocks#100
@@ -51,7 +51,7 @@
 
 ## D5: Scope — engine + blocks companion issue
 
-**Choice:** Engine-only implementation with blocks companion issue (casehubio/blocks#100) for `AgenticDecompositionContext` constraint threading
+**Choice:** Engine-only implementation with blocks companion issue (casehubio/agency#100) for `AgenticDecompositionContext` constraint threading
 **Alternatives:**
 - Engine-only, defer blocks entirely — leaves the agentic path without constraint awareness
 **Rationale:** The `DecompositionContext.constraints()` default method means engine code works today. Blocks#100 closes the gap so agentic strategies actually receive constraints.

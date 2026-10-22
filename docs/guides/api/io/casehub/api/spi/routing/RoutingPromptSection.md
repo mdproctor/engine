@@ -19,7 +19,7 @@ contribute for the current context.
 <p>Known implementations:
 
 <ul>
-  <li>`CbrRoutingPromptSection` (casehub-blocks) — renders historical CBR outcomes per
+  <li>`CbrRoutingPromptSection` (casehub-agency) — renders historical CBR outcomes per
       eligible agent
 </ul>
 

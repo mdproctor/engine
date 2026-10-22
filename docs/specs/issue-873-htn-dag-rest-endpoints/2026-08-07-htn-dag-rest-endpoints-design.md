@@ -15,7 +15,7 @@ new endpoints on a `PlanResource`.
 
 ## Dependencies
 
-- casehubio/blocks-ui#107 defines the TypeScript contracts these endpoints
+- casehubio/agency-ui#107 defines the TypeScript contracts these endpoints
   must conform to
 - blocks#60 unified `DagPlan<LeafTask<T>>` with blocks
 

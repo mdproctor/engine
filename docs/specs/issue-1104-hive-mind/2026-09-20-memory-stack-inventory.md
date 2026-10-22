@@ -267,7 +267,7 @@ Ongoing memory health management — knowledge gap detection, retention scoring,
 
 ## Cross-Cutting: The Drive System (Motivation)
 
-### Blocks (`blocks-core`, `io.casehub.blocks.agentic.social.drive`)
+### Blocks (`blocks-core`, `io.casehub.agency.agentic.social.drive`)
 | Class | Role |
 |-------|------|
 | `DriveAxis` | Enum: `CURIOSITY`, `COMPETENCE`, `AFFILIATION`, `AUTONOMY` |
@@ -302,7 +302,7 @@ Ongoing memory health management — knowledge gap detection, retention scoring,
 
 ## Cross-Cutting: Narrative (Inner Thoughts)
 
-### Blocks (`blocks-core`, `io.casehub.blocks.agentic.social.narrative`)
+### Blocks (`blocks-core`, `io.casehub.agency.agentic.social.narrative`)
 | Class | Role |
 |-------|------|
 | `NarrativeOrchestrator` | Manages the agent's inner narrative across scopes |

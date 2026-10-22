@@ -113,7 +113,7 @@ Note: `ExperienceSignalProvider` (formerly `CbrSignalProvider`) uses `Experience
 
 ### Blocks-Layer Strategies (Layer 4)
 
-`LlmAgentRoutingStrategy` (`@Priority(100)`) and `CbrAgentRoutingStrategy` (`@Priority(101)`) in casehub-blocks remain as `AgentRoutingStrategy` implementations. When blocks is on the classpath, these override `ComposableAgentRoutingStrategy` via CDI priority — the same mechanism used today.
+`LlmAgentRoutingStrategy` (`@Priority(100)`) and `CbrAgentRoutingStrategy` (`@Priority(101)`) in casehub-agency remain as `AgentRoutingStrategy` implementations. When blocks is on the classpath, these override `ComposableAgentRoutingStrategy` via CDI priority — the same mechanism used today.
 
 Layer 4 strategies are architecturally different from signal providers:
 - They make AI-driven selection decisions (LLM invocation, CBR retrieval + graph query)

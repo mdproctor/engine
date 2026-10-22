@@ -2,7 +2,7 @@
 
 **Issue:** casehubio/engine#884
 **Parent:** casehubio/engine#881
-**Companion:** casehubio/blocks#100 (AgenticDecompositionContext constraint threading)
+**Companion:** casehubio/agency#100 (AgenticDecompositionContext constraint threading)
 **Date:** 2026-08-10
 
 ## Background
@@ -11,7 +11,7 @@
 
 ## Scope
 
-Engine-only. The blocks-side change (threading constraints through `AgenticDecompositionContext`) is tracked in casehubio/blocks#100.
+Engine-only. The blocks-side change (threading constraints through `AgenticDecompositionContext`) is tracked in casehubio/agency#100.
 
 ## Changes
 
@@ -142,7 +142,7 @@ When runtime enforcement is added later, the enforcement mode will be a per-case
 
 ## Deferred work
 
-- **Static decomposition method pruning:** Issue #884 asks for `StaticDecomposition` to prune methods by resource requirements. This requires adding `estimatedCost`/`estimatedDuration` metadata to `DecompositionMethod` (blocks API change). Deferred — constraints flow through to sub-strategies via `DecompositionContext.constraints()` (after blocks#100), but pre-filtering methods by cost before guard evaluation is not yet possible. Tracked as casehubio/blocks#101.
+- **Static decomposition method pruning:** Issue #884 asks for `StaticDecomposition` to prune methods by resource requirements. This requires adding `estimatedCost`/`estimatedDuration` metadata to `DecompositionMethod` (blocks API change). Deferred — constraints flow through to sub-strategies via `DecompositionContext.constraints()` (after blocks#100), but pre-filtering methods by cost before guard evaluation is not yet possible. Tracked as casehubio/agency#101.
 
 ## Test plan
 

@@ -203,9 +203,9 @@ These deferred items must be captured as GitHub issues before this branch merges
 
 | Repo | Issue | Description |
 |------|-------|-------------|
-| casehubio/blocks | `AgentRef extends ExecutorRef` | Each AgentRef variant implements `name()`/`description()` from ExecutorRef |
-| casehubio/blocks | `PlannedTask implements TaskDescriptor` | PlannedTask gains `id` (UUID, generated at construction) and `createdAt` (Instant) fields — record shape change cascading to all construction sites (`DecompositionStrategy` impls, `HtnBuilder`, pattern builders, tests). `status()` returns PENDING; `executor()` requires `AgentRef extends ExecutorRef` (separate issue) |
-| casehubio/blocks | `SubTaskStatus` → `TaskStatus` | Replace conversation SubTaskStatus with shared TaskStatus |
+| casehubio/agency | `AgentRef extends ExecutorRef` | Each AgentRef variant implements `name()`/`description()` from ExecutorRef |
+| casehubio/agency | `PlannedTask implements TaskDescriptor` | PlannedTask gains `id` (UUID, generated at construction) and `createdAt` (Instant) fields — record shape change cascading to all construction sites (`DecompositionStrategy` impls, `HtnBuilder`, pattern builders, tests). `status()` returns PENDING; `executor()` requires `AgentRef extends ExecutorRef` (separate issue) |
+| casehubio/agency | `SubTaskStatus` → `TaskStatus` | Replace conversation SubTaskStatus with shared TaskStatus |
 | casehubio/engine | Event/handler `ExecutorRef` migration | Migrate `WorkerScheduleEvent`, `QuartzWorkerExecutionJob`, EventLog from `executorName()` string to full `ExecutorRef` |
 
 ## Related issues
@@ -213,5 +213,5 @@ These deferred items must be captured as GitHub issues before this branch merges
 - #700 — this issue (unify orchestration model)
 - #694 — DAG plan structure (natural vehicle for shared Plan type)
 - #567 — remove serverlessworkflow SDK (completed — no naming conflict with TaskDescriptor)
-- casehubio/blocks#44 — agentic planning architecture
-- casehubio/blocks#13 — PlannedTask + LeafTask
+- casehubio/agency#44 — agentic planning architecture
+- casehubio/agency#13 — PlannedTask + LeafTask
