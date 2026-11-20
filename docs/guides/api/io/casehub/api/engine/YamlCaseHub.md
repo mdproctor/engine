@@ -62,7 +62,7 @@ fields are available. The default implementation is a no-op.
 
 - `definition` (`io.casehub.api.model.CaseDefinition`) — the loaded definition to augment
 
-### `static java.lang.String deriveConventionPath(java.lang.String basePath)`
+### `public static java.lang.String deriveConventionPath(java.lang.String basePath)`
 
 #### Parameters
 
