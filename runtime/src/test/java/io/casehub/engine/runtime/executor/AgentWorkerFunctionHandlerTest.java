@@ -236,7 +236,12 @@ class AgentWorkerFunctionHandlerTest {
 
     var deferredHandler =
         new AgentWorkerFunctionHandler(
-            Executors.newVirtualThreadPerTaskExecutor(), registry, renderer, agentProvider);
+            Executors.newVirtualThreadPerTaskExecutor(),
+            registry,
+            renderer,
+            agentProvider,
+            null,
+            null);
 
     var config =
         new io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig(
@@ -291,7 +296,12 @@ class AgentWorkerFunctionHandlerTest {
 
     var deferredHandler =
         new AgentWorkerFunctionHandler(
-            Executors.newVirtualThreadPerTaskExecutor(), registry, renderer, agentProvider);
+            Executors.newVirtualThreadPerTaskExecutor(),
+            registry,
+            renderer,
+            agentProvider,
+            null,
+            null);
 
     var config =
         new io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig(
@@ -316,6 +326,189 @@ class AgentWorkerFunctionHandlerTest {
             new ExecutionMetadata("agent-w", "hash", null, null, "t1"));
 
     assertThat(result.result().outcome()).isInstanceOf(WorkerOutcome.Failed.class);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void executeByCapability_selected_invokesAgent() {
+    io.casehub.eidos.api.AgentDescriptor descriptor =
+        io.casehub.eidos.api.AgentDescriptor.builder()
+            .agentId("agent-cap-1")
+            .name("Risk Agent")
+            .slot("risk-slot")
+            .tenancyId("t1")
+            .build();
+
+    io.casehub.eidos.api.AgentRegistry registry = stubRegistry(descriptor, "risk-assessment", null);
+
+    io.casehub.eidos.api.SystemPromptRenderer renderer =
+        (desc, ctx) ->
+            new io.casehub.eidos.api.SystemPromptRenderer.RenderedPrompt(
+                "You are a risk assessor",
+                io.casehub.eidos.api.SystemPromptRenderer.RenderFormat.MARKDOWN,
+                "h1",
+                "h2",
+                false);
+
+    io.casehub.eidos.api.AgentSelector selector =
+        (candidates, context) ->
+            new io.casehub.eidos.api.AgentSelection.Selected(
+                candidates.get(0).descriptor(), null, 0.9, "trust");
+
+    AgentProvider agentProvider = stubAgentProvider("{\"risk\": \"low\"}");
+
+    var capHandler =
+        new AgentWorkerFunctionHandler(
+            Executors.newVirtualThreadPerTaskExecutor(),
+            registry,
+            renderer,
+            agentProvider,
+            selector,
+            null);
+
+    var config =
+        new io.casehub.api.model.ai.DeferredAgentConfig.CapabilityConfig(
+            "risk-assessment", null, null, null, null);
+    var function = AgentWorkerFunction.ofCapability(config);
+    Worker worker =
+        new Worker(
+            "__agent-task__check-risk",
+            Set.of(),
+            function,
+            new ExecutionPolicy(5000, null, null),
+            null,
+            null);
+
+    HandlerResult result =
+        capHandler.execute(
+            worker,
+            Capability.of("cap", "{}", "{}"),
+            Map.of("input", "data"),
+            testContext(),
+            new ExecutionMetadata("w", "h", null, null, "t1"));
+
+    assertThat((Map<String, Object>) result.result().output()).containsEntry("risk", "low");
+  }
+
+  @Test
+  void executeByCapability_noneQualified_returnsFailed() {
+    io.casehub.eidos.api.AgentRegistry registry = stubRegistry(null, null, null);
+
+    io.casehub.eidos.api.SystemPromptRenderer renderer =
+        (desc, ctx) ->
+            new io.casehub.eidos.api.SystemPromptRenderer.RenderedPrompt(
+                "", io.casehub.eidos.api.SystemPromptRenderer.RenderFormat.MARKDOWN, "", "", false);
+
+    io.casehub.eidos.api.AgentSelector selector =
+        (candidates, context) ->
+            new io.casehub.eidos.api.AgentSelection.NoneQualified("no candidates");
+
+    var capHandler =
+        new AgentWorkerFunctionHandler(
+            Executors.newVirtualThreadPerTaskExecutor(),
+            registry,
+            renderer,
+            stubAgentProvider("{}"),
+            selector,
+            null);
+
+    var config =
+        new io.casehub.api.model.ai.DeferredAgentConfig.CapabilityConfig(
+            "nonexistent", null, null, null, null);
+    var function = AgentWorkerFunction.ofCapability(config);
+    Worker worker =
+        new Worker(
+            "__agent-task__check",
+            Set.of(),
+            function,
+            new ExecutionPolicy(5000, null, null),
+            null,
+            null);
+
+    HandlerResult result =
+        capHandler.execute(
+            worker,
+            Capability.of("cap", "{}", "{}"),
+            Map.of(),
+            testContext(),
+            new ExecutionMetadata("w", "h", null, null, "t1"));
+
+    assertThat(result.result().outcome()).isInstanceOf(WorkerOutcome.Failed.class);
+  }
+
+  @Test
+  void executeByCapability_escalated_returnsFailed() {
+    io.casehub.eidos.api.AgentRegistry registry = stubRegistry(null, null, null);
+
+    io.casehub.eidos.api.SystemPromptRenderer renderer =
+        (desc, ctx) ->
+            new io.casehub.eidos.api.SystemPromptRenderer.RenderedPrompt(
+                "", io.casehub.eidos.api.SystemPromptRenderer.RenderFormat.MARKDOWN, "", "", false);
+
+    io.casehub.eidos.api.AgentSelector selector =
+        (candidates, context) ->
+            new io.casehub.eidos.api.AgentSelection.Escalated(
+                "risk-assessment",
+                io.casehub.eidos.api.EscalationKind.NO_QUALIFIED_AGENT,
+                "below threshold");
+
+    var capHandler =
+        new AgentWorkerFunctionHandler(
+            Executors.newVirtualThreadPerTaskExecutor(),
+            registry,
+            renderer,
+            stubAgentProvider("{}"),
+            selector,
+            null);
+
+    var config =
+        new io.casehub.api.model.ai.DeferredAgentConfig.CapabilityConfig(
+            "risk-assessment", null, null, null, null);
+    var function = AgentWorkerFunction.ofCapability(config);
+    Worker worker =
+        new Worker(
+            "__agent-task__check",
+            Set.of(),
+            function,
+            new ExecutionPolicy(5000, null, null),
+            null,
+            null);
+
+    HandlerResult result =
+        capHandler.execute(
+            worker,
+            Capability.of("cap", "{}", "{}"),
+            Map.of(),
+            testContext(),
+            new ExecutionMetadata("w", "h", null, null, "t1"));
+
+    assertThat(result.result().outcome()).isInstanceOf(WorkerOutcome.Failed.class);
+  }
+
+  private io.casehub.eidos.api.AgentRegistry stubRegistry(
+      io.casehub.eidos.api.AgentDescriptor descriptor, String matchCapability, String matchSlot) {
+    return new io.casehub.eidos.api.AgentRegistry() {
+      @Override
+      public void register(io.casehub.eidos.api.AgentDescriptor d) {}
+
+      @Override
+      public java.util.Optional<io.casehub.eidos.api.AgentDescriptor> findById(
+          String agentId, String tenancyId) {
+        return java.util.Optional.empty();
+      }
+
+      @Override
+      public java.util.List<io.casehub.eidos.api.AgentMatch> find(
+          io.casehub.eidos.api.AgentQuery query) {
+        if (matchCapability != null && matchCapability.equals(query.capabilityName())) {
+          return java.util.List.of(new io.casehub.eidos.api.AgentMatch(descriptor, null));
+        }
+        if (matchSlot != null && matchSlot.equals(query.slot())) {
+          return java.util.List.of(new io.casehub.eidos.api.AgentMatch(descriptor, null));
+        }
+        return java.util.List.of();
+      }
+    };
   }
 
   private AgentProvider stubAgentProvider(String jsonResponse) {

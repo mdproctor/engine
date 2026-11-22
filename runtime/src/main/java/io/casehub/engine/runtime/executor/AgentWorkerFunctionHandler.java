@@ -66,21 +66,27 @@ public class AgentWorkerFunctionHandler implements WorkerFunctionHandler {
   private final AgentRegistry agentRegistry;
   private final SystemPromptRenderer systemPromptRenderer;
   private final AgentProvider agentProvider;
+  private final io.casehub.eidos.api.AgentSelector agentSelector;
+  private final io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
 
   @Inject
   public AgentWorkerFunctionHandler(
       @VirtualThreads ExecutorService virtualThreads,
       AgentRegistry agentRegistry,
       SystemPromptRenderer systemPromptRenderer,
-      AgentProvider agentProvider) {
+      AgentProvider agentProvider,
+      io.casehub.eidos.api.AgentSelector agentSelector,
+      io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry) {
     this.virtualThreads = virtualThreads;
     this.agentRegistry = agentRegistry;
     this.systemPromptRenderer = systemPromptRenderer;
     this.agentProvider = agentProvider;
+    this.agentSelector = agentSelector;
+    this.expressionEngineRegistry = expressionEngineRegistry;
   }
 
   public AgentWorkerFunctionHandler(ExecutorService virtualThreads) {
-    this(virtualThreads, null, null, null);
+    this(virtualThreads, null, null, null, null, null);
   }
 
   @Override
@@ -103,7 +109,7 @@ public class AgentWorkerFunctionHandler implements WorkerFunctionHandler {
       return switch (agent.deferredConfig()) {
         case DeferredAgentConfig.SlotConfig sc -> executeBySlot(sc, worker, inputData, metadata);
         case DeferredAgentConfig.CapabilityConfig cc ->
-            throw new UnsupportedOperationException("Capability dispatch not yet implemented");
+            executeByCapability(cc, worker, inputData, metadata);
       };
     }
     return executeWithInvoker(agent.invoker(), worker, inputData);
@@ -151,6 +157,63 @@ public class AgentWorkerFunctionHandler implements WorkerFunctionHandler {
             null);
 
     return executeWithInvoker(invoker, worker, inputData);
+  }
+
+  private HandlerResult executeByCapability(
+      DeferredAgentConfig.CapabilityConfig config,
+      Worker worker,
+      Object inputData,
+      ExecutionMetadata metadata) {
+
+    String tenancyId = metadata.tenancyId();
+    var matches =
+        agentRegistry.find(
+            io.casehub.eidos.api.AgentQuery.byCapabilityAndDomain(
+                config.capability(), config.domain(), tenancyId));
+
+    var selection =
+        agentSelector.select(
+            matches,
+            io.casehub.eidos.api.SelectionContext.of(
+                tenancyId, config.capability(), config.domain()));
+
+    return switch (selection) {
+      case io.casehub.eidos.api.AgentSelection.NoneQualified nq ->
+          new HandlerResult(WorkerResult.failed(nq.reason()));
+      case io.casehub.eidos.api.AgentSelection.Escalated esc ->
+          new HandlerResult(WorkerResult.failed("Escalated: " + esc.reason()));
+      case io.casehub.eidos.api.AgentSelection.Selected sel -> {
+        AgentDescriptor descriptor = sel.agent();
+        SystemPromptRenderer.RenderedPrompt rendered =
+            systemPromptRenderer.render(
+                descriptor,
+                AgentPromptContext.forFormat(SystemPromptRenderer.RenderFormat.MARKDOWN));
+
+        UnaryOperator<com.fasterxml.jackson.databind.JsonNode> inputTransformer =
+            config.inputEvaluator() != null && expressionEngineRegistry != null
+                ? node -> expressionEngineRegistry.transform(config.inputEvaluator(), node).get(0)
+                : UnaryOperator.identity();
+        UnaryOperator<com.fasterxml.jackson.databind.JsonNode> outputTransformer =
+            config.outputEvaluator() != null && expressionEngineRegistry != null
+                ? node -> expressionEngineRegistry.transform(config.outputEvaluator(), node).get(0)
+                : UnaryOperator.identity();
+
+        String effectiveModel = config.model() != null ? config.model() : descriptor.modelFamily();
+
+        WorkerAgentInvoker invoker =
+            new WorkerAgentInvoker(
+                agentProvider,
+                rendered.content(),
+                null,
+                inputTransformer,
+                outputTransformer,
+                null,
+                effectiveModel,
+                null);
+
+        yield executeWithInvoker(invoker, worker, inputData);
+      }
+    };
   }
 
   @SuppressWarnings("unchecked")
