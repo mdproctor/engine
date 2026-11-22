@@ -74,11 +74,26 @@ class AgentWorkerFunctionProviderTest {
         """);
     var function = (AgentWorkerFunction) provider.create(node);
     assertThat(function.isDeferred()).isTrue();
-    assertThat(function.slotConfig().slot()).isEqualTo("sentiment-analyst");
-    assertThat(function.slotConfig().model()).isNull();
-    assertThat(function.slotConfig().userMessageTemplate()).isNull();
-    assertThat(function.slotConfig().inputProjection()).isNull();
-    assertThat(function.slotConfig().outputProjection()).isNull();
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .slot())
+        .isEqualTo("sentiment-analyst");
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .model())
+        .isNull();
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .userMessageTemplate())
+        .isNull();
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .inputProjection())
+        .isNull();
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .outputProjection())
+        .isNull();
   }
 
   @Test
@@ -95,10 +110,25 @@ class AgentWorkerFunctionProviderTest {
           outputProjection: ".sentiment"
         """);
     var function = (AgentWorkerFunction) provider.create(node);
-    assertThat(function.slotConfig().slot()).isEqualTo("sentiment-analyst");
-    assertThat(function.slotConfig().model()).isEqualTo("claude-sonnet-5-5");
-    assertThat(function.slotConfig().userMessageTemplate()).isEqualTo("Analyse: {{text}}");
-    assertThat(function.slotConfig().inputProjection()).isEqualTo(".ticket");
-    assertThat(function.slotConfig().outputProjection()).isEqualTo(".sentiment");
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .slot())
+        .isEqualTo("sentiment-analyst");
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .model())
+        .isEqualTo("claude-sonnet-5-5");
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .userMessageTemplate())
+        .isEqualTo("Analyse: {{text}}");
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .inputProjection())
+        .isEqualTo(".ticket");
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) function.deferredConfig())
+                .outputProjection())
+        .isEqualTo(".sentiment");
   }
 }

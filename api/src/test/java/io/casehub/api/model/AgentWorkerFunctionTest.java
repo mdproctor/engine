@@ -49,11 +49,12 @@ class AgentWorkerFunctionTest {
   @Test
   void ofSlot_createsDeferred() {
     var config =
-        new io.casehub.api.model.ai.AgentSlotConfig("sentiment-analyst", null, null, null, null);
+        new io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig(
+            "sentiment-analyst", null, null, null, null);
     var fn = AgentWorkerFunction.ofSlot(config);
     assertInstanceOf(WorkerFunction.class, fn);
     org.junit.jupiter.api.Assertions.assertTrue(fn.isDeferred());
-    org.junit.jupiter.api.Assertions.assertEquals(config, fn.slotConfig());
+    org.junit.jupiter.api.Assertions.assertEquals(config, fn.deferredConfig());
     org.junit.jupiter.api.Assertions.assertNull(fn.invoker());
   }
 
@@ -62,13 +63,13 @@ class AgentWorkerFunctionTest {
     var fn = AgentWorkerFunction.eager(testInvoker());
     org.junit.jupiter.api.Assertions.assertFalse(fn.isDeferred());
     org.junit.jupiter.api.Assertions.assertNotNull(fn.invoker());
-    org.junit.jupiter.api.Assertions.assertNull(fn.slotConfig());
+    org.junit.jupiter.api.Assertions.assertNull(fn.deferredConfig());
   }
 
   @Test
   void slotConfig_withOverrides() {
     var config =
-        new io.casehub.api.model.ai.AgentSlotConfig(
+        new io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig(
             "my-slot", "claude-sonnet-5-5", "Analyse: {{text}}", ".input", ".output");
     org.junit.jupiter.api.Assertions.assertEquals("my-slot", config.slot());
     org.junit.jupiter.api.Assertions.assertEquals("claude-sonnet-5-5", config.model());
@@ -82,7 +83,9 @@ class AgentWorkerFunctionTest {
   void ofSlot_nullSlot_throws() {
     assertThrows(
         NullPointerException.class,
-        () -> new io.casehub.api.model.ai.AgentSlotConfig(null, null, null, null, null));
+        () ->
+            new io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig(
+                null, null, null, null, null));
   }
 
   private WorkerAgentInvoker testInvoker() {

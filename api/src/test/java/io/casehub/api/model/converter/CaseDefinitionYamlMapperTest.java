@@ -457,7 +457,7 @@ class CaseDefinitionYamlMapperTest {
               com.fasterxml.jackson.databind.JsonNode rawWorkerNode) {
             var agentNode = rawWorkerNode.get("agent");
             return AgentWorkerFunction.ofSlot(
-                new io.casehub.api.model.ai.AgentSlotConfig(
+                new io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig(
                     agentNode.get("slot").asText(),
                     agentNode.has("model") ? agentNode.get("model").asText() : null,
                     null,
@@ -495,7 +495,10 @@ class CaseDefinitionYamlMapperTest {
     assertThat(worker.function()).isInstanceOf(AgentWorkerFunction.class);
     AgentWorkerFunction agentFn = (AgentWorkerFunction) worker.function();
     assertThat(agentFn.isDeferred()).isTrue();
-    assertThat(agentFn.slotConfig().slot()).isEqualTo("test-analyst");
+    assertThat(
+            ((io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig) agentFn.deferredConfig())
+                .slot())
+        .isEqualTo("test-analyst");
   }
 
   @Test

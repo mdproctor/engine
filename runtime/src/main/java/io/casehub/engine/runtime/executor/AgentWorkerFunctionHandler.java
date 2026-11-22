@@ -17,7 +17,7 @@ package io.casehub.engine.runtime.executor;
 
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.WorkerContext;
-import io.casehub.api.model.ai.AgentSlotConfig;
+import io.casehub.api.model.ai.DeferredAgentConfig;
 import io.casehub.api.model.ai.WorkerAgentInvoker;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.AgentPromptContext;
@@ -100,13 +100,20 @@ public class AgentWorkerFunctionHandler implements WorkerFunctionHandler {
     AgentWorkerFunction agent = (AgentWorkerFunction) worker.function();
 
     if (agent.isDeferred()) {
-      return executeDeferred(agent.slotConfig(), worker, inputData, metadata);
+      return switch (agent.deferredConfig()) {
+        case DeferredAgentConfig.SlotConfig sc -> executeBySlot(sc, worker, inputData, metadata);
+        case DeferredAgentConfig.CapabilityConfig cc ->
+            throw new UnsupportedOperationException("Capability dispatch not yet implemented");
+      };
     }
     return executeWithInvoker(agent.invoker(), worker, inputData);
   }
 
-  private HandlerResult executeDeferred(
-      AgentSlotConfig slotConfig, Worker worker, Object inputData, ExecutionMetadata metadata) {
+  private HandlerResult executeBySlot(
+      DeferredAgentConfig.SlotConfig slotConfig,
+      Worker worker,
+      Object inputData,
+      ExecutionMetadata metadata) {
 
     String tenancyId = metadata.tenancyId();
     java.util.List<io.casehub.eidos.api.AgentMatch> matches =

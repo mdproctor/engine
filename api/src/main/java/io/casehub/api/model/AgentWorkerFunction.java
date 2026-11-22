@@ -15,14 +15,14 @@
  */
 package io.casehub.api.model;
 
-import io.casehub.api.model.ai.AgentSlotConfig;
+import io.casehub.api.model.ai.DeferredAgentConfig;
 import io.casehub.api.model.ai.WorkerAgentInvoker;
 import io.casehub.worker.api.WorkerFunction;
 import java.util.Map;
 import java.util.Objects;
 
 @SuppressWarnings("unchecked")
-public record AgentWorkerFunction(WorkerAgentInvoker invoker, AgentSlotConfig slotConfig)
+public record AgentWorkerFunction(WorkerAgentInvoker invoker, DeferredAgentConfig deferredConfig)
     implements WorkerFunction<Map<String, Object>, Map<String, Object>> {
 
   public AgentWorkerFunction(WorkerAgentInvoker invoker) {
@@ -33,12 +33,16 @@ public record AgentWorkerFunction(WorkerAgentInvoker invoker, AgentSlotConfig sl
     return new AgentWorkerFunction(Objects.requireNonNull(invoker), null);
   }
 
-  public static AgentWorkerFunction ofSlot(AgentSlotConfig slotConfig) {
-    return new AgentWorkerFunction(null, Objects.requireNonNull(slotConfig));
+  public static AgentWorkerFunction ofSlot(DeferredAgentConfig.SlotConfig config) {
+    return new AgentWorkerFunction(null, Objects.requireNonNull(config));
+  }
+
+  public static AgentWorkerFunction ofCapability(DeferredAgentConfig.CapabilityConfig config) {
+    return new AgentWorkerFunction(null, Objects.requireNonNull(config));
   }
 
   public boolean isDeferred() {
-    return slotConfig != null;
+    return deferredConfig != null;
   }
 
   @Override

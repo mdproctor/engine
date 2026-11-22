@@ -15,6 +15,7 @@
  */
 package io.casehub.engine.planning.snapshot;
 
+import io.casehub.api.model.AgentTaskTarget;
 import io.casehub.api.model.BindingTarget;
 import io.casehub.api.model.CapabilityTarget;
 import io.casehub.api.model.ExtensionTarget;
@@ -180,6 +181,7 @@ public class PlanningCasePlanModelSnapshotProvider implements CasePlanModelSnaps
       case HumanTaskTarget h -> "HUMAN";
       case SignalTarget sg -> "WORKER";
       case ExtensionTarget e -> "EXTERNAL";
+      case AgentTaskTarget a -> "WORKER";
     };
   }
 }

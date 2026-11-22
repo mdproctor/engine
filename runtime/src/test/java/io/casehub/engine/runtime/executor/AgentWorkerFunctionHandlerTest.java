@@ -238,7 +238,9 @@ class AgentWorkerFunctionHandlerTest {
         new AgentWorkerFunctionHandler(
             Executors.newVirtualThreadPerTaskExecutor(), registry, renderer, agentProvider);
 
-    var config = new io.casehub.api.model.ai.AgentSlotConfig("test-slot", null, null, null, null);
+    var config =
+        new io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig(
+            "test-slot", null, null, null, null);
     var agentFunction = AgentWorkerFunction.ofSlot(config);
 
     Worker worker =
@@ -292,7 +294,8 @@ class AgentWorkerFunctionHandlerTest {
             Executors.newVirtualThreadPerTaskExecutor(), registry, renderer, agentProvider);
 
     var config =
-        new io.casehub.api.model.ai.AgentSlotConfig("nonexistent-slot", null, null, null, null);
+        new io.casehub.api.model.ai.DeferredAgentConfig.SlotConfig(
+            "nonexistent-slot", null, null, null, null);
     var agentFunction = AgentWorkerFunction.ofSlot(config);
 
     Worker worker =

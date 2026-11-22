@@ -17,7 +17,7 @@ package io.casehub.engine.agent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import io.casehub.api.model.AgentWorkerFunction;
-import io.casehub.api.model.ai.AgentSlotConfig;
+import io.casehub.api.model.ai.DeferredAgentConfig;
 import io.casehub.api.spi.WorkerFunctionProvider;
 import io.casehub.worker.api.WorkerFunction;
 
@@ -37,7 +37,8 @@ public class AgentWorkerFunctionProvider implements WorkerFunctionProvider {
     String inputProjection = textOrNull(agentNode, "inputProjection");
     String outputProjection = textOrNull(agentNode, "outputProjection");
     return AgentWorkerFunction.ofSlot(
-        new AgentSlotConfig(slot, model, userMessage, inputProjection, outputProjection));
+        new DeferredAgentConfig.SlotConfig(
+            slot, model, userMessage, inputProjection, outputProjection));
   }
 
   private static String textOrNull(JsonNode node, String field) {

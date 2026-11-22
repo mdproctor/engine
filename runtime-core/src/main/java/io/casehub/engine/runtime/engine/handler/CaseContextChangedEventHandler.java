@@ -529,6 +529,10 @@ public class CaseContextChangedEventHandler {
       case io.casehub.api.model.HumanTaskTarget ignored ->
           LOG.warnf(
               "Deprecated HumanTaskTarget on binding '%s' — use JudgmentTarget", binding.getName());
+      case io.casehub.api.model.AgentTaskTarget ignored ->
+          LOG.warnf(
+              "AgentTaskTarget dispatch on binding '%s' — handled via synthetic worker",
+              binding.getName());
     }
   }
 
