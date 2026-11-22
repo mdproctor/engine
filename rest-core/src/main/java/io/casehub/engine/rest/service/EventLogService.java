@@ -91,20 +91,23 @@ public class EventLogService {
     return objectMapper.convertValue(node, Map.class);
   }
 
-    public EventLogPage getEventsSince(UUID caseId, String tenancyId, String since) {
-        caseService.requireCaseAccess(caseId, AclAction.READ);
-        String resolvedTenancyId = tenancyId != null ? tenancyId : currentPrincipal.tenancyId();
-        var    sinceInstant      = java.time.Instant.parse(since);
+  public EventLogPage getEventsSince(UUID caseId, String tenancyId, String since) {
+    caseService.requireCaseAccess(caseId, AclAction.READ);
+    String resolvedTenancyId = tenancyId != null ? tenancyId : currentPrincipal.tenancyId();
+    var sinceInstant = java.time.Instant.parse(since);
 
-        var query = EventLogQuery.builder(caseId).since(sinceInstant).size(200).build();
-        var logs  = eventLogRepository.query(query, resolvedTenancyId);
-        var items = logs.stream()
-                        .map(log -> new EventLogEntryView(
-                                log.getEventType().name(),
-                                log.getStreamType().name(),
-                                log.getTimestamp(),
-                                jsonNodeToMap(log.getPayload())))
-                        .toList();
-        return new EventLogPage(items, items.size(), false);
-    }
+    var query = EventLogQuery.builder(caseId).since(sinceInstant).size(200).build();
+    var logs = eventLogRepository.query(query, resolvedTenancyId);
+    var items =
+        logs.stream()
+            .map(
+                log ->
+                    new EventLogEntryView(
+                        log.getEventType().name(),
+                        log.getStreamType().name(),
+                        log.getTimestamp(),
+                        jsonNodeToMap(log.getPayload())))
+            .toList();
+    return new EventLogPage(items, items.size(), false);
+  }
 }

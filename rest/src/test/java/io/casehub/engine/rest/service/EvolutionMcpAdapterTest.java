@@ -15,17 +15,16 @@
  */
 package io.casehub.engine.rest.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import io.casehub.platform.api.mcp.McpDomain;
 import io.casehub.platform.api.mcp.PlatformMutation;
 import io.casehub.platform.api.mcp.PlatformQuery;
-import org.junit.jupiter.api.Test;
-
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
-
-import static org.assertj.core.api.Assertions.assertThat;
+import org.junit.jupiter.api.Test;
 
 class EvolutionMcpAdapterTest {
 
@@ -68,16 +67,16 @@ class EvolutionMcpAdapterTest {
     }
   }
 
-    @Test
-    void hasExpectedMethodCount() {
-        List<Method> annotated =
-                Arrays.stream(EvolutionMcpAdapter.class.getDeclaredMethods())
-                      .filter(
-                              m ->
-                                      m.isAnnotationPresent(PlatformQuery.class)
-                                      || m.isAnnotationPresent(PlatformMutation.class))
-                      .toList();
+  @Test
+  void hasExpectedMethodCount() {
+    List<Method> annotated =
+        Arrays.stream(EvolutionMcpAdapter.class.getDeclaredMethods())
+            .filter(
+                m ->
+                    m.isAnnotationPresent(PlatformQuery.class)
+                        || m.isAnnotationPresent(PlatformMutation.class))
+            .toList();
 
-        assertThat(annotated).hasSize(15);
-    }
+    assertThat(annotated).hasSize(15);
+  }
 }
