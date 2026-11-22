@@ -25,12 +25,14 @@ public final class AgentTaskTarget implements BindingTarget {
   private final String domain;
   private final ExpressionEvaluator inputMapping;
   private final ExpressionEvaluator outputMapping;
+  private final String model;
 
   private AgentTaskTarget(Builder builder) {
     this.capability = Objects.requireNonNull(builder.capability, "capability is required");
     this.domain = builder.domain;
     this.inputMapping = builder.inputMapping;
     this.outputMapping = builder.outputMapping;
+    this.model = builder.model;
   }
 
   public String capability() {
@@ -49,6 +51,10 @@ public final class AgentTaskTarget implements BindingTarget {
     return outputMapping;
   }
 
+  public String model() {
+    return model;
+  }
+
   public static Builder builder() {
     return new Builder();
   }
@@ -59,6 +65,7 @@ public final class AgentTaskTarget implements BindingTarget {
     private String domain;
     private ExpressionEvaluator inputMapping;
     private ExpressionEvaluator outputMapping;
+    private String model;
 
     public Builder capability(String capability) {
       this.capability = capability;
@@ -87,6 +94,11 @@ public final class AgentTaskTarget implements BindingTarget {
 
     public Builder outputMapping(ExpressionEvaluator e) {
       this.outputMapping = e;
+      return this;
+    }
+
+    public Builder model(String model) {
+      this.model = model;
       return this;
     }
 

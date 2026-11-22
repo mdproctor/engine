@@ -52,4 +52,18 @@ class AgentTaskTargetTest {
     assertThatThrownBy(() -> AgentTaskTarget.builder().build())
         .isInstanceOf(NullPointerException.class);
   }
+
+  @Test
+  void builder_withModel() {
+    AgentTaskTarget target =
+        AgentTaskTarget.builder().capability("risk-assessment").model("claude-sonnet-5-5").build();
+    assertThat(target.capability()).isEqualTo("risk-assessment");
+    assertThat(target.model()).isEqualTo("claude-sonnet-5-5");
+  }
+
+  @Test
+  void builder_withoutModel_isNull() {
+    AgentTaskTarget target = AgentTaskTarget.builder().capability("risk-assessment").build();
+    assertThat(target.model()).isNull();
+  }
 }
