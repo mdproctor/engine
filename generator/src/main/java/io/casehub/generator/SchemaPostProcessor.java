@@ -1518,12 +1518,15 @@ final class SchemaPostProcessor {
     ObjectNode n = newObject();
     n.put("type", "object");
     n.put("unevaluatedProperties", false);
-    n.putArray("required")
-        .add("systemPrompt")
-        .add("inputProjection")
-        .add("outputProjection")
-        .add("model");
+    ArrayNode oneOf = n.putArray("oneOf");
+    oneOf.addObject().putArray("required").add("systemPrompt").add("model");
+    oneOf.addObject().putArray("required").add("slot");
     ObjectNode props = n.putObject("properties");
+    ObjectNode slot = props.putObject("slot");
+    slot.put("type", "string");
+    slot.put(
+        "description",
+        "Named agent slot providing systemPrompt and model via deferred configuration.");
     props.putObject("systemPrompt").put("type", "string");
     props.putObject("inputProjection").put("type", "string");
     props.putObject("outputProjection").put("type", "string");
