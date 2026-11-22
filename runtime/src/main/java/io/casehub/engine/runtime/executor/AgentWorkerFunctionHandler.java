@@ -15,13 +15,18 @@
  */
 package io.casehub.engine.runtime.executor;
 
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.WorkerContext;
 import io.casehub.api.model.ai.DeferredAgentConfig;
 import io.casehub.api.model.ai.WorkerAgentInvoker;
 import io.casehub.eidos.api.AgentDescriptor;
 import io.casehub.eidos.api.AgentPromptContext;
+import io.casehub.eidos.api.AgentQuery;
 import io.casehub.eidos.api.AgentRegistry;
+import io.casehub.eidos.api.AgentSelection;
+import io.casehub.eidos.api.AgentSelector;
+import io.casehub.eidos.api.SelectionContext;
 import io.casehub.eidos.api.SystemPromptRenderer;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.HandlerResult;
@@ -48,8 +53,9 @@ import java.util.function.UnaryOperator;
  * Handler for {@link AgentWorkerFunction}. Executes agent invocations on a virtual thread with
  * timeout, capturing protocol metadata (tokens, cost, duration) from the invocation result.
  *
- * <p>Supports two modes: eager (pre-built invoker) and deferred (slot-based resolution via {@link
- * AgentRegistry} at execution time).
+ * <p>Supports three modes: eager (pre-built invoker), deferred slot-based resolution, and deferred
+ * capability-based resolution via {@link AgentRegistry} and {@code AgentSelector} at execution
+ * time.
  *
  * <p>Does NOT delegate to the worker executor — {@link AgentWorkerFunction} has no {@link
  * WorkerFunction.Sync} fn() to lift.
@@ -57,7 +63,7 @@ import java.util.function.UnaryOperator;
  * <p>Complementary to other handlers — this is {@code @ApplicationScoped} (not
  * {@code @DefaultBean}).
  *
- * <p>Refs casehubio/engine#726, casehubio/engine#1333.
+ * <p>Refs casehubio/engine#726, casehubio/engine#1333, casehubio/engine#1339.
  */
 @ApplicationScoped
 public class AgentWorkerFunctionHandler implements WorkerFunctionHandler {
@@ -66,8 +72,8 @@ public class AgentWorkerFunctionHandler implements WorkerFunctionHandler {
   private final AgentRegistry agentRegistry;
   private final SystemPromptRenderer systemPromptRenderer;
   private final AgentProvider agentProvider;
-  private final io.casehub.eidos.api.AgentSelector agentSelector;
-  private final io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry;
+  private final AgentSelector agentSelector;
+  private final ExpressionEngineRegistry expressionEngineRegistry;
 
   @Inject
   public AgentWorkerFunctionHandler(
@@ -75,8 +81,8 @@ public class AgentWorkerFunctionHandler implements WorkerFunctionHandler {
       AgentRegistry agentRegistry,
       SystemPromptRenderer systemPromptRenderer,
       AgentProvider agentProvider,
-      io.casehub.eidos.api.AgentSelector agentSelector,
-      io.casehub.api.engine.ExpressionEngineRegistry expressionEngineRegistry) {
+      AgentSelector agentSelector,
+      ExpressionEngineRegistry expressionEngineRegistry) {
     this.virtualThreads = virtualThreads;
     this.agentRegistry = agentRegistry;
     this.systemPromptRenderer = systemPromptRenderer;
@@ -168,21 +174,17 @@ public class AgentWorkerFunctionHandler implements WorkerFunctionHandler {
     String tenancyId = metadata.tenancyId();
     var matches =
         agentRegistry.find(
-            io.casehub.eidos.api.AgentQuery.byCapabilityAndDomain(
-                config.capability(), config.domain(), tenancyId));
+            AgentQuery.byCapabilityAndDomain(config.capability(), config.domain(), tenancyId));
 
     var selection =
         agentSelector.select(
-            matches,
-            io.casehub.eidos.api.SelectionContext.of(
-                tenancyId, config.capability(), config.domain()));
+            matches, SelectionContext.of(tenancyId, config.capability(), config.domain()));
 
     return switch (selection) {
-      case io.casehub.eidos.api.AgentSelection.NoneQualified nq ->
-          new HandlerResult(WorkerResult.failed(nq.reason()));
-      case io.casehub.eidos.api.AgentSelection.Escalated esc ->
+      case AgentSelection.NoneQualified nq -> new HandlerResult(WorkerResult.failed(nq.reason()));
+      case AgentSelection.Escalated esc ->
           new HandlerResult(WorkerResult.failed("Escalated: " + esc.reason()));
-      case io.casehub.eidos.api.AgentSelection.Selected sel -> {
+      case AgentSelection.Selected sel -> {
         AgentDescriptor descriptor = sel.agent();
         SystemPromptRenderer.RenderedPrompt rendered =
             systemPromptRenderer.render(
