@@ -89,4 +89,21 @@ class BindingExecutorResolverTest {
 
     assertThat(result.name()).isEqualTo("unknown");
   }
+
+  @Test
+  void resolvesAgentTaskTargetToSyntheticName() {
+    var target =
+        io.casehub.api.model.AgentTaskTarget.builder().capability("risk-assessment").build();
+    var binding =
+        Binding.builder()
+            .name("check-risk")
+            .target(target)
+            .on(new ContextChangeTrigger(".data != null"))
+            .build();
+    var definition = CaseDefinition.builder().namespace("test").name("test").version("1.0").build();
+
+    ExecutorRef result = BindingExecutorResolver.resolve(binding, definition);
+
+    assertThat(result.name()).isEqualTo("__agent-task__check-risk");
+  }
 }

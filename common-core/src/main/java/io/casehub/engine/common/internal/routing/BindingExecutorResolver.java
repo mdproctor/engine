@@ -47,7 +47,8 @@ public final class BindingExecutorResolver {
       case SubCaseTarget st -> ExecutorRef.of("unknown");
       case JudgmentTarget jt -> ExecutorRef.of("unknown");
       case SignalTarget st -> ExecutorRef.of("signal");
-      case AgentTaskTarget at -> ExecutorRef.of(at.capability());
+      case AgentTaskTarget at ->
+          ExecutorRef.of(SyntheticAgentTaskWorker.RESERVED_PREFIX + binding.getName());
       case ExtensionTarget et -> ExecutorRef.of("unknown");
       default -> ExecutorRef.of("unknown");
     };
