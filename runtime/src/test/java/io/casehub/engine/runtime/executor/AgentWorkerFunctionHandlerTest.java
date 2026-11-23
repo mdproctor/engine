@@ -17,8 +17,10 @@ package io.casehub.engine.runtime.executor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.casehub.api.engine.ExpressionEngineRegistry;
 import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.WorkerContext;
+import io.casehub.api.model.ai.DeferredAgentConfig;
 import io.casehub.api.model.ai.WorkerAgentInvoker;
 import io.casehub.engine.common.internal.executor.ExecutionMetadata;
 import io.casehub.engine.common.internal.executor.HandlerResult;
@@ -493,6 +495,324 @@ class AgentWorkerFunctionHandlerTest {
             new ExecutionMetadata("w", "h", null, null, "t1"));
 
     assertThat(result.result().outcome()).isInstanceOf(WorkerOutcome.Failed.class);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  void executeByCapability_evaluatorTransforms_appliedViaRegistry() {
+    io.casehub.eidos.api.AgentDescriptor descriptor =
+        io.casehub.eidos.api.AgentDescriptor.builder()
+            .agentId("agent-eval-1")
+            .name("Eval Agent")
+            .slot("eval-slot")
+            .tenancyId("t1")
+            .build();
+
+    io.casehub.eidos.api.AgentRegistry registry = stubRegistry(descriptor, "eval-cap", null);
+
+    io.casehub.eidos.api.SystemPromptRenderer renderer =
+        (desc, ctx) ->
+            new io.casehub.eidos.api.SystemPromptRenderer.RenderedPrompt(
+                "system",
+                io.casehub.eidos.api.SystemPromptRenderer.RenderFormat.MARKDOWN,
+                "",
+                "",
+                false);
+
+    io.casehub.eidos.api.AgentSelector selector =
+        (candidates, context) ->
+            new io.casehub.eidos.api.AgentSelection.Selected(
+                candidates.get(0).descriptor(), null, 1.0, "trust");
+
+    var inputEvaluator =
+        new io.casehub.platform.api.expression.ExpressionEvaluator() {
+          @Override
+          public String type() {
+            return "test";
+          }
+
+          @Override
+          public String expression() {
+            return "input-xform";
+          }
+        };
+    var outputEvaluator =
+        new io.casehub.platform.api.expression.ExpressionEvaluator() {
+          @Override
+          public String type() {
+            return "test";
+          }
+
+          @Override
+          public String expression() {
+            return "output-xform";
+          }
+        };
+
+    java.util.concurrent.atomic.AtomicReference<String> capturedInput =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    AgentProvider agentProvider =
+        new AgentProvider() {
+          @Override
+          public Multi<AgentEvent> invoke(AgentSessionConfig config) {
+            capturedInput.set(config.userPrompt());
+            return Multi.createFrom()
+                .items(
+                    new AgentEvent.TextDelta("{\"raw\": \"output\"}"),
+                    new AgentEvent.InvocationComplete(
+                        0, 0, 0, 0, 0, null, 0L, 0L, null, 0, false, null, null));
+          }
+
+          @Override
+          public AgentSession openSession(AgentSessionInit init) {
+            throw new UnsupportedOperationException();
+          }
+        };
+
+    ExpressionEngineRegistry exprRegistry =
+        new ExpressionEngineRegistry() {
+          @Override
+          public boolean evaluate(
+              io.casehub.platform.api.expression.ExpressionEvaluator e,
+              io.casehub.api.context.CaseContext c) {
+            return false;
+          }
+
+          @Override
+          public boolean evaluate(
+              io.casehub.platform.api.expression.ExpressionEvaluator e,
+              com.fasterxml.jackson.databind.JsonNode n) {
+            return false;
+          }
+
+          @Override
+          public void validate(io.casehub.platform.api.expression.ExpressionEvaluator e) {}
+
+          @Override
+          public io.casehub.platform.api.expression.ExpressionEvaluator create(
+              String expr, String lang) {
+            return null;
+          }
+
+          @Override
+          public void assertLanguageSupported(String lang) {}
+
+          @Override
+          public java.util.Optional<String> extractString(
+              io.casehub.platform.api.expression.ExpressionEvaluator e,
+              io.casehub.api.context.CaseContext c) {
+            return java.util.Optional.empty();
+          }
+
+          @Override
+          public java.util.List<com.fasterxml.jackson.databind.JsonNode> transform(
+              io.casehub.platform.api.expression.ExpressionEvaluator evaluator,
+              com.fasterxml.jackson.databind.JsonNode input) {
+            var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+            if ("input-xform".equals(evaluator.expression())) {
+              return java.util.List.of(mapper.createObjectNode().put("transformed", "input-data"));
+            }
+            if ("output-xform".equals(evaluator.expression())) {
+              return java.util.List.of(
+                  mapper.createObjectNode().put("transformed-output", "result"));
+            }
+            return java.util.List.of(input);
+          }
+        };
+
+    var capHandler =
+        new AgentWorkerFunctionHandler(
+            Executors.newVirtualThreadPerTaskExecutor(),
+            registry,
+            renderer,
+            agentProvider,
+            selector,
+            exprRegistry,
+            null,
+            null);
+
+    var config =
+        new DeferredAgentConfig.CapabilityConfig(
+            "eval-cap", null, null, inputEvaluator, outputEvaluator);
+    var function = AgentWorkerFunction.ofCapability(config);
+    Worker worker =
+        new Worker(
+            "__agent-task__eval",
+            Set.of(),
+            function,
+            new ExecutionPolicy(5000, null, null),
+            null,
+            null);
+
+    HandlerResult result =
+        capHandler.execute(
+            worker,
+            Capability.of("cap", "{}", "{}"),
+            Map.of("original", "data"),
+            testContext(),
+            new ExecutionMetadata("w", "h", null, null, "t1"));
+
+    assertThat(capturedInput.get()).contains("transformed").contains("input-data");
+    assertThat((Map<String, Object>) result.result().output()).containsKey("transformed-output");
+  }
+
+  @Test
+  void executeByCapability_modelOverride_usesConfigModel() {
+    io.casehub.eidos.api.AgentDescriptor descriptor =
+        io.casehub.eidos.api.AgentDescriptor.builder()
+            .agentId("agent-model-1")
+            .name("Model Agent")
+            .slot("model-slot")
+            .modelFamily("default-model")
+            .tenancyId("t1")
+            .build();
+
+    io.casehub.eidos.api.AgentRegistry registry = stubRegistry(descriptor, "model-cap", null);
+
+    io.casehub.eidos.api.SystemPromptRenderer renderer =
+        (desc, ctx) ->
+            new io.casehub.eidos.api.SystemPromptRenderer.RenderedPrompt(
+                "system",
+                io.casehub.eidos.api.SystemPromptRenderer.RenderFormat.MARKDOWN,
+                "",
+                "",
+                false);
+
+    io.casehub.eidos.api.AgentSelector selector =
+        (candidates, context) ->
+            new io.casehub.eidos.api.AgentSelection.Selected(
+                candidates.get(0).descriptor(), null, 1.0, "trust");
+
+    java.util.concurrent.atomic.AtomicReference<String> capturedModel =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    AgentProvider agentProvider =
+        new AgentProvider() {
+          @Override
+          public Multi<AgentEvent> invoke(AgentSessionConfig config) {
+            capturedModel.set(config.model());
+            return Multi.createFrom()
+                .items(
+                    new AgentEvent.TextDelta("{\"result\": \"ok\"}"),
+                    new AgentEvent.InvocationComplete(
+                        0, 0, 0, 0, 0, null, 0L, 0L, null, 0, false, null, null));
+          }
+
+          @Override
+          public AgentSession openSession(AgentSessionInit init) {
+            throw new UnsupportedOperationException();
+          }
+        };
+
+    var capHandler =
+        new AgentWorkerFunctionHandler(
+            Executors.newVirtualThreadPerTaskExecutor(),
+            registry,
+            renderer,
+            agentProvider,
+            selector,
+            null,
+            null,
+            null);
+
+    var config =
+        new DeferredAgentConfig.CapabilityConfig("model-cap", null, "override-model", null, null);
+    var function = AgentWorkerFunction.ofCapability(config);
+    Worker worker =
+        new Worker(
+            "__agent-task__model",
+            Set.of(),
+            function,
+            new ExecutionPolicy(5000, null, null),
+            null,
+            null);
+
+    capHandler.execute(
+        worker,
+        Capability.of("cap", "{}", "{}"),
+        Map.of("input", "data"),
+        testContext(),
+        new ExecutionMetadata("w", "h", null, null, "t1"));
+
+    assertThat(capturedModel.get()).isEqualTo("override-model");
+  }
+
+  @Test
+  void executeByCapability_noModelOverride_usesDescriptorModel() {
+    io.casehub.eidos.api.AgentDescriptor descriptor =
+        io.casehub.eidos.api.AgentDescriptor.builder()
+            .agentId("agent-default-1")
+            .name("Default Model Agent")
+            .slot("default-slot")
+            .modelFamily("descriptor-model")
+            .tenancyId("t1")
+            .build();
+
+    io.casehub.eidos.api.AgentRegistry registry = stubRegistry(descriptor, "default-cap", null);
+
+    io.casehub.eidos.api.SystemPromptRenderer renderer =
+        (desc, ctx) ->
+            new io.casehub.eidos.api.SystemPromptRenderer.RenderedPrompt(
+                "system",
+                io.casehub.eidos.api.SystemPromptRenderer.RenderFormat.MARKDOWN,
+                "",
+                "",
+                false);
+
+    io.casehub.eidos.api.AgentSelector selector =
+        (candidates, context) ->
+            new io.casehub.eidos.api.AgentSelection.Selected(
+                candidates.get(0).descriptor(), null, 1.0, "trust");
+
+    java.util.concurrent.atomic.AtomicReference<String> capturedModel =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    AgentProvider agentProvider =
+        new AgentProvider() {
+          @Override
+          public Multi<AgentEvent> invoke(AgentSessionConfig config) {
+            capturedModel.set(config.model());
+            return Multi.createFrom()
+                .items(
+                    new AgentEvent.TextDelta("{\"result\": \"ok\"}"),
+                    new AgentEvent.InvocationComplete(
+                        0, 0, 0, 0, 0, null, 0L, 0L, null, 0, false, null, null));
+          }
+
+          @Override
+          public AgentSession openSession(AgentSessionInit init) {
+            throw new UnsupportedOperationException();
+          }
+        };
+
+    var capHandler =
+        new AgentWorkerFunctionHandler(
+            Executors.newVirtualThreadPerTaskExecutor(),
+            registry,
+            renderer,
+            agentProvider,
+            selector,
+            null,
+            null,
+            null);
+
+    var config = new DeferredAgentConfig.CapabilityConfig("default-cap", null, null, null, null);
+    var function = AgentWorkerFunction.ofCapability(config);
+    Worker worker =
+        new Worker(
+            "__agent-task__default",
+            Set.of(),
+            function,
+            new ExecutionPolicy(5000, null, null),
+            null,
+            null);
+
+    capHandler.execute(
+        worker,
+        Capability.of("cap", "{}", "{}"),
+        Map.of("input", "data"),
+        testContext(),
+        new ExecutionMetadata("w", "h", null, null, "t1"));
+
+    assertThat(capturedModel.get()).isEqualTo("descriptor-model");
   }
 
   private io.casehub.eidos.api.AgentRegistry stubRegistry(
