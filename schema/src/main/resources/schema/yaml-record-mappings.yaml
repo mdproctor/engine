@@ -100,6 +100,7 @@ types:
       - { name: compensatedBy, type: String }
       - { name: compensationOrder, type: Integer }
       - { name: compensation, type: boolean }
+      - { name: agentTask, type: YamlAgentTaskTarget }
 
   # ── Worker ──
   Worker:
@@ -213,6 +214,15 @@ types:
       - { name: bindings, type: "List<String>" }
       - { name: atLeast, type: Integer }
       - { name: onThresholdReached, type: String }
+
+  YamlAgentTaskTarget:
+    record: YamlAgentTaskTarget
+    extra:
+      - { name: capability, type: String }
+      - { name: domain, type: String }
+      - { name: model, type: String }
+      - { name: inputMapping, type: String }
+      - { name: outputMapping, type: String }
 
   YamlA2A:
     record: YamlA2A

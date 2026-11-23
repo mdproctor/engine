@@ -19,6 +19,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.casehub.api.context.JacksonPojoBridge;
 import io.casehub.api.engine.ExpressionEngineRegistry;
+import io.casehub.api.model.AgentTaskTarget;
 import io.casehub.api.model.Binding;
 import io.casehub.api.model.BindingRequires;
 import io.casehub.api.model.CapabilityTarget;
@@ -869,9 +870,21 @@ public final class YamlCaseDefinitionConverter {
       builder.judgment(convertHumanTaskToJudgment(yb.humanTask(), yb.name()));
     } else if (yb.judgment() != null) {
       builder.judgment(convertJudgment(yb.judgment(), yb.name()));
+    } else if (yb.agentTask() != null) {
+      builder.target(convertAgentTask(yb.agentTask()));
     } else if (yb.signal() != null) {
       builder.signal(yb.signal());
     }
+  }
+
+  private static AgentTaskTarget convertAgentTask(
+      io.casehub.api.model.converter.yaml.YamlAgentTaskTarget ya) {
+    AgentTaskTarget.Builder b = AgentTaskTarget.builder().capability(ya.capability());
+    if (ya.domain() != null) b.domain(ya.domain());
+    if (ya.model() != null) b.model(ya.model());
+    if (ya.inputMapping() != null) b.inputMapping(ya.inputMapping());
+    if (ya.outputMapping() != null) b.outputMapping(ya.outputMapping());
+    return b.build();
   }
 
   private static SubCase convertSubCase(YamlSubCaseTarget ys) {
