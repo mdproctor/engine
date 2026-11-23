@@ -871,7 +871,7 @@ public final class YamlCaseDefinitionConverter {
     } else if (yb.judgment() != null) {
       builder.judgment(convertJudgment(yb.judgment(), yb.name()));
     } else if (yb.agentTask() != null) {
-      builder.target(convertAgentTask(yb.agentTask()));
+      builder.agentTask(convertAgentTask(yb.agentTask()));
     } else if (yb.signal() != null) {
       builder.signal(yb.signal());
     }

@@ -67,8 +67,10 @@ class AgentTaskTargetYamlParserTest {
     assertThat(target.capability()).isEqualTo("risk-assessment");
     assertThat(target.domain()).isEqualTo("financial");
     assertThat(target.model()).isEqualTo("claude-sonnet-5-5");
-    assertThat(target.inputMapping()).isNotNull();
-    assertThat(target.outputMapping()).isNotNull();
+    assertThat(target.inputMapping())
+        .isInstanceOf(io.casehub.api.model.evaluator.JQExpressionEvaluator.class);
+    assertThat(target.outputMapping())
+        .isInstanceOf(io.casehub.api.model.evaluator.JQExpressionEvaluator.class);
   }
 
   @Test
