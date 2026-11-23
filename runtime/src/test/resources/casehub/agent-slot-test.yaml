@@ -1,0 +1,41 @@
+dsl: "0.1.0"
+version: "1.0.0"
+name: agent-slot-cdi-test
+namespace: test-agent
+title: Slot-Based Agent Worker CDI Test
+
+spec:
+  capabilities:
+    - name: analyzeSentiment
+      description: "Analyze text sentiment"
+      inputProjection: "{ text: .text }"
+      outputProjection: "{ sentiment: .sentiment, status: \"analyzed\" }"
+
+  workers:
+    - name: sentiment-analyzer
+      description: "Slot-based agent worker"
+      capabilities:
+        - analyzeSentiment
+      agent:
+        slot: "test-sentiment-slot"
+        inputProjection: "{ text: .text }"
+        outputProjection: "{ sentiment: .sentiment }"
+      executionPolicy:
+        timeoutMs: 60000
+
+  bindings:
+    - name: trigger-analysis
+      capability: analyzeSentiment
+      on:
+        contextChange:
+          filter: ".status == \"pending\""
+
+  goals:
+    - name: analysisComplete
+      condition: ".status == \"analyzed\""
+      kind: success
+
+  completion:
+    success:
+      allOf:
+        - analysisComplete

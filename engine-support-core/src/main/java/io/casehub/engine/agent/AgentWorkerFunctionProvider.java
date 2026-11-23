@@ -20,7 +20,9 @@ import io.casehub.api.model.AgentWorkerFunction;
 import io.casehub.api.model.ai.DeferredAgentConfig;
 import io.casehub.api.spi.WorkerFunctionProvider;
 import io.casehub.worker.api.WorkerFunction;
+import jakarta.enterprise.context.ApplicationScoped;
 
+@ApplicationScoped
 public class AgentWorkerFunctionProvider implements WorkerFunctionProvider {
 
   @Override
