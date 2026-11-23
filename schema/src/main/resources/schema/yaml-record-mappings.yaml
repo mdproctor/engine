@@ -111,7 +111,7 @@ types:
       mcp: { type: YamlMcp }
       react: { type: YamlReact }
       agentDescriptor: { type: YamlAgentDescriptor }
-      do: { name: doBlock, type: JsonNode }
+      do: { name: doBlock, type: JsonNode, property: do }
 
   # ── Capability ──
   Capability:
